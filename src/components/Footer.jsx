@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="footer-top">
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
-              <img src="/logo.svg" alt="Visualize" />
+              <img src="/VisualizeWordmark.png" alt="Visualize" />
               <span>Visualize</span>
             </Link>
             <p className="footer-tagline">Brand Development & Website Design</p>
@@ -69,7 +69,7 @@ export default function Footer() {
       </div>
       <style>{`
         .footer {
-          background: rgba(10,10,10,0.95);
+          background: rgba(248,248,248,0.97);
           backdrop-filter: blur(var(--glass-blur));
           -webkit-backdrop-filter: blur(var(--glass-blur));
           border-top: 1px solid var(--glass-border);

@@ -42,7 +42,7 @@ export default function Navbar() {
         <div className="navbar-pill">
           {/* Logo */}
           <Link to="/" className="navbar-logo" onClick={() => setOpen(false)}>
-            <img src="/logo.svg" alt="Visualize Studio" />
+            <img src="/VisualizeWordmark.png" alt="Visualize Studio" />
           </Link>
 
           {/* Desktop nav links */}
@@ -99,7 +99,7 @@ export default function Navbar() {
         aria-label="Mobile navigation"
       >
         <div className="navbar-drawer-header">
-          <img src="/logo.svg" alt="Visualize Studio" className="navbar-drawer-logo" />
+          <img src="/VisualizeWordmark.png" alt="Visualize Studio" className="navbar-drawer-logo" />
           <button
             type="button"
             className="navbar-drawer-close"
@@ -179,16 +179,16 @@ export default function Navbar() {
           max-width: 1040px; margin: 0 auto;
           display: flex; align-items: center; gap: var(--space-4);
           padding: 0 var(--space-5); height: 52px;
-          background: rgba(12,12,12,0.75);
+          background: rgba(255,255,255,0.85);
           backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid rgba(0,0,0,0.1);
           border-radius: 999px;
-          box-shadow: 0 4px 32px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.04) inset;
+          box-shadow: 0 4px 32px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.8) inset;
           transition: background 0.3s, box-shadow 0.3s;
         }
         .navbar--scrolled .navbar-pill {
-          background: rgba(8,8,8,0.92);
-          box-shadow: 0 8px 40px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.05) inset;
+          background: rgba(255,255,255,0.96);
+          box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.8) inset;
         }
         @media (max-width: 768px) {
           .navbar-pill { padding: 0 var(--space-4); gap: var(--space-3); }
@@ -206,8 +206,8 @@ export default function Navbar() {
           padding: 6px 11px; border-radius: 999px;
           transition: color 0.2s, background 0.2s; white-space: nowrap;
         }
-        .navbar-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
-        .navbar-link--active { color: var(--text); background: rgba(255,255,255,0.09); }
+        .navbar-link:hover { color: var(--text); background: rgba(0,0,0,0.06); }
+        .navbar-link--active { color: var(--text); background: rgba(0,0,0,0.08); }
 
         /* Action group */
         .navbar-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
@@ -218,14 +218,14 @@ export default function Navbar() {
           font-size: 0.8125rem; font-weight: 600;
           color: var(--text-secondary);
           padding: 7px 13px; border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(0,0,0,0.1);
+          background: rgba(0,0,0,0.04);
           transition: color 0.2s, background 0.2s, border-color 0.2s;
           white-space: nowrap; text-decoration: none;
         }
         .btn-ghost:hover {
-          color: var(--text); background: rgba(255,255,255,0.08);
-          border-color: rgba(255,255,255,0.16);
+          color: var(--text); background: rgba(0,0,0,0.07);
+          border-color: rgba(0,0,0,0.15);
         }
         .navbar-portal-btn { flex-shrink: 0; }
         .navbar-cta {
@@ -238,12 +238,12 @@ export default function Navbar() {
         .navbar-burger {
           display: none; align-items: center; justify-content: center;
           width: 36px; height: 36px;
-          background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.09);
+          background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.09);
           border-radius: 50%; cursor: pointer; flex-shrink: 0;
           color: var(--text-secondary);
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-burger:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .navbar-burger:hover { background: rgba(0,0,0,0.1); color: var(--text); }
 
         /* ── Overlay ──────────────────────────────── */
         .navbar-overlay {
@@ -259,31 +259,31 @@ export default function Navbar() {
         .navbar-drawer {
           position: fixed; top: 0; right: 0;
           width: min(340px, 88vw); height: 100dvh;
-          background: rgba(10,10,10,0.98);
+          background: rgba(255,255,255,0.98);
           backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
-          border-left: 1px solid rgba(255,255,255,0.07);
+          border-left: 1px solid rgba(0,0,0,0.08);
           z-index: 220; padding: var(--space-5) var(--space-5);
           display: flex; flex-direction: column; gap: 0;
           transform: translateX(100%);
           transition: transform 0.36s cubic-bezier(0.32,0.72,0,1);
-          box-shadow: -24px 0 64px rgba(0,0,0,0.45);
+          box-shadow: -24px 0 64px rgba(0,0,0,0.12);
         }
         .navbar-drawer.is-open { transform: translateX(0); }
 
         .navbar-drawer-header {
           display: flex; align-items: center; justify-content: space-between;
           padding-bottom: var(--space-6); margin-bottom: var(--space-2);
-          border-bottom: 1px solid rgba(255,255,255,0.06);
+          border-bottom: 1px solid rgba(0,0,0,0.08);
         }
         .navbar-drawer-logo { height: 26px; width: auto; }
         .navbar-drawer-close {
           width: 32px; height: 32px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.09);
+          background: rgba(0,0,0,0.07); border: 1px solid rgba(0,0,0,0.09);
           color: var(--text-secondary); cursor: pointer;
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-drawer-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+        .navbar-drawer-close:hover { background: rgba(0,0,0,0.12); color: var(--text); }
 
         .navbar-drawer-links { list-style: none; padding: var(--space-3) 0; flex: 0; }
 
@@ -293,7 +293,7 @@ export default function Navbar() {
           color: var(--text-secondary); font-size: 1rem; font-weight: 500;
           transition: color 0.2s, background 0.2s; text-decoration: none;
         }
-        .navbar-drawer-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .navbar-drawer-link:hover { color: var(--text); background: rgba(0,0,0,0.05); }
         .navbar-drawer-link--active {
           color: var(--text); background: rgba(212,76,67,0.09);
           border-left: 2px solid var(--brand);
@@ -301,7 +301,7 @@ export default function Navbar() {
         .navbar-drawer-link-left { display: flex; align-items: center; gap: 12px; }
         .navbar-drawer-link-icon {
           width: 32px; height: 32px; border-radius: var(--radius);
-          background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.08);
           display: flex; align-items: center; justify-content: center;
           color: var(--text-muted); flex-shrink: 0;
         }
@@ -312,7 +312,7 @@ export default function Navbar() {
         .navbar-drawer-arrow { color: var(--text-muted); opacity: 0.4; transition: transform 0.2s, opacity 0.2s; }
         .navbar-drawer-link:hover .navbar-drawer-arrow { opacity: 0.7; transform: translateX(3px); }
 
-        .navbar-drawer-divider { height: 1px; background: rgba(255,255,255,0.06); margin: var(--space-2) 0 var(--space-3); }
+        .navbar-drawer-divider { height: 1px; background: rgba(0,0,0,0.08); margin: var(--space-2) 0 var(--space-3); }
 
         /* Portal row */
         .navbar-drawer-portal {

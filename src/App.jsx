@@ -16,7 +16,7 @@ function LoadingScreen({ done }) {
   return (
     <div className={`app-loader ${done ? 'app-loader--done' : ''}`} aria-hidden="true">
       <div className="app-loader-inner">
-        <img src="/logo.svg" alt="" className="app-loader-logo" />
+        <img src="/VisualizeWordmark.png" alt="" className="app-loader-logo" />
         <div className="app-loader-bar">
           <div className="app-loader-fill" />
         </div>
@@ -24,7 +24,7 @@ function LoadingScreen({ done }) {
       <style>{`
         .app-loader {
           position: fixed; inset: 0; z-index: 9999;
-          background: #07070a;
+          background: #ffffff;
           display: flex; align-items: center; justify-content: center;
           transition: opacity 0.5s ease, visibility 0.5s ease;
         }
@@ -46,7 +46,7 @@ function LoadingScreen({ done }) {
         }
         .app-loader-bar {
           width: 120px; height: 2px;
-          background: rgba(255,255,255,0.08);
+          background: rgba(0,0,0,0.08);
           border-radius: 999px; overflow: hidden;
         }
         .app-loader-fill {

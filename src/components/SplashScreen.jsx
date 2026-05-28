@@ -15,7 +15,7 @@ export default function SplashScreen({ name, subtitle, duration, onDone }) {
         <div className="vz-splash-inner">
           <div className="vz-splash-logo-wrap">
             <div className="vz-splash-glow" />
-            <img src="/logo.svg" alt="Visualize Studio" className="vz-splash-logo" />
+            <img src="/VisualizeWordmark.png" alt="Visualize Studio" className="vz-splash-logo" />
           </div>
           {name && <p className="vz-splash-greeting">Welcome back, {name.split(' ')[0]}</p>}
           <p className="vz-splash-sub">{subtitle}</p>
@@ -32,7 +32,7 @@ export default function SplashScreen({ name, subtitle, duration, onDone }) {
 const splashStyles = `
   .vz-splash {
     position: fixed; inset: 0; z-index: 9999;
-    background: #0a0a0a;
+    background: #ffffff;
     display: flex; align-items: center; justify-content: center;
     animation: vzSplashIn 0.25s ease both;
   }
@@ -73,12 +73,12 @@ const splashStyles = `
   /* Text */
   .vz-splash-greeting {
     font-size: 1.3rem; font-weight: 800; letter-spacing: -0.025em;
-    color: #f4f4f4;
+    color: #1b1b1c;
     animation: vzTextIn 0.45s 0.18s ease both;
     margin: 0;
   }
   .vz-splash-sub {
-    font-size: 0.875rem; color: rgba(255,255,255,0.38);
+    font-size: 0.875rem; color: rgba(27,27,28,0.5);
     animation: vzTextIn 0.45s 0.25s ease both;
     margin-top: -10px;
   }
@@ -90,7 +90,7 @@ const splashStyles = `
   /* Progress bar */
   .vz-splash-track {
     width: 100%; height: 2px;
-    background: rgba(255,255,255,0.07);
+    background: rgba(0,0,0,0.08);
     border-radius: 999px; overflow: hidden;
     animation: vzTextIn 0.45s 0.32s ease both;
   }
