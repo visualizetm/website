@@ -9,7 +9,6 @@ export default function Footer() {
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
               <img src="/VisualizeWordmark.png" alt="Visualize" />
-              <span>Visualize</span>
             </Link>
             <p className="footer-tagline">Brand Development & Website Design</p>
             <div className="footer-contact">
@@ -87,11 +86,10 @@ export default function Footer() {
         @media (max-width: 600px) { .footer-top { grid-template-columns: 1fr; gap: var(--space-8); } }
 
         .footer-logo {
-          display: inline-flex; align-items: center; gap: var(--space-2);
-          color: var(--text); font-weight: 700; font-size: 1.125rem;
+          display: inline-flex; align-items: center;
           margin-bottom: var(--space-3);
         }
-        .footer-logo img { height: 24px; width: auto; }
+        .footer-logo img { height: 20px; width: auto; }
         .footer-tagline { font-size: 0.875rem; color: var(--text-muted); margin-bottom: var(--space-4); }
         .footer-contact { display: flex; flex-direction: column; gap: var(--space-2); }
         .footer-contact-item {

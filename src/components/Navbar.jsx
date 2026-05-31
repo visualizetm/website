@@ -196,7 +196,7 @@ export default function Navbar() {
 
         /* Logo */
         .navbar-logo { display: flex; align-items: center; flex-shrink: 0; }
-        .navbar-logo img { height: 26px; width: auto; display: block; }
+        .navbar-logo img { height: 22px; width: auto; display: block; }
 
         /* Desktop nav */
         .navbar-nav { flex: 1; }
@@ -275,7 +275,7 @@ export default function Navbar() {
           padding-bottom: var(--space-6); margin-bottom: var(--space-2);
           border-bottom: 1px solid rgba(0,0,0,0.08);
         }
-        .navbar-drawer-logo { height: 26px; width: auto; }
+        .navbar-drawer-logo { height: 22px; width: auto; }
         .navbar-drawer-close {
           width: 32px; height: 32px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
