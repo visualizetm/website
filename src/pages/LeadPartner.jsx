@@ -58,7 +58,7 @@ export default function LeadPartner() {
                   <ul className="lp-list lp-list--muted">
                     <li>Messages</li>
                     <li>Conversations</li>
-                    <li>“Interested” replies</li>
+                    <li>"Interested" replies</li>
                     <li>Meetings that do not convert</li>
                     <li>Unpaid invoices</li>
                   </ul>
@@ -129,7 +129,7 @@ export default function LeadPartner() {
                     <h3 className="lp-step-title">Pre-Review</h3>
                     <p className="lp-step-desc">
                       Before pitching, send the business name + website + social links. Note weaknesses and possible
-                      improvements. I confirm if it’s worth pursuing.
+                      improvements. I confirm if it's worth pursuing.
                     </p>
                   </div>
                 </div>
@@ -206,7 +206,7 @@ export default function LeadPartner() {
         .lp-hero-bg {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, var(--bg) 0%, var(--bg-elevated) 55%, #0d0d0e 100%);
+          background: linear-gradient(135deg, var(--bg) 0%, var(--bg-elevated) 100%);
           pointer-events: none;
         }
         .lp-hero-bg::after {
@@ -260,7 +260,7 @@ export default function LeadPartner() {
             radial-gradient(circle at 70% 60%, rgba(212, 76, 67, 0.10) 0%, transparent 55%),
             linear-gradient(145deg, var(--glass-bg) 0%, var(--glass-bg-strong) 100%);
           border: 1px solid var(--glass-border);
-          box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+          box-shadow: 0 24px 64px rgba(0,0,0,0.12);
         }
 
         .lp-content {
@@ -288,7 +288,7 @@ export default function LeadPartner() {
           border: 1px solid var(--glass-border);
           border-radius: var(--radius-lg);
           padding: var(--space-10);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.08);
         }
         .lp-h {
           font-size: 1.25rem;
@@ -345,7 +345,7 @@ export default function LeadPartner() {
           gap: var(--space-6);
           padding: var(--space-4) var(--space-5);
           color: var(--text-secondary);
-          background: rgba(255,255,255,0.01);
+          background: var(--bg);
           border-bottom: 1px solid var(--glass-border);
         }
         .lp-example-total {
@@ -367,7 +367,7 @@ export default function LeadPartner() {
           padding: var(--space-6);
           border: 1px solid var(--glass-border);
           border-radius: var(--radius-lg);
-          background: rgba(0,0,0,0.15);
+          background: var(--bg-elevated);
         }
         .lp-step-num {
           width: 38px;
@@ -426,10 +426,9 @@ export default function LeadPartner() {
           border: 1px solid var(--glass-border);
           border-radius: var(--radius-lg);
           overflow: hidden;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.1);
         }
       `}</style>
     </>
   );
 }
-

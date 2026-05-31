@@ -31,7 +31,7 @@ export default function Showcase() {
           <div className="showcase-hero-content">
             <h1 className="section-title">Showcase</h1>
             <p className="section-subtitle">
-              Websites and branding I’ve designed and built for clients.
+              Websites and branding I've designed and built for clients.
             </p>
           </div>
           <div className="showcase-hero-visual" aria-hidden="true">
@@ -86,7 +86,7 @@ export default function Showcase() {
             <div className="showcase-coming">
               <h2 className="showcase-coming-title">Nothing in this category yet</h2>
               <p className="showcase-coming-sub">
-                More projects will appear here as they’re added.
+                More projects will appear here as they're added.
               </p>
             </div>
           )}
@@ -129,7 +129,7 @@ export default function Showcase() {
             radial-gradient(circle at 70% 60%, rgba(212, 76, 67, 0.10) 0%, transparent 55%),
             linear-gradient(145deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
           border: 1px solid var(--border);
-          box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+          box-shadow: 0 24px 64px rgba(0,0,0,0.12);
         }
         .showcase-main {
           position: relative;
@@ -164,7 +164,7 @@ export default function Showcase() {
         }
         .showcase-filter-pill:hover {
           color: var(--text);
-          border-color: rgba(255, 255, 255, 0.12);
+          border-color: rgba(0, 0, 0, 0.15);
         }
         .showcase-filter-pill.is-active {
           color: var(--text);
@@ -187,8 +187,8 @@ export default function Showcase() {
           transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
         }
         .showcase-card:hover {
-          border-color: rgba(255, 255, 255, 0.12);
-          box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+          border-color: rgba(0, 0, 0, 0.15);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.12);
         }
         .showcase-card img {
           width: 100%;
@@ -216,7 +216,7 @@ export default function Showcase() {
         }
         .showcase-card-desc {
           font-size: 0.875rem;
-          color: var(--text-secondary);
+          color: rgba(255, 255, 255, 0.7);
           margin-bottom: var(--space-2);
           line-height: 1.4;
         }
@@ -242,7 +242,7 @@ export default function Showcase() {
           border-radius: var(--radius-lg);
           padding: var(--space-12);
           text-align: center;
-          box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.1);
         }
         .showcase-coming-title {
           font-size: clamp(1.5rem, 3vw, 2rem);

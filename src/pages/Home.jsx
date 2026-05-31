@@ -151,7 +151,7 @@ function PrintsSection() {
         }
         .prints-card:hover {
           border-color: var(--brand);
-          box-shadow: 0 16px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(212,76,67,0.2);
+          box-shadow: 0 16px 60px rgba(0,0,0,0.1), 0 0 0 1px rgba(212,76,67,0.2);
           transform: translateY(-3px);
         }
         .prints-card-glow {

@@ -426,7 +426,7 @@ export default function ServicesPage() {
         .sv-hero-bg {
           position: absolute;
           inset: 0;
-          background: linear-gradient(135deg, var(--bg) 0%, var(--bg-elevated) 50%, #0d0d0e 100%);
+          background: linear-gradient(135deg, var(--bg) 0%, var(--bg-elevated) 100%);
           z-index: 0;
         }
         .sv-hero-bg::after {
@@ -477,7 +477,7 @@ export default function ServicesPage() {
           backdrop-filter: blur(var(--glass-blur));
           -webkit-backdrop-filter: blur(var(--glass-blur));
           border: 1px solid var(--glass-border);
-          box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+          box-shadow: 0 24px 64px rgba(0,0,0,0.12);
         }
         .sv-hero-visual::before {
           content: '';
@@ -530,7 +530,7 @@ export default function ServicesPage() {
         .sv-pillar-block:hover,
         .sv-pillar-block.is-hover {
           border-color: var(--brand);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(212, 76, 67, 0.2);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.1), 0 0 0 1px rgba(212, 76, 67, 0.2);
           transform: translateY(-2px);
         }
         .sv-pillar-title {
@@ -608,11 +608,11 @@ export default function ServicesPage() {
         }
         .svc-card:hover {
           border-color: var(--border-light);
-          box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+          box-shadow: 0 8px 32px rgba(0,0,0,0.1);
         }
         .svc-card.is-expanded {
           border-color: var(--brand);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.1);
         }
         .svc-card-pill {
           display: inline-block;
@@ -694,7 +694,7 @@ export default function ServicesPage() {
         .sv-addons {
           position: relative;
           padding: var(--space-24) 0;
-          background: linear-gradient(180deg, #0f0f10 0%, var(--bg-elevated) 100%);
+          background: linear-gradient(180deg, var(--bg) 0%, var(--bg-elevated) 100%);
           border-top: 1px solid var(--glass-border);
         }
         .sv-addons-bg {
@@ -740,12 +740,12 @@ export default function ServicesPage() {
         .addon-card:hover {
           border-color: var(--border-light);
           border-left-color: var(--brand-light);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+          box-shadow: 0 12px 40px rgba(0,0,0,0.1);
           transform: translateY(-3px);
         }
         .addon-card.is-expanded {
           border-color: var(--brand);
-          box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+          box-shadow: 0 16px 48px rgba(0,0,0,0.12);
         }
         .addon-card-header {
           display: flex;
@@ -893,7 +893,7 @@ export default function ServicesPage() {
         .sv-cta {
           position: relative;
           padding: var(--space-24) 0;
-          background: linear-gradient(180deg, var(--bg-elevated) 0%, #080808 100%);
+          background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
           border-top: 1px solid var(--glass-border);
         }
         .sv-cta-bg {
