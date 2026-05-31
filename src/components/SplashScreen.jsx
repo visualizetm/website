@@ -68,7 +68,7 @@ const splashStyles = `
     from { opacity: 0.55; transform: scale(0.88); }
     to   { opacity: 1;    transform: scale(1.12); }
   }
-  .vz-splash-logo { height: 58px; position: relative; z-index: 1; }
+  .vz-splash-logo { height: 36px; position: relative; z-index: 1; }
 
   /* Text */
   .vz-splash-greeting {

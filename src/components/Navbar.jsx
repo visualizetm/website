@@ -197,6 +197,7 @@ export default function Navbar() {
         /* Logo */
         .navbar-logo { display: flex; align-items: center; flex-shrink: 0; }
         .navbar-logo img { height: 18px; width: auto; display: block; }
+        @media (max-width: 768px) { .navbar-logo img { height: 15px; } }
 
         /* Desktop nav */
         .navbar-nav { flex: 1; }

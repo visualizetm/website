@@ -37,7 +37,7 @@ function LoadingScreen({ done }) {
           display: flex; flex-direction: column; align-items: center; gap: 28px;
         }
         .app-loader-logo {
-          height: 48px; width: auto;
+          height: 32px; width: auto;
           animation: loaderPulse 1.4s ease-in-out infinite;
         }
         @keyframes loaderPulse {
