@@ -15,12 +15,12 @@ export default function CTA() {
       <style>{`
         .cta {
           position: relative;
-          background: linear-gradient(180deg, var(--bg-elevated) 0%, #080808 100%);
+          background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
           border-top: 1px solid var(--glass-border);
         }
         .cta-bg {
           position: absolute; inset: 0;
-          background: radial-gradient(ellipse 100% 80% at 50% 100%, rgba(212,76,67,0.1) 0%, transparent 60%);
+          background: radial-gradient(ellipse 100% 80% at 50% 50%, rgba(212,76,67,0.12) 0%, transparent 65%);
           pointer-events: none;
         }
         .cta-inner { position: relative; z-index: 1; text-align: center; }
