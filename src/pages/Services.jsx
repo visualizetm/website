@@ -295,7 +295,42 @@ export default function ServicesPage() {
             </div>
           </div>
           <div className="sv-hero-right">
-            <div className="sv-hero-visual" />
+            <div className="sv-hero-visual" aria-hidden="true">
+              <div className="sv-vis-doc">
+                <div className="sv-vis-doc-bar">
+                  <span /><span /><span />
+                  <span className="sv-vis-doc-name">brand_identity.ai</span>
+                </div>
+                <div className="sv-vis-doc-body">
+                  <div className="sv-vis-logomark">
+                    <svg viewBox="0 0 36 36" fill="none" width="22" height="22">
+                      <rect x="4" y="4" width="28" height="28" rx="6" stroke="var(--brand)" strokeWidth="1.8"/>
+                      <path d="M12 18h12M18 12v12" stroke="var(--brand)" strokeWidth="1.8" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <div className="sv-vis-palette">
+                    <div className="sv-vis-swatch" style={{background:'var(--brand)'}} />
+                    <div className="sv-vis-swatch" style={{background:'#1b1b1c'}} />
+                    <div className="sv-vis-swatch" style={{background:'#8a8a8a'}} />
+                    <div className="sv-vis-swatch" style={{background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.12)'}} />
+                  </div>
+                  <div className="sv-vis-lines">
+                    <div className="sv-vis-l sv-vis-l--a" />
+                    <div className="sv-vis-l sv-vis-l--b" />
+                    <div className="sv-vis-l sv-vis-l--c" />
+                  </div>
+                </div>
+              </div>
+              <div className="sv-vis-chip sv-vis-chip--1">
+                <div className="sv-vis-dot sv-vis-dot--green" />
+                <span>Website Live</span>
+              </div>
+              <div className="sv-vis-chip sv-vis-chip--2">
+                <div className="sv-vis-dot sv-vis-dot--blue" />
+                <span>Print Ready</span>
+              </div>
+              <div className="sv-vis-orbit"><div className="sv-vis-orbit-dot" /></div>
+            </div>
           </div>
         </div>
       </section>
@@ -478,6 +513,7 @@ export default function ServicesPage() {
           -webkit-backdrop-filter: blur(var(--glass-blur));
           border: 1px solid var(--glass-border);
           box-shadow: 0 24px 64px rgba(0,0,0,0.12);
+          overflow: hidden;
         }
         .sv-hero-visual::before {
           content: '';
@@ -491,6 +527,124 @@ export default function ServicesPage() {
         @keyframes sv-pulse {
           0%, 100% { opacity: 0.6; transform: scale(1); }
           50% { opacity: 1; transform: scale(1.02); }
+        }
+
+        /* sv-vis branded elements */
+        .sv-vis-doc {
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -52%);
+          width: 72%;
+          background: rgba(18,18,22,0.92);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px;
+          overflow: hidden;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+          animation: svDocFloat 6s ease-in-out infinite;
+          z-index: 2;
+        }
+        @keyframes svDocFloat {
+          0%, 100% { transform: translate(-50%, -52%) translateY(0); }
+          50% { transform: translate(-50%, -52%) translateY(-8px); }
+        }
+        .sv-vis-doc-bar {
+          display: flex; align-items: center; gap: 6px;
+          padding: 9px 12px;
+          background: rgba(255,255,255,0.04);
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .sv-vis-doc-bar span:not(.sv-vis-doc-name) {
+          width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+        }
+        .sv-vis-doc-bar span:nth-child(1) { background: #ff5f57; }
+        .sv-vis-doc-bar span:nth-child(2) { background: #febc2e; }
+        .sv-vis-doc-bar span:nth-child(3) { background: #28c840; }
+        .sv-vis-doc-name {
+          font-size: 0.65rem; color: rgba(255,255,255,0.35);
+          margin-left: 6px; font-family: monospace;
+        }
+        .sv-vis-doc-body {
+          padding: 14px 16px;
+          display: flex; flex-direction: column; gap: 12px;
+        }
+        .sv-vis-logomark {
+          width: 38px; height: 38px;
+          background: rgba(212,76,67,0.12);
+          border: 1px solid rgba(212,76,67,0.3);
+          border-radius: 9px;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .sv-vis-palette { display: flex; gap: 6px; }
+        .sv-vis-swatch {
+          width: 20px; height: 20px; border-radius: 5px;
+        }
+        .sv-vis-lines { display: flex; flex-direction: column; gap: 7px; }
+        .sv-vis-l {
+          height: 5px; border-radius: 3px;
+          background: rgba(255,255,255,0.12);
+        }
+        .sv-vis-l--a { width: 85%; }
+        .sv-vis-l--b { width: 63%; }
+        .sv-vis-l--c { width: 42%; }
+
+        .sv-vis-chip {
+          position: absolute;
+          display: flex; align-items: center; gap: 6px;
+          padding: 5px 11px;
+          background: rgba(18,18,22,0.9);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 999px;
+          font-size: 0.72rem; font-weight: 600;
+          color: rgba(255,255,255,0.85);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+          white-space: nowrap; z-index: 3;
+        }
+        .sv-vis-chip--1 {
+          top: 16%; right: 7%;
+          animation: svChip1Float 7s ease-in-out infinite;
+        }
+        .sv-vis-chip--2 {
+          bottom: 14%; left: 7%;
+          animation: svChip2Float 8s ease-in-out 1s infinite;
+        }
+        @keyframes svChip1Float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        @keyframes svChip2Float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(5px); }
+        }
+        .sv-vis-dot {
+          width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+          animation: svDotPulse 2.5s ease-in-out infinite;
+        }
+        .sv-vis-dot--green { background: #22c55e; box-shadow: 0 0 5px rgba(34,197,94,0.7); }
+        .sv-vis-dot--blue { background: #60a5fa; box-shadow: 0 0 5px rgba(96,165,250,0.7); }
+        @keyframes svDotPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .sv-vis-orbit {
+          position: absolute;
+          top: 50%; left: 50%;
+          width: 220px; height: 220px;
+          margin: -110px 0 0 -110px;
+          border: 1px dashed rgba(212,76,67,0.18);
+          border-radius: 50%;
+          animation: svOrbit 20s linear infinite;
+          pointer-events: none; z-index: 1;
+        }
+        .sv-vis-orbit-dot {
+          position: absolute; top: -4px; left: 50%;
+          transform: translateX(-50%);
+          width: 7px; height: 7px;
+          background: var(--brand); border-radius: 50%;
+          box-shadow: 0 0 8px rgba(212,76,67,0.7);
+        }
+        @keyframes svOrbit {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         /* ----- What I Build – Pillars ----- */
