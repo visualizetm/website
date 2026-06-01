@@ -1235,7 +1235,17 @@ const admStyles = `
 
   .adm-page {
     min-height: 100vh;
-    background: var(--bg);
+    background: #0f0f11;
+    --bg: #0f0f11;
+    --bg-elevated: #141418;
+    --bg-card: #1a1a20;
+    --glass-bg: rgba(255,255,255,0.04);
+    --glass-bg-strong: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.09);
+    --border-light: rgba(255,255,255,0.13);
+    --text: #f4f4f5;
+    --text-secondary: #a0a0ab;
+    --text-muted: #636373;
     display: flex;
     font-family: 'Inter', -apple-system, sans-serif;
   }
@@ -1249,7 +1259,7 @@ const admStyles = `
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     text-align: center;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7);
   }
   .adm-login-logo { display: flex; justify-content: center; margin-bottom: var(--space-6); }
   .adm-login-title { font-size: 1.4rem; font-weight: 800; color: var(--text); margin-bottom: var(--space-1); }
@@ -1277,8 +1287,8 @@ const admStyles = `
   .adm-sidebar {
     width: 220px;
     flex-shrink: 0;
-    background: rgba(12,12,12,0.95);
-    border-right: 1px solid var(--glass-border);
+    background: rgba(8,8,10,0.9);
+    border-right: 1px solid rgba(255,255,255,0.07);
     display: flex;
     flex-direction: column;
     padding: var(--space-6) var(--space-4);
@@ -1351,7 +1361,7 @@ const admStyles = `
     padding: var(--space-5);
     transition: transform 0.2s, box-shadow 0.2s;
   }
-  .adm-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+  .adm-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
   .adm-stat-top {
     display: flex; align-items: flex-start; justify-content: space-between;
     margin-bottom: var(--space-3);
