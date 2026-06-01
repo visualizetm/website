@@ -3,14 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   IconMenu2,
   IconX,
-  IconUser,
   IconCalendar,
   IconChevronRight,
   IconHome,
   IconBriefcase,
   IconPhoto,
   IconPhone,
-  IconLogin,
 } from '@tabler/icons-react';
 
 export default function Navbar() {
@@ -63,10 +61,6 @@ export default function Navbar() {
 
           {/* Desktop action buttons */}
           <div className="navbar-actions">
-            <Link to="/portal" className="btn-ghost navbar-portal-btn">
-              <IconUser size={15} stroke={1.8} />
-              Client Login
-            </Link>
             <a href="/book" className="btn btn-primary navbar-cta">
               <IconCalendar size={15} stroke={1.8} />
               Book a Consultation
@@ -129,26 +123,6 @@ export default function Navbar() {
             </li>
           ))}
         </ul>
-
-        <div className="navbar-drawer-divider" />
-
-        {/* Client portal link in drawer */}
-        <Link
-          to="/portal"
-          className="navbar-drawer-portal"
-          onClick={() => setOpen(false)}
-        >
-          <span className="navbar-drawer-portal-left">
-            <span className="navbar-drawer-link-icon navbar-drawer-link-icon--brand">
-              <IconLogin size={17} stroke={1.8} />
-            </span>
-            <span>
-              <span className="navbar-drawer-portal-label">Client Portal</span>
-              <span className="navbar-drawer-portal-sub">Track your orders</span>
-            </span>
-          </span>
-          <IconChevronRight size={15} stroke={1.8} className="navbar-drawer-arrow" />
-        </Link>
 
         <a
           href="/book"
@@ -213,22 +187,6 @@ export default function Navbar() {
         /* Action group */
         .navbar-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
 
-        /* Ghost client login button */
-        .btn-ghost {
-          display: inline-flex; align-items: center; gap: 6px;
-          font-size: 0.8125rem; font-weight: 600;
-          color: var(--text-secondary);
-          padding: 7px 13px; border-radius: 999px;
-          border: 1px solid rgba(0,0,0,0.1);
-          background: rgba(0,0,0,0.04);
-          transition: color 0.2s, background 0.2s, border-color 0.2s;
-          white-space: nowrap; text-decoration: none;
-        }
-        .btn-ghost:hover {
-          color: var(--text); background: rgba(0,0,0,0.07);
-          border-color: rgba(0,0,0,0.15);
-        }
-        .navbar-portal-btn { flex-shrink: 0; }
         .navbar-cta {
           flex-shrink: 0; font-size: 0.8125rem;
           padding: 7px 14px; white-space: nowrap;
@@ -306,27 +264,8 @@ export default function Navbar() {
           display: flex; align-items: center; justify-content: center;
           color: var(--text-muted); flex-shrink: 0;
         }
-        .navbar-drawer-link-icon--brand {
-          background: rgba(212,76,67,0.12); border-color: rgba(212,76,67,0.2);
-          color: var(--brand);
-        }
-        .navbar-drawer-arrow { color: var(--text-muted); opacity: 0.4; transition: transform 0.2s, opacity 0.2s; }
+.navbar-drawer-arrow { color: var(--text-muted); opacity: 0.4; transition: transform 0.2s, opacity 0.2s; }
         .navbar-drawer-link:hover .navbar-drawer-arrow { opacity: 0.7; transform: translateX(3px); }
-
-        .navbar-drawer-divider { height: 1px; background: rgba(0,0,0,0.08); margin: var(--space-2) 0 var(--space-3); }
-
-        /* Portal row */
-        .navbar-drawer-portal {
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 12px var(--space-3); border-radius: var(--radius);
-          background: rgba(212,76,67,0.06); border: 1px solid rgba(212,76,67,0.15);
-          text-decoration: none; margin-bottom: var(--space-5);
-          transition: background 0.2s, border-color 0.2s;
-        }
-        .navbar-drawer-portal:hover { background: rgba(212,76,67,0.1); border-color: rgba(212,76,67,0.25); }
-        .navbar-drawer-portal-left { display: flex; align-items: center; gap: 12px; }
-        .navbar-drawer-portal-label { display: block; font-size: 0.9375rem; font-weight: 700; color: var(--text); }
-        .navbar-drawer-portal-sub { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 1px; }
 
         .navbar-drawer-cta {
           display: flex; align-items: center; justify-content: center; gap: 8px;

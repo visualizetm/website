@@ -38,7 +38,6 @@ export default function Footer() {
               <p className="footer-col-label">Products</p>
               <nav className="footer-col-links">
                 <Link to="/prints">Custom Prints</Link>
-                <Link to="/portal">Client Portal</Link>
               </nav>
             </div>
           </div>
@@ -62,8 +61,7 @@ export default function Footer() {
         </div>
 
         <div className="footer-bottom">
-          <p className="footer-copy">© {new Date().getFullYear()} Visualize Studio. All rights reserved.</p>
-          <Link to="/portal" className="footer-portal-link">Client Portal →</Link>
+          <p className="footer-copy">&copy; {new Date().getFullYear()} Visualize Studio. All rights reserved.</p>
         </div>
       </div>
       <style>{`
@@ -135,8 +133,6 @@ export default function Footer() {
           flex-wrap: wrap;
         }
         .footer-copy { font-size: 0.8125rem; color: var(--text-muted); }
-        .footer-portal-link { font-size: 0.8125rem; color: var(--text-muted); transition: color 0.2s; }
-        .footer-portal-link:hover { color: var(--brand); }
       `}</style>
     </footer>
   );
