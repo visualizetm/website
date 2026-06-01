@@ -35,7 +35,23 @@ export default function Showcase() {
             </p>
           </div>
           <div className="showcase-hero-visual" aria-hidden="true">
-            <div className="showcase-hero-abstract" />
+            <div className="shw-vis-browser">
+              <div className="shw-vis-browser-bar">
+                <span /><span /><span />
+                <div className="shw-vis-browser-url">visualize.studio/showcase</div>
+              </div>
+              <div className="shw-vis-browser-body">
+                <div className="shw-vis-grid">
+                  {[0,1,2,3,4,5].map(i => (
+                    <div key={i} className={`shw-vis-tile shw-vis-tile--${i}`} />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="shw-vis-chip">
+              <div className="shw-vis-chip-dot" />
+              <span>6 Projects</span>
+            </div>
           </div>
         </div>
       </section>
@@ -115,21 +131,97 @@ export default function Showcase() {
           .showcase-hero-wrap { grid-template-columns: 1fr; }
         }
         .showcase-hero-visual {
+          position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-        }
-        .showcase-hero-abstract {
           width: 100%;
           max-width: 520px;
-          height: 280px;
+          min-height: 280px;
           border-radius: var(--radius-lg);
-          background:
-            radial-gradient(circle at 30% 30%, rgba(212, 76, 67, 0.18) 0%, transparent 55%),
-            radial-gradient(circle at 70% 60%, rgba(212, 76, 67, 0.10) 0%, transparent 55%),
-            linear-gradient(145deg, var(--bg-card) 0%, var(--bg-elevated) 100%);
-          border: 1px solid var(--border);
+          background: linear-gradient(145deg, var(--glass-bg) 0%, var(--glass-bg-strong) 100%);
+          backdrop-filter: blur(var(--glass-blur));
+          -webkit-backdrop-filter: blur(var(--glass-blur));
+          border: 1px solid var(--glass-border);
           box-shadow: 0 24px 64px rgba(0,0,0,0.12);
+          overflow: hidden;
+        }
+        .shw-vis-browser {
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -52%);
+          width: 80%;
+          background: rgba(18,18,22,0.92);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 10px; overflow: hidden;
+          box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+          animation: shwBrowserFloat 6s ease-in-out infinite;
+          z-index: 2;
+        }
+        @keyframes shwBrowserFloat {
+          0%, 100% { transform: translate(-50%, -52%) translateY(0); }
+          50% { transform: translate(-50%, -52%) translateY(-7px); }
+        }
+        .shw-vis-browser-bar {
+          display: flex; align-items: center; gap: 5px;
+          padding: 8px 12px;
+          background: rgba(255,255,255,0.04);
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .shw-vis-browser-bar span {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+        }
+        .shw-vis-browser-bar span:nth-child(1) { background: #ff5f57; }
+        .shw-vis-browser-bar span:nth-child(2) { background: #febc2e; }
+        .shw-vis-browser-bar span:nth-child(3) { background: #28c840; }
+        .shw-vis-browser-url {
+          margin-left: 8px; flex: 1;
+          background: rgba(255,255,255,0.06);
+          border-radius: 4px; padding: 2px 8px;
+          font-size: 0.58rem; color: rgba(255,255,255,0.3);
+          font-family: monospace; white-space: nowrap;
+          overflow: hidden; text-overflow: ellipsis;
+        }
+        .shw-vis-browser-body { padding: 10px; }
+        .shw-vis-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 5px;
+        }
+        .shw-vis-tile {
+          aspect-ratio: 4/3;
+          border-radius: 5px;
+          background: rgba(255,255,255,0.07);
+          border: 1px solid rgba(255,255,255,0.08);
+        }
+        .shw-vis-tile--0 { background: linear-gradient(135deg, rgba(212,76,67,0.25), rgba(212,76,67,0.1)); }
+        .shw-vis-tile--3 { background: linear-gradient(135deg, rgba(212,76,67,0.15), rgba(212,76,67,0.05)); }
+        .shw-vis-chip {
+          position: absolute; bottom: 14%; right: 8%;
+          display: flex; align-items: center; gap: 6px;
+          padding: 5px 11px;
+          background: rgba(18,18,22,0.9);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 999px;
+          font-size: 0.72rem; font-weight: 600;
+          color: rgba(255,255,255,0.85);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+          white-space: nowrap; z-index: 3;
+          animation: shwChipFloat 7s ease-in-out 0.5s infinite;
+        }
+        @keyframes shwChipFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .shw-vis-chip-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: var(--brand);
+          box-shadow: 0 0 5px rgba(212,76,67,0.7);
+          animation: shwDotPulse 2.5s ease-in-out infinite;
+        }
+        @keyframes shwDotPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
         }
         .showcase-main {
           position: relative;

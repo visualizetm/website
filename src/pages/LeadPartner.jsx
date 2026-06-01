@@ -28,7 +28,40 @@ export default function LeadPartner() {
             </a>
           </div>
           <div className="lp-hero-visual" aria-hidden="true">
-            <div className="lp-hero-abstract" />
+            <div className="lp-vis-card">
+              <div className="lp-vis-card-bar">
+                <span /><span /><span />
+                <span className="lp-vis-card-label">commission_tracker.app</span>
+              </div>
+              <div className="lp-vis-card-body">
+                <div className="lp-vis-earned">
+                  <span className="lp-vis-earned-label">Total Earned</span>
+                  <span className="lp-vis-earned-amount">$150</span>
+                  <span className="lp-vis-earned-sub">from 3 closed clients</span>
+                </div>
+                <div className="lp-vis-pipeline">
+                  <div className="lp-vis-step lp-vis-step--done">
+                    <div className="lp-vis-step-dot" />
+                    <span>Prospect</span>
+                  </div>
+                  <div className="lp-vis-step-line" />
+                  <div className="lp-vis-step lp-vis-step--done">
+                    <div className="lp-vis-step-dot" />
+                    <span>Qualify</span>
+                  </div>
+                  <div className="lp-vis-step-line" />
+                  <div className="lp-vis-step lp-vis-step--active">
+                    <div className="lp-vis-step-dot" />
+                    <span>Deposit</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="lp-vis-chip">
+              <div className="lp-vis-chip-dot" />
+              <span>Commission Paid</span>
+            </div>
+            <div className="lp-vis-orbit"><div className="lp-vis-orbit-dot" /></div>
           </div>
         </div>
       </section>
@@ -58,7 +91,7 @@ export default function LeadPartner() {
                   <ul className="lp-list lp-list--muted">
                     <li>Messages</li>
                     <li>Conversations</li>
-                    <li>"Interested" replies</li>
+                    <li>&quot;Interested&quot; replies</li>
                     <li>Meetings that do not convert</li>
                     <li>Unpaid invoices</li>
                   </ul>
@@ -68,15 +101,15 @@ export default function LeadPartner() {
 
             <article className="lp-card">
               <h2 className="lp-h">How Commission Works</h2>
-              <p className="lp-p"><strong>Example – $500 Project</strong></p>
+              <p className="lp-p"><strong>Example &ndash; $500 Project</strong></p>
               <div className="lp-example">
                 <div className="lp-example-row">
                   <span>Invoice 1 (50% deposit)</span>
-                  <span>$250 → <strong>$25</strong> commission</span>
+                  <span>$250 &rarr; <strong>$25</strong> commission</span>
                 </div>
                 <div className="lp-example-row">
                   <span>Invoice 2 (final 50%)</span>
-                  <span>$250 → <strong>$25</strong> commission</span>
+                  <span>$250 &rarr; <strong>$25</strong> commission</span>
                 </div>
                 <div className="lp-example-total">
                   <span>Total commission earned</span>
@@ -129,7 +162,7 @@ export default function LeadPartner() {
                     <h3 className="lp-step-title">Pre-Review</h3>
                     <p className="lp-step-desc">
                       Before pitching, send the business name + website + social links. Note weaknesses and possible
-                      improvements. I confirm if it's worth pursuing.
+                      improvements. I confirm if it&apos;s worth pursuing.
                     </p>
                   </div>
                 </div>
@@ -138,7 +171,7 @@ export default function LeadPartner() {
                   <div>
                     <h3 className="lp-step-title">Outreach</h3>
                     <p className="lp-step-desc">
-                      Introduce Visualize briefly and point out 1–2 clear improvement opportunities. The goal is to book
+                      Introduce Visualize briefly and point out 1&ndash;2 clear improvement opportunities. The goal is to book
                       a strategy meeting.
                     </p>
                   </div>
@@ -249,18 +282,139 @@ export default function LeadPartner() {
         @media (max-width: 900px) { .lp-subtitle { margin-left: auto; margin-right: auto; } }
         .lp-hero-btn { width: fit-content; }
 
-        .lp-hero-abstract {
+        .lp-hero-visual {
+          position: relative;
           width: 100%;
-          height: 300px;
+          min-height: 300px;
           border-radius: var(--radius-lg);
+          background: linear-gradient(145deg, var(--glass-bg) 0%, var(--glass-bg-strong) 100%);
           backdrop-filter: blur(var(--glass-blur));
           -webkit-backdrop-filter: blur(var(--glass-blur));
-          background:
-            radial-gradient(circle at 30% 30%, rgba(212, 76, 67, 0.18) 0%, transparent 55%),
-            radial-gradient(circle at 70% 60%, rgba(212, 76, 67, 0.10) 0%, transparent 55%),
-            linear-gradient(145deg, var(--glass-bg) 0%, var(--glass-bg-strong) 100%);
           border: 1px solid var(--glass-border);
           box-shadow: 0 24px 64px rgba(0,0,0,0.12);
+          overflow: hidden;
+        }
+        .lp-vis-card {
+          position: absolute;
+          top: 50%; left: 50%;
+          transform: translate(-50%, -52%);
+          width: 76%;
+          background: rgba(18,18,22,0.92);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 12px; overflow: hidden;
+          box-shadow: 0 18px 56px rgba(0,0,0,0.5);
+          animation: lpCardFloat 6s ease-in-out infinite;
+          z-index: 2;
+        }
+        @keyframes lpCardFloat {
+          0%, 100% { transform: translate(-50%, -52%) translateY(0); }
+          50% { transform: translate(-50%, -52%) translateY(-8px); }
+        }
+        .lp-vis-card-bar {
+          display: flex; align-items: center; gap: 6px;
+          padding: 9px 12px;
+          background: rgba(255,255,255,0.04);
+          border-bottom: 1px solid rgba(255,255,255,0.07);
+        }
+        .lp-vis-card-bar span:not(.lp-vis-card-label) {
+          width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+        }
+        .lp-vis-card-bar span:nth-child(1) { background: #ff5f57; }
+        .lp-vis-card-bar span:nth-child(2) { background: #febc2e; }
+        .lp-vis-card-bar span:nth-child(3) { background: #28c840; }
+        .lp-vis-card-label {
+          font-size: 0.65rem; color: rgba(255,255,255,0.35);
+          margin-left: 6px; font-family: monospace;
+        }
+        .lp-vis-card-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 16px; }
+        .lp-vis-earned { display: flex; flex-direction: column; gap: 2px; }
+        .lp-vis-earned-label {
+          font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+          letter-spacing: 0.1em; color: rgba(255,255,255,0.35);
+        }
+        .lp-vis-earned-amount {
+          font-size: 1.75rem; font-weight: 900; color: #fff;
+          letter-spacing: -0.04em; line-height: 1;
+        }
+        .lp-vis-earned-sub { font-size: 0.7rem; color: rgba(255,255,255,0.4); }
+        .lp-vis-pipeline {
+          display: flex; align-items: center; gap: 0;
+        }
+        .lp-vis-step {
+          display: flex; flex-direction: column; align-items: center; gap: 5px;
+          flex-shrink: 0;
+        }
+        .lp-vis-step span {
+          font-size: 0.62rem; font-weight: 600; color: rgba(255,255,255,0.4);
+          white-space: nowrap;
+        }
+        .lp-vis-step-dot {
+          width: 10px; height: 10px; border-radius: 50%;
+          background: rgba(255,255,255,0.15);
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+        .lp-vis-step--done .lp-vis-step-dot {
+          background: var(--brand);
+          border-color: var(--brand);
+          box-shadow: 0 0 8px rgba(212,76,67,0.6);
+        }
+        .lp-vis-step--done span { color: rgba(255,255,255,0.7); }
+        .lp-vis-step--active .lp-vis-step-dot {
+          background: #22c55e;
+          border-color: #22c55e;
+          box-shadow: 0 0 8px rgba(34,197,94,0.6);
+        }
+        .lp-vis-step--active span { color: #22c55e; }
+        .lp-vis-step-line {
+          flex: 1; height: 1px;
+          background: rgba(255,255,255,0.15);
+          margin-bottom: 14px;
+        }
+        .lp-vis-chip {
+          position: absolute; bottom: 15%; right: 8%;
+          display: flex; align-items: center; gap: 6px;
+          padding: 5px 11px;
+          background: rgba(18,18,22,0.9);
+          border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 999px;
+          font-size: 0.72rem; font-weight: 600;
+          color: rgba(255,255,255,0.85);
+          box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+          white-space: nowrap; z-index: 3;
+          animation: lpChipFloat 7s ease-in-out 0.5s infinite;
+        }
+        @keyframes lpChipFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        .lp-vis-chip-dot {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #22c55e; box-shadow: 0 0 5px rgba(34,197,94,0.7);
+          animation: lpDotPulse 2.5s ease-in-out infinite;
+        }
+        @keyframes lpDotPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .lp-vis-orbit {
+          position: absolute; top: 50%; left: 50%;
+          width: 220px; height: 220px;
+          margin: -110px 0 0 -110px;
+          border: 1px dashed rgba(212,76,67,0.18);
+          border-radius: 50%;
+          animation: lpOrbit 20s linear infinite;
+          pointer-events: none; z-index: 1;
+        }
+        .lp-vis-orbit-dot {
+          position: absolute; top: -4px; left: 50%;
+          transform: translateX(-50%);
+          width: 7px; height: 7px;
+          background: var(--brand); border-radius: 50%;
+          box-shadow: 0 0 8px rgba(212,76,67,0.7);
+        }
+        @keyframes lpOrbit {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
 
         .lp-content {
