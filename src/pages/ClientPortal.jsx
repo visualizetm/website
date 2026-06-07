@@ -5,13 +5,15 @@ import {
   IconLogin, IconUserPlus, IconPackage, IconArrowRight,
   IconLayoutDashboard, IconReceipt, IconPlus, IconCheck,
   IconClock, IconAlertCircle, IconChevronRight, IconLock,
-  IconRefresh, IconExternalLink,
+  IconRefresh, IconExternalLink, IconLayoutGrid, IconList,
+  IconClipboardList, IconPencil, IconCircleCheck,
 } from '@tabler/icons-react';
 import SplashScreen from '../components/SplashScreen';
 
 const CLIENTS_KEY  = 'vz_clients';
 const ORDERS_KEY   = 'vz_print_orders';
 const INVOICES_KEY = 'vz_invoices';
+const INTAKE_KEY   = 'vz_intake_forms';
 const SESSION_KEY  = 'vz_portal_session';
 const CALENDLY_URL = 'https://calendly.com/contactvisualize/studio-meeting?hide_gdpr_banner=1';
 
@@ -40,6 +42,9 @@ function getOrders() {
 function getInvoices() {
   try { return JSON.parse(localStorage.getItem(INVOICES_KEY) || '[]'); } catch { return []; }
 }
+function getIntakeForms() {
+  try { return JSON.parse(localStorage.getItem(INTAKE_KEY) || '[]'); } catch { return []; }
+}
 function hashPassword(pw) {
   let h = 0;
   for (let i = 0; i < pw.length; i++) h = (Math.imul(31, h) + pw.charCodeAt(i)) | 0;
@@ -59,7 +64,7 @@ function timeAgo(iso) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-/* ── Calendly modal ─────────────────────────────────────────────── */
+/* ── Calendly modal ────────────────────────────────────── */
 function CalendlyModal({ onClose }) {
   useEffect(() => {
     if (!document.querySelector('script[src*="calendly.com"]')) {
@@ -87,7 +92,7 @@ function CalendlyModal({ onClose }) {
   );
 }
 
-/* ── Auth screen ─────────────────────────────────────────────────── */
+/* ── Auth screen ─────────────────────────────────────── */
 function AuthScreen({ onAuth }) {
   const [mode, setMode]       = useState('login');
   const [username, setUsername] = useState('');
@@ -120,7 +125,6 @@ function AuthScreen({ onAuth }) {
       const uname = username.trim().toLowerCase();
       if (!uname) return shake('Please enter your username.');
       if (!pw) return shake('Please enter your password.');
-      // Find by username, email, or old-style name — all backwards compatible
       const client = clients.find(c =>
         (c.username && c.username.toLowerCase() === uname) ||
         (c.email    && c.email.toLowerCase()    === uname) ||
@@ -194,7 +198,7 @@ function AuthScreen({ onAuth }) {
   );
 }
 
-/* ── Status timeline ────────────────────────────────────────────── */
+/* ── Status timeline ──────────────────────────────────── */
 function StatusTimeline({ status }) {
   const steps = ['pending', 'reviewed', 'approved', 'sent', 'completed'];
   const current = steps.indexOf(status || 'pending');
@@ -223,13 +227,93 @@ function StatusTimeline({ status }) {
   );
 }
 
-/* ── Sidebar ────────────────────────────────────────────────────── */
+/* ── Forms view ─────────────────────────────────────── */
+function FormsView({ user }) {
+  const allForms = getIntakeForms();
+  const myForms  = allForms.filter(f =>
+    (f.clientId && f.clientId === user.id) ||
+    (user.email && f.clientEmail?.toLowerCase() === user.email?.toLowerCase())
+  );
+
+  const TYPE_LABELS = { website: 'Website Design' };
+
+  if (myForms.length === 0) {
+    return (
+      <div className="cp-view">
+        <div className="cp-view-header cp-view-header--row">
+          <div>
+            <h1 className="cp-view-title">My Forms</h1>
+            <p className="cp-view-sub">Project briefs submitted to Visualize Studio</p>
+          </div>
+          <Link to="/intake/website" className="btn btn-primary"
+            style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <IconPlus size={15} stroke={2} />New Brief
+          </Link>
+        </div>
+        <div className="cp-panel cp-panel-empty-lg">
+          <IconClipboardList size={40} stroke={1.2} />
+          <h3>No briefs submitted yet</h3>
+          <p>Fill out a project brief so we can understand your needs and get started.</p>
+          <Link to="/intake/website" className="btn btn-primary" style={{ fontSize: '0.875rem' }}>
+            <IconPlus size={15} stroke={2} />Start Website Brief
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="cp-view">
+      <div className="cp-view-header cp-view-header--row">
+        <div>
+          <h1 className="cp-view-title">My Forms</h1>
+          <p className="cp-view-sub">{myForms.length} brief{myForms.length !== 1 ? 's' : ''} submitted</p>
+        </div>
+        <Link to="/intake/website" className="btn btn-primary"
+          style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <IconPlus size={15} stroke={2} />New Brief
+        </Link>
+      </div>
+      <div className="cp-order-list">
+        {myForms.map(form => {
+          const isEdited = form.editHistory?.length > 0;
+          const label    = TYPE_LABELS[form.type] || form.type;
+          return (
+            <div key={form.id} className="cp-order-card" style={{ cursor: 'default' }}>
+              <div className="cp-order-card-top">
+                <span className="cp-order-card-type">{label}</span>
+                <span className="cp-order-card-time">{timeAgo(form.submittedAt)}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span className="cp-tag">Submitted {formatDate(form.submittedAt)}</span>
+                {isEdited && (
+                  <span className="cp-tag" style={{ borderColor: '#60a5fa', color: '#2563eb' }}>
+                    Edited {formatDate(form.editHistory.at(-1).editedAt)}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                <Link to={`/intake/website?edit=${form.id}`} className="btn btn-secondary"
+                  style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <IconPencil size={13} stroke={1.8} />Edit Submission
+                </Link>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
 function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
   const nav = [
-    { id: 'dashboard', label: 'Dashboard', icon: IconLayoutDashboard },
+    { id: 'dashboard', label: 'Dashboard',  icon: IconLayoutDashboard },
     { id: 'orders',    label: 'My Orders',  icon: IconPackage },
     { id: 'invoices',  label: 'Invoices',   icon: IconReceipt },
     { id: 'meetings',  label: 'Meetings',   icon: IconCalendar },
+    { id: 'forms',     label: 'My Briefs',  icon: IconClipboardList },
   ];
   return (
     <aside className="cp-sidebar">
@@ -271,118 +355,117 @@ function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
   );
 }
 
-/* ── Dashboard view ─────────────────────────────────────────────── */
+/* ── Dashboard view ────────────────────────────────────── */
 function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
-  const pending   = orders.filter(o => (o.status || 'pending') !== 'completed').length;
   const unpaidInv = invoices.filter(i => i.status === 'unpaid' || i.status === 'overdue');
-  const recent    = orders[0];
+
+  const allItems = [
+    ...orders.map(o => ({ ...o, _type: 'order' })),
+    ...invoices.map(i => ({ ...i, _type: 'invoice' })),
+  ].sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
 
   return (
     <div className="cp-view">
-      <div className="cp-view-header">
-        <h1 className="cp-view-title">Welcome back, {(user.name || user.username || 'there').split(' ')[0]}</h1>
-        <p className="cp-view-sub">Here&apos;s a summary of your account.</p>
-      </div>
-
-      {/* Stat cards */}
-      <div className="cp-stats-row">
-        <div className="cp-stat-card" onClick={() => setTab('orders')} style={{ cursor: 'pointer' }}>
-          <span className="cp-stat-icon" style={{ '--c': 'var(--brand)' }}><IconPackage size={18} stroke={1.7} /></span>
-          <span className="cp-stat-val">{orders.length}</span>
-          <span className="cp-stat-label">Total Orders</span>
-        </div>
-        <div className="cp-stat-card" onClick={() => setTab('orders')} style={{ cursor: 'pointer' }}>
-          <span className="cp-stat-icon" style={{ '--c': '#f59e0b' }}><IconClock size={18} stroke={1.7} /></span>
-          <span className="cp-stat-val">{pending}</span>
-          <span className="cp-stat-label">In Progress</span>
-        </div>
-        <div className="cp-stat-card" onClick={() => setTab('invoices')} style={{ cursor: 'pointer' }}>
-          <span className="cp-stat-icon" style={{ '--c': unpaidInv.length > 0 ? '#ef4444' : '#22c55e' }}>
-            <IconReceipt size={18} stroke={1.7} />
-          </span>
-          <span className="cp-stat-val">{unpaidInv.length}</span>
-          <span className="cp-stat-label">{unpaidInv.length === 1 ? 'Invoice Due' : 'Invoices Due'}</span>
+      {/* My Drive header */}
+      <div className="cp-drive-header">
+        <h1 className="cp-drive-title">My Drive</h1>
+        <div className="cp-drive-view-btns">
+          <button type="button" className="cp-drive-view-btn" title="Grid view"><IconLayoutGrid size={16} stroke={1.8} /></button>
+          <button type="button" className="cp-drive-view-btn" title="List view"><IconList size={16} stroke={1.8} /></button>
         </div>
       </div>
 
-      <div className="cp-dash-grid">
-        {/* Recent order */}
-        <div className="cp-panel">
-          <div className="cp-panel-head">
-            <h2 className="cp-panel-title">Recent Order</h2>
-            <button type="button" className="cp-panel-link" onClick={() => setTab('orders')}>
-              View all <IconChevronRight size={13} stroke={2} />
-            </button>
-          </div>
-          {recent ? (
-            <div className="cp-recent-order">
-              <div className="cp-recent-order-top">
-                <div>
-                  <p className="cp-recent-type">{recent.type ? recent.type.charAt(0).toUpperCase() + recent.type.slice(1) : 'Custom Print'}</p>
-                  <p className="cp-recent-date">{formatDate(recent.date)}</p>
-                </div>
-                <span className="cp-status-pill" style={{ '--sc': STATUS_META[recent.status || 'pending'].color }}>
-                  <span className="cp-status-pill-dot" />
-                  {STATUS_META[recent.status || 'pending'].label}
-                </span>
-              </div>
-              <div className="cp-recent-tags">
-                {recent.shape    && <span className="cp-tag">{recent.shape}</span>}
-                {recent.size     && <span className="cp-tag">{recent.size}</span>}
-                {recent.quantity && <span className="cp-tag">{recent.quantity} units</span>}
-                {recent.finish   && <span className="cp-tag">{recent.finish}</span>}
-              </div>
-              <div style={{ marginTop: 'var(--space-4)' }}>
-                <StatusTimeline status={recent.status || 'pending'} />
-              </div>
-            </div>
-          ) : (
-            <div className="cp-panel-empty">
-              <IconPackage size={32} stroke={1.2} />
-              <p>No orders yet. Place your first order to get started.</p>
-              <Link to="/prints" className="btn btn-primary" style={{ fontSize: '0.875rem', padding: '8px 16px' }}>
-                <IconPlus size={15} stroke={2} />Place an Order
-              </Link>
-            </div>
-          )}
+      {/* Quick Access */}
+      <div className="cp-quick-access">
+        <p className="cp-section-label">Quick Access</p>
+        <div className="cp-qa-row">
+          <button type="button" className="cp-qa-card" onClick={() => setTab('orders')}>
+            <span className="cp-qa-icon" style={{ '--c': 'var(--brand)' }}><IconPackage size={20} stroke={1.7} /></span>
+            <p className="cp-qa-label">My Orders</p>
+            <p className="cp-qa-sub">{orders.length} order{orders.length !== 1 ? 's' : ''}</p>
+          </button>
+          <button type="button" className="cp-qa-card" onClick={() => setTab('invoices')}>
+            <span className="cp-qa-icon" style={{ '--c': '#f59e0b' }}><IconReceipt size={20} stroke={1.7} /></span>
+            <p className="cp-qa-label">Invoices</p>
+            <p className="cp-qa-sub">{unpaidInv.length} due</p>
+          </button>
+          <button type="button" className="cp-qa-card" onClick={onCalendly}>
+            <span className="cp-qa-icon" style={{ '--c': '#34d399' }}><IconCalendar size={20} stroke={1.7} /></span>
+            <p className="cp-qa-label">Book a Meeting</p>
+            <p className="cp-qa-sub">Schedule time</p>
+          </button>
         </div>
+      </div>
 
-        {/* Quick actions */}
-        <div className="cp-panel">
-          <h2 className="cp-panel-title">Quick Actions</h2>
-          <div className="cp-quick-actions">
-            <Link to="/prints" className="cp-quick-btn">
-              <span className="cp-quick-icon" style={{ '--c': 'var(--brand)' }}><IconPlus size={18} stroke={2} /></span>
-              <div>
-                <p className="cp-quick-label">New Print Order</p>
-                <p className="cp-quick-sub">Stickers, vinyl & more</p>
-              </div>
-              <IconChevronRight size={14} stroke={2} className="cp-quick-arrow" />
-            </Link>
-            <button type="button" className="cp-quick-btn" onClick={() => setTab('invoices')}>
-              <span className="cp-quick-icon" style={{ '--c': '#60a5fa' }}><IconReceipt size={18} stroke={1.8} /></span>
-              <div>
-                <p className="cp-quick-label">View Invoices</p>
-                <p className="cp-quick-sub">{invoices.length} total · {unpaidInv.length} due</p>
-              </div>
-              <IconChevronRight size={14} stroke={2} className="cp-quick-arrow" />
-            </button>
-            <button type="button" className="cp-quick-btn" onClick={() => setTab('meetings')}>
-              <span className="cp-quick-icon" style={{ '--c': '#34d399' }}><IconCalendar size={18} stroke={1.8} /></span>
-              <div>
-                <p className="cp-quick-label">My Meetings</p>
-                <p className="cp-quick-sub">View &amp; book meetings</p>
-              </div>
-              <IconChevronRight size={14} stroke={2} className="cp-quick-arrow" />
-            </button>
+      {/* All Files */}
+      <div className="cp-files-section">
+        <p className="cp-section-label">All Files</p>
+        {allItems.length === 0 ? (
+          <div className="cp-files-empty">
+            <IconPackage size={40} stroke={1.2} />
+            <p>No files yet</p>
+            <span>Your orders and invoices will appear here.</span>
           </div>
-        </div>
+        ) : (
+          <div className="cp-files-table">
+            <div className="cp-files-head">
+              <span>Name</span>
+              <span>Type</span>
+              <span>Status</span>
+              <span>Date</span>
+              <span></span>
+            </div>
+            {allItems.map((item, idx) => {
+              if (item._type === 'order') {
+                const meta = STATUS_META[item.status || 'pending'];
+                return (
+                  <button key={item.id || idx} type="button" className="cp-files-row" onClick={() => setTab('orders')}>
+                    <div className="cp-files-name">
+                      <span className="cp-files-icon cp-files-icon--order"><IconPackage size={15} stroke={1.7} /></span>
+                      <span>{item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Custom Print'} Order</span>
+                    </div>
+                    <span><span className="cp-files-chip cp-files-chip--order">Order</span></span>
+                    <span>
+                      <span className="cp-status-pill" style={{ '--sc': meta.color }}>
+                        <span className="cp-status-pill-dot" />{meta.label}
+                      </span>
+                    </span>
+                    <span className="cp-files-date">{formatDate(item.date)}</span>
+                    <span className="cp-files-action"><IconArrowRight size={14} stroke={2} /></span>
+                  </button>
+                );
+              } else {
+                const s = INVOICE_STATUS[item.status] || INVOICE_STATUS.unpaid;
+                return (
+                  <button key={item.id || idx} type="button" className="cp-files-row" onClick={() => setTab('invoices')}>
+                    <div className="cp-files-name">
+                      <span className="cp-files-icon cp-files-icon--invoice"><IconReceipt size={15} stroke={1.7} /></span>
+                      <span>{item.invoiceNumber || `INV-${item.id}`}</span>
+                    </div>
+                    <span><span className="cp-files-chip cp-files-chip--invoice">Invoice</span></span>
+                    <span>
+                      <span className="cp-status-pill" style={{ '--sc': s.color }}>
+                        <span className="cp-status-pill-dot" />{s.label}
+                      </span>
+                    </span>
+                    <span className="cp-files-date">{formatDate(item.createdAt)}</span>
+                    <span className="cp-files-action">
+                      {item.stripeLink && item.status !== 'paid'
+                        ? <a href={item.stripeLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="cp-files-pay">Pay</a>
+                        : <IconArrowRight size={14} stroke={2} />}
+                    </span>
+                  </button>
+                );
+              }
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* ── Orders view ────────────────────────────────────────────────── */
+/* ── Orders view ─────────────────────────────────────────── */
 function OrdersView({ orders, onCalendly }) {
   const [selected, setSelected]         = useState(orders[0] || null);
   const [mobileDetail, setMobileDetail] = useState(false);
@@ -511,7 +594,7 @@ function OrdersView({ orders, onCalendly }) {
   );
 }
 
-/* ── Invoices view ──────────────────────────────────────────────── */
+/* ── Invoices view ───────────────────────────────────────── */
 function InvoicesView({ invoices, onCalendly }) {
   const [selected, setSelected]         = useState(invoices[0] || null);
   const [mobileDetail, setMobileDetail] = useState(false);
@@ -649,7 +732,7 @@ function InvoicesView({ invoices, onCalendly }) {
   );
 }
 
-/* ── Meetings view ──────────────────────────────────────────────── */
+/* ── Meetings view ───────────────────────────────────────── */
 function MeetingsView({ user, onCalendly }) {
   const [meetings, setMeetings] = useState(null);
   const [loading, setLoading]   = useState(false);
@@ -795,7 +878,7 @@ function MeetingsView({ user, onCalendly }) {
   );
 }
 
-/* ── Main portal ────────────────────────────────────────────────── */
+/* ── Main portal ───────────────────────────────────────────── */
 function Portal({ user, onLogout }) {
   const [tab, setTab]               = useState('dashboard');
   const [showCalendly, setCalendly] = useState(false);
@@ -819,9 +902,10 @@ function Portal({ user, onLogout }) {
 
   const bottomNavItems = [
     { id: 'dashboard', label: 'Home',     icon: IconLayoutDashboard },
-    { id: 'orders',    label: 'Orders',   icon: IconPackage,  badge: pendingCount },
-    { id: 'invoices',  label: 'Invoices', icon: IconReceipt,  badge: unpaidCount  },
+    { id: 'orders',    label: 'Orders',   icon: IconPackage,       badge: pendingCount },
+    { id: 'invoices',  label: 'Invoices', icon: IconReceipt,       badge: unpaidCount  },
     { id: 'meetings',  label: 'Meetings', icon: IconCalendar },
+    { id: 'forms',     label: 'Briefs',   icon: IconClipboardList },
   ];
 
   return (
@@ -846,6 +930,7 @@ function Portal({ user, onLogout }) {
         {tab === 'orders'    && <OrdersView    orders={orders}   onCalendly={() => setCalendly(true)} />}
         {tab === 'invoices'  && <InvoicesView  invoices={invoices} onCalendly={() => setCalendly(true)} />}
         {tab === 'meetings'  && <MeetingsView  user={user} onCalendly={() => setCalendly(true)} />}
+        {tab === 'forms'     && <FormsView     user={user} />}
       </main>
 
       {/* Mobile-only bottom tab bar */}
@@ -873,7 +958,7 @@ function Portal({ user, onLogout }) {
   );
 }
 
-/* ── Root export ────────────────────────────────────────────────── */
+/* ── Root export ───────────────────────────────────────────── */
 function normalizeSession(raw) {
   if (!raw) return null;
   return {
@@ -923,15 +1008,15 @@ export default function ClientPortal() {
 }
 
 const cpStyles = `
-  /* ── Layout ──────────────────────────────── */
-  .cp-portal { display: flex; min-height: 100vh; background: var(--bg); }
+  /* ── Layout ────────────────────────────── */
+  .cp-portal { display: flex; min-height: 100vh; background: #f7f7f7; }
   .cp-main { flex: 1; overflow-y: auto; min-width: 0; }
 
-  /* ── Sidebar ─────────────────────────────── */
+  /* ── Sidebar ────────────────────────────── */
   .cp-sidebar {
-    width: 240px; flex-shrink: 0;
-    background: rgba(12,12,12,0.97);
-    border-right: 1px solid var(--glass-border);
+    width: 260px; flex-shrink: 0;
+    background: #ffffff;
+    border-right: 1px solid #e0e0e0;
     display: flex; flex-direction: column;
     position: sticky; top: 0; height: 100vh;
     overflow: hidden;
@@ -939,7 +1024,7 @@ const cpStyles = `
   .cp-sidebar-brand {
     display: flex; align-items: center; gap: 10px;
     padding: var(--space-6) var(--space-5) var(--space-5);
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 1px solid #e0e0e0;
   }
   .cp-sidebar-brand-label {
     font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em;
@@ -953,34 +1038,34 @@ const cpStyles = `
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; border-radius: var(--radius);
     background: none; border: none; cursor: pointer;
-    font-size: 0.875rem; font-weight: 500; color: var(--text-muted);
+    font-size: 0.875rem; font-weight: 500; color: var(--text-secondary);
     text-align: left; width: 100%;
     transition: background 0.15s, color 0.15s;
   }
-  .cp-nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
-  .cp-nav-item.active { background: rgba(212,76,67,0.12); color: var(--text); border-left: 2px solid var(--brand); padding-left: 10px; }
+  .cp-nav-item:hover { background: #f7f7f7; color: var(--text); }
+  .cp-nav-item.active { background: rgba(212,76,67,0.08); color: var(--brand); border-left: 2px solid var(--brand); padding-left: 10px; font-weight: 600; }
   .cp-sidebar-footer {
     padding: var(--space-4) var(--space-3);
-    border-top: 1px solid var(--glass-border);
+    border-top: 1px solid #e0e0e0;
     display: flex; flex-direction: column; gap: var(--space-3);
   }
   .cp-book-sidebar {
     display: flex; align-items: center; justify-content: center; gap: 7px;
-    width: 100%; padding: 9px; border-radius: var(--radius);
-    background: rgba(212,76,67,0.12); border: 1px solid rgba(212,76,67,0.25);
-    color: var(--brand); font-size: 0.8125rem; font-weight: 600; cursor: pointer;
+    width: 100%; padding: 10px; border-radius: 999px;
+    background: var(--brand); border: none;
+    color: #fff; font-size: 0.875rem; font-weight: 600; cursor: pointer;
     transition: background 0.2s;
   }
-  .cp-book-sidebar:hover { background: rgba(212,76,67,0.2); }
+  .cp-book-sidebar:hover { background: #a83a32; }
   .cp-sidebar-user {
     display: flex; align-items: center; gap: var(--space-2);
     padding: var(--space-2) 0;
   }
   .cp-sidebar-avatar {
-    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
-    background: rgba(212,76,67,0.15); border: 1px solid rgba(212,76,67,0.25);
+    width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+    background: rgba(212,76,67,0.12); border: 1px solid rgba(212,76,67,0.25);
     display: flex; align-items: center; justify-content: center;
-    font-size: 0.75rem; font-weight: 700; color: var(--brand);
+    font-size: 0.8125rem; font-weight: 700; color: var(--brand);
   }
   .cp-sidebar-user-info { flex: 1; min-width: 0; }
   .cp-sidebar-name { display: block; font-size: 0.8125rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -988,10 +1073,10 @@ const cpStyles = `
   .cp-sidebar-logout {
     width: 28px; height: 28px; flex-shrink: 0; border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
-    background: none; border: 1px solid var(--glass-border);
+    background: none; border: 1px solid #e0e0e0;
     color: var(--text-muted); cursor: pointer; transition: color 0.2s, border-color 0.2s;
   }
-  .cp-sidebar-logout:hover { color: #f87171; border-color: rgba(220,80,80,0.4); }
+  .cp-sidebar-logout:hover { color: #ef4444; border-color: rgba(239,68,68,0.4); }
 
   /* ── View container ──────────────────────── */
   .cp-view { padding: var(--space-8); max-width: 1000px; }
@@ -1000,33 +1085,94 @@ const cpStyles = `
   .cp-view-title { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); margin-bottom: 4px; }
   .cp-view-sub { font-size: 0.9rem; color: var(--text-muted); }
 
-  /* ── Stat cards ──────────────────────────── */
-  .cp-stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); margin-bottom: var(--space-6); }
-  @media (max-width: 600px) { .cp-stats-row { grid-template-columns: 1fr; } }
-  .cp-stat-card {
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
-    border-radius: var(--radius-lg); padding: var(--space-5);
-    display: flex; flex-direction: column; gap: var(--space-2);
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .cp-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
-  .cp-stat-icon {
-    width: 36px; height: 36px; border-radius: var(--radius);
-    background: color-mix(in srgb, var(--c) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--c) 25%, transparent);
+  /* ── Drive header ──────────────────────── */
+  .cp-drive-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-8); }
+  .cp-drive-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  .cp-drive-view-btns { display: flex; gap: 4px; }
+  .cp-drive-view-btn {
+    width: 32px; height: 32px; border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
-    color: var(--c);
+    background: none; border: 1px solid #e0e0e0;
+    color: var(--text-muted); cursor: pointer;
+    transition: background 0.15s, color 0.15s;
   }
-  .cp-stat-val { font-size: 1.75rem; font-weight: 900; color: var(--text); letter-spacing: -0.03em; }
-  .cp-stat-label { font-size: 0.8125rem; color: var(--text-secondary); }
+  .cp-drive-view-btn:hover { background: #f0f0f0; color: var(--text); }
 
-  /* ── Dashboard grid ──────────────────────── */
-  .cp-dash-grid { display: grid; grid-template-columns: 1fr 320px; gap: var(--space-5); }
-  @media (max-width: 900px) { .cp-dash-grid { grid-template-columns: 1fr; } }
+  /* ── Section label ──────────────────────── */
+  .cp-section-label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--text-muted);
+    margin-bottom: var(--space-4);
+  }
 
-  /* ── Panels ──────────────────────────────── */
+  /* ── Quick Access ───────────────────────── */
+  .cp-quick-access { margin-bottom: var(--space-8); }
+  .cp-qa-row { display: flex; gap: var(--space-3); overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .cp-qa-row::-webkit-scrollbar { display: none; }
+  .cp-qa-card {
+    min-width: 190px; flex-shrink: 0;
+    background: #ffffff; border: 1px solid #e0e0e0;
+    border-radius: var(--radius-lg); padding: var(--space-4);
+    display: flex; flex-direction: column; gap: var(--space-2);
+    text-align: left; cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .cp-qa-card:hover { border-color: rgba(212,76,67,0.4); box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+  .cp-qa-icon {
+    width: 40px; height: 40px; border-radius: var(--radius);
+    background: color-mix(in srgb, var(--c) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 20%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--c); margin-bottom: var(--space-1);
+  }
+  .cp-qa-label { font-size: 0.9rem; font-weight: 700; color: var(--text); }
+  .cp-qa-sub { font-size: 0.75rem; color: var(--text-muted); }
+
+  /* ── Files table ─────────────────────────── */
+  .cp-files-table { background: #ffffff; border: 1px solid #e0e0e0; border-radius: var(--radius-lg); overflow: hidden; }
+  .cp-files-head {
+    display: grid; grid-template-columns: 1fr 90px 150px 130px 50px;
+    padding: 10px 16px; background: #fafafa;
+    font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-muted);
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .cp-files-row {
+    display: grid; grid-template-columns: 1fr 90px 150px 130px 50px;
+    align-items: center; padding: 12px 16px;
+    width: 100%; text-align: left; background: none; border: none; cursor: pointer;
+    border-bottom: 1px solid #f5f5f5; transition: background 0.12s;
+  }
+  .cp-files-row:last-child { border-bottom: none; }
+  .cp-files-row:hover { background: #f7f7f7; }
+  .cp-files-name { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; color: var(--text); min-width: 0; }
+  .cp-files-name span:last-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cp-files-icon { width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .cp-files-icon--order { background: rgba(212,76,67,0.1); color: var(--brand); }
+  .cp-files-icon--invoice { background: rgba(245,158,11,0.1); color: #f59e0b; }
+  .cp-files-chip { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 999px; }
+  .cp-files-chip--order { background: rgba(212,76,67,0.08); color: var(--brand); border: 1px solid rgba(212,76,67,0.2); }
+  .cp-files-chip--invoice { background: rgba(245,158,11,0.08); color: #d97706; border: 1px solid rgba(245,158,11,0.2); }
+  .cp-files-date { font-size: 0.8125rem; color: var(--text-muted); }
+  .cp-files-action { display: flex; align-items: center; justify-content: flex-end; color: var(--text-muted); }
+  .cp-files-pay {
+    font-size: 0.75rem; font-weight: 700; color: var(--brand);
+    padding: 3px 10px; border-radius: 999px;
+    background: rgba(212,76,67,0.08); border: 1px solid rgba(212,76,67,0.2);
+    text-decoration: none; white-space: nowrap; transition: background 0.15s;
+  }
+  .cp-files-pay:hover { background: rgba(212,76,67,0.16); }
+  .cp-files-empty {
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-3);
+    padding: var(--space-16) var(--space-8); text-align: center; color: var(--text-muted);
+    background: #ffffff; border: 1px solid #e0e0e0; border-radius: var(--radius-lg);
+  }
+  .cp-files-empty p { font-size: 1rem; font-weight: 600; color: var(--text); }
+  .cp-files-empty span { font-size: 0.875rem; color: var(--text-secondary); }
+
+  /* ── Panels ────────────────────────────── */
   .cp-panel {
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg); padding: var(--space-6);
   }
   .cp-panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-5); }
@@ -1051,25 +1197,25 @@ const cpStyles = `
     display: flex; flex-direction: column; align-items: center;
     gap: var(--space-4); padding: var(--space-16) var(--space-8);
     text-align: center; color: var(--text-muted);
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg);
   }
   .cp-panel-empty-lg h3 { font-size: 1.2rem; font-weight: 700; color: var(--text); }
   .cp-panel-empty-lg p { font-size: 0.9rem; color: var(--text-secondary); max-width: 380px; line-height: 1.65; }
 
-  /* ── Recent order ────────────────────────── */
+  /* ── Recent order ─────────────────────────── */
   .cp-recent-order { display: flex; flex-direction: column; gap: var(--space-3); }
   .cp-recent-order-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
   .cp-recent-type { font-size: 1rem; font-weight: 700; color: var(--text); text-transform: capitalize; margin-bottom: 3px; }
   .cp-recent-date { font-size: 0.78rem; color: var(--text-muted); }
   .cp-recent-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
-  /* ── Quick actions ───────────────────────── */
+  /* ── Quick actions ────────────────────────── */
   .cp-quick-actions { display: flex; flex-direction: column; gap: var(--space-2); }
   .cp-quick-btn {
     display: flex; align-items: center; gap: var(--space-3);
     padding: var(--space-4); border-radius: var(--radius-lg);
-    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     cursor: pointer; text-align: left; width: 100%;
     transition: border-color 0.2s, background 0.2s;
     text-decoration: none; color: inherit;
@@ -1096,9 +1242,9 @@ const cpStyles = `
   .cp-status-pill-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sc); flex-shrink: 0; }
 
   /* ── Tags ────────────────────────────────── */
-  .cp-tag { font-size: 0.7rem; padding: 2px 7px; border-radius: 999px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: var(--text-secondary); text-transform: capitalize; }
+  .cp-tag { font-size: 0.7rem; padding: 2px 7px; border-radius: 999px; background: #f7f7f7; border: 1px solid #e0e0e0; color: var(--text-secondary); text-transform: capitalize; }
 
-  /* ── Orders layout ───────────────────────── */
+  /* ── Orders layout ────────────────────────── */
   .cp-orders-layout { display: grid; grid-template-columns: 300px 1fr; gap: var(--space-5); align-items: start; }
   @media (max-width: 800px) { .cp-orders-layout { grid-template-columns: 1fr; } }
 
@@ -1106,20 +1252,20 @@ const cpStyles = `
   .cp-order-card {
     display: flex; flex-direction: column; gap: var(--space-2);
     padding: var(--space-4); text-align: left; width: 100%;
-    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg); cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .cp-order-card:hover { border-color: rgba(212,76,67,0.35); }
-  .cp-order-card.active { border-color: var(--brand); background: rgba(212,76,67,0.07); }
+  .cp-order-card:hover { border-color: rgba(212,76,67,0.35); box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+  .cp-order-card.active { border-color: var(--brand); background: rgba(212,76,67,0.04); }
   .cp-order-card-top { display: flex; justify-content: space-between; align-items: baseline; }
   .cp-order-card-type { font-size: 0.9375rem; font-weight: 700; color: var(--text); text-transform: capitalize; }
   .cp-order-card-time { font-size: 0.72rem; color: var(--text-muted); }
   .cp-order-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 
-  /* ── Order / Invoice detail ──────────────── */
+  /* ── Order / Invoice detail ──────────────────── */
   .cp-order-detail {
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg); padding: var(--space-6);
     position: sticky; top: var(--space-6);
     display: flex; flex-direction: column; gap: var(--space-5);
@@ -1136,12 +1282,12 @@ const cpStyles = `
   .cp-tl-left { display: flex; flex-direction: column; align-items: center; }
   .cp-tl-dot {
     width: 20px; height: 20px; border-radius: 50%;
-    border: 2px solid var(--border-light); background: var(--bg-card);
+    border: 2px solid #e0e0e0; background: #ffffff;
     display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.25s;
   }
   .cp-tl-step.done .cp-tl-dot { background: var(--sc,var(--brand)); border-color: var(--sc,var(--brand)); }
   .cp-tl-step.active .cp-tl-dot { border-color: var(--sc,var(--brand)); background: color-mix(in srgb,var(--sc,var(--brand)) 15%,transparent); box-shadow: 0 0 0 3px color-mix(in srgb,var(--sc,var(--brand)) 15%,transparent); }
-  .cp-tl-line { width: 2px; flex: 1; min-height: 14px; background: var(--border); margin: 3px 0; }
+  .cp-tl-line { width: 2px; flex: 1; min-height: 14px; background: #e0e0e0; margin: 3px 0; }
   .cp-tl-step.done .cp-tl-line { background: var(--sc,var(--brand)); }
   .cp-tl-body { padding: 1px 0 12px; }
   .cp-tl-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
@@ -1149,15 +1295,15 @@ const cpStyles = `
   .cp-tl-step.done .cp-tl-label { color: var(--text-muted); }
   .cp-tl-desc { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; margin-top: 3px; }
 
-  /* ── Spec grid ───────────────────────────── */
+  /* ── Spec grid ────────────────────────────── */
   .cp-spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
   @media (max-width: 500px) { .cp-spec-grid { grid-template-columns: 1fr; } }
-  .cp-spec-pair { background: var(--glass-bg); border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
+  .cp-spec-pair { background: #f7f7f7; border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
   .cp-spec-key { display: block; font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
   .cp-spec-val { font-size: 0.875rem; font-weight: 600; color: var(--text); text-transform: capitalize; }
   .cp-notes-text { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.65; white-space: pre-wrap; }
 
-  /* ── Invoice specifics ───────────────────── */
+  /* ── Invoice specifics ──────────────────────── */
   .cp-inv-desc { font-size: 0.8125rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cp-inv-amount { font-size: 1.125rem; font-weight: 800; color: var(--text); }
   .cp-inv-hero {
@@ -1177,7 +1323,7 @@ const cpStyles = `
 
   /* ── Help box ────────────────────────────── */
   .cp-help-box {
-    background: rgba(212,76,67,0.06); border: 1px solid rgba(212,76,67,0.18);
+    background: #fff5f5; border: 1px solid rgba(212,76,67,0.18);
     border-radius: var(--radius-lg); padding: var(--space-5);
     display: flex; align-items: center; justify-content: space-between;
     gap: var(--space-4); flex-wrap: wrap;
@@ -1189,17 +1335,17 @@ const cpStyles = `
   .cp-inv-pay-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; padding: var(--space-4);
-    background: linear-gradient(135deg, rgba(212,76,67,0.5), rgba(168,58,50,0.45));
-    border: 1px solid var(--glass-border-brand);
+    background: var(--brand);
+    border: none;
     border-radius: var(--radius-lg);
     color: #fff; font-size: 1rem; font-weight: 700;
     text-decoration: none;
-    box-shadow: 0 4px 24px rgba(212,76,67,0.2);
+    box-shadow: 0 4px 16px rgba(212,76,67,0.25);
     transition: background 0.2s, transform 0.2s;
   }
-  .cp-inv-pay-btn:hover { background: linear-gradient(135deg, rgba(212,76,67,0.65), rgba(168,58,50,0.55)); transform: translateY(-1px); }
+  .cp-inv-pay-btn:hover { background: #c0392b; transform: translateY(-1px); }
 
-  /* ── Auth ────────────────────────────────── */
+  /* ── Auth ─────────────────────────────────────── */
   .cp-auth-wrap {
     min-height: 100vh; background: var(--bg);
     display: flex; align-items: center; justify-content: center;
@@ -1208,29 +1354,29 @@ const cpStyles = `
   }
   .cp-auth-card {
     width: 100%; max-width: 420px;
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg); padding: var(--space-10) var(--space-8);
-    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.08);
   }
   .cp-auth-logo { display: flex; justify-content: center; margin-bottom: var(--space-6); }
   .cp-auth-title { font-size: 1.5rem; font-weight: 800; color: var(--text); text-align: center; margin-bottom: var(--space-2); }
   .cp-auth-sub { font-size: 0.875rem; color: var(--text-secondary); text-align: center; line-height: 1.6; margin-bottom: var(--space-6); }
   .cp-auth-notice {
     display: flex; align-items: flex-start; gap: 8px;
-    background: rgba(212,76,67,0.08); border: 1px solid rgba(212,76,67,0.2);
+    background: #fff8f0; border: 1px solid rgba(212,76,67,0.2);
     border-radius: var(--radius); padding: var(--space-3) var(--space-4);
     font-size: 0.8125rem; line-height: 1.5; margin-bottom: var(--space-4);
-    color: rgba(240,180,100,0.9);
+    color: #7a4100;
   }
-  .cp-auth-notice strong { color: rgba(240,200,100,1); }
+  .cp-auth-notice strong { color: #5a2f00; }
   .cp-auth-form { display: flex; flex-direction: column; gap: var(--space-4); }
   .cp-field { display: flex; flex-direction: column; gap: var(--space-2); }
   .cp-label { font-size: 0.875rem; font-weight: 600; color: var(--text); }
   .cp-label-opt { font-size: 0.75rem; font-weight: 400; color: var(--text-muted); }
   .cp-input {
     padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius); border: 1px solid var(--border-light);
-    background: var(--glass-bg); color: var(--text);
+    border-radius: var(--radius); border: 1px solid #e0e0e0;
+    background: #ffffff; color: var(--text);
     font-size: 0.9375rem; font-family: inherit; outline: none;
     width: 100%; transition: border-color 0.2s, box-shadow 0.2s;
   }
@@ -1245,34 +1391,34 @@ const cpStyles = `
   @keyframes cpShake { 0%,100%{transform:translateX(0)} 15%,55%{transform:translateX(-6px)} 35%,75%{transform:translateX(6px)} }
   .cp-shake { animation: cpShake 0.5s ease; }
 
-  /* ── Calendly modal ──────────────────────── */
+  /* ── Calendly modal ─────────────────────────── */
   .cp-modal-overlay {
     position: fixed; inset: 0; z-index: 300;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    background: rgba(0,0,0,0.45);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: flex; align-items: center; justify-content: center;
     padding: var(--space-4); animation: cpFadeIn 0.2s ease;
   }
   @keyframes cpFadeIn { from { opacity: 0; } to { opacity: 1; } }
   .cp-modal {
-    background: #111; border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg); width: 100%; max-width: 780px;
-    overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    overflow: hidden; box-shadow: 0 16px 60px rgba(0,0,0,0.15);
     animation: cpSlideUp 0.25s var(--ease);
   }
   @keyframes cpSlideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   .cp-modal-header {
     display: flex; align-items: center; justify-content: space-between;
-    padding: var(--space-4) var(--space-6); border-bottom: 1px solid var(--glass-border);
+    padding: var(--space-4) var(--space-6); border-bottom: 1px solid #e0e0e0;
   }
   .cp-modal-title { font-size: 1rem; font-weight: 700; color: var(--text); }
   .cp-modal-close {
     width: 32px; height: 32px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+    background: #f7f7f7; border: 1px solid #e0e0e0;
     color: var(--text-secondary); cursor: pointer; transition: background 0.2s, color 0.2s;
   }
-  .cp-modal-close:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+  .cp-modal-close:hover { background: #eeeeee; color: var(--text); }
 
   /* ── Mobile back button (desktop: hidden) ── */
   .cp-mobile-back-btn { display: none; }
@@ -1283,7 +1429,7 @@ const cpStyles = `
   /* ── Bottom nav (desktop: hidden) ────────── */
   .cp-bottom-nav { display: none; }
 
-  /* ── Mobile layout ────────────────────────── */
+  /* ── Mobile layout ──────────────────────────── */
   @media (max-width: 700px) {
     /* Portal becomes a column so topbar sits above */
     .cp-portal { flex-direction: column; }
@@ -1296,9 +1442,8 @@ const cpStyles = `
       display: flex; align-items: center; justify-content: space-between;
       padding: 10px var(--space-4);
       padding-top: calc(10px + env(safe-area-inset-top));
-      background: rgba(10,10,10,0.97);
-      border-bottom: 1px solid var(--glass-border);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      background: #ffffff;
+      border-bottom: 1px solid #e0e0e0;
       position: sticky; top: 0; z-index: 50;
       flex-shrink: 0;
     }
@@ -1318,9 +1463,8 @@ const cpStyles = `
       position: fixed; bottom: 0; left: 0; right: 0;
       height: calc(60px + env(safe-area-inset-bottom));
       padding-bottom: env(safe-area-inset-bottom);
-      background: rgba(10,10,10,0.97);
-      border-top: 1px solid var(--glass-border);
-      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      background: #ffffff;
+      border-top: 1px solid #e0e0e0;
       z-index: 100;
     }
     .cp-bottom-nav-item {
@@ -1407,11 +1551,11 @@ const cpStyles = `
   .cp-meeting-card {
     display: flex; align-items: flex-start; gap: var(--space-4);
     padding: var(--space-5);
-    background: var(--glass-bg-strong); border: 1px solid var(--glass-border);
+    background: #ffffff; border: 1px solid #e0e0e0;
     border-radius: var(--radius-lg);
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
   }
-  .cp-meeting-card:hover { border-color: rgba(52,211,153,0.3); }
+  .cp-meeting-card:hover { border-color: #34d399; box-shadow: 0 2px 8px rgba(52,211,153,0.08); }
   .cp-meeting-date-col {
     flex-shrink: 0; width: 46px; text-align: center;
     background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2);
@@ -1438,7 +1582,7 @@ const cpStyles = `
   }
   .cp-meeting-cancel-btn:hover { background: rgba(248,113,113,0.1); }
 
-  /* ── Meetings loading ────────────────────── */
+  /* ── Meetings loading ──────────────────────── */
   .cp-meetings-loading {
     display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
     padding: var(--space-16) var(--space-8); color: var(--text-muted);
@@ -1446,19 +1590,19 @@ const cpStyles = `
   .cp-meetings-loading p { font-size: 0.9rem; }
   .cp-meetings-spinner {
     width: 28px; height: 28px; border-radius: 50%;
-    border: 3px solid rgba(255,255,255,0.08);
+    border: 3px solid #e0e0e0;
     border-top-color: #34d399;
     animation: cp-spin 0.7s linear infinite;
   }
   @keyframes cp-spin { to { transform: rotate(360deg); } }
 
-  /* ── Icon button ─────────────────────────── */
+  /* ── Icon button ───────────────────────────── */
   .cp-icon-btn {
     width: 36px; height: 36px; flex-shrink: 0; border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
-    background: var(--glass-bg); border: 1px solid var(--glass-border);
-    color: var(--text-muted); cursor: pointer; transition: color 0.2s, border-color 0.2s;
+    background: #f7f7f7; border: 1px solid #e0e0e0;
+    color: var(--text-muted); cursor: pointer; transition: color 0.2s, background 0.2s, border-color 0.2s;
   }
-  .cp-icon-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+  .cp-icon-btn:hover { color: var(--text); background: #eeeeee; border-color: #d0d0d0; }
   .cp-icon-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 `;
