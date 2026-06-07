@@ -11,6 +11,8 @@ import Pricing from './pages/Pricing';
 import Prints from './pages/Prints';
 import PrintsAdmin from './pages/PrintsAdmin';
 import ClientPortal from './pages/ClientPortal';
+import IntakeForm from './pages/IntakeForm';
+import Start from './pages/Start';
 
 function LoadingScreen({ done }) {
   return (
@@ -92,6 +94,7 @@ export default function App() {
   if (location.pathname === '/admin')  return <PrintsAdmin />;
   if (location.pathname === '/prints') return <Prints />;
   if (location.pathname === '/portal') return <ClientPortal />;
+  if (location.pathname.startsWith('/intake')) return <IntakeForm />;
 
   return (
     <>
@@ -109,6 +112,7 @@ export default function App() {
           <Route path="/prints"      element={<Prints />} />
           <Route path="/admin"       element={<PrintsAdmin />} />
           <Route path="/portal"      element={<ClientPortal />} />
+          <Route path="/start"       element={<Start />} />
         </Routes>
       </main>
       <Footer />
