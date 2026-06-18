@@ -9,6 +9,7 @@ import {
   IconBriefcase,
   IconPhoto,
   IconPhone,
+  IconShoppingBag,
 } from '@tabler/icons-react';
 
 export default function Navbar() {
@@ -28,6 +29,7 @@ export default function Navbar() {
     { to: '/',         label: 'Home',     icon: IconHome },
     { to: '/services', label: 'Services', icon: IconBriefcase },
     { to: '/showcase', label: 'Work',     icon: IconPhoto },
+    { to: '/prints',   label: 'Shop',     icon: IconShoppingBag },
     { to: '/book',     label: 'Contact',  icon: IconPhone },
   ];
 
