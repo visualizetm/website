@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import Wordmark from './components/Wordmark';
 import Home from './pages/Home';
 import Services from './pages/Services';
 import Showcase from './pages/Showcase';
@@ -18,7 +19,7 @@ function LoadingScreen({ done }) {
   return (
     <div className={`app-loader ${done ? 'app-loader--done' : ''}`} aria-hidden="true">
       <div className="app-loader-inner">
-        <img src="/VisualizeWordmark.png" alt="" className="app-loader-logo" />
+        <span className="app-loader-logo"><Wordmark size={26} /></span>
         <div className="app-loader-bar">
           <div className="app-loader-fill" />
         </div>
@@ -26,7 +27,7 @@ function LoadingScreen({ done }) {
       <style>{`
         .app-loader {
           position: fixed; inset: 0; z-index: 9999;
-          background: #ffffff;
+          background: var(--bg-deep, #080808);
           display: flex; align-items: center; justify-content: center;
           transition: opacity 0.5s ease, visibility 0.5s ease;
         }
@@ -39,7 +40,7 @@ function LoadingScreen({ done }) {
           display: flex; flex-direction: column; align-items: center; gap: 28px;
         }
         .app-loader-logo {
-          height: 32px; width: auto;
+          display: inline-flex;
           animation: loaderPulse 1.4s ease-in-out infinite;
         }
         @keyframes loaderPulse {
@@ -48,7 +49,7 @@ function LoadingScreen({ done }) {
         }
         .app-loader-bar {
           width: 120px; height: 2px;
-          background: rgba(0,0,0,0.08);
+          background: rgba(255,255,255,0.1);
           border-radius: 999px; overflow: hidden;
         }
         .app-loader-fill {

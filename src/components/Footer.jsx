@@ -1,5 +1,20 @@
 import { Link } from 'react-router-dom';
-import { IconBrandInstagram, IconPhone, IconMail, IconArrowRight } from '@tabler/icons-react';
+import Phone from '@untitled-ui/icons-react/build/esm/Phone';
+import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import Wordmark from './Wordmark';
+
+// Untitled UI's free line set has no social brand marks — this glyph matches
+// its 24-grid, stroke-2, currentColor conventions so it reads as one system.
+function InstagramGlyph({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="5" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" />
+      <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
 
 export default function Footer() {
   return (
@@ -8,16 +23,16 @@ export default function Footer() {
         <div className="footer-top">
           <div className="footer-brand">
             <Link to="/" className="footer-logo">
-              <img src="/VisualizeWordmark.png" alt="Visualize" />
+              <Wordmark size={22} />
             </Link>
             <p className="footer-tagline">Brand Development & Website Design</p>
             <div className="footer-contact">
               <a href="tel:+13024687077" className="footer-contact-item">
-                <IconPhone size={14} stroke={1.8} />
+                <Phone width={14} height={14} />
                 (302) 468-7077
               </a>
               <a href="mailto:contactvisualize@gmail.com" className="footer-contact-item">
-                <IconMail size={14} stroke={1.8} />
+                <Mail01 width={14} height={14} />
                 contactvisualize@gmail.com
               </a>
             </div>
@@ -37,7 +52,7 @@ export default function Footer() {
             <div className="footer-col">
               <p className="footer-col-label">Products</p>
               <nav className="footer-col-links">
-                <Link to="/prints">Custom Prints</Link>
+                <a href="/prints" target="_blank" rel="noopener noreferrer">Custom Prints</a>
               </nav>
             </div>
           </div>
@@ -46,7 +61,7 @@ export default function Footer() {
             <p className="footer-cta-label">Ready to start?</p>
             <a href="/book" className="footer-cta-btn">
               Book a Meeting
-              <IconArrowRight size={14} stroke={2} />
+              <ArrowRight width={14} height={14} />
             </a>
             <a
               href="https://www.instagram.com/visualizetm/"
@@ -54,22 +69,21 @@ export default function Footer() {
               rel="noopener noreferrer"
               className="footer-social"
             >
-              <IconBrandInstagram size={16} stroke={1.8} />
+              <InstagramGlyph size={16} />
               @visualizetm
             </a>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <p className="footer-copy">&copy; {new Date().getFullYear()} Visualize Studio. All rights reserved.</p>
+          <p className="footer-copy">&copy; {new Date().getFullYear()} Visualize. All rights reserved.</p>
+          <p className="footer-build">{typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'}</p>
         </div>
       </div>
       <style>{`
         .footer {
-          background: rgba(248,248,248,0.97);
-          backdrop-filter: blur(var(--glass-blur));
-          -webkit-backdrop-filter: blur(var(--glass-blur));
-          border-top: 1px solid var(--glass-border);
+          background: var(--bg-deep);
+          border-top: 1px solid var(--border);
           padding: var(--space-16) 0 var(--space-8);
         }
         .footer-top {
@@ -78,7 +92,7 @@ export default function Footer() {
           gap: var(--space-12);
           margin-bottom: var(--space-12);
           padding-bottom: var(--space-12);
-          border-bottom: 1px solid var(--glass-border);
+          border-bottom: 1px solid var(--border);
         }
         @media (max-width: 900px) { .footer-top { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 600px) { .footer-top { grid-template-columns: 1fr; gap: var(--space-8); } }
@@ -87,7 +101,6 @@ export default function Footer() {
           display: inline-flex; align-items: center;
           margin-bottom: var(--space-3);
         }
-        .footer-logo img { height: 20px; width: auto; }
         .footer-tagline { font-size: 0.875rem; color: var(--text-muted); margin-bottom: var(--space-4); }
         .footer-contact { display: flex; flex-direction: column; gap: var(--space-2); }
         .footer-contact-item {
@@ -133,6 +146,10 @@ export default function Footer() {
           flex-wrap: wrap;
         }
         .footer-copy { font-size: 0.8125rem; color: var(--text-muted); }
+        .footer-build {
+          font-size: 0.6875rem; color: var(--text-faint);
+          font-family: monospace; letter-spacing: 0.04em;
+        }
       `}</style>
     </footer>
   );

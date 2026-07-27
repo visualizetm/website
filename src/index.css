@@ -6,20 +6,27 @@
 :root {
   /* Brand */
   --brand: #d44c43;
+  --brand-deep: #cc2222;
   --brand-dark: #a83a32;
   --brand-light: #e66b63;
 
-  /* Neutrals — light theme */
-  --bg: #ffffff;
-  --bg-elevated: #f7f7f7;
-  --bg-card: #f2f2f2;
-  --surface: #ebebeb;
-  --border: #e0e0e0;
-  --border-light: #d0d0d0;
+  /* Neutrals — dark brand system */
+  --bg: #0a0a0a;
+  --bg-deep: #080808;
+  --bg-elevated: #111111;
+  --bg-card: #121212;
+  --surface: #1a1a1a;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.14);
 
-  --text: #1b1b1c;
-  --text-secondary: #5a5a5b;
+  --text: #fafafa;
+  --text-secondary: #cccccc;
   --text-muted: #8a8a8a;
+  --text-faint: #555555;
+
+  /* Type */
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Barlow Condensed', 'Inter', sans-serif;
 
   /* Spacing (8px base) */
   --space-1: 0.25rem;   /* 4px */
@@ -41,11 +48,11 @@
   --radius: 8px;
   --radius-lg: 12px;
 
-  /* Glass — light */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  /* Glass — dark */
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-bg-strong: rgba(255, 255, 255, 0.07);
   --glass-bg-brand: rgba(212, 76, 67, 0.12);
-  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.08);
   --glass-border-brand: rgba(212, 76, 67, 0.4);
   --glass-blur: 14px;
   --glass-blur-strong: 24px;
@@ -69,7 +76,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.6;
   color: var(--text);
@@ -175,7 +182,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-secondary:hover {
   background: var(--glass-bg-strong);
-  border-color: rgba(0, 0, 0, 0.15);
+  border-color: rgba(255, 255, 255, 0.2);
   color: var(--text);
 }
 
@@ -215,7 +222,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .section-elevated .btn-secondary:hover {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--text);
 }
 
@@ -237,7 +244,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .section-light .btn-secondary:hover {
-  border-color: rgba(0, 0, 0, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
   color: var(--text);
 }
 
@@ -284,6 +291,44 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
 }
+
+/* ── Brand utilities (2.0) ─────────────────────────────────────────── */
+
+/* Display headers — heavy condensed, all caps. Never script/italic. */
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.005em;
+  line-height: 0.95;
+}
+
+/* Wordmark — always "Visualize." with the red period */
+.wordmark {
+  font-family: var(--font-body);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--text);
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+.wordmark-dot { color: var(--brand); }
+
+/* Signature texture — very faint red grid overlay */
+.grid-texture { position: relative; }
+.grid-texture::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(204, 34, 34, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(204, 34, 34, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+.grid-texture > * { position: relative; }
 
 /* ── Under Construction Page ────────────────────────────────────────── */
 @keyframes ucTwinkle {

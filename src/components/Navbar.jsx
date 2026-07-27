@@ -1,16 +1,15 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  IconMenu2,
-  IconX,
-  IconCalendar,
-  IconChevronRight,
-  IconHome,
-  IconBriefcase,
-  IconPhoto,
-  IconPhone,
-  IconShoppingBag,
-} from '@tabler/icons-react';
+import Menu01 from '@untitled-ui/icons-react/build/esm/Menu01';
+import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
+import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
+import Home01 from '@untitled-ui/icons-react/build/esm/Home01';
+import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
+import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
+import ShoppingBag01 from '@untitled-ui/icons-react/build/esm/ShoppingBag01';
+import Phone from '@untitled-ui/icons-react/build/esm/Phone';
+import Wordmark from './Wordmark';
 
 export default function Navbar() {
   const [open, setOpen]         = useState(false);
@@ -26,11 +25,11 @@ export default function Navbar() {
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
   const links = [
-    { to: '/',         label: 'Home',     icon: IconHome },
-    { to: '/services', label: 'Services', icon: IconBriefcase },
-    { to: '/showcase', label: 'Work',     icon: IconPhoto },
-    { to: '/prints',   label: 'Shop',     icon: IconShoppingBag },
-    { to: '/book',     label: 'Contact',  icon: IconPhone },
+    { to: '/',         label: 'Home',     icon: Home01 },
+    { to: '/services', label: 'Services', icon: Briefcase01 },
+    { to: '/showcase', label: 'Work',     icon: Image01 },
+    { to: '/prints',   label: 'Shop',     icon: ShoppingBag01, newTab: true },
+    { to: '/book',     label: 'Contact',  icon: Phone },
   ];
 
   const isActive = (to) =>
@@ -42,20 +41,31 @@ export default function Navbar() {
         <div className="navbar-pill">
           {/* Logo */}
           <Link to="/" className="navbar-logo" onClick={() => setOpen(false)}>
-            <img src="/VisualizeWordmark.png" alt="Visualize Studio" />
+            <Wordmark size={17} />
           </Link>
 
           {/* Desktop nav links */}
           <nav className="navbar-nav" aria-label="Main navigation">
             <ul>
-              {links.map(({ to, label }) => (
+              {links.map(({ to, label, newTab }) => (
                 <li key={to}>
-                  <Link
-                    to={to}
-                    className={`navbar-link ${isActive(to) ? 'navbar-link--active' : ''}`}
-                  >
-                    {label}
-                  </Link>
+                  {newTab ? (
+                    <a
+                      href={to}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="navbar-link"
+                    >
+                      {label}
+                    </a>
+                  ) : (
+                    <Link
+                      to={to}
+                      className={`navbar-link ${isActive(to) ? 'navbar-link--active' : ''}`}
+                    >
+                      {label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -64,7 +74,7 @@ export default function Navbar() {
           {/* Desktop action buttons */}
           <div className="navbar-actions">
             <a href="/book" className="btn btn-primary navbar-cta">
-              <IconCalendar size={15} stroke={1.8} />
+              <Calendar width={15} height={15} />
               Book a Consultation
             </a>
           </div>
@@ -77,7 +87,7 @@ export default function Navbar() {
             aria-label={open ? 'Close menu' : 'Open menu'}
             onClick={() => setOpen(o => !o)}
           >
-            {open ? <IconX size={20} stroke={2} /> : <IconMenu2 size={20} stroke={2} />}
+            {open ? <XClose width={20} height={20} /> : <Menu01 width={20} height={20} />}
           </button>
         </div>
       </header>
@@ -95,35 +105,54 @@ export default function Navbar() {
         aria-label="Mobile navigation"
       >
         <div className="navbar-drawer-header">
-          <img src="/VisualizeWordmark.png" alt="Visualize Studio" className="navbar-drawer-logo" />
+          <Wordmark size={20} />
           <button
             type="button"
             className="navbar-drawer-close"
             onClick={() => setOpen(false)}
             aria-label="Close menu"
           >
-            <IconX size={16} stroke={2} />
+            <XClose width={16} height={16} />
           </button>
         </div>
 
         <ul className="navbar-drawer-links">
-          {links.map(({ to, label, icon: Icon }) => (
-            <li key={to}>
-              <Link
-                to={to}
-                className={`navbar-drawer-link ${isActive(to) ? 'navbar-drawer-link--active' : ''}`}
-                onClick={() => setOpen(false)}
-              >
+          {links.map(({ to, label, icon: IconEl, newTab }) => {
+            const inner = (
+              <>
                 <span className="navbar-drawer-link-left">
                   <span className="navbar-drawer-link-icon">
-                    <Icon size={17} stroke={1.8} />
+                    <IconEl width={17} height={17} />
                   </span>
                   {label}
                 </span>
-                <IconChevronRight size={15} stroke={1.8} className="navbar-drawer-arrow" />
-              </Link>
-            </li>
-          ))}
+                <ChevronRight width={15} height={15} className="navbar-drawer-arrow" />
+              </>
+            );
+            return (
+              <li key={to}>
+                {newTab ? (
+                  <a
+                    href={to}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="navbar-drawer-link"
+                    onClick={() => setOpen(false)}
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <Link
+                    to={to}
+                    className={`navbar-drawer-link ${isActive(to) ? 'navbar-drawer-link--active' : ''}`}
+                    onClick={() => setOpen(false)}
+                  >
+                    {inner}
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
 
         <a
@@ -131,7 +160,7 @@ export default function Navbar() {
           className="btn btn-primary navbar-drawer-cta"
           onClick={() => setOpen(false)}
         >
-          <IconCalendar size={16} stroke={1.8} />
+          <Calendar width={16} height={16} />
           Book a Consultation
         </a>
 
@@ -155,16 +184,16 @@ export default function Navbar() {
           max-width: 1040px; margin: 0 auto;
           display: flex; align-items: center; gap: var(--space-4);
           padding: 0 var(--space-5); height: 52px;
-          background: rgba(255,255,255,0.85);
+          background: rgba(10,10,10,0.78);
           backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-          border: 1px solid rgba(0,0,0,0.1);
+          border: 1px solid var(--border);
           border-radius: 999px;
-          box-shadow: 0 4px 32px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.8) inset;
+          box-shadow: 0 4px 32px rgba(0,0,0,0.45);
           transition: background 0.3s, box-shadow 0.3s;
         }
         .navbar--scrolled .navbar-pill {
-          background: rgba(255,255,255,0.96);
-          box-shadow: 0 8px 40px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.8) inset;
+          background: rgba(8,8,8,0.94);
+          box-shadow: 0 8px 40px rgba(0,0,0,0.6);
         }
         @media (max-width: 768px) {
           .navbar-pill { padding: 0 var(--space-4); gap: var(--space-3); }
@@ -172,8 +201,6 @@ export default function Navbar() {
 
         /* Logo */
         .navbar-logo { display: flex; align-items: center; flex-shrink: 0; }
-        .navbar-logo img { height: 18px; width: auto; display: block; }
-        @media (max-width: 768px) { .navbar-logo img { height: 15px; } }
 
         /* Desktop nav */
         .navbar-nav { flex: 1; }
@@ -183,8 +210,8 @@ export default function Navbar() {
           padding: 6px 11px; border-radius: 999px;
           transition: color 0.2s, background 0.2s; white-space: nowrap;
         }
-        .navbar-link:hover { color: var(--text); background: rgba(0,0,0,0.06); }
-        .navbar-link--active { color: var(--text); background: rgba(0,0,0,0.08); }
+        .navbar-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
+        .navbar-link--active { color: var(--text); background: rgba(255,255,255,0.1); }
 
         /* Action group */
         .navbar-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
@@ -199,17 +226,17 @@ export default function Navbar() {
         .navbar-burger {
           display: none; align-items: center; justify-content: center;
           width: 36px; height: 36px;
-          background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.09);
+          background: rgba(255,255,255,0.06); border: 1px solid var(--border);
           border-radius: 50%; cursor: pointer; flex-shrink: 0;
           color: var(--text-secondary);
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-burger:hover { background: rgba(0,0,0,0.1); color: var(--text); }
+        .navbar-burger:hover { background: rgba(255,255,255,0.12); color: var(--text); }
 
         /* ── Overlay ──────────────────────────────── */
         .navbar-overlay {
           position: fixed; inset: 0; z-index: 210;
-          background: rgba(0,0,0,0.6);
+          background: rgba(0,0,0,0.7);
           backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
           opacity: 0; pointer-events: none;
           transition: opacity 0.3s var(--ease);
@@ -220,31 +247,30 @@ export default function Navbar() {
         .navbar-drawer {
           position: fixed; top: 0; right: 0;
           width: min(340px, 88vw); height: 100dvh;
-          background: rgba(255,255,255,0.98);
+          background: rgba(10,10,10,0.98);
           backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
-          border-left: 1px solid rgba(0,0,0,0.08);
+          border-left: 1px solid var(--border);
           z-index: 220; padding: var(--space-5) var(--space-5);
           display: flex; flex-direction: column; gap: 0;
           transform: translateX(100%);
           transition: transform 0.36s cubic-bezier(0.32,0.72,0,1);
-          box-shadow: -24px 0 64px rgba(0,0,0,0.12);
+          box-shadow: -24px 0 64px rgba(0,0,0,0.55);
         }
         .navbar-drawer.is-open { transform: translateX(0); }
 
         .navbar-drawer-header {
           display: flex; align-items: center; justify-content: space-between;
           padding-bottom: var(--space-6); margin-bottom: var(--space-2);
-          border-bottom: 1px solid rgba(0,0,0,0.08);
+          border-bottom: 1px solid var(--border);
         }
-        .navbar-drawer-logo { height: 22px; width: auto; }
         .navbar-drawer-close {
           width: 32px; height: 32px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(0,0,0,0.07); border: 1px solid rgba(0,0,0,0.09);
+          background: rgba(255,255,255,0.07); border: 1px solid var(--border);
           color: var(--text-secondary); cursor: pointer;
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-drawer-close:hover { background: rgba(0,0,0,0.12); color: var(--text); }
+        .navbar-drawer-close:hover { background: rgba(255,255,255,0.14); color: var(--text); }
 
         .navbar-drawer-links { list-style: none; padding: var(--space-3) 0; flex: 0; }
 
@@ -254,19 +280,19 @@ export default function Navbar() {
           color: var(--text-secondary); font-size: 1rem; font-weight: 500;
           transition: color 0.2s, background 0.2s; text-decoration: none;
         }
-        .navbar-drawer-link:hover { color: var(--text); background: rgba(0,0,0,0.05); }
+        .navbar-drawer-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
         .navbar-drawer-link--active {
-          color: var(--text); background: rgba(212,76,67,0.09);
+          color: var(--text); background: rgba(212,76,67,0.1);
           border-left: 2px solid var(--brand);
         }
         .navbar-drawer-link-left { display: flex; align-items: center; gap: 12px; }
         .navbar-drawer-link-icon {
           width: 32px; height: 32px; border-radius: var(--radius);
-          background: rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.08);
+          background: rgba(255,255,255,0.05); border: 1px solid var(--border);
           display: flex; align-items: center; justify-content: center;
           color: var(--text-muted); flex-shrink: 0;
         }
-.navbar-drawer-arrow { color: var(--text-muted); opacity: 0.4; transition: transform 0.2s, opacity 0.2s; }
+        .navbar-drawer-arrow { color: var(--text-muted); opacity: 0.4; transition: transform 0.2s, opacity 0.2s; }
         .navbar-drawer-link:hover .navbar-drawer-arrow { opacity: 0.7; transform: translateX(3px); }
 
         .navbar-drawer-cta {
