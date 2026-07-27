@@ -10,6 +10,7 @@ import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import ShoppingBag01 from '@untitled-ui/icons-react/build/esm/ShoppingBag01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Wordmark from './Wordmark';
+import ThemeToggle from './ThemeToggle';
 
 export default function Navbar() {
   const [open, setOpen]         = useState(false);
@@ -70,6 +71,9 @@ export default function Navbar() {
               ))}
             </ul>
           </nav>
+
+          {/* Theme switch — visible at all widths */}
+          <ThemeToggle />
 
           {/* Desktop action buttons */}
           <div className="navbar-actions">
@@ -184,16 +188,16 @@ export default function Navbar() {
           max-width: 1040px; margin: 0 auto;
           display: flex; align-items: center; gap: var(--space-4);
           padding: 0 var(--space-5); height: 52px;
-          background: rgba(10,10,10,0.78);
+          background: var(--chrome);
           backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
           border: 1px solid var(--border);
           border-radius: 999px;
-          box-shadow: 0 4px 32px rgba(0,0,0,0.45);
+          box-shadow: var(--shadow-chrome);
           transition: background 0.3s, box-shadow 0.3s;
         }
         .navbar--scrolled .navbar-pill {
-          background: rgba(8,8,8,0.94);
-          box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+          background: var(--chrome-solid);
+          box-shadow: var(--shadow-chrome-strong);
         }
         @media (max-width: 768px) {
           .navbar-pill { padding: 0 var(--space-4); gap: var(--space-3); }
@@ -210,8 +214,8 @@ export default function Navbar() {
           padding: 6px 11px; border-radius: 999px;
           transition: color 0.2s, background 0.2s; white-space: nowrap;
         }
-        .navbar-link:hover { color: var(--text); background: rgba(255,255,255,0.07); }
-        .navbar-link--active { color: var(--text); background: rgba(255,255,255,0.1); }
+        .navbar-link:hover { color: var(--text); background: var(--hover-soft); }
+        .navbar-link--active { color: var(--text); background: var(--hover-strong); }
 
         /* Action group */
         .navbar-actions { display: flex; align-items: center; gap: var(--space-2); flex-shrink: 0; }
@@ -226,12 +230,12 @@ export default function Navbar() {
         .navbar-burger {
           display: none; align-items: center; justify-content: center;
           width: 36px; height: 36px;
-          background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+          background: var(--glass-bg); border: 1px solid var(--border);
           border-radius: 50%; cursor: pointer; flex-shrink: 0;
           color: var(--text-secondary);
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-burger:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+        .navbar-burger:hover { background: var(--hover-strong); color: var(--text); }
 
         /* ── Overlay ──────────────────────────────── */
         .navbar-overlay {
@@ -247,7 +251,7 @@ export default function Navbar() {
         .navbar-drawer {
           position: fixed; top: 0; right: 0;
           width: min(340px, 88vw); height: 100dvh;
-          background: rgba(10,10,10,0.98);
+          background: var(--chrome-solid);
           backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
           border-left: 1px solid var(--border);
           z-index: 220; padding: var(--space-5) var(--space-5);
@@ -266,11 +270,11 @@ export default function Navbar() {
         .navbar-drawer-close {
           width: 32px; height: 32px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.07); border: 1px solid var(--border);
+          background: var(--glass-bg); border: 1px solid var(--border);
           color: var(--text-secondary); cursor: pointer;
           transition: background 0.2s, color 0.2s;
         }
-        .navbar-drawer-close:hover { background: rgba(255,255,255,0.14); color: var(--text); }
+        .navbar-drawer-close:hover { background: var(--hover-strong); color: var(--text); }
 
         .navbar-drawer-links { list-style: none; padding: var(--space-3) 0; flex: 0; }
 
@@ -280,7 +284,7 @@ export default function Navbar() {
           color: var(--text-secondary); font-size: 1rem; font-weight: 500;
           transition: color 0.2s, background 0.2s; text-decoration: none;
         }
-        .navbar-drawer-link:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .navbar-drawer-link:hover { color: var(--text); background: var(--hover-soft); }
         .navbar-drawer-link--active {
           color: var(--text); background: rgba(212,76,67,0.1);
           border-left: 2px solid var(--brand);
@@ -288,7 +292,7 @@ export default function Navbar() {
         .navbar-drawer-link-left { display: flex; align-items: center; gap: 12px; }
         .navbar-drawer-link-icon {
           width: 32px; height: 32px; border-radius: var(--radius);
-          background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+          background: var(--glass-bg); border: 1px solid var(--border);
           display: flex; align-items: center; justify-content: center;
           color: var(--text-muted); flex-shrink: 0;
         }

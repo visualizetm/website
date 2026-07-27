@@ -54,12 +54,51 @@
   --glass-bg-brand: rgba(212, 76, 67, 0.12);
   --glass-border: rgba(255, 255, 255, 0.08);
   --glass-border-brand: rgba(212, 76, 67, 0.4);
+
+  /* Chrome (navbar/drawer surfaces) + hovers */
+  --chrome: rgba(10, 10, 10, 0.78);
+  --chrome-solid: rgba(8, 8, 8, 0.94);
+  --hover-soft: rgba(255, 255, 255, 0.07);
+  --hover-strong: rgba(255, 255, 255, 0.12);
+  --shadow-chrome: 0 4px 32px rgba(0, 0, 0, 0.45);
+  --shadow-chrome-strong: 0 8px 40px rgba(0, 0, 0, 0.6);
+
+  color-scheme: dark;
   --glass-blur: 14px;
   --glass-blur-strong: 24px;
 
   /* Transitions */
   --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --duration: 0.3s;
+}
+
+/* Light theme — user toggle or OS preference (set pre-paint in index.html) */
+:root[data-theme='light'] {
+  --bg: #ffffff;
+  --bg-deep: #f7f7f7;
+  --bg-elevated: #f7f7f7;
+  --bg-card: #f2f2f2;
+  --surface: #ebebeb;
+  --border: rgba(0, 0, 0, 0.09);
+  --border-light: rgba(0, 0, 0, 0.16);
+
+  --text: #1b1b1c;
+  --text-secondary: #4a4a4b;
+  --text-muted: #8a8a8a;
+  --text-faint: #b0b0b0;
+
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-bg-strong: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  --chrome: rgba(255, 255, 255, 0.82);
+  --chrome-solid: rgba(255, 255, 255, 0.96);
+  --hover-soft: rgba(0, 0, 0, 0.05);
+  --hover-strong: rgba(0, 0, 0, 0.09);
+  --shadow-chrome: 0 4px 32px rgba(0, 0, 0, 0.08);
+  --shadow-chrome-strong: 0 8px 40px rgba(0, 0, 0, 0.13);
+
+  color-scheme: light;
 }
 
 *, *::before, *::after {
@@ -315,6 +354,26 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
 }
 .wordmark-dot { color: var(--brand); }
+
+/* Theme toggle button */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+.theme-toggle:hover {
+  background: var(--hover-strong);
+  color: var(--text);
+}
 
 /* Signature texture — very faint red grid overlay */
 .grid-texture { position: relative; }
