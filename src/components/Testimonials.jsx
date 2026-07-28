@@ -1,4 +1,5 @@
-import { IconQuote, IconStar } from '@tabler/icons-react';
+import MessageTextSquare01 from '@untitled-ui/icons-react/build/esm/MessageTextSquare01';
+import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 
 const quotes = [
   { text: 'Clear communication, strong design, and a smooth handoff. Everything felt organized from day one.',         author: 'Client', company: 'Local Business' },
@@ -17,10 +18,10 @@ export default function Testimonials() {
             <blockquote key={i} className="testimonial-card">
               <div className="testimonial-stars">
                 {[...Array(5)].map((_, si) => (
-                  <IconStar key={si} size={13} stroke={0} fill="var(--brand)" />
+                  <Star01 key={si} width={13} height={13} fill="var(--brand)" />
                 ))}
               </div>
-              <IconQuote size={28} stroke={1.5} className="testimonial-quote-icon" />
+              <MessageTextSquare01 width={28} height={28} className="testimonial-quote-icon" />
               <p className="testimonial-text">{q.text}</p>
               <footer className="testimonial-footer">
                 <div className="testimonial-avatar">

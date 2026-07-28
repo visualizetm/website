@@ -1,18 +1,21 @@
-import { IconSearch, IconPencil, IconRefresh, IconRocket } from '@tabler/icons-react';
+import Phone from '@untitled-ui/icons-react/build/esm/Phone';
+import ClipboardCheck from '@untitled-ui/icons-react/build/esm/ClipboardCheck';
+import Pencil01 from '@untitled-ui/icons-react/build/esm/Pencil01';
+import Rocket01 from '@untitled-ui/icons-react/build/esm/Rocket01';
 
 const steps = [
-  { num: '01', title: 'Discovery',         desc: 'I learn your goals, audience, and what your brand or website needs to communicate.', icon: IconSearch },
-  { num: '02', title: 'Design & Build',    desc: 'I design the visuals and build a clean, structured site that matches your brand.',   icon: IconPencil },
-  { num: '03', title: 'Review & Revisions',desc: 'You review the work and I refine the details until it feels right.',                 icon: IconRefresh },
-  { num: '04', title: 'Launch & Handoff',  desc: 'I publish the site and hand over files, access, and next-step guidance.',           icon: IconRocket },
+  { num: '01', title: 'Intro Call', desc: 'A short call to understand your business, your goals, and whether we fit.',           icon: Phone },
+  { num: '02', title: 'Onboarding', desc: 'You fill out the project brief, we align on scope and timeline, and lock the plan.',  icon: ClipboardCheck },
+  { num: '03', title: 'Build',      desc: 'I design and build. You review at set checkpoints and we refine until it is right.',  icon: Pencil01 },
+  { num: '04', title: 'Delivery',   desc: 'Launch day: files, access, and next-step guidance handed over. You own everything.',  icon: Rocket01 },
 ];
 
 export default function Process() {
   return (
     <section className="process section section-elevated">
       <div className="wrap">
-        <h2 className="section-title reveal">My Process</h2>
-        <p className="section-subtitle reveal">A clear process from kickoff to launch.</p>
+        <h2 className="section-title reveal">How It Works</h2>
+        <p className="section-subtitle reveal">The client journey, start to finish — no surprises.</p>
         <div className="process-timeline stagger">
           {steps.map((step, i) => {
             const Icon = step.icon;
@@ -20,7 +23,7 @@ export default function Process() {
               <div key={step.num} className="process-step">
                 <div className="process-step-top">
                   <div className="process-icon">
-                    <Icon size={20} stroke={1.8} />
+                    <Icon width={20} height={20} />
                   </div>
                   <span className="process-num">{step.num}</span>
                 </div>

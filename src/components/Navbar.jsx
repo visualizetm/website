@@ -169,8 +169,8 @@ export default function Navbar() {
         </a>
 
         <p className="navbar-drawer-contact">
-          Call or text{' '}
-          <a href="tel:+13024687077">(302) 468-7077</a>
+          Email{' '}
+          <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a>
         </p>
       </nav>
 

@@ -1,4 +1,5 @@
-import { IconCalendar, IconArrowRight } from '@tabler/icons-react';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 
 export default function CTA() {
   return (
@@ -7,9 +8,9 @@ export default function CTA() {
       <div className="wrap cta-inner">
         <h2 className="cta-title">Ready to Build a Brand and Website You&apos;re Proud Of?</h2>
         <a href="/book" className="btn btn-primary cta-btn">
-          <IconCalendar size={18} stroke={1.8} />
+          <Calendar width={18} height={18} />
           Book a Consultation
-          <IconArrowRight size={16} stroke={1.8} className="cta-arrow" />
+          <ArrowRight width={16} height={16} className="cta-arrow" />
         </a>
       </div>
       <style>{`

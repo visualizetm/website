@@ -507,7 +507,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
       setStep('done');
       onCheckoutDone();
     } catch {
-      setSubmitErr('Something went wrong. Email us at visualizeserviceco@gmail.com.');
+      setSubmitErr('Something went wrong. Email us at contact@visualizeclients.com.');
     } finally {
       setSubmitting(false);
     }
@@ -742,7 +742,7 @@ export default function Prints() {
 
       {/* Footer note */}
       <footer className="ps-foot">
-        <p>No payment is due at checkout — payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Call <a href="tel:+12159082000">(215) 908-2000</a> or email visualizeserviceco@gmail.com</p>
+        <p>No payment is due at checkout — payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a></p>
       </footer>
 
       {/* Customize modal */}

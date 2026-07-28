@@ -1,18 +1,16 @@
 import { useState } from 'react';
-import {
-  IconPenTool,
-  IconLogoMark,
-  IconLayers,
-  IconBrowser,
-  IconLayoutSingle,
-  IconSticker,
-  IconCard,
-  IconMapPin,
-  IconChat,
-  IconPencilRuler,
-  IconRefresh,
-  IconCheckCircle,
-} from '../components/Icons';
+import Brush01 from '@untitled-ui/icons-react/build/esm/Brush01';
+import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
+import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
+import LayersTwo01 from '@untitled-ui/icons-react/build/esm/LayersTwo01';
+import LayoutAlt01 from '@untitled-ui/icons-react/build/esm/LayoutAlt01';
+import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import MessageChatCircle from '@untitled-ui/icons-react/build/esm/MessageChatCircle';
+import Monitor01 from '@untitled-ui/icons-react/build/esm/Monitor01';
+import PenTool01 from '@untitled-ui/icons-react/build/esm/PenTool01';
+import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
+import Ruler from '@untitled-ui/icons-react/build/esm/Ruler';
+import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
 
 const Check = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -21,17 +19,17 @@ const Check = () => (
 );
 
 const serviceIcons = {
-  'Logo Design': IconLogoMark,
-  'Full Brand Identity': IconLayers,
-  'Business Website (5 Pages)': IconBrowser,
-  'Landing Page': IconLayoutSingle,
-  'Sticker Production': IconSticker,
-  'Business Cards': IconCard,
-  'Google Business Profile': IconMapPin,
-  'Bulk Custom Products': IconLayers,
+  'Logo Design': Brush01,
+  'Full Brand Identity': LayersTwo01,
+  'Business Website (5 Pages)': Monitor01,
+  'Landing Page': LayoutAlt01,
+  'Sticker Production': Scissors01,
+  'Business Cards': CreditCard02,
+  'Google Business Profile': MarkerPin01,
+  'Bulk Custom Products': LayersTwo01,
 };
 
-const processIcons = [IconChat, IconPencilRuler, IconRefresh, IconCheckCircle];
+const processIcons = [MessageChatCircle, Ruler, RefreshCw01, CheckCircle];
 
 const catalogCategories = [
   {
@@ -214,7 +212,7 @@ function ServiceCardCollapsible({ service, categoryTitle, categoryId, isExpanded
       <span className="svc-card-pill">{categoryTitle}</span>
       {IconComponent && (
         <div className="svc-card-icon" aria-hidden="true">
-          <IconComponent size={22} />
+          <IconComponent width={22} height={22} />
         </div>
       )}
       <div className="svc-card-head">
@@ -431,7 +429,7 @@ export default function ServicesPage() {
               return (
               <div key={step.title} className="sv-process-step">
                 <div className="sv-process-circle">
-                  {StepIcon ? <StepIcon size={20} /> : <span>{String(i + 1).padStart(2, '0')}</span>}
+                  {StepIcon ? <StepIcon width={20} height={20} /> : <span>{String(i + 1).padStart(2, '0')}</span>}
                 </div>
                 {i < processSteps.length - 1 && <div className="sv-process-line" />}
                 <div className="sv-process-content">

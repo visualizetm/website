@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
-import { IconCalendar, IconPhoto, IconArrowRight } from '@tabler/icons-react';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
+import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import useReveal from '../hooks/useReveal';
 
 function HeroVisual() {
@@ -75,14 +77,14 @@ export default function Hero() {
             I design the visuals and build the digital foundation your business needs to show up professionally.
           </p>
           <div className="hero-cta">
-            <a href="/book" className="btn btn-primary hero-btn-primary">
-              <IconCalendar size={17} stroke={1.8} />
-              Book a Consultation
-            </a>
-            <Link to="/showcase" className="btn btn-secondary hero-btn-secondary">
-              <IconPhoto size={17} stroke={1.8} />
+            <Link to="/start" className="btn btn-primary hero-btn-primary">
+              Start a Project
+              <ArrowRight width={16} height={16} />
+            </Link>
+            <Link to="/work" className="btn btn-secondary hero-btn-secondary">
+              <Image01 width={17} height={17} />
               View My Work
-              <IconArrowRight size={15} stroke={1.8} className="hero-btn-arrow" />
+              <ArrowRight width={15} height={15} className="hero-btn-arrow" />
             </Link>
           </div>
           <div className="hero-stats">

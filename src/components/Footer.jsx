@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Wordmark from './Wordmark';
@@ -27,13 +26,9 @@ export default function Footer() {
             </Link>
             <p className="footer-tagline">Brand Development & Website Design</p>
             <div className="footer-contact">
-              <a href="tel:+13024687077" className="footer-contact-item">
-                <Phone width={14} height={14} />
-                (302) 468-7077
-              </a>
-              <a href="mailto:contactvisualize@gmail.com" className="footer-contact-item">
+              <a href="mailto:contact@visualizeclients.com" className="footer-contact-item">
                 <Mail01 width={14} height={14} />
-                contactvisualize@gmail.com
+                contact@visualizeclients.com
               </a>
             </div>
           </div>

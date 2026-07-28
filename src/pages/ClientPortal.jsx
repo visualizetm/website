@@ -1,13 +1,29 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  IconInfoCircle, IconX, IconCalendar, IconLogout, IconArrowLeft,
-  IconLogin, IconUserPlus, IconPackage, IconArrowRight,
-  IconLayoutDashboard, IconReceipt, IconPlus, IconCheck,
-  IconClock, IconAlertCircle, IconChevronRight, IconLock,
-  IconRefresh, IconExternalLink, IconLayoutGrid, IconList,
-  IconClipboardList, IconPencil, IconCircleCheck,
-} from '@tabler/icons-react';
+import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
+import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
+import Check from '@untitled-ui/icons-react/build/esm/Check';
+import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
+import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
+import ClipboardCheck from '@untitled-ui/icons-react/build/esm/ClipboardCheck';
+import Clock from '@untitled-ui/icons-react/build/esm/Clock';
+import Grid01 from '@untitled-ui/icons-react/build/esm/Grid01';
+import InfoCircle from '@untitled-ui/icons-react/build/esm/InfoCircle';
+import LayoutAlt01 from '@untitled-ui/icons-react/build/esm/LayoutAlt01';
+import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
+import List from '@untitled-ui/icons-react/build/esm/List';
+import Lock01 from '@untitled-ui/icons-react/build/esm/Lock01';
+import LogIn01 from '@untitled-ui/icons-react/build/esm/LogIn01';
+import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
+import Package from '@untitled-ui/icons-react/build/esm/Package';
+import Pencil01 from '@untitled-ui/icons-react/build/esm/Pencil01';
+import Plus from '@untitled-ui/icons-react/build/esm/Plus';
+import Receipt from '@untitled-ui/icons-react/build/esm/Receipt';
+import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
+import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
+import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import SplashScreen from '../components/SplashScreen';
 
 const CLIENTS_KEY  = 'vz_clients';
@@ -26,10 +42,10 @@ const STATUS_META = {
 };
 
 const INVOICE_STATUS = {
-  unpaid:  { label: 'Unpaid',                color: '#f59e0b', icon: IconClock },
-  upfront: { label: 'Upfront Payment Paid',  color: '#60a5fa', icon: IconCheck },
-  paid:    { label: 'Paid in Full',          color: '#22c55e', icon: IconCheck },
-  overdue: { label: 'Overdue',               color: '#ef4444', icon: IconAlertCircle },
+  unpaid:  { label: 'Unpaid',                color: '#f59e0b', icon: Clock },
+  upfront: { label: 'Upfront Payment Paid',  color: '#60a5fa', icon: Check },
+  paid:    { label: 'Paid in Full',          color: '#22c55e', icon: Check },
+  overdue: { label: 'Overdue',               color: '#ef4444', icon: AlertCircle },
 };
 
 function getClients() {
@@ -83,7 +99,7 @@ function CalendlyModal({ onClose }) {
         <div className="cp-modal-header">
           <h3 className="cp-modal-title">Book a Meeting</h3>
           <button className="cp-modal-close" onClick={onClose} aria-label="Close">
-            <IconX size={18} stroke={2} />
+            <XClose width={18} height={18} />
           </button>
         </div>
         <div className="calendly-inline-widget" data-url={CALENDLY_URL} style={{ minWidth: '320px', height: '620px' }} />
@@ -155,7 +171,7 @@ function AuthScreen({ onAuth }) {
         </p>
         {mode === 'signup' && (
           <div className="cp-auth-notice">
-            <IconInfoCircle size={15} stroke={1.5} style={{ flexShrink: 0, marginTop: 1 }} />
+            <InfoCircle width={15} height={15} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>Use a <strong>new password</strong> created just for this portal — not one you use elsewhere.</span>
           </div>
         )}
@@ -183,7 +199,7 @@ function AuthScreen({ onAuth }) {
           </div>
           {error && <p className="cp-auth-error">{error}</p>}
           <button type="submit" className="btn btn-primary cp-auth-btn">
-            {mode === 'login' ? <IconLogin size={16} stroke={1.8} /> : <IconUserPlus size={16} stroke={1.8} />}
+            {mode === 'login' ? <LogIn01 width={16} height={16} /> : <UserPlus01 width={16} height={16} />}
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </button>
         </form>
@@ -192,7 +208,7 @@ function AuthScreen({ onAuth }) {
             ? <> Don&apos;t have an account?{' '}<button type="button" className="cp-switch-btn" onClick={() => switchMode('signup')}>Sign up</button></>
             : <> Already have an account?{' '}<button type="button" className="cp-switch-btn" onClick={() => switchMode('login')}>Sign in</button></>}
         </p>
-        <Link to="/" className="cp-back-link"><IconArrowLeft size={13} stroke={2} />Back to site</Link>
+        <Link to="/" className="cp-back-link"><ArrowLeft width={13} height={13} />Back to site</Link>
       </div>
     </div>
   );
@@ -247,15 +263,15 @@ function FormsView({ user }) {
           </div>
           <Link to="/intake/website" className="btn btn-primary"
             style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <IconPlus size={15} stroke={2} />New Brief
+            <Plus width={15} height={15} />New Brief
           </Link>
         </div>
         <div className="cp-panel cp-panel-empty-lg">
-          <IconClipboardList size={40} stroke={1.2} />
+          <ClipboardCheck width={40} height={40} />
           <h3>No briefs submitted yet</h3>
           <p>Fill out a project brief so we can understand your needs and get started.</p>
           <Link to="/intake/website" className="btn btn-primary" style={{ fontSize: '0.875rem' }}>
-            <IconPlus size={15} stroke={2} />Start Website Brief
+            <Plus width={15} height={15} />Start Website Brief
           </Link>
         </div>
       </div>
@@ -271,7 +287,7 @@ function FormsView({ user }) {
         </div>
         <Link to="/intake/website" className="btn btn-primary"
           style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <IconPlus size={15} stroke={2} />New Brief
+          <Plus width={15} height={15} />New Brief
         </Link>
       </div>
       <div className="cp-order-list">
@@ -295,7 +311,7 @@ function FormsView({ user }) {
               <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                 <Link to={`/intake/website?edit=${form.id}`} className="btn btn-secondary"
                   style={{ fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <IconPencil size={13} stroke={1.8} />Edit Submission
+                  <Pencil01 width={13} height={13} />Edit Submission
                 </Link>
               </div>
             </div>
@@ -309,11 +325,11 @@ function FormsView({ user }) {
 /* ── Sidebar ───────────────────────────────────────────── */
 function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
   const nav = [
-    { id: 'dashboard', label: 'Dashboard',  icon: IconLayoutDashboard },
-    { id: 'orders',    label: 'My Orders',  icon: IconPackage },
-    { id: 'invoices',  label: 'Invoices',   icon: IconReceipt },
-    { id: 'meetings',  label: 'Meetings',   icon: IconCalendar },
-    { id: 'forms',     label: 'My Briefs',  icon: IconClipboardList },
+    { id: 'dashboard', label: 'Dashboard',  icon: LayoutAlt01 },
+    { id: 'orders',    label: 'My Orders',  icon: Package },
+    { id: 'invoices',  label: 'Invoices',   icon: Receipt },
+    { id: 'meetings',  label: 'Meetings',   icon: Calendar },
+    { id: 'forms',     label: 'My Briefs',  icon: ClipboardCheck },
   ];
   return (
     <aside className="cp-sidebar">
@@ -329,7 +345,7 @@ function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
               className={`cp-nav-item ${tab === item.id ? 'active' : ''}`}
               onClick={() => setTab(item.id)}
             >
-              <Icon size={17} stroke={1.7} />
+              <Icon width={17} height={17} />
               {item.label}
             </button>
           );
@@ -337,7 +353,7 @@ function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
       </nav>
       <div className="cp-sidebar-footer">
         <button type="button" className="cp-book-sidebar" onClick={onCalendly}>
-          <IconCalendar size={16} stroke={1.8} />
+          <Calendar width={16} height={16} />
           Book a Meeting
         </button>
         <div className="cp-sidebar-user">
@@ -347,7 +363,7 @@ function Sidebar({ tab, setTab, user, onLogout, onCalendly }) {
             <span className="cp-sidebar-email">@{user.username || user.email || '—'}</span>
           </div>
           <button className="cp-sidebar-logout" onClick={onLogout} title="Sign out">
-            <IconLogout size={15} stroke={1.6} />
+            <LogOut01 width={15} height={15} />
           </button>
         </div>
       </div>
@@ -370,8 +386,8 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
       <div className="cp-drive-header">
         <h1 className="cp-drive-title">My Drive</h1>
         <div className="cp-drive-view-btns">
-          <button type="button" className="cp-drive-view-btn" title="Grid view"><IconLayoutGrid size={16} stroke={1.8} /></button>
-          <button type="button" className="cp-drive-view-btn" title="List view"><IconList size={16} stroke={1.8} /></button>
+          <button type="button" className="cp-drive-view-btn" title="Grid view"><Grid01 width={16} height={16} /></button>
+          <button type="button" className="cp-drive-view-btn" title="List view"><List width={16} height={16} /></button>
         </div>
       </div>
 
@@ -380,17 +396,17 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
         <p className="cp-section-label">Quick Access</p>
         <div className="cp-qa-row">
           <button type="button" className="cp-qa-card" onClick={() => setTab('orders')}>
-            <span className="cp-qa-icon" style={{ '--c': 'var(--brand)' }}><IconPackage size={20} stroke={1.7} /></span>
+            <span className="cp-qa-icon" style={{ '--c': 'var(--brand)' }}><Package width={20} height={20} /></span>
             <p className="cp-qa-label">My Orders</p>
             <p className="cp-qa-sub">{orders.length} order{orders.length !== 1 ? 's' : ''}</p>
           </button>
           <button type="button" className="cp-qa-card" onClick={() => setTab('invoices')}>
-            <span className="cp-qa-icon" style={{ '--c': '#f59e0b' }}><IconReceipt size={20} stroke={1.7} /></span>
+            <span className="cp-qa-icon" style={{ '--c': '#f59e0b' }}><Receipt width={20} height={20} /></span>
             <p className="cp-qa-label">Invoices</p>
             <p className="cp-qa-sub">{unpaidInv.length} due</p>
           </button>
           <button type="button" className="cp-qa-card" onClick={onCalendly}>
-            <span className="cp-qa-icon" style={{ '--c': '#34d399' }}><IconCalendar size={20} stroke={1.7} /></span>
+            <span className="cp-qa-icon" style={{ '--c': '#34d399' }}><Calendar width={20} height={20} /></span>
             <p className="cp-qa-label">Book a Meeting</p>
             <p className="cp-qa-sub">Schedule time</p>
           </button>
@@ -402,7 +418,7 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
         <p className="cp-section-label">All Files</p>
         {allItems.length === 0 ? (
           <div className="cp-files-empty">
-            <IconPackage size={40} stroke={1.2} />
+            <Package width={40} height={40} />
             <p>No files yet</p>
             <span>Your orders and invoices will appear here.</span>
           </div>
@@ -421,7 +437,7 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
                 return (
                   <button key={item.id || idx} type="button" className="cp-files-row" onClick={() => setTab('orders')}>
                     <div className="cp-files-name">
-                      <span className="cp-files-icon cp-files-icon--order"><IconPackage size={15} stroke={1.7} /></span>
+                      <span className="cp-files-icon cp-files-icon--order"><Package width={15} height={15} /></span>
                       <span>{item.type ? item.type.charAt(0).toUpperCase() + item.type.slice(1) : 'Custom Print'} Order</span>
                     </div>
                     <span><span className="cp-files-chip cp-files-chip--order">Order</span></span>
@@ -431,7 +447,7 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
                       </span>
                     </span>
                     <span className="cp-files-date">{formatDate(item.date)}</span>
-                    <span className="cp-files-action"><IconArrowRight size={14} stroke={2} /></span>
+                    <span className="cp-files-action"><ArrowRight width={14} height={14} /></span>
                   </button>
                 );
               } else {
@@ -439,7 +455,7 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
                 return (
                   <button key={item.id || idx} type="button" className="cp-files-row" onClick={() => setTab('invoices')}>
                     <div className="cp-files-name">
-                      <span className="cp-files-icon cp-files-icon--invoice"><IconReceipt size={15} stroke={1.7} /></span>
+                      <span className="cp-files-icon cp-files-icon--invoice"><Receipt width={15} height={15} /></span>
                       <span>{item.invoiceNumber || `INV-${item.id}`}</span>
                     </div>
                     <span><span className="cp-files-chip cp-files-chip--invoice">Invoice</span></span>
@@ -452,7 +468,7 @@ function DashboardView({ user, orders, invoices, onCalendly, setTab }) {
                     <span className="cp-files-action">
                       {item.stripeLink && item.status !== 'paid'
                         ? <a href={item.stripeLink} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="cp-files-pay">Pay</a>
-                        : <IconArrowRight size={14} stroke={2} />}
+                        : <ArrowRight width={14} height={14} />}
                     </span>
                   </button>
                 );
@@ -481,17 +497,17 @@ function OrdersView({ orders, onCalendly }) {
           <p className="cp-view-sub">{orders.length} order{orders.length !== 1 ? 's' : ''} total</p>
         </div>
         <Link to="/prints" className="btn btn-primary" style={{ fontSize: '0.875rem', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <IconPlus size={15} stroke={2} />New Order
+          <Plus width={15} height={15} />New Order
         </Link>
       </div>
 
       {orders.length === 0 ? (
         <div className="cp-panel cp-panel-empty-lg">
-          <IconPackage size={40} stroke={1.2} />
+          <Package width={40} height={40} />
           <h3>No orders yet</h3>
           <p>Once you submit a quote request, your orders will appear here with live status updates.</p>
           <Link to="/prints" className="btn btn-primary" style={{ fontSize: '0.875rem' }}>
-            <IconPlus size={15} stroke={2} />Place Your First Order
+            <Plus width={15} height={15} />Place Your First Order
           </Link>
         </div>
       ) : (
@@ -528,7 +544,7 @@ function OrdersView({ orders, onCalendly }) {
           {selectedOrder && (
             <div className="cp-order-detail">
               <button className="cp-mobile-back-btn" onClick={() => setMobileDetail(false)}>
-                <IconArrowLeft size={15} stroke={2} />All Orders
+                <ArrowLeft width={15} height={15} />All Orders
               </button>
               <div className="cp-detail-top">
                 <div>
@@ -581,9 +597,9 @@ function OrdersView({ orders, onCalendly }) {
                 </div>
                 <div className="cp-help-actions">
                   <button type="button" className="btn btn-primary cp-help-btn" onClick={onCalendly}>
-                    <IconCalendar size={14} stroke={1.8} />Book Meeting
+                    <Calendar width={14} height={14} />Book Meeting
                   </button>
-                  <a href="tel:+13024687077" className="btn btn-secondary cp-help-btn">(302) 468-7077</a>
+                  <a href="mailto:contact@visualizeclients.com" className="btn btn-secondary cp-help-btn">contact@visualizeclients.com</a>
                 </div>
               </div>
             </div>
@@ -617,11 +633,11 @@ function InvoicesView({ invoices, onCalendly }) {
 
       {invoices.length === 0 ? (
         <div className="cp-panel cp-panel-empty-lg">
-          <IconReceipt size={40} stroke={1.2} />
+          <Receipt width={40} height={40} />
           <h3>No invoices yet</h3>
           <p>Invoices created by Visualize Studio will appear here once your order is approved.</p>
           <button type="button" className="btn btn-secondary" onClick={onCalendly} style={{ fontSize: '0.875rem' }}>
-            <IconCalendar size={15} stroke={1.8} />Book a Meeting
+            <Calendar width={15} height={15} />Book a Meeting
           </button>
         </div>
       ) : (
@@ -658,7 +674,7 @@ function InvoicesView({ invoices, onCalendly }) {
             return (
               <div className="cp-order-detail">
                 <button className="cp-mobile-back-btn" onClick={() => setMobileDetail(false)}>
-                  <IconArrowLeft size={15} stroke={2} />All Invoices
+                  <ArrowLeft width={15} height={15} />All Invoices
                 </button>
                 <div className="cp-detail-top">
                   <div>
@@ -672,7 +688,7 @@ function InvoicesView({ invoices, onCalendly }) {
 
                 {/* Amount hero */}
                 <div className="cp-inv-hero" style={{ '--sc': s.color }}>
-                  <div className="cp-inv-hero-icon"><SIcon size={22} stroke={1.8} /></div>
+                  <div className="cp-inv-hero-icon"><SIcon width={22} height={22} /></div>
                   <div>
                     <p className="cp-inv-hero-label">Amount Due</p>
                     <p className="cp-inv-hero-amount">${parseFloat(selectedInv.amount || 0).toFixed(2)}</p>
@@ -707,7 +723,7 @@ function InvoicesView({ invoices, onCalendly }) {
                     rel="noopener noreferrer"
                     className="cp-inv-pay-btn"
                   >
-                    <IconLock size={15} stroke={2} />
+                    <Lock01 width={15} height={15} />
                     Pay ${parseFloat(selectedInv.amount || 0).toFixed(2)} with Stripe
                   </a>
                 )}
@@ -719,7 +735,7 @@ function InvoicesView({ invoices, onCalendly }) {
                       <p className="cp-help-sub">Book a meeting or reach out to arrange payment.</p>
                     </div>
                     <button type="button" className="btn btn-primary cp-help-btn" onClick={onCalendly}>
-                      <IconCalendar size={14} stroke={1.8} />Book Meeting
+                      <Calendar width={14} height={14} />Book Meeting
                     </button>
                   </div>
                 )}
@@ -781,20 +797,20 @@ function MeetingsView({ user, onCalendly }) {
         <div style={{ display: 'flex', gap: 8 }}>
           {user.email && (
             <button type="button" className="cp-icon-btn" onClick={fetchMeetings} disabled={loading} title="Refresh">
-              <IconRefresh size={16} stroke={1.8} />
+              <RefreshCw01 width={16} height={16} />
             </button>
           )}
           <button type="button" className="btn btn-primary"
             style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             onClick={onCalendly}>
-            <IconCalendar size={15} stroke={2} />Book Meeting
+            <Calendar width={15} height={15} />Book Meeting
           </button>
         </div>
       </div>
 
       {!user.email ? (
         <div className="cp-panel cp-panel-empty-lg">
-          <IconCalendar size={40} stroke={1.2} />
+          <Calendar width={40} height={40} />
           <h3>Email required</h3>
           <p>To sync your Calendly meetings here, your account needs an email address on file. Contact Visualize Studio to link your email.</p>
         </div>
@@ -805,7 +821,7 @@ function MeetingsView({ user, onCalendly }) {
         </div>
       ) : error ? (
         <div className="cp-panel cp-panel-empty-lg">
-          <IconCalendar size={40} stroke={1.2} style={{ color: isNotConfigured ? '#34d399' : '#f59e0b' }} />
+          <Calendar width={40} height={40} style={{ color: isNotConfigured ? '#34d399' : '#f59e0b' }} />
           <h3>{isNotConfigured ? 'No upcoming meetings' : 'Couldn\'t load meetings'}</h3>
           <p>
             {isNotConfigured
@@ -816,23 +832,23 @@ function MeetingsView({ user, onCalendly }) {
             {!isNotConfigured && (
               <button type="button" className="btn btn-secondary" onClick={fetchMeetings}
                 style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <IconRefresh size={14} stroke={1.8} />Retry
+                <RefreshCw01 width={14} height={14} />Retry
               </button>
             )}
             <button type="button" className="btn btn-primary" onClick={onCalendly}
               style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <IconCalendar size={14} stroke={1.8} />Book a Meeting
+              <Calendar width={14} height={14} />Book a Meeting
             </button>
           </div>
         </div>
       ) : meetings && meetings.length === 0 ? (
         <div className="cp-panel cp-panel-empty-lg">
-          <IconCalendar size={40} stroke={1.2} />
+          <Calendar width={40} height={40} />
           <h3>No upcoming meetings</h3>
           <p>You don&apos;t have any scheduled meetings with Visualize Studio right now.</p>
           <button type="button" className="btn btn-primary" onClick={onCalendly}
             style={{ fontSize: '0.875rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <IconCalendar size={15} stroke={1.8} />Book a Meeting
+            <Calendar width={15} height={15} />Book a Meeting
           </button>
         </div>
       ) : meetings ? (
@@ -848,12 +864,12 @@ function MeetingsView({ user, onCalendly }) {
                 <div className="cp-meeting-body">
                   <p className="cp-meeting-name">{m.name}</p>
                   <p className="cp-meeting-time">
-                    <IconClock size={12} stroke={1.8} />
+                    <Clock width={12} height={12} />
                     {fmtDate(m.start_time)} · {fmtTime(m.start_time, m.end_time)}
                   </p>
                   {m.location?.join_url && (
                     <a href={m.location.join_url} target="_blank" rel="noopener noreferrer" className="cp-meeting-join">
-                      <IconExternalLink size={12} stroke={2} />Join Meeting
+                      <LinkExternal01 width={12} height={12} />Join Meeting
                     </a>
                   )}
                 </div>
@@ -901,11 +917,11 @@ function Portal({ user, onLogout }) {
   const pendingCount = orders.filter(o => (o.status || 'pending') !== 'completed').length;
 
   const bottomNavItems = [
-    { id: 'dashboard', label: 'Home',     icon: IconLayoutDashboard },
-    { id: 'orders',    label: 'Orders',   icon: IconPackage,       badge: pendingCount },
-    { id: 'invoices',  label: 'Invoices', icon: IconReceipt,       badge: unpaidCount  },
-    { id: 'meetings',  label: 'Meetings', icon: IconCalendar },
-    { id: 'forms',     label: 'Briefs',   icon: IconClipboardList },
+    { id: 'dashboard', label: 'Home',     icon: LayoutAlt01 },
+    { id: 'orders',    label: 'Orders',   icon: Package,       badge: pendingCount },
+    { id: 'invoices',  label: 'Invoices', icon: Receipt,       badge: unpaidCount  },
+    { id: 'meetings',  label: 'Meetings', icon: Calendar },
+    { id: 'forms',     label: 'Briefs',   icon: ClipboardCheck },
   ];
 
   return (
@@ -918,7 +934,7 @@ function Portal({ user, onLogout }) {
             {(user.name || user.username || '?').charAt(0).toUpperCase()}
           </div>
           <button className="cp-sidebar-logout" onClick={onLogout} title="Sign out">
-            <IconLogout size={15} stroke={1.6} />
+            <LogOut01 width={15} height={15} />
           </button>
         </div>
       </div>
@@ -944,7 +960,7 @@ function Portal({ user, onLogout }) {
               onClick={() => setTab(item.id)}
             >
               <span className="cp-bottom-nav-icon">
-                <Icon size={22} stroke={active ? 2 : 1.6} />
+                <Icon width={22} height={22} stroke={active ? 2 : 1.6} />
                 {item.badge > 0 && <span className="cp-bottom-nav-badge">{item.badge}</span>}
               </span>
               <span className="cp-bottom-nav-label">{item.label}</span>

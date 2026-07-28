@@ -1,36 +1,34 @@
 import { useState } from 'react';
-import {
-  IconPencil,
-  IconDeviceDesktop,
-  IconPrinter,
-  IconMapPin,
-  IconChevronDown,
-  IconCheck,
-} from '@tabler/icons-react';
+import Check from '@untitled-ui/icons-react/build/esm/Check';
+import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
+import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import Monitor01 from '@untitled-ui/icons-react/build/esm/Monitor01';
+import Pencil01 from '@untitled-ui/icons-react/build/esm/Pencil01';
+import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 
 const pillars = [
   {
     title: 'Brand Identity',
     items: ['Logo design', 'Brand identity', 'Brand guidelines'],
-    icon: IconPencil,
+    icon: Pencil01,
     color: '#d44c43',
   },
   {
     title: 'Website Development',
     items: ['Business websites', 'Landing pages', 'Contact forms'],
-    icon: IconDeviceDesktop,
+    icon: Monitor01,
     color: '#60a5fa',
   },
   {
     title: 'Print & Physical',
     items: ['Stickers', 'Business cards', 'Print-ready files'],
-    icon: IconPrinter,
+    icon: Printer,
     color: '#a78bfa',
   },
   {
     title: 'Digital Setup',
     items: ['Google Business Profile', 'Basic analytics setup', 'Launch essentials'],
-    icon: IconMapPin,
+    icon: MarkerPin01,
     color: '#34d399',
   },
 ];
@@ -61,11 +59,10 @@ export default function Services() {
               >
                 <div className="services-card-top">
                   <div className="services-card-icon">
-                    <Icon size={20} stroke={1.8} />
+                    <Icon width={20} height={20} />
                   </div>
-                  <IconChevronDown
-                    size={16}
-                    stroke={1.8}
+                  <ChevronDown
+                    width={16} height={16}
                     className={`services-card-chevron ${isOpen ? 'is-open' : ''}`}
                   />
                 </div>
@@ -73,7 +70,7 @@ export default function Services() {
                 <ul className="services-card-list">
                   {pillar.items.map((item) => (
                     <li key={item}>
-                      <IconCheck size={13} stroke={2.5} />
+                      <Check width={13} height={13} />
                       {item}
                     </li>
                   ))}

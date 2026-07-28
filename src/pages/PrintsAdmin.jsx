@@ -1,12 +1,33 @@
 import { useState, useEffect, useCallback } from 'react';
-import {
-  IconLayoutDashboard, IconListDetails, IconLogout, IconRefresh,
-  IconTrash, IconMail, IconPhone, IconCheck, IconClock, IconEye,
-  IconChartBar, IconArrowRight, IconArrowLeft, IconUsers, IconUser, IconReceipt,
-  IconPlus, IconCircleCheck, IconKey, IconLink, IconCopy,
-  IconClipboardList, IconChevronDown, IconChevronUp,
-  IconSettings, IconInfoCircle, IconShoppingBag, IconPackage, IconEdit,
-} from '@tabler/icons-react';
+import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import BarChart01 from '@untitled-ui/icons-react/build/esm/BarChart01';
+import Check from '@untitled-ui/icons-react/build/esm/Check';
+import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
+import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
+import ChevronUp from '@untitled-ui/icons-react/build/esm/ChevronUp';
+import ClipboardCheck from '@untitled-ui/icons-react/build/esm/ClipboardCheck';
+import Clock from '@untitled-ui/icons-react/build/esm/Clock';
+import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
+import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
+import Eye from '@untitled-ui/icons-react/build/esm/Eye';
+import InfoCircle from '@untitled-ui/icons-react/build/esm/InfoCircle';
+import Key01 from '@untitled-ui/icons-react/build/esm/Key01';
+import LayoutAlt01 from '@untitled-ui/icons-react/build/esm/LayoutAlt01';
+import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
+import List from '@untitled-ui/icons-react/build/esm/List';
+import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
+import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
+import Package from '@untitled-ui/icons-react/build/esm/Package';
+import Phone from '@untitled-ui/icons-react/build/esm/Phone';
+import Plus from '@untitled-ui/icons-react/build/esm/Plus';
+import Receipt from '@untitled-ui/icons-react/build/esm/Receipt';
+import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
+import Settings01 from '@untitled-ui/icons-react/build/esm/Settings01';
+import ShoppingBag01 from '@untitled-ui/icons-react/build/esm/ShoppingBag01';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import User01 from '@untitled-ui/icons-react/build/esm/User01';
+import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
 
@@ -374,7 +395,7 @@ export default function PrintsAdmin() {
           {{ overview: 'Overview', orders: 'Orders', clients: 'Clients', invoices: 'Invoices', forms: 'Briefs', shop: 'Shop', settings: 'Settings' }[tab]}
         </span>
         <button className="adm-mobile-logout-btn" onClick={() => setAuth(false)} aria-label="Log out">
-          <IconLogout size={18} stroke={1.8} />
+          <LogOut01 width={18} height={18} />
         </button>
       </div>
 
@@ -385,15 +406,15 @@ export default function PrintsAdmin() {
         </div>
         <nav className="adm-sidebar-nav">
           {[
-            { id: 'overview',  label: 'Overview',  icon: <IconLayoutDashboard size={16} stroke={1.6} /> },
-            { id: 'orders',    label: 'Orders',    icon: <IconListDetails size={16} stroke={1.6} />, badge: statusCounts.pending || null },
-            { id: 'clients',   label: 'Clients',   icon: <IconUsers size={16} stroke={1.6} />, badge: clients.length || null },
-            { id: 'invoices',  label: 'Invoices',  icon: <IconReceipt size={16} stroke={1.6} />, badge: invoices.filter(i => i.status === 'unpaid').length || null },
-            { id: 'forms',     label: 'Briefs',    icon: <IconClipboardList size={16} stroke={1.6} />,
+            { id: 'overview',  label: 'Overview',  icon: <LayoutAlt01 width={16} height={16} /> },
+            { id: 'orders',    label: 'Orders',    icon: <List width={16} height={16} />, badge: statusCounts.pending || null },
+            { id: 'clients',   label: 'Clients',   icon: <Users01 width={16} height={16} />, badge: clients.length || null },
+            { id: 'invoices',  label: 'Invoices',  icon: <Receipt width={16} height={16} />, badge: invoices.filter(i => i.status === 'unpaid').length || null },
+            { id: 'forms',     label: 'Briefs',    icon: <ClipboardCheck width={16} height={16} />,
               badge: forms.filter(f => !f.adminSeenAt || (f.editHistory?.length > 0 && f.editHistory.at(-1).editedAt > f.adminSeenAt)).length || null },
-            { id: 'shop',      label: 'Shop',      icon: <IconShoppingBag size={16} stroke={1.6} />,
+            { id: 'shop',      label: 'Shop',      icon: <ShoppingBag01 width={16} height={16} />,
               badge: (() => { try { const o = JSON.parse(localStorage.getItem('vz_print_orders') || '[]'); return o.filter(x => x.source === 'shop' && x.status === 'pending').length || null; } catch { return null; } })() },
-            { id: 'settings',  label: 'Settings',  icon: <IconSettings size={16} stroke={1.6} />,
+            { id: 'settings',  label: 'Settings',  icon: <Settings01 width={16} height={16} />,
               badge: (maintenancePreview || envMaintenanceActive) ? '!' : null },
           ].map(item => (
             <button
@@ -409,7 +430,7 @@ export default function PrintsAdmin() {
           ))}
         </nav>
         <button className="adm-logout" onClick={() => setAuth(false)}>
-          <IconLogout size={14} stroke={1.6} />
+          <LogOut01 width={14} height={14} />
           Log out
         </button>
       </aside>
@@ -426,7 +447,7 @@ export default function PrintsAdmin() {
                 <p className="adm-subtitle">Visualize Studio Dashboard</p>
               </div>
               <button className="adm-refresh" onClick={() => { loadOrders(); loadAnalytics(); loadClients(); }} title="Refresh">
-                <IconRefresh size={15} stroke={1.8} />
+                <RefreshCw01 width={15} height={15} />
                 Refresh
               </button>
             </div>
@@ -438,26 +459,26 @@ export default function PrintsAdmin() {
                 value={orders.length}
                 sub={newToday > 0 ? `+${newToday} today` : 'No new today'}
                 accent="var(--brand)"
-                icon={<IconListDetails size={18} stroke={1.6} />}
+                icon={<List width={18} height={18} />}
               />
               <StatCard
                 label="Pending Review"
                 value={statusCounts.pending || 0}
                 accent="#f59e0b"
-                icon={<IconClock size={18} stroke={1.6} />}
+                icon={<Clock width={18} height={18} />}
               />
               <StatCard
                 label="Completed"
                 value={statusCounts.completed || 0}
                 accent="#22c55e"
-                icon={<IconCheck size={18} stroke={1.8} />}
+                icon={<Check width={18} height={18} />}
               />
               <StatCard
                 label="Page Views"
                 value={analytics.pageViews}
                 sub={`${analytics.uniqueVisits} sessions`}
                 accent="#60a5fa"
-                icon={<IconEye size={18} stroke={1.6} />}
+                icon={<Eye width={18} height={18} />}
               />
             </div>
 
@@ -523,7 +544,7 @@ export default function PrintsAdmin() {
                 <div className="adm-panel-head">
                   <h3 className="adm-panel-title">Recent Orders</h3>
                   <button className="adm-see-all" onClick={() => setTab('orders')}>
-                    See all <IconArrowRight size={12} stroke={2} />
+                    See all <ArrowRight width={12} height={12} />
                   </button>
                 </div>
                 <div className="adm-recent-list">
@@ -624,7 +645,7 @@ export default function PrintsAdmin() {
                   {detail ? (
                     <>
                       <button className="adm-mobile-back-btn" onClick={() => setMobileOrderDetail(false)}>
-                        <IconArrowLeft size={15} stroke={2} /> All Orders
+                        <ArrowLeft width={15} height={15} /> All Orders
                       </button>
                       <div className="adm-detail-header">
                         <div>
@@ -632,7 +653,7 @@ export default function PrintsAdmin() {
                           <p className="adm-detail-date">{formatDate(detail.date)}</p>
                         </div>
                         <button className="adm-delete" onClick={() => deleteOrder(detail.id)}>
-                          <IconTrash size={13} stroke={1.6} />
+                          <Trash01 width={13} height={13} />
                           Delete
                         </button>
                       </div>
@@ -666,7 +687,7 @@ export default function PrintsAdmin() {
                           ['Quantity',     detail.quantity ? `${detail.quantity} units` : null],
                           ['Finish',       detail.finish],
                           ['Design',       detail.design],
-                          ['Payment',      detail.paymentConfirmed ? '✓ $10 Paid via Stripe' : detail.amount ? `$${detail.amount}` : null],
+                          ['Payment',      detail.paymentConfirmed ? 'Paid via Stripe' : detail.amount ? `$${detail.amount}` : null],
                         ].filter(([,v]) => v).map(([k, v]) => (
                           <div key={k} className="adm-detail-pair">
                             <span className="adm-detail-key">{k}</span>
@@ -713,12 +734,12 @@ export default function PrintsAdmin() {
                           rel="noopener noreferrer"
                           className="btn btn-primary adm-action-btn"
                         >
-                          <IconMail size={15} stroke={1.6} />
+                          <Mail01 width={15} height={15} />
                           Send Quote Email
                         </a>
                         {detail.phone && (
                           <a href={`sms:${detail.phone}`} className="btn btn-secondary adm-action-btn">
-                            <IconPhone size={15} stroke={1.6} />
+                            <Phone width={15} height={15} />
                             Text Client
                           </a>
                         )}
@@ -748,11 +769,11 @@ export default function PrintsAdmin() {
               </div>
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <button className="adm-refresh" onClick={loadInvoices} title="Refresh">
-                  <IconRefresh size={15} stroke={1.8} />
+                  <RefreshCw01 width={15} height={15} />
                   Refresh
                 </button>
                 <button className="btn btn-primary adm-action-btn" onClick={() => setInvFormOpen(v => !v)}>
-                  <IconPlus size={15} stroke={2} />
+                  <Plus width={15} height={15} />
                   New Invoice
                 </button>
               </div>
@@ -848,7 +869,7 @@ export default function PrintsAdmin() {
                   <div className="adm-inv-field" style={{ marginTop: 'var(--space-3)' }}>
                     <label className="adm-inv-label">Stripe Payment Link (optional)</label>
                     <div className="adm-inv-link-wrap">
-                      <IconLink size={14} stroke={1.8} className="adm-inv-link-icon" />
+                      <Link01 width={14} height={14} className="adm-inv-link-icon" />
                       <input
                         className="adm-inv-input adm-inv-link-input"
                         type="url"
@@ -861,7 +882,7 @@ export default function PrintsAdmin() {
                   </div>
                   <div className="adm-inv-form-actions">
                     <button type="submit" className="btn btn-primary adm-action-btn">
-                      <IconReceipt size={14} stroke={1.8} />
+                      <Receipt width={14} height={14} />
                       Create Invoice
                     </button>
                     <button type="button" className="btn btn-secondary adm-action-btn" onClick={() => setInvFormOpen(false)}>
@@ -874,7 +895,7 @@ export default function PrintsAdmin() {
 
             {invoices.length === 0 && !invFormOpen ? (
               <div className="adm-empty">
-                <IconReceipt size={48} stroke={1.2} color="var(--text-muted)" />
+                <Receipt width={48} height={48} color="var(--text-muted)" />
                 <p>No invoices yet. Create one with the button above.</p>
               </div>
             ) : invoices.length > 0 && (
@@ -913,7 +934,7 @@ export default function PrintsAdmin() {
                   {selectedInvoice ? (
                     <>
                       <button className="adm-mobile-back-btn" onClick={() => setMobileInvDetail(false)}>
-                        <IconArrowLeft size={15} stroke={2} /> All Invoices
+                        <ArrowLeft width={15} height={15} /> All Invoices
                       </button>
                       <div className="adm-detail-header">
                         <div>
@@ -921,7 +942,7 @@ export default function PrintsAdmin() {
                           <p className="adm-detail-date">Created {formatDate(selectedInvoice.createdAt)}</p>
                         </div>
                         <button className="adm-delete" onClick={() => deleteInvoice(selectedInvoice.id)}>
-                          <IconTrash size={13} stroke={1.6} />
+                          <Trash01 width={13} height={13} />
                           Delete
                         </button>
                       </div>
@@ -950,13 +971,13 @@ export default function PrintsAdmin() {
                         })()}
                         {selectedInvoice.status !== 'paid' && (
                           <button className="adm-inv-mark-paid" onClick={() => markInvoicePaid(selectedInvoice.id)}>
-                            <IconCircleCheck size={14} stroke={1.8} />
+                            <CheckCircle width={14} height={14} />
                             Mark Paid in Full
                           </button>
                         )}
                         {(selectedInvoice.status === 'unpaid' || selectedInvoice.status === 'overdue') && (
                           <button className="adm-inv-mark-upfront" onClick={() => markInvoiceUpfront(selectedInvoice.id)}>
-                            <IconCircleCheck size={14} stroke={1.8} />
+                            <CheckCircle width={14} height={14} />
                             Upfront Paid
                           </button>
                         )}
@@ -1004,7 +1025,7 @@ export default function PrintsAdmin() {
                         {selectedInvoice.stripeLink ? (
                           <div className="adm-inv-stripe-linked">
                             <div className="adm-inv-stripe-pill">
-                              <IconLink size={13} stroke={1.8} />
+                              <Link01 width={13} height={13} />
                               <span className="adm-inv-stripe-url">{selectedInvoice.stripeLink}</span>
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
@@ -1013,10 +1034,10 @@ export default function PrintsAdmin() {
                                 className="adm-inv-stripe-btn"
                                 onClick={() => { navigator.clipboard?.writeText(selectedInvoice.stripeLink); }}
                               >
-                                <IconCopy size={12} stroke={1.8} /> Copy
+                                <Copy01 width={12} height={12} /> Copy
                               </button>
                               <a href={selectedInvoice.stripeLink} target="_blank" rel="noopener noreferrer" className="adm-inv-stripe-btn">
-                                Open ↗
+                                Open
                               </a>
                               <button
                                 type="button"
@@ -1030,7 +1051,7 @@ export default function PrintsAdmin() {
                         ) : (
                           <div className="adm-inv-stripe-add">
                             <div className="adm-inv-link-wrap">
-                              <IconLink size={14} stroke={1.8} className="adm-inv-link-icon" />
+                              <Link01 width={14} height={14} className="adm-inv-link-icon" />
                               <input
                                 className="adm-inv-input adm-inv-link-input"
                                 type="url"
@@ -1047,7 +1068,7 @@ export default function PrintsAdmin() {
                               onClick={() => { updateInvoiceStripeLink(selectedInvoice.id, stripeLinkDraft); setStripeLinkDraft(''); }}
                               disabled={!stripeLinkDraft.trim()}
                             >
-                              <IconLink size={14} stroke={1.8} /> Attach Link
+                              <Link01 width={14} height={14} /> Attach Link
                             </button>
                             <span className="adm-inv-link-hint">Client will see a "Pay Now" button on their portal.</span>
                           </div>
@@ -1062,14 +1083,14 @@ export default function PrintsAdmin() {
                           rel="noopener noreferrer"
                           className="btn btn-primary adm-action-btn"
                         >
-                          <IconMail size={15} stroke={1.6} />
+                          <Mail01 width={15} height={15} />
                           Send Invoice Email
                         </a>
                       </div>
                     </>
                   ) : (
                     <div className="adm-detail-empty">
-                      <IconReceipt size={40} stroke={1.3} color="var(--text-muted)" />
+                      <Receipt width={40} height={40} color="var(--text-muted)" />
                       <p>Select an invoice to view details</p>
                     </div>
                   )}
@@ -1089,11 +1110,11 @@ export default function PrintsAdmin() {
               </div>
               <div style={{ display: 'flex', gap: 'var(--space-3)' }}>
                 <button className="adm-refresh" onClick={loadClients} title="Refresh">
-                  <IconRefresh size={15} stroke={1.8} />
+                  <RefreshCw01 width={15} height={15} />
                   Refresh
                 </button>
                 <button className="btn btn-primary adm-action-btn" onClick={() => { setNewClientOpen(v => !v); setNewClientError(''); }}>
-                  <IconKey size={15} stroke={1.8} />
+                  <Key01 width={15} height={15} />
                   Create Account
                 </button>
               </div>
@@ -1152,7 +1173,7 @@ export default function PrintsAdmin() {
                   {newClientError && <p style={{ color: '#f87171', fontSize: '0.8125rem', marginTop: 'var(--space-2)' }}>{newClientError}</p>}
                   <div className="adm-inv-form-actions">
                     <button type="submit" className="btn btn-primary adm-action-btn">
-                      <IconKey size={14} stroke={1.8} />
+                      <Key01 width={14} height={14} />
                       Create Account
                     </button>
                     <button type="button" className="btn btn-secondary adm-action-btn" onClick={() => setNewClientOpen(false)}>
@@ -1165,7 +1186,7 @@ export default function PrintsAdmin() {
 
             {clients.length === 0 && !newClientOpen ? (
               <div className="adm-empty">
-                <IconUsers size={48} stroke={1.2} color="var(--text-muted)" />
+                <Users01 width={48} height={48} color="var(--text-muted)" />
                 <p>No client accounts yet. Create one above or they&apos;ll appear here when someone signs up through the portal.</p>
               </div>
             ) : clients.length > 0 && (
@@ -1213,7 +1234,7 @@ export default function PrintsAdmin() {
                               className="adm-client-action-btn"
                               title="Open in Gmail"
                             >
-                              <IconMail size={14} stroke={1.6} />
+                              <Mail01 width={14} height={14} />
                             </a>
                           )}
                           <button
@@ -1222,7 +1243,7 @@ export default function PrintsAdmin() {
                             title="Remove account"
                             onClick={() => deleteClient(c.id)}
                           >
-                            <IconTrash size={14} stroke={1.6} />
+                            <Trash01 width={14} height={14} />
                           </button>
                         </div>
                       </div>
@@ -1243,13 +1264,13 @@ export default function PrintsAdmin() {
                 <p className="adm-subtitle">{forms.length} brief{forms.length !== 1 ? 's' : ''} submitted</p>
               </div>
               <button className="adm-refresh" onClick={loadForms} title="Refresh">
-                <IconRefresh size={15} stroke={1.8} />Refresh
+                <RefreshCw01 width={15} height={15} />Refresh
               </button>
             </div>
 
             {forms.length === 0 ? (
               <div className="adm-panel" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
-                <IconClipboardList size={36} stroke={1.2} style={{ marginBottom: 12 }} />
+                <ClipboardCheck width={36} height={36} style={{ marginBottom: 12 }} />
                 <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No briefs yet</p>
                 <p style={{ fontSize: '0.875rem' }}>Client project briefs will appear here after submission.</p>
               </div>
@@ -1301,7 +1322,7 @@ export default function PrintsAdmin() {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0 }}>
-                          <IconClipboardList size={18} stroke={1.6} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+                          <ClipboardCheck width={18} height={18} style={{ color: 'var(--brand)', flexShrink: 0 }} />
                           <div style={{ minWidth: 0 }}>
                             <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)' }}>
                               {form.clientName || form.clientEmail}
@@ -1320,7 +1341,7 @@ export default function PrintsAdmin() {
                           {isEdited && !isNew && (
                             <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.06em', padding: '2px 8px', borderRadius: 999, background: 'rgba(96,165,250,0.15)', color: '#60a5fa', border: '1px solid rgba(96,165,250,0.25)' }}>EDITED</span>
                           )}
-                          {isOpen ? <IconChevronUp size={16} stroke={1.8} style={{ color: 'var(--text-muted)' }} /> : <IconChevronDown size={16} stroke={1.8} style={{ color: 'var(--text-muted)' }} />}
+                          {isOpen ? <ChevronUp width={16} height={16} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown width={16} height={16} style={{ color: 'var(--text-muted)' }} />}
                         </div>
                       </button>
 
@@ -1328,7 +1349,7 @@ export default function PrintsAdmin() {
                         <div style={{ borderTop: '1px solid var(--glass-border)', padding: 'var(--space-5)' }}>
                           {isEdited && (
                             <div style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 8, padding: '10px 14px', marginBottom: 'var(--space-4)', fontSize: '0.8125rem', color: '#93c5fd' }}>
-                              ✎ Client edited this brief on {new Date(lastEdit.editedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                              Edited by client on {new Date(lastEdit.editedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
                             </div>
                           )}
                           {FIELD_SECTIONS.map(section => (
@@ -1380,13 +1401,13 @@ export default function PrintsAdmin() {
                   <p className="adm-subtitle">{shopOrders.length} order{shopOrders.length !== 1 ? 's' : ''} from the print shop</p>
                 </div>
                 <button className="adm-refresh" onClick={() => { loadOrders(); setExpandedShopOrder(null); }} title="Refresh">
-                  <IconRefresh size={15} stroke={1.8} />Refresh
+                  <RefreshCw01 width={15} height={15} />Refresh
                 </button>
               </div>
 
               {shopOrders.length === 0 ? (
                 <div className="adm-panel" style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
-                  <IconShoppingBag size={36} stroke={1.2} style={{ marginBottom: 12 }} />
+                  <ShoppingBag01 width={36} height={36} style={{ marginBottom: 12 }} />
                   <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No shop orders yet</p>
                   <p style={{ fontSize: '0.875rem' }}>Orders from the print shop page will appear here.</p>
                 </div>
@@ -1399,7 +1420,7 @@ export default function PrintsAdmin() {
                       <div key={order.id} className="adm-panel adm-panel--full" style={{ padding: 0, overflow: 'hidden' }}>
                         <button type="button" className="adm-form-row" onClick={() => setExpandedShopOrder(isOpen ? null : order.id)}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, minWidth: 0 }}>
-                            <IconPackage size={18} stroke={1.6} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+                            <Package width={18} height={18} style={{ color: 'var(--brand)', flexShrink: 0 }} />
                             <div style={{ minWidth: 0 }}>
                               <p style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text)' }}>
                                 {order.name || order.email}
@@ -1412,7 +1433,7 @@ export default function PrintsAdmin() {
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
                             <span style={{ fontSize: '0.7rem', fontWeight: 700, padding: '3px 9px', borderRadius: 999, background: `${st.color}22`, color: st.color, border: `1px solid ${st.color}44` }}>{st.label}</span>
-                            {isOpen ? <IconChevronUp size={16} stroke={1.8} style={{ color: 'var(--text-muted)' }} /> : <IconChevronDown size={16} stroke={1.8} style={{ color: 'var(--text-muted)' }} />}
+                            {isOpen ? <ChevronUp width={16} height={16} style={{ color: 'var(--text-muted)' }} /> : <ChevronDown width={16} height={16} style={{ color: 'var(--text-muted)' }} />}
                           </div>
                         </button>
 
@@ -1469,7 +1490,7 @@ export default function PrintsAdmin() {
                                     <p style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Note: {item.vals.notes}</p>
                                   )}
                                   {item.vals?.artworkFile && (
-                                    <p style={{ marginTop: 6, fontSize: '0.78rem', color: '#60a5fa' }}>📎 {item.vals.artworkFile}</p>
+                                    <p style={{ marginTop: 6, fontSize: '0.78rem', color: '#60a5fa' }}>File: {item.vals.artworkFile}</p>
                                   )}
                                 </div>
                               ))}
@@ -1520,7 +1541,7 @@ export default function PrintsAdmin() {
 
                 {maintenancePreview && (
                   <div style={{ marginTop: 'var(--space-4)', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.22)', borderRadius: 8, padding: '10px 14px', fontSize: '0.8125rem', color: '#fbbf24', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <IconInfoCircle size={15} stroke={1.8} style={{ flexShrink: 0, marginTop: 1 }} />
+                    <InfoCircle width={15} height={15} style={{ flexShrink: 0, marginTop: 1 }} />
                     <span>Preview is active on <strong>this browser only</strong>. Other visitors see the normal site. Reload the page to see the maintenance screen.</span>
                   </div>
                 )}
@@ -1545,7 +1566,7 @@ export default function PrintsAdmin() {
                 <div style={{ marginTop: 'var(--space-4)', padding: '12px 14px', background: 'var(--glass-bg)', borderRadius: 8 }}>
                   <p style={{ fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 6 }}>To Enable Site-Wide</p>
                   <ol style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: 18 }}>
-                    <li>Go to Vercel → Project Settings → Environment Variables</li>
+                    <li>Go to Vercel, then Project Settings, then Environment Variables</li>
                     <li>Add <code style={{ background: 'rgba(255,255,255,0.08)', padding: '0 5px', borderRadius: 3 }}>VITE_MAINTENANCE_MODE</code> = <code style={{ background: 'rgba(255,255,255,0.08)', padding: '0 5px', borderRadius: 3 }}>true</code></li>
                     <li>Optionally set <code style={{ background: 'rgba(255,255,255,0.08)', padding: '0 5px', borderRadius: 3 }}>VITE_MAINTENANCE_PASSWORD</code> for preview access</li>
                     <li>Redeploy — all visitors will see the maintenance page</li>
@@ -1560,11 +1581,11 @@ export default function PrintsAdmin() {
       {/* ── Mobile bottom nav ───────────────────── */}
       <nav className="adm-bottom-nav">
         {[
-          { id: 'overview',  label: 'Overview',  icon: <IconLayoutDashboard size={22} stroke={1.6} /> },
-          { id: 'orders',    label: 'Orders',    icon: <IconListDetails size={22} stroke={1.6} />, badge: statusCounts.pending || null },
-          { id: 'clients',   label: 'Clients',   icon: <IconUsers size={22} stroke={1.6} /> },
-          { id: 'invoices',  label: 'Invoices',  icon: <IconReceipt size={22} stroke={1.6} />, badge: invoices.filter(i => i.status === 'unpaid').length || null },
-          { id: 'forms',     label: 'Briefs',    icon: <IconClipboardList size={22} stroke={1.6} />,
+          { id: 'overview',  label: 'Overview',  icon: <LayoutAlt01 width={22} height={22} /> },
+          { id: 'orders',    label: 'Orders',    icon: <List width={22} height={22} />, badge: statusCounts.pending || null },
+          { id: 'clients',   label: 'Clients',   icon: <Users01 width={22} height={22} /> },
+          { id: 'invoices',  label: 'Invoices',  icon: <Receipt width={22} height={22} />, badge: invoices.filter(i => i.status === 'unpaid').length || null },
+          { id: 'forms',     label: 'Briefs',    icon: <ClipboardCheck width={22} height={22} />,
             badge: forms.filter(f => !f.adminSeenAt || (f.editHistory?.length > 0 && f.editHistory.at(-1).editedAt > f.adminSeenAt)).length || null },
         ].map(item => (
           <button

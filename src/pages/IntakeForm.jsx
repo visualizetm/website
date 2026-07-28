@@ -176,7 +176,7 @@ export default function IntakeForm() {
     return (
       <div className="if-success-wrap">
         <div className="if-success-card">
-          <div className="if-success-check">✓</div>
+          <div className="if-success-check" aria-hidden="true">OK</div>
           <h1 className="if-success-title">{editId ? 'Changes saved!' : 'Form submitted!'}</h1>
           <p className="if-success-sub">
             {editId
@@ -185,7 +185,7 @@ export default function IntakeForm() {
           </p>
           <div className="if-success-btns">
             {session
-              ? <Link to="/portal" className="if-btn-primary">← Back to Portal</Link>
+              ? <Link to="/portal" className="if-btn-primary">Back to Portal</Link>
               : <Link to="/" className="if-btn-primary">Back to Site</Link>}
           </div>
         </div>
@@ -200,7 +200,7 @@ export default function IntakeForm() {
         <Link to="/" className="if-topbar-logo">
           <img src="/logo.svg" alt="Visualize Studio" style={{ height: 26 }} />
         </Link>
-        {session && <Link to="/portal" className="if-topbar-back">← Portal</Link>}
+        {session && <Link to="/portal" className="if-topbar-back">Portal</Link>}
       </div>
 
       <form className="if-page" onSubmit={submit} noValidate>
@@ -339,7 +339,7 @@ export default function IntakeForm() {
 
         <div className="if-submit-row">
           <p className="if-req-note"><span className="if-req">*</span> Required fields</p>
-          <button type="submit" className="if-submit">{editId ? 'Save Changes →' : 'Submit →'}</button>
+          <button type="submit" className="if-submit">{editId ? 'Save Changes' : 'Submit'}</button>
         </div>
       </form>
 
