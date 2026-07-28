@@ -44,7 +44,7 @@ export default function Footer() {
               <nav className="footer-col-links">
                 <Link to="/">Home</Link>
                 <Link to="/services">Services</Link>
-                <Link to="/showcase">Work</Link>
+                <Link to="/work">Work</Link>
                 <Link to="/pricing">Pricing</Link>
                 <Link to="/book">Contact</Link>
               </nav>

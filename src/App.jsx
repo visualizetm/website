@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Wordmark from './components/Wordmark';
 import Home from './pages/Home';
 import Services from './pages/Services';
-import Showcase from './pages/Showcase';
+import Work from './pages/Work';
+import CaseStudy from './pages/CaseStudy';
 import Contact from './pages/Contact';
 import LeadPartner from './pages/LeadPartner';
 import Pricing from './pages/Pricing';
@@ -105,7 +106,9 @@ export default function App() {
         <Routes location={location}>
           <Route path="/"            element={<Home />} />
           <Route path="/services"    element={<Services />} />
-          <Route path="/showcase"    element={<Showcase />} />
+          <Route path="/work"        element={<Work />} />
+          <Route path="/work/:slug"  element={<CaseStudy />} />
+          <Route path="/showcase"    element={<Navigate to="/work" replace />} />
           <Route path="/contact"     element={<Contact />} />
           <Route path="/book"        element={<Contact />} />
           <Route path="/lead-partner" element={<LeadPartner />} />
