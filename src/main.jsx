@@ -169,3 +169,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <Root />
   </React.StrictMode>
 );
+
+// PWA: service worker handles web push + notification deep links.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ });
+  });
+}

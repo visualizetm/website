@@ -485,6 +485,25 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
         localStorage.setItem('vz_print_orders', JSON.stringify([orderData, ...existing]));
       } catch {}
 
+      // Also file the order as a lead in the admin panel (best-effort).
+      try {
+        await fetch('/api/submissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'shop-order',
+            name: form.name.trim(),
+            email: form.email.trim(),
+            phone: form.phone.trim(),
+            fields: {
+              'Items': cart.map(i => `${i.productName} — ${i.label} — ${i.priceMode === 'quote' || i.priceTotal == null ? 'Quote' : fmtMoney(i.priceTotal)}`).join(' | '),
+              'Estimated Subtotal': `${fmtMoney(subtotal)}${hasQuote ? ' + quote items' : ''}`,
+              'Payment': 'Collected when production begins',
+            },
+          }),
+        });
+      } catch {}
+
       setStep('done');
       onCheckoutDone();
     } catch {

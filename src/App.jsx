@@ -10,6 +10,7 @@ import CaseStudy from './pages/CaseStudy';
 import Contact from './pages/Contact';
 import LeadPartner from './pages/LeadPartner';
 import Prints from './pages/Prints';
+import Admin from './pages/Admin';
 import PrintsAdmin from './pages/PrintsAdmin';
 import ClientPortal from './pages/ClientPortal';
 import IntakeForm from './pages/IntakeForm';
@@ -92,7 +93,8 @@ export default function App() {
   }, [location.pathname]);
 
   // Routes outside the normal navbar/footer layout
-  if (location.pathname === '/admin')  return <PrintsAdmin />;
+  if (location.pathname === '/admin/prints') return <PrintsAdmin />;
+  if (location.pathname === '/admin')  return <Admin />;
   if (location.pathname === '/prints') return <Prints />;
   if (location.pathname === '/portal') return <ClientPortal />;
   if (location.pathname.startsWith('/intake')) return <IntakeForm />;
@@ -112,8 +114,9 @@ export default function App() {
           <Route path="/book"        element={<Contact />} />
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
-          <Route path="/prints"      element={<Prints />} />
-          <Route path="/admin"       element={<PrintsAdmin />} />
+          <Route path="/prints"       element={<Prints />} />
+          <Route path="/admin"        element={<Admin />} />
+          <Route path="/admin/prints" element={<PrintsAdmin />} />
           <Route path="/portal"      element={<ClientPortal />} />
           <Route path="/start"       element={<Start />} />
         </Routes>
