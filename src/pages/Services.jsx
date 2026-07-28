@@ -13,7 +13,6 @@ import {
   IconRefresh,
   IconCheckCircle,
 } from '../components/Icons';
-import PricingTable from '../components/PricingTable';
 
 const Check = () => (
   <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -29,6 +28,7 @@ const serviceIcons = {
   'Sticker Production': IconSticker,
   'Business Cards': IconCard,
   'Google Business Profile': IconMapPin,
+  'Bulk Custom Products': IconLayers,
 };
 
 const processIcons = [IconChat, IconPencilRuler, IconRefresh, IconCheckCircle];
@@ -88,6 +88,26 @@ const catalogCategories = [
     ],
   },
   {
+    id: 'bulk',
+    title: 'Bulk Custom Products',
+    services: [
+      {
+        name: 'Bulk Custom Products',
+        description:
+          'You want custom products with your brand on them. I handle everything — finding the manufacturer, designing the product, getting you samples, and managing the entire order. You get one quote and one point of contact.',
+        note: 'Popular: custom keychains, product packaging, apparel, and branded accessories.',
+        includes: [
+          'Manufacturer sourcing',
+          'Product design',
+          'Sample coordination',
+          'End-to-end order management',
+          'One quote, one point of contact',
+        ],
+        cta: { label: 'Start a bulk product quote', href: '/book' },
+      },
+    ],
+  },
+  {
     id: 'digital',
     title: 'Digital Setup',
     services: [
@@ -111,6 +131,7 @@ const pillarBlocks = [
   { id: 'brand', title: 'Brand Identity', summary: 'Logo, full identity, and brand systems.' },
   { id: 'website', title: 'Business Websites', summary: '5-page sites, landing pages, and digital presence.' },
   { id: 'print', title: 'Print & Physical Assets', summary: 'Stickers, business cards, and physical brand.' },
+  { id: 'bulk', title: 'Bulk Custom Products', summary: 'Manufacturer-sourced keychains, packaging, apparel, and merch.' },
   { id: 'digital', title: 'Digital Setup', summary: 'Google Business and launch essentials.' },
 ];
 
@@ -179,9 +200,6 @@ const websiteAddOns = [
 ];
 
 function ServiceCardCollapsible({ service, categoryTitle, categoryId, isExpanded, onToggle }) {
-  const hasDeliverables = service.deliverables?.length;
-  const hasIncludes = service.includes?.length;
-  const hasPricingTable = service.pricingTable?.length;
   const list = service.deliverables || service.includes || [];
   const IconComponent = serviceIcons[service.name];
 
@@ -206,22 +224,22 @@ function ServiceCardCollapsible({ service, categoryTitle, categoryId, isExpanded
       <p className="svc-card-desc">{service.description}</p>
       <div className="svc-card-expand">
         {service.note && <p className="svc-card-note">{service.note}</p>}
-        {hasPricingTable && (
-          <div className="svc-card-table">
-            {service.pricingTable.map((row) => (
-              <div key={row.qty} className="svc-card-table-row">
-                <span>{row.qty}</span>
-                <span>{row.price}</span>
-              </div>
-            ))}
-          </div>
-        )}
         {list.length > 0 && (
           <ul className="svc-card-list">
             {list.map((item) => (
               <li key={item}><Check /> {item}</li>
             ))}
           </ul>
+        )}
+        {service.cta && (
+          <a
+            href={service.cta.href}
+            className="btn btn-primary"
+            style={{ marginTop: 'var(--space-4)', display: 'inline-flex' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {service.cta.label}
+          </a>
         )}
       </div>
       <span className="svc-card-toggle" aria-hidden="true">
@@ -400,15 +418,6 @@ export default function ServicesPage() {
               />
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* Package comparison – Premium panels */}
-      <section className="sv-packages" id="packages">
-        <div className="wrap">
-          <h2 className="sv-heading">Service Bundles</h2>
-          <p className="sv-heading-sub">Bundled services for a full launch or upgrade. All priced by quote — book a meeting to get your estimate.</p>
-          <PricingTable />
         </div>
       </section>
 
@@ -962,15 +971,6 @@ export default function ServicesPage() {
           display: inline-block;
         }
         .addon-card.is-expanded .addon-card-toggle { margin-top: var(--space-2); }
-
-        /* ----- Packages – wrapper only (table handled in PricingTable) ----- */
-        .sv-packages {
-          padding: var(--space-24) 0;
-          background: var(--bg-elevated);
-          border-top: 1px solid var(--glass-border);
-        }
-        .sv-packages .sv-heading,
-        .sv-packages .sv-heading-sub { color: var(--text-secondary); }
 
         /* ----- Process – Horizontal timeline ----- */
         .sv-process {
