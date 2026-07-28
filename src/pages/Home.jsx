@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import Hero from '../components/Hero';
 import Trust from '../components/Trust';
 import Services from '../components/Services';
@@ -23,7 +22,7 @@ function PrintsSection() {
 
         <div className="prints-cards">
           {/* Stickers card */}
-          <Link to="/prints?type=stickers" className="prints-card prints-card--stickers">
+          <a href="/prints?type=stickers" target="_blank" rel="noopener noreferrer" className="prints-card prints-card--stickers">
             <div className="prints-card-glow" aria-hidden="true" />
             <div className="prints-card-icon" aria-hidden="true">
               <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -37,14 +36,14 @@ function PrintsSection() {
             </div>
             <h3 className="prints-card-title">Custom Stickers</h3>
             <p className="prints-card-desc">
-              Die-cut, circle, square, and rectangle. Matte, gloss, holographic, and transparent finishes.
+              Die-cut, circle, square, and rectangle in a clean glossy finish.
               Perfect for branding, packaging, and giveaways.
             </p>
             <ul className="prints-card-features">
               <li>Die-cut to any shape</li>
-              <li>Multiple finishes available</li>
-              <li>Orders from 25 units</li>
-              <li>Priced by quote</li>
+              <li>Glossy finish</li>
+              <li>Waterproof — indoor use</li>
+              <li>From $0.75 per sticker</li>
             </ul>
             <div className="prints-card-cta">
               Configure Order
@@ -52,10 +51,10 @@ function PrintsSection() {
                 <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-          </Link>
+          </a>
 
           {/* Vinyl card */}
-          <Link to="/prints?type=vinyl" className="prints-card prints-card--vinyl">
+          <a href="/prints?type=vinyl" target="_blank" rel="noopener noreferrer" className="prints-card prints-card--vinyl">
             <div className="prints-card-glow" aria-hidden="true" />
             <div className="prints-card-icon" aria-hidden="true">
               <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -84,7 +83,7 @@ function PrintsSection() {
                 <path d="M4 10h12M10 4l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-          </Link>
+          </a>
         </div>
       </div>
 

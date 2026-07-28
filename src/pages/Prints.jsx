@@ -1,11 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  IconShoppingCart, IconX, IconCheck, IconTrash, IconArrowRight,
-  IconLock, IconPackage, IconUpload, IconChevronRight, IconStar,
-} from '@tabler/icons-react';
+import { useState, useCallback, useRef } from 'react';
+import ShoppingCart01 from '@untitled-ui/icons-react/build/esm/ShoppingCart01';
+import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Check from '@untitled-ui/icons-react/build/esm/Check';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import Send01 from '@untitled-ui/icons-react/build/esm/Send01';
+import Package from '@untitled-ui/icons-react/build/esm/Package';
+import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
+import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
+import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 
-const ACCESS_KEY  = import.meta.env.VITE_WEB3FORMS_KEY || '';
-const STRIPE_LINK = import.meta.env.VITE_STRIPE_IG_LINK || '';
+const ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_KEY || '';
 
 /* ─── Catalog ────────────────────────────────────────────────────── */
 
@@ -20,23 +25,23 @@ const PRODUCTS = [
   {
     id: 'logo-sticker', cat: 'stickers', popular: true,
     name: 'Logo Die-Cut Sticker',
-    desc: 'Your logo precision-cut to shape. Waterproof, UV-resistant, and built to last outdoors.',
-    pricing: { mode: 'perUnit', tiers: [{ min: 250, price: 0.53 }, { min: 0, price: 0.75 }] },
-    fields: ['qty', 'size', 'finish', 'artwork'],
+    desc: 'Your logo precision-cut to shape. Glossy, waterproof, and made for indoor use — keep out of direct sunlight.',
+    pricing: { mode: 'sticker' },
+    fields: ['qty', 'size', 'artwork'],
   },
   {
     id: 'qr-sticker', cat: 'stickers',
     name: 'QR Code Sticker',
     desc: 'Logo + scannable QR code in one sticker. Link customers to your site, menu, or booking page.',
-    pricing: { mode: 'perUnit', tiers: [{ min: 250, price: 0.53 }, { min: 0, price: 0.75 }] },
-    fields: ['qty', 'size', 'finish', 'qrUrl', 'artwork'],
+    pricing: { mode: 'sticker' },
+    fields: ['qty', 'size', 'qrUrl', 'artwork'],
   },
   {
     id: 'sticker-sheet', cat: 'stickers',
     name: 'Kiss-Cut Sticker Sheet',
     desc: 'Multiple designs on one sheet. Perfect for variety packs, packaging inserts, and giveaways.',
     pricing: { mode: 'quote' },
-    fields: ['qty', 'sheetSize', 'finish', 'artwork'],
+    fields: ['qty', 'sheetSize', 'artwork'],
   },
   {
     id: 'ig-vinyl', cat: 'vinyl', badge: '$15 flat',
@@ -70,15 +75,21 @@ const PRODUCTS = [
 
 /* ─── Pricing engine ─────────────────────────────────────────────── */
 
+// Sticker pricing scales with size. Bulk rate applies at BULK_MIN+ per order.
+const STICKER_PRICES = {
+  '2" × 2"': { base: 0.75, bulk: 0.53 },
+  '3" × 3"': { base: 1.00, bulk: 0.70 },
+  '4" × 4"': { base: 1.35, bulk: 0.95 },
+  '5" × 5"': { base: 1.75, bulk: 1.25 },
+  '6" × 8"': { base: 2.50, bulk: 1.75 },
+};
+const BULK_MIN = 250;
+
 function priceLabelForCard(product) {
   const p = product.pricing;
   if (!p) return 'By quote';
   if (p.mode === 'flat')    return `$${p.amount} flat`;
-  if (p.mode === 'quote')   return 'By quote';
-  if (p.mode === 'perUnit') {
-    const base = [...p.tiers].sort((a, b) => a.min - b.min)[0];
-    return `From $${base.price.toFixed(2)}/ea`;
-  }
+  if (p.mode === 'sticker') return 'From $0.75/ea';
   return 'By quote';
 }
 
@@ -87,12 +98,14 @@ function computePrice(product, vals) {
   const p = product.pricing;
   if (!p || p.mode === 'quote') return { mode: 'quote', total: null, display: 'By quote' };
   if (p.mode === 'flat') return { mode: 'flat', total: p.amount, display: `$${p.amount} flat` };
-  if (p.mode === 'perUnit') {
+  if (p.mode === 'sticker') {
     const qty = parseInt(String(vals.qty || '').replace(/[^0-9]/g, ''), 10) || 0;
-    if (!qty) return { mode: 'perUnit', qty: 0, total: null, display: null };
-    const tier = [...p.tiers].sort((a, b) => b.min - a.min).find(t => qty >= t.min) || p.tiers[0];
-    const total = +(tier.price * qty).toFixed(2);
-    return { mode: 'perUnit', qty, unit: tier.price, total, display: `$${tier.price.toFixed(2)}/ea` };
+    if (vals.size === 'Custom') return { mode: 'quote', total: null, display: 'By quote' };
+    const tier = STICKER_PRICES[vals.size];
+    if (!qty || !tier) return { mode: 'sticker', qty, total: null, display: null };
+    const unit = qty >= BULK_MIN ? tier.bulk : tier.base;
+    const total = +(unit * qty).toFixed(2);
+    return { mode: 'sticker', qty, unit, total, display: `$${unit.toFixed(2)}/ea` };
   }
   return { mode: 'quote', total: null, display: 'By quote' };
 }
@@ -106,7 +119,6 @@ function fmtMoney(n) {
 const STICKER_SIZES  = ['2" × 2"', '3" × 3"', '4" × 4"', '5" × 5"', '6" × 8"', 'Custom'];
 const SHEET_SIZES    = ['4" × 6"', '5" × 7"', '8.5" × 11"', 'Custom'];
 const VINYL_SIZES    = ['4" × 16"', '6" × 24"', '8" × 32"', 'Custom'];
-const FINISHES       = ['Glossy', 'Matte', 'Holographic', 'Transparent'];
 const CARD_FINISHES  = ['Matte', 'Gloss', 'Spot UV'];
 const STICKER_QTYS   = ['10', '25', '50', '100', '250', '500', '1,000+'];
 const CARD_QTYS      = ['50', '100', '250', '500', '1,000'];
@@ -127,6 +139,24 @@ function Chip({ label, selected, onClick }) {
     <button type="button" className={`ps-chip${selected ? ' is-sel' : ''}`} onClick={onClick}>
       {label}
     </button>
+  );
+}
+
+function SizeGrid({ value, onChange }) {
+  return (
+    <div className="ps-opt-grid">
+      {STICKER_SIZES.map(s => {
+        const p = STICKER_PRICES[s];
+        return (
+          <button key={s} type="button"
+            className={`ps-opt ps-opt--size${value === s ? ' is-sel' : ''}`}
+            onClick={() => onChange(s)}>
+            <span>{s}</span>
+            <span className="ps-opt-price">{p ? `$${p.base.toFixed(2)}/ea` : 'By quote'}</span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -152,7 +182,7 @@ function ColorRow({ value, onChange }) {
           className={`ps-swatch${value === c.label ? ' is-sel' : ''}`}
           onClick={() => onChange(c.label)}
           style={{ background: c.hex || 'conic-gradient(red,orange,yellow,green,blue,purple,red)', border: c.border ? '2px solid #555' : undefined }}>
-          {value === c.label && <IconCheck size={12} stroke={3} color={c.border ? '#333' : '#fff'} />}
+          {value === c.label && <Check width={12} height={12} color={c.border ? '#333' : '#fff'} />}
         </button>
       ))}
     </div>
@@ -200,7 +230,6 @@ function CustomizeModal({ product, onClose, onAdd }) {
   const needsQty   = flds.includes('qty');
   const needsSize  = flds.includes('size');
   const needsSheet = flds.includes('sheetSize');
-  const needsFinish = flds.includes('finish');
   const needsCardFin = flds.includes('cardFinish');
   const needsArtwork = flds.includes('artwork');
   const needsQr    = flds.includes('qrUrl');
@@ -213,7 +242,6 @@ function CustomizeModal({ product, onClose, onAdd }) {
     if (needsQty   && !vals.qty)         e.qty      = 'Select a quantity';
     if (needsSize  && !vals.size)        e.size     = 'Select a size';
     if (needsSheet && !vals.sheetSize)   e.sheetSize = 'Select a sheet size';
-    if (needsFinish && !vals.finish)     e.finish   = 'Select a finish';
     if (needsCardFin && !vals.cardFinish) e.cardFinish = 'Select a finish';
     if (needsText  && !vals.text.trim()) e.text     = product.id === 'ig-vinyl' ? 'Enter your Instagram handle' : 'Enter your text';
     if (needsColor && !vals.vinylColor)  e.vinylColor = 'Select a color';
@@ -235,9 +263,10 @@ function CustomizeModal({ product, onClose, onAdd }) {
     onClose();
   };
 
-  // For perUnit, show qty-aware tier note
-  const tierNote = product.pricing?.mode === 'perUnit'
-    ? `$${[...product.pricing.tiers].sort((a, b) => a.min - b.min)[0].price.toFixed(2)} each · $${[...product.pricing.tiers].sort((a, b) => a.min - b.min).at(-1).price.toFixed(2)} each at 250+`
+  // Sticker orders: quantity note reflects the selected size's rates
+  const sizeTier = product.pricing?.mode === 'sticker' ? STICKER_PRICES[vals.size] : null;
+  const tierNote = sizeTier
+    ? `$${sizeTier.base.toFixed(2)} each · $${sizeTier.bulk.toFixed(2)} each at ${BULK_MIN}+`
     : null;
 
   return (
@@ -248,7 +277,7 @@ function CustomizeModal({ product, onClose, onAdd }) {
             <p className="ps-modal-eyebrow">{product.price}</p>
             <h3 className="ps-modal-title">{product.name}</h3>
           </div>
-          <button type="button" className="ps-modal-close" onClick={onClose}><IconX size={20} /></button>
+          <button type="button" className="ps-modal-close" onClick={onClose}><XClose width={20} height={20} /></button>
         </div>
 
         <div className="ps-modal-body">
@@ -266,7 +295,8 @@ function CustomizeModal({ product, onClose, onAdd }) {
           {needsSize && (
             <div className={`ps-mfield${errors.size ? ' is-err' : ''}`}>
               <label className="ps-mlabel">Size {errors.size && <span className="ps-merr">{errors.size}</span>}</label>
-              <OptionGrid opts={STICKER_SIZES} value={vals.size} onChange={v => set('size', v)} />
+              <SizeGrid value={vals.size} onChange={v => set('size', v)} />
+              <p className="ps-mhint">Glossy finish · Waterproof · Indoor use — keep out of direct sunlight.</p>
             </div>
           )}
 
@@ -275,14 +305,6 @@ function CustomizeModal({ product, onClose, onAdd }) {
             <div className={`ps-mfield${errors.sheetSize ? ' is-err' : ''}`}>
               <label className="ps-mlabel">Sheet Size {errors.sheetSize && <span className="ps-merr">{errors.sheetSize}</span>}</label>
               <OptionGrid opts={SHEET_SIZES} value={vals.sheetSize} onChange={v => set('sheetSize', v)} />
-            </div>
-          )}
-
-          {/* Sticker finish */}
-          {needsFinish && (
-            <div className={`ps-mfield${errors.finish ? ' is-err' : ''}`}>
-              <label className="ps-mlabel">Finish {errors.finish && <span className="ps-merr">{errors.finish}</span>}</label>
-              <OptionGrid opts={FINISHES} value={vals.finish} onChange={v => set('finish', v)} />
             </div>
           )}
 
@@ -348,8 +370,8 @@ function CustomizeModal({ product, onClose, onAdd }) {
               <label className="ps-mlabel">Artwork / Logo File</label>
               <div className="ps-upload-zone" onClick={() => fileRef.current?.click()}>
                 {vals.artworkFile
-                  ? <><IconCheck size={18} color="#22c55e" /><span className="ps-upload-name">{vals.artworkFile.name}</span><button type="button" className="ps-upload-clear" onClick={e => { e.stopPropagation(); set('artworkFile', null); }}>Remove</button></>
-                  : <><IconUpload size={20} /><span>Click to upload file<br /><small>.ai, .pdf, .png, .svg, .psd</small></span></>}
+                  ? <><Check width={18} height={18} color="#22c55e" /><span className="ps-upload-name">{vals.artworkFile.name}</span><button type="button" className="ps-upload-clear" onClick={e => { e.stopPropagation(); set('artworkFile', null); }}>Remove</button></>
+                  : <><Upload01 width={20} height={20} /><span>Click to upload file<br /><small>.ai, .pdf, .png, .svg, .psd</small></span></>}
               </div>
               <input ref={fileRef} type="file" accept=".ai,.pdf,.png,.svg,.psd,.jpg,.jpeg,.eps" style={{ display: 'none' }}
                 onChange={e => { if (e.target.files[0]) set('artworkFile', e.target.files[0]); }} />
@@ -386,13 +408,13 @@ function CustomizeModal({ product, onClose, onAdd }) {
               </>
             ) : (
               <>
-                <span className="ps-price-amt ps-price-amt--dim">Select quantity</span>
+                <span className="ps-price-amt ps-price-amt--dim">Select size & quantity</span>
                 {tierNote && <span className="ps-price-note">{tierNote}</span>}
               </>
             )}
           </div>
           <button type="button" className="ps-btn-primary" onClick={submit}>
-            Add to Cart <IconArrowRight size={16} stroke={2} />
+            Add to Cart <ArrowRight width={16} height={16} />
           </button>
         </div>
       </div>
@@ -446,6 +468,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
         if (item.vals.artworkFile) fd.append(`Artwork — ${item.productName}`, item.vals.artworkFile);
       });
 
+      fd.append('Payment', 'No deposit — collected when production begins');
       if (ACCESS_KEY) await fetch('https://api.web3forms.com/submit', { method: 'POST', body: fd });
 
       const orderId = Date.now();
@@ -460,17 +483,6 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
       try {
         const existing = JSON.parse(localStorage.getItem('vz_print_orders') || '[]');
         localStorage.setItem('vz_print_orders', JSON.stringify([orderData, ...existing]));
-      } catch {}
-
-      // Try Stripe deposit
-      try {
-        const res = await fetch('/api/create-checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderSummary: cartSummary, customerEmail: form.email.trim(), customerName: form.name.trim() }),
-        });
-        const data = await res.json();
-        if (data.url) { window.location.href = data.url; return; }
       } catch {}
 
       setStep('done');
@@ -489,14 +501,14 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
           <h3 className="ps-drawer-title">
             {step === 'cart' ? `Cart (${cart.length})` : step === 'checkout' ? 'Your Info' : 'Order Placed'}
           </h3>
-          <button type="button" className="ps-modal-close" onClick={onClose}><IconX size={20} /></button>
+          <button type="button" className="ps-modal-close" onClick={onClose}><XClose width={20} height={20} /></button>
         </div>
 
         {step === 'cart' && (
           <>
             {cart.length === 0 ? (
               <div className="ps-drawer-empty">
-                <IconPackage size={40} stroke={1.2} />
+                <Package width={40} height={40} />
                 <p>Your cart is empty</p>
               </div>
             ) : (
@@ -514,7 +526,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
                           {item.priceMode === 'quote' || item.priceTotal == null ? 'Quote' : fmtMoney(item.priceTotal)}
                         </span>
                         <button type="button" className="ps-ci-remove" onClick={() => onRemove(item.cartId)}>
-                          <IconTrash size={14} stroke={1.8} />
+                          <Trash01 width={14} height={14} />
                         </button>
                       </div>
                     </div>
@@ -533,9 +545,9 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
                       </div>
                     );
                   })()}
-                  <p className="ps-drawer-note">Quote items are priced after review. A $25 deposit is collected at checkout and applied to your order.</p>
+                  <p className="ps-drawer-note">Quote items are priced after review. No payment is due today — payment is collected when production begins.</p>
                   <button type="button" className="ps-btn-primary" style={{ width: '100%' }} onClick={() => setStep('checkout')}>
-                    Continue to Checkout <IconArrowRight size={16} stroke={2} />
+                    Continue to Checkout <ArrowRight width={16} height={16} />
                   </button>
                 </div>
               </>
@@ -570,7 +582,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
             <div className="ps-drawer-foot">
               <button type="button" className="ps-back-btn" onClick={() => setStep('cart')}>← Back</button>
               <button type="button" className="ps-btn-primary" style={{ flex: 1 }} onClick={handleCheckout} disabled={submitting}>
-                {submitting ? <span className="ps-spinner" /> : <><IconLock size={15} /> Pay $25 Deposit</>}
+                {submitting ? <span className="ps-spinner" /> : <><Send01 width={15} height={15} /> Place Order</>}
               </button>
             </div>
           </>
@@ -578,10 +590,10 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
 
         {step === 'done' && (
           <div className="ps-drawer-empty" style={{ gap: 16 }}>
-            <div className="ps-done-icon"><IconCheck size={30} stroke={2.5} /></div>
+            <div className="ps-done-icon"><Check width={30} height={30} /></div>
             <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ps-text)' }}>Order received.</p>
             <p style={{ fontSize: '0.875rem', color: 'var(--ps-muted)', textAlign: 'center', lineHeight: 1.6 }}>
-              Rob will follow up within 24 hours to confirm details and get your project started.
+              Rob will follow up within 24 hours to confirm details. Payment is collected when production begins.
             </p>
           </div>
         )}
@@ -595,10 +607,9 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
 function buildLabel(product, vals) {
   const parts = [];
   if (vals.qty)        parts.push(`Qty: ${vals.qty}`);
-  if (vals.size)       parts.push(vals.size);
+  if (vals.size)       parts.push(vals.size, 'Glossy');
   if (vals.sheetSize)  parts.push(vals.sheetSize);
   if (vals.vinylSize)  parts.push(vals.vinylSize);
-  if (vals.finish)     parts.push(vals.finish);
   if (vals.cardFinish) parts.push(vals.cardFinish);
   if (vals.vinylColor) parts.push(vals.vinylColor);
   if (vals.text)       parts.push(`"${vals.text}"`);
@@ -611,7 +622,7 @@ function buildLabel(product, vals) {
 function ProductCard({ product, onCustomize }) {
   return (
     <div className="ps-card">
-      {product.popular && <span className="ps-card-badge ps-card-badge--pop"><IconStar size={10} stroke={2} /> Popular</span>}
+      {product.popular && <span className="ps-card-badge ps-card-badge--pop"><Star01 width={10} height={10} /> Popular</span>}
       {product.badge && !product.popular && <span className="ps-card-badge ps-card-badge--price">{product.badge}</span>}
       <div className="ps-card-icon">{ICONS[product.id]}</div>
       <div className="ps-card-body">
@@ -621,7 +632,7 @@ function ProductCard({ product, onCustomize }) {
       <div className="ps-card-foot">
         <span className="ps-card-price">{priceLabelForCard(product)}</span>
         <button type="button" className="ps-card-btn" onClick={() => onCustomize(product)}>
-          Customize <IconChevronRight size={14} stroke={2} />
+          Customize <ChevronRight width={14} height={14} />
         </button>
       </div>
     </div>
@@ -635,18 +646,6 @@ export default function Prints() {
   const [cart, setCart]       = useState(() => { try { return JSON.parse(localStorage.getItem('vz_cart') || '[]'); } catch { return []; } });
   const [modal, setModal]     = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
-  const [doneShown, setDoneShown] = useState(false);
-
-  // Check for return from Stripe
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('payment') === 'success') {
-      window.history.replaceState({}, '', '/prints');
-      setCart([]);
-      localStorage.removeItem('vz_cart');
-      setDoneShown(true);
-    }
-  }, []);
 
   const saveCart = useCallback((c) => {
     const serializable = c.map(item => ({ ...item, vals: { ...item.vals, artworkFile: null } }));
@@ -687,7 +686,7 @@ export default function Prints() {
             <span className="ps-header-title">Print Shop</span>
           </div>
           <button type="button" className="ps-cart-toggle" onClick={() => setCartOpen(true)}>
-            <IconShoppingCart size={18} stroke={1.8} />
+            <ShoppingCart01 width={18} height={18} />
             Cart
             {cart.length > 0 && <span className="ps-cart-count">{cart.length}</span>}
           </button>
@@ -724,7 +723,7 @@ export default function Prints() {
 
       {/* Footer note */}
       <footer className="ps-foot">
-        <p>All orders include a $25 deposit collected at checkout. Final pricing confirmed after review.<br />Questions? Call <a href="tel:+12159082000">(215) 908-2000</a> or email visualizeserviceco@gmail.com</p>
+        <p>No payment is due at checkout — payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Call <a href="tel:+12159082000">(215) 908-2000</a> or email visualizeserviceco@gmail.com</p>
       </footer>
 
       {/* Customize modal */}
@@ -744,15 +743,6 @@ export default function Prints() {
           onClose={() => setCartOpen(false)}
           onCheckoutDone={clearCart}
         />
-      )}
-
-      {/* Done banner (post-Stripe return) */}
-      {doneShown && (
-        <div className="ps-done-banner">
-          <IconCheck size={18} stroke={2.5} />
-          <span>Payment received — Rob will follow up within 24 hours.</span>
-          <button type="button" onClick={() => setDoneShown(false)}><IconX size={16} /></button>
-        </div>
       )}
 
       <style>{psStyles}</style>
@@ -973,6 +963,9 @@ const psStyles = `
     transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
   .ps-opt:hover { border-color: rgba(212,76,67,0.4); color: var(--ps-text); }
+  .ps-opt--size { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .ps-opt-price { font-size: 0.68rem; font-weight: 700; color: var(--ps-muted); }
+  .ps-opt.is-sel .ps-opt-price { color: var(--ps-text); opacity: 0.75; }
   .ps-opt.is-sel { border-color: var(--ps-brand); background: var(--ps-brand-dim); color: var(--ps-text); }
   .ps-color-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .ps-swatch {
