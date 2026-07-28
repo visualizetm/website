@@ -26,17 +26,34 @@ export default async function handler(req, res) {
       filter.$or = [{ name: rx }, { business: rx }, { email: rx }];
     }
 
-    const [items, counts] = await Promise.all([
+    const WEEKS = 8;
+    const since = new Date(Date.now() - WEEKS * 7 * 86400000);
+    const [items, counts, typeCounts, recentDates, unread, total] = await Promise.all([
       col.find(filter).sort({ createdAt: -1 }).limit(300).toArray(),
       col.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]).toArray(),
+      col.aggregate([{ $group: { _id: '$type', n: { $sum: 1 } } }]).toArray(),
+      col.find({ createdAt: { $gte: since } }, { projection: { createdAt: 1, status: 1 } }).toArray(),
+      col.countDocuments({ read: false }),
+      col.estimatedDocumentCount(),
     ]);
-    const unread = await col.countDocuments({ read: false });
+
+    // Bucket the last 8 weeks in JS (small dataset; avoids timezone edge cases).
+    const weekMs = 7 * 86400000;
+    const buckets = Array.from({ length: WEEKS }, () => ({ total: 0, landed: 0 }));
+    for (const d of recentDates) {
+      const idx = Math.min(WEEKS - 1, Math.floor((new Date(d.createdAt).getTime() - since.getTime()) / weekMs));
+      if (idx < 0) continue;
+      buckets[idx].total += 1;
+      if (d.status === 'landed') buckets[idx].landed += 1;
+    }
 
     return res.status(200).json({
       items,
       unread,
+      total,
       counts: Object.fromEntries(counts.map(c => [c._id, c.n])),
-      total: await col.estimatedDocumentCount(),
+      typeCounts: Object.fromEntries(typeCounts.map(c => [c._id, c.n])),
+      series: buckets,
     });
   }
 

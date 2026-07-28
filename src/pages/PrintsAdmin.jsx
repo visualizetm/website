@@ -29,7 +29,8 @@ import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import User01 from '@untitled-ui/icons-react/build/esm/User01';
 import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 
-const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+// Auth is shared with /admin — this dashboard trusts the same server-side
+// session (one ADMIN_PASSWORD). No separate print-shop password.
 
 function hashPassword(pw) {
   let h = 0;
@@ -101,48 +102,9 @@ function MiniBar({ data, max }) {
 }
 
 /* ── Login screen ─────────────────────────────────────────────── */
-function LoginScreen({ onAuth }) {
-  const [pw, setPw]         = useState('');
-  const [error, setError]   = useState(false);
-  const [shaking, setShake] = useState(false);
-
-  const submit = (e) => {
-    e.preventDefault();
-    if (pw === ADMIN_PASSWORD) { onAuth(); return; }
-    setError(true);
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
-
-  return (
-    <div className="adm-page">
-      <div className="adm-login">
-        <div className="adm-login-logo">
-          <img src="/logo.svg" alt="Visualize" style={{ height: 32 }} />
-        </div>
-        <h1 className="adm-login-title">Admin Dashboard</h1>
-        <p className="adm-login-sub">Visualize Studio — Internal</p>
-        <form onSubmit={submit} className={`adm-login-form ${shaking ? 'adm-shake' : ''}`}>
-          <input
-            type="password"
-            className={`adm-input ${error ? 'adm-input--error' : ''}`}
-            value={pw}
-            onChange={e => { setPw(e.target.value); setError(false); }}
-            placeholder="Enter password"
-            autoFocus
-          />
-          {error && <p className="adm-pw-err">Incorrect password</p>}
-          <button type="submit" className="btn btn-primary adm-login-btn">Access Dashboard</button>
-        </form>
-      </div>
-      <style>{admStyles}</style>
-    </div>
-  );
-}
-
 /* ── Main dashboard ───────────────────────────────────────────── */
 export default function PrintsAdmin() {
-  const [auth, setAuth]         = useState(false);
+  const [auth, setAuth]         = useState(null); // null = checking session
   const [orders, setOrders]     = useState([]);
   const [detail, setDetail]     = useState(null);
   const [filter, setFilter]     = useState('all');
@@ -205,6 +167,18 @@ export default function PrintsAdmin() {
       });
     } catch { /* no analytics yet */ }
   }, []);
+
+  // Share the /admin session — no separate password. Bounce to /admin if not signed in.
+  useEffect(() => {
+    fetch('/api/admin/session').then(r => r.json())
+      .then(d => { if (d.authed) setAuth(true); else window.location.replace('/admin'); })
+      .catch(() => window.location.replace('/admin'));
+  }, []);
+
+  const logout = async () => {
+    try { await fetch('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
+    window.location.href = '/admin';
+  };
 
   const loadClients = useCallback(() => {
     try { setClients(JSON.parse(localStorage.getItem('vz_clients') || '[]')); }
@@ -365,7 +339,7 @@ export default function PrintsAdmin() {
     setMaintenancePreview(next);
   }, [maintenancePreview]);
 
-  if (!auth) return <LoginScreen onAuth={() => setAuth(true)} />;
+  if (!auth) return <div className="adm-page" style={{ minHeight: '100vh' }}><style>{admStyles}</style></div>;
 
   // Derived stats
   const statusCounts = ORDER_STATUSES.reduce((acc, s) => {
@@ -394,7 +368,7 @@ export default function PrintsAdmin() {
         <span className="adm-mobile-topbar-title">
           {{ overview: 'Overview', orders: 'Orders', clients: 'Clients', invoices: 'Invoices', forms: 'Briefs', shop: 'Shop', settings: 'Settings' }[tab]}
         </span>
-        <button className="adm-mobile-logout-btn" onClick={() => setAuth(false)} aria-label="Log out">
+        <button className="adm-mobile-logout-btn" onClick={logout} aria-label="Log out">
           <LogOut01 width={18} height={18} />
         </button>
       </div>
@@ -429,7 +403,7 @@ export default function PrintsAdmin() {
             </button>
           ))}
         </nav>
-        <button className="adm-logout" onClick={() => setAuth(false)}>
+        <button className="adm-logout" onClick={logout}>
           <LogOut01 width={14} height={14} />
           Log out
         </button>

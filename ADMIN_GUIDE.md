@@ -2,12 +2,18 @@
 
 ## The admin panel — `/admin`
 
-- Not linked anywhere public. Sign in with the `ADMIN_PASSWORD` you set in Vercel.
+- Not linked anywhere public. Sign in **once** with the `ADMIN_PASSWORD` you set in Vercel.
 - Sessions last 30 days per device (secure HttpOnly cookie — the password is never stored in the browser).
-- **Leads**: every `/start` brief and shop order lands here automatically, stored in MongoDB.
+- **One password for everything.** The old print-shop dashboard used a separate
+  `VITE_ADMIN_PASSWORD` — that's gone. `/admin/prints` now shares this same login;
+  if you open it without being signed in, it bounces you to `/admin`.
+- **Overview** (dashboard): time-based greeting, four stat cards (Total Leads,
+  New/Unread, In Pipeline, Landed), an 8-week leads chart, a pipeline breakdown,
+  and recent activity — the landing view.
+- **Leads** tab: every `/start` brief and shop order, stored in MongoDB.
   - Status pipeline: New → Contacted → Replied → Landed / Denied
   - Private notes, read/unread, unread badge, search (name/business/email), filter by status, type, and date range.
-- **Print Shop (legacy)** button opens the old print-orders dashboard at `/admin/prints`.
+- **Print Shop** button (top right) opens the print-orders dashboard at `/admin/prints` — no second sign-in.
 
 ## Turn on notifications on your iPhone (do this once)
 
@@ -36,6 +42,7 @@ fails or you get a new phone. The email includes a direct "Open in Admin" link.
 `MONGODB_URI` · `ADMIN_PASSWORD` · `SESSION_SECRET` · `VAPID_PUBLIC_KEY` ·
 `VAPID_PRIVATE_KEY` · `WEB3FORMS_NOTIFY_KEY`
 
-After confirming `/admin` login works, **delete `VITE_ADMIN_PASSWORD`** from
-Vercel — the old admin's password shipped inside the public JS bundle; the new
-login checks the password server-side only.
+**Delete `VITE_ADMIN_PASSWORD`** from Vercel — nothing uses it anymore. Both
+`/admin` and `/admin/prints` now authenticate against `ADMIN_PASSWORD`
+server-side only. (The old value shipped inside the public JS bundle, which was
+readable by anyone; that hole is now closed.)
