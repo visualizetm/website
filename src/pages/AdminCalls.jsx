@@ -451,7 +451,7 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
 
 /* ── Main ──────────────────────────────────────────────────────── */
 
-export default function AdminCalls() {
+export default function AdminCalls({ embedded = false }) {
   const [authed, setAuthed] = useState(null);
   const [leads, setLeads] = useState([]);
   const [selId, setSelId] = useState(null);
@@ -463,13 +463,16 @@ export default function AdminCalls() {
   const [newOpen, setNewOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
-  useEffect(() => { document.title = 'Call Console — Visualize'; }, []);
+  useEffect(() => {
+    if (!embedded) document.title = 'Call Console — Visualize';
+  }, [embedded]);
 
   useEffect(() => {
+    if (embedded) { setAuthed(true); return; }  // shell already verified the session
     fetch('/api/admin/session').then(r => r.json())
       .then(d => { if (d.authed) setAuthed(true); else window.location.replace(ADMIN_HOME); })
       .catch(() => window.location.replace(ADMIN_HOME));
-  }, []);
+  }, [embedded]);
 
   const load = useCallback(async () => {
     try {
@@ -547,7 +550,8 @@ export default function AdminCalls() {
   if (authed === null) return <div className="cc-page"><style>{ccStyles}</style></div>;
 
   return (
-    <div className={`cc-page${sel || newOpen ? ' has-pad' : ''}`}>
+    <div className={`cc-page${sel || newOpen ? ' has-pad' : ''}${embedded ? ' cc-page--embedded' : ''}`}>
+      {!embedded && (
       <header className="cc-topbar">
         <div className="cc-topbar-left">
           <Wordmark size={16} />
@@ -562,11 +566,23 @@ export default function AdminCalls() {
           </button>
         </div>
       </header>
+      )}
 
       <div className="cc-body">
         {/* LEFT — lead list */}
         <aside className="cc-list" aria-label="Lead list">
           <div className="cc-filters">
+            {embedded && (
+              <div className="cc-embedbar">
+                <span className="cc-topbar-title">Call Console</span>
+                {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
+                <span className="cc-embedbar-spacer" />
+                <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
+                <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
+                  <Plus width={14} height={14} /> New
+                </button>
+              </div>
+            )}
             <div className="cc-search-wrap">
               <SearchMd width={14} height={14} />
               <input className="cc-input cc-search" placeholder="Search leads…" value={q} onChange={e => setQ(e.target.value)} />
@@ -657,6 +673,9 @@ export default function AdminCalls() {
 /* ── Styles ────────────────────────────────────────────────────── */
 
 const ccStyles = `
+  .cc-page--embedded { height: 100%; }
+  .cc-embedbar { display: flex; align-items: center; gap: 8px; }
+  .cc-embedbar-spacer { flex: 1; }
   .cc-page {
     height: 100vh; height: 100dvh; display: flex; flex-direction: column;
     background: #0a0a0a; color: #fafafa;

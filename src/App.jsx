@@ -10,8 +10,7 @@ import CaseStudy from './pages/CaseStudy';
 import Contact from './pages/Contact';
 import LeadPartner from './pages/LeadPartner';
 import Prints from './pages/Prints';
-import Admin from './pages/Admin';
-import AdminCalls from './pages/AdminCalls';
+import AdminApp from './pages/AdminApp';
 import PrintsAdmin from './pages/PrintsAdmin';
 import ClientPortal from './pages/ClientPortal';
 import IntakeForm from './pages/IntakeForm';
@@ -98,8 +97,7 @@ export default function App() {
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
     if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <PrintsAdmin />;
-    if (location.pathname === '/calls'  || location.pathname === '/admin/calls')  return <AdminCalls />;
-    return <Admin />;
+    return <AdminApp />;
   }
 
   // On the public domain the admin is not served (vercel.json also blocks it
@@ -107,8 +105,7 @@ export default function App() {
   if (location.pathname.startsWith('/admin')) {
     if (!IS_DEV_HOST) return <Navigate to="/" replace />;
     if (location.pathname === '/admin/prints') return <PrintsAdmin />;
-    if (location.pathname === '/admin/calls')  return <AdminCalls />;
-    return <Admin />;
+    return <AdminApp />;
   }
 
   // Routes outside the normal navbar/footer layout
