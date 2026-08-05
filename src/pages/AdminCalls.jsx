@@ -14,6 +14,7 @@ import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import Wordmark from '../components/Wordmark';
 import IMPORT_LEADS from '../data/call-leads-import.json';
+import { ADMIN_HOME } from '../lib/adminPaths';
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -466,14 +467,14 @@ export default function AdminCalls() {
 
   useEffect(() => {
     fetch('/api/admin/session').then(r => r.json())
-      .then(d => { if (d.authed) setAuthed(true); else window.location.replace('/admin'); })
-      .catch(() => window.location.replace('/admin'));
+      .then(d => { if (d.authed) setAuthed(true); else window.location.replace(ADMIN_HOME); })
+      .catch(() => window.location.replace(ADMIN_HOME));
   }, []);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/call-leads');
-      if (res.status === 401) { window.location.replace('/admin'); return; }
+      if (res.status === 401) { window.location.replace(ADMIN_HOME); return; }
       const d = await res.json();
       setLeads(d.items || []);
     } catch { /* keep last */ }
@@ -554,7 +555,7 @@ export default function AdminCalls() {
           {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
         </div>
         <div className="cc-topbar-right">
-          <a href="/admin" className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
+          <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
           <button type="button" className="cc-btn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
           <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
             <Plus width={14} height={14} /> New lead

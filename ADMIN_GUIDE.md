@@ -1,6 +1,12 @@
 # Admin Panel & Notifications Guide
 
-## The admin panel — `/admin`
+## The admin panel — `admin.visualizeclients.com`
+
+The panel lives on its own subdomain. `https://admin.visualizeclients.com` opens
+the login/dashboard directly; the Call Console is `/calls` and the print
+dashboard is `/prints` on that subdomain. The public site no longer serves the
+panel — `visualizestudio.org/admin` redirects to the homepage (blocked at the
+edge via vercel.json). Localhost still serves `/admin` for development.
 
 - Not linked anywhere public. Sign in **once** with the `ADMIN_PASSWORD` you set in Vercel.
 - Sessions last 30 days per device (secure HttpOnly cookie — the password is never stored in the browser).
@@ -19,10 +25,14 @@
 
 iOS only delivers web push to sites installed on the Home Screen (iOS 16.4+):
 
-1. Open **Safari** → `visualizestudio.org`
+1. Open **Safari** → `admin.visualizeclients.com`
 2. Tap **Share** (square with arrow) → **Add to Home Screen** → Add
 3. Open the new **Visualize.** app icon from your Home Screen
-4. Go to `/admin`, sign in, tap **Enable notifications**, and **Allow**
+4. Sign in, tap **Enable notifications**, and **Allow**
+
+If you previously installed the app from visualizestudio.org, delete that icon
+and re-install from the subdomain — push subscriptions are per-domain, and new
+lead notifications now deep-link to the subdomain.
 
 That's it. Every new submission now pushes to your phone with the business
 name and service type. Tapping the notification opens the admin panel

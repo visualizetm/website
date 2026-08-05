@@ -15,6 +15,7 @@ import LayersTwo01 from '@untitled-ui/icons-react/build/esm/LayersTwo01';
 import TrendUp01 from '@untitled-ui/icons-react/build/esm/TrendUp01';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import Wordmark from '../components/Wordmark';
+import { ADMIN_CALLS, ADMIN_PRINTS } from '../lib/adminPaths';
 
 const STATUSES = [
   { id: 'new',       label: 'New',       color: '#f59e0b' },
@@ -468,10 +469,10 @@ export default function Admin() {
           {pushState === 'subscribed' && (
             <span className="ad-push-on"><Bell01 width={13} height={13} /> Notifications on</span>
           )}
-          <a href="/admin/calls" className="ad-btn" title="Cold call console">
+          <a href={ADMIN_CALLS} className="ad-btn" title="Cold call console">
             <PhoneCall01 width={14} height={14} /> Calls
           </a>
-          <a href="/admin/prints" className="ad-btn" title="Print shop admin">
+          <a href={ADMIN_PRINTS} className="ad-btn" title="Print shop admin">
             <Printer width={14} height={14} /> Print Shop
           </a>
           <button type="button" className="ad-btn" onClick={load} title="Refresh">

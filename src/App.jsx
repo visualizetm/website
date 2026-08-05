@@ -16,6 +16,7 @@ import PrintsAdmin from './pages/PrintsAdmin';
 import ClientPortal from './pages/ClientPortal';
 import IntakeForm from './pages/IntakeForm';
 import Start from './pages/Start';
+import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 
 function LoadingScreen({ done }) {
   return (
@@ -93,10 +94,24 @@ export default function App() {
     return () => { obs.disconnect(); clearTimeout(tid); };
   }, [location.pathname]);
 
+  // ── Host split ─────────────────────────────────────────────────
+  // admin.visualizeclients.com serves ONLY the admin app, at root paths.
+  if (IS_ADMIN_HOST) {
+    if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <PrintsAdmin />;
+    if (location.pathname === '/calls'  || location.pathname === '/admin/calls')  return <AdminCalls />;
+    return <Admin />;
+  }
+
+  // On the public domain the admin is not served (vercel.json also blocks it
+  // at the edge). Localhost keeps /admin/* working for development.
+  if (location.pathname.startsWith('/admin')) {
+    if (!IS_DEV_HOST) return <Navigate to="/" replace />;
+    if (location.pathname === '/admin/prints') return <PrintsAdmin />;
+    if (location.pathname === '/admin/calls')  return <AdminCalls />;
+    return <Admin />;
+  }
+
   // Routes outside the normal navbar/footer layout
-  if (location.pathname === '/admin/prints') return <PrintsAdmin />;
-  if (location.pathname === '/admin/calls')  return <AdminCalls />;
-  if (location.pathname === '/admin')  return <Admin />;
   if (location.pathname === '/prints') return <Prints />;
   if (location.pathname === '/portal') return <ClientPortal />;
   if (location.pathname.startsWith('/intake')) return <IntakeForm />;
@@ -117,9 +132,6 @@ export default function App() {
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
           <Route path="/prints"       element={<Prints />} />
-          <Route path="/admin"        element={<Admin />} />
-          <Route path="/admin/calls"  element={<AdminCalls />} />
-          <Route path="/admin/prints" element={<PrintsAdmin />} />
           <Route path="/portal"      element={<ClientPortal />} />
           <Route path="/start"       element={<Start />} />
         </Routes>

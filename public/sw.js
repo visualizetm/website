@@ -14,14 +14,14 @@ self.addEventListener('push', (event) => {
       body: data.body || 'Open the admin panel to view it.',
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-96.png',
-      data: { url: data.url || '/admin' },
+      data: { url: data.url || '/' },
     })
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || '/admin';
+  const url = event.notification.data?.url || '/';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
       for (const w of wins) {

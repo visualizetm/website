@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ADMIN_HOME } from '../lib/adminPaths';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import BarChart01 from '@untitled-ui/icons-react/build/esm/BarChart01';
@@ -171,13 +172,13 @@ export default function PrintsAdmin() {
   // Share the /admin session — no separate password. Bounce to /admin if not signed in.
   useEffect(() => {
     fetch('/api/admin/session').then(r => r.json())
-      .then(d => { if (d.authed) setAuth(true); else window.location.replace('/admin'); })
-      .catch(() => window.location.replace('/admin'));
+      .then(d => { if (d.authed) setAuth(true); else window.location.replace(ADMIN_HOME); })
+      .catch(() => window.location.replace(ADMIN_HOME));
   }, []);
 
   const logout = async () => {
     try { await fetch('/api/admin/logout', { method: 'POST' }); } catch { /* ignore */ }
-    window.location.href = '/admin';
+    window.location.href = ADMIN_HOME;
   };
 
   const loadClients = useCallback(() => {

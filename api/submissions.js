@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       sendPush(await getDb(), {
         title: `New ${kind} — ${who}`,
         body: `${doc.name} · ${doc.email}`,
-        url: `/admin?submission=${id}`,
+        url: `https://admin.visualizeclients.com/?submission=${id}`,
       }),
       sendEmail({
         subject: `New ${kind} — ${who}`,
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
           Phone: doc.phone || '—',
           Type: doc.type,
           ...doc.fields,
-          'Open in Admin': `https://visualizestudio.org/admin?submission=${id}`,
+          'Open in Admin': `https://admin.visualizeclients.com/?submission=${id}`,
         },
       }),
     ]);
