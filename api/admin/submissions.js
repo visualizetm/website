@@ -10,6 +10,31 @@ const STATUSES = [
 ];
 
 const PURGE_DAYS = 30;
+const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
+const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
+function normalizeSocial(key, raw) {
+  let v = String(raw ?? '').trim().replace(/^[<"'\s]+|[>"'\s]+$/g, '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^www\./i.test(v)) return 'https://' + v;
+  const firstSeg = v.split('/')[0];
+  const dot = firstSeg.lastIndexOf('.');
+  const isDomain = dot >= 0 && TLDS.includes(firstSeg.slice(dot + 1).toLowerCase());
+  if (v.includes('/') || isDomain) return 'https://' + v.replace(/^\/+/, '');
+  const h = v.replace(/^@+/, '').replace(/^\/+/, '');
+  const M = {
+    website: 'https://' + h, instagram: `https://instagram.com/${h}`, facebook: `https://facebook.com/${h}`,
+    tiktok: `https://tiktok.com/@${h}`, yelp: `https://yelp.com/biz/${h}`, linkedin: `https://linkedin.com/company/${h}`,
+    x: `https://x.com/${h}`, youtube: /^uc[\w-]{20,}$/i.test(h) ? `https://youtube.com/channel/${h}` : `https://youtube.com/@${h}`,
+    google: `https://www.google.com/maps/search/${encodeURIComponent(h)}`,
+  };
+  return M[key] || ('https://' + h);
+}
+function normalizeSocials(obj) {
+  const out = {};
+  if (obj && typeof obj === 'object') for (const k of SOCIAL_KEYS) { const u = normalizeSocial(k, obj[k]); if (u) out[k] = u; }
+  return out;
+}
 
 const toIds = (v) => {
   const arr = Array.isArray(v) ? v : String(v || '').split(',');
@@ -100,6 +125,7 @@ export default async function handler(req, res) {
     if (STATUSES.includes(set.status)) allowed.status = set.status;
     if (typeof set.read === 'boolean') allowed.read = set.read;
     if (typeof set.notes === 'string') allowed.notes = set.notes.slice(0, 5000);
+    if (set.socials && typeof set.socials === 'object') allowed.socials = normalizeSocials(set.socials);
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: allowed });
     return res.status(200).json({ ok: true });

@@ -4,6 +4,41 @@ import { requireAdmin } from '../_lib/auth.js';
 
 const CALL_STATUSES = ['not-called', 'callback', 'booked', 'no', 'no-answer'];
 const PRIORITIES = ['hot', 'warm'];
+const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
+const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
+
+// Server-side copy of the client normalizer (serverless can't import from src/).
+function normalizeSocial(key, raw) {
+  let v = String(raw ?? '').trim().replace(/^[<"'\s]+|[>"'\s]+$/g, '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^www\./i.test(v)) return 'https://' + v;
+  const firstSeg = v.split('/')[0];
+  const dot = firstSeg.lastIndexOf('.');
+  const isDomain = dot >= 0 && TLDS.includes(firstSeg.slice(dot + 1).toLowerCase());
+  if (v.includes('/') || isDomain) return 'https://' + v.replace(/^\/+/, '');
+  const h = v.replace(/^@+/, '').replace(/^\/+/, '');
+  switch (key) {
+    case 'website':   return 'https://' + h;
+    case 'instagram': return `https://instagram.com/${h}`;
+    case 'facebook':  return `https://facebook.com/${h}`;
+    case 'tiktok':    return `https://tiktok.com/@${h}`;
+    case 'yelp':      return `https://yelp.com/biz/${h}`;
+    case 'linkedin':  return `https://linkedin.com/company/${h}`;
+    case 'x':         return `https://x.com/${h}`;
+    case 'youtube':   return /^uc[\w-]{20,}$/i.test(h) ? `https://youtube.com/channel/${h}` : `https://youtube.com/@${h}`;
+    case 'google':    return `https://www.google.com/maps/search/${encodeURIComponent(h)}`;
+    default:          return 'https://' + h;
+  }
+}
+function normalizeSocials(obj) {
+  const out = {};
+  if (obj && typeof obj === 'object') {
+    for (const k of SOCIAL_KEYS) { const u = normalizeSocial(k, obj[k]); if (u) out[k] = u; }
+  }
+  return out;
+}
+export { normalizeSocials };
 
 const str = (v, max = 400) => String(v ?? '').slice(0, max);
 const strArr = (v, max = 30) => Array.isArray(v) ? v.slice(0, max).map(x => str(x, 600)) : [];
@@ -56,6 +91,7 @@ function sanitize(b) {
       gaps: strArr(i.gaps),
       dropLines: strArr(i.dropLines),
     },
+    socials: normalizeSocials(b.socials),
   };
 }
 
@@ -84,7 +120,18 @@ export default async function handler(req, res) {
     );
     const fresh = docs.filter(d => !existing.has(d.business));
     if (fresh.length) await col.insertMany(fresh);
-    return res.status(200).json({ ok: true, inserted: fresh.length, skipped: docs.length - fresh.length });
+
+    // Backfill: an existing lead with no socials yet gets them from a re-import.
+    let backfilled = 0;
+    for (const d of docs) {
+      if (!existing.has(d.business) || !Object.keys(d.socials || {}).length) continue;
+      const r = await col.updateOne(
+        { business: d.business, $or: [{ socials: { $exists: false } }, { socials: {} }] },
+        { $set: { socials: d.socials, updatedAt: new Date() } },
+      );
+      backfilled += r.modifiedCount;
+    }
+    return res.status(200).json({ ok: true, inserted: fresh.length, backfilled, skipped: docs.length - fresh.length - backfilled });
   }
 
   if (req.method === 'PATCH') {

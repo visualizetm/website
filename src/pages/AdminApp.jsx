@@ -29,6 +29,8 @@ import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Wordmark from '../components/Wordmark';
 import AdminCalls from './AdminCalls';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
+import { SocialButtons, SocialFields } from '../components/SocialLinks';
+import { normalizeSocials, hasAnySocial } from '../lib/socials';
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -171,7 +173,16 @@ function Skeletons({ n = 6 }) {
 function ItemDetail({ item, statusSet, onPatch, onDelete, onClose }) {
   const [notes, setNotes] = useState(item.notes || '');
   const [saved, setSaved] = useState(false);
-  useEffect(() => { setNotes(item.notes || ''); }, [item._id]);
+  const [editSoc, setEditSoc] = useState(false);
+  const [socDraft, setSocDraft] = useState(item.socials || {});
+  useEffect(() => { setNotes(item.notes || ''); setEditSoc(false); setSocDraft(item.socials || {}); }, [item._id]);
+
+  const saveSocials = async () => {
+    const clean = normalizeSocials(socDraft);
+    await onPatch(item._id, { socials: clean });
+    setSocDraft(clean);
+    setEditSoc(false);
+  };
 
   const saveNotes = async () => {
     await onPatch(item._id, { notes });
@@ -225,6 +236,26 @@ function ItemDetail({ item, statusSet, onPatch, onDelete, onClose }) {
             <a href={`sms:${item.phone}`} className="aa-contact-item"><Phone width={14} height={14} /> {item.phone}</a>
           )}
         </div>
+      </div>
+
+      <div className="aa-sec">
+        <div className="aa-sec-headrow">
+          <p className="aa-sec-label">Links</p>
+          {(hasAnySocial(item.socials) && !editSoc) && (
+            <button type="button" className="aa-minibtn" onClick={() => { setSocDraft(item.socials || {}); setEditSoc(true); }}>Edit</button>
+          )}
+        </div>
+        {editSoc ? (
+          <div className="aa-socedit">
+            <SocialFields values={socDraft} onChange={(k, v) => setSocDraft(d => ({ ...d, [k]: v }))} />
+            <div className="aa-socedit-actions">
+              <button type="button" className="aa-btn aa-btn--primary" onClick={saveSocials}><Check width={14} height={14} /> Save links</button>
+              <button type="button" className="aa-btn" onClick={() => setEditSoc(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <SocialButtons socials={item.socials} onAdd={() => { setSocDraft(item.socials || {}); setEditSoc(true); }} />
+        )}
       </div>
 
       <div className="aa-sec">
@@ -1102,6 +1133,9 @@ const aaStyles = `
   .aa-detail-meta { font-size: 0.82rem; color: var(--a-muted); margin-top: 3px; }
   .aa-sec { display: flex; flex-direction: column; gap: 10px; }
   .aa-sec-label { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: var(--a-muted); }
+  .aa-sec-headrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .aa-socedit { display: flex; flex-direction: column; gap: 12px; }
+  .aa-socedit-actions { display: flex; gap: 8px; }
   .aa-status-row { display: flex; gap: 7px; flex-wrap: wrap; }
   .aa-status-opt {
     font-size: 0.78rem; font-weight: 700; padding: 6px 14px; border-radius: 999px;

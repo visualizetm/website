@@ -44,7 +44,8 @@ export default async function handler(req, res) {
       if (!fieldKeys.includes(k)) fieldKeys.push(k);
     }
   }
-  const fixed = ['Date', 'Type', 'Project Type', 'Name', 'Business', 'Email', 'Phone', 'Status', 'Read', 'Notes'];
+  const SOCIALS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
+  const fixed = ['Date', 'Type', 'Project Type', 'Name', 'Business', 'Email', 'Phone', 'Status', 'Read', 'Notes', ...SOCIALS];
   const header = [...fixed, ...fieldKeys].map(csvCell).join(',');
 
   const rows = items.map(it => {
@@ -59,6 +60,7 @@ export default async function handler(req, res) {
       it.status || '',
       it.read ? 'read' : 'unread',
       it.notes || '',
+      ...SOCIALS.map(k => (it.socials || {})[k] || ''),
     ];
     const fieldVals = fieldKeys.map(k => {
       const v = (it.fields || {})[k];

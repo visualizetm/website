@@ -15,6 +15,8 @@ import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import Wordmark from '../components/Wordmark';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import { ADMIN_HOME } from '../lib/adminPaths';
+import { SocialButtons, SocialFields } from '../components/SocialLinks';
+import { normalizeSocials, SOCIAL_KEYS } from '../lib/socials';
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -64,6 +66,7 @@ function defaultLead(f) {
     },
     afterCall: { meeting: '', email: '', whatTheySaid: '', nextAction: '' },
     intel: { accomplishments: [], gaps: [], dropLines: [] },
+    socials: normalizeSocials(f.socials),
   };
 }
 
@@ -86,9 +89,11 @@ function NewLeadForm({ onCreate, onClose }) {
   const [f, setF] = useState({
     business: '', industry: '', descriptor: '', phone: '', phoneNote: '',
     askFor: '', bestWindow: 'Before 8am or after 5pm.', priority: 'warm', angle: '',
+    socials: {},
   });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF(p => ({ ...p, [k]: e.target.value }));
+  const setSocial = (k, v) => setF(p => ({ ...p, socials: { ...p.socials, [k]: v } }));
 
   const submit = async (e) => {
     e.preventDefault();
@@ -142,6 +147,10 @@ function NewLeadForm({ onCreate, onClose }) {
           <span>The angle (why this lead, in one paragraph)</span>
           <textarea className="cc-input" rows={3} value={f.angle} onChange={set('angle')} placeholder="What you noticed, and the gap you'd pitch." />
         </label>
+        <div className="cc-field cc-field--wide">
+          <span>Social links &amp; website</span>
+          <SocialFields values={f.socials} onChange={setSocial} />
+        </div>
       </div>
       <p className="cc-new-note">A standard call script is generated automatically — the angle and details personalize it.</p>
       <button type="submit" className="cc-btn cc-btn--primary" disabled={busy || !f.business.trim()}>
@@ -193,12 +202,14 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
       business: lead.business, industry: lead.industry, descriptor: lead.descriptor,
       phone: lead.phone, phoneNote: lead.phoneNote, askFor: lead.askFor,
       bestWindow: lead.bestWindow, angle: lead.angle,
+      socials: { ...(lead.socials || {}) },
     });
     setEditing(true);
   };
   const setD = (k) => (e) => setDraft(p => ({ ...p, [k]: e.target.value }));
+  const setSocial = (k, v) => setDraft(p => ({ ...p, socials: { ...(p.socials || {}), [k]: v } }));
   const saveEdit = async () => {
-    await onPatch(lead._id, draft);
+    await onPatch(lead._id, { ...draft, socials: normalizeSocials(draft.socials) });
     setEditing(false);
   };
 
@@ -259,6 +270,10 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
               <span>The angle</span>
               <textarea className="cc-input" rows={3} value={draft.angle || ''} onChange={setD('angle')} />
             </label>
+            <div className="cc-field cc-field--wide">
+              <span>Social links &amp; website</span>
+              <SocialFields values={draft.socials} onChange={setSocial} />
+            </div>
             <div className="cc-edit-actions">
               <button type="button" className="cc-btn cc-btn--primary" onClick={saveEdit}>Save</button>
               <button type="button" className="cc-btn" onClick={() => setEditing(false)}>Cancel</button>
@@ -286,6 +301,10 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
               {lead.askFor && <p><strong>Ask for:</strong> {lead.askFor.replace(/^Ask for /i, '')}</p>}
               {lead.bestWindow && <p><strong>Best window:</strong> {lead.bestWindow}</p>}
               {lead.phone && lead.phoneNote && <p><strong>Note:</strong> {lead.phoneNote}</p>}
+            </div>
+
+            <div className="cc-socials">
+              <SocialButtons socials={lead.socials} onAdd={startEdit} />
             </div>
           </>
         )}
@@ -846,6 +865,7 @@ const ccStyles = `
   .cc-phone--missing svg { color: #f59e0b; }
   .cc-head-facts { display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; color: var(--c-sec); }
   .cc-head-facts strong { color: #fafafa; font-weight: 700; }
+  .cc-socials { margin-top: 4px; }
 
   .cc-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .cc-edit-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
