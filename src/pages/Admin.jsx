@@ -9,6 +9,7 @@ import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import Printer from '@untitled-ui/icons-react/build/esm/Printer';
+import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import LayersTwo01 from '@untitled-ui/icons-react/build/esm/LayersTwo01';
 import TrendUp01 from '@untitled-ui/icons-react/build/esm/TrendUp01';
@@ -467,6 +468,9 @@ export default function Admin() {
           {pushState === 'subscribed' && (
             <span className="ad-push-on"><Bell01 width={13} height={13} /> Notifications on</span>
           )}
+          <a href="/admin/calls" className="ad-btn" title="Cold call console">
+            <PhoneCall01 width={14} height={14} /> Calls
+          </a>
           <a href="/admin/prints" className="ad-btn" title="Print shop admin">
             <Printer width={14} height={14} /> Print Shop
           </a>

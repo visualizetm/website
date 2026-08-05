@@ -11,6 +11,7 @@ import Contact from './pages/Contact';
 import LeadPartner from './pages/LeadPartner';
 import Prints from './pages/Prints';
 import Admin from './pages/Admin';
+import AdminCalls from './pages/AdminCalls';
 import PrintsAdmin from './pages/PrintsAdmin';
 import ClientPortal from './pages/ClientPortal';
 import IntakeForm from './pages/IntakeForm';
@@ -94,6 +95,7 @@ export default function App() {
 
   // Routes outside the normal navbar/footer layout
   if (location.pathname === '/admin/prints') return <PrintsAdmin />;
+  if (location.pathname === '/admin/calls')  return <AdminCalls />;
   if (location.pathname === '/admin')  return <Admin />;
   if (location.pathname === '/prints') return <Prints />;
   if (location.pathname === '/portal') return <ClientPortal />;
@@ -116,6 +118,7 @@ export default function App() {
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
           <Route path="/prints"       element={<Prints />} />
           <Route path="/admin"        element={<Admin />} />
+          <Route path="/admin/calls"  element={<AdminCalls />} />
           <Route path="/admin/prints" element={<PrintsAdmin />} />
           <Route path="/portal"      element={<ClientPortal />} />
           <Route path="/start"       element={<Start />} />
