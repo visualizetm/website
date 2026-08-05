@@ -13,6 +13,8 @@ import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import Wordmark from '../components/Wordmark';
+import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
+import LeadImport from '../components/LeadImport';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import { ADMIN_HOME } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
@@ -71,7 +73,7 @@ function defaultLead(f) {
 }
 
 function PriorityPill({ p }) {
-  return <span className={`cc-prio cc-prio--${p}`}>{p === 'hot' ? 'HOT' : 'WARM'}</span>;
+  return <span className={`cc-prio cc-prio--${p}`}>{p === 'hot' ? 'HOT' : p === 'cold' ? 'COLD' : 'WARM'}</span>;
 }
 
 function StatusChip({ id }) {
@@ -141,6 +143,7 @@ function NewLeadForm({ onCreate, onClose }) {
           <select className="cc-input" value={f.priority} onChange={set('priority')}>
             <option value="hot">HOT</option>
             <option value="warm">WARM</option>
+            <option value="cold">COLD</option>
           </select>
         </label>
         <label className="cc-field cc-field--wide">
@@ -299,8 +302,12 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
 
             <div className="cc-head-facts">
               {lead.askFor && <p><strong>Ask for:</strong> {lead.askFor.replace(/^Ask for /i, '')}</p>}
+              {lead.email && <p><strong>Email:</strong> <a href={`mailto:${lead.email}`} className="cc-fact-link">{lead.email}</a></p>}
+              {lead.area && <p><strong>Area:</strong> {lead.area}</p>}
+              {lead.serviceInterest && <p><strong>Interested in:</strong> {lead.serviceInterest}</p>}
               {lead.bestWindow && <p><strong>Best window:</strong> {lead.bestWindow}</p>}
               {lead.phone && lead.phoneNote && <p><strong>Note:</strong> {lead.phoneNote}</p>}
+              {lead.notes && <p><strong>Notes:</strong> {lead.notes}</p>}
             </div>
 
             <div className="cc-socials">
@@ -480,6 +487,7 @@ export default function AdminCalls({ embedded = false }) {
   const [priority, setPriority] = useState('all');
   const [hasPhone, setHasPhone] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
@@ -580,6 +588,9 @@ export default function AdminCalls({ embedded = false }) {
         <div className="cc-topbar-right">
           <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
           <button type="button" className="cc-btn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
+          <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}>
+            <Upload01 width={14} height={14} /> Upload spreadsheet
+          </button>
           <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
             <Plus width={14} height={14} /> New lead
           </button>
@@ -597,6 +608,7 @@ export default function AdminCalls({ embedded = false }) {
                 {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
                 <span className="cc-embedbar-spacer" />
                 <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
+                <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}><Upload01 width={14} height={14} /> Upload</button>
                 <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
                   <Plus width={14} height={14} /> New
                 </button>
@@ -621,6 +633,7 @@ export default function AdminCalls({ embedded = false }) {
                 <option value="all">All priorities</option>
                 <option value="hot">HOT</option>
                 <option value="warm">WARM</option>
+                <option value="cold">COLD</option>
               </select>
               <button
                 type="button"
@@ -684,6 +697,15 @@ export default function AdminCalls({ embedded = false }) {
           )}
         </main>
       </div>
+
+      {importOpen && (
+        <LeadImport
+          existingLeads={leads}
+          onClose={() => setImportOpen(false)}
+          onImported={load}
+        />
+      )}
+
       <style>{ccStyles}</style>
     </div>
   );
@@ -806,6 +828,7 @@ const ccStyles = `
   }
   .cc-prio--hot { background: rgba(212,76,67,0.18); color: #e66b63; border: 1px solid rgba(212,76,67,0.4); }
   .cc-prio--warm { background: rgba(245,158,11,0.14); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
+  .cc-prio--cold { background: rgba(96,165,250,0.14); color: #60a5fa; border: 1px solid rgba(96,165,250,0.35); }
 
   .cc-status {
     display: inline-flex; align-items: center; gap: 5px;
@@ -865,6 +888,8 @@ const ccStyles = `
   .cc-phone--missing svg { color: #f59e0b; }
   .cc-head-facts { display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; color: var(--c-sec); }
   .cc-head-facts strong { color: #fafafa; font-weight: 700; }
+  .cc-fact-link { color: #e66b63; text-decoration: none; }
+  .cc-fact-link:hover { text-decoration: underline; }
   .cc-socials { margin-top: 4px; }
 
   .cc-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

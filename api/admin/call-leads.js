@@ -3,7 +3,7 @@ import { getDb } from '../_lib/mongo.js';
 import { requireAdmin } from '../_lib/auth.js';
 
 const CALL_STATUSES = ['not-called', 'callback', 'booked', 'no', 'no-answer'];
-const PRIORITIES = ['hot', 'warm'];
+const PRIORITIES = ['hot', 'warm', 'cold'];
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 
@@ -59,6 +59,11 @@ function sanitize(b) {
     descriptor: str(b.descriptor, 400),
     phone: str(b.phone, 40),
     phoneNote: str(b.phoneNote, 200),
+    email: str(b.email, 200),
+    area: str(b.area, 160),
+    serviceInterest: str(b.serviceInterest, 200),
+    sourceId: b.sourceId ? str(b.sourceId, 120) : undefined,
+    notes: str(b.notes, 3000),
     askFor: str(b.askFor, 200),
     bestWindow: str(b.bestWindow, 300),
     priority: PRIORITIES.includes(b.priority) ? b.priority : 'warm',
@@ -101,7 +106,7 @@ export default async function handler(req, res) {
   const col = db.collection('call_leads');
 
   if (req.method === 'GET') {
-    const items = await col.find({}).sort({ createdAt: -1 }).limit(500).toArray();
+    const items = await col.find({ deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(500).toArray();
     return res.status(200).json({ items });
   }
 
@@ -151,7 +156,8 @@ export default async function handler(req, res) {
   if (req.method === 'DELETE') {
     const { id } = req.query || {};
     if (!id) return res.status(400).json({ error: 'id required' });
-    await col.deleteOne({ _id: new ObjectId(String(id)) });
+    // Soft delete: keeps a tombstone so a spreadsheet re-upload won't recreate it.
+    await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: { deleted: true, deletedAt: new Date() } });
     return res.status(200).json({ ok: true });
   }
 
