@@ -38,14 +38,17 @@ export default async function handler(req, res) {
   const who = doc.business || doc.name;
 
   // Notifications are best-effort — never fail the client's submit over them.
+  // Owner preferences (Settings → Notifications) can switch either channel off.
+  let prefs = {};
+  try { prefs = await db.collection('settings').findOne({ _id: 'prefs' }) || {}; } catch { /* default on */ }
   try {
     await Promise.allSettled([
-      sendPush(await getDb(), {
+      prefs.pushEnabled === false ? Promise.resolve() : sendPush(await getDb(), {
         title: `New ${kind} — ${who}`,
         body: `${doc.name} · ${doc.email}`,
         url: `https://admin.visualizeclients.com/?submission=${id}`,
       }),
-      sendEmail({
+      prefs.emailEnabled === false ? Promise.resolve() : sendEmail({
         subject: `New ${kind} — ${who}`,
         fromName: doc.name,
         replyTo: doc.email,
