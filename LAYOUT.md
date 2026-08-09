@@ -74,3 +74,6 @@ node scripts/layout-audit.mjs   # walks every admin route at 320/390/430/768/128
 It loads hostile fixtures (80-char slash-joined names, unbroken 88-char
 strings, giant emails) through mocked APIs and fails if any element extends
 past the viewport or any page can scroll sideways. Zero offenders is the bar.
+Covered views: dashboard, submissions list + detail, orders, settings, call
+console queue + session, the reverse-lookup sheet, and the Booked workspace
+list + detail.

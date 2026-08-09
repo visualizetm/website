@@ -1,6 +1,7 @@
 // Spreadsheet → lead mapping for the Call Console importer.
 // Parsing (CSV + XLSX) is done with SheetJS in the component; this file holds the
 // pure column-mapping / normalization logic so it can be unit-tested.
+import { last10 } from './phone';
 
 // The 16 canonical columns Rob's sheet uses, in display order.
 export const LEAD_FIELDS = [
@@ -86,7 +87,9 @@ export function mapRows(rows, mapping) {
 
 // Client-side match for the preview counts. Mirrors the server logic:
 // match by id first, then business + phone (case-insensitive, digits-only phone).
-const digits = (v) => String(v ?? '').replace(/\D/g, '');
+// Phone comparison goes through the shared normalizer (src/lib/phone.js) so
+// import dedupe matches exactly like the reverse lookup does.
+const digits = (v) => last10(v);
 const lower = (v) => String(v ?? '').trim().toLowerCase();
 
 export function matchExisting(row, existing) {

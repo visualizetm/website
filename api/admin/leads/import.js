@@ -29,7 +29,13 @@ function normStatus(v) {
     no: 'no', denied: 'no', dead: 'no', no_answer: 'no-answer', noanswer: 'no-answer', voicemail: 'no-answer' };
   return M[s] || 'not-called';
 }
-const digits = (v) => String(v ?? '').replace(/\D/g, '');
+// Mirror of src/lib/phone.js last10() — serverless can't import from src/.
+// Last 10 digits, dropping a leading US country code, so "+1 302 345 0738"
+// matches "(302) 345-0738" regardless of stored format.
+const digits = (v) => {
+  const d = String(v ?? '').replace(/\D/g, '');
+  return d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10);
+};
 const lower = (v) => String(v ?? '').trim().toLowerCase();
 const str = (v, max = 400) => String(v ?? '').trim().slice(0, max);
 

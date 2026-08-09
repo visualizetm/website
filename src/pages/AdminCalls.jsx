@@ -24,10 +24,13 @@ import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import Wordmark from '../components/Wordmark';
 import LeadImport from '../components/LeadImport';
 import IMPORT_LEADS from '../data/call-leads-import.json';
+import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
 import { ADMIN_HOME } from '../lib/adminPaths';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
+import { digitsOf, matchRank, formatPhone } from '../lib/phone';
+import { effectiveStage } from '../lib/booked';
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -135,11 +138,12 @@ function QaTable({ rows }) {
 
 /* ── New lead form (overlay) ───────────────────────────────────── */
 
-function NewLeadForm({ onCreate, onClose }) {
+function NewLeadForm({ onCreate, onClose, initial }) {
   const [f, setF] = useState({
     business: '', industry: '', descriptor: '', phone: '', phoneNote: '',
     askFor: '', bestWindow: 'Before 8am or after 5pm.', priority: 'warm', angle: '',
     socials: {},
+    ...(initial || {}),
   });
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF(p => ({ ...p, [k]: e.target.value }));
@@ -491,6 +495,106 @@ function OutcomeSheet({ outcome, lead, onLog, onCancel }) {
   );
 }
 
+/* ── "Who's calling?" reverse phone lookup ─────────────────────── */
+
+function LookupSheet({ leads, recentIds, onPick, onAddNew, onClose }) {
+  const [q, setQ] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const qd = digitsOf(q);
+  const matches = useMemo(() => {
+    if (!qd) return [];
+    return leads
+      .map(l => ({ l, rank: matchRank(l.phone, qd) }))
+      .filter(x => x.rank >= 0)
+      .sort((a, b) => a.rank - b.rank || String(a.l.business).localeCompare(String(b.l.business)))
+      .slice(0, 8);
+  }, [leads, qd]);
+
+  const recents = useMemo(
+    () => recentIds.map(id => leads.find(l => l._id === id)).filter(Boolean).slice(0, 6),
+    [recentIds, leads]
+  );
+
+  const lastCallLine = (l) => {
+    const e = l.callLog?.[l.callLog.length - 1];
+    if (!e) return null;
+    const o = outcomeOf(e.outcome);
+    return `${o ? o.label : e.outcome} · ${fmtLogTime(e.at)}`;
+  };
+
+  const Row = ({ l, exact }) => (
+    <button type="button" className={`lk-row lay-card${exact ? ' is-exact' : ''}`} onClick={() => onPick(l)}>
+      <span className="cq-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
+      <span className="lk-row-main">
+        <span className="lk-row-name lay-truncate">{l.business}</span>
+        <span className="lk-row-sub lay-truncate">
+          {formatPhone(l.phone)}
+          {lastCallLine(l) ? ` · ${lastCallLine(l)}` : ''}
+        </span>
+      </span>
+      <PriorityPill p={l.priority} />
+    </button>
+  );
+
+  return (
+    <div className="cc-sheet-back" onClick={onClose}>
+      <div
+        className="cc-sheet lk-sheet"
+        style={{ '--sc': '#d44c43' }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
+      >
+        <div className="cc-sheet-head">
+          <span className="cc-sheet-badge"><PhoneIncoming01 width={16} height={16} /> Who&rsquo;s calling?</span>
+          <button type="button" className="cc-iconbtn" onClick={onClose} aria-label="Close">
+            <XClose width={16} height={16} />
+          </button>
+        </div>
+        <input
+          ref={inputRef}
+          className="cc-input lk-input"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Type or paste the number…"
+          inputMode="tel"
+          autoComplete="off"
+          aria-label="Phone number to look up"
+        />
+        {!qd && (
+          <div className="lk-empty">
+            <p className="lk-hint">
+              Paste the number that&rsquo;s calling — any format works, even just the last 4 digits.
+              <span className="lk-kbd-hint"> Press <kbd>/</kbd> to open this anywhere.</span>
+            </p>
+            {recents.length > 0 && (
+              <>
+                <p className="lk-label">Recent lookups</p>
+                <div className="lk-list">{recents.map(l => <Row key={l._id} l={l} />)}</div>
+              </>
+            )}
+          </div>
+        )}
+        {qd && matches.length > 0 && (
+          <div className="lk-list">
+            {matches.map(({ l, rank }) => <Row key={l._id} l={l} exact={rank === 0} />)}
+          </div>
+        )}
+        {qd.length >= 3 && matches.length === 0 && (
+          <div className="lk-nomatch">
+            <p>No lead matches <strong>{formatPhone(qd) || qd}</strong>.</p>
+            <button type="button" className="cc-btn cc-btn--primary" onClick={() => onAddNew(qd)}>
+              <UserPlus01 width={15} height={15} /> Add as new lead
+            </button>
+            <p className="lk-hint">A callback from an unknown number is often a warm lead worth capturing.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Keyboard shortcuts overlay ────────────────────────────────── */
 
 function ShortcutsOverlay({ onClose }) {
@@ -528,7 +632,7 @@ function ShortcutsOverlay({ onClose }) {
 const EMPTY_STATS = { calls: 0, booked: 0, callbacks: 0, no: 0, noAnswer: 0 };
 const STAT_KEY = { booked: 'booked', callback: 'callbacks', no: 'no', 'no-answer': 'noAnswer' };
 
-export default function AdminCalls({ embedded = false }) {
+export default function AdminCalls({ embedded = false, onDataChanged }) {
   const [authed, setAuthed] = useState(null);
   const [leads, setLeads] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -549,6 +653,19 @@ export default function AdminCalls({ embedded = false }) {
 
   // Session
   const [mode, setMode] = useState('queue'); // queue | session | summary
+
+  // Reverse phone lookup ("Who's calling?"). peek = a lead opened from the
+  // lookup, viewed as a session card WITHOUT disturbing any active session.
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [peek, setPeek] = useState(null);
+  const [recentLookups, setRecentLookups] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('vz_lookup_recent')) || []; } catch { return []; }
+  });
+  const pushRecentLookup = (id) => setRecentLookups(prev => {
+    const next = [id, ...prev.filter(x => x !== id)].slice(0, 8);
+    try { localStorage.setItem('vz_lookup_recent', JSON.stringify(next)); } catch { /* fine */ }
+    return next;
+  });
   const [session, setSession] = useState(null);
   const [sheet, setSheet] = useState(null); // { outcome }
   const [dir, setDir] = useState(1);
@@ -650,12 +767,14 @@ export default function AdminCalls({ embedded = false }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(lead),
     });
-    if (res.ok) { setNewOpen(false); await load(); }
+    if (res.ok) { setNewOpen(false); await load(); onDataChanged?.(); }
   };
 
   const deleteLead = async (id) => {
     await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    onDataChanged?.();
     setEditOpen(false);
+    setPeek(p => p === id ? null : p);
     setLeads(prev => prev.filter(l => l._id !== id));
     setSession(s => {
       if (!s) return s;
@@ -674,6 +793,7 @@ export default function AdminCalls({ embedded = false }) {
         body: JSON.stringify({ leads: IMPORT_LEADS }),
       });
       await load();
+      onDataChanged?.();
     } finally { setImporting(false); }
   };
 
@@ -690,6 +810,9 @@ export default function AdminCalls({ embedded = false }) {
     const stats = [pills.notCalled && 'not-called', pills.callbacks && 'callback'].filter(Boolean);
     return leads
       .filter(l =>
+        // Booked/won/lost leads leave the calling queue — they live in the
+        // Booked workspace now. (Lookup still searches ALL leads.)
+        effectiveStage(l) === 'lead' &&
         (!needle || `${l.business} ${l.industry} ${l.area} ${l.descriptor}`.toLowerCase().includes(needle)) &&
         (!prios.length || prios.includes(l.priority)) &&
         (!stats.length || stats.includes(l.callStatus)) &&
@@ -721,7 +844,9 @@ export default function AdminCalls({ embedded = false }) {
     [session, leadsById, loaded]
   );
   const curIdx = session ? Math.min(session.idx, Math.max(0, sessionIds.length - 1)) : 0;
-  const current = session ? leadsById.get(sessionIds[curIdx]) : null;
+  const peekLead = peek ? leadsById.get(peek) : null;
+  const current = peekLead || (session ? leadsById.get(sessionIds[curIdx]) : null);
+  const isPeek = !!peekLead;
 
   const startSession = (startId) => {
     // Tapping a phoneless lead still opens it — the full filtered list is used
@@ -744,6 +869,8 @@ export default function AdminCalls({ embedded = false }) {
 
   const advance = useCallback((d = 1) => {
     setSheet(null);
+    // From a lookup peek, any navigation returns to wherever you were.
+    if (peek) { setPeek(null); return; }
     setDir(d);
     setSession(s => {
       if (!s) return s;
@@ -751,7 +878,7 @@ export default function AdminCalls({ embedded = false }) {
       if (ni >= s.ids.length) { setMode('summary'); return s; }
       return { ...s, idx: Math.max(0, ni) };
     });
-  }, []);
+  }, [peek]);
 
   const logOutcome = useCallback((outcome, { note = '', meeting = '', email = '' } = {}) => {
     const lead = current;
@@ -766,6 +893,9 @@ export default function AdminCalls({ embedded = false }) {
     const prev = lead;
     const nextLog = [...(lead.callLog || []), entry];
     const set = { callStatus: outcome, callLog: nextLog };
+    // Booking moves the lead out of the calling pipeline into the Booked
+    // workspace — a stage change, the record itself is untouched.
+    if (outcome === 'booked') set.stage = 'booked';
     if (outcome === 'booked' && (entry.meeting || entry.email)) {
       set.afterCall = {
         ...(lead.afterCall || {}),
@@ -775,17 +905,27 @@ export default function AdminCalls({ embedded = false }) {
     }
     // Optimistic — the queue keeps moving; a failed save rolls back loudly.
     setLeads(ls => ls.map(l => l._id === lead._id ? { ...l, ...set } : l));
-    setSession(s => s ? {
-      ...s,
-      stats: { ...s.stats, calls: s.stats.calls + 1, [STAT_KEY[outcome]]: (s.stats[STAT_KEY[outcome]] || 0) + 1 },
-      logged: { ...s.logged, [lead._id]: outcome },
-    } : s);
+    if (isPeek) {
+      // A lookup call isn't part of the session run: no stats bump, but the
+      // rail marker updates if the lead happens to be in the session queue.
+      setSession(s => s && s.ids.includes(lead._id)
+        ? { ...s, logged: { ...s.logged, [lead._id]: outcome } }
+        : s);
+    } else {
+      setSession(s => s ? {
+        ...s,
+        stats: { ...s.stats, calls: s.stats.calls + 1, [STAT_KEY[outcome]]: (s.stats[STAT_KEY[outcome]] || 0) + 1 },
+        logged: { ...s.logged, [lead._id]: outcome },
+      } : s);
+    }
     setSheet(null);
     setFlash(outcome);
     setTimeout(() => setFlash(null), 400);
     patch(lead._id, set, { rollback: () => setLeads(ls => ls.map(l => l._id === lead._id ? prev : l)) });
-    advance(1);
-  }, [current, patch, advance]);
+    onDataChanged?.();
+    if (isPeek) setPeek(null);
+    else advance(1);
+  }, [current, patch, advance, isPeek, onDataChanged]);
 
   const runItBack = () => {
     if (!session) return endSession();
@@ -796,15 +936,22 @@ export default function AdminCalls({ embedded = false }) {
     setMode('session');
   };
 
-  /* ── Keyboard (session) ── */
+  /* ── Keyboard (session + queue) ── */
 
   useEffect(() => {
-    if (mode !== 'session') return;
+    const inSessionView = (mode === 'session' && session) || isPeek;
     const onKey = (e) => {
       if (e.target.closest?.('input, textarea, select')) {
         if (e.key === 'Escape') { e.target.blur(); setSheet(null); }
         return;
       }
+      if (lookupOpen) {
+        if (e.key === 'Escape') setLookupOpen(false);
+        return;
+      }
+      // "/" opens the reverse lookup from anywhere in the console.
+      if (e.key === '/') { e.preventDefault(); setLookupOpen(true); return; }
+      if (!inSessionView) return;
       if (showKeys) {
         if (e.key === 'Escape' || e.key === '?') setShowKeys(false);
         return;
@@ -816,6 +963,7 @@ export default function AdminCalls({ embedded = false }) {
       switch (e.key) {
         case 'ArrowRight': case ' ': e.preventDefault(); advance(1); break;
         case 'ArrowLeft': advance(-1); break;
+        case 'Escape': if (isPeek) setPeek(null); break;
         case '1': e.preventDefault(); setSheet({ outcome: 'booked' }); break;
         case '2': e.preventDefault(); setSheet({ outcome: 'callback' }); break;
         case '3': e.preventDefault(); setSheet({ outcome: 'no' }); break;
@@ -827,7 +975,7 @@ export default function AdminCalls({ embedded = false }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, sheet, showKeys, advance]);
+  }, [mode, session, sheet, showKeys, advance, lookupOpen, isPeek]);
 
   /* ── Swipe (session card) ── */
 
@@ -886,7 +1034,7 @@ export default function AdminCalls({ embedded = false }) {
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
 
       {/* ═══ QUEUE ═══ */}
-      {mode === 'queue' && (
+      {mode === 'queue' && !isPeek && (
         <>
           {!embedded && (
             <header className="cc-topbar">
@@ -897,6 +1045,9 @@ export default function AdminCalls({ embedded = false }) {
               </div>
               <div className="cc-topbar-right">
                 <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
+                <button type="button" className="cc-iconbtn cc-lookupbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
+                  <PhoneIncoming01 width={15} height={15} />
+                </button>
                 <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
                 <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}>
                   <Upload01 width={14} height={14} /> Upload
@@ -915,6 +1066,9 @@ export default function AdminCalls({ embedded = false }) {
                   <span className="cc-topbar-title">Call Console</span>
                   {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
                   <span className="cq-embedbar-spacer" />
+                  <button type="button" className="cc-iconbtn cc-lookupbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
+                    <PhoneIncoming01 width={15} height={15} />
+                  </button>
                   <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
                   <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}><Upload01 width={14} height={14} /> Upload</button>
                   <button type="button" className="cc-btn cc-btn--primary" onClick={() => setNewOpen(true)}><Plus width={14} height={14} /> New</button>
@@ -1003,10 +1157,11 @@ export default function AdminCalls({ embedded = false }) {
         </>
       )}
 
-      {/* ═══ SESSION ═══ */}
-      {mode === 'session' && session && (
-        <div className="cs-wrap">
+      {/* ═══ SESSION (also renders a lead peeked from the lookup) ═══ */}
+      {((mode === 'session' && session) || isPeek) && (
+        <div className={`cs-wrap${isPeek ? ' cs-wrap--peek' : ''}`}>
           {/* Desktop rail */}
+          {!isPeek && session && (
           <aside className="cs-rail" aria-label="Session queue">
             <div className="cs-rail-head">Queue</div>
             <div className="cs-rail-list">
@@ -1030,26 +1185,46 @@ export default function AdminCalls({ embedded = false }) {
               })}
             </div>
           </aside>
+          )}
 
           {/* Center */}
           <div className="cs-main">
             <header className="cs-top">
-              <button type="button" className="cc-iconbtn" onClick={() => setMode('summary')} title="End session">
-                <XClose width={16} height={16} />
-              </button>
-              <div className="cs-progress-wrap">
-                <span className="cs-progress-label">{sessionIds.length ? `${curIdx + 1} of ${sessionIds.length}` : '—'}</span>
-                <div className="cs-progress"><span style={{ width: sessionIds.length ? `${((curIdx + 1) / sessionIds.length) * 100}%` : 0 }} /></div>
-              </div>
-              <div className="cs-stats">
-                <span><strong>{session.stats.calls}</strong> calls</span>
-                <span className="cs-stat-booked"><strong>{session.stats.booked}</strong> booked</span>
-                <span><strong>{session.stats.callbacks}</strong> cb</span>
-                <span><strong>{elapsed}</strong></span>
-              </div>
-              <button type="button" className="cc-iconbtn cs-keysbtn" onClick={() => setShowKeys(true)} title="Keyboard shortcuts">
-                <Keyboard01 width={15} height={15} />
-              </button>
+              {isPeek ? (
+                <>
+                  <button type="button" className="cc-iconbtn" onClick={() => setPeek(null)} title="Back">
+                    <ArrowLeft width={16} height={16} />
+                  </button>
+                  <div className="cs-progress-wrap">
+                    <span className="cs-progress-label">Who&rsquo;s calling — looked up</span>
+                  </div>
+                  <button type="button" className="cc-iconbtn" onClick={() => setLookupOpen(true)} title="Look up another number ( / )">
+                    <PhoneIncoming01 width={15} height={15} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" className="cc-iconbtn" onClick={() => setMode('summary')} title="End session">
+                    <XClose width={16} height={16} />
+                  </button>
+                  <div className="cs-progress-wrap">
+                    <span className="cs-progress-label">{sessionIds.length ? `${curIdx + 1} of ${sessionIds.length}` : '—'}</span>
+                    <div className="cs-progress"><span style={{ width: sessionIds.length ? `${((curIdx + 1) / sessionIds.length) * 100}%` : 0 }} /></div>
+                  </div>
+                  <div className="cs-stats">
+                    <span><strong>{session.stats.calls}</strong> calls</span>
+                    <span className="cs-stat-booked"><strong>{session.stats.booked}</strong> booked</span>
+                    <span><strong>{session.stats.callbacks}</strong> cb</span>
+                    <span><strong>{elapsed}</strong></span>
+                  </div>
+                  <button type="button" className="cc-iconbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
+                    <PhoneIncoming01 width={15} height={15} />
+                  </button>
+                  <button type="button" className="cc-iconbtn cs-keysbtn" onClick={() => setShowKeys(true)} title="Keyboard shortcuts">
+                    <Keyboard01 width={15} height={15} />
+                  </button>
+                </>
+              )}
             </header>
 
             <ScrollArea bare className="cs-cardarea" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
@@ -1132,7 +1307,7 @@ export default function AdminCalls({ embedded = false }) {
 
             {/* Outcome bar — in flow below the scroll area, never covers it */}
             <StickyFooterBar className="cs-outbar">
-              <button type="button" className="cs-navbtn" onClick={() => advance(-1)} disabled={curIdx === 0} aria-label="Previous lead">
+              <button type="button" className="cs-navbtn" onClick={() => advance(-1)} disabled={!isPeek && curIdx === 0} aria-label={isPeek ? 'Back' : 'Previous lead'}>
                 <ArrowLeft width={18} height={18} />
               </button>
               {OUTCOMES.map(o => (
@@ -1190,7 +1365,7 @@ export default function AdminCalls({ embedded = false }) {
       )}
 
       {/* ═══ SUMMARY ═══ */}
-      {mode === 'summary' && session && (
+      {mode === 'summary' && session && !isPeek && (
         <ScrollArea bare className="cs-summary-wrap grid-texture">
           <div className="cs-summary">
             <p className="cs-summary-kicker">Session complete</p>
@@ -1221,10 +1396,23 @@ export default function AdminCalls({ embedded = false }) {
       )}
 
       {/* Shared overlays */}
+      {lookupOpen && (
+        <LookupSheet
+          leads={leads}
+          recentIds={recentLookups}
+          onPick={(l) => { pushRecentLookup(l._id); setLookupOpen(false); setPeek(l._id); }}
+          onAddNew={(qd) => { setLookupOpen(false); setNewOpen({ phone: formatPhone(qd) || qd }); }}
+          onClose={() => setLookupOpen(false)}
+        />
+      )}
       {newOpen && (
         <div className="cc-overlay lay-overlay" onClick={() => setNewOpen(false)}>
           <div className="cc-panel lay-modal-box" onClick={e => e.stopPropagation()}>
-            <NewLeadForm onCreate={createLead} onClose={() => setNewOpen(false)} />
+            <NewLeadForm
+              onCreate={createLead}
+              onClose={() => setNewOpen(false)}
+              initial={typeof newOpen === 'object' ? newOpen : undefined}
+            />
           </div>
         </div>
       )}
@@ -1232,7 +1420,7 @@ export default function AdminCalls({ embedded = false }) {
         <LeadImport
           existingLeads={leads}
           onClose={() => setImportOpen(false)}
-          onImported={load}
+          onImported={() => { load(); onDataChanged?.(); }}
         />
       )}
       {err && (
@@ -1667,6 +1855,38 @@ const ccStyles = `
     padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
     align-self: center;
   }
+  /* ── Reverse lookup sheet ── */
+  .lk-sheet { gap: 12px; }
+  .lk-input {
+    font-size: 1.25rem; font-weight: 700; letter-spacing: 0.04em;
+    padding: 14px 16px; text-align: center;
+  }
+  .lk-list { display: flex; flex-direction: column; gap: 6px; max-height: min(46vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
+  .lk-row {
+    display: flex; align-items: center; gap: 11px;
+    padding: 11px 13px; border-radius: 12px; cursor: pointer;
+    background: var(--c-card); border: 1px solid var(--c-border);
+    font-family: inherit; color: inherit; text-align: left;
+    transition: border-color 0.15s;
+  }
+  .lk-row:hover { border-color: rgba(212,76,67,0.45); }
+  .lk-row.is-exact { border-color: rgba(212,76,67,0.55); background: rgba(212,76,67,0.07); }
+  .lk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .lk-row-name { font-size: 0.9rem; font-weight: 700; }
+  .lk-row-sub { font-size: 0.72rem; color: var(--c-muted); }
+  .lk-empty { display: flex; flex-direction: column; gap: 12px; }
+  .lk-hint { font-size: 0.78rem; color: var(--c-muted); line-height: 1.55; }
+  .lk-kbd-hint { display: none; }
+  .lk-kbd-hint kbd {
+    padding: 1px 7px; border-radius: 6px; font-family: inherit; font-size: 0.72rem;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); color: #fafafa;
+  }
+  @media (min-width: 700px) { .lk-kbd-hint { display: inline; } }
+  .lk-label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; color: var(--c-muted); }
+  .lk-nomatch { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+  .lk-nomatch p { font-size: 0.88rem; color: var(--c-sec); }
+  .lk-nomatch strong { color: #fafafa; }
+
   .cc-keys-grid { display: flex; flex-direction: column; gap: 8px; }
   .cc-keys-row { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--c-sec); }
   .cc-keys-row kbd {
@@ -1767,6 +1987,8 @@ const ccStyles = `
   /* ── Desktop three-zone session (≥1000px) ── */
   @media (min-width: 1000px) {
     .cs-wrap { grid-template-columns: 248px minmax(0, 1fr) 320px; }
+    /* Peeked lookup lead: no session rail, just card + notes/log panel */
+    .cs-wrap--peek { grid-template-columns: minmax(0, 1fr) 320px; }
     .cs-rail {
       display: flex; flex-direction: column; min-height: 0;
       border-right: 1px solid var(--c-border);

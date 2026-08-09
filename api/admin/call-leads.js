@@ -4,6 +4,9 @@ import { requireAdmin } from '../_lib/auth.js';
 
 const CALL_STATUSES = ['not-called', 'callback', 'booked', 'no', 'no-answer'];
 const PRIORITIES = ['hot', 'warm', 'cold'];
+const STAGES = ['lead', 'booked', 'won', 'lost'];
+const MEETING_TYPES = ['call', 'video', 'in-person'];
+const PLAN_IDS = ['full', '6mo', '12mo'];
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 
@@ -109,6 +112,36 @@ function sanitize(b) {
     },
     socials: normalizeSocials(b.socials),
     callLog: logArr(b.callLog),
+    // ── Booked-pipeline fields (all additive — older leads simply lack them) ──
+    stage: STAGES.includes(b.stage) ? b.stage : undefined,
+    meeting: b.meeting && typeof b.meeting === 'object' ? {
+      date: str(b.meeting.date, 10),
+      time: str(b.meeting.time, 5),
+      type: MEETING_TYPES.includes(b.meeting.type) ? b.meeting.type : 'call',
+    } : undefined,
+    servicesPlanned: Array.isArray(b.servicesPlanned)
+      ? b.servicesPlanned.slice(0, 30).map(x => str(x, 60)) : undefined,
+    pricingOptions: Array.isArray(b.pricingOptions)
+      ? b.pricingOptions.slice(0, 3).map(o => ({
+          label: str(o?.label, 80),
+          price: Number.isFinite(Number(o?.price)) ? Math.max(0, Math.min(100000, Number(o.price))) : 0,
+          plan: PLAN_IDS.includes(o?.plan) ? o.plan : 'full',
+          retainer: str(o?.retainer, 200),
+          notes: str(o?.notes, 600),
+        })) : undefined,
+    conceptsTracker: b.conceptsTracker && typeof b.conceptsTracker === 'object' ? {
+      items: Array.isArray(b.conceptsTracker.items)
+        ? b.conceptsTracker.items.slice(0, 20).map(i => ({ label: str(i?.label, 120), done: !!i?.done }))
+        : [],
+      demoUrl: str(b.conceptsTracker.demoUrl, 400),
+      driveUrl: str(b.conceptsTracker.driveUrl, 400),
+    } : undefined,
+    prepNotes: b.prepNotes !== undefined ? str(b.prepNotes, 3000) : undefined,
+    bookedOutcome: b.bookedOutcome && typeof b.bookedOutcome === 'object' ? {
+      result: ['won', 'lost'].includes(b.bookedOutcome.result) ? b.bookedOutcome.result : 'lost',
+      reason: str(b.bookedOutcome.reason, 600),
+      at: str(b.bookedOutcome.at, 40),
+    } : undefined,
   };
 }
 
@@ -128,7 +161,10 @@ export default async function handler(req, res) {
     const docs = raw
       .map(sanitize)
       .filter(d => d.business)
-      .map(d => ({ ...d, createdAt: new Date(), updatedAt: new Date() }));
+      .map(d => {
+        for (const k of Object.keys(d)) if (d[k] === undefined) delete d[k];
+        return { ...d, createdAt: new Date(), updatedAt: new Date() };
+      });
     if (!docs.length) return res.status(400).json({ error: 'business name required' });
 
     // Idempotent import: skip leads whose business name already exists.
@@ -157,7 +193,8 @@ export default async function handler(req, res) {
     const clean = sanitize(set);
     const allowed = {};
     for (const key of Object.keys(clean)) {
-      if (key in set) allowed[key] = clean[key]; // only fields the caller actually sent
+      // only fields the caller actually sent, and never write an undefined
+      if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
     }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();

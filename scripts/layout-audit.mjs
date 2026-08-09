@@ -20,7 +20,19 @@ const WIDTHS = [320, 390, 430, 768, 1280];
 const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
 const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat(40);
 
+const BOOKED_EXTRA = {
+  stage: 'booked', callStatus: 'booked',
+  meeting: { date: '2027-01-15', time: '07:00', type: 'call' },
+  servicesPlanned: ['logo', 'site-onepager', 'stickers', 'brand-kit'],
+  pricingOptions: [
+    { label: 'Recommended', price: 1150, plan: '6mo', retainer: '$95/mo growth retainer', notes: LONG },
+  ],
+  conceptsTracker: { items: [{ label: 'Logo concept ' + UNBROKEN.slice(0, 40), done: false }], demoUrl: 'https://example.com/' + UNBROKEN, driveUrl: '' },
+  prepNotes: UNBROKEN,
+};
+
 const leads = Array.from({ length: 10 }, (_, i) => ({
+  ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
   _id: 'L' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : `Lead Business ${i}`,
   industry: 'Auto Detailing', area: 'Wilmington DE',
@@ -141,8 +153,18 @@ for (const width of WIDTHS) {
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   await check('call console queue');
 
+  await page.locator('.cc-lookupbtn').first().click({ timeout: 4000 }).catch(() => {});
+  await page.locator('.lk-input').fill('0110').catch(() => {});
+  await check('reverse lookup sheet');
+  await page.keyboard.press('Escape').catch(() => {});
+
   await page.locator('.cq-start').click({ timeout: 4000 }).catch(() => {});
   await check('call session (long name lead)');
+
+  await goto('/admin/booked');
+  await check('booked list');
+  await page.locator('.bk-card').first().click({ timeout: 4000 }).catch(() => {});
+  await check('booked detail (hostile fixtures)');
 
   await ctx.close();
 }

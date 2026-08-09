@@ -26,9 +26,12 @@ import Archive from '@untitled-ui/icons-react/build/esm/Archive';
 import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
+import CalendarCheck01 from '@untitled-ui/icons-react/build/esm/CalendarCheck01';
 import Wordmark from '../components/Wordmark';
 import AdminCalls from './AdminCalls';
+import AdminBooked from './AdminBooked';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
+import { effectiveStage } from '../lib/booked';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials, hasAnySocial } from '../lib/socials';
@@ -751,13 +754,47 @@ export default function AdminApp() {
   const [selSub, setSelSub] = useState(null);
   const [selOrder, setSelOrder] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [bookedOpen, setBookedOpen] = useState(false);
   const deepLinked = useRef(false);
+
+  // Call leads — loaded at the shell level so the Booked tab badge is live
+  // and the Booked workspace has data. The Call Console keeps its own copy;
+  // it pings us (onDataChanged) whenever stages/statuses move.
+  const [callLeads, setCallLeads] = useState([]);
+  const [callLeadsLoading, setCallLeadsLoading] = useState(true);
+  const loadCallLeads = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/call-leads');
+      if (!res.ok) return;
+      const d = await res.json();
+      setCallLeads(d.items || []);
+    } catch { /* keep last */ }
+    finally { setCallLeadsLoading(false); }
+  }, []);
+
+  // Optimistic patch for booked-workspace edits, with rollback on failure.
+  const patchCallLead = useCallback(async (id, set) => {
+    let prev;
+    setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
+    try {
+      const res = await fetch('/api/admin/call-leads', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, set }),
+      });
+      if (!res.ok) throw new Error();
+      return true;
+    } catch {
+      if (prev) setCallLeads(ls => ls.map(l => l._id === id ? prev : l));
+      return false;
+    }
+  }, []);
 
   const section = useMemo(() => {
     const p = location.pathname.slice(BASE.length) || '/';
     if (p.startsWith('/submissions')) return 'submissions';
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
+    if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/settings')) return 'settings';
     return 'dashboard';
   }, [location.pathname]);
@@ -789,6 +826,12 @@ export default function AdminApp() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { if (authed) load(); }, [authed, load]);
+  useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
+
+  const bookedCount = useMemo(
+    () => callLeads.filter(l => effectiveStage(l) === 'booked').length,
+    [callLeads]
+  );
 
   const subs = useMemo(() => items.filter(it => it.type !== 'shop-order'), [items]);
   const orders = useMemo(() => items.filter(it => it.type === 'shop-order'), [items]);
@@ -857,10 +900,11 @@ export default function AdminApp() {
     { id: 'submissions', label: 'Submissions', icon: Inbox01, badge: unreadSubs },
     { id: 'orders', label: 'Orders', icon: Package, badge: unreadOrders },
     { id: 'calls', label: 'Calls', icon: PhoneCall01 },
+    { id: 'booked', label: 'Booked', icon: CalendarCheck01, badge: bookedCount },
   ];
 
   return (
-    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) ? ' has-detail' : ''}`}>
+    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) ? ' has-detail' : ''}`}>
       {/* Icon rail */}
       <nav className="aa-rail" aria-label="Admin sections">
         <a href={BASE || '/'} className="aa-rail-logo" aria-label="Dashboard" onClick={(e) => { e.preventDefault(); go('dashboard'); }}>
@@ -905,7 +949,18 @@ export default function AdminApp() {
           exportType="orders" sel={selOrder} onSelect={setSelOrder} onPatch={patch} onDelete={softDelete} />
       )}
       {section === 'calls' && (
-        <div className="aa-embed"><AdminCalls embedded /></div>
+        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} /></div>
+      )}
+      {section === 'booked' && (
+        <AdminBooked
+          leads={callLeads}
+          loading={callLeadsLoading}
+          onPatch={patchCallLead}
+          onRefresh={loadCallLeads}
+          onMobileOpen={() => setBookedOpen(true)}
+          onMobileClose={() => setBookedOpen(false)}
+          onGo={go}
+        />
       )}
       {section === 'settings' && (
         <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} />
