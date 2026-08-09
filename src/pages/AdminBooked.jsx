@@ -19,7 +19,7 @@ import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01'
 import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
 import { SocialButtons } from '../components/SocialLinks';
 import {
-  effectiveStage, SERVICES, serviceLabel, MEETING_TYPES, PLANS, planLabel,
+  effectiveStage, SERVICES, serviceLabel, MEETING_TYPES, PLANS,
   monthlyOf, PROJECT_CAP, meetingDate, meetingCountdown, prepStatus, PREP_META,
   calendarUrl,
 } from '../lib/booked';
@@ -46,6 +46,17 @@ function PrepPill({ lead }) {
     <span className="bk-prep" style={{ '--sc': s.color }}>
       <span className="bk-prep-dot" />{s.label}
     </span>
+  );
+}
+
+/* A text field that never truncates: a textarea that auto-grows to fit its
+ * content (CSS grid-stack trick — the hidden ::after mirror sets the height),
+ * so long retainer pitches and package notes read in full at rest. */
+function GrowInput({ value, onChange, placeholder, className = '' }) {
+  return (
+    <div className={`bk-grow ${className}`.trim()} data-value={value || placeholder || ''}>
+      <textarea rows={1} className="aa-input" value={value} onChange={onChange} placeholder={placeholder} />
+    </div>
   );
 }
 
@@ -184,6 +195,10 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
             {countdown && <span className="bk-countdown">{countdown}</span>}
           </div>
 
+          {/* Two columns on desktop, one column (unchanged order) below */}
+          <div className="bk-grid">
+          <div className="bk-col">
+
           <header className="bk-head">
             <div className="bk-head-meta">
               <PrepPill lead={lead} />
@@ -259,8 +274,11 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
             ))}
           </section>
 
+          </div>{/* /bk-col left */}
+          <div className="bk-col">
+
           {/* Pricing options */}
-          <section className="bk-block">
+          <section className="bk-block bk-block--pricing">
             <div className="bk-block-headrow">
               <h2 className="bk-block-h"><CurrencyDollar width={15} height={15} /> Pricing to present</h2>
               {pricing.length < 3 && (
@@ -283,14 +301,14 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
                     </div>
                     <button type="button" className="bk-price-del" onClick={() => removeOpt(i)} aria-label="Remove option"><Trash01 width={14} height={14} /></button>
                   </div>
-                  <div className="bk-price-row">
+                  <div className="bk-price-row bk-price-row--plan">
                     <select className="aa-input" value={o.plan} onChange={e => setOpt(i, 'plan', e.target.value)}>
                       {PLANS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                     </select>
-                    <input className="aa-input" value={o.retainer} onChange={e => setOpt(i, 'retainer', e.target.value)} placeholder="Retainer pitch — e.g. $95/mo upkeep" />
+                    {monthly && <span className="bk-price-monthly">≈ ${monthly}/mo</span>}
                   </div>
-                  <input className="aa-input" value={o.notes} onChange={e => setOpt(i, 'notes', e.target.value)} placeholder="What's included / talking point" />
-                  {monthly && <p className="bk-price-hint">{planLabel(o.plan)}: about ${monthly}/mo</p>}
+                  <GrowInput value={o.retainer} onChange={e => setOpt(i, 'retainer', e.target.value)} placeholder="Retainer pitch — e.g. $95/mo upkeep" />
+                  <GrowInput value={o.notes} onChange={e => setOpt(i, 'notes', e.target.value)} placeholder="What's included / talking point" />
                   {overCap && (
                     <p className="bk-price-warn"><AlertTriangle width={13} height={13} /> Over ${PROJECT_CAP} — offer it as a 6 or 12-month plan.</p>
                   )}
@@ -349,9 +367,8 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
           {/* Prep notes */}
           <section className="bk-block">
             <h2 className="bk-block-h">Prep notes</h2>
-            <textarea
-              className="aa-input bk-prep-ta"
-              rows={4}
+            <GrowInput
+              className="bk-grow--tall"
               value={prep}
               onChange={e => { setPrep(e.target.value); setPrepState('dirty'); }}
               placeholder="Talking points, objections to expect, the hook to open with…"
@@ -369,6 +386,9 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
             {lead.notes && <Fold title="Lead notes">{<p className="bk-angle">{lead.notes}</p>}</Fold>}
             <Fold title="Call log" note={(lead.callLog || []).length || undefined}><LogList lead={lead} /></Fold>
           </div>
+
+          </div>{/* /bk-col right */}
+          </div>{/* /bk-grid */}
         </div>
       </ScrollArea>
 
@@ -619,6 +639,40 @@ const bkStyles = `
     .aa-app.has-detail .bk-main { display: flex; }
   }
   .bk-detail { --lay-stack-gap: 18px; padding-bottom: 8px; }
+
+  /* Desktop workspace: two columns filling the space beside the rail.
+     Below 1200px (and on mobile) the columns stack in the original order. */
+  .bk-grid, .bk-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  @media (min-width: 1200px) {
+    .bk-detail.lay-content { max-width: 1280px; }
+    .bk-grid {
+      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 20px; align-items: start;
+    }
+  }
+
+  /* Auto-growing text field — full content visible at rest, no clipping.
+     The hidden mirror (::after) sizes the grid cell; the textarea fills it. */
+  .bk-grow { display: grid; width: 100%; min-width: 0; }
+  .bk-grow::after {
+    content: attr(data-value) ' ';
+    visibility: hidden; pointer-events: none;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    grid-area: 1 / 1 / 2 / 2;
+    padding: 9px 12px; border: 1px solid transparent;
+    font-family: inherit; font-size: 0.875rem; line-height: 1.55;
+  }
+  .bk-grow > textarea {
+    grid-area: 1 / 1 / 2 / 2;
+    resize: none; overflow: hidden;
+    line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  @media (max-width: 768px) {
+    /* mirror the global 16px iOS input floor so heights stay in sync */
+    .bk-grow::after { font-size: 16px; }
+  }
+  .bk-grow--tall::after { min-height: 96px; }
+  .bk-grow--tall > textarea { min-height: 96px; }
   .bk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .bk-back {
     display: inline-flex; align-items: center; gap: 7px;
@@ -687,11 +741,15 @@ const bkStyles = `
   .bk-svc.is-on { color: #fafafa; border-color: rgba(212,76,67,0.55); background: rgba(212,76,67,0.13); }
   .bk-svc.is-on svg { color: var(--a-brand); }
 
-  .bk-price { display: flex; flex-direction: column; gap: 8px; background: var(--a-raised); border: 1px solid var(--a-border); border-radius: 12px; padding: 12px; }
+  /* Pricing — the block read off during the close: everything legible at rest */
+  .bk-price { display: flex; flex-direction: column; gap: 9px; background: var(--a-raised); border: 1px solid var(--a-border); border-radius: 12px; padding: 14px; }
   .bk-price-row { display: flex; gap: 8px; align-items: center; }
   .bk-price-row > * { min-width: 0; }
   .bk-price-label { flex: 1; font-weight: 700; }
-  .bk-price-amt { display: flex; align-items: center; gap: 6px; width: 130px; flex-shrink: 0; font-weight: 800; color: var(--a-muted); }
+  .bk-price-amt { display: flex; align-items: center; gap: 6px; width: 138px; flex-shrink: 0; font-weight: 800; color: var(--a-muted); }
+  .bk-price-amt .aa-input { font-size: 1.1rem; font-weight: 800; }
+  .bk-price-row--plan .aa-input { flex: 0 1 auto; width: auto; }
+  .bk-price-monthly { font-size: 0.85rem; font-weight: 800; color: #fafafa; white-space: nowrap; }
   .bk-price-del {
     background: none; border: none; cursor: pointer; color: var(--a-muted); flex-shrink: 0;
     display: flex; padding: 6px; border-radius: 8px;
@@ -722,7 +780,6 @@ const bkStyles = `
   .bk-url-row { display: flex; gap: 7px; align-items: center; }
   .bk-url-row .aa-input { flex: 1; min-width: 0; }
 
-  .bk-prep-ta { resize: vertical; min-height: 96px; line-height: 1.55; }
   .bk-block .aa-btn { align-self: flex-start; }
 
   .bk-folds { display: flex; flex-direction: column; gap: 8px; }
