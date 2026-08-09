@@ -28,6 +28,7 @@ import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Wordmark from '../components/Wordmark';
 import AdminCalls from './AdminCalls';
+import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials, hasAnySocial } from '../lib/socials';
@@ -127,7 +128,7 @@ function Login({ onAuthed }) {
           {busy ? '…' : 'Sign In'}
         </button>
       </form>
-      <style>{aaStyles}</style>
+      <style>{adminLayoutStyles + aaStyles}</style>
     </div>
   );
 }
@@ -141,8 +142,8 @@ function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [onCancel]);
   return (
-    <div className="aa-modal-overlay" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="aa-modal">
+    <div className="aa-modal-overlay lay-overlay" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="aa-modal lay-modal-box">
         <h2 className="aa-modal-title">{title}</h2>
         <p className="aa-modal-body">{body}</p>
         <div className="aa-modal-actions">
@@ -191,7 +192,7 @@ function ItemDetail({ item, statusSet, onPatch, onDelete, onClose }) {
   };
 
   return (
-    <div className="aa-detail">
+    <div className="aa-detail lay-content">
       <div className="aa-detail-top">
         <button type="button" className="aa-back" onClick={onClose}>
           <ArrowLeft width={15} height={15} /> Back
@@ -391,11 +392,11 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
         )}
 
         {/* List */}
-        <div className="aa-rows">
+        <ScrollArea bare className="aa-rows">
           {loading && !items.length && <Skeletons />}
           {!loading && !filtered.length && <p className="aa-muted aa-empty">Nothing here{status !== 'all' || q ? ' with these filters' : ' yet'}.</p>}
           {filtered.map(it => (
-            <div key={it._id} className={`aa-row${sel?._id === it._id ? ' is-sel' : ''}${it.read ? '' : ' is-unread'}`}>
+            <div key={it._id} className={`aa-row lay-card${sel?._id === it._id ? ' is-sel' : ''}${it.read ? '' : ' is-unread'}`}>
               <button type="button" className="aa-row-check" aria-label="Select" onClick={() => toggle(it._id)}>
                 {checked.has(it._id) ? <CheckSquare width={15} height={15} /> : <Square width={15} height={15} />}
               </button>
@@ -412,20 +413,20 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
               </button>
             </div>
           ))}
-        </div>
+        </ScrollArea>
 
-        {/* Bulk bar */}
+        {/* Bulk bar — in flow below the list, so it can never cover a row */}
         {checked.size > 0 && (
-          <div className="aa-bulkbar">
+          <StickyFooterBar className="aa-bulkbar">
             <span>{checked.size} selected</span>
             <button type="button" className="aa-btn aa-btn--danger" onClick={() => requestDelete([...checked])}>
               <Trash01 width={14} height={14} /> Delete
             </button>
-          </div>
+          </StickyFooterBar>
         )}
       </aside>
 
-      <main className="aa-main">
+      <main className="aa-main lay-scroll">
         {sel ? (
           <ItemDetail item={sel} statusSet={statusSet} onPatch={onPatch} onDelete={requestDelete} onClose={() => onSelect(null)} />
         ) : (
@@ -474,8 +475,8 @@ function Dashboard({ subs, orders, unread, series, onGo }) {
   const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
-    <main className="aa-main aa-main--wide">
-      <div className="aa-dash">
+    <main className="aa-main aa-main--wide lay-scroll">
+      <div className="aa-dash lay-content lay-content--wide">
         <header className="aa-greet">
           <h1 className="aa-greet-title">{greet}.</h1>
           <p className="aa-greet-sub">Everything below lives in its own section — tap a card to go there.</p>
@@ -618,8 +619,8 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
         </nav>
       </aside>
 
-      <main className="aa-main">
-        <div className="aa-detail">
+      <main className="aa-main lay-scroll">
+        <div className="aa-detail lay-content">
           <button type="button" className="aa-back aa-back--mobile" onClick={() => onMobileClose?.()}>
             <ArrowLeft width={15} height={15} /> Settings
           </button>
@@ -848,7 +849,7 @@ export default function AdminApp() {
     setAuthed(false);
   };
 
-  if (authed === null) return <div className="aa-app"><style>{aaStyles}</style></div>;
+  if (authed === null) return <div className="aa-app lay-root"><style>{adminLayoutStyles + aaStyles}</style></div>;
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
 
   const RAIL = [
@@ -859,7 +860,7 @@ export default function AdminApp() {
   ];
 
   return (
-    <div className={`aa-app${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) ? ' has-detail' : ''}`}>
+    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) ? ' has-detail' : ''}`}>
       {/* Icon rail */}
       <nav className="aa-rail" aria-label="Admin sections">
         <a href={BASE || '/'} className="aa-rail-logo" aria-label="Dashboard" onClick={(e) => { e.preventDefault(); go('dashboard'); }}>
@@ -910,7 +911,7 @@ export default function AdminApp() {
         <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} />
       )}
 
-      <style>{aaStyles}</style>
+      <style>{adminLayoutStyles + aaStyles}</style>
     </div>
   );
 }
@@ -930,6 +931,7 @@ const aaStyles = `
     --a-sec: #cccccc;
     --a-brand: #d44c43;
     overflow: hidden;
+    padding-top: var(--lay-safe-top);
   }
   .aa-muted { color: var(--a-muted); font-size: 0.85rem; line-height: 1.6; }
 
@@ -992,7 +994,7 @@ const aaStyles = `
 
   /* ── Rail ── */
   .aa-rail {
-    width: 68px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
+    width: var(--lay-rail-w); flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
     padding: 14px 0; gap: 10px;
     background: #060606; border-right: 1px solid var(--a-border);
   }
@@ -1017,10 +1019,11 @@ const aaStyles = `
 
   /* ── Contextual panel ── */
   .aa-panel {
-    width: 324px; flex-shrink: 0; display: flex; flex-direction: column;
-    background: var(--a-panel); border-right: 1px solid var(--a-border); min-height: 0;
+    width: var(--lay-panel-w); flex-shrink: 0; display: flex; flex-direction: column;
+    background: var(--a-panel); border-right: 1px solid var(--a-border); min-height: 0; min-width: 0;
     padding: 16px 12px 12px; gap: 12px; position: relative;
   }
+  .aa-panel .aa-groups { overflow-y: auto; min-height: 0; flex-shrink: 1; }
   .aa-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
   .aa-panel-title { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; }
   .aa-panel-headbtns { display: flex; gap: 6px; align-items: center; }
@@ -1053,7 +1056,10 @@ const aaStyles = `
   }
   .aa-selectall:hover { color: #fafafa; }
 
-  .aa-rows { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-bottom: 60px; }
+  /* The rows list is a ScrollArea; the panel already carries the gutter,
+     so the list itself pads only at the bottom. The bulk bar is an in-flow
+     sibling below it — no clearance guesswork needed. */
+  .aa-rows.lay-scroll { padding: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
   .aa-row {
     display: flex; align-items: stretch; border-radius: 12px; overflow: hidden;
     background: var(--a-card); border: 1px solid var(--a-border);
@@ -1093,11 +1099,10 @@ const aaStyles = `
   }
   .aa-badge-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--sc); }
 
-  .aa-bulkbar {
-    position: absolute; left: 12px; right: 12px; bottom: 12px;
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 10px 14px; border-radius: 12px;
-    background: var(--a-raised); border: 1px solid rgba(212,76,67,0.4);
+  .aa-bulkbar.lay-footbar {
+    flex-direction: row; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(212,76,67,0.4);
+    background: var(--a-raised);
     font-size: 0.82rem; font-weight: 700;
     box-shadow: 0 12px 32px rgba(0,0,0,0.6);
   }
@@ -1111,15 +1116,15 @@ const aaStyles = `
   .aa-skel-a { width: 60%; } .aa-skel-b { width: 35%; animation-delay: 0.15s; }
   @keyframes aaPulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
 
-  /* ── Main / detail ── */
-  .aa-main { flex: 1; min-width: 0; overflow-y: auto; }
-  .aa-main--wide { }
+  /* ── Main / detail ──
+     .aa-main is a ScrollArea (padding + overflow come from .lay-scroll);
+     .aa-detail / .aa-dash are .lay-content (width + centering from tokens). */
   .aa-main-empty {
     height: 100%; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 12px; color: var(--a-muted); font-size: 0.9rem; text-align: center; padding: 24px;
   }
-  .aa-detail { max-width: 760px; margin: 0 auto; padding: clamp(16px, 3vw, 30px); display: flex; flex-direction: column; gap: 22px; }
-  .aa-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .aa-detail { --lay-stack-gap: 22px; }
+  .aa-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   .aa-detail-topbtns { display: flex; gap: 8px; }
   .aa-back {
     display: inline-flex; align-items: center; gap: 7px;
@@ -1153,6 +1158,7 @@ const aaStyles = `
     font-size: 0.875rem; font-weight: 600; color: #e66b63;
     padding: 8px 14px; border: 1px solid rgba(212,76,67,0.3); border-radius: 10px;
     background: rgba(212,76,67,0.06); text-decoration: none;
+    max-width: 100%; min-width: 0;
   }
   .aa-contact-item:hover { background: rgba(212,76,67,0.14); }
   .aa-answers { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -1168,7 +1174,7 @@ const aaStyles = `
   .aa-sec .aa-btn { align-self: flex-start; }
 
   /* ── Dashboard ── */
-  .aa-dash { max-width: 900px; margin: 0 auto; padding: clamp(16px, 3vw, 32px); display: flex; flex-direction: column; gap: 20px; }
+  .aa-dash { --lay-stack-gap: 20px; }
   .aa-greet-title { font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 800; letter-spacing: -0.03em; }
   .aa-greet-sub { font-size: 0.88rem; color: var(--a-muted); margin-top: 4px; }
   .aa-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -1246,9 +1252,9 @@ const aaStyles = `
 
   /* ── Modal ── */
   .aa-modal-overlay {
-    position: fixed; inset: 0; z-index: 500;
+    z-index: 500;
     background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center; padding: 20px;
+    display: flex; align-items: center; justify-content: center;
   }
   .aa-modal {
     width: min(420px, 100%); background: var(--a-raised);
@@ -1268,9 +1274,9 @@ const aaStyles = `
   @media (max-width: 760px) {
     .aa-app { flex-direction: column; }
     .aa-rail {
-      order: 2; width: 100%; height: calc(58px + env(safe-area-inset-bottom));
+      order: 2; width: 100%; height: calc(var(--lay-tabbar-h) + var(--lay-safe-bottom));
       flex-direction: row; align-items: center; justify-content: space-around;
-      padding: 0 6px env(safe-area-inset-bottom); gap: 0;
+      padding: 0 max(6px, env(safe-area-inset-left)) var(--lay-safe-bottom) max(6px, env(safe-area-inset-right)); gap: 0;
       border-right: none; border-top: 1px solid var(--a-border);
     }
     .aa-rail-logo { display: none; }

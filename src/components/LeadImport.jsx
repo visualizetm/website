@@ -212,11 +212,14 @@ const liStyles = `
   .li-overlay {
     position: fixed; inset: 0; z-index: 600;
     background: rgba(0,0,0,0.72); backdrop-filter: blur(5px);
-    display: flex; align-items: center; justify-content: center; padding: 16px;
+    display: flex; align-items: center; justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     font-family: 'Inter', -apple-system, sans-serif;
   }
   .li-panel {
-    width: min(720px, 100%); max-height: 90vh; overflow-y: auto;
+    width: min(720px, 100%); max-width: 100%; min-width: 0;
+    max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
     background: #121212; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px;
     box-shadow: 0 30px 90px rgba(0,0,0,0.8); color: #fafafa;
   }

@@ -25,6 +25,7 @@ import Wordmark from '../components/Wordmark';
 import LeadImport from '../components/LeadImport';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import { ADMIN_HOME } from '../lib/adminPaths';
+import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
 
@@ -844,7 +845,7 @@ export default function AdminCalls({ embedded = false }) {
 
   const toCall = leads.filter(l => l.callStatus === 'not-called').length;
 
-  if (authed === null) return <div className="cc-page"><style>{ccStyles}</style></div>;
+  if (authed === null) return <div className="cc-page lay-root"><style>{adminLayoutStyles + ccStyles}</style></div>;
 
   const elapsed = session ? fmtMins(Date.now() - session.startedAt) : '0m';
   const warned = current && WARN_RX.test(`${current.notes || ''} ${current.phoneNote || ''}`);
@@ -882,7 +883,7 @@ export default function AdminCalls({ embedded = false }) {
   );
 
   return (
-    <div className={`cc-page${embedded ? ' cc-page--embedded' : ''}`}>
+    <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
 
       {/* ═══ QUEUE ═══ */}
       {mode === 'queue' && (
@@ -908,7 +909,7 @@ export default function AdminCalls({ embedded = false }) {
           )}
 
           <div className="cq-wrap grid-texture">
-            <div className="cq-inner">
+            <ScrollArea contentClassName="cq-inner">
               {embedded && (
                 <div className="cq-embedbar">
                   <span className="cc-topbar-title">Call Console</span>
@@ -954,7 +955,7 @@ export default function AdminCalls({ embedded = false }) {
                   <button
                     key={l._id}
                     type="button"
-                    className="cq-card"
+                    className="cq-card lay-card"
                     onClick={() => startSession(l._id)}
                     title={l.phone ? 'Open in session view' : 'No phone on file'}
                   >
@@ -970,10 +971,10 @@ export default function AdminCalls({ embedded = false }) {
                   </button>
                 ))}
               </div>
-            </div>
+            </ScrollArea>
 
             {callable.length > 0 && (
-              <div className="cq-startbar">
+              <StickyFooterBar className="cq-startbar">
                 <label className="cq-nophone">
                   <input type="checkbox" checked={includePhoneless} onChange={e => setIncludePhoneless(e.target.checked)} />
                   <span>Include leads without a phone</span>
@@ -983,7 +984,7 @@ export default function AdminCalls({ embedded = false }) {
                   Start call session
                   <span className="cq-start-n">{callable.length}</span>
                 </button>
-              </div>
+              </StickyFooterBar>
             )}
           </div>
 
@@ -1051,7 +1052,7 @@ export default function AdminCalls({ embedded = false }) {
               </button>
             </header>
 
-            <div className="cs-cardarea" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+            <ScrollArea bare className="cs-cardarea" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
               {!current && (
                 <div className="cc-empty" style={{ margin: 'auto' }}>
                   <p className="cc-empty-note">{loaded ? 'This session has no leads left.' : 'Loading leads…'}</p>
@@ -1061,7 +1062,7 @@ export default function AdminCalls({ embedded = false }) {
               {current && (
                 <article
                   key={`${current._id}-${curIdx}`}
-                  className={`cs-card ${dir >= 0 ? 'cs-card--fwd' : 'cs-card--back'}${flash ? ` cs-card--flash-${flash}` : ''}`}
+                  className={`cs-card lay-content ${dir >= 0 ? 'cs-card--fwd' : 'cs-card--back'}${flash ? ` cs-card--flash-${flash}` : ''}`}
                 >
                   {warned && (
                     <div className="cs-warn" role="alert">
@@ -1127,10 +1128,10 @@ export default function AdminCalls({ embedded = false }) {
                   </div>
                 </article>
               )}
-            </div>
+            </ScrollArea>
 
-            {/* Outcome bar */}
-            <div className="cs-outbar">
+            {/* Outcome bar — in flow below the scroll area, never covers it */}
+            <StickyFooterBar className="cs-outbar">
               <button type="button" className="cs-navbtn" onClick={() => advance(-1)} disabled={curIdx === 0} aria-label="Previous lead">
                 <ArrowLeft width={18} height={18} />
               </button>
@@ -1150,7 +1151,7 @@ export default function AdminCalls({ embedded = false }) {
               <button type="button" className="cs-navbtn cs-navbtn--next" onClick={() => advance(1)} aria-label="Next lead (skip)">
                 <SkipForward width={18} height={18} />
               </button>
-            </div>
+            </StickyFooterBar>
           </div>
 
           {/* Desktop right panel */}
@@ -1179,8 +1180,8 @@ export default function AdminCalls({ embedded = false }) {
           )}
           {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
           {editOpen && current && (
-            <div className="cc-overlay" onClick={() => setEditOpen(false)}>
-              <div className="cc-panel" onClick={e => e.stopPropagation()}>
+            <div className="cc-overlay lay-overlay" onClick={() => setEditOpen(false)}>
+              <div className="cc-panel lay-modal-box" onClick={e => e.stopPropagation()}>
                 <EditLead lead={current} onPatch={patchLead} onDelete={deleteLead} onClose={() => setEditOpen(false)} />
               </div>
             </div>
@@ -1190,7 +1191,7 @@ export default function AdminCalls({ embedded = false }) {
 
       {/* ═══ SUMMARY ═══ */}
       {mode === 'summary' && session && (
-        <div className="cs-summary-wrap grid-texture">
+        <ScrollArea bare className="cs-summary-wrap grid-texture">
           <div className="cs-summary">
             <p className="cs-summary-kicker">Session complete</p>
             <h1 className="cs-summary-title display">
@@ -1216,13 +1217,13 @@ export default function AdminCalls({ embedded = false }) {
               <button type="button" className="cc-btn" onClick={endSession}>Back to queue</button>
             </div>
           </div>
-        </div>
+        </ScrollArea>
       )}
 
       {/* Shared overlays */}
       {newOpen && (
-        <div className="cc-overlay" onClick={() => setNewOpen(false)}>
-          <div className="cc-panel" onClick={e => e.stopPropagation()}>
+        <div className="cc-overlay lay-overlay" onClick={() => setNewOpen(false)}>
+          <div className="cc-panel lay-modal-box" onClick={e => e.stopPropagation()}>
             <NewLeadForm onCreate={createLead} onClose={() => setNewOpen(false)} />
           </div>
         </div>
@@ -1243,7 +1244,7 @@ export default function AdminCalls({ embedded = false }) {
         </div>
       )}
 
-      <style>{ccStyles}</style>
+      <style>{adminLayoutStyles + ccStyles}</style>
     </div>
   );
 }
@@ -1263,8 +1264,10 @@ const ccStyles = `
     --c-muted: #8a8a8a;
     --c-sec: #cccccc;
     --c-brand: #d44c43;
+    padding-top: var(--lay-safe-top);
   }
-  .cc-page--embedded { height: 100%; }
+  /* Embedded inside the admin shell: the shell already carries the top inset */
+  .cc-page--embedded { height: 100%; padding-top: 0; }
 
   /* Inputs + buttons (shared with the new-lead form + importer) */
   .cc-input {
@@ -1321,7 +1324,7 @@ const ccStyles = `
   /* Topbar (standalone route) */
   .cc-topbar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px clamp(14px, 3vw, 24px); flex-shrink: 0; flex-wrap: wrap;
+    padding: 12px var(--lay-gutter-r) 12px var(--lay-gutter-l); flex-shrink: 0; flex-wrap: wrap;
     background: rgba(8,8,8,0.97); border-bottom: 1px solid var(--c-border);
   }
   .cc-topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -1335,14 +1338,12 @@ const ccStyles = `
   }
   .cc-topbar-right { display: flex; align-items: center; gap: 8px; }
 
-  /* ═══ Queue ═══ */
-  .cq-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
-  .cq-inner {
-    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
-    width: 100%; max-width: 760px; margin: 0 auto;
-    padding: 16px clamp(14px, 3vw, 24px) 140px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
+  /* ═══ Queue ═══
+     Structure comes from the primitives: the list is a ScrollArea with
+     .cq-inner as its centered .lay-content; the start bar is an in-flow
+     StickyFooterBar below it — no clearance padding, it cannot cover rows. */
+  .cq-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
+  .cq-inner { --lay-stack-gap: 12px; }
   .cq-embedbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; }
   .cq-embedbar-spacer { flex: 1; }
   .cq-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1381,19 +1382,9 @@ const ccStyles = `
   .cq-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .cq-hasphone { color: #22c55e; display: inline-flex; }
 
-  .cq-startbar {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 14px clamp(14px, 3vw, 24px) calc(14px + env(safe-area-inset-bottom));
-    background: linear-gradient(to top, #080808 55%, rgba(8,8,8,0));
-    pointer-events: none;
-  }
-  .cq-startbar > * { pointer-events: auto; }
   .cq-nophone {
     display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
     font-size: 0.74rem; font-weight: 600; color: var(--c-muted);
-    padding: 6px 13px; border-radius: 999px;
-    background: rgba(8,8,8,0.92); border: 1px solid var(--c-border);
   }
   .cq-nophone input { accent-color: var(--c-brand); }
   .cq-start {
@@ -1415,33 +1406,31 @@ const ccStyles = `
   .cq-sheet-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 
   /* ═══ Session ═══ */
-  .cs-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; position: relative; }
+  .cs-wrap { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: 1fr; position: relative; }
   .cs-rail, .cs-side { display: none; }
   .cs-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 
   .cs-top {
-    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
-    padding: 10px clamp(12px, 2.5vw, 20px);
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0; min-width: 0;
+    padding: 10px var(--lay-gutter-r) 10px var(--lay-gutter-l);
     border-bottom: 1px solid var(--c-border);
   }
   .cs-progress-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
   .cs-progress-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted); }
   .cs-progress { height: 3px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
   .cs-progress > span { display: block; height: 100%; background: var(--c-brand); border-radius: 999px; transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-  .cs-stats { display: flex; align-items: center; gap: 12px; font-size: 0.72rem; color: var(--c-muted); white-space: nowrap; }
+  .cs-stats { display: flex; align-items: center; gap: 12px; font-size: 0.72rem; color: var(--c-muted); white-space: nowrap; flex-shrink: 0; }
+  @media (max-width: 480px) { .cs-stats { gap: 8px; font-size: 0.66rem; } }
   .cs-stats strong { color: #fafafa; font-weight: 800; }
   .cs-stat-booked strong { color: #22c55e; }
   .cs-keysbtn { display: none; }
 
   .cs-cardarea {
-    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
     display: flex; flex-direction: column;
     -webkit-tap-highlight-color: transparent;
   }
   .cs-card {
-    width: 100%; max-width: 700px; margin: 0 auto;
-    padding: clamp(16px, 3vw, 28px) clamp(14px, 3vw, 24px) 28px;
-    display: flex; flex-direction: column; gap: 14px;
+    --lay-stack-gap: 14px;
     animation: cs-in-fwd 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
   .cs-card--back { animation-name: cs-in-back; }
@@ -1600,12 +1589,9 @@ const ccStyles = `
   .cc-log-note strong { color: #fafafa; }
   .cc-log-empty { font-size: 0.8rem; color: var(--c-muted); }
 
-  /* Outcome bar */
-  .cs-outbar {
-    display: flex; align-items: stretch; gap: 8px; flex-shrink: 0;
-    padding: 10px clamp(10px, 2.5vw, 20px) calc(10px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--c-border); background: #0c0c0c;
-  }
+  /* Outcome bar — a StickyFooterBar; structure/background/safe-area come
+     from .lay-footbar, this only lays the buttons out in a row */
+  .cs-outbar.lay-footbar { flex-direction: row; align-items: stretch; gap: 8px; }
   .cs-out {
     flex: 1; min-width: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
@@ -1640,9 +1626,11 @@ const ccStyles = `
   @keyframes cc-fade { from { opacity: 0; } to { opacity: 1; } }
   .cc-sheet {
     width: 100%; max-width: 560px;
+    max-height: calc(100dvh - max(24px, env(safe-area-inset-top)));
+    overflow-y: auto; overscroll-behavior: contain;
     background: #161616; border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
     border-radius: 18px 18px 0 0;
-    padding: 16px 18px calc(18px + env(safe-area-inset-bottom));
+    padding: 16px max(18px, env(safe-area-inset-right)) calc(18px + var(--lay-safe-bottom)) max(18px, env(safe-area-inset-left));
     display: flex; flex-direction: column; gap: 12px;
     animation: cc-rise 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
@@ -1674,6 +1662,7 @@ const ccStyles = `
 
   .cc-keys {
     width: 100%; max-width: 420px; margin: 0 16px;
+    max-height: calc(100dvh - 48px); overflow-y: auto;
     background: #161616; border: 1px solid rgba(255,255,255,0.12); border-radius: 16px;
     padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
     align-self: center;
@@ -1687,10 +1676,11 @@ const ccStyles = `
   }
 
   .cc-overlay {
-    position: fixed; inset: 0; z-index: 55;
+    z-index: 55;
     background: rgba(0,0,0,0.65); backdrop-filter: blur(3px);
     display: flex; align-items: flex-start; justify-content: center;
-    overflow-y: auto; padding: 4vh 14px; animation: cc-fade 0.18s ease;
+    overflow-y: auto; animation: cc-fade 0.18s ease;
+    padding-top: max(4vh, env(safe-area-inset-top));
   }
   .cc-panel {
     width: 100%; max-width: 640px;
@@ -1708,7 +1698,7 @@ const ccStyles = `
 
   /* Error toast — a failed save is never silent */
   .cc-err {
-    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 90;
+    position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 90;
     display: flex; align-items: center; gap: 10px;
     max-width: min(94vw, 520px);
     padding: 11px 14px; border-radius: 13px;
@@ -1720,13 +1710,12 @@ const ccStyles = `
   .cc-btn--errretry { border-color: rgba(239,68,68,0.5); color: #fecaca; }
   .cc-btn--errretry:hover { background: rgba(239,68,68,0.15); color: #fff; }
 
-  /* ═══ Summary ═══ */
-  .cs-summary-wrap {
-    flex: 1; min-height: 0; overflow-y: auto;
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-  }
+  /* ═══ Summary ═══
+     margin:auto (not flex centering) so a card taller than the viewport
+     scrolls from the top instead of clipping. */
+  .cs-summary-wrap { display: flex; }
   .cs-summary {
+    margin: auto;
     width: 100%; max-width: 520px;
     background: var(--c-card); border: 1px solid var(--c-border); border-radius: 20px;
     padding: clamp(22px, 4vw, 34px);

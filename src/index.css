@@ -128,6 +128,16 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Layout guards: the page can never scroll sideways, and a long unbroken
+   string (business name, email, URL) can never force an element wider than
+   its container. overflow-wrap inherits, so one body rule covers all text;
+   nowrap+ellipsis rows are unaffected (they never wrap by design). */
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
 body {
   font-family: var(--font-body);
   font-size: 16px;
@@ -135,10 +145,13 @@ body {
   color: var(--text);
   background: var(--bg);
   overflow-x: hidden;
+  overflow-wrap: break-word;
 }
 
-img {
+img, svg, video, canvas, iframe, embed {
   max-width: 100%;
+}
+img {
   height: auto;
   display: block;
 }
