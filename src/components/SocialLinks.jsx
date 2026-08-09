@@ -47,6 +47,7 @@ export function SocialButtons({ socials, onAdd }) {
             <Plus width={13} height={13} /> Add links
           </button>
         )}
+        <style>{socialStyles}</style>
       </div>
     );
   }

@@ -45,6 +45,17 @@ const strArr = (v, max = 30) => Array.isArray(v) ? v.slice(0, max).map(x => str(
 const qaArr = (v, max = 12) => Array.isArray(v)
   ? v.slice(0, max).map(x => ({ say: str(x?.say, 300), respond: str(x?.respond, 800) }))
   : [];
+// Call-session history — additive field. Each entry: when, what happened, and
+// any note / booking details captured at log time.
+const logArr = (v, max = 200) => Array.isArray(v)
+  ? v.slice(-max).map(x => ({
+      at: str(x?.at, 40),
+      outcome: CALL_STATUSES.includes(x?.outcome) ? x.outcome : 'no-answer',
+      note: str(x?.note, 1000),
+      meeting: str(x?.meeting, 300),
+      email: str(x?.email, 200),
+    }))
+  : [];
 
 // Normalize an incoming lead object to the stored shape (defense in depth —
 // the endpoint is admin-only, but bad shapes would break the notepad render).
@@ -97,6 +108,7 @@ function sanitize(b) {
       dropLines: strArr(i.dropLines),
     },
     socials: normalizeSocials(b.socials),
+    callLog: logArr(b.callLog),
   };
 }
 

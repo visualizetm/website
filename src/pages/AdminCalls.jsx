@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from 'react';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
+import PhoneIncoming01 from '@untitled-ui/icons-react/build/esm/PhoneIncoming01';
+import PhoneHangUp from '@untitled-ui/icons-react/build/esm/PhoneHangUp';
+import Voicemail from '@untitled-ui/icons-react/build/esm/Voicemail';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
@@ -10,15 +13,20 @@ import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
-import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
-import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
-import Wordmark from '../components/Wordmark';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
+import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
+import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
+import Play from '@untitled-ui/icons-react/build/esm/Play';
+import SkipForward from '@untitled-ui/icons-react/build/esm/SkipForward';
+import Keyboard01 from '@untitled-ui/icons-react/build/esm/Keyboard01';
+import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
+import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
+import Wordmark from '../components/Wordmark';
 import LeadImport from '../components/LeadImport';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import { ADMIN_HOME } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
-import { normalizeSocials, SOCIAL_KEYS } from '../lib/socials';
+import { normalizeSocials } from '../lib/socials';
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -28,6 +36,31 @@ const CALL_STATUSES = [
   { id: 'no-answer',  label: 'No answer',  color: '#f59e0b' },
 ];
 const statusOf = (id) => CALL_STATUSES.find(s => s.id === id) || CALL_STATUSES[0];
+
+// The four outcomes you can log from the bar, in bar order.
+const OUTCOMES = [
+  { id: 'booked',    label: 'Booked',    key: '1', color: '#22c55e', Icon: Check },
+  { id: 'callback',  label: 'Callback',  key: '2', color: '#60a5fa', Icon: PhoneIncoming01 },
+  { id: 'no',        label: 'No',        key: '3', color: '#ef4444', Icon: PhoneHangUp },
+  { id: 'no-answer', label: 'No answer', key: '4', color: '#f59e0b', Icon: Voicemail },
+];
+const outcomeOf = (id) => OUTCOMES.find(o => o.id === id);
+
+const WARN_RX = /(DO NOT|DISQUALIF|WARNING|never dial)/i;
+const PRIO_RANK = { hot: 0, warm: 1, cold: 2 };
+const STATUS_RANK = { 'not-called': 0, 'callback': 1, 'no-answer': 2, 'booked': 3, 'no': 4 };
+const SESSION_KEY = 'vz_call_session';
+
+const telOf = (lead) => lead?.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
+const fmtMins = (ms) => {
+  const m = Math.floor(ms / 60000);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+};
+const fmtLogTime = (iso) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
 
 // Standard script skeleton for manually added leads — same bones as the
 // notepad docs, personalized from the business fields.
@@ -85,7 +118,21 @@ function StatusChip({ id }) {
   );
 }
 
-/* ── New lead form ─────────────────────────────────────────────── */
+function QaTable({ rows }) {
+  if (!rows?.length) return null;
+  return (
+    <div className="cc-qa">
+      {rows.map((r, i) => (
+        <div key={i} className="cc-qa-row">
+          <span className="cc-qa-say">{r.say}</span>
+          <span className="cc-qa-respond">{r.respond}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ── New lead form (overlay) ───────────────────────────────────── */
 
 function NewLeadForm({ onCreate, onClose }) {
   const [f, setF] = useState({
@@ -163,62 +210,98 @@ function NewLeadForm({ onCreate, onClose }) {
   );
 }
 
-/* ── The Call Notepad ──────────────────────────────────────────── */
+/* ── Edit lead (overlay) ───────────────────────────────────────── */
 
-function QaTable({ rows }) {
-  if (!rows?.length) return null;
+function EditLead({ lead, onPatch, onDelete, onClose }) {
+  const [d, setD] = useState({
+    business: lead.business || '', descriptor: lead.descriptor || '', industry: lead.industry || '',
+    phone: lead.phone || '', phoneNote: lead.phoneNote || '', askFor: lead.askFor || '',
+    bestWindow: lead.bestWindow || '', area: lead.area || '', email: lead.email || '',
+    priority: lead.priority || 'warm', angle: lead.angle || '',
+    socials: { ...(lead.socials || {}) },
+  });
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setD(p => ({ ...p, [k]: e.target.value }));
+  const setSocial = (k, v) => setD(p => ({ ...p, socials: { ...(p.socials || {}), [k]: v } }));
+
+  const save = async () => {
+    setBusy(true);
+    await onPatch(lead._id, { ...d, socials: normalizeSocials(d.socials) });
+    setBusy(false);
+    onClose();
+  };
+
   return (
-    <div className="cc-qa">
-      {rows.map((r, i) => (
-        <div key={i} className="cc-qa-row">
-          <span className="cc-qa-say">{r.say}</span>
-          <span className="cc-qa-respond">{r.respond}</span>
+    <form className="cc-new" onSubmit={(e) => { e.preventDefault(); save(); }}>
+      <div className="cc-new-head">
+        <h2 className="cc-new-title">Edit lead</h2>
+        <button type="button" className="cc-iconbtn" onClick={onClose} aria-label="Close">
+          <XClose width={16} height={16} />
+        </button>
+      </div>
+      <div className="cc-new-grid">
+        {[['business', 'Business'], ['descriptor', 'Descriptor'], ['industry', 'Industry'],
+          ['phone', 'Phone'], ['phoneNote', 'Phone note'], ['askFor', 'Ask for'],
+          ['area', 'Area'], ['email', 'Email'], ['bestWindow', 'Best window']]
+          .map(([k, label]) => (
+          <label key={k} className={`cc-field${k === 'business' || k === 'descriptor' ? ' cc-field--wide' : ''}`}>
+            <span>{label}</span>
+            <input className="cc-input" value={d[k]} onChange={set(k)} />
+          </label>
+        ))}
+        <label className="cc-field">
+          <span>Priority</span>
+          <select className="cc-input" value={d.priority} onChange={set('priority')}>
+            <option value="hot">HOT</option>
+            <option value="warm">WARM</option>
+            <option value="cold">COLD</option>
+          </select>
+        </label>
+        <label className="cc-field cc-field--wide">
+          <span>The angle</span>
+          <textarea className="cc-input" rows={3} value={d.angle} onChange={set('angle')} />
+        </label>
+        <div className="cc-field cc-field--wide">
+          <span>Social links &amp; website</span>
+          <SocialFields values={d.socials} onChange={setSocial} />
         </div>
-      ))}
-    </div>
+      </div>
+      <div className="cc-edit-actions">
+        <button type="submit" className="cc-btn cc-btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="button" className="cc-btn" onClick={onClose}>Cancel</button>
+        <span style={{ flex: 1 }} />
+        <button
+          type="button"
+          className="cc-btn cc-btn--danger"
+          onClick={() => { if (window.confirm(`Delete ${lead.business}? It won't come back on re-import.`)) onDelete(lead._id); }}
+        >
+          <Trash01 width={14} height={14} /> Delete
+        </button>
+      </div>
+    </form>
   );
 }
 
-function Notepad({ lead, onPatch, onDelete, onBack }) {
-  const [checks, setChecks] = useState({});
-  const [after, setAfter] = useState(lead.afterCall || {});
-  const [saved, setSaved] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(null);
+/* ── Collapsible section ───────────────────────────────────────── */
 
-  useEffect(() => {
-    setChecks({});
-    setAfter(lead.afterCall || { meeting: '', email: '', whatTheySaid: '', nextAction: '' });
-    setEditing(false);
-    setSaved(false);
-  }, [lead._id]);
+function Collapse({ title, note, children, defaultOpen = false }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={`cc-fold${open ? ' is-open' : ''}`}>
+      <button type="button" className="cc-fold-head" onClick={() => setOpen(v => !v)} aria-expanded={open}>
+        <span className="cc-fold-title">{title}</span>
+        {note != null && <span className="cc-fold-note">{note}</span>}
+        <ChevronDown width={16} height={16} className="cc-fold-chev" />
+      </button>
+      {open && <div className="cc-fold-body">{children}</div>}
+    </section>
+  );
+}
 
-  const setA = (k) => (e) => setAfter(p => ({ ...p, [k]: e.target.value }));
-  const saveAfter = async () => {
-    await onPatch(lead._id, { afterCall: after });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
+/* ── Full script body (inside a Collapse) ──────────────────────── */
 
-  const startEdit = () => {
-    setDraft({
-      business: lead.business, industry: lead.industry, descriptor: lead.descriptor,
-      phone: lead.phone, phoneNote: lead.phoneNote, askFor: lead.askFor,
-      bestWindow: lead.bestWindow, angle: lead.angle,
-      socials: { ...(lead.socials || {}) },
-    });
-    setEditing(true);
-  };
-  const setD = (k) => (e) => setDraft(p => ({ ...p, [k]: e.target.value }));
-  const setSocial = (k, v) => setDraft(p => ({ ...p, socials: { ...(p.socials || {}), [k]: v } }));
-  const saveEdit = async () => {
-    await onPatch(lead._id, { ...draft, socials: normalizeSocials(draft.socials) });
-    setEditing(false);
-  };
-
+function ScriptBody({ lead }) {
   const s = lead.script || {};
-  const telHref = lead.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
-
   const steps = [
     { n: '1', t: 'CONFIRM', body: s.confirm },
     { n: '2', t: 'INTRO + BUY TIME', body: s.intro },
@@ -226,269 +309,253 @@ function Notepad({ lead, onPatch, onDelete, onBack }) {
     { n: '4', t: 'THE QUESTION (then stop talking)', body: s.question, qa: s.likelyAnswers, qaLabel: 'Their likely answers' },
     { n: '5', t: 'THE HOOK', body: s.hook },
     { n: '6', t: 'THE ASK (two options, always)', body: s.ask },
-  ];
-
+  ].filter(st => st.body);
   return (
-    <article className="cc-notepad">
-      <button type="button" className="cc-back" onClick={onBack}>
-        <ArrowLeft width={15} height={15} /> All leads
-      </button>
-
-      {/* 1 · Header block */}
-      <header className="cc-head">
-        <div className="cc-head-toprow">
-          <div className="cc-head-meta">
-            <PriorityPill p={lead.priority} />
-            <StatusChip id={lead.callStatus} />
-            {lead.industry && <span className="cc-industry">{lead.industry}</span>}
-          </div>
-          <div className="cc-head-actions">
-            {!editing && (
-              <button type="button" className="cc-iconbtn" onClick={startEdit} title="Edit lead">
-                <Edit02 width={15} height={15} />
-              </button>
-            )}
-            <button
-              type="button"
-              className="cc-iconbtn cc-iconbtn--danger"
-              title="Delete lead"
-              onClick={() => { if (window.confirm(`Delete ${lead.business}? This can't be undone.`)) onDelete(lead._id); }}
-            >
-              <Trash01 width={15} height={15} />
-            </button>
-          </div>
-        </div>
-
-        {editing ? (
-          <div className="cc-edit">
-            {[['business', 'Business'], ['descriptor', 'Descriptor'], ['industry', 'Industry'],
-              ['phone', 'Phone'], ['phoneNote', 'Phone note'], ['askFor', 'Ask for'], ['bestWindow', 'Best window']]
-              .map(([k, label]) => (
-              <label key={k} className="cc-field">
-                <span>{label}</span>
-                <input className="cc-input" value={draft[k] || ''} onChange={setD(k)} />
-              </label>
-            ))}
-            <label className="cc-field cc-field--wide">
-              <span>The angle</span>
-              <textarea className="cc-input" rows={3} value={draft.angle || ''} onChange={setD('angle')} />
-            </label>
-            <div className="cc-field cc-field--wide">
-              <span>Social links &amp; website</span>
-              <SocialFields values={draft.socials} onChange={setSocial} />
-            </div>
-            <div className="cc-edit-actions">
-              <button type="button" className="cc-btn cc-btn--primary" onClick={saveEdit}>Save</button>
-              <button type="button" className="cc-btn" onClick={() => setEditing(false)}>Cancel</button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <h1 className="cc-biz display">{lead.business}</h1>
-            {lead.descriptor && <p className="cc-descriptor">{lead.descriptor}</p>}
-
-            {telHref ? (
-              <a href={telHref} className="cc-phone">
-                <PhoneCall01 width={26} height={26} />
-                <span className="cc-phone-num">{lead.phone}</span>
-                <span className="cc-phone-tap">tap to call</span>
-              </a>
-            ) : (
-              <div className="cc-phone cc-phone--missing">
-                <AlertCircle width={20} height={20} />
-                <span>{lead.phoneNote || 'No phone on file — verify before calling'}</span>
-              </div>
-            )}
-
-            <div className="cc-head-facts">
-              {lead.askFor && <p><strong>Ask for:</strong> {lead.askFor.replace(/^Ask for /i, '')}</p>}
-              {lead.email && <p><strong>Email:</strong> <a href={`mailto:${lead.email}`} className="cc-fact-link">{lead.email}</a></p>}
-              {lead.area && <p><strong>Area:</strong> {lead.area}</p>}
-              {lead.serviceInterest && <p><strong>Interested in:</strong> {lead.serviceInterest}</p>}
-              {lead.bestWindow && <p><strong>Best window:</strong> {lead.bestWindow}</p>}
-              {lead.phone && lead.phoneNote && <p><strong>Note:</strong> {lead.phoneNote}</p>}
-              {lead.notes && <p><strong>Notes:</strong> {lead.notes}</p>}
-            </div>
-
-            <div className="cc-socials">
-              <SocialButtons socials={lead.socials} onAdd={startEdit} />
-            </div>
-          </>
-        )}
-      </header>
-
-      {/* 2 · The angle */}
-      {lead.angle && (
-        <section className="cc-sec cc-angle">
-          <h2 className="cc-sec-title">The Angle</h2>
-          <p className="cc-angle-text">{lead.angle}</p>
-        </section>
-      )}
-
-      {/* 3 · Before you dial */}
+    <div className="cc-script">
       {lead.beforeYouDial?.length > 0 && (
-        <section className="cc-sec">
-          <h2 className="cc-sec-title">Before You Dial <span className="cc-sec-note">30 seconds</span></h2>
-          <ul className="cc-checklist">
-            {lead.beforeYouDial.map((item, i) => (
-              <li key={i}>
-                <label className={`cc-checkitem${checks[i] ? ' is-done' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={!!checks[i]}
-                    onChange={() => setChecks(p => ({ ...p, [i]: !p[i] }))}
-                  />
-                  <span className="cc-checkbox">{checks[i] && <Check width={11} height={11} />}</span>
-                  <span>{item}</span>
-                </label>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ul className="cc-predial">
+          {lead.beforeYouDial.map((x, i) => <li key={i}>{x}</li>)}
+        </ul>
       )}
-
-      {/* 4 · The call */}
-      <section className="cc-sec">
-        <h2 className="cc-sec-title">The Call</h2>
-        <ol className="cc-steps">
-          {steps.filter(st => st.body).map(st => (
-            <li key={st.n} className="cc-step">
-              <div className="cc-step-head">
-                <span className="cc-step-num">{st.n}</span>
-                <span className="cc-step-title">{st.t}</span>
-              </div>
-              <p className="cc-say">&ldquo;{st.body}&rdquo;</p>
-              {st.qa?.length > 0 && (
-                <>
-                  <p className="cc-qa-label">{st.qaLabel}:</p>
-                  <QaTable rows={st.qa} />
-                </>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* 5 · Objections */}
+      <ol className="cc-steps">
+        {steps.map(st => (
+          <li key={st.n} className="cc-step">
+            <div className="cc-step-head">
+              <span className="cc-step-num">{st.n}</span>
+              <span className="cc-step-title">{st.t}</span>
+            </div>
+            <p className="cc-say">&ldquo;{st.body}&rdquo;</p>
+            {st.qa?.length > 0 && (
+              <>
+                <p className="cc-qa-label">{st.qaLabel}:</p>
+                <QaTable rows={st.qa} />
+              </>
+            )}
+          </li>
+        ))}
+      </ol>
       {lead.objections?.length > 0 && (
-        <section className="cc-sec">
-          <h2 className="cc-sec-title">Objections <span className="cc-sec-note">after every one, return to the ask</span></h2>
+        <>
+          <h3 className="cc-sub-h">Objections <span>return to the ask after every one</span></h3>
           <QaTable rows={lead.objections} />
-        </section>
+        </>
       )}
-
-      {/* 6 · The close */}
       {(lead.close?.lockIt || lead.close?.ifNo || lead.close?.noAnswer) && (
-        <section className="cc-sec">
-          <h2 className="cc-sec-title">The Close</h2>
-          <div className="cc-close-grid">
-            {lead.close.lockIt && (
-              <div className="cc-close-card cc-close-card--lock">
-                <h3>Lock it</h3><p>{lead.close.lockIt}</p>
-              </div>
-            )}
-            {lead.close.ifNo && (
-              <div className="cc-close-card">
-                <h3>If it&rsquo;s a no</h3><p>{lead.close.ifNo}</p>
-              </div>
-            )}
-            {lead.close.noAnswer && (
-              <div className="cc-close-card">
-                <h3>No answer</h3><p>{lead.close.noAnswer}</p>
-              </div>
-            )}
-          </div>
-        </section>
+        <div className="cc-close-grid">
+          {lead.close.lockIt && <div className="cc-close-card cc-close-card--lock"><h3>Lock it</h3><p>{lead.close.lockIt}</p></div>}
+          {lead.close.ifNo && <div className="cc-close-card"><h3>If it&rsquo;s a no</h3><p>{lead.close.ifNo}</p></div>}
+          {lead.close.noAnswer && <div className="cc-close-card"><h3>No answer</h3><p>{lead.close.noAnswer}</p></div>}
+        </div>
       )}
-
-      {/* 7 · After the call */}
-      <section className="cc-sec cc-after">
-        <h2 className="cc-sec-title">After The Call</h2>
-        <div className="cc-result-row">
-          <span className="cc-result-label">Result</span>
-          <div className="cc-result-opts">
-            {CALL_STATUSES.map(st => (
-              <button
-                key={st.id}
-                type="button"
-                className={`cc-result-opt${lead.callStatus === st.id ? ' is-on' : ''}`}
-                style={{ '--sc': st.color }}
-                onClick={() => onPatch(lead._id, { callStatus: st.id })}
-              >
-                {st.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="cc-after-grid">
-          <label className="cc-field">
-            <span>Meeting day + time</span>
-            <input className="cc-input" value={after.meeting || ''} onChange={setA('meeting')} placeholder="Thursday 7am" />
-          </label>
-          <label className="cc-field">
-            <span>Their email</span>
-            <input className="cc-input" value={after.email || ''} onChange={setA('email')} placeholder="owner@business.com" />
-          </label>
-          <label className="cc-field cc-field--wide">
-            <span>What they said</span>
-            <textarea className="cc-input" rows={3} value={after.whatTheySaid || ''} onChange={setA('whatTheySaid')} placeholder="Notes from the call…" />
-          </label>
-          <label className="cc-field cc-field--wide">
-            <span>Next action</span>
-            <input className="cc-input" value={after.nextAction || ''} onChange={setA('nextAction')} placeholder="Send invite / follow up in 30 days / …" />
-          </label>
-        </div>
-        <button type="button" className="cc-btn cc-btn--primary" onClick={saveAfter}>
-          {saved ? <><Check width={14} height={14} /> Saved</> : <><Save01 width={14} height={14} /> Save call notes</>}
-        </button>
-      </section>
-
-      {/* 8 · Brand intel */}
       {(lead.intel?.accomplishments?.length > 0 || lead.intel?.gaps?.length > 0 || lead.intel?.dropLines?.length > 0) && (
-        <section className="cc-sec">
-          <h2 className="cc-sec-title">Brand Intel <span className="cc-sec-note">what you can see from the outside</span></h2>
-          <div className="cc-intel-grid">
-            {lead.intel.accomplishments?.length > 0 && (
-              <div className="cc-intel-col">
-                <h3 className="cc-intel-h cc-intel-h--plus">Accomplishments</h3>
-                <ul>{lead.intel.accomplishments.map((x, i) => <li key={i}>{x}</li>)}</ul>
-              </div>
-            )}
-            {lead.intel.gaps?.length > 0 && (
-              <div className="cc-intel-col">
-                <h3 className="cc-intel-h cc-intel-h--minus">Visible struggles / gaps</h3>
-                <ul>{lead.intel.gaps.map((x, i) => <li key={i}>{x}</li>)}</ul>
-              </div>
-            )}
-          </div>
+        <div className="cc-intel">
+          {lead.intel.accomplishments?.length > 0 && (
+            <div><h3 className="cc-sub-h cc-sub-h--plus">Accomplishments</h3><ul className="cc-predial">{lead.intel.accomplishments.map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+          )}
+          {lead.intel.gaps?.length > 0 && (
+            <div><h3 className="cc-sub-h cc-sub-h--minus">Gaps</h3><ul className="cc-predial">{lead.intel.gaps.map((x, i) => <li key={i}>{x}</li>)}</ul></div>
+          )}
           {lead.intel.dropLines?.length > 0 && (
-            <div className="cc-droplines">
-              <h3 className="cc-intel-h">Drop these on the call</h3>
-              {lead.intel.dropLines.map((x, i) => (
-                <blockquote key={i} className="cc-dropline">&ldquo;{x}&rdquo;</blockquote>
-              ))}
+            <div>
+              <h3 className="cc-sub-h">Drop these on the call</h3>
+              {lead.intel.dropLines.map((x, i) => <blockquote key={i} className="cc-dropline">&ldquo;{x}&rdquo;</blockquote>)}
             </div>
           )}
-        </section>
+        </div>
       )}
-    </article>
+    </div>
+  );
+}
+
+/* ── Call log list ─────────────────────────────────────────────── */
+
+function CallLogList({ lead }) {
+  const log = [...(lead.callLog || [])].reverse();
+  if (!log.length) return <p className="cc-log-empty">No calls logged yet.</p>;
+  return (
+    <ul className="cc-log">
+      {log.map((e, i) => {
+        const o = outcomeOf(e.outcome) || outcomeOf('no-answer');
+        return (
+          <li key={i} className="cc-log-row" style={{ '--sc': o.color }}>
+            <span className="cc-log-dot" />
+            <div className="cc-log-main">
+              <div className="cc-log-top">
+                <span className="cc-log-outcome">{o.label}</span>
+                <span className="cc-log-time">{fmtLogTime(e.at)}</span>
+              </div>
+              {e.meeting && <p className="cc-log-note"><strong>Meeting:</strong> {e.meeting}</p>}
+              {e.email && <p className="cc-log-note"><strong>Email:</strong> {e.email}</p>}
+              {e.note && <p className="cc-log-note">{e.note}</p>}
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ── Session notes panel (desktop right zone + mobile fold) ────── */
+
+function NotesPanel({ lead, onSaveNotes, noteRef }) {
+  const [draft, setDraft] = useState(lead.notes || '');
+  const [state, setState] = useState('idle'); // idle | dirty | saving | saved
+  useEffect(() => { setDraft(lead.notes || ''); setState('idle'); }, [lead._id]);
+
+  const save = async () => {
+    setState('saving');
+    const ok = await onSaveNotes(lead._id, draft);
+    setState(ok ? 'saved' : 'dirty');
+    if (ok) setTimeout(() => setState(s => s === 'saved' ? 'idle' : s), 1500);
+  };
+
+  return (
+    <div className="cc-notespanel">
+      <textarea
+        ref={noteRef}
+        className="cc-input cc-notes-ta"
+        rows={5}
+        value={draft}
+        placeholder="Notes on this lead…"
+        onChange={(e) => { setDraft(e.target.value); setState('dirty'); }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save(); } }}
+      />
+      {state !== 'idle' && (
+        <button type="button" className="cc-btn cc-btn--primary cc-notes-save" onClick={save} disabled={state === 'saving'}>
+          {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved' : 'Save notes'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* ── Outcome sheet ─────────────────────────────────────────────── */
+
+function OutcomeSheet({ outcome, lead, onLog, onCancel }) {
+  const o = outcomeOf(outcome);
+  const [note, setNote] = useState('');
+  const [meeting, setMeeting] = useState('');
+  const [email, setEmail] = useState(lead.email || lead.afterCall?.email || '');
+  const noteInput = useRef(null);
+  const isTouch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+
+  useEffect(() => {
+    // Desktop: type a note immediately, Enter logs. Mobile: don't pop the keyboard.
+    if (!isTouch) noteInput.current?.focus();
+  }, []);
+
+  return (
+    <div className="cc-sheet-back" onClick={onCancel}>
+      <form
+        className="cc-sheet"
+        style={{ '--sc': o.color }}
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={(e) => { e.preventDefault(); onLog(outcome, { note, meeting, email }); }}
+      >
+        <div className="cc-sheet-head">
+          <span className="cc-sheet-badge"><o.Icon width={16} height={16} /> {o.label}</span>
+          <span className="cc-sheet-biz">{lead.business}</span>
+          <button type="button" className="cc-iconbtn" onClick={onCancel} aria-label="Cancel">
+            <XClose width={16} height={16} />
+          </button>
+        </div>
+        {outcome === 'booked' && (
+          <div className="cc-sheet-grid">
+            <label className="cc-field">
+              <span>Meeting day + time</span>
+              <input className="cc-input" value={meeting} onChange={(e) => setMeeting(e.target.value)} placeholder="Thursday 7am" autoFocus={false} />
+            </label>
+            <label className="cc-field">
+              <span>Their email</span>
+              <input className="cc-input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="owner@business.com" inputMode="email" />
+            </label>
+          </div>
+        )}
+        <label className="cc-field">
+          <span>Quick note <em>(optional)</em></span>
+          <input
+            ref={noteInput}
+            className="cc-input"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={outcome === 'callback' ? 'When to call back, what they said…' : 'What they said…'}
+          />
+        </label>
+        <div className="cc-sheet-actions">
+          <button type="submit" className="cc-btn cc-btn--log">Log &amp; next</button>
+          <span className="cc-sheet-hint">Enter logs it</span>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/* ── Keyboard shortcuts overlay ────────────────────────────────── */
+
+function ShortcutsOverlay({ onClose }) {
+  const rows = [
+    ['→ or Space', 'Next lead (skip, no log)'],
+    ['←', 'Previous lead'],
+    ['1', 'Booked'],
+    ['2', 'Callback'],
+    ['3', 'No'],
+    ['4', 'No answer'],
+    ['Enter', 'Save outcome + advance'],
+    ['N', 'Focus the note field'],
+    ['Esc', 'Close sheet / overlay'],
+    ['?', 'Toggle this list'],
+  ];
+  return (
+    <div className="cc-sheet-back" onClick={onClose}>
+      <div className="cc-keys" onClick={(e) => e.stopPropagation()}>
+        <div className="cc-sheet-head">
+          <span className="cc-sheet-badge" style={{ '--sc': '#8a8a8a' }}><Keyboard01 width={16} height={16} /> Keyboard</span>
+          <button type="button" className="cc-iconbtn" onClick={onClose} aria-label="Close"><XClose width={16} height={16} /></button>
+        </div>
+        <div className="cc-keys-grid">
+          {rows.map(([k, v]) => (
+            <div key={k} className="cc-keys-row"><kbd>{k}</kbd><span>{v}</span></div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
 /* ── Main ──────────────────────────────────────────────────────── */
 
+const EMPTY_STATS = { calls: 0, booked: 0, callbacks: 0, no: 0, noAnswer: 0 };
+const STAT_KEY = { booked: 'booked', callback: 'callbacks', no: 'no', 'no-answer': 'noAnswer' };
+
 export default function AdminCalls({ embedded = false }) {
   const [authed, setAuthed] = useState(null);
   const [leads, setLeads] = useState([]);
-  const [selId, setSelId] = useState(null);
+  const [loaded, setLoaded] = useState(false);
+
+  // Queue filters
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState('all');
+  const [pills, setPills] = useState({ hot: false, warm: false, hasPhone: false, notCalled: false, callbacks: false });
   const [industry, setIndustry] = useState('all');
-  const [priority, setPriority] = useState('all');
-  const [hasPhone, setHasPhone] = useState(false);
+  const [includePhoneless, setIncludePhoneless] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Overlays
   const [newOpen, setNewOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
+
+  // Session
+  const [mode, setMode] = useState('queue'); // queue | session | summary
+  const [session, setSession] = useState(null);
+  const [sheet, setSheet] = useState(null); // { outcome }
+  const [dir, setDir] = useState(1);
+  const [flash, setFlash] = useState(null);
+  const [err, setErr] = useState(null); // { msg, retry }
+  const noteRef = useRef(null);
+  const touch = useRef(null);
+  const [, tick] = useReducer(x => x + 1, 0);
 
   useEffect(() => {
     if (!embedded) document.title = 'Call Console — Visualize';
@@ -507,19 +574,74 @@ export default function AdminCalls({ embedded = false }) {
       if (res.status === 401) { window.location.replace(ADMIN_HOME); return; }
       const d = await res.json();
       setLeads(d.items || []);
+      setLoaded(true);
     } catch { /* keep last */ }
   }, []);
 
   useEffect(() => { if (authed) load(); }, [authed, load]);
 
-  const patch = async (id, set) => {
-    await fetch('/api/admin/call-leads', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, set }),
-    });
-    setLeads(prev => prev.map(l => l._id === id ? { ...l, ...set } : l));
-  };
+  // Restore a persisted session — returning from a phone call or a tab
+  // reload never loses your place mid-dialing.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (Array.isArray(s?.ids) && s.ids.length) {
+        setSession({
+          ids: s.ids,
+          idx: Math.min(Math.max(0, s.idx || 0), s.ids.length - 1),
+          stats: { ...EMPTY_STATS, ...(s.stats || {}) },
+          logged: s.logged || {},
+          startedAt: s.startedAt || Date.now(),
+        });
+        setMode(s.mode === 'summary' ? 'summary' : 'session');
+      }
+    } catch { /* corrupt state — start fresh */ }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (session) localStorage.setItem(SESSION_KEY, JSON.stringify({ ...session, mode }));
+      else localStorage.removeItem(SESSION_KEY);
+    } catch { /* storage full/blocked — session just won't survive reload */ }
+  }, [session, mode]);
+
+  // Session clock (stat strip shows elapsed minutes).
+  useEffect(() => {
+    if (mode !== 'session') return;
+    const t = setInterval(tick, 30000);
+    return () => clearInterval(t);
+  }, [mode]);
+
+  /* ── Data ops ── */
+
+  const patch = useCallback(async (id, set, { rollback } = {}) => {
+    try {
+      const res = await fetch('/api/admin/call-leads', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, set }),
+      });
+      if (!res.ok) throw new Error(`save failed (${res.status})`);
+      return true;
+    } catch {
+      if (rollback) rollback();
+      setErr({
+        msg: 'Save failed — that outcome is NOT stored.',
+        retry: () => { setErr(null); patch(id, set, { rollback }); },
+      });
+      return false;
+    }
+  }, []);
+
+  const patchLead = useCallback(async (id, set) => {
+    const prev = leads.find(l => l._id === id);
+    setLeads(ls => ls.map(l => l._id === id ? { ...l, ...set } : l));
+    return patch(id, set, { rollback: () => setLeads(ls => ls.map(l => l._id === id ? prev : l)) });
+  }, [leads, patch]);
+
+  const saveNotes = useCallback((id, notes) => patchLead(id, { notes }), [patchLead]);
 
   const createLead = async (lead) => {
     const res = await fetch('/api/admin/call-leads', {
@@ -532,8 +654,14 @@ export default function AdminCalls({ embedded = false }) {
 
   const deleteLead = async (id) => {
     await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    setSelId(null);
+    setEditOpen(false);
     setLeads(prev => prev.filter(l => l._id !== id));
+    setSession(s => {
+      if (!s) return s;
+      const ids = s.ids.filter(x => x !== id);
+      if (!ids.length) { setMode('queue'); return null; }
+      return { ...s, ids, idx: Math.min(s.idx, ids.length - 1) };
+    });
   };
 
   const importNotepads = async () => {
@@ -548,6 +676,8 @@ export default function AdminCalls({ embedded = false }) {
     } finally { setImporting(false); }
   };
 
+  /* ── Queue ── */
+
   const industries = useMemo(
     () => [...new Set(leads.map(l => l.industry).filter(Boolean))].sort(),
     [leads]
@@ -555,155 +685,562 @@ export default function AdminCalls({ embedded = false }) {
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    const order = { 'not-called': 0, 'callback': 1, 'no-answer': 2, 'booked': 3, 'no': 4 };
+    const prios = [pills.hot && 'hot', pills.warm && 'warm'].filter(Boolean);
+    const stats = [pills.notCalled && 'not-called', pills.callbacks && 'callback'].filter(Boolean);
     return leads
       .filter(l =>
-        (!needle || `${l.business} ${l.industry} ${l.descriptor}`.toLowerCase().includes(needle)) &&
-        (status === 'all' || l.callStatus === status) &&
-        (industry === 'all' || l.industry === industry) &&
-        (priority === 'all' || l.priority === priority) &&
-        (!hasPhone || !!l.phone)
+        (!needle || `${l.business} ${l.industry} ${l.area} ${l.descriptor}`.toLowerCase().includes(needle)) &&
+        (!prios.length || prios.includes(l.priority)) &&
+        (!stats.length || stats.includes(l.callStatus)) &&
+        (!pills.hasPhone || !!l.phone) &&
+        (industry === 'all' || l.industry === industry)
       )
       .sort((a, b) =>
-        (a.priority === 'hot' ? 0 : 1) - (b.priority === 'hot' ? 0 : 1) ||
-        (order[a.callStatus] ?? 9) - (order[b.callStatus] ?? 9) ||
+        (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1) ||
+        (STATUS_RANK[a.callStatus] ?? 9) - (STATUS_RANK[b.callStatus] ?? 9) ||
         new Date(b.createdAt) - new Date(a.createdAt)
       );
-  }, [leads, q, status, industry, priority, hasPhone]);
+  }, [leads, q, pills, industry]);
 
-  const sel = leads.find(l => l._id === selId) || null;
+  const callable = useMemo(
+    () => includePhoneless ? filtered : filtered.filter(l => l.phone),
+    [filtered, includePhoneless]
+  );
+
+  /* ── Session mechanics ── */
+
+  const leadsById = useMemo(() => {
+    const m = new Map();
+    for (const l of leads) m.set(l._id, l);
+    return m;
+  }, [leads]);
+
+  const sessionIds = useMemo(
+    () => session && loaded ? session.ids.filter(id => leadsById.has(id)) : (session?.ids || []),
+    [session, leadsById, loaded]
+  );
+  const curIdx = session ? Math.min(session.idx, Math.max(0, sessionIds.length - 1)) : 0;
+  const current = session ? leadsById.get(sessionIds[curIdx]) : null;
+
+  const startSession = (startId) => {
+    // Tapping a phoneless lead still opens it — the full filtered list is used
+    // whenever the tapped lead isn't in the callable queue.
+    let ids = callable.map(l => l._id);
+    if (startId && !ids.includes(startId)) ids = filtered.map(l => l._id);
+    if (!ids.length) return;
+    const idx = startId ? Math.max(0, ids.indexOf(startId)) : 0;
+    setDir(1);
+    setSession({ ids, idx, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now() });
+    setMode('session');
+    setSheet(null);
+  };
+
+  const endSession = () => {
+    setSession(null);
+    setSheet(null);
+    setMode('queue');
+  };
+
+  const advance = useCallback((d = 1) => {
+    setSheet(null);
+    setDir(d);
+    setSession(s => {
+      if (!s) return s;
+      const ni = s.idx + d;
+      if (ni >= s.ids.length) { setMode('summary'); return s; }
+      return { ...s, idx: Math.max(0, ni) };
+    });
+  }, []);
+
+  const logOutcome = useCallback((outcome, { note = '', meeting = '', email = '' } = {}) => {
+    const lead = current;
+    if (!lead) return;
+    const entry = {
+      at: new Date().toISOString(),
+      outcome,
+      note: note.trim(),
+      meeting: outcome === 'booked' ? meeting.trim() : '',
+      email: outcome === 'booked' ? email.trim() : '',
+    };
+    const prev = lead;
+    const nextLog = [...(lead.callLog || []), entry];
+    const set = { callStatus: outcome, callLog: nextLog };
+    if (outcome === 'booked' && (entry.meeting || entry.email)) {
+      set.afterCall = {
+        ...(lead.afterCall || {}),
+        meeting: entry.meeting || lead.afterCall?.meeting || '',
+        email: entry.email || lead.afterCall?.email || '',
+      };
+    }
+    // Optimistic — the queue keeps moving; a failed save rolls back loudly.
+    setLeads(ls => ls.map(l => l._id === lead._id ? { ...l, ...set } : l));
+    setSession(s => s ? {
+      ...s,
+      stats: { ...s.stats, calls: s.stats.calls + 1, [STAT_KEY[outcome]]: (s.stats[STAT_KEY[outcome]] || 0) + 1 },
+      logged: { ...s.logged, [lead._id]: outcome },
+    } : s);
+    setSheet(null);
+    setFlash(outcome);
+    setTimeout(() => setFlash(null), 400);
+    patch(lead._id, set, { rollback: () => setLeads(ls => ls.map(l => l._id === lead._id ? prev : l)) });
+    advance(1);
+  }, [current, patch, advance]);
+
+  const runItBack = () => {
+    if (!session) return endSession();
+    const ids = session.ids.filter(id => session.logged[id] === 'no-answer' && leadsById.has(id));
+    if (!ids.length) return endSession();
+    setDir(1);
+    setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now() });
+    setMode('session');
+  };
+
+  /* ── Keyboard (session) ── */
+
+  useEffect(() => {
+    if (mode !== 'session') return;
+    const onKey = (e) => {
+      if (e.target.closest?.('input, textarea, select')) {
+        if (e.key === 'Escape') { e.target.blur(); setSheet(null); }
+        return;
+      }
+      if (showKeys) {
+        if (e.key === 'Escape' || e.key === '?') setShowKeys(false);
+        return;
+      }
+      if (sheet) {
+        if (e.key === 'Escape') setSheet(null);
+        return;
+      }
+      switch (e.key) {
+        case 'ArrowRight': case ' ': e.preventDefault(); advance(1); break;
+        case 'ArrowLeft': advance(-1); break;
+        case '1': e.preventDefault(); setSheet({ outcome: 'booked' }); break;
+        case '2': e.preventDefault(); setSheet({ outcome: 'callback' }); break;
+        case '3': e.preventDefault(); setSheet({ outcome: 'no' }); break;
+        case '4': e.preventDefault(); setSheet({ outcome: 'no-answer' }); break;
+        case 'n': case 'N': e.preventDefault(); noteRef.current?.focus(); break;
+        case '?': setShowKeys(true); break;
+        default: break;
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, sheet, showKeys, advance]);
+
+  /* ── Swipe (session card) ── */
+
+  const onTouchStart = (e) => { touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; };
+  const onTouchEnd = (e) => {
+    const t = touch.current;
+    touch.current = null;
+    if (!t || sheet || showKeys) return;
+    const dx = e.changedTouches[0].clientX - t.x;
+    const dy = e.changedTouches[0].clientY - t.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) advance(dx < 0 ? 1 : -1);
+  };
+
+  /* ── Render ── */
+
   const toCall = leads.filter(l => l.callStatus === 'not-called').length;
 
   if (authed === null) return <div className="cc-page"><style>{ccStyles}</style></div>;
 
-  return (
-    <div className={`cc-page${sel || newOpen ? ' has-pad' : ''}${embedded ? ' cc-page--embedded' : ''}`}>
-      {!embedded && (
-      <header className="cc-topbar">
-        <div className="cc-topbar-left">
-          <Wordmark size={16} />
-          <span className="cc-topbar-title">Call Console</span>
-          {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
-        </div>
-        <div className="cc-topbar-right">
-          <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
-          <button type="button" className="cc-btn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
-          <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}>
-            <Upload01 width={14} height={14} /> Upload spreadsheet
-          </button>
-          <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
-            <Plus width={14} height={14} /> New lead
-          </button>
-        </div>
-      </header>
-      )}
+  const elapsed = session ? fmtMins(Date.now() - session.startedAt) : '0m';
+  const warned = current && WARN_RX.test(`${current.notes || ''} ${current.phoneNote || ''}`);
 
-      <div className="cc-body">
-        {/* LEFT — lead list */}
-        <aside className="cc-list" aria-label="Lead list">
-          <div className="cc-filters">
-            {embedded && (
-              <div className="cc-embedbar">
+  const activePills = Object.values(pills).filter(Boolean).length + (industry !== 'all' ? 1 : 0);
+
+  const pillDefs = [
+    ['hot', 'Hot'], ['warm', 'Warm'], ['hasPhone', 'Has phone'],
+    ['notCalled', 'Not called'], ['callbacks', 'Callbacks'],
+  ];
+
+  const filterControls = (
+    <>
+      {pillDefs.map(([k, label]) => (
+        <button
+          key={k}
+          type="button"
+          className={`cc-pill${pills[k] ? ' is-on' : ''}`}
+          aria-pressed={pills[k]}
+          onClick={() => setPills(p => ({ ...p, [k]: !p[k] }))}
+        >
+          {label}
+        </button>
+      ))}
+      <select
+        className={`cc-pill cc-pill--select${industry !== 'all' ? ' is-on' : ''}`}
+        value={industry}
+        onChange={e => setIndustry(e.target.value)}
+        aria-label="Filter by industry"
+      >
+        <option value="all">Industry</option>
+        {industries.map(i => <option key={i} value={i}>{i}</option>)}
+      </select>
+    </>
+  );
+
+  return (
+    <div className={`cc-page${embedded ? ' cc-page--embedded' : ''}`}>
+
+      {/* ═══ QUEUE ═══ */}
+      {mode === 'queue' && (
+        <>
+          {!embedded && (
+            <header className="cc-topbar">
+              <div className="cc-topbar-left">
+                <Wordmark size={16} />
                 <span className="cc-topbar-title">Call Console</span>
                 {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
-                <span className="cc-embedbar-spacer" />
-                <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
-                <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}><Upload01 width={14} height={14} /> Upload</button>
-                <button type="button" className="cc-btn cc-btn--primary" onClick={() => { setNewOpen(true); setSelId(null); }}>
-                  <Plus width={14} height={14} /> New
+              </div>
+              <div className="cc-topbar-right">
+                <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
+                <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
+                <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}>
+                  <Upload01 width={14} height={14} /> Upload
+                </button>
+                <button type="button" className="cc-btn cc-btn--primary" onClick={() => setNewOpen(true)}>
+                  <Plus width={14} height={14} /> New lead
+                </button>
+              </div>
+            </header>
+          )}
+
+          <div className="cq-wrap grid-texture">
+            <div className="cq-inner">
+              {embedded && (
+                <div className="cq-embedbar">
+                  <span className="cc-topbar-title">Call Console</span>
+                  {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
+                  <span className="cq-embedbar-spacer" />
+                  <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
+                  <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}><Upload01 width={14} height={14} /> Upload</button>
+                  <button type="button" className="cc-btn cc-btn--primary" onClick={() => setNewOpen(true)}><Plus width={14} height={14} /> New</button>
+                </div>
+              )}
+
+              <div className="cq-controls">
+                <div className="cc-search-wrap">
+                  <SearchMd width={15} height={15} />
+                  <input className="cc-input cc-search" placeholder="Search leads…" value={q} onChange={e => setQ(e.target.value)} />
+                </div>
+                <button type="button" className={`cc-pill cq-filterbtn${activePills ? ' is-on' : ''}`} onClick={() => setFiltersOpen(true)}>
+                  <FilterLines width={14} height={14} /> Filters{activePills ? ` · ${activePills}` : ''}
+                </button>
+                <div className="cq-pills">{filterControls}</div>
+              </div>
+
+              <div className="cq-count">
+                {filtered.length} lead{filtered.length === 1 ? '' : 's'}
+                {!includePhoneless && filtered.length !== callable.length && ` · ${callable.length} with phones`}
+              </div>
+
+              <div className="cq-list">
+                {leads.length === 0 && loaded && (
+                  <div className="cc-empty">
+                    <p className="cc-empty-title">No leads yet.</p>
+                    <button type="button" className="cc-btn cc-btn--primary" onClick={importNotepads} disabled={importing}>
+                      <Download01 width={14} height={14} />
+                      {importing ? 'Importing…' : `Import ${IMPORT_LEADS.length} notepads`}
+                    </button>
+                    <p className="cc-empty-note">Loads the cold-call notepads from your Drive docs.</p>
+                  </div>
+                )}
+                {leads.length > 0 && filtered.length === 0 && (
+                  <p className="cc-empty-note" style={{ padding: '24px 4px' }}>No leads match the filters.</p>
+                )}
+                {filtered.map(l => (
+                  <button
+                    key={l._id}
+                    type="button"
+                    className="cq-card"
+                    onClick={() => startSession(l._id)}
+                    title={l.phone ? 'Open in session view' : 'No phone on file'}
+                  >
+                    <span className="cq-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
+                    <span className="cq-main">
+                      <span className="cq-name">{l.business}</span>
+                      <span className="cq-sub">{[l.area, l.industry].filter(Boolean).join(' · ') || l.descriptor}</span>
+                    </span>
+                    <span className="cq-side">
+                      <PriorityPill p={l.priority} />
+                      {l.phone && <span className="cq-hasphone"><Phone width={13} height={13} /></span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {callable.length > 0 && (
+              <div className="cq-startbar">
+                <label className="cq-nophone">
+                  <input type="checkbox" checked={includePhoneless} onChange={e => setIncludePhoneless(e.target.checked)} />
+                  <span>Include leads without a phone</span>
+                </label>
+                <button type="button" className="cq-start" onClick={() => startSession()}>
+                  <Play width={20} height={20} />
+                  Start call session
+                  <span className="cq-start-n">{callable.length}</span>
                 </button>
               </div>
             )}
-            <div className="cc-search-wrap">
-              <SearchMd width={14} height={14} />
-              <input className="cc-input cc-search" placeholder="Search leads…" value={q} onChange={e => setQ(e.target.value)} />
-            </div>
-            <div className="cc-filter-row">
-              <select className="cc-input cc-select" value={status} onChange={e => setStatus(e.target.value)} aria-label="Filter by call status">
-                <option value="all">All statuses</option>
-                {CALL_STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </select>
-              <select className="cc-input cc-select" value={industry} onChange={e => setIndustry(e.target.value)} aria-label="Filter by industry">
-                <option value="all">All industries</option>
-                {industries.map(i => <option key={i} value={i}>{i}</option>)}
-              </select>
-            </div>
-            <div className="cc-filter-row">
-              <select className="cc-input cc-select" value={priority} onChange={e => setPriority(e.target.value)} aria-label="Filter by priority">
-                <option value="all">All priorities</option>
-                <option value="hot">HOT</option>
-                <option value="warm">WARM</option>
-                <option value="cold">COLD</option>
-              </select>
-              <button
-                type="button"
-                className={`cc-toggle${hasPhone ? ' is-on' : ''}`}
-                onClick={() => setHasPhone(v => !v)}
-                aria-pressed={hasPhone}
-              >
-                <Phone width={13} height={13} /> Has phone
-              </button>
-            </div>
           </div>
 
-          <div className="cc-rows">
-            {leads.length === 0 && (
-              <div className="cc-empty">
-                <p className="cc-empty-title">No leads yet.</p>
-                <button type="button" className="cc-btn cc-btn--primary" onClick={importNotepads} disabled={importing}>
-                  <Download01 width={14} height={14} />
-                  {importing ? 'Importing…' : `Import ${IMPORT_LEADS.length} notepads`}
-                </button>
-                <p className="cc-empty-note">Loads the cold-call notepads from your Drive docs.</p>
+          {filtersOpen && (
+            <div className="cc-sheet-back" onClick={() => setFiltersOpen(false)}>
+              <div className="cc-sheet cq-filtersheet" onClick={e => e.stopPropagation()}>
+                <div className="cc-sheet-head">
+                  <span className="cc-sheet-badge" style={{ '--sc': '#8a8a8a' }}><FilterLines width={15} height={15} /> Filters</span>
+                  <button type="button" className="cc-iconbtn" onClick={() => setFiltersOpen(false)} aria-label="Close"><XClose width={16} height={16} /></button>
+                </div>
+                <div className="cq-sheet-pills">{filterControls}</div>
+                <button type="button" className="cc-btn cc-btn--primary" onClick={() => setFiltersOpen(false)}>Done</button>
               </div>
-            )}
-            {leads.length > 0 && filtered.length === 0 && (
-              <p className="cc-empty-note" style={{ padding: '18px 16px' }}>No leads match the filters.</p>
-            )}
-            {filtered.map(l => (
-              <button
-                key={l._id}
-                type="button"
-                className={`cc-row${selId === l._id ? ' is-sel' : ''}`}
-                onClick={() => { setSelId(l._id); setNewOpen(false); }}
-              >
-                <div className="cc-row-main">
-                  <span className="cc-row-name">{l.business}</span>
-                  <span className="cc-row-sub">{l.industry || l.descriptor}</span>
-                </div>
-                <div className="cc-row-side">
-                  <span className="cc-row-pills">
-                    <PriorityPill p={l.priority} />
-                    {l.phone && <span className="cc-hasphone" title="Phone on file"><Phone width={12} height={12} /></span>}
-                  </span>
-                  <StatusChip id={l.callStatus} />
-                </div>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        {/* RIGHT — notepad / new-lead / empty */}
-        <main className="cc-pad">
-          {newOpen ? (
-            <NewLeadForm onCreate={createLead} onClose={() => setNewOpen(false)} />
-          ) : sel ? (
-            <Notepad lead={sel} onPatch={patch} onDelete={deleteLead} onBack={() => setSelId(null)} />
-          ) : (
-            <div className="cc-pad-empty">
-              <PhoneCall01 width={36} height={36} />
-              <p>Pick a lead to open its call notepad.</p>
             </div>
           )}
-        </main>
-      </div>
+        </>
+      )}
 
+      {/* ═══ SESSION ═══ */}
+      {mode === 'session' && session && (
+        <div className="cs-wrap">
+          {/* Desktop rail */}
+          <aside className="cs-rail" aria-label="Session queue">
+            <div className="cs-rail-head">Queue</div>
+            <div className="cs-rail-list">
+              {sessionIds.map((id, i) => {
+                const l = leadsById.get(id);
+                if (!l) return null;
+                const logged = session.logged[id];
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`cs-rail-row${i === curIdx ? ' is-cur' : ''}${logged ? ' is-done' : ''}`}
+                    onClick={() => { setDir(i > curIdx ? 1 : -1); setSession(s => ({ ...s, idx: i })); }}
+                    title={l.angle ? l.angle.slice(0, 140) : l.descriptor}
+                  >
+                    <span className="cs-rail-n">{i + 1}</span>
+                    <span className="cs-rail-name">{l.business}</span>
+                    {logged && <span className="cs-rail-mark" style={{ '--sc': outcomeOf(logged)?.color }} />}
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+
+          {/* Center */}
+          <div className="cs-main">
+            <header className="cs-top">
+              <button type="button" className="cc-iconbtn" onClick={() => setMode('summary')} title="End session">
+                <XClose width={16} height={16} />
+              </button>
+              <div className="cs-progress-wrap">
+                <span className="cs-progress-label">{sessionIds.length ? `${curIdx + 1} of ${sessionIds.length}` : '—'}</span>
+                <div className="cs-progress"><span style={{ width: sessionIds.length ? `${((curIdx + 1) / sessionIds.length) * 100}%` : 0 }} /></div>
+              </div>
+              <div className="cs-stats">
+                <span><strong>{session.stats.calls}</strong> calls</span>
+                <span className="cs-stat-booked"><strong>{session.stats.booked}</strong> booked</span>
+                <span><strong>{session.stats.callbacks}</strong> cb</span>
+                <span><strong>{elapsed}</strong></span>
+              </div>
+              <button type="button" className="cc-iconbtn cs-keysbtn" onClick={() => setShowKeys(true)} title="Keyboard shortcuts">
+                <Keyboard01 width={15} height={15} />
+              </button>
+            </header>
+
+            <div className="cs-cardarea" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+              {!current && (
+                <div className="cc-empty" style={{ margin: 'auto' }}>
+                  <p className="cc-empty-note">{loaded ? 'This session has no leads left.' : 'Loading leads…'}</p>
+                  {loaded && <button type="button" className="cc-btn" onClick={endSession}>Back to queue</button>}
+                </div>
+              )}
+              {current && (
+                <article
+                  key={`${current._id}-${curIdx}`}
+                  className={`cs-card ${dir >= 0 ? 'cs-card--fwd' : 'cs-card--back'}${flash ? ` cs-card--flash-${flash}` : ''}`}
+                >
+                  {warned && (
+                    <div className="cs-warn" role="alert">
+                      <AlertTriangle width={16} height={16} />
+                      <span>Check the notes before dialing.</span>
+                    </div>
+                  )}
+
+                  <div className="cs-meta">
+                    <PriorityPill p={current.priority} />
+                    <StatusChip id={current.callStatus} />
+                    {current.industry && <span className="cs-industry">{current.industry}</span>}
+                    <span className="cs-meta-spacer" />
+                    <button type="button" className="cc-iconbtn" onClick={() => setEditOpen(true)} title="Edit lead">
+                      <Edit02 width={15} height={15} />
+                    </button>
+                  </div>
+
+                  <h1 className="cs-biz display">{current.business}</h1>
+                  {current.askFor && <p className="cs-askfor">Ask for {current.askFor.replace(/^Ask for /i, '')}</p>}
+
+                  {telOf(current) ? (
+                    <a href={telOf(current)} className="cs-phone">
+                      <PhoneCall01 width={28} height={28} />
+                      <span className="cs-phone-num">{current.phone}</span>
+                      <span className="cs-phone-tap">Tap to call</span>
+                    </a>
+                  ) : (
+                    <div className="cs-phone cs-phone--missing">
+                      <AlertCircle width={20} height={20} />
+                      <span>{current.phoneNote || 'No phone on file — find the number first'}</span>
+                    </div>
+                  )}
+
+                  {current.angle && <p className="cs-angle">{current.angle}</p>}
+
+                  <div className="cs-facts">
+                    {current.area && <span>{current.area}</span>}
+                    {current.industry && <span>{current.industry}</span>}
+                    {current.bestWindow && <span>{current.bestWindow}</span>}
+                    {current.phone && current.phoneNote && <span>{current.phoneNote}</span>}
+                  </div>
+
+                  <div className="cs-socials">
+                    <SocialButtons socials={current.socials} onAdd={() => setEditOpen(true)} />
+                  </div>
+
+                  <div className="cs-folds">
+                    {current.angle && (
+                      <Collapse title="The angle, in detail">
+                        <p className="cs-angle-full">{current.angle}</p>
+                      </Collapse>
+                    )}
+                    <Collapse title="Full script" note="confirm → hook → ask">
+                      <ScriptBody lead={current} />
+                    </Collapse>
+                    <Collapse title="Notes" note={current.notes ? undefined : 'empty'} defaultOpen={warned}>
+                      <NotesPanel lead={current} onSaveNotes={saveNotes} noteRef={null} />
+                    </Collapse>
+                    <Collapse title="Call log" note={(current.callLog || []).length || undefined}>
+                      <CallLogList lead={current} />
+                    </Collapse>
+                  </div>
+                </article>
+              )}
+            </div>
+
+            {/* Outcome bar */}
+            <div className="cs-outbar">
+              <button type="button" className="cs-navbtn" onClick={() => advance(-1)} disabled={curIdx === 0} aria-label="Previous lead">
+                <ArrowLeft width={18} height={18} />
+              </button>
+              {OUTCOMES.map(o => (
+                <button
+                  key={o.id}
+                  type="button"
+                  className={`cs-out cs-out--${o.id}`}
+                  style={{ '--sc': o.color }}
+                  onClick={() => setSheet({ outcome: o.id })}
+                  disabled={!current}
+                >
+                  <o.Icon width={19} height={19} />
+                  <span>{o.label}</span>
+                </button>
+              ))}
+              <button type="button" className="cs-navbtn cs-navbtn--next" onClick={() => advance(1)} aria-label="Next lead (skip)">
+                <SkipForward width={18} height={18} />
+              </button>
+            </div>
+          </div>
+
+          {/* Desktop right panel */}
+          {current && (
+            <aside className="cs-side" aria-label="Notes and call log">
+              <div className="cs-side-sec">
+                <h3 className="cs-side-h">Notes</h3>
+                <NotesPanel lead={current} onSaveNotes={saveNotes} noteRef={noteRef} />
+              </div>
+              <div className="cs-side-sec cs-side-sec--log">
+                <h3 className="cs-side-h">Call log</h3>
+                <CallLogList lead={current} />
+              </div>
+            </aside>
+          )}
+
+          {flash && <div className="cs-flash" style={{ '--sc': outcomeOf(flash)?.color }} aria-hidden="true" />}
+
+          {sheet && current && (
+            <OutcomeSheet
+              outcome={sheet.outcome}
+              lead={current}
+              onLog={logOutcome}
+              onCancel={() => setSheet(null)}
+            />
+          )}
+          {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
+          {editOpen && current && (
+            <div className="cc-overlay" onClick={() => setEditOpen(false)}>
+              <div className="cc-panel" onClick={e => e.stopPropagation()}>
+                <EditLead lead={current} onPatch={patchLead} onDelete={deleteLead} onClose={() => setEditOpen(false)} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ SUMMARY ═══ */}
+      {mode === 'summary' && session && (
+        <div className="cs-summary-wrap grid-texture">
+          <div className="cs-summary">
+            <p className="cs-summary-kicker">Session complete</p>
+            <h1 className="cs-summary-title display">
+              {session.stats.booked > 0 ? `${session.stats.booked} booked.` : 'Run logged.'}
+            </h1>
+            <div className="cs-summary-grid">
+              <div className="cs-sumstat"><strong>{session.stats.calls}</strong><span>calls made</span></div>
+              <div className="cs-sumstat cs-sumstat--booked"><strong>{session.stats.booked}</strong><span>booked</span></div>
+              <div className="cs-sumstat"><strong>{session.stats.callbacks}</strong><span>callbacks</span></div>
+              <div className="cs-sumstat"><strong>{session.stats.noAnswer}</strong><span>no answer</span></div>
+              <div className="cs-sumstat"><strong>{session.stats.no}</strong><span>no</span></div>
+              <div className="cs-sumstat"><strong>{fmtMins(Date.now() - session.startedAt)}</strong><span>on the phones</span></div>
+            </div>
+            <div className="cs-summary-actions">
+              {session.stats.noAnswer > 0 && (
+                <button type="button" className="cc-btn cc-btn--primary" onClick={runItBack}>
+                  <RefreshCw01 width={15} height={15} /> Run it back · {session.stats.noAnswer} no-answer{session.stats.noAnswer === 1 ? '' : 's'}
+                </button>
+              )}
+              <button type="button" className="cc-btn" onClick={() => setMode('session')}>
+                <ArrowLeft width={14} height={14} /> Back into the session
+              </button>
+              <button type="button" className="cc-btn" onClick={endSession}>Back to queue</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shared overlays */}
+      {newOpen && (
+        <div className="cc-overlay" onClick={() => setNewOpen(false)}>
+          <div className="cc-panel" onClick={e => e.stopPropagation()}>
+            <NewLeadForm onCreate={createLead} onClose={() => setNewOpen(false)} />
+          </div>
+        </div>
+      )}
       {importOpen && (
         <LeadImport
           existingLeads={leads}
           onClose={() => setImportOpen(false)}
           onImported={load}
         />
+      )}
+      {err && (
+        <div className="cc-err" role="alert">
+          <AlertTriangle width={16} height={16} />
+          <span>{err.msg}</span>
+          <button type="button" className="cc-btn cc-btn--errretry" onClick={err.retry}>Retry</button>
+          <button type="button" className="cc-iconbtn" onClick={() => setErr(null)} aria-label="Dismiss"><XClose width={14} height={14} /></button>
+        </div>
       )}
 
       <style>{ccStyles}</style>
@@ -714,33 +1251,33 @@ export default function AdminCalls({ embedded = false }) {
 /* ── Styles ────────────────────────────────────────────────────── */
 
 const ccStyles = `
-  .cc-page--embedded { height: 100%; }
-  .cc-embedbar { display: flex; align-items: center; gap: 8px; }
-  .cc-embedbar-spacer { flex: 1; }
   .cc-page {
     height: 100vh; height: 100dvh; display: flex; flex-direction: column;
-    background: #0a0a0a; color: #fafafa;
+    background: #080808; color: #fafafa;
     font-family: 'Inter', -apple-system, sans-serif;
+    letter-spacing: -0.011em;
+    overscroll-behavior: none;
     --c-border: rgba(255,255,255,0.09);
     --c-card: #121212;
+    --c-card2: #1a1a1a;
     --c-muted: #8a8a8a;
     --c-sec: #cccccc;
     --c-brand: #d44c43;
   }
+  .cc-page--embedded { height: 100%; }
 
-  /* Inputs + buttons */
+  /* Inputs + buttons (shared with the new-lead form + importer) */
   .cc-input {
-    padding: 9px 12px; border-radius: 9px; width: 100%;
+    padding: 10px 12px; border-radius: 10px; width: 100%;
     border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
-    color: #fafafa; font-size: 0.875rem; font-family: inherit; outline: none;
-    transition: border-color 0.2s;
+    color: #fafafa; font-size: 16px; font-family: inherit; outline: none;
+    transition: border-color 0.18s;
   }
+  @media (min-width: 700px) { .cc-input { font-size: 0.875rem; } }
   .cc-input:focus { border-color: var(--c-brand); }
-  .cc-select { cursor: pointer; }
-  .cc-select option { background: #1a1a1a; }
   .cc-btn {
     display: inline-flex; align-items: center; gap: 7px;
-    padding: 8px 13px; border-radius: 9px; cursor: pointer;
+    padding: 9px 14px; border-radius: 10px; cursor: pointer;
     border: 1px solid var(--c-border); background: rgba(255,255,255,0.05);
     color: var(--c-sec); font-size: 0.8125rem; font-weight: 600; font-family: inherit;
     text-decoration: none; white-space: nowrap; transition: background 0.15s, color 0.15s;
@@ -748,27 +1285,43 @@ const ccStyles = `
   .cc-btn:hover { background: rgba(255,255,255,0.1); color: #fafafa; }
   .cc-btn--primary { background: var(--c-brand); border-color: var(--c-brand); color: #fff; }
   .cc-btn--primary:hover { background: #c2413a; color: #fff; }
+  .cc-btn--danger { color: #f87171; border-color: rgba(239,68,68,0.35); }
+  .cc-btn--danger:hover { background: rgba(239,68,68,0.12); color: #fca5a5; }
   .cc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .cc-iconbtn {
-    width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+    width: 34px; height: 34px; border-radius: 9px; cursor: pointer; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
     border: 1px solid var(--c-border); background: rgba(255,255,255,0.05);
     color: var(--c-muted); transition: color 0.15s, background 0.15s;
   }
   .cc-iconbtn:hover { color: #fafafa; background: rgba(255,255,255,0.1); }
-  .cc-iconbtn--danger:hover { color: #f87171; background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); }
-
   .cc-field { display: flex; flex-direction: column; gap: 5px; }
   .cc-field > span {
     font-size: 0.66rem; font-weight: 800; text-transform: uppercase;
     letter-spacing: 0.12em; color: var(--c-muted);
   }
+  .cc-field > span em { font-style: normal; font-weight: 600; opacity: 0.7; text-transform: none; letter-spacing: 0; }
   .cc-field--wide { grid-column: 1 / -1; }
 
-  /* Topbar */
+  .cc-prio {
+    font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em;
+    padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+  }
+  .cc-prio--hot { background: rgba(212,76,67,0.18); color: #e66b63; border: 1px solid rgba(212,76,67,0.4); }
+  .cc-prio--warm { background: rgba(245,158,11,0.14); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
+  .cc-prio--cold { background: rgba(96,165,250,0.14); color: #60a5fa; border: 1px solid rgba(96,165,250,0.35); }
+  .cc-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 0.66rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+    color: var(--sc); background: color-mix(in srgb, var(--sc) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sc) 30%, transparent); white-space: nowrap;
+  }
+  .cc-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sc); }
+
+  /* Topbar (standalone route) */
   .cc-topbar {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px clamp(14px, 3vw, 24px); flex-shrink: 0;
+    padding: 12px clamp(14px, 3vw, 24px); flex-shrink: 0; flex-wrap: wrap;
     background: rgba(8,8,8,0.97); border-bottom: 1px solid var(--c-border);
   }
   .cc-topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
@@ -782,261 +1335,485 @@ const ccStyles = `
   }
   .cc-topbar-right { display: flex; align-items: center; gap: 8px; }
 
-  /* Two panes */
-  .cc-body { flex: 1; display: flex; min-height: 0; }
-  .cc-list {
-    width: 348px; flex-shrink: 0; display: flex; flex-direction: column;
-    border-right: 1px solid var(--c-border); min-height: 0;
+  /* ═══ Queue ═══ */
+  .cq-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+  .cq-inner {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    width: 100%; max-width: 760px; margin: 0 auto;
+    padding: 16px clamp(14px, 3vw, 24px) 140px;
+    display: flex; flex-direction: column; gap: 12px;
   }
-  .cc-filters {
-    padding: 12px; display: flex; flex-direction: column; gap: 8px;
-    border-bottom: 1px solid var(--c-border); flex-shrink: 0;
-  }
-  .cc-search-wrap { position: relative; display: flex; align-items: center; color: var(--c-muted); }
-  .cc-search-wrap > svg { position: absolute; left: 11px; pointer-events: none; }
-  .cc-search { padding-left: 32px; }
-  .cc-filter-row { display: flex; gap: 8px; }
-  .cc-filter-row > * { flex: 1; min-width: 0; }
-  .cc-toggle {
-    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-    padding: 8px 10px; border-radius: 9px; cursor: pointer;
+  .cq-embedbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; }
+  .cq-embedbar-spacer { flex: 1; }
+  .cq-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .cc-search-wrap { position: relative; display: flex; align-items: center; color: var(--c-muted); flex: 1; min-width: 200px; }
+  .cc-search-wrap > svg { position: absolute; left: 12px; pointer-events: none; }
+  .cc-search { padding-left: 34px; }
+  .cq-pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cc-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 13px; border-radius: 999px; cursor: pointer;
     border: 1px solid var(--c-border); background: rgba(255,255,255,0.04);
     color: var(--c-muted); font-size: 0.78rem; font-weight: 700; font-family: inherit;
-    transition: all 0.15s;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
   }
-  .cc-toggle.is-on { color: var(--c-brand); border-color: rgba(212,76,67,0.5); background: rgba(212,76,67,0.1); }
-
-  .cc-rows { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
-  .cc-row {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    padding: 11px 12px; border-radius: 11px; cursor: pointer; width: 100%;
+  .cc-pill:hover { color: #fafafa; }
+  .cc-pill.is-on { color: var(--c-brand); border-color: rgba(212,76,67,0.5); background: rgba(212,76,67,0.1); }
+  .cc-pill--select { appearance: none; -webkit-appearance: none; padding-right: 13px; }
+  .cc-pill--select option { background: #1a1a1a; color: #fafafa; }
+  .cq-filterbtn { display: none; }
+  .cq-count { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
+  .cq-list { display: flex; flex-direction: column; gap: 8px; }
+  .cq-card {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 13px 15px; border-radius: 13px; cursor: pointer;
     background: var(--c-card); border: 1px solid var(--c-border);
-    text-align: left; font-family: inherit; transition: border-color 0.15s;
+    text-align: left; font-family: inherit; color: inherit;
+    transition: border-color 0.15s, transform 0.15s;
   }
-  .cc-row:hover { border-color: rgba(212,76,67,0.45); }
-  .cc-row.is-sel { border-color: var(--c-brand); background: rgba(212,76,67,0.07); }
-  .cc-row-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .cc-row-name { font-size: 0.875rem; font-weight: 700; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cc-row-sub { font-size: 0.72rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cc-row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
-  .cc-row-pills { display: inline-flex; align-items: center; gap: 6px; }
-  .cc-hasphone { color: #22c55e; display: inline-flex; }
+  .cq-card:hover { border-color: rgba(212,76,67,0.45); }
+  .cq-card:active { transform: scale(0.995); }
+  .cq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); flex-shrink: 0; }
+  .cq-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .cq-name { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cq-sub { font-size: 0.74rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cq-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .cq-hasphone { color: #22c55e; display: inline-flex; }
 
-  .cc-prio {
-    font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em;
-    padding: 2px 7px; border-radius: 999px;
+  .cq-startbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    padding: 14px clamp(14px, 3vw, 24px) calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, #080808 55%, rgba(8,8,8,0));
+    pointer-events: none;
   }
-  .cc-prio--hot { background: rgba(212,76,67,0.18); color: #e66b63; border: 1px solid rgba(212,76,67,0.4); }
-  .cc-prio--warm { background: rgba(245,158,11,0.14); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
-  .cc-prio--cold { background: rgba(96,165,250,0.14); color: #60a5fa; border: 1px solid rgba(96,165,250,0.35); }
-
-  .cc-status {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 0.66rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
-    color: var(--sc); background: color-mix(in srgb, var(--sc) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--sc) 30%, transparent); white-space: nowrap;
+  .cq-startbar > * { pointer-events: auto; }
+  .cq-nophone {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+    font-size: 0.74rem; font-weight: 600; color: var(--c-muted);
+    padding: 6px 13px; border-radius: 999px;
+    background: rgba(8,8,8,0.92); border: 1px solid var(--c-border);
   }
-  .cc-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sc); }
-
-  .cc-empty { padding: 32px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-  .cc-empty-title { font-weight: 700; }
-  .cc-empty-note { font-size: 0.8rem; color: var(--c-muted); }
-
-  /* Notepad pane */
-  .cc-pad { flex: 1; overflow-y: auto; min-width: 0; }
-  .cc-pad-empty {
-    height: 100%; display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 12px; color: var(--c-muted); font-size: 0.9rem;
+  .cq-nophone input { accent-color: var(--c-brand); }
+  .cq-start {
+    display: inline-flex; align-items: center; justify-content: center; gap: 11px;
+    width: 100%; max-width: 460px; padding: 17px 22px; border-radius: 15px; cursor: pointer;
+    background: var(--c-brand); border: 1px solid var(--c-brand); color: #fff;
+    font-family: inherit; font-size: 1rem; font-weight: 800; letter-spacing: 0.02em;
+    text-transform: uppercase;
+    box-shadow: 0 8px 32px rgba(212,76,67,0.35);
+    transition: background 0.15s, transform 0.15s;
   }
-  .cc-notepad { max-width: 780px; margin: 0 auto; padding: clamp(16px, 3vw, 32px); display: flex; flex-direction: column; gap: 26px; }
-  .cc-back {
-    display: none; align-items: center; gap: 7px; align-self: flex-start;
-    background: none; border: none; color: var(--c-muted); cursor: pointer;
-    font-size: 0.85rem; font-weight: 600; font-family: inherit; padding: 0;
+  .cq-start:hover { background: #c2413a; }
+  .cq-start:active { transform: scale(0.985); }
+  .cq-start-n {
+    font-size: 0.8rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+    background: rgba(0,0,0,0.25);
   }
+  .cq-filtersheet { gap: 14px; }
+  .cq-sheet-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 
-  /* Header block */
-  .cc-head { display: flex; flex-direction: column; gap: 12px; }
-  .cc-head-toprow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .cc-head-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .cc-head-actions { display: flex; gap: 6px; }
-  .cc-industry { font-size: 0.72rem; font-weight: 600; color: var(--c-muted); }
-  .cc-biz {
+  /* ═══ Session ═══ */
+  .cs-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; position: relative; }
+  .cs-rail, .cs-side { display: none; }
+  .cs-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+
+  .cs-top {
+    display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+    padding: 10px clamp(12px, 2.5vw, 20px);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .cs-progress-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .cs-progress-label { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted); }
+  .cs-progress { height: 3px; border-radius: 999px; background: rgba(255,255,255,0.08); overflow: hidden; }
+  .cs-progress > span { display: block; height: 100%; background: var(--c-brand); border-radius: 999px; transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+  .cs-stats { display: flex; align-items: center; gap: 12px; font-size: 0.72rem; color: var(--c-muted); white-space: nowrap; }
+  .cs-stats strong { color: #fafafa; font-weight: 800; }
+  .cs-stat-booked strong { color: #22c55e; }
+  .cs-keysbtn { display: none; }
+
+  .cs-cardarea {
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    display: flex; flex-direction: column;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cs-card {
+    width: 100%; max-width: 700px; margin: 0 auto;
+    padding: clamp(16px, 3vw, 28px) clamp(14px, 3vw, 24px) 28px;
+    display: flex; flex-direction: column; gap: 14px;
+    animation: cs-in-fwd 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .cs-card--back { animation-name: cs-in-back; }
+  @keyframes cs-in-fwd { from { opacity: 0; transform: translateX(28px); } to { opacity: 1; transform: none; } }
+  @keyframes cs-in-back { from { opacity: 0; transform: translateX(-28px); } to { opacity: 1; transform: none; } }
+
+  /* The scoring flash — a quick colored pulse when an outcome lands */
+  .cs-flash {
+    position: absolute; inset: 0; z-index: 40; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 85%, color-mix(in srgb, var(--sc) 28%, transparent), transparent 65%);
+    animation: cs-flash 0.4s ease-out forwards;
+  }
+  @keyframes cs-flash { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
+
+  .cs-warn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; border-radius: 11px;
+    background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.45);
+    color: #fbbf24; font-size: 0.85rem; font-weight: 700;
+  }
+  .cs-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cs-meta-spacer { flex: 1; }
+  .cs-industry { font-size: 0.72rem; font-weight: 600; color: var(--c-muted); }
+  .cs-biz {
     font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase;
-    font-size: clamp(2rem, 6vw, 3.2rem); line-height: 0.95; letter-spacing: 0.005em;
+    font-size: clamp(2.4rem, 8vw, 3.8rem); line-height: 0.92; letter-spacing: 0.004em;
     font-weight: 700; color: #fafafa;
   }
-  .cc-descriptor { font-size: 0.9rem; color: var(--c-sec); line-height: 1.55; }
-  .cc-phone {
-    display: flex; align-items: center; gap: 14px;
-    padding: 16px 20px; border-radius: 14px;
-    background: rgba(212,76,67,0.1); border: 1px solid rgba(212,76,67,0.4);
-    color: #fff; text-decoration: none; transition: background 0.15s;
+  .cs-askfor { font-size: 1rem; font-weight: 600; color: var(--c-sec); }
+
+  .cs-phone {
+    display: flex; align-items: center; gap: 16px;
+    padding: 20px 22px; border-radius: 16px;
+    background: var(--c-brand); border: 1px solid var(--c-brand);
+    color: #fff; text-decoration: none;
+    box-shadow: 0 10px 40px rgba(212,76,67,0.3);
+    transition: background 0.15s, transform 0.15s;
   }
-  .cc-phone:hover { background: rgba(212,76,67,0.18); }
-  .cc-phone svg { color: var(--c-brand); flex-shrink: 0; }
-  .cc-phone-num {
+  .cs-phone:hover { background: #c2413a; }
+  .cs-phone:active { transform: scale(0.99); }
+  .cs-phone svg { flex-shrink: 0; }
+  .cs-phone-num {
     font-family: 'Barlow Condensed', 'Inter', sans-serif;
-    font-size: clamp(1.7rem, 5vw, 2.4rem); font-weight: 700; letter-spacing: 0.02em;
-    line-height: 1;
+    font-size: clamp(1.6rem, 8vw, 2.9rem); font-weight: 700; letter-spacing: 0.02em;
+    line-height: 1; white-space: nowrap;
   }
-  .cc-phone-tap { margin-left: auto; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
-  .cc-phone--missing {
+  .cs-phone-tap { margin-left: auto; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.75; }
+  .cs-phone--missing {
     background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.35);
-    color: #f5c98b; font-size: 0.875rem; line-height: 1.5;
+    color: #f5c98b; font-size: 0.9rem; line-height: 1.5; box-shadow: none;
   }
-  .cc-phone--missing svg { color: #f59e0b; }
-  .cc-head-facts { display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; color: var(--c-sec); }
-  .cc-head-facts strong { color: #fafafa; font-weight: 700; }
-  .cc-fact-link { color: #e66b63; text-decoration: none; }
-  .cc-fact-link:hover { text-decoration: underline; }
-  .cc-socials { margin-top: 4px; }
+  .cs-phone--missing svg { color: #f59e0b; }
 
-  .cc-edit { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .cc-edit-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
-
-  /* Sections */
-  .cc-sec { display: flex; flex-direction: column; gap: 12px; }
-  .cc-sec-title {
-    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase;
-    font-size: 1.3rem; font-weight: 700; letter-spacing: 0.03em; color: #fafafa;
-    display: flex; align-items: baseline; gap: 10px;
-    padding-bottom: 8px; border-bottom: 1px solid var(--c-border);
+  .cs-angle {
+    font-size: 1rem; line-height: 1.55; color: #eaeaea;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    border-left: 3px solid var(--c-brand); padding-left: 13px;
   }
-  .cc-sec-note { font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: none; color: var(--c-muted); }
-
-  .cc-angle { }
-  .cc-angle-text {
-    font-size: 1rem; line-height: 1.7; color: #eaeaea;
-    background: rgba(212,76,67,0.07); border-left: 3px solid var(--c-brand);
-    padding: 14px 18px; border-radius: 0 12px 12px 0;
-  }
-
-  /* Checklist */
-  .cc-checklist { list-style: none; display: flex; flex-direction: column; gap: 8px; padding: 0; margin: 0; }
-  .cc-checkitem {
-    display: flex; align-items: flex-start; gap: 11px; cursor: pointer;
-    padding: 10px 13px; border-radius: 10px;
+  .cs-facts { display: flex; flex-wrap: wrap; gap: 7px; }
+  .cs-facts > span {
+    font-size: 0.74rem; font-weight: 600; color: var(--c-sec);
+    padding: 5px 11px; border-radius: 999px;
     background: var(--c-card); border: 1px solid var(--c-border);
-    font-size: 0.9rem; line-height: 1.5; color: var(--c-sec);
-    transition: opacity 0.15s;
   }
-  .cc-checkitem input { position: absolute; opacity: 0; pointer-events: none; }
-  .cc-checkitem.is-done { opacity: 0.5; }
-  .cc-checkitem.is-done > span:last-child { text-decoration: line-through; }
-  .cc-checkbox {
-    width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; margin-top: 2px;
-    border: 2px solid rgba(255,255,255,0.25);
-    display: inline-flex; align-items: center; justify-content: center; color: #fff;
-  }
-  .cc-checkitem.is-done .cc-checkbox { background: #22c55e; border-color: #22c55e; }
+  .cs-socials { }
 
-  /* Script steps */
-  .cc-steps { list-style: none; display: flex; flex-direction: column; gap: 18px; padding: 0; margin: 0; }
-  .cc-step-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .cs-folds { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .cc-fold { border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-card); overflow: hidden; }
+  .cc-fold-head {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 12px 15px; cursor: pointer; background: none; border: none;
+    font-family: inherit; color: var(--c-sec); text-align: left;
+  }
+  .cc-fold-title { font-size: 0.78rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .cc-fold-note { font-size: 0.7rem; color: var(--c-muted); }
+  .cc-fold-chev { margin-left: auto; transition: transform 0.2s; color: var(--c-muted); flex-shrink: 0; }
+  .cc-fold.is-open .cc-fold-chev { transform: rotate(180deg); }
+  .cc-fold-body { padding: 2px 15px 16px; }
+  .cs-angle-full { font-size: 0.95rem; line-height: 1.65; color: #eaeaea; }
+
+  /* Script body */
+  .cc-script { display: flex; flex-direction: column; gap: 16px; }
+  .cc-predial { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .cc-predial li {
+    font-size: 0.85rem; line-height: 1.5; color: var(--c-sec);
+    padding-left: 14px; position: relative;
+  }
+  .cc-predial li::before {
+    content: ''; position: absolute; left: 0; top: 0.6em;
+    width: 6px; height: 2px; border-radius: 2px; background: var(--c-muted);
+  }
+  .cc-steps { list-style: none; display: flex; flex-direction: column; gap: 14px; padding: 0; margin: 0; }
+  .cc-step-head { display: flex; align-items: center; gap: 9px; margin-bottom: 6px; }
   .cc-step-num {
-    width: 24px; height: 24px; border-radius: 7px; flex-shrink: 0;
+    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
     background: rgba(212,76,67,0.15); border: 1px solid rgba(212,76,67,0.4);
-    color: #e66b63; font-size: 0.78rem; font-weight: 800;
+    color: #e66b63; font-size: 0.72rem; font-weight: 800;
   }
-  .cc-step-title { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
+  .cc-step-title { font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
   .cc-say {
-    font-size: 1.05rem; line-height: 1.65; color: #f2f2f2;
-    background: var(--c-card); border: 1px solid var(--c-border);
-    padding: 13px 17px; border-radius: 12px;
+    font-size: 0.95rem; line-height: 1.6; color: #f2f2f2;
+    background: var(--c-card2); border: 1px solid var(--c-border);
+    padding: 11px 14px; border-radius: 11px;
   }
-  .cc-qa-label { font-size: 0.75rem; font-weight: 700; color: var(--c-muted); margin: 10px 0 6px; }
-
-  .cc-qa { display: flex; flex-direction: column; gap: 7px; }
+  .cc-qa-label { font-size: 0.72rem; font-weight: 700; color: var(--c-muted); margin: 8px 0 5px; }
+  .cc-qa { display: flex; flex-direction: column; gap: 6px; }
   .cc-qa-row {
-    display: grid; grid-template-columns: minmax(120px, 0.8fr) 1.6fr; gap: 0;
-    border: 1px solid var(--c-border); border-radius: 11px; overflow: hidden;
+    display: grid; grid-template-columns: minmax(110px, 0.8fr) 1.6fr;
+    border: 1px solid var(--c-border); border-radius: 10px; overflow: hidden;
   }
   .cc-qa-say {
-    padding: 11px 13px; font-size: 0.85rem; font-weight: 700; color: #f5c98b;
+    padding: 10px 12px; font-size: 0.8rem; font-weight: 700; color: #f5c98b;
     background: rgba(255,255,255,0.03); border-right: 1px solid var(--c-border);
     display: flex; align-items: center;
   }
-  .cc-qa-respond { padding: 11px 14px; font-size: 0.9rem; line-height: 1.6; color: var(--c-sec); background: var(--c-card); }
+  .cc-qa-respond { padding: 10px 13px; font-size: 0.85rem; line-height: 1.55; color: var(--c-sec); background: var(--c-card2); }
   @media (max-width: 560px) {
     .cc-qa-row { grid-template-columns: 1fr; }
     .cc-qa-say { border-right: none; border-bottom: 1px solid var(--c-border); }
   }
-
-  /* Close */
-  .cc-close-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  @media (max-width: 680px) { .cc-close-grid { grid-template-columns: 1fr; } }
+  .cc-sub-h { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 8px; }
+  .cc-sub-h span { font-weight: 600; letter-spacing: 0.03em; text-transform: none; opacity: 0.8; margin-left: 6px; }
+  .cc-sub-h--plus { color: #22c55e; }
+  .cc-sub-h--minus { color: #f59e0b; }
+  .cc-close-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  @media (max-width: 640px) { .cc-close-grid { grid-template-columns: 1fr; } }
   .cc-close-card {
-    background: var(--c-card); border: 1px solid var(--c-border);
-    border-radius: 12px; padding: 14px 16px;
-    display: flex; flex-direction: column; gap: 7px;
+    background: var(--c-card2); border: 1px solid var(--c-border);
+    border-radius: 11px; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 6px;
   }
   .cc-close-card--lock { grid-column: 1 / -1; border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.05); }
-  .cc-close-card h3 { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
+  .cc-close-card h3 { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
   .cc-close-card--lock h3 { color: #22c55e; }
-  .cc-close-card p { font-size: 0.9rem; line-height: 1.6; color: var(--c-sec); }
-
-  /* After the call */
-  .cc-after { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 16px; padding: 18px; }
-  .cc-after .cc-sec-title { border-bottom: none; padding-bottom: 0; }
-  .cc-result-row { display: flex; flex-direction: column; gap: 8px; }
-  .cc-result-label { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--c-muted); }
-  .cc-result-opts { display: flex; gap: 7px; flex-wrap: wrap; }
-  .cc-result-opt {
-    font-size: 0.8rem; font-weight: 700; padding: 7px 15px; border-radius: 999px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
-    color: var(--c-muted); cursor: pointer; font-family: inherit; transition: all 0.15s;
-  }
-  .cc-result-opt:hover { color: #fafafa; }
-  .cc-result-opt.is-on {
-    color: var(--sc);
-    background: color-mix(in srgb, var(--sc) 15%, transparent);
-    border-color: color-mix(in srgb, var(--sc) 50%, transparent);
-  }
-  .cc-after-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
-  @media (max-width: 640px) { .cc-after-grid { grid-template-columns: 1fr; } }
-  .cc-after .cc-btn { align-self: flex-start; }
-
-  /* Intel */
-  .cc-intel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  @media (max-width: 680px) { .cc-intel-grid { grid-template-columns: 1fr; } }
-  .cc-intel-col { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 16px; }
-  .cc-intel-h { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); margin-bottom: 10px; }
-  .cc-intel-h--plus { color: #22c55e; }
-  .cc-intel-h--minus { color: #f59e0b; }
-  .cc-intel-col ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-  .cc-intel-col li {
-    font-size: 0.875rem; line-height: 1.55; color: var(--c-sec);
-    padding-left: 14px; position: relative;
-  }
-  .cc-intel-col li::before {
-    content: ''; position: absolute; left: 0; top: 0.55em;
-    width: 6px; height: 2px; border-radius: 2px; background: var(--c-muted);
-  }
-  .cc-droplines { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+  .cc-close-card p { font-size: 0.85rem; line-height: 1.55; color: var(--c-sec); }
+  .cc-intel { display: flex; flex-direction: column; gap: 14px; }
   .cc-dropline {
-    margin: 0; padding: 13px 17px; border-radius: 12px;
+    margin: 0 0 8px; padding: 11px 14px; border-radius: 11px;
     background: rgba(212,76,67,0.08); border: 1px solid rgba(212,76,67,0.3);
-    font-size: 0.95rem; font-weight: 600; line-height: 1.55; color: #f0d9d7;
+    font-size: 0.9rem; font-weight: 600; line-height: 1.5; color: #f0d9d7;
   }
 
-  /* New-lead form */
-  .cc-new { max-width: 640px; margin: 0 auto; padding: clamp(16px, 3vw, 32px); display: flex; flex-direction: column; gap: 16px; }
+  /* Notes + log */
+  .cc-notespanel { display: flex; flex-direction: column; gap: 8px; }
+  .cc-notes-ta { resize: vertical; min-height: 96px; line-height: 1.55; }
+  .cc-notes-save { align-self: flex-start; }
+  .cc-log { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+  .cc-log-row { display: flex; gap: 10px; }
+  .cc-log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); flex-shrink: 0; margin-top: 5px; }
+  .cc-log-main { min-width: 0; flex: 1; }
+  .cc-log-top { display: flex; align-items: baseline; gap: 8px; }
+  .cc-log-outcome { font-size: 0.78rem; font-weight: 800; color: var(--sc); }
+  .cc-log-time { font-size: 0.68rem; color: var(--c-muted); }
+  .cc-log-note { font-size: 0.8rem; line-height: 1.5; color: var(--c-sec); margin-top: 2px; overflow-wrap: anywhere; }
+  .cc-log-note strong { color: #fafafa; }
+  .cc-log-empty { font-size: 0.8rem; color: var(--c-muted); }
+
+  /* Outcome bar */
+  .cs-outbar {
+    display: flex; align-items: stretch; gap: 8px; flex-shrink: 0;
+    padding: 10px clamp(10px, 2.5vw, 20px) calc(10px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--c-border); background: #0c0c0c;
+  }
+  .cs-out {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    padding: 10px 6px; border-radius: 13px; cursor: pointer;
+    background: var(--c-card); border: 1px solid var(--c-border);
+    color: var(--sc); font-family: inherit; font-size: 0.68rem; font-weight: 800;
+    letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+    min-height: 60px;
+  }
+  .cs-out:hover { border-color: color-mix(in srgb, var(--sc) 55%, transparent); background: color-mix(in srgb, var(--sc) 10%, #121212); }
+  .cs-out:active { transform: scale(0.96); }
+  .cs-out:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cs-out--booked { border-color: rgba(34,197,94,0.4); }
+  .cs-navbtn {
+    display: flex; align-items: center; justify-content: center;
+    width: 52px; border-radius: 13px; cursor: pointer; flex-shrink: 0;
+    background: none; border: 1px solid var(--c-border);
+    color: var(--c-muted); transition: color 0.15s, background 0.15s;
+  }
+  .cs-navbtn:hover { color: #fafafa; background: rgba(255,255,255,0.06); }
+  .cs-navbtn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .cs-navbtn--next { color: var(--c-sec); }
+
+  /* Outcome sheet + overlays */
+  .cc-sheet-back {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: cc-fade 0.18s ease;
+  }
+  @keyframes cc-fade { from { opacity: 0; } to { opacity: 1; } }
+  .cc-sheet {
+    width: 100%; max-width: 560px;
+    background: #161616; border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    padding: 16px 18px calc(18px + env(safe-area-inset-bottom));
+    display: flex; flex-direction: column; gap: 12px;
+    animation: cc-rise 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  @keyframes cc-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .cc-sheet-head { display: flex; align-items: center; gap: 10px; }
+  .cc-sheet-head .cc-iconbtn { margin-left: auto; }
+  .cc-sheet-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 0.78rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--sc); padding: 6px 12px; border-radius: 999px;
+    background: color-mix(in srgb, var(--sc) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--sc) 40%, transparent);
+    white-space: nowrap;
+  }
+  .cc-sheet-biz { flex: 1; min-width: 0; font-size: 0.85rem; font-weight: 700; color: var(--c-sec); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cc-sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 520px) { .cc-sheet-grid { grid-template-columns: 1fr; } }
+  .cc-sheet-actions { display: flex; align-items: center; gap: 12px; }
+  .cc-btn--log {
+    background: var(--sc); border-color: var(--sc); color: #08080a;
+    font-weight: 800; padding: 12px 22px; font-size: 0.875rem; border-radius: 12px;
+  }
+  .cc-btn--log:hover { filter: brightness(1.08); color: #08080a; background: var(--sc); }
+  .cc-sheet-hint { font-size: 0.7rem; color: var(--c-muted); }
+  @media (min-width: 700px) {
+    .cc-sheet-back { align-items: center; }
+    .cc-sheet { border-radius: 18px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 18px; }
+  }
+
+  .cc-keys {
+    width: 100%; max-width: 420px; margin: 0 16px;
+    background: #161616; border: 1px solid rgba(255,255,255,0.12); border-radius: 16px;
+    padding: 16px 18px; display: flex; flex-direction: column; gap: 14px;
+    align-self: center;
+  }
+  .cc-keys-grid { display: flex; flex-direction: column; gap: 8px; }
+  .cc-keys-row { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--c-sec); }
+  .cc-keys-row kbd {
+    min-width: 84px; text-align: center; padding: 4px 9px; border-radius: 7px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    font-family: inherit; font-size: 0.72rem; font-weight: 700; color: #fafafa;
+  }
+
+  .cc-overlay {
+    position: fixed; inset: 0; z-index: 55;
+    background: rgba(0,0,0,0.65); backdrop-filter: blur(3px);
+    display: flex; align-items: flex-start; justify-content: center;
+    overflow-y: auto; padding: 4vh 14px; animation: cc-fade 0.18s ease;
+  }
+  .cc-panel {
+    width: 100%; max-width: 640px;
+    background: #131313; border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+    animation: cc-rise 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .cc-new { padding: clamp(16px, 3vw, 26px); display: flex; flex-direction: column; gap: 16px; }
   .cc-new-head { display: flex; align-items: center; justify-content: space-between; }
-  .cc-new-title { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; }
+  .cc-new-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
   .cc-new-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 560px) { .cc-new-grid { grid-template-columns: 1fr; } }
   .cc-new-note { font-size: 0.78rem; color: var(--c-muted); }
-  .cc-new .cc-btn { align-self: flex-start; }
+  .cc-new .cc-btn[type="submit"] { align-self: flex-start; }
+  .cc-edit-actions { display: flex; gap: 8px; align-items: center; }
 
-  /* ── Mobile: list-first drill-down ── */
-  @media (max-width: 900px) {
-    .cc-list { width: 100%; border-right: none; }
-    .cc-pad { display: none; }
-    .cc-page.has-pad .cc-list { display: none; }
-    .cc-page.has-pad .cc-pad { display: block; }
-    .cc-back { display: inline-flex; }
-    .cc-topbar { flex-wrap: wrap; }
+  /* Error toast — a failed save is never silent */
+  .cc-err {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 90;
+    display: flex; align-items: center; gap: 10px;
+    max-width: min(94vw, 520px);
+    padding: 11px 14px; border-radius: 13px;
+    background: #2a1212; border: 1px solid rgba(239,68,68,0.6);
+    color: #fecaca; font-size: 0.85rem; font-weight: 700;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    animation: cc-rise 0.2s ease;
+  }
+  .cc-btn--errretry { border-color: rgba(239,68,68,0.5); color: #fecaca; }
+  .cc-btn--errretry:hover { background: rgba(239,68,68,0.15); color: #fff; }
+
+  /* ═══ Summary ═══ */
+  .cs-summary-wrap {
+    flex: 1; min-height: 0; overflow-y: auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .cs-summary {
+    width: 100%; max-width: 520px;
+    background: var(--c-card); border: 1px solid var(--c-border); border-radius: 20px;
+    padding: clamp(22px, 4vw, 34px);
+    display: flex; flex-direction: column; gap: 18px;
+    animation: cc-rise 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .cs-summary-kicker { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-muted); }
+  .cs-summary-title {
+    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase;
+    font-size: clamp(2.4rem, 8vw, 3.4rem); line-height: 0.95; font-weight: 700;
+  }
+  .cs-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 440px) { .cs-summary-grid { grid-template-columns: 1fr 1fr; } }
+  .cs-sumstat {
+    display: flex; flex-direction: column; gap: 3px;
+    padding: 12px 14px; border-radius: 12px;
+    background: var(--c-card2); border: 1px solid var(--c-border);
+  }
+  .cs-sumstat strong { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .cs-sumstat span { font-size: 0.66rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--c-muted); }
+  .cs-sumstat--booked { border-color: rgba(34,197,94,0.4); background: rgba(34,197,94,0.07); }
+  .cs-sumstat--booked strong { color: #22c55e; }
+  .cs-summary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* Empty */
+  .cc-empty { padding: 32px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .cc-empty-title { font-weight: 700; }
+  .cc-empty-note { font-size: 0.8rem; color: var(--c-muted); }
+
+  /* Notes panel folds on mobile hide desktop ref duplication */
+  .cs-side-sec { display: flex; flex-direction: column; gap: 10px; }
+  .cs-side-h { font-size: 0.7rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--c-muted); }
+
+  /* ── Mobile filter sheet trigger ── */
+  @media (max-width: 700px) {
+    .cq-pills { display: none; }
+    .cq-filterbtn { display: inline-flex; }
+    .cq-sheet-pills .cc-pill { padding: 10px 16px; font-size: 0.85rem; }
+  }
+
+  /* ── Small phones: tighter phone hero + outcome bar ── */
+  @media (max-width: 480px) {
+    .cs-phone { gap: 12px; padding: 18px 16px; }
+    .cs-phone-tap { display: none; }
+    .cs-out { font-size: 0.6rem; letter-spacing: 0.03em; padding: 10px 3px; }
+    .cs-navbtn { width: 44px; }
+  }
+
+  /* ── Desktop three-zone session (≥1000px) ── */
+  @media (min-width: 1000px) {
+    .cs-wrap { grid-template-columns: 248px minmax(0, 1fr) 320px; }
+    .cs-rail {
+      display: flex; flex-direction: column; min-height: 0;
+      border-right: 1px solid var(--c-border);
+    }
+    .cs-rail-head {
+      padding: 14px 16px 10px; flex-shrink: 0;
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--c-muted);
+    }
+    .cs-rail-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .cs-rail-row {
+      display: flex; align-items: center; gap: 9px; width: 100%;
+      padding: 8px 10px; border-radius: 9px; cursor: pointer;
+      background: none; border: none; font-family: inherit; color: var(--c-sec);
+      text-align: left; transition: background 0.13s, color 0.13s;
+    }
+    .cs-rail-row:hover { background: rgba(255,255,255,0.05); color: #fafafa; }
+    .cs-rail-row.is-cur { background: rgba(212,76,67,0.12); color: #fafafa; }
+    .cs-rail-row.is-done:not(.is-cur) { opacity: 0.55; }
+    .cs-rail-n { font-size: 0.66rem; font-weight: 800; color: var(--c-muted); min-width: 18px; text-align: right; flex-shrink: 0; }
+    .cs-rail-row.is-cur .cs-rail-n { color: var(--c-brand); }
+    .cs-rail-name { flex: 1; min-width: 0; font-size: 0.8rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cs-rail-mark { width: 7px; height: 7px; border-radius: 50%; background: var(--sc); flex-shrink: 0; }
+    .cs-side {
+      display: flex; flex-direction: column; gap: 20px; min-height: 0;
+      border-left: 1px solid var(--c-border);
+      padding: 16px; overflow-y: auto;
+    }
+    .cs-keysbtn { display: inline-flex; }
+    /* Desktop already shows notes + log in the right panel — hide the folds' duplicates */
+    .cs-folds .cc-fold:nth-last-child(-n+2) { display: none; }
+    .cs-outbar { justify-content: center; }
+    .cs-out { flex: 0 1 170px; flex-direction: row; gap: 9px; font-size: 0.78rem; min-height: 54px; }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .cc-page *, .cc-page { animation: none !important; transition: none !important; }
   }
 `;
