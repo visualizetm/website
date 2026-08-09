@@ -12,6 +12,7 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
@@ -40,6 +41,89 @@ const fmtMeeting = (lead) => {
 const OUTCOME_COLORS = { booked: '#22c55e', callback: '#60a5fa', no: '#ef4444', 'no-answer': '#f59e0b', 'not-called': '#8a8a8a' };
 const OUTCOME_LABELS = { booked: 'Booked', callback: 'Callback', no: 'No', 'no-answer': 'No answer', 'not-called': 'Not called' };
 
+const BOOKED_PREFS = 'vz_booked_prefs';
+// Call mode: prep collapses to one-liners, the read-off-screen blocks open.
+const CALL_MODE_MAP = {
+  meeting: false, services: false, angle: false, notes: false, log: false,
+  pricing: true, concepts: true, prep: true,
+};
+
+// "What's included" reads as a list — one line per item. Legacy single-line
+// notes still render in full (as one row), so nothing is ever hidden.
+const bulletsOf = (text) => String(text || '')
+  .split(/\r?\n/).map(s => s.replace(/^\s*[-•*]\s*/, '').trim()).filter(Boolean);
+
+const planMonths = (id) => PLANS.find(p => p.id === id)?.months;
+
+/* One pricing option. Rests as a readable briefing card (big price, bulleted
+ * inclusions, retainer on its own line); the pencil swaps it to fields. */
+function PriceCard({ opt, index, editing, onEdit, onDone, onChange, onRemove }) {
+  const monthly = monthlyOf(opt.price, opt.plan);
+  const overCap = opt.price > PROJECT_CAP && opt.plan === 'full';
+  const rec = /recommend/i.test(opt.label || '');
+  const bullets = bulletsOf(opt.notes);
+
+  if (editing) {
+    return (
+      <div className={`bk-price is-editing${rec ? ' is-rec' : ''}`}>
+        <div className="bk-price-row">
+          <input className="aa-input bk-price-label" value={opt.label} onChange={e => onChange('label', e.target.value)} placeholder="Option name — e.g. Social Rebrand" />
+          <div className="bk-price-amt">
+            <span>$</span>
+            <input className="aa-input" type="number" min="0" inputMode="numeric" value={opt.price || ''} onChange={e => onChange('price', Number(e.target.value))} placeholder="0" />
+          </div>
+        </div>
+        <div className="bk-price-row bk-price-row--plan">
+          <select className="aa-input" value={opt.plan} onChange={e => onChange('plan', e.target.value)}>
+            {PLANS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+          </select>
+          {monthly && <span className="bk-price-monthly">${monthly}/mo × {planMonths(opt.plan)}</span>}
+        </div>
+        <label className="bk-field">
+          <span>What&rsquo;s included <em>— one per line</em></span>
+          <GrowInput value={opt.notes} onChange={e => onChange('notes', e.target.value)} placeholder={'Logo refresh\nOne-page website\nSticker run'} />
+        </label>
+        <label className="bk-field">
+          <span>Retainer to pitch</span>
+          <GrowInput value={opt.retainer} onChange={e => onChange('retainer', e.target.value)} placeholder="Content Kit $250/mo — I make the posts" />
+        </label>
+        {overCap && <p className="bk-price-warn"><AlertTriangle width={13} height={13} /> Over ${PROJECT_CAP} — offer it as a 6 or 12-month plan.</p>}
+        <div className="bk-price-editrow">
+          <button type="button" className="aa-btn" onClick={onDone}><Check width={14} height={14} /> Done</button>
+          <button type="button" className="bk-price-del" onClick={onRemove} aria-label="Remove option"><Trash01 width={15} height={15} /></button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`bk-price${rec ? ' is-rec' : ''}`}>
+      <div className="bk-price-head">
+        <span className="bk-price-name">{opt.label || `Option ${index + 1}`}</span>
+        {rec && <span className="bk-rec-tag">Lead with this</span>}
+        <button type="button" className="bk-price-edit" onClick={onEdit} aria-label={`Edit ${opt.label || 'option'}`}>
+          <Edit02 width={15} height={15} />
+        </button>
+      </div>
+      <div className="bk-price-figure">
+        <span className="bk-price-num">${Number(opt.price || 0).toLocaleString()}</span>
+        <span className="bk-price-plan">
+          {opt.plan === 'full' ? 'Paid in full' : `$${monthly}/mo × ${planMonths(opt.plan)}`}
+        </span>
+      </div>
+      {bullets.length > 0 && (
+        <>
+          <p className="bk-price-sub">What&rsquo;s included</p>
+          <ul className="bk-price-list">{bullets.map((b, j) => <li key={j}>{b}</li>)}</ul>
+        </>
+      )}
+      {opt.retainer && <p className="bk-price-retainer"><span>Then:</span> {opt.retainer}</p>}
+      {overCap && <p className="bk-price-warn"><AlertTriangle width={13} height={13} /> Over ${PROJECT_CAP} — offer a 6 or 12-month plan.</p>}
+      {!opt.retainer && <p className="bk-price-hint">No retainer yet — every option carries one.</p>}
+    </div>
+  );
+}
+
 function PrepPill({ lead }) {
   const s = PREP_META[prepStatus(lead)];
   return (
@@ -60,16 +144,40 @@ function GrowInput({ value, onChange, placeholder, className = '' }) {
   );
 }
 
-function Fold({ title, note, defaultOpen = false, children }) {
-  const [open, setOpen] = useState(defaultOpen);
+/* Collapsible section — one reliable tap target, body always mounted.
+ *
+ * The body animates via grid-template-rows 0fr→1fr rather than height:auto
+ * (which can't animate) or a conditional mount (which can't either, and
+ * reads as a no-op on touch). Because the body is always in the DOM, a tap
+ * can never "fail to open" — and on open we scroll it into view so content
+ * below the fold isn't mistaken for a broken toggle.
+ */
+function Section({ id, title, icon, summary, note, tone = '', open, onToggle, children }) {
+  const ref = useRef(null);
+  const toggle = () => {
+    const next = !open;
+    onToggle(id, next);
+    if (next) {
+      requestAnimationFrame(() => {
+        setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 210);
+      });
+    }
+  };
   return (
-    <section className={`bk-fold${open ? ' is-open' : ''}`}>
-      <button type="button" className="bk-fold-head" onClick={() => setOpen(v => !v)} aria-expanded={open}>
-        <span className="bk-fold-title">{title}</span>
-        {note != null && <span className="bk-fold-note">{note}</span>}
-        <ChevronDown width={15} height={15} className="bk-fold-chev" />
+    <section ref={ref} className={`bk-sec${tone ? ` bk-sec--${tone}` : ''}${open ? ' is-open' : ''}`}>
+      <button type="button" className="bk-sec-head" onClick={toggle} aria-expanded={open} aria-controls={`sec-${id}`}>
+        <span className="bk-sec-title">{icon}{title}</span>
+        {note != null && <span className="bk-sec-note">{note}</span>}
+        <ChevronDown width={17} height={17} className="bk-sec-chev" />
       </button>
-      {open && <div className="bk-fold-body">{children}</div>}
+      {!open && summary && <div className="bk-sec-summary">{summary}</div>}
+      <div className="bk-sec-body" id={`sec-${id}`} aria-hidden={!open}>
+        {/* clip layer carries no padding — a padded grid item can't collapse
+            below its own min-content height, which leaves content bleeding */}
+        <div className="bk-sec-clip">
+          <div className="bk-sec-inner">{children}</div>
+        </div>
+      </div>
     </section>
   );
 }
@@ -108,7 +216,10 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
   const [newConcept, setNewConcept] = useState('');
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState('');
-  const meetingRef = useRef(null);
+  const [editIdx, setEditIdx] = useState(null);
+  const [linksEdit, setLinksEdit] = useState(false);
+  const [openMap, setOpenMap] = useState({});
+  const [callMode, setCallMode] = useState(false);
 
   useEffect(() => {
     setPricing(lead.pricingOptions || []);
@@ -119,7 +230,39 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
     setPrepState('idle');
     setLostOpen(false);
     setLostReason('');
+    setEditIdx(null);
+    setLinksEdit(false);
+
+    // Prep sections collapse to a summary once they're filled in; anything
+    // still empty opens so it's obvious there's work left. Whatever you
+    // toggled last is remembered on top of that.
+    let saved = {}; let savedCall = false;
+    try {
+      const raw = JSON.parse(localStorage.getItem(BOOKED_PREFS) || '{}');
+      saved = raw.sections || {}; savedCall = !!raw.callMode;
+    } catch { /* first run */ }
+    const defaults = {
+      meeting: !lead.meeting?.date,
+      services: !(lead.servicesPlanned?.length),
+      pricing: true, concepts: true, prep: true,
+      angle: false, notes: false, log: false,
+    };
+    setCallMode(savedCall);
+    setOpenMap(savedCall ? { ...defaults, ...CALL_MODE_MAP } : { ...defaults, ...saved });
   }, [lead._id]);
+
+  const persistPrefs = (sections, mode) => {
+    try { localStorage.setItem(BOOKED_PREFS, JSON.stringify({ sections, callMode: mode })); } catch { /* fine */ }
+  };
+  const toggleSection = (id, next) => setOpenMap(m => {
+    const v = { ...m, [id]: next };
+    persistPrefs(v, callMode);
+    return v;
+  });
+  const setCall = (on) => {
+    const v = on ? { ...openMap, ...CALL_MODE_MAP } : { ...openMap, meeting: true, services: true };
+    setCallMode(on); setOpenMap(v); persistPrefs(v, on);
+  };
 
   const meeting = lead.meeting || { date: '', time: '', type: 'call' };
   const tracker = lead.conceptsTracker || { items: [], demoUrl: '', driveUrl: '' };
@@ -149,6 +292,7 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
     if (pricing.length >= 3) return;
     const presets = ['Starter', 'Recommended', 'Premium'];
     setPricing(p => [...p, { label: presets[p.length] || 'Option', price: 0, plan: 'full', retainer: '', notes: '' }]);
+    setEditIdx(pricing.length);
     setPricingDirty(true);
   };
   const setOpt = (i, k, v) => { setPricing(p => p.map((o, j) => j === i ? { ...o, [k]: v } : o)); setPricingDirty(true); };
@@ -181,7 +325,10 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
   };
   const reschedule = () => {
     onPatch(lead._id, { meeting: { ...meeting, date: '', time: '' } });
-    meetingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Clearing the date is only half of it — open the editor so the new one
+    // can be set straight away (and leave call mode, this is prep).
+    setCall(false);
+    toggleSection('meeting', true);
   };
 
   return (
@@ -192,12 +339,19 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
             <button type="button" className="bk-back" onClick={onClose}>
               <ArrowLeft width={15} height={15} /> Booked
             </button>
+            <span className="bk-top-spacer" />
             {countdown && <span className="bk-countdown">{countdown}</span>}
+            <button
+              type="button"
+              className={`bk-callmode${callMode ? ' is-on' : ''}`}
+              onClick={() => setCall(!callMode)}
+              aria-pressed={callMode}
+              title="Collapse the prep sections and open pricing + concepts"
+            >
+              <PhoneCall01 width={15} height={15} />
+              {callMode ? 'Call mode on' : 'Call mode'}
+            </button>
           </div>
-
-          {/* Two columns on desktop, one column (unchanged order) below */}
-          <div className="bk-grid">
-          <div className="bk-col">
 
           <header className="bk-head">
             <div className="bk-head-meta">
@@ -218,9 +372,22 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
 
           <SocialButtons socials={lead.socials} />
 
-          {/* Meeting */}
-          <section className="bk-block" ref={meetingRef}>
-            <h2 className="bk-block-h"><Calendar width={15} height={15} /> Meeting</h2>
+          {/* Two columns on desktop; single stack below. In call mode the
+              call-critical column jumps above the prep column. */}
+          <div className={`bk-grid${callMode ? ' is-call' : ''}`}>
+          <div className="bk-col bk-col--prep">
+
+          {/* Meeting — prep, collapses to a one-liner */}
+          <Section
+            id="meeting"
+            icon={<Calendar width={16} height={16} />}
+            title="Meeting"
+            summary={fmtMeeting(lead)
+              ? `${fmtMeeting(lead)} · ${MEETING_TYPES.find(t => t.id === (meeting.type || 'call'))?.label}${countdown ? ` · ${countdown}` : ''}`
+              : 'No meeting time set yet'}
+            open={!!openMap.meeting}
+            onToggle={toggleSection}
+          >
             <div className="bk-meeting-grid">
               <label className="bk-field">
                 <span>Date</span>
@@ -247,11 +414,18 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
                 </a>
               )}
             </div>
-          </section>
+          </Section>
 
-          {/* Services planner */}
-          <section className="bk-block">
-            <h2 className="bk-block-h"><ClipboardCheck width={15} height={15} /> Services game plan</h2>
+          {/* Services planner — prep, collapses to what you checked */}
+          <Section
+            id="services"
+            icon={<ClipboardCheck width={16} height={16} />}
+            title="Services game plan"
+            note={services.length || undefined}
+            summary={services.length ? services.map(serviceLabel).join(', ') : 'Nothing picked yet'}
+            open={!!openMap.services}
+            onToggle={toggleSection}
+          >
             <p className="bk-muted">Check what fits their business — this is what you walk in ready to pitch.</p>
             {['Brand', 'Web', 'Print'].map(group => (
               <div key={group} className="bk-svc-group">
@@ -272,60 +446,58 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
                 </div>
               </div>
             ))}
-          </section>
+          </Section>
 
-          </div>{/* /bk-col left */}
-          <div className="bk-col">
+          </div>{/* /bk-col prep */}
+          <div className="bk-col bk-col--call">
 
-          {/* Pricing options */}
-          <section className="bk-block bk-block--pricing">
-            <div className="bk-block-headrow">
-              <h2 className="bk-block-h"><CurrencyDollar width={15} height={15} /> Pricing to present</h2>
+          {/* Pricing — the block read off during the close */}
+          <Section
+            id="pricing" tone="hero"
+            icon={<CurrencyDollar width={16} height={16} />}
+            title="Pricing to present"
+            note={pricing.length || undefined}
+            open={!!openMap.pricing}
+            onToggle={toggleSection}
+          >
+            {pricing.length === 0 && (
+              <p className="bk-muted">Prep 1–3 options — a starter and a recommended package. Over ${PROJECT_CAP} goes on a 6 or 12-month plan, and always pitch the retainer. Name one &ldquo;Recommended&rdquo; to give it the red accent.</p>
+            )}
+            <div className="bk-pricelist">
+              {pricing.map((o, i) => (
+                <PriceCard
+                  key={i}
+                  opt={o}
+                  index={i}
+                  editing={editIdx === i}
+                  onEdit={() => setEditIdx(i)}
+                  onDone={() => { setEditIdx(null); if (pricingDirty) savePricing(); }}
+                  onChange={(k, v) => setOpt(i, k, v)}
+                  onRemove={() => { removeOpt(i); setEditIdx(null); }}
+                />
+              ))}
+            </div>
+            <div className="bk-price-actions">
               {pricing.length < 3 && (
-                <button type="button" className="aa-minibtn" onClick={addPricing}><Plus width={12} height={12} /> Add option</button>
+                <button type="button" className="aa-btn" onClick={addPricing}><Plus width={14} height={14} /> Add option</button>
+              )}
+              {pricingDirty && (
+                <button type="button" className="aa-btn aa-btn--primary" onClick={savePricing}>
+                  <Check width={14} height={14} /> Save pricing
+                </button>
               )}
             </div>
-            {pricing.length === 0 && (
-              <p className="bk-muted">Prep 1–3 options — a starter and a recommended package. Over ${PROJECT_CAP} goes on a 6 or 12-month plan, and always pitch the retainer.</p>
-            )}
-            {pricing.map((o, i) => {
-              const monthly = monthlyOf(o.price, o.plan);
-              const overCap = o.price > PROJECT_CAP && o.plan === 'full';
-              return (
-                <div key={i} className="bk-price lay-card">
-                  <div className="bk-price-row">
-                    <input className="aa-input bk-price-label" value={o.label} onChange={e => setOpt(i, 'label', e.target.value)} placeholder="Option name" />
-                    <div className="bk-price-amt">
-                      <span>$</span>
-                      <input className="aa-input" type="number" min="0" inputMode="numeric" value={o.price || ''} onChange={e => setOpt(i, 'price', Number(e.target.value))} placeholder="0" />
-                    </div>
-                    <button type="button" className="bk-price-del" onClick={() => removeOpt(i)} aria-label="Remove option"><Trash01 width={14} height={14} /></button>
-                  </div>
-                  <div className="bk-price-row bk-price-row--plan">
-                    <select className="aa-input" value={o.plan} onChange={e => setOpt(i, 'plan', e.target.value)}>
-                      {PLANS.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
-                    </select>
-                    {monthly && <span className="bk-price-monthly">≈ ${monthly}/mo</span>}
-                  </div>
-                  <GrowInput value={o.retainer} onChange={e => setOpt(i, 'retainer', e.target.value)} placeholder="Retainer pitch — e.g. $95/mo upkeep" />
-                  <GrowInput value={o.notes} onChange={e => setOpt(i, 'notes', e.target.value)} placeholder="What's included / talking point" />
-                  {overCap && (
-                    <p className="bk-price-warn"><AlertTriangle width={13} height={13} /> Over ${PROJECT_CAP} — offer it as a 6 or 12-month plan.</p>
-                  )}
-                  {!o.retainer && <p className="bk-price-hint">Add the retainer pitch — every option carries one.</p>}
-                </div>
-              );
-            })}
-            {pricingDirty && (
-              <button type="button" className="aa-btn aa-btn--primary" onClick={savePricing}>
-                <Check width={14} height={14} /> Save pricing
-              </button>
-            )}
-          </section>
+          </Section>
 
           {/* Concepts tracker */}
-          <section className="bk-block">
-            <h2 className="bk-block-h"><ClipboardCheck width={15} height={15} /> Concepts for the meeting</h2>
+          <Section
+            id="concepts" tone="hero"
+            icon={<ClipboardCheck width={16} height={16} />}
+            title="Concepts for the meeting"
+            note={(tracker.items || []).length ? `${tracker.items.filter(i => i.done).length}/${tracker.items.length}` : undefined}
+            open={!!openMap.concepts}
+            onToggle={toggleSection}
+          >
             <div className="bk-concepts">
               {(tracker.items || []).map((it, i) => (
                 <div key={i} className="bk-concept">
@@ -336,37 +508,64 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
                   <button type="button" className="bk-concept-del" onClick={() => removeConcept(i)} aria-label="Remove"><XClose width={13} height={13} /></button>
                 </div>
               ))}
+              {!(tracker.items || []).length && (
+                <p className="bk-muted">Nothing tracked yet — add the concepts you&rsquo;re building for this meeting.</p>
+              )}
               <form className="bk-concept-add" onSubmit={(e) => { e.preventDefault(); addConcept(); }}>
                 <input className="aa-input" value={newConcept} onChange={e => setNewConcept(e.target.value)} placeholder="Add a concept — logo, storefront mockup, demo site…" />
                 <button type="submit" className="aa-iconbtn" disabled={!newConcept.trim()} aria-label="Add concept"><Plus width={15} height={15} /></button>
               </form>
             </div>
-            <div className="bk-url-grid">
-              <label className="bk-field">
-                <span>Demo site URL</span>
-                <div className="bk-url-row">
-                  <input className="aa-input" value={urls.demoUrl} onChange={e => { setUrls(u => ({ ...u, demoUrl: e.target.value })); setUrlsDirty(true); }} placeholder="https://demo…" inputMode="url" autoCapitalize="none" />
-                  {tracker.demoUrl && <a className="aa-iconbtn" href={tracker.demoUrl} target="_blank" rel="noopener noreferrer" aria-label="Open demo"><LinkExternal01 width={14} height={14} /></a>}
-                </div>
-              </label>
-              <label className="bk-field">
-                <span>Drive folder</span>
-                <div className="bk-url-row">
-                  <input className="aa-input" value={urls.driveUrl} onChange={e => { setUrls(u => ({ ...u, driveUrl: e.target.value })); setUrlsDirty(true); }} placeholder="https://drive.google.com/…" inputMode="url" autoCapitalize="none" />
-                  {tracker.driveUrl && <a className="aa-iconbtn" href={tracker.driveUrl} target="_blank" rel="noopener noreferrer" aria-label="Open Drive"><LinkExternal01 width={14} height={14} /></a>}
-                </div>
-              </label>
-            </div>
-            {urlsDirty && (
-              <button type="button" className="aa-btn aa-btn--primary" onClick={async () => { const ok = await saveTracker(urls); if (ok) setUrlsDirty(false); }}>
-                <Check width={14} height={14} /> Save links
-              </button>
+
+            {/* Links as real buttons — one tap mid-call, not buried in a field */}
+            {(tracker.demoUrl || tracker.driveUrl) && (
+              <div className="bk-links">
+                {tracker.demoUrl && (
+                  <a className="bk-link" href={tracker.demoUrl} target="_blank" rel="noopener noreferrer">
+                    <LinkExternal01 width={17} height={17} />
+                    <span><strong>Open demo site</strong><em>{tracker.demoUrl.replace(/^https?:\/\//, '')}</em></span>
+                  </a>
+                )}
+                {tracker.driveUrl && (
+                  <a className="bk-link" href={tracker.driveUrl} target="_blank" rel="noopener noreferrer">
+                    <LinkExternal01 width={17} height={17} />
+                    <span><strong>Open Drive folder</strong><em>{tracker.driveUrl.replace(/^https?:\/\//, '')}</em></span>
+                  </a>
+                )}
+              </div>
             )}
-          </section>
+            <button type="button" className="aa-minibtn bk-linkedit" onClick={() => setLinksEdit(v => !v)}>
+              {linksEdit ? 'Hide link fields' : (tracker.demoUrl || tracker.driveUrl) ? 'Edit links' : 'Add demo / Drive links'}
+            </button>
+            {linksEdit && (
+              <>
+                <div className="bk-url-grid">
+                  <label className="bk-field">
+                    <span>Demo site URL</span>
+                    <input className="aa-input" value={urls.demoUrl} onChange={e => { setUrls(u => ({ ...u, demoUrl: e.target.value })); setUrlsDirty(true); }} placeholder="https://demo…" inputMode="url" autoCapitalize="none" />
+                  </label>
+                  <label className="bk-field">
+                    <span>Drive folder</span>
+                    <input className="aa-input" value={urls.driveUrl} onChange={e => { setUrls(u => ({ ...u, driveUrl: e.target.value })); setUrlsDirty(true); }} placeholder="https://drive.google.com/…" inputMode="url" autoCapitalize="none" />
+                  </label>
+                </div>
+                {urlsDirty && (
+                  <button type="button" className="aa-btn aa-btn--primary" onClick={async () => { const ok = await saveTracker(urls); if (ok) { setUrlsDirty(false); setLinksEdit(false); } }}>
+                    <Check width={14} height={14} /> Save links
+                  </button>
+                )}
+              </>
+            )}
+          </Section>
 
           {/* Prep notes */}
-          <section className="bk-block">
-            <h2 className="bk-block-h">Prep notes</h2>
+          <Section
+            id="prep"
+            title="Prep notes"
+            summary={prep ? prep.slice(0, 90) + (prep.length > 90 ? '…' : '') : 'No prep notes yet'}
+            open={!!openMap.prep}
+            onToggle={toggleSection}
+          >
             <GrowInput
               className="bk-grow--tall"
               value={prep}
@@ -378,16 +577,24 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
                 {prepState === 'saving' ? 'Saving…' : prepState === 'saved' ? 'Saved' : 'Save notes'}
               </button>
             )}
-          </section>
+          </Section>
 
-          {/* Carried-over context */}
-          <div className="bk-folds">
-            {lead.angle && <Fold title="The angle">{<p className="bk-angle">{lead.angle}</p>}</Fold>}
-            {lead.notes && <Fold title="Lead notes">{<p className="bk-angle">{lead.notes}</p>}</Fold>}
-            <Fold title="Call log" note={(lead.callLog || []).length || undefined}><LogList lead={lead} /></Fold>
-          </div>
+          {/* Carried-over context from the Call Console */}
+          {lead.angle && (
+            <Section id="angle" title="The angle" open={!!openMap.angle} onToggle={toggleSection}>
+              <p className="bk-angle">{lead.angle}</p>
+            </Section>
+          )}
+          {lead.notes && (
+            <Section id="notes" title="Lead notes" open={!!openMap.notes} onToggle={toggleSection}>
+              <p className="bk-angle">{lead.notes}</p>
+            </Section>
+          )}
+          <Section id="log" title="Call log" note={(lead.callLog || []).length || undefined} open={!!openMap.log} onToggle={toggleSection}>
+            <LogList lead={lead} />
+          </Section>
 
-          </div>{/* /bk-col right */}
+          </div>{/* /bk-col call */}
           </div>{/* /bk-grid */}
         </div>
       </ScrollArea>
@@ -636,20 +843,89 @@ const bkStyles = `
   /* Detail workspace */
   .bk-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   @media (max-width: 760px) {
-    .aa-app.has-detail .bk-main { display: flex; }
+    /* Beat .aa-app.has-detail .aa-main{display:block} — without the flex
+       column the pinned Won/Lost bar drops out of the layout entirely. */
+    .aa-app.has-detail .aa-main.bk-main { display: flex; flex-direction: column; }
   }
   .bk-detail { --lay-stack-gap: 18px; padding-bottom: 8px; }
 
   /* Desktop workspace: two columns filling the space beside the rail.
      Below 1200px (and on mobile) the columns stack in the original order. */
-  .bk-grid, .bk-col { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .bk-grid, .bk-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  /* Call mode on a phone: pricing + concepts jump above the prep stack */
+  .bk-grid.is-call .bk-col--call { order: 1; }
+  .bk-grid.is-call .bk-col--prep { order: 2; }
   @media (min-width: 1200px) {
-    .bk-detail.lay-content { max-width: 1280px; }
+    .bk-detail.lay-content { max-width: 1320px; }
     .bk-grid {
-      display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
       gap: 20px; align-items: start;
     }
+    /* Call-critical column always leads on desktop, regardless of DOM order */
+    .bk-col--call { order: 1; }
+    .bk-col--prep { order: 2; }
   }
+
+  /* ── Collapsible section ──
+     Body is always mounted and animated with grid-template-rows (height:auto
+     can't animate and a conditional mount reads as a dead tap on touch). */
+  .bk-sec { border: 1px solid var(--a-border); border-radius: 14px; background: var(--a-card); }
+  .bk-sec-head {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    min-height: 52px; padding: 12px 15px;
+    cursor: pointer; background: none; border: none;
+    font-family: inherit; color: var(--a-sec); text-align: left;
+    touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  }
+  .bk-sec-head:hover { color: #fafafa; }
+  .bk-sec-title {
+    display: inline-flex; align-items: center; gap: 9px; min-width: 0;
+    font-size: 0.76rem; font-weight: 800; letter-spacing: 0.11em; text-transform: uppercase;
+  }
+  .bk-sec-title svg { color: var(--a-muted); flex-shrink: 0; }
+  .bk-sec-note {
+    font-size: 0.68rem; font-weight: 800; color: var(--a-muted);
+    background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 999px;
+  }
+  .bk-sec-chev { margin-left: auto; flex-shrink: 0; color: var(--a-muted); transition: transform 0.2s var(--ease, ease); }
+  .bk-sec.is-open .bk-sec-chev { transform: rotate(180deg); }
+  .bk-sec-summary {
+    padding: 0 15px 13px; margin-top: -4px;
+    font-size: 0.85rem; line-height: 1.5; color: var(--a-sec);
+    overflow-wrap: anywhere;
+  }
+  .bk-sec-body {
+    display: grid; grid-template-rows: 0fr; min-width: 0;
+    transition: grid-template-rows 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .bk-sec.is-open .bk-sec-body { grid-template-rows: 1fr; }
+  /* min-width:0 — a grid item defaults to min-width:auto and would refuse to
+     shrink below its longest word, pushing content past the screen edge */
+  .bk-sec-clip { overflow: hidden; min-height: 0; min-width: 0; }
+  .bk-sec.is-open .bk-sec-clip { overflow: visible; }
+  .bk-sec-inner {
+    display: flex; flex-direction: column; gap: 12px; min-width: 0;
+    padding: 2px 15px 16px;
+  }
+  .bk-sec-inner > * { min-width: 0; max-width: 100%; }
+
+  /* Hero sections — pricing + concepts carry more weight than collapsed prep */
+  .bk-sec--hero { border-color: rgba(255,255,255,0.14); background: #131313; }
+  .bk-sec--hero .bk-sec-head { min-height: 58px; }
+  .bk-sec--hero .bk-sec-title { font-size: 0.84rem; color: #fafafa; letter-spacing: 0.09em; }
+  .bk-sec--hero .bk-sec-title svg { color: var(--a-brand); }
+
+  /* Call mode toggle */
+  .bk-callmode {
+    display: inline-flex; align-items: center; gap: 7px; flex-shrink: 0;
+    min-height: 40px; padding: 8px 15px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--a-border); background: rgba(255,255,255,0.05);
+    color: var(--a-sec); font-size: 0.78rem; font-weight: 800; font-family: inherit;
+    touch-action: manipulation; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .bk-callmode:hover { color: #fafafa; }
+  .bk-callmode.is-on { background: var(--a-brand); border-color: var(--a-brand); color: #fff; }
+  .bk-top-spacer { flex: 1; }
 
   /* Auto-growing text field — full content visible at rest, no clipping.
      The hidden mirror (::after) sizes the grid cell; the textarea fills it. */
@@ -706,17 +982,6 @@ const bkStyles = `
   .bk-phone:active { transform: scale(0.99); }
   .bk-phone-tap { font-size: 0.62rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; opacity: 0.75; }
 
-  .bk-block {
-    display: flex; flex-direction: column; gap: 12px;
-    background: var(--a-card); border: 1px solid var(--a-border);
-    border-radius: 15px; padding: 16px;
-  }
-  .bk-block-h {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-size: 0.74rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--a-sec);
-  }
-  .bk-block-h svg { color: var(--a-muted); }
-  .bk-block-headrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .bk-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
   .bk-field > span { font-size: 0.64rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--a-muted); }
   .bk-field > span em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; opacity: 0.75; }
@@ -741,8 +1006,60 @@ const bkStyles = `
   .bk-svc.is-on { color: #fafafa; border-color: rgba(212,76,67,0.55); background: rgba(212,76,67,0.13); }
   .bk-svc.is-on svg { color: var(--a-brand); }
 
-  /* Pricing — the block read off during the close: everything legible at rest */
-  .bk-price { display: flex; flex-direction: column; gap: 9px; background: var(--a-raised); border: 1px solid var(--a-border); border-radius: 12px; padding: 14px; }
+  /* ── Pricing: the block read off during the close ── */
+  .bk-pricelist { display: flex; flex-direction: column; gap: 12px; }
+  .bk-price {
+    display: flex; flex-direction: column; gap: 9px;
+    background: var(--a-raised); border: 1px solid var(--a-border);
+    border-radius: 13px; padding: 16px 18px;
+  }
+  .bk-price.is-rec { border-color: rgba(212,76,67,0.5); background: rgba(212,76,67,0.06); }
+  .bk-price-head { display: flex; align-items: center; gap: 10px; }
+  .bk-price-name {
+    font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; color: #fafafa;
+    min-width: 0; overflow-wrap: anywhere;
+  }
+  .bk-rec-tag {
+    font-size: 0.58rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 3px 9px; border-radius: 999px; flex-shrink: 0;
+    background: var(--a-brand); color: #fff;
+  }
+  .bk-price-edit {
+    margin-left: auto; flex-shrink: 0; display: flex; padding: 8px; border-radius: 9px;
+    background: none; border: 1px solid transparent; cursor: pointer; color: var(--a-muted);
+    touch-action: manipulation;
+  }
+  .bk-price-edit:hover { color: #fafafa; border-color: var(--a-border); }
+  .bk-price-figure { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .bk-price-num {
+    font-family: 'Barlow Condensed', 'Inter', sans-serif;
+    font-size: 2.4rem; font-weight: 700; line-height: 1; letter-spacing: 0.01em; color: #fafafa;
+  }
+  .bk-price.is-rec .bk-price-num { color: #f0a09a; }
+  .bk-price-plan { font-size: 0.86rem; font-weight: 700; color: var(--a-sec); }
+  .bk-price-sub {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--a-muted); margin-top: 2px;
+  }
+  .bk-price-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 5px; }
+  .bk-price-list li {
+    position: relative; padding-left: 16px;
+    font-size: 0.92rem; line-height: 1.5; color: #eaeaea; overflow-wrap: anywhere;
+  }
+  .bk-price-list li::before {
+    content: ''; position: absolute; left: 0; top: 0.62em;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--a-brand);
+  }
+  .bk-price-retainer {
+    font-size: 0.9rem; line-height: 1.55; color: #eaeaea; overflow-wrap: anywhere;
+    padding-top: 9px; border-top: 1px solid var(--a-border);
+  }
+  .bk-price-retainer span {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--a-muted); margin-right: 7px;
+  }
+  .bk-price-editrow { display: flex; align-items: center; gap: 10px; }
+  .bk-price-actions { display: flex; gap: 8px; flex-wrap: wrap; }
   .bk-price-row { display: flex; gap: 8px; align-items: center; }
   .bk-price-row > * { min-width: 0; }
   .bk-price-label { flex: 1; font-weight: 700; }
@@ -752,14 +1069,35 @@ const bkStyles = `
   .bk-price-monthly { font-size: 0.85rem; font-weight: 800; color: #fafafa; white-space: nowrap; }
   .bk-price-del {
     background: none; border: none; cursor: pointer; color: var(--a-muted); flex-shrink: 0;
-    display: flex; padding: 6px; border-radius: 8px;
+    display: flex; padding: 8px; border-radius: 8px; margin-left: auto;
   }
   .bk-price-del:hover { color: #f87171; }
   .bk-price-hint { font-size: 0.72rem; color: var(--a-muted); }
   .bk-price-warn { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 700; color: #fbbf24; }
 
-  .bk-concepts { display: flex; flex-direction: column; gap: 7px; }
-  .bk-concept { display: flex; align-items: center; gap: 10px; }
+  /* ── Concept links as real buttons ── */
+  .bk-links { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .bk-link {
+    display: flex; align-items: center; gap: 12px; min-height: 54px;
+    padding: 12px 16px; border-radius: 12px; text-decoration: none;
+    background: rgba(212,76,67,0.08); border: 1px solid rgba(212,76,67,0.35);
+    color: #fafafa; transition: background 0.15s, border-color 0.15s;
+    touch-action: manipulation;
+  }
+  .bk-link:hover { background: rgba(212,76,67,0.16); border-color: rgba(212,76,67,0.6); }
+  .bk-link svg { color: var(--a-brand); flex-shrink: 0; }
+  .bk-link span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .bk-link strong { font-size: 0.9rem; font-weight: 800; min-width: 0; }
+  /* the URL itself may be absurdly long — it truncates, the label never does */
+  .bk-link em {
+    font-style: normal; font-size: 0.72rem; color: var(--a-muted);
+    min-width: 0; max-width: 100%;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .bk-linkedit { align-self: flex-start; }
+
+  .bk-concepts { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+  .bk-concept { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .bk-concept-check {
     width: 24px; height: 24px; border-radius: 7px; cursor: pointer; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
@@ -772,29 +1110,17 @@ const bkStyles = `
   .bk-concept-del { background: none; border: none; cursor: pointer; color: transparent; display: flex; padding: 4px; }
   .bk-concept:hover .bk-concept-del { color: var(--a-muted); }
   .bk-concept-del:hover { color: #f87171 !important; }
-  .bk-concept-add { display: flex; gap: 8px; margin-top: 2px; }
-  .bk-concept-add .aa-input { flex: 1; min-width: 0; }
+  .bk-concept-add { display: flex; gap: 8px; margin-top: 2px; min-width: 0; }
+  .bk-concept-add .aa-input { flex: 1; min-width: 0; width: 100%; }
 
   .bk-url-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   @media (max-width: 640px) { .bk-url-grid { grid-template-columns: 1fr; } }
   .bk-url-row { display: flex; gap: 7px; align-items: center; }
   .bk-url-row .aa-input { flex: 1; min-width: 0; }
 
-  .bk-block .aa-btn { align-self: flex-start; }
+  .bk-sec-inner .aa-btn { align-self: flex-start; }
 
-  .bk-folds { display: flex; flex-direction: column; gap: 8px; }
-  .bk-fold { border: 1px solid var(--a-border); border-radius: 12px; background: var(--a-card); overflow: hidden; }
-  .bk-fold-head {
-    display: flex; align-items: center; gap: 10px; width: 100%;
-    padding: 12px 15px; cursor: pointer; background: none; border: none;
-    font-family: inherit; color: var(--a-sec); text-align: left;
-  }
-  .bk-fold-title { font-size: 0.74rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
-  .bk-fold-note { font-size: 0.7rem; color: var(--a-muted); }
-  .bk-fold-chev { margin-left: auto; transition: transform 0.2s; color: var(--a-muted); flex-shrink: 0; }
-  .bk-fold.is-open .bk-fold-chev { transform: rotate(180deg); }
-  .bk-fold-body { padding: 2px 15px 15px; }
-  .bk-angle { font-size: 0.9rem; line-height: 1.6; color: #eaeaea; white-space: pre-wrap; }
+  .bk-angle { font-size: 0.92rem; line-height: 1.65; color: #eaeaea; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   .bk-log { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
   .bk-log-row { display: flex; gap: 10px; }
