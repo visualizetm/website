@@ -27,6 +27,9 @@ import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import CalendarCheck01 from '@untitled-ui/icons-react/build/esm/CalendarCheck01';
+import PhoneIncoming01 from '@untitled-ui/icons-react/build/esm/PhoneIncoming01';
+import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
+import Zap from '@untitled-ui/icons-react/build/esm/Zap';
 import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
 import DotsGrid from '@untitled-ui/icons-react/build/esm/DotsGrid';
@@ -474,21 +477,50 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
 
 /* ── Dashboard ─────────────────────────────────────────────────── */
 
-function Dashboard({ subs, orders, unread, series, onGo, stageCounts }) {
-  const thisWeek = series.at(-1)?.total || 0;
-  const lastWeek = series.at(-2)?.total || 0;
-  const delta = thisWeek - lastWeek;
-  const landed = subs.filter(s => s.status === 'landed').length;
-  const ordersPending = orders.filter(o => ['new', 'paid', 'in-production'].includes(o.status)).length;
+function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
   const greeting = useMemo(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)], []);
 
+  // Leads + calling activity, computed from the real records.
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const dayStart = new Date().setHours(0, 0, 0, 0);
+    const total = callLeads.length;
+    let withPhone = 0; let called = 0; let callbacks = 0; let new48 = 0;
+    let callsWeek = 0; let callsToday = 0;
+    for (const l of callLeads) {
+      if (l.phone) withPhone++;
+      if ((l.callLog || []).length > 0) called++;
+      if (effectiveStage(l) === 'lead' && l.callStatus === 'callback') callbacks++;
+      const created = new Date(l.createdAt).getTime();
+      if (created && now - created < 48 * 3600e3) new48++;
+      for (const e of (l.callLog || [])) {
+        const t = new Date(e.at).getTime();
+        if (!t) continue;
+        if (now - t < 7 * 864e5) callsWeek++;
+        if (t >= dayStart) callsToday++;
+      }
+    }
+    return { total, withPhone, called, notCalled: total - called, callbacks, new48, callsWeek, callsToday };
+  }, [callLeads]);
+
+  // Cards that land in the Call Console pre-fill the session builder.
+  const goWithPreset = (section, preset) => {
+    if (preset) { try { localStorage.setItem('vz_builder_preset', JSON.stringify(preset)); } catch { /* fine */ } }
+    onGo(section);
+  };
+
   const cards = [
-    { label: 'New This Week', value: thisWeek, icon: TrendUp01, accent: '#d44c43',
-      trend: { up: delta >= 0, text: `${delta >= 0 ? '+' : ''}${delta} vs last week` }, go: 'submissions' },
-    { label: 'Unread', value: unread, icon: Bell01, accent: '#f59e0b', go: 'submissions' },
-    { label: 'Orders Pending', value: ordersPending, icon: Package, accent: '#60a5fa', go: 'orders' },
-    { label: 'Landed', value: landed, icon: Check, accent: '#22c55e', go: 'submissions' },
+    { label: 'Total leads', value: stats.total, icon: Users01, accent: '#d44c43', go: 'leads' },
+    { label: 'Have a phone', value: stats.withPhone, icon: Phone, accent: '#22c55e', go: 'leads' },
+    { label: 'Called', value: stats.called, icon: PhoneOutgoing01, accent: '#60a5fa', go: 'leads' },
+    { label: 'Not yet called', value: stats.notCalled, icon: PhoneCall01, accent: '#d44c43', go: 'calls', preset: { status: ['not-called'] } },
+    { label: 'Booked', value: stageCounts.booked, icon: CalendarCheck01, accent: '#22c55e', go: 'booked' },
+    { label: 'Callbacks pending', value: stats.callbacks, icon: PhoneIncoming01, accent: '#f59e0b', go: 'calls', preset: { status: ['callback'] } },
+    { label: 'New in last 48h', value: stats.new48, icon: Zap, accent: '#a78bfa', go: 'leads' },
+    { label: 'Calls this week', value: stats.callsWeek, icon: TrendUp01, accent: '#60a5fa',
+      trend: { up: true, text: `${stats.callsToday} today` }, go: 'calls' },
   ];
+  const pct = stats.total ? Math.round((stats.called / stats.total) * 100) : 0;
 
   const feed = [...subs, ...orders]
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -524,7 +556,7 @@ function Dashboard({ subs, orders, unread, series, onGo, stageCounts }) {
           {cards.map(c => {
             const IconEl = c.icon;
             return (
-              <button key={c.label} type="button" className="aa-card" style={{ '--ac': c.accent }} onClick={() => onGo(c.go)}>
+              <button key={c.label} type="button" className="aa-card" style={{ '--ac': c.accent }} onClick={() => goWithPreset(c.go, c.preset)}>
                 <span className="aa-card-icon"><IconEl width={17} height={17} /></span>
                 <span className="aa-card-value">{c.value}</span>
                 <span className="aa-card-label">{c.label}</span>
@@ -537,6 +569,15 @@ function Dashboard({ subs, orders, unread, series, onGo, stageCounts }) {
               </button>
             );
           })}
+        </div>
+
+        {/* How far through the list — called X of Y */}
+        <div className="aa-callprog" role="img" aria-label={`Called ${stats.called} of ${stats.total} leads`}>
+          <div className="aa-callprog-top">
+            <span className="aa-callprog-lbl">Called <strong>{stats.called}</strong> of <strong>{stats.total}</strong> leads</span>
+            <span className="aa-callprog-pct">{pct}%</span>
+          </div>
+          <div className="aa-callprog-bar"><span style={{ width: `${pct}%` }} /></div>
         </div>
 
         <div className="aa-panelbox">
@@ -588,10 +629,21 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
     fetch('/api/admin/settings').then(r => r.json()).then(d => setPrefs(d.prefs)).catch(() => {});
   }, []);
 
+  const [deletedLeads, setDeletedLeads] = useState(null);
   const loadDeleted = useCallback(() => {
     fetch('/api/admin/submissions?deleted=1').then(r => r.json()).then(d => setDeleted(d.items || [])).catch(() => setDeleted([]));
+    fetch('/api/admin/call-leads?deleted=1').then(r => r.json()).then(d => setDeletedLeads(d.items || [])).catch(() => setDeletedLeads([]));
   }, []);
   useEffect(() => { if (sub === 'deleted') loadDeleted(); }, [sub, loadDeleted]);
+
+  const restoreLeads = async (ids) => {
+    await fetch('/api/admin/call-leads', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'restore', ids }),
+    });
+    loadDeleted();
+    onDataChanged();
+  };
 
   const changePw = async (e) => {
     e.preventDefault();
@@ -630,6 +682,7 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'purge' }),
     });
+    await fetch('/api/admin/call-leads?purgeDeleted=1', { method: 'DELETE' });
     loadDeleted();
   };
 
@@ -729,10 +782,11 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
                 <button type="button" className="aa-iconbtn" onClick={loadDeleted} title="Refresh"><RefreshCw01 width={14} height={14} /></button>
               </div>
               <p className="aa-muted">Deleted records sit here for 30 days, then purge automatically. Restore puts them right back where they were.</p>
-              {deleted === null && <Skeletons n={3} />}
-              {deleted?.length === 0 && <p className="aa-muted">Nothing in the bin.</p>}
+              {(deleted === null || deletedLeads === null) && <Skeletons n={3} />}
+              {deleted?.length === 0 && deletedLeads?.length === 0 && <p className="aa-muted">Nothing in the bin.</p>}
               {deleted?.length > 0 && (
                 <>
+                  <p className="aa-sec-label">Submissions &amp; orders</p>
                   <div className="aa-feed">
                     {deleted.map(it => (
                       <div key={it._id} className="aa-feed-row aa-feed-row--static">
@@ -745,10 +799,29 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
                       </div>
                     ))}
                   </div>
-                  <button type="button" className="aa-btn aa-btn--dangerghost" onClick={() => setConfirmPurge(true)}>
-                    <Trash01 width={14} height={14} /> Purge all now
-                  </button>
                 </>
+              )}
+              {deletedLeads?.length > 0 && (
+                <>
+                  <p className="aa-sec-label">Leads</p>
+                  <div className="aa-feed">
+                    {deletedLeads.map(it => (
+                      <div key={it._id} className="aa-feed-row aa-feed-row--static">
+                        <span className="aa-feed-name">{it.business}</span>
+                        <span className="aa-feed-type">{it.industry || 'Lead'}</span>
+                        <span className="aa-feed-date">deleted {fmtDate(it.deletedAt)}</span>
+                        <button type="button" className="aa-minibtn" onClick={() => restoreLeads([it._id])}>
+                          <FlipBackward width={12} height={12} /> Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {(deleted?.length > 0 || deletedLeads?.length > 0) && (
+                <button type="button" className="aa-btn aa-btn--dangerghost" onClick={() => setConfirmPurge(true)}>
+                  <Trash01 width={14} height={14} /> Purge all now
+                </button>
               )}
             </div>
           )}
@@ -765,7 +838,7 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
 
       {confirmPurge && (
         <ConfirmModal
-          title={`Permanently purge ${deleted?.length || 0} deleted records?`}
+          title={`Permanently purge ${(deleted?.length || 0) + (deletedLeads?.length || 0)} deleted records?`}
           body="This empties Recently deleted immediately. There is no undo after a purge."
           confirmLabel="Purge all"
           onConfirm={purge}
@@ -892,6 +965,19 @@ export default function AdminApp() {
     await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     setCallLeads(prev => prev.filter(l => l._id !== id));
   }, []);
+  const bulkDeleteCallLeads = useCallback(async (ids) => {
+    const idSet = new Set(ids);
+    const prev = [];
+    setCallLeads(cur => cur.filter(l => { if (idSet.has(l._id)) { prev.push(l); return false; } return true; }));
+    try {
+      const res = await fetch(`/api/admin/call-leads?ids=${ids.map(encodeURIComponent).join(',')}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      return true;
+    } catch {
+      setCallLeads(cur => [...cur, ...prev]);
+      return false;
+    }
+  }, []);
 
   const subs = useMemo(() => items.filter(it => it.type !== 'shop-order'), [items]);
   const orders = useMemo(() => items.filter(it => it.type === 'shop-order'), [items]);
@@ -1012,12 +1098,13 @@ export default function AdminApp() {
 
       {/* Section content */}
       {section === 'dashboard' && (
-        <Dashboard subs={subs} orders={orders} unread={unread} series={series} onGo={go} stageCounts={stageCounts} />
+        <Dashboard subs={subs} orders={orders} unread={unread} onGo={go} stageCounts={stageCounts} callLeads={callLeads} />
       )}
       {section === 'leads' && (
         <AdminLeads
           leads={callLeads} submissions={items} loading={callLeadsLoading}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
+          onBulkDelete={bulkDeleteCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
         />
@@ -1370,6 +1457,18 @@ const aaStyles = `
   .aa-funnel-hint { font-size: 0.72rem; font-weight: 700; color: #fbbf24; }
   .aa-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   @media (max-width: 760px) { .aa-cards { grid-template-columns: 1fr 1fr; } }
+
+  .aa-callprog {
+    display: flex; flex-direction: column; gap: 9px;
+    background: var(--a-card); border: 1px solid var(--a-border);
+    border-radius: 15px; padding: 15px 18px;
+  }
+  .aa-callprog-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .aa-callprog-lbl { font-size: 0.86rem; color: var(--a-sec); }
+  .aa-callprog-lbl strong { color: #fafafa; font-weight: 800; }
+  .aa-callprog-pct { font-size: 0.95rem; font-weight: 900; color: var(--a-brand); }
+  .aa-callprog-bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .aa-callprog-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--a-brand); transition: width 0.3s cubic-bezier(0.4,0,0.2,1); }
   .aa-card {
     position: relative; overflow: hidden; text-align: left; cursor: pointer;
     display: flex; flex-direction: column; gap: 4px;

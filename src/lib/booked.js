@@ -29,6 +29,20 @@ export function lastContact(lead, now = Date.now()) {
   return { date: new Date(best), days: Math.max(0, Math.floor((now - best) / 864e5)) };
 }
 
+/**
+ * Delete safety rule: a lead is deletable only if it has never been worked —
+ * empty call log AND still in the open-lead stage. Returns null when
+ * deletable, otherwise a short human reason to show beside the disabled
+ * control. (Clients added directly are managed from the Clients page.)
+ */
+export function deleteBlockReason(lead) {
+  if ((lead?.callLog || []).length > 0) return "Has call history — can't delete";
+  const s = effectiveStage(lead);
+  if (s === 'booked') return "Booked — can't delete";
+  if (s === 'won' || s === 'client') return "Won/client — can't delete";
+  return null;
+}
+
 /** Sum of the purchases ledger. */
 export const totalPaid = (lead) => (lead?.purchases || []).reduce((n, p) => n + (Number(p.amount) || 0), 0);
 

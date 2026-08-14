@@ -179,6 +179,14 @@ export default async function handler(req, res) {
   const col = db.collection('call_leads');
 
   if (req.method === 'GET') {
+    // Recently deleted view (?deleted=1): lazily purge anything older than
+    // 30 days, then return what's still restorable.
+    if (req.query?.deleted === '1') {
+      const cutoff = new Date(Date.now() - 30 * 864e5);
+      await col.deleteMany({ deleted: true, deletedAt: { $lt: cutoff } });
+      const items = await col.find({ deleted: true }).sort({ deletedAt: -1 }).limit(200).toArray();
+      return res.status(200).json({ items });
+    }
     const items = await col.find({ deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(500).toArray();
     return res.status(200).json({ items });
   }
@@ -216,6 +224,17 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
+    // Restore from Recently deleted — clears the tombstone so the lead is
+    // visible everywhere again (and import matching treats it as live).
+    if (req.body?.action === 'restore') {
+      const ids = (Array.isArray(req.body.ids) ? req.body.ids : [])
+        .map(x => { try { return new ObjectId(String(x)); } catch { return null; } })
+        .filter(Boolean);
+      if (!ids.length) return res.status(400).json({ error: 'ids required' });
+      await col.updateMany({ _id: { $in: ids } }, { $set: { deleted: false }, $unset: { deletedAt: '' } });
+      return res.status(200).json({ ok: true, restored: ids.length });
+    }
+
     const { id, set } = req.body || {};
     if (!id || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
     const clean = sanitize(set);
@@ -231,11 +250,18 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
-    const { id } = req.query || {};
-    if (!id) return res.status(400).json({ error: 'id required' });
-    // Soft delete: keeps a tombstone so a spreadsheet re-upload won't recreate it.
-    await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: { deleted: true, deletedAt: new Date() } });
-    return res.status(200).json({ ok: true });
+    // Manual purge of everything in Recently deleted (Settings action).
+    if (req.query?.purgeDeleted === '1') {
+      const r = await col.deleteMany({ deleted: true });
+      return res.status(200).json({ ok: true, purged: r.deletedCount });
+    }
+    // Soft delete (single ?id= or bulk ?ids=a,b,c): keeps a tombstone so a
+    // spreadsheet re-upload won't recreate it; restorable for 30 days.
+    const raw = req.query?.ids ? String(req.query.ids).split(',') : (req.query?.id ? [req.query.id] : []);
+    const ids = raw.map(x => { try { return new ObjectId(String(x).trim()); } catch { return null; } }).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ error: 'id required' });
+    await col.updateMany({ _id: { $in: ids } }, { $set: { deleted: true, deletedAt: new Date() } });
+    return res.status(200).json({ ok: true, deleted: ids.length });
   }
 
   res.setHeader('Allow', 'GET, POST, PATCH, DELETE');

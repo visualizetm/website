@@ -11,15 +11,35 @@ import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
-import { ScrollArea } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
 import LeadImport from '../components/LeadImport';
 import { normalizeSocials } from '../lib/socials';
 import { formatPhone } from '../lib/phone';
-import { effectiveStage, checklistProgress } from '../lib/booked';
+import CheckSquare from '@untitled-ui/icons-react/build/esm/CheckSquare';
+import Square from '@untitled-ui/icons-react/build/esm/Square';
+import { effectiveStage, checklistProgress, deleteBlockReason } from '../lib/booked';
 import { defaultLead } from './AdminCalls';
+
+/* Deliberate-tap delete confirm (uses the shell's aa-modal styles). */
+function ConfirmDelete({ title, body, onConfirm, onCancel }) {
+  return (
+    <div className="aa-modal-overlay lay-overlay" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="aa-modal lay-modal-box">
+        <h2 className="aa-modal-title">{title}</h2>
+        <p className="aa-modal-body">{body}</p>
+        <div className="aa-modal-actions">
+          <button type="button" className="aa-btn" onClick={onCancel}>Cancel</button>
+          <button type="button" className="aa-btn aa-btn--danger" onClick={onConfirm}>
+            <Trash01 width={14} height={14} /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -115,6 +135,8 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
   const [editing, setEditing] = useState(false);
   const [notes, setNotes] = useState(lead.notes || '');
   const [notesState, setNotesState] = useState('idle');
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const blockReason = deleteBlockReason(lead);
   const log = [...(lead.callLog || [])].reverse();
 
   const saveNotes = async () => {
@@ -134,10 +156,20 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
           </button>
           <button type="button" className="aa-iconbtn" onClick={() => setEditing(v => !v)} title="Edit lead"><Edit02 width={15} height={15} /></button>
           <button
-            type="button" className="aa-iconbtn" title="Delete lead"
-            onClick={() => { if (window.confirm(`Delete ${lead.business}? It won't come back on re-import.`)) onDelete(lead._id); }}
+            type="button" className="aa-iconbtn" disabled={!!blockReason}
+            title={blockReason || 'Delete lead'}
+            onClick={() => setConfirmOpen(true)}
           ><Trash01 width={15} height={15} /></button>
         </div>
+        {blockReason && <p className="ld-delblocked">{blockReason}</p>}
+        {confirmOpen && !blockReason && (
+          <ConfirmDelete
+            title={`Delete ${lead.business}?`}
+            body="It moves to Recently deleted in Settings and can be restored for 30 days. A spreadsheet re-upload won't recreate it."
+            onConfirm={() => { setConfirmOpen(false); onDelete(lead._id); }}
+            onCancel={() => setConfirmOpen(false)}
+          />
+        )}
 
         <header className="ld-head">
           <div className="ld-head-meta">
@@ -219,7 +251,7 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
 /* ── Page: full-width lead management (pre-booked pipeline) ────── */
 
 export default function AdminLeads({
-  leads, submissions, loading, onPatch, onCreate, onDelete, onRefresh,
+  leads, submissions, loading, onPatch, onCreate, onDelete, onBulkDelete, onRefresh,
   onLinkSubmission, onMobileOpen, onMobileClose, onGo,
 }) {
   const [q, setQ] = useState('');
@@ -229,6 +261,9 @@ export default function AdminLeads({
   const [selId, setSelId] = useState(null);
   const [creating, setCreating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [checked, setChecked] = useState(() => new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const pool = useMemo(() => leads.filter(l => effectiveStage(l) === 'lead'), [leads]);
   const industries = useMemo(() => [...new Set(pool.map(l => l.industry).filter(Boolean))].sort(), [pool]);
@@ -255,6 +290,24 @@ export default function AdminLeads({
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
   });
+  const toggleCheck = toggleSet(setChecked);
+
+  // Bulk delete honors the safety rule per lead: worked leads are skipped
+  // and reported, never silently wiped.
+  const checkedLeads = pool.filter(l => checked.has(l._id));
+  const deletable = checkedLeads.filter(l => !deleteBlockReason(l));
+  const blockedCount = checkedLeads.length - deletable.length;
+  const runBulkDelete = async () => {
+    setBulkConfirm(false);
+    const ids = deletable.map(l => l._id);
+    if (ids.length) await onBulkDelete(ids);
+    setChecked(new Set());
+    setToast(
+      `Deleted ${ids.length} lead${ids.length === 1 ? '' : 's'}` +
+      (blockedCount ? ` · skipped ${blockedCount} with call history or booked status` : '')
+    );
+    setTimeout(() => setToast(null), 3200);
+  };
 
   return (
     <>
@@ -303,24 +356,51 @@ export default function AdminLeads({
           {filtered.map(l => {
             const ck = checklistProgress(l);
             return (
-              <button key={l._id} type="button" className={`ld-card lay-card${sel?._id === l._id ? ' is-sel' : ''}`} onClick={() => pick(l._id)}>
-                <span className="ld-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
-                <span className="ld-card-main">
-                  <span className="ld-card-name lay-truncate">{l.business}</span>
-                  <span className="ld-card-sub lay-truncate">
-                    {[l.area, l.industry].filter(Boolean).join(' · ') || l.descriptor}
-                    {ck.total ? ` · tasks ${ck.done}/${ck.total}` : ''}
+              <div key={l._id} className="ld-item lay-card">
+                <button
+                  type="button" className="ld-checkbtn" aria-label={`Select ${l.business}`}
+                  aria-pressed={checked.has(l._id)} onClick={() => toggleCheck(l._id)}
+                >
+                  {checked.has(l._id) ? <CheckSquare width={15} height={15} /> : <Square width={15} height={15} />}
+                </button>
+                <button type="button" className={`ld-card${sel?._id === l._id ? ' is-sel' : ''}`} onClick={() => pick(l._id)}>
+                  <span className="ld-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
+                  <span className="ld-card-main">
+                    <span className="ld-card-name lay-truncate">{l.business}</span>
+                    <span className="ld-card-sub lay-truncate">
+                      {[l.area, l.industry].filter(Boolean).join(' · ') || l.descriptor}
+                      {ck.total ? ` · tasks ${ck.done}/${ck.total}` : ''}
+                    </span>
                   </span>
-                </span>
-                <span className="ld-card-side">
-                  <Pill p={l.priority} />
-                  {l.phone && <Phone width={13} height={13} className="ld-hasphone" />}
-                </span>
-              </button>
+                  <span className="ld-card-side">
+                    <Pill p={l.priority} />
+                    {l.phone && <Phone width={13} height={13} className="ld-hasphone" />}
+                  </span>
+                </button>
+              </div>
             );
           })}
         </ScrollArea>
+
+        {checked.size > 0 && (
+          <StickyFooterBar className="aa-bulkbar">
+            <span>{checked.size} selected{blockedCount ? ` · ${blockedCount} protected` : ''}</span>
+            <button type="button" className="aa-btn aa-btn--danger" onClick={() => setBulkConfirm(true)} disabled={!deletable.length}>
+              <Trash01 width={14} height={14} /> Delete {deletable.length || ''}
+            </button>
+          </StickyFooterBar>
+        )}
       </aside>
+
+      {bulkConfirm && (
+        <ConfirmDelete
+          title={`Delete ${deletable.length} lead${deletable.length === 1 ? '' : 's'}?`}
+          body={`They move to Recently deleted in Settings (30-day restore).${blockedCount ? ` ${blockedCount} selected lead${blockedCount === 1 ? ' has' : 's have'} call history or booked status and will be skipped.` : ''}`}
+          onConfirm={runBulkDelete}
+          onCancel={() => setBulkConfirm(false)}
+        />
+      )}
+      {toast && <div className="ld-toast" role="status">{toast}</div>}
 
       <main className="aa-main ld-main">
         {creating ? (
@@ -378,6 +458,25 @@ const ldStyles = `
   .ld-count { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--a-muted); }
 
   .ld-list.lay-scroll { padding: 0 0 12px; display: flex; flex-direction: column; gap: 6px; }
+  .ld-item { display: flex; align-items: stretch; gap: 5px; }
+  .ld-checkbtn {
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; border-radius: 10px; cursor: pointer; flex-shrink: 0;
+    background: none; border: none; color: var(--a-muted);
+    touch-action: manipulation;
+  }
+  .ld-checkbtn:hover, .ld-checkbtn[aria-pressed="true"] { color: #fafafa; }
+  .ld-item .ld-card { flex: 1; min-width: 0; }
+  .ld-delblocked { font-size: 0.76rem; font-weight: 700; color: var(--a-muted); }
+  .aa-iconbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ld-toast {
+    position: fixed; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); z-index: 90;
+    max-width: min(94vw, 480px);
+    padding: 11px 16px; border-radius: 13px;
+    background: #1a1a1a; border: 1px solid var(--a-border);
+    color: #fafafa; font-size: 0.85rem; font-weight: 700;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  }
   .ld-card {
     display: flex; align-items: center; gap: 11px; width: 100%;
     padding: 11px 13px; border-radius: 12px; cursor: pointer; text-align: left;

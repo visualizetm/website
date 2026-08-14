@@ -26,7 +26,7 @@ import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/Ad
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
 import { digitsOf, matchRank, formatPhone } from '../lib/phone';
-import { effectiveStage } from '../lib/booked';
+import { effectiveStage, deleteBlockReason } from '../lib/booked';
 
 const CALL_STATUSES = [
   { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
@@ -271,13 +271,17 @@ function EditLead({ lead, onPatch, onDelete, onClose }) {
         <button type="submit" className="cc-btn cc-btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
         <button type="button" className="cc-btn" onClick={onClose}>Cancel</button>
         <span style={{ flex: 1 }} />
-        <button
-          type="button"
-          className="cc-btn cc-btn--danger"
-          onClick={() => { if (window.confirm(`Delete ${lead.business}? It won't come back on re-import.`)) onDelete(lead._id); }}
-        >
-          <Trash01 width={14} height={14} /> Delete
-        </button>
+        {deleteBlockReason(lead) ? (
+          <span className="cc-del-blocked">{deleteBlockReason(lead)}</span>
+        ) : (
+          <button
+            type="button"
+            className="cc-btn cc-btn--danger"
+            onClick={() => { if (window.confirm(`Delete ${lead.business}? It moves to Recently deleted in Settings (30-day restore).`)) onDelete(lead._id); }}
+          >
+            <Trash01 width={14} height={14} /> Delete
+          </button>
+        )}
       </div>
     </form>
   );
@@ -693,6 +697,19 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
   }, []);
 
   useEffect(() => { if (authed) load(); }, [authed, load]);
+
+  // A dashboard stat card can pre-fill the session builder ("Not yet
+  // called" → status not-called). One-shot handoff via localStorage.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('vz_builder_preset');
+      if (!raw) return;
+      localStorage.removeItem('vz_builder_preset');
+      const p = JSON.parse(raw);
+      if (Array.isArray(p?.status)) setSelStatus(new Set(p.status));
+      if (Array.isArray(p?.priority)) setSelPrio(new Set(p.priority));
+    } catch { /* stale/corrupt preset — ignore */ }
+  }, []);
 
   // Restore a persisted session — returning from a phone call or a tab
   // reload never loses your place mid-dialing.
@@ -1909,7 +1926,8 @@ const ccStyles = `
   @media (max-width: 560px) { .cc-new-grid { grid-template-columns: 1fr; } }
   .cc-new-note { font-size: 0.78rem; color: var(--c-muted); }
   .cc-new .cc-btn[type="submit"] { align-self: flex-start; }
-  .cc-edit-actions { display: flex; gap: 8px; align-items: center; }
+  .cc-edit-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .cc-del-blocked { font-size: 0.74rem; font-weight: 700; color: var(--c-muted); }
 
   /* Error toast — a failed save is never silent */
   .cc-err {
