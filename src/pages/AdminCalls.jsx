@@ -21,6 +21,7 @@ import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import Wordmark from '../components/Wordmark';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
+import UserX01 from '@untitled-ui/icons-react/build/esm/UserX01';
 import { ADMIN_HOME } from '../lib/adminPaths';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
@@ -650,6 +651,7 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
   const [importing, setImporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   // Session
   const [mode, setMode] = useState('queue'); // queue | session | summary
@@ -783,18 +785,26 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
     if (res.ok) { setNewOpen(false); await load(); onDataChanged?.(); }
   };
 
-  const deleteLead = async (id) => {
-    await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    onDataChanged?.();
-    setEditOpen(false);
+  // Soft-delete a lead and prune it from the console + any active session.
+  // Removing the current lead makes the next one take its place, so the
+  // session flows on without an explicit advance.
+  const removeFromLists = useCallback((id, { endTo = 'summary' } = {}) => {
     setPeek(p => p === id ? null : p);
     setLeads(prev => prev.filter(l => l._id !== id));
     setSession(s => {
       if (!s) return s;
       const ids = s.ids.filter(x => x !== id);
-      if (!ids.length) { setMode('queue'); return null; }
+      if (!ids.length) { setMode(endTo); return endTo === 'queue' ? null : { ...s, ids, idx: 0 }; }
       return { ...s, ids, idx: Math.min(s.idx, ids.length - 1) };
     });
+    fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      .then(() => onDataChanged?.())
+      .catch(() => {});
+  }, [onDataChanged]);
+
+  const deleteLead = async (id) => {
+    setEditOpen(false);
+    removeFromLists(id, { endTo: 'queue' });
   };
 
   const importNotepads = async () => {
@@ -929,11 +939,21 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
     setSheet(null);
     setFlash(outcome);
     setTimeout(() => setFlash(null), 400);
+    if (outcome === 'no') {
+      // A NO removes them from the console and the lead list entirely.
+      // The outcome still persists on the tombstone (so a restore brings
+      // the call history back); 30-day undo lives in Settings → Recently
+      // deleted. PATCH and DELETE touch different fields, so order-safe.
+      patch(lead._id, set);
+      removeFromLists(lead._id);
+      if (isPeek) setPeek(null);
+      return;
+    }
     patch(lead._id, set, { rollback: () => setLeads(ls => ls.map(l => l._id === lead._id ? prev : l)) });
     onDataChanged?.();
     if (isPeek) setPeek(null);
     else advance(1);
-  }, [current, patch, advance, isPeek, onDataChanged]);
+  }, [current, patch, advance, isPeek, onDataChanged, removeFromLists]);
 
   const runItBack = () => {
     if (!session) return endSession();
@@ -1232,6 +1252,9 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                     <StatusChip id={current.callStatus} />
                     {current.industry && <span className="cs-industry">{current.industry}</span>}
                     <span className="cs-meta-spacer" />
+                    <button type="button" className="cc-btn cs-rejectbtn" onClick={() => setRejectOpen(true)} title="Remove this lead without logging a call">
+                      <UserX01 width={14} height={14} /> Reject lead
+                    </button>
                     <button type="button" className="cc-iconbtn" onClick={() => setEditOpen(true)} title="Edit lead">
                       <Edit02 width={15} height={15} />
                     </button>
@@ -1335,6 +1358,29 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
             />
           )}
           {showKeys && <ShortcutsOverlay onClose={() => setShowKeys(false)} />}
+          {rejectOpen && current && (
+            <div className="cc-sheet-back" onClick={() => setRejectOpen(false)}>
+              <div className="cc-keys" onClick={e => e.stopPropagation()} role="dialog" aria-label="Reject lead">
+                <div className="cc-sheet-head">
+                  <span className="cc-sheet-badge" style={{ '--sc': '#ef4444' }}><UserX01 width={15} height={15} /> Reject lead</span>
+                  <button type="button" className="cc-iconbtn" onClick={() => setRejectOpen(false)} aria-label="Cancel"><XClose width={16} height={16} /></button>
+                </div>
+                <p className="cs-reject-body">
+                  Remove <strong>{current.business}</strong> from the console and lead list?
+                  No call gets logged — this is you passing on them. 30-day restore in Settings.
+                </p>
+                <div className="cs-reject-actions">
+                  <button
+                    type="button" className="cc-btn cc-btn--danger"
+                    onClick={() => { const id = current._id; setRejectOpen(false); removeFromLists(id); }}
+                  >
+                    <UserX01 width={14} height={14} /> Reject — no call logged
+                  </button>
+                  <button type="button" className="cc-btn" onClick={() => setRejectOpen(false)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
           {editOpen && current && (
             <div className="cc-overlay lay-overlay" onClick={() => setEditOpen(false)}>
               <div className="cc-panel lay-modal-box" onClick={e => e.stopPropagation()}>
@@ -1928,6 +1974,11 @@ const ccStyles = `
   .cc-new .cc-btn[type="submit"] { align-self: flex-start; }
   .cc-edit-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .cc-del-blocked { font-size: 0.74rem; font-weight: 700; color: var(--c-muted); }
+  .cs-rejectbtn { color: #f87171; border-color: rgba(239,68,68,0.35); }
+  .cs-rejectbtn:hover { background: rgba(239,68,68,0.12); color: #fca5a5; }
+  .cs-reject-body { font-size: 0.9rem; line-height: 1.6; color: var(--c-sec); overflow-wrap: anywhere; }
+  .cs-reject-body strong { color: #fafafa; }
+  .cs-reject-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
   /* Error toast — a failed save is never silent */
   .cc-err {

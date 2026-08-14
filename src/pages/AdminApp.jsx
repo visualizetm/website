@@ -27,8 +27,8 @@ import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import CalendarCheck01 from '@untitled-ui/icons-react/build/esm/CalendarCheck01';
-import PhoneIncoming01 from '@untitled-ui/icons-react/build/esm/PhoneIncoming01';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
+import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
 import Zap from '@untitled-ui/icons-react/build/esm/Zap';
 import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
 import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
@@ -480,47 +480,53 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
 function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
   const greeting = useMemo(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)], []);
 
-  // Leads + calling activity, computed from the real records.
+  // Calls made + money made + retainers — from the real records: every
+  // call-log entry (console + manual contact log) and the purchases ledger.
   const stats = useMemo(() => {
     const now = Date.now();
     const dayStart = new Date().setHours(0, 0, 0, 0);
-    const total = callLeads.length;
-    let withPhone = 0; let called = 0; let callbacks = 0; let new48 = 0;
-    let callsWeek = 0; let callsToday = 0;
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+    let callsToday = 0; let callsWeek = 0; let callsMonth = 0; let calls90 = 0;
+    let revenue = 0; let revenueMonth = 0; let retainerClients = 0; let clients = 0;
     for (const l of callLeads) {
-      if (l.phone) withPhone++;
-      if ((l.callLog || []).length > 0) called++;
-      if (effectiveStage(l) === 'lead' && l.callStatus === 'callback') callbacks++;
-      const created = new Date(l.createdAt).getTime();
-      if (created && now - created < 48 * 3600e3) new48++;
-      for (const e of (l.callLog || [])) {
-        const t = new Date(e.at).getTime();
-        if (!t) continue;
+      const bump = (t) => {
+        if (!t) return;
+        if (now - t < 90 * 864e5) calls90++;
+        if (now - t < 30 * 864e5) callsMonth++;
         if (now - t < 7 * 864e5) callsWeek++;
         if (t >= dayStart) callsToday++;
+      };
+      for (const e of (l.callLog || [])) bump(new Date(e.at).getTime());
+      for (const e of (l.contactLog || [])) {
+        if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
+      }
+      let hasRetainer = false;
+      for (const p of (l.purchases || [])) {
+        const amt = Number(p.amount) || 0;
+        revenue += amt;
+        const t = new Date(p.at).getTime();
+        if (t && t >= monthStart) revenueMonth += amt;
+        if (/retainer/i.test(`${p.label} ${p.notes}`)) hasRetainer = true;
+      }
+      if (effectiveStage(l) === 'client') {
+        clients++;
+        if (hasRetainer) retainerClients++;
       }
     }
-    return { total, withPhone, called, notCalled: total - called, callbacks, new48, callsWeek, callsToday };
+    return { callsToday, callsWeek, callsMonth, calls90, revenue, revenueMonth, retainerClients, clients };
   }, [callLeads]);
 
-  // Cards that land in the Call Console pre-fill the session builder.
-  const goWithPreset = (section, preset) => {
-    if (preset) { try { localStorage.setItem('vz_builder_preset', JSON.stringify(preset)); } catch { /* fine */ } }
-    onGo(section);
-  };
-
+  const money = (n) => `$${Number(n || 0).toLocaleString()}`;
   const cards = [
-    { label: 'Total leads', value: stats.total, icon: Users01, accent: '#d44c43', go: 'leads' },
-    { label: 'Have a phone', value: stats.withPhone, icon: Phone, accent: '#22c55e', go: 'leads' },
-    { label: 'Called', value: stats.called, icon: PhoneOutgoing01, accent: '#60a5fa', go: 'leads' },
-    { label: 'Not yet called', value: stats.notCalled, icon: PhoneCall01, accent: '#d44c43', go: 'calls', preset: { status: ['not-called'] } },
-    { label: 'Booked', value: stageCounts.booked, icon: CalendarCheck01, accent: '#22c55e', go: 'booked' },
-    { label: 'Callbacks pending', value: stats.callbacks, icon: PhoneIncoming01, accent: '#f59e0b', go: 'calls', preset: { status: ['callback'] } },
-    { label: 'New in last 48h', value: stats.new48, icon: Zap, accent: '#a78bfa', go: 'leads' },
-    { label: 'Calls this week', value: stats.callsWeek, icon: TrendUp01, accent: '#60a5fa',
-      trend: { up: true, text: `${stats.callsToday} today` }, go: 'calls' },
+    { label: 'Calls today', value: stats.callsToday, icon: PhoneOutgoing01, accent: '#d44c43', go: 'calls' },
+    { label: 'Calls this week', value: stats.callsWeek, icon: PhoneCall01, accent: '#60a5fa', go: 'calls' },
+    { label: 'Calls this month', value: stats.callsMonth, icon: TrendUp01, accent: '#a78bfa', go: 'calls' },
+    { label: 'Calls last 90 days', value: stats.calls90, icon: Zap, accent: '#f59e0b', go: 'calls' },
+    { label: 'Money made', value: money(stats.revenue), icon: CurrencyDollarCircle, accent: '#22c55e',
+      trend: { up: true, text: `${money(stats.revenueMonth)} this month` }, go: 'clients' },
+    { label: 'Clients on retainer', value: stats.retainerClients, icon: Briefcase01, accent: '#22c55e',
+      trend: { up: true, text: `of ${stats.clients} client${stats.clients === 1 ? '' : 's'}` }, go: 'clients' },
   ];
-  const pct = stats.total ? Math.round((stats.called / stats.total) * 100) : 0;
 
   const feed = [...subs, ...orders]
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
@@ -556,7 +562,7 @@ function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
           {cards.map(c => {
             const IconEl = c.icon;
             return (
-              <button key={c.label} type="button" className="aa-card" style={{ '--ac': c.accent }} onClick={() => goWithPreset(c.go, c.preset)}>
+              <button key={c.label} type="button" className="aa-card" style={{ '--ac': c.accent }} onClick={() => onGo(c.go)}>
                 <span className="aa-card-icon"><IconEl width={17} height={17} /></span>
                 <span className="aa-card-value">{c.value}</span>
                 <span className="aa-card-label">{c.label}</span>
@@ -569,15 +575,6 @@ function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
               </button>
             );
           })}
-        </div>
-
-        {/* How far through the list — called X of Y */}
-        <div className="aa-callprog" role="img" aria-label={`Called ${stats.called} of ${stats.total} leads`}>
-          <div className="aa-callprog-top">
-            <span className="aa-callprog-lbl">Called <strong>{stats.called}</strong> of <strong>{stats.total}</strong> leads</span>
-            <span className="aa-callprog-pct">{pct}%</span>
-          </div>
-          <div className="aa-callprog-bar"><span style={{ width: `${pct}%` }} /></div>
         </div>
 
         <div className="aa-panelbox">
@@ -1455,8 +1452,9 @@ const aaStyles = `
   .aa-funnel-btn:hover { border-color: rgba(212,76,67,0.5); color: #fafafa; }
   .aa-funnel-btn strong { font-size: 1.05rem; font-weight: 900; color: #fafafa; }
   .aa-funnel-hint { font-size: 0.72rem; font-weight: 700; color: #fbbf24; }
-  .aa-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .aa-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   @media (max-width: 760px) { .aa-cards { grid-template-columns: 1fr 1fr; } }
+  .aa-card-value { overflow-wrap: anywhere; }
 
   .aa-callprog {
     display: flex; flex-direction: column; gap: 9px;
