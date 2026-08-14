@@ -27,11 +27,30 @@ import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import CalendarCheck01 from '@untitled-ui/icons-react/build/esm/CalendarCheck01';
+import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
+import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
+import DotsGrid from '@untitled-ui/icons-react/build/esm/DotsGrid';
 import Wordmark from '../components/Wordmark';
 import AdminCalls from './AdminCalls';
 import AdminBooked from './AdminBooked';
+import AdminLeads from './AdminLeads';
+import AdminClients from './AdminClients';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { effectiveStage } from '../lib/booked';
+
+/* Rotating hello for the dashboard hero — always addressed to Rob. */
+const GREETINGS = [
+  'Coffee and cold calls, Rob?',
+  "Hey there, Rob'neH?",
+  'Back on the phones, Rob?',
+  "Who's getting booked today, Rob?",
+  'The pipeline missed you, Rob.',
+  'Rob. The myth. The legend.',
+  'Another day, another closed deal, Rob?',
+  'Dial it up, Rob.',
+  'Ship visuals, take names, Rob.',
+  'The leads called — they want you back, Rob.',
+];
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials, hasAnySocial } from '../lib/socials';
@@ -455,12 +474,13 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
 
 /* ── Dashboard ─────────────────────────────────────────────────── */
 
-function Dashboard({ subs, orders, unread, series, onGo }) {
+function Dashboard({ subs, orders, unread, series, onGo, stageCounts }) {
   const thisWeek = series.at(-1)?.total || 0;
   const lastWeek = series.at(-2)?.total || 0;
   const delta = thisWeek - lastWeek;
   const landed = subs.filter(s => s.status === 'landed').length;
   const ordersPending = orders.filter(o => ['new', 'paid', 'in-production'].includes(o.status)).length;
+  const greeting = useMemo(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)], []);
 
   const cards = [
     { label: 'New This Week', value: thisWeek, icon: TrendUp01, accent: '#d44c43',
@@ -474,15 +494,30 @@ function Dashboard({ subs, orders, unread, series, onGo }) {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .slice(0, 8);
 
-  const h = new Date().getHours();
-  const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const FUNNEL = [
+    { id: 'leads', label: 'Leads', n: stageCounts.lead },
+    { id: 'booked', label: 'Booked', n: stageCounts.booked },
+    { id: 'clients', label: 'Clients', n: stageCounts.client + stageCounts.won },
+  ];
 
   return (
     <main className="aa-main aa-main--wide lay-scroll">
       <div className="aa-dash lay-content lay-content--wide">
         <header className="aa-greet">
-          <h1 className="aa-greet-title">{greet}.</h1>
-          <p className="aa-greet-sub">Everything below lives in its own section — tap a card to go there.</p>
+          <h1 className="aa-greet-title"><img src="/logo.svg" alt="" width="24" height="24" className="aa-greet-mark" />{greeting}</h1>
+          <div className="aa-funnel" aria-label="Pipeline">
+            {FUNNEL.map((f, i) => (
+              <span key={f.id} className="aa-funnel-seg">
+                {i > 0 && <span className="aa-funnel-arrow" aria-hidden="true">→</span>}
+                <button type="button" className="aa-funnel-btn" onClick={() => onGo(f.id)}>
+                  <strong>{f.n}</strong> {f.label}
+                </button>
+              </span>
+            ))}
+            {stageCounts.won > 0 && (
+              <span className="aa-funnel-hint">{stageCounts.won} awaiting first invoice</span>
+            )}
+          </div>
         </header>
 
         <div className="aa-cards">
@@ -755,6 +790,9 @@ export default function AdminApp() {
   const [selOrder, setSelOrder] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bookedOpen, setBookedOpen] = useState(false);
+  const [leadsOpen, setLeadsOpen] = useState(false);
+  const [clientsOpen, setClientsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const deepLinked = useRef(false);
 
   // Call leads — loaded at the shell level so the Booked tab badge is live
@@ -794,7 +832,9 @@ export default function AdminApp() {
     if (p.startsWith('/submissions')) return 'submissions';
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
+    if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/booked')) return 'booked';
+    if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/settings')) return 'settings';
     return 'dashboard';
   }, [location.pathname]);
@@ -828,10 +868,30 @@ export default function AdminApp() {
   useEffect(() => { if (authed) load(); }, [authed, load]);
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
 
-  const bookedCount = useMemo(
-    () => callLeads.filter(l => effectiveStage(l) === 'booked').length,
-    [callLeads]
-  );
+  const stageCounts = useMemo(() => {
+    const c = { lead: 0, booked: 0, won: 0, client: 0, toCall: 0 };
+    for (const l of callLeads) {
+      const s = effectiveStage(l);
+      if (s in c) c[s]++;
+      if (s === 'lead' && l.callStatus === 'not-called') c.toCall++;
+    }
+    return c;
+  }, [callLeads]);
+  const bookedCount = stageCounts.booked;
+
+  // Lead create/delete for the Leads page (reuses the guarded endpoints).
+  const createCallLead = useCallback(async (lead) => {
+    const res = await fetch('/api/admin/call-leads', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lead),
+    });
+    if (res.ok) await loadCallLeads();
+    return res.ok;
+  }, [loadCallLeads]);
+  const deleteCallLead = useCallback(async (id) => {
+    await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    setCallLeads(prev => prev.filter(l => l._id !== id));
+  }, []);
 
   const subs = useMemo(() => items.filter(it => it.type !== 'shop-order'), [items]);
   const orders = useMemo(() => items.filter(it => it.type === 'shop-order'), [items]);
@@ -895,16 +955,22 @@ export default function AdminApp() {
   if (authed === null) return <div className="aa-app lay-root"><style>{adminLayoutStyles + aaStyles}</style></div>;
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
 
+  // mob: 'tab' = one of the five thumb tabs; 'more' = lives in the More sheet.
   const RAIL = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutAlt01 },
-    { id: 'submissions', label: 'Submissions', icon: Inbox01, badge: unreadSubs },
-    { id: 'orders', label: 'Orders', icon: Package, badge: unreadOrders },
-    { id: 'calls', label: 'Calls', icon: PhoneCall01 },
-    { id: 'booked', label: 'Booked', icon: CalendarCheck01, badge: bookedCount },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutAlt01, mob: 'more' },
+    { id: 'leads', label: 'Leads', icon: Users01, badge: stageCounts.toCall, mob: 'tab' },
+    { id: 'booked', label: 'Booked', icon: CalendarCheck01, badge: bookedCount, mob: 'tab' },
+    { id: 'clients', label: 'Clients', icon: Briefcase01, badge: stageCounts.won, mob: 'tab' },
+    { id: 'calls', label: 'Calls', icon: PhoneCall01, mob: 'tab' },
+    { id: 'submissions', label: 'Submissions', icon: Inbox01, badge: unreadSubs, mob: 'more' },
+    { id: 'orders', label: 'Orders', icon: Package, badge: unreadOrders, mob: 'more' },
   ];
+  const moreItems = RAIL.filter(r => r.mob === 'more');
+  const moreBadge = moreItems.reduce((n, r) => n + (r.badge || 0), 0);
+  const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
 
   return (
-    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) ? ' has-detail' : ''}`}>
+    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen) ? ' has-detail' : ''}`}>
       {/* Icon rail */}
       <nav className="aa-rail" aria-label="Admin sections">
         <a href={BASE || '/'} className="aa-rail-logo" aria-label="Dashboard" onClick={(e) => { e.preventDefault(); go('dashboard'); }}>
@@ -915,7 +981,7 @@ export default function AdminApp() {
             const IconEl = r.icon;
             return (
               <button key={r.id} type="button"
-                className={`aa-rail-btn${section === r.id ? ' is-on' : ''}`}
+                className={`aa-rail-btn aa-rail-btn--${r.mob}${section === r.id ? ' is-on' : ''}`}
                 onClick={() => go(r.id)} aria-label={r.label} title={r.label}>
                 <IconEl width={19} height={19} />
                 {r.badge > 0 && <span className="aa-rail-badge">{r.badge}</span>}
@@ -923,6 +989,14 @@ export default function AdminApp() {
               </button>
             );
           })}
+          {/* Mobile-only: everything that isn't a thumb tab lives in More */}
+          <button type="button"
+            className={`aa-rail-btn aa-rail-btn--morebtn${moreOpen || ['dashboard', 'submissions', 'orders', 'settings'].includes(section) ? ' is-on' : ''}`}
+            onClick={() => setMoreOpen(true)} aria-label="More sections">
+            <DotsGrid width={19} height={19} />
+            {moreBadge > 0 && <span className="aa-rail-badge">{moreBadge}</span>}
+            <span className="aa-rail-lbl">More</span>
+          </button>
         </div>
         <div className="aa-rail-bottom">
           <button type="button" className={`aa-rail-btn${section === 'settings' ? ' is-on' : ''}`} onClick={() => go('settings')} aria-label="Settings" title="Settings">
@@ -938,7 +1012,22 @@ export default function AdminApp() {
 
       {/* Section content */}
       {section === 'dashboard' && (
-        <Dashboard subs={subs} orders={orders} unread={unread} series={series} onGo={go} />
+        <Dashboard subs={subs} orders={orders} unread={unread} series={series} onGo={go} stageCounts={stageCounts} />
+      )}
+      {section === 'leads' && (
+        <AdminLeads
+          leads={callLeads} submissions={items} loading={callLeadsLoading}
+          onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
+          onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
+          onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
+        />
+      )}
+      {section === 'clients' && (
+        <AdminClients
+          leads={callLeads} submissions={items} loading={callLeadsLoading}
+          onPatch={patchCallLead} onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
+          onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
+        />
       )}
       {section === 'submissions' && (
         <ListSection label="Submissions" items={subs} loading={loading} statusSet={LEAD_STATUSES}
@@ -954,9 +1043,11 @@ export default function AdminApp() {
       {section === 'booked' && (
         <AdminBooked
           leads={callLeads}
+          submissions={items}
           loading={callLeadsLoading}
           onPatch={patchCallLead}
           onRefresh={loadCallLeads}
+          onLinkSubmission={linkSubmission}
           onMobileOpen={() => setBookedOpen(true)}
           onMobileClose={() => setBookedOpen(false)}
           onGo={go}
@@ -964,6 +1055,31 @@ export default function AdminApp() {
       )}
       {section === 'settings' && (
         <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} />
+      )}
+
+      {/* Mobile "More" sheet — the sections that aren't thumb tabs */}
+      {moreOpen && (
+        <div className="aa-more-back" onClick={() => setMoreOpen(false)}>
+          <div className="aa-more" onClick={e => e.stopPropagation()} role="dialog" aria-label="More sections">
+            <div className="aa-more-grid">
+              {[...moreItems, { id: 'settings', label: 'Settings', icon: Settings01 }].map(r => {
+                const IconEl = r.icon;
+                return (
+                  <button key={r.id} type="button" className={`aa-more-btn${section === r.id ? ' is-on' : ''}`}
+                    onClick={() => { setMoreOpen(false); go(r.id); }}>
+                    <IconEl width={20} height={20} />
+                    {r.badge > 0 && <span className="aa-rail-badge">{r.badge}</span>}
+                    <span>{r.label}</span>
+                  </button>
+                );
+              })}
+              <button type="button" className="aa-more-btn" onClick={() => { setMoreOpen(false); logout(); }}>
+                <LogOut01 width={20} height={20} />
+                <span>Log out</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{adminLayoutStyles + aaStyles}</style>
@@ -1071,6 +1187,7 @@ const aaStyles = `
     display: flex; align-items: center; justify-content: center;
   }
   .aa-rail-lbl { display: none; }
+  .aa-rail-btn--morebtn { display: none; } /* mobile-only entry */
 
   /* ── Contextual panel ── */
   .aa-panel {
@@ -1230,8 +1347,26 @@ const aaStyles = `
 
   /* ── Dashboard ── */
   .aa-dash { --lay-stack-gap: 20px; }
-  .aa-greet-title { font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 800; letter-spacing: -0.03em; }
-  .aa-greet-sub { font-size: 0.88rem; color: var(--a-muted); margin-top: 4px; }
+  .aa-greet-title {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: none;
+    font-size: clamp(1.9rem, 5vw, 2.7rem); font-weight: 700; letter-spacing: 0.002em;
+    overflow-wrap: anywhere;
+  }
+  .aa-greet-mark { flex-shrink: 0; }
+  .aa-funnel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .aa-funnel-seg { display: inline-flex; align-items: center; gap: 8px; }
+  .aa-funnel-arrow { color: var(--a-muted); font-size: 0.9rem; }
+  .aa-funnel-btn {
+    display: inline-flex; align-items: baseline; gap: 7px; cursor: pointer;
+    padding: 8px 15px; border-radius: 999px;
+    background: var(--a-card); border: 1px solid var(--a-border);
+    color: var(--a-sec); font-size: 0.82rem; font-weight: 700; font-family: inherit;
+    transition: border-color 0.15s, color 0.15s; touch-action: manipulation;
+  }
+  .aa-funnel-btn:hover { border-color: rgba(212,76,67,0.5); color: #fafafa; }
+  .aa-funnel-btn strong { font-size: 1.05rem; font-weight: 900; color: #fafafa; }
+  .aa-funnel-hint { font-size: 0.72rem; font-weight: 700; color: #fbbf24; }
   .aa-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
   @media (max-width: 760px) { .aa-cards { grid-template-columns: 1fr 1fr; } }
   .aa-card {
@@ -1321,6 +1456,36 @@ const aaStyles = `
   .aa-modal-body { font-size: 0.875rem; color: var(--a-sec); line-height: 1.6; }
   .aa-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 
+  /* ── Mobile "More" sheet ── */
+  .aa-more-back {
+    position: fixed; inset: 0; z-index: 400;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+  .aa-more {
+    width: 100%; max-width: 560px;
+    background: #161616; border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
+    border-radius: 18px 18px 0 0;
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
+  }
+  .aa-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .aa-more-btn {
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+    min-height: 76px; padding: 12px 8px; border-radius: 13px; cursor: pointer;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--a-border);
+    color: var(--a-sec); font-size: 0.72rem; font-weight: 700; font-family: inherit;
+    touch-action: manipulation; transition: color 0.15s, border-color 0.15s;
+  }
+  .aa-more-btn:hover { color: #fafafa; }
+  .aa-more-btn.is-on { color: var(--a-brand); border-color: rgba(212,76,67,0.4); background: rgba(212,76,67,0.1); }
+  .aa-more-btn .aa-rail-badge { top: 8px; right: 14px; }
+  @media (min-width: 761px) {
+    .aa-more-back { align-items: center; }
+    .aa-more { border-radius: 18px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 18px; }
+  }
+
   /* ── Embedded call console ── */
   .aa-embed { flex: 1; min-width: 0; display: flex; }
   .aa-embed .cc-page { height: 100%; flex: 1; }
@@ -1336,7 +1501,11 @@ const aaStyles = `
     }
     .aa-rail-logo { display: none; }
     .aa-rail-items { flex-direction: row; flex: initial; gap: 2px; display: contents; }
-    .aa-rail-bottom { display: contents; }
+    /* Five thumb tabs: Leads, Booked, Clients, Calls, More.
+       Everything else lives in the More sheet on a phone. */
+    .aa-rail-bottom { display: none; }
+    .aa-rail-btn--more { display: none; }
+    .aa-rail-btn--morebtn { display: flex; }
     .aa-rail-btn { width: auto; min-width: 52px; height: 48px; flex-direction: column; gap: 2px; border-radius: 11px; }
     .aa-rail-btn--quiet { display: none; }
     .aa-rail-lbl { display: block; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.02em; }

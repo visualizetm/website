@@ -126,6 +126,8 @@ export default async function handler(req, res) {
     if (typeof set.read === 'boolean') allowed.read = set.read;
     if (typeof set.notes === 'string') allowed.notes = set.notes.slice(0, 5000);
     if (set.socials && typeof set.socials === 'object') allowed.socials = normalizeSocials(set.socials);
+    // Link a submission to a lead/client ('' unlinks). Additive field.
+    if (typeof set.linkedLeadId === 'string') allowed.linkedLeadId = set.linkedLeadId.slice(0, 64);
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: allowed });
     return res.status(200).json({ ok: true });

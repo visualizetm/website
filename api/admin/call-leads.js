@@ -4,7 +4,7 @@ import { requireAdmin } from '../_lib/auth.js';
 
 const CALL_STATUSES = ['not-called', 'callback', 'booked', 'no', 'no-answer'];
 const PRIORITIES = ['hot', 'warm', 'cold'];
-const STAGES = ['lead', 'booked', 'won', 'lost'];
+const STAGES = ['lead', 'booked', 'won', 'lost', 'client'];
 const MEETING_TYPES = ['call', 'video', 'in-person'];
 const PLAN_IDS = ['full', '6mo', '12mo'];
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
@@ -137,6 +137,17 @@ function sanitize(b) {
       driveUrl: str(b.conceptsTracker.driveUrl, 400),
     } : undefined,
     prepNotes: b.prepNotes !== undefined ? str(b.prepNotes, 3000) : undefined,
+    // Named task lists ("checklists") — additive. ≤10 lists × ≤50 items.
+    checklists: Array.isArray(b.checklists)
+      ? b.checklists.slice(0, 10).map(l => ({
+          name: str(l?.name, 80),
+          items: Array.isArray(l?.items)
+            ? l.items.slice(0, 50).map(i => ({ text: str(i?.text, 300), done: !!i?.done }))
+            : [],
+        }))
+      : undefined,
+    // Set when the first invoice is paid and the lead becomes a client.
+    clientSince: b.clientSince !== undefined ? str(b.clientSince, 40) : undefined,
     bookedOutcome: b.bookedOutcome && typeof b.bookedOutcome === 'object' ? {
       result: ['won', 'lost'].includes(b.bookedOutcome.result) ? b.bookedOutcome.result : 'lost',
       reason: str(b.bookedOutcome.reason, 600),

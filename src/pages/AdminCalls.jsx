@@ -5,7 +5,6 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import PhoneIncoming01 from '@untitled-ui/icons-react/build/esm/PhoneIncoming01';
 import PhoneHangUp from '@untitled-ui/icons-react/build/esm/PhoneHangUp';
 import Voicemail from '@untitled-ui/icons-react/build/esm/Voicemail';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
@@ -13,16 +12,13 @@ import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
-import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import Play from '@untitled-ui/icons-react/build/esm/Play';
 import SkipForward from '@untitled-ui/icons-react/build/esm/SkipForward';
 import Keyboard01 from '@untitled-ui/icons-react/build/esm/Keyboard01';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
-import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import Wordmark from '../components/Wordmark';
-import LeadImport from '../components/LeadImport';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
 import { ADMIN_HOME } from '../lib/adminPaths';
@@ -68,7 +64,7 @@ const fmtLogTime = (iso) => {
 
 // Standard script skeleton for manually added leads — same bones as the
 // notepad docs, personalized from the business fields.
-function defaultLead(f) {
+export function defaultLead(f) {
   const who = f.askFor?.trim() || 'the owner';
   return {
     ...f,
@@ -638,15 +634,15 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
   const [loaded, setLoaded] = useState(false);
 
   // Queue filters
-  const [q, setQ] = useState('');
-  const [pills, setPills] = useState({ hot: false, warm: false, hasPhone: false, notCalled: false, callbacks: false });
-  const [industry, setIndustry] = useState('all');
+  // Session builder — the queue screen is about choosing WHO to dial,
+  // not browsing leads (that's the Leads page). Empty set = "all".
+  const [selPrio, setSelPrio] = useState(() => new Set());
+  const [selStatus, setSelStatus] = useState(() => new Set());
+  const [selInd, setSelInd] = useState(() => new Set());
   const [includePhoneless, setIncludePhoneless] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Overlays
   const [newOpen, setNewOpen] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
@@ -805,26 +801,21 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
   );
 
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    const prios = [pills.hot && 'hot', pills.warm && 'warm'].filter(Boolean);
-    const stats = [pills.notCalled && 'not-called', pills.callbacks && 'callback'].filter(Boolean);
     return leads
       .filter(l =>
-        // Booked/won/lost leads leave the calling queue — they live in the
-        // Booked workspace now. (Lookup still searches ALL leads.)
+        // Only open pipeline leads are dialable — booked/won/client/lost
+        // live in their own workspaces. (Lookup still searches ALL leads.)
         effectiveStage(l) === 'lead' &&
-        (!needle || `${l.business} ${l.industry} ${l.area} ${l.descriptor}`.toLowerCase().includes(needle)) &&
-        (!prios.length || prios.includes(l.priority)) &&
-        (!stats.length || stats.includes(l.callStatus)) &&
-        (!pills.hasPhone || !!l.phone) &&
-        (industry === 'all' || l.industry === industry)
+        (!selPrio.size || selPrio.has(l.priority)) &&
+        (!selStatus.size || selStatus.has(l.callStatus)) &&
+        (!selInd.size || selInd.has(l.industry))
       )
       .sort((a, b) =>
         (PRIO_RANK[a.priority] ?? 1) - (PRIO_RANK[b.priority] ?? 1) ||
         (STATUS_RANK[a.callStatus] ?? 9) - (STATUS_RANK[b.callStatus] ?? 9) ||
         new Date(b.createdAt) - new Date(a.createdAt)
       );
-  }, [leads, q, pills, industry]);
+  }, [leads, selPrio, selStatus, selInd]);
 
   const callable = useMemo(
     () => includePhoneless ? filtered : filtered.filter(l => l.phone),
@@ -991,44 +982,30 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
 
   /* ── Render ── */
 
-  const toCall = leads.filter(l => l.callStatus === 'not-called').length;
+  const toCall = leads.filter(l => effectiveStage(l) === 'lead' && l.callStatus === 'not-called').length;
 
   if (authed === null) return <div className="cc-page lay-root"><style>{adminLayoutStyles + ccStyles}</style></div>;
 
   const elapsed = session ? fmtMins(Date.now() - session.startedAt) : '0m';
   const warned = current && WARN_RX.test(`${current.notes || ''} ${current.phoneNote || ''}`);
 
-  const activePills = Object.values(pills).filter(Boolean).length + (industry !== 'all' ? 1 : 0);
-
-  const pillDefs = [
-    ['hot', 'Hot'], ['warm', 'Warm'], ['hasPhone', 'Has phone'],
-    ['notCalled', 'Not called'], ['callbacks', 'Callbacks'],
-  ];
-
-  const filterControls = (
-    <>
-      {pillDefs.map(([k, label]) => (
-        <button
-          key={k}
-          type="button"
-          className={`cc-pill${pills[k] ? ' is-on' : ''}`}
-          aria-pressed={pills[k]}
-          onClick={() => setPills(p => ({ ...p, [k]: !p[k] }))}
-        >
-          {label}
-        </button>
-      ))}
-      <select
-        className={`cc-pill cc-pill--select${industry !== 'all' ? ' is-on' : ''}`}
-        value={industry}
-        onChange={e => setIndustry(e.target.value)}
-        aria-label="Filter by industry"
-      >
-        <option value="all">Industry</option>
-        {industries.map(i => <option key={i} value={i}>{i}</option>)}
-      </select>
-    </>
+  // Session-builder helpers: toggle a value in a Set-typed filter.
+  const toggleIn = (setter) => (val) => setter(prev => {
+    const next = new Set(prev);
+    next.has(val) ? next.delete(val) : next.add(val);
+    return next;
+  });
+  const builderChip = (on, key, label, count, onClick) => (
+    <button key={key} type="button" className={`cb-chip${on ? ' is-on' : ''}`} aria-pressed={on} onClick={onClick}>
+      {on && <Check width={14} height={14} />}
+      <span>{label}</span>
+      {count != null && <em>{count}</em>}
+    </button>
   );
+  const pool = filtered; // after stage + builder filters
+  const poolHot = callable.filter(l => l.priority === 'hot').length;
+  const poolNotCalled = callable.filter(l => l.callStatus === 'not-called').length;
+  const countBy = (fn) => leads.filter(l => effectiveStage(l) === 'lead').filter(fn).length;
 
   return (
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
@@ -1049,12 +1026,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                   <PhoneIncoming01 width={15} height={15} />
                 </button>
                 <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
-                <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}>
-                  <Upload01 width={14} height={14} /> Upload
-                </button>
-                <button type="button" className="cc-btn cc-btn--primary" onClick={() => setNewOpen(true)}>
-                  <Plus width={14} height={14} /> New lead
-                </button>
               </div>
             </header>
           )}
@@ -1070,69 +1041,75 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                     <PhoneIncoming01 width={15} height={15} />
                   </button>
                   <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
-                  <button type="button" className="cc-btn" onClick={() => setImportOpen(true)}><Upload01 width={14} height={14} /> Upload</button>
-                  <button type="button" className="cc-btn cc-btn--primary" onClick={() => setNewOpen(true)}><Plus width={14} height={14} /> New</button>
                 </div>
               )}
 
-              <div className="cq-controls">
-                <div className="cc-search-wrap">
-                  <SearchMd width={15} height={15} />
-                  <input className="cc-input cc-search" placeholder="Search leads…" value={q} onChange={e => setQ(e.target.value)} />
-                </div>
-                <button type="button" className={`cc-pill cq-filterbtn${activePills ? ' is-on' : ''}`} onClick={() => setFiltersOpen(true)}>
-                  <FilterLines width={14} height={14} /> Filters{activePills ? ` · ${activePills}` : ''}
-                </button>
-                <div className="cq-pills">{filterControls}</div>
-              </div>
-
-              <div className="cq-count">
-                {filtered.length} lead{filtered.length === 1 ? '' : 's'}
-                {!includePhoneless && filtered.length !== callable.length && ` · ${callable.length} with phones`}
-              </div>
-
-              <div className="cq-list">
-                {leads.length === 0 && loaded && (
-                  <div className="cc-empty">
-                    <p className="cc-empty-title">No leads yet.</p>
-                    <button type="button" className="cc-btn cc-btn--primary" onClick={importNotepads} disabled={importing}>
-                      <Download01 width={14} height={14} />
-                      {importing ? 'Importing…' : `Import ${IMPORT_LEADS.length} notepads`}
-                    </button>
-                    <p className="cc-empty-note">Loads the cold-call notepads from your Drive docs.</p>
-                  </div>
-                )}
-                {leads.length > 0 && filtered.length === 0 && (
-                  <p className="cc-empty-note" style={{ padding: '24px 4px' }}>No leads match the filters.</p>
-                )}
-                {filtered.map(l => (
-                  <button
-                    key={l._id}
-                    type="button"
-                    className="cq-card lay-card"
-                    onClick={() => startSession(l._id)}
-                    title={l.phone ? 'Open in session view' : 'No phone on file'}
-                  >
-                    <span className="cq-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
-                    <span className="cq-main">
-                      <span className="cq-name">{l.business}</span>
-                      <span className="cq-sub">{[l.area, l.industry].filter(Boolean).join(' · ') || l.descriptor}</span>
-                    </span>
-                    <span className="cq-side">
-                      <PriorityPill p={l.priority} />
-                      {l.phone && <span className="cq-hasphone"><Phone width={13} height={13} /></span>}
-                    </span>
+              {leads.length === 0 && loaded ? (
+                <div className="cc-empty">
+                  <p className="cc-empty-title">No leads yet.</p>
+                  <button type="button" className="cc-btn cc-btn--primary" onClick={importNotepads} disabled={importing}>
+                    <Download01 width={14} height={14} />
+                    {importing ? 'Importing…' : `Import ${IMPORT_LEADS.length} notepads`}
                   </button>
-                ))}
-              </div>
+                  <p className="cc-empty-note">Add and manage leads on the Leads page — the console is just for dialing.</p>
+                </div>
+              ) : (
+                <>
+                  {/* ── Session builder: pick who you're dialing ── */}
+                  <div className="cb-intro">
+                    <p className="cb-kicker">Build your session</p>
+                    <h1 className="cb-title display">Who are we dialing?</h1>
+                    <p className="cb-sub">Pick the kind of leads for this block of calls. Nothing selected in a group means &ldquo;all of them.&rdquo;</p>
+                  </div>
+
+                  <div className="cb-group">
+                    <p className="cb-group-h">Priority</p>
+                    <div className="cb-row">
+                      {['hot', 'warm', 'cold'].map(p =>
+                        builderChip(selPrio.has(p), p, p.toUpperCase(), countBy(l => l.priority === p), () => toggleIn(setSelPrio)(p)))}
+                    </div>
+                  </div>
+
+                  <div className="cb-group">
+                    <p className="cb-group-h">Call status</p>
+                    <div className="cb-row">
+                      {[['not-called', 'Not called'], ['callback', 'Callbacks'], ['no-answer', 'No answer'], ['no', 'Said no']].map(([id, label]) =>
+                        builderChip(selStatus.has(id), id, label, countBy(l => l.callStatus === id), () => toggleIn(setSelStatus)(id)))}
+                    </div>
+                  </div>
+
+                  {industries.length > 0 && (
+                    <div className="cb-group">
+                      <p className="cb-group-h">Industry</p>
+                      <div className="cb-row">
+                        {industries.map(i =>
+                          builderChip(selInd.has(i), i, i, countBy(l => l.industry === i), () => toggleIn(setSelInd)(i)))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="cb-group">
+                    <p className="cb-group-h">Options</p>
+                    <div className="cb-row">
+                      {builderChip(includePhoneless, 'nophone', 'Include leads without a phone',
+                        countBy(l => !l.phone), () => setIncludePhoneless(v => !v))}
+                    </div>
+                  </div>
+
+                  <div className="cb-preview" role="status">
+                    <span className="cb-preview-n">{callable.length}</span>
+                    <span className="cb-preview-txt">
+                      lead{callable.length === 1 ? '' : 's'} in this queue
+                      {callable.length > 0 && ` — ${poolHot} hot · ${poolNotCalled} never called`}
+                      {pool.length !== callable.length && !includePhoneless && ` (${pool.length - callable.length} skipped for no phone)`}
+                    </span>
+                  </div>
+                </>
+              )}
             </ScrollArea>
 
             {callable.length > 0 && (
               <StickyFooterBar className="cq-startbar">
-                <label className="cq-nophone">
-                  <input type="checkbox" checked={includePhoneless} onChange={e => setIncludePhoneless(e.target.checked)} />
-                  <span>Include leads without a phone</span>
-                </label>
                 <button type="button" className="cq-start" onClick={() => startSession()}>
                   <Play width={20} height={20} />
                   Start call session
@@ -1141,19 +1118,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
               </StickyFooterBar>
             )}
           </div>
-
-          {filtersOpen && (
-            <div className="cc-sheet-back" onClick={() => setFiltersOpen(false)}>
-              <div className="cc-sheet cq-filtersheet" onClick={e => e.stopPropagation()}>
-                <div className="cc-sheet-head">
-                  <span className="cc-sheet-badge" style={{ '--sc': '#8a8a8a' }}><FilterLines width={15} height={15} /> Filters</span>
-                  <button type="button" className="cc-iconbtn" onClick={() => setFiltersOpen(false)} aria-label="Close"><XClose width={16} height={16} /></button>
-                </div>
-                <div className="cq-sheet-pills">{filterControls}</div>
-                <button type="button" className="cc-btn cc-btn--primary" onClick={() => setFiltersOpen(false)}>Done</button>
-              </div>
-            </div>
-          )}
         </>
       )}
 
@@ -1416,13 +1380,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
           </div>
         </div>
       )}
-      {importOpen && (
-        <LeadImport
-          existingLeads={leads}
-          onClose={() => setImportOpen(false)}
-          onImported={() => { load(); onDataChanged?.(); }}
-        />
-      )}
       {err && (
         <div className="cc-err" role="alert">
           <AlertTriangle width={16} height={16} />
@@ -1569,6 +1526,44 @@ const ccStyles = `
   .cq-sub { font-size: 0.74rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cq-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .cq-hasphone { color: #22c55e; display: inline-flex; }
+
+  /* ── Session builder ── */
+  .cb-intro { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+  .cb-kicker { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--c-brand); }
+  .cb-title {
+    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase;
+    font-size: clamp(2rem, 7vw, 3rem); line-height: 0.95; font-weight: 700;
+  }
+  .cb-sub { font-size: 0.88rem; color: var(--c-muted); line-height: 1.55; max-width: 480px; }
+  .cb-group { display: flex; flex-direction: column; gap: 8px; }
+  .cb-group-h { font-size: 0.64rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; color: var(--c-muted); }
+  .cb-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cb-chip {
+    display: inline-flex; align-items: center; gap: 8px; min-height: 44px;
+    padding: 10px 16px; border-radius: 12px; cursor: pointer;
+    background: var(--c-card); border: 1px solid var(--c-border);
+    color: var(--c-sec); font-size: 0.85rem; font-weight: 700; font-family: inherit;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    touch-action: manipulation;
+  }
+  .cb-chip:hover { color: #fafafa; border-color: rgba(255,255,255,0.2); }
+  .cb-chip.is-on { color: #fafafa; border-color: rgba(212,76,67,0.6); background: rgba(212,76,67,0.12); }
+  .cb-chip.is-on svg { color: var(--c-brand); }
+  .cb-chip em {
+    font-style: normal; font-size: 0.68rem; font-weight: 800; color: var(--c-muted);
+    background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 999px;
+  }
+  .cb-chip.is-on em { background: rgba(212,76,67,0.2); color: #f0a09a; }
+  .cb-preview {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    padding: 16px 18px; border-radius: 15px;
+    background: var(--c-card); border: 1px solid rgba(212,76,67,0.35);
+  }
+  .cb-preview-n {
+    font-family: 'Barlow Condensed', 'Inter', sans-serif;
+    font-size: 2.6rem; font-weight: 700; line-height: 1; color: #fafafa;
+  }
+  .cb-preview-txt { font-size: 0.85rem; font-weight: 600; color: var(--c-sec); min-width: 0; }
 
   .cq-nophone {
     display: inline-flex; align-items: center; gap: 7px; cursor: pointer;

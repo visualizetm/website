@@ -19,6 +19,9 @@ import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
 import { SocialButtons } from '../components/SocialLinks';
+import Checklists from '../components/Checklists';
+import LinkedSubmissions from '../components/LinkedSubmissions';
+import { checklistProgress } from '../lib/booked';
 import {
   effectiveStage, SERVICES, serviceLabel, MEETING_TYPES, PLANS,
   monthlyOf, PROJECT_CAP, meetingDate, meetingCountdown, prepStatus, PREP_META,
@@ -45,6 +48,7 @@ const BOOKED_PREFS = 'vz_booked_prefs';
 // Call mode: prep collapses to one-liners, the read-off-screen blocks open.
 const CALL_MODE_MAP = {
   meeting: false, services: false, angle: false, notes: false, log: false,
+  tasks: false, subs: false,
   pricing: true, concepts: true, prep: true,
 };
 
@@ -206,7 +210,7 @@ function LogList({ lead }) {
 
 /* ── Detail workspace for one booked lead ──────────────────────── */
 
-function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
+function BookedDetail({ lead, submissions, onPatch, onLinkSubmission, onClose, onClosedOut }) {
   const [pricing, setPricing] = useState(lead.pricingOptions || []);
   const [pricingDirty, setPricingDirty] = useState(false);
   const [urls, setUrls] = useState({ demoUrl: lead.conceptsTracker?.demoUrl || '', driveUrl: lead.conceptsTracker?.driveUrl || '' });
@@ -245,7 +249,7 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
       meeting: !lead.meeting?.date,
       services: !(lead.servicesPlanned?.length),
       pricing: true, concepts: true, prep: true,
-      angle: false, notes: false, log: false,
+      angle: false, notes: false, log: false, tasks: false, subs: false,
     };
     setCallMode(savedCall);
     setOpenMap(savedCall ? { ...defaults, ...CALL_MODE_MAP } : { ...defaults, ...saved });
@@ -579,6 +583,27 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
             )}
           </Section>
 
+          {/* Checklists + their site submissions */}
+          <Section
+            id="tasks"
+            title="Checklists"
+            note={checklistProgress(lead).total ? `${checklistProgress(lead).done}/${checklistProgress(lead).total}` : undefined}
+            summary={checklistProgress(lead).lists ? undefined : 'No checklists yet'}
+            open={!!openMap.tasks}
+            onToggle={toggleSection}
+          >
+            <Checklists lead={lead} onPatch={onPatch} />
+          </Section>
+          <Section
+            id="subs"
+            title="Their site submissions"
+            note={(submissions || []).filter(s => s.linkedLeadId === lead._id).length || undefined}
+            open={!!openMap.subs}
+            onToggle={toggleSection}
+          >
+            <LinkedSubmissions lead={lead} submissions={submissions || []} onLinkSubmission={onLinkSubmission} />
+          </Section>
+
           {/* Carried-over context from the Call Console */}
           {lead.angle && (
             <Section id="angle" title="The angle" open={!!openMap.angle} onToggle={toggleSection}>
@@ -633,7 +658,7 @@ function BookedDetail({ lead, onPatch, onClose, onClosedOut }) {
 
 /* ── Section: list rail + detail ───────────────────────────────── */
 
-export default function AdminBooked({ leads, loading, onPatch, onRefresh, onMobileOpen, onMobileClose, onGo }) {
+export default function AdminBooked({ leads, submissions = [], loading, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo }) {
   const [selId, setSelId] = useState(null);
   const [chip, setChip] = useState('all'); // all | needs-prep | ready | week
   const [showClosed, setShowClosed] = useState(false);
@@ -762,7 +787,7 @@ export default function AdminBooked({ leads, loading, onPatch, onRefresh, onMobi
 
       <main className="aa-main bk-main">
         {selVisible ? (
-          <BookedDetail lead={sel} onPatch={onPatch} onClose={back} onClosedOut={closedOut} />
+          <BookedDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} onClosedOut={closedOut} />
         ) : (
           <div className="aa-main-empty">
             <CalendarCheck01 width={34} height={34} />

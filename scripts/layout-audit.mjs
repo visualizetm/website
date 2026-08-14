@@ -31,8 +31,18 @@ const BOOKED_EXTRA = {
   prepNotes: UNBROKEN,
 };
 
-const leads = Array.from({ length: 10 }, (_, i) => ({
+const PIPE_EXTRA = {
+  10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
+        servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
+  11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z',
+        servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
+        pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
+        checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }] },
+};
+
+const leads = Array.from({ length: 12 }, (_, i) => ({
   ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
+  ...(PIPE_EXTRA[i] || {}),
   _id: 'L' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : `Lead Business ${i}`,
   industry: 'Auto Detailing', area: 'Wilmington DE',
@@ -57,6 +67,7 @@ const items = Array.from({ length: 12 }, (_, i) => ({
   projectType: 'Brand', name: 'Person ' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : 'Business ' + i,
   email: i === 2 ? 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com' : `p${i}@x.com`,
+  linkedLeadId: i === 3 ? 'L0' : undefined,
   phone: '(302) 555-0100', status: ['new', 'contacted', 'replied', 'landed', 'denied'][i % 5],
   read: i % 2 === 0, notes: '', socials: {},
   fields: { 'Business Description': UNBROKEN, Budget: '$600' },
@@ -165,6 +176,22 @@ for (const width of WIDTHS) {
   await check('booked list');
   await page.locator('.bk-card').first().click({ timeout: 4000 }).catch(() => {});
   await check('booked detail (hostile fixtures)');
+
+  await goto('/admin/leads');
+  await check('leads list');
+  await page.locator('.ld-card').first().click({ timeout: 4000 }).catch(() => {});
+  await check('lead detail (long name)');
+
+  await goto('/admin/clients');
+  await check('clients list');
+  await page.locator('.cl-card').first().click({ timeout: 4000 }).catch(() => {});
+  await check('client detail (hostile pricing/checklists)');
+
+  if (width < 761) {
+    await goto('/admin/leads');
+    await page.locator('.aa-rail-btn--morebtn').click({ timeout: 4000 }).catch(() => {});
+    await check('mobile More sheet');
+  }
 
   await ctx.close();
 }

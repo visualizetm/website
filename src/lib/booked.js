@@ -9,8 +9,16 @@
  * in the workspace without any data migration.
  */
 export function effectiveStage(lead) {
-  if (lead?.stage && ['lead', 'booked', 'won', 'lost'].includes(lead.stage)) return lead.stage;
+  if (lead?.stage && ['lead', 'booked', 'won', 'lost', 'client'].includes(lead.stage)) return lead.stage;
   return lead?.callStatus === 'booked' ? 'booked' : 'lead';
+}
+
+/** Total / done across all of a lead's checklists — for n/m badges. */
+export function checklistProgress(lead) {
+  const lists = lead?.checklists || [];
+  let total = 0; let done = 0;
+  for (const l of lists) for (const i of (l.items || [])) { total++; if (i.done) done++; }
+  return { total, done, lists: lists.length };
 }
 
 export const MEETING_TYPES = [

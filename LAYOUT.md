@@ -75,5 +75,6 @@ It loads hostile fixtures (80-char slash-joined names, unbroken 88-char
 strings, giant emails) through mocked APIs and fails if any element extends
 past the viewport or any page can scroll sideways. Zero offenders is the bar.
 Covered views: dashboard, submissions list + detail, orders, settings, call
-console queue + session, the reverse-lookup sheet, and the Booked workspace
-list + detail.
+console session builder + session, the reverse-lookup sheet, the Booked
+workspace list + detail, the Leads page list + detail, the Clients page
+list + detail, and the mobile More sheet.
