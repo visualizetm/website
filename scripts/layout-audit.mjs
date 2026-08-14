@@ -37,7 +37,12 @@ const PIPE_EXTRA = {
   11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z',
         servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
         pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
-        checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }] },
+        checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }],
+        purchases: [
+          { label: LONG, amount: 1150, at: '2027-01-05', notes: UNBROKEN.slice(0, 50) },
+          { label: 'Retainer month 1', amount: 95, at: '2027-02-01', notes: '' },
+        ],
+        contactLog: [{ type: 'meeting', at: '2027-02-03', note: UNBROKEN }] },
 };
 
 const leads = Array.from({ length: 12 }, (_, i) => ({

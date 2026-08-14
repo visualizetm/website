@@ -1025,7 +1025,8 @@ export default function AdminApp() {
       {section === 'clients' && (
         <AdminClients
           leads={callLeads} submissions={items} loading={callLeadsLoading}
-          onPatch={patchCallLead} onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
+          onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
+          onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
         />
       )}

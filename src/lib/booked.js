@@ -13,6 +13,25 @@ export function effectiveStage(lead) {
   return lead?.callStatus === 'booked' ? 'booked' : 'lead';
 }
 
+/** Most recent contact across the manual contactLog AND console callLog.
+ *  Returns { date, days } or null if never contacted. */
+export function lastContact(lead, now = Date.now()) {
+  let best = 0;
+  for (const e of (lead?.contactLog || [])) {
+    const t = new Date(e.at).getTime();
+    if (t && t > best) best = t;
+  }
+  for (const e of (lead?.callLog || [])) {
+    const t = new Date(e.at).getTime();
+    if (t && t > best) best = t;
+  }
+  if (!best) return null;
+  return { date: new Date(best), days: Math.max(0, Math.floor((now - best) / 864e5)) };
+}
+
+/** Sum of the purchases ledger. */
+export const totalPaid = (lead) => (lead?.purchases || []).reduce((n, p) => n + (Number(p.amount) || 0), 0);
+
 /** Total / done across all of a lead's checklists — for n/m badges. */
 export function checklistProgress(lead) {
   const lists = lead?.checklists || [];

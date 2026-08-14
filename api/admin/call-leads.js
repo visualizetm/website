@@ -148,6 +148,23 @@ function sanitize(b) {
       : undefined,
     // Set when the first invoice is paid and the lead becomes a client.
     clientSince: b.clientSince !== undefined ? str(b.clientSince, 40) : undefined,
+    // What the client paid for — a purchases ledger. Additive.
+    purchases: Array.isArray(b.purchases)
+      ? b.purchases.slice(0, 50).map(p => ({
+          label: str(p?.label, 160),
+          amount: Number.isFinite(Number(p?.amount)) ? Math.max(0, Math.min(1000000, Number(p.amount))) : 0,
+          at: str(p?.at, 40),
+          notes: str(p?.notes, 400),
+        }))
+      : undefined,
+    // Manual "I talked to them" log (calls/meetings outside the console).
+    contactLog: Array.isArray(b.contactLog)
+      ? b.contactLog.slice(-200).map(c => ({
+          type: ['call', 'meeting', 'email', 'text', 'other'].includes(c?.type) ? c.type : 'other',
+          at: str(c?.at, 40),
+          note: str(c?.note, 600),
+        }))
+      : undefined,
     bookedOutcome: b.bookedOutcome && typeof b.bookedOutcome === 'object' ? {
       result: ['won', 'lost'].includes(b.bookedOutcome.result) ? b.bookedOutcome.result : 'lost',
       reason: str(b.bookedOutcome.reason, 600),
