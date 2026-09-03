@@ -28,6 +28,14 @@ classes are impossible by construction:
 
 ## Tokens — defined once on `.lay-root`
 
+Since Prompt 2 the layout tokens are aliases of the `--v-` design tokens
+(`docs/TOKENS.md`): `--lay-gutter` → `--v-gutter`, `--lay-tabbar-h` →
+`--v-tabbar-h`, `--lay-rail-w` → `--v-sidebar-rail-w`, `--lay-bar-bg` →
+`--v-bar`, `--lay-border` → `--v-border`. New code reads the `--v-` names
+directly; the `--lay-` names stay until every screen has migrated. The
+primitives themselves are unchanged: every page still renders inside
+PageShell + ScrollArea, pinned bars are StickyFooterBar, rows carry `.lay-card`.
+
 ```
 --lay-gutter        clamp(16px, 3vw, 24px)   horizontal page padding
 --lay-gutter-l/-r   gutter, floored by safe-area left/right (landscape notch)
