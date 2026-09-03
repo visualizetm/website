@@ -1452,17 +1452,6 @@ const aaStyles = `
   @media (max-width: 760px) { .aa-cards { grid-template-columns: 1fr 1fr; } }
   .aa-card-value { overflow-wrap: anywhere; }
 
-  .aa-callprog {
-    display: flex; flex-direction: column; gap: 9px;
-    background: var(--a-card); border: 1px solid var(--a-border);
-    border-radius: 15px; padding: 15px 18px;
-  }
-  .aa-callprog-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-  .aa-callprog-lbl { font-size: 0.86rem; color: var(--a-sec); }
-  .aa-callprog-lbl strong { color: #fafafa; font-weight: 800; }
-  .aa-callprog-pct { font-size: 0.95rem; font-weight: 900; color: var(--a-brand); }
-  .aa-callprog-bar { height: 7px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
-  .aa-callprog-bar > span { display: block; height: 100%; border-radius: 999px; background: var(--a-brand); transition: width 0.3s cubic-bezier(0.4,0,0.2,1); }
   .aa-card {
     position: relative; overflow: hidden; text-align: left; cursor: pointer;
     display: flex; flex-direction: column; gap: 4px;

@@ -1,11 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useReducer } from 'react';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
-import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import PhoneIncoming01 from '@untitled-ui/icons-react/build/esm/PhoneIncoming01';
 import PhoneHangUp from '@untitled-ui/icons-react/build/esm/PhoneHangUp';
 import Voicemail from '@untitled-ui/icons-react/build/esm/Voicemail';
-import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
@@ -18,7 +16,6 @@ import Play from '@untitled-ui/icons-react/build/esm/Play';
 import SkipForward from '@untitled-ui/icons-react/build/esm/SkipForward';
 import Keyboard01 from '@untitled-ui/icons-react/build/esm/Keyboard01';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
-import Wordmark from '../components/Wordmark';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
 import UserX01 from '@untitled-ui/icons-react/build/esm/UserX01';
@@ -684,18 +681,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
 
   useEffect(() => { if (authed) load(); }, [authed, load]);
 
-  // A dashboard stat card can pre-fill the session builder ("Not yet
-  // called" → status not-called). One-shot handoff via localStorage.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem('vz_builder_preset');
-      if (!raw) return;
-      localStorage.removeItem('vz_builder_preset');
-      const p = JSON.parse(raw);
-      if (Array.isArray(p?.status)) setSelStatus(new Set(p.status));
-      if (Array.isArray(p?.priority)) setSelPrio(new Set(p.priority));
-    } catch { /* stale/corrupt preset — ignore */ }
-  }, []);
 
   // Restore a persisted session — returning from a phone call or a tab
   // reload never loses your place mid-dialing.
@@ -1034,22 +1019,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
       {/* ═══ QUEUE ═══ */}
       {mode === 'queue' && !isPeek && (
         <>
-          {!embedded && (
-            <header className="cc-topbar">
-              <div className="cc-topbar-left">
-                <Wordmark size={16} />
-                <span className="cc-topbar-title">Call Console</span>
-                {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
-              </div>
-              <div className="cc-topbar-right">
-                <a href={ADMIN_HOME} className="cc-btn"><ArrowLeft width={14} height={14} /> Admin</a>
-                <button type="button" className="cc-iconbtn cc-lookupbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
-                  <PhoneIncoming01 width={15} height={15} />
-                </button>
-                <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
-              </div>
-            </header>
-          )}
 
           <div className="cq-wrap grid-texture">
             <ScrollArea contentClassName="cq-inner">
@@ -1222,7 +1191,7 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
               {current && (
                 <article
                   key={`${current._id}-${curIdx}`}
-                  className={`cs-card lay-content ${dir >= 0 ? 'cs-card--fwd' : 'cs-card--back'}${flash ? ` cs-card--flash-${flash}` : ''}`}
+                  className={`cs-card lay-content ${dir >= 0 ? 'cs-card--fwd' : 'cs-card--back'}`}
                 >
                   {warned && (
                     <div className="cs-warn" role="alert">
@@ -1515,12 +1484,6 @@ const ccStyles = `
   .cc-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sc); }
 
   /* Topbar (standalone route) */
-  .cc-topbar {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 12px var(--lay-gutter-r) 12px var(--lay-gutter-l); flex-shrink: 0; flex-wrap: wrap;
-    background: rgba(8,8,8,0.97); border-bottom: 1px solid var(--c-border);
-  }
-  .cc-topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .cc-topbar-title {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.16em;
     text-transform: uppercase; color: var(--c-muted); white-space: nowrap;
@@ -1529,7 +1492,6 @@ const ccStyles = `
     font-size: 0.7rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
     background: var(--c-brand); color: #fff; white-space: nowrap;
   }
-  .cc-topbar-right { display: flex; align-items: center; gap: 8px; }
 
   /* ═══ Queue ═══
      Structure comes from the primitives: the list is a ScrollArea with
@@ -1539,41 +1501,7 @@ const ccStyles = `
   .cq-inner { --lay-stack-gap: 12px; }
   .cq-embedbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; }
   .cq-embedbar-spacer { flex: 1; }
-  .cq-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .cc-search-wrap { position: relative; display: flex; align-items: center; color: var(--c-muted); flex: 1; min-width: 200px; }
-  .cc-search-wrap > svg { position: absolute; left: 12px; pointer-events: none; }
-  .cc-search { padding-left: 34px; }
-  .cq-pills { display: flex; flex-wrap: wrap; gap: 7px; }
-  .cc-pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 13px; border-radius: 999px; cursor: pointer;
-    border: 1px solid var(--c-border); background: rgba(255,255,255,0.04);
-    color: var(--c-muted); font-size: 0.78rem; font-weight: 700; font-family: inherit;
-    transition: color 0.15s, border-color 0.15s, background 0.15s;
-    white-space: nowrap;
-  }
-  .cc-pill:hover { color: #fafafa; }
-  .cc-pill.is-on { color: var(--c-brand); border-color: rgba(212,76,67,0.5); background: rgba(212,76,67,0.1); }
-  .cc-pill--select { appearance: none; -webkit-appearance: none; padding-right: 13px; }
-  .cc-pill--select option { background: #1a1a1a; color: #fafafa; }
-  .cq-filterbtn { display: none; }
-  .cq-count { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--c-muted); }
-  .cq-list { display: flex; flex-direction: column; gap: 8px; }
-  .cq-card {
-    display: flex; align-items: center; gap: 12px; width: 100%;
-    padding: 13px 15px; border-radius: 13px; cursor: pointer;
-    background: var(--c-card); border: 1px solid var(--c-border);
-    text-align: left; font-family: inherit; color: inherit;
-    transition: border-color 0.15s, transform 0.15s;
-  }
-  .cq-card:hover { border-color: rgba(212,76,67,0.45); }
-  .cq-card:active { transform: scale(0.995); }
   .cq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); flex-shrink: 0; }
-  .cq-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .cq-name { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cq-sub { font-size: 0.74rem; color: var(--c-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .cq-side { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-  .cq-hasphone { color: #22c55e; display: inline-flex; }
 
   /* ── Session builder ── */
   .cb-intro { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
@@ -1612,12 +1540,6 @@ const ccStyles = `
     font-size: 2.6rem; font-weight: 700; line-height: 1; color: #fafafa;
   }
   .cb-preview-txt { font-size: 0.85rem; font-weight: 600; color: var(--c-sec); min-width: 0; }
-
-  .cq-nophone {
-    display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
-    font-size: 0.74rem; font-weight: 600; color: var(--c-muted);
-  }
-  .cq-nophone input { accent-color: var(--c-brand); }
   .cq-start {
     display: inline-flex; align-items: center; justify-content: center; gap: 11px;
     width: 100%; max-width: 460px; padding: 17px 22px; border-radius: 15px; cursor: pointer;
@@ -1633,8 +1555,6 @@ const ccStyles = `
     font-size: 0.8rem; font-weight: 800; padding: 3px 10px; border-radius: 999px;
     background: rgba(0,0,0,0.25);
   }
-  .cq-filtersheet { gap: 14px; }
-  .cq-sheet-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 
   /* ═══ Session ═══ */
   .cs-wrap { flex: 1; min-height: 0; min-width: 0; display: grid; grid-template-columns: 1fr; position: relative; }
@@ -2020,9 +1940,6 @@ const ccStyles = `
 
   /* ── Mobile filter sheet trigger ── */
   @media (max-width: 700px) {
-    .cq-pills { display: none; }
-    .cq-filterbtn { display: inline-flex; }
-    .cq-sheet-pills .cc-pill { padding: 10px 16px; font-size: 0.85rem; }
   }
 
   /* ── Small phones: tighter phone hero + outcome bar ── */
