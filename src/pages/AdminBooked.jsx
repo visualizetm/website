@@ -27,22 +27,17 @@ import {
   monthlyOf, PROJECT_CAP, meetingDate, meetingCountdown, prepStatus, PREP_META,
   calendarUrl,
 } from '../lib/booked';
-import { formatPhone } from '../lib/phone';
+import { formatPhone, telHref } from '../shared/phone';
+import { fmtDateTime, fmtWeekdayDateTime } from '../shared/dates';
+import { CALL_STATUSES } from '../shared/semantics';
 
-const telOf = (lead) => lead?.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
-const fmtLogTime = (iso) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
-const fmtMeeting = (lead) => {
-  const d = meetingDate(lead);
-  if (!d) return null;
-  return d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
+const telOf = (lead) => telHref(lead?.phone);
+const fmtLogTime = fmtDateTime;
+const fmtMeeting = (lead) => { const d = meetingDate(lead); return d ? fmtWeekdayDateTime(d) : null; };
 
-const OUTCOME_COLORS = { booked: '#22c55e', callback: '#60a5fa', no: '#ef4444', 'no-answer': '#f59e0b', 'not-called': '#8a8a8a' };
-const OUTCOME_LABELS = { booked: 'Booked', callback: 'Callback', no: 'No', 'no-answer': 'No answer', 'not-called': 'Not called' };
+// Outcome colors/labels: src/shared/semantics.js (one source of truth).
+const OUTCOME_COLORS = Object.fromEntries(CALL_STATUSES.map(x => [x.id, x.color]));
+const OUTCOME_LABELS = Object.fromEntries(CALL_STATUSES.map(x => [x.id, x.label]));
 
 const BOOKED_PREFS = 'vz_booked_prefs';
 // Call mode: prep collapses to one-liners, the read-off-screen blocks open.

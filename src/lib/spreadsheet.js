@@ -1,7 +1,7 @@
 // Spreadsheet → lead mapping for the Call Console importer.
 // Parsing (CSV + XLSX) is done with SheetJS in the component; this file holds the
 // pure column-mapping / normalization logic so it can be unit-tested.
-import { last10 } from './phone';
+import { last10 } from '../shared/phone';
 
 // The 16 canonical columns Rob's sheet uses, in display order.
 export const LEAD_FIELDS = [

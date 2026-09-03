@@ -3,7 +3,7 @@ import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
 import LinkBroken01 from '@untitled-ui/icons-react/build/esm/LinkBroken01';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import Inbox01 from '@untitled-ui/icons-react/build/esm/Inbox01';
-import { last10 } from '../lib/phone';
+import { last10 } from '../shared/phone';
 
 const TYPE_LABELS = { start: 'Project brief', 'shop-order': 'Shop order', contact: 'Contact', other: 'Submission' };
 const fmtDate = (iso) => {

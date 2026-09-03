@@ -17,10 +17,13 @@ import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
 import LeadImport from '../components/LeadImport';
 import { normalizeSocials } from '../lib/socials';
-import { formatPhone } from '../lib/phone';
+import { formatPhone } from '../shared/phone';
 import CheckSquare from '@untitled-ui/icons-react/build/esm/CheckSquare';
 import Square from '@untitled-ui/icons-react/build/esm/Square';
 import { effectiveStage, checklistProgress, deleteBlockReason } from '../lib/booked';
+import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, callStatusOf } from '../shared/semantics';
+import { fmtDateTime } from '../shared/dates';
+import { telHref } from '../shared/phone';
 import { defaultLead } from './AdminCalls';
 
 /* Deliberate-tap delete confirm (uses the shell's aa-modal styles). */
@@ -41,27 +44,14 @@ function ConfirmDelete({ title, body, onConfirm, onCancel }) {
   );
 }
 
-const CALL_STATUSES = [
-  { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
-  { id: 'callback',   label: 'Callback',   color: '#60a5fa' },
-  { id: 'no',         label: 'No',         color: '#ef4444' },
-  { id: 'no-answer',  label: 'No answer',  color: '#f59e0b' },
-];
-const PRIORITIES = [
-  { id: 'hot', label: 'Hot' }, { id: 'warm', label: 'Warm' }, { id: 'cold', label: 'Cold' },
-];
+// Status/priority/outcome maps: src/shared/semantics.js (one source of truth).
+const CALL_STATUSES = SEM_CALL_STATUSES.filter(x => x.id !== 'booked');
 const PRIO_RANK = { hot: 0, warm: 1, cold: 2 };
 const STATUS_RANK = { 'not-called': 0, callback: 1, 'no-answer': 2, no: 3, booked: 4 };
-const statusOf = (id) => CALL_STATUSES.find(s => s.id === id) || CALL_STATUSES[0];
-const telOf = (lead) => lead?.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
-const fmtLogTime = (iso) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
-const OUTCOME_META = {
-  booked: ['Booked', '#22c55e'], callback: ['Callback', '#60a5fa'], no: ['No', '#ef4444'],
-  'no-answer': ['No answer', '#f59e0b'], 'not-called': ['Not called', '#8a8a8a'],
-};
+const statusOf = callStatusOf;
+const telOf = (lead) => telHref(lead?.phone);
+const fmtLogTime = fmtDateTime;
+const OUTCOME_META = Object.fromEntries(SEM_CALL_STATUSES.map(x => [x.id, [x.label, x.color]]));
 
 function Pill({ p }) {
   return <span className={`ld-prio ld-prio--${p}`}>{(p || 'warm').toUpperCase()}</span>;

@@ -20,29 +20,20 @@ import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
 import { normalizeSocials } from '../lib/socials';
-import { formatPhone } from '../lib/phone';
+import { formatPhone, telHref } from '../shared/phone';
+import { fmtDate, todayInput } from '../shared/dates';
+import { money } from '../shared/format';
+import { CALL_STATUSES, CONTACT_TYPES as SEM_CONTACT_TYPES, contactTypeLabel } from '../shared/semantics';
 import {
   effectiveStage, serviceLabel, planLabel, monthlyOf, checklistProgress,
   lastContact, totalPaid,
 } from '../lib/booked';
 
-const telOf = (lead) => lead?.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
-const fmtDate = (iso) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-};
-const todayInput = () => new Date().toISOString().slice(0, 10);
-const money = (n) => `$${Number(n || 0).toLocaleString()}`;
-
-const CONTACT_TYPES = [
-  { id: 'call', label: 'Call', Icon: Phone },
-  { id: 'meeting', label: 'Meeting', Icon: Calendar },
-  { id: 'email', label: 'Email', Icon: Mail01 },
-  { id: 'text', label: 'Text', Icon: MessageCircle01 },
-];
-const contactTypeLabel = (id) => CONTACT_TYPES.find(t => t.id === id)?.label || 'Contact';
-
-const OUTCOME_LABELS = { booked: 'Booked', callback: 'Callback', no: 'No', 'no-answer': 'No answer' };
+const telOf = (lead) => telHref(lead?.phone);
+const CONTACT_ICONS = { Phone, Calendar, Mail01, MessageCircle01 };
+// Contact types + outcome labels: src/shared/semantics.js (one source of truth).
+const CONTACT_TYPES = SEM_CONTACT_TYPES.filter(t => t.id !== 'other').map(t => ({ ...t, Icon: CONTACT_ICONS[t.icon] }));
+const OUTCOME_LABELS = Object.fromEntries(CALL_STATUSES.map(x => [x.id, x.label]));
 
 /** Chip text for recency — the number carries the meaning, color assists. */
 function ContactChip({ lead }) {

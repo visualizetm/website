@@ -2,11 +2,10 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { requireAdmin } from '../_lib/auth.js';
 
-const CALL_STATUSES = ['not-called', 'callback', 'booked', 'no', 'no-answer'];
-const PRIORITIES = ['hot', 'warm', 'cold'];
-const STAGES = ['lead', 'booked', 'won', 'lost', 'client'];
-const MEETING_TYPES = ['call', 'video', 'in-person'];
-const PLAN_IDS = ['full', '6mo', '12mo'];
+import {
+  CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
+  MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
+} from '../_semantics.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 
@@ -160,7 +159,7 @@ function sanitize(b) {
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
       ? b.contactLog.slice(-200).map(c => ({
-          type: ['call', 'meeting', 'email', 'text', 'other'].includes(c?.type) ? c.type : 'other',
+          type: CONTACT_TYPE_IDS.includes(c?.type) ? c.type : 'other',
           at: str(c?.at, 40),
           note: str(c?.note, 600),
         }))

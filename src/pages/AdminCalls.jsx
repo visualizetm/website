@@ -26,42 +26,26 @@ import { ADMIN_HOME } from '../lib/adminPaths';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
-import { digitsOf, matchRank, formatPhone } from '../lib/phone';
+import { digitsOf, matchRank, formatPhone } from '../shared/phone';
 import { effectiveStage, deleteBlockReason } from '../lib/booked';
+import { CALL_STATUSES, callStatusOf, OUTCOMES as SEM_OUTCOMES } from '../shared/semantics';
+import { fmtDateTime, fmtMins } from '../shared/dates';
+import { telHref } from '../shared/phone';
 
-const CALL_STATUSES = [
-  { id: 'not-called', label: 'Not called', color: '#8a8a8a' },
-  { id: 'callback',   label: 'Callback',   color: '#60a5fa' },
-  { id: 'booked',     label: 'Booked',     color: '#22c55e' },
-  { id: 'no',         label: 'No',         color: '#ef4444' },
-  { id: 'no-answer',  label: 'No answer',  color: '#f59e0b' },
-];
-const statusOf = (id) => CALL_STATUSES.find(s => s.id === id) || CALL_STATUSES[0];
-
-// The four outcomes you can log from the bar, in bar order.
-const OUTCOMES = [
-  { id: 'booked',    label: 'Booked',    key: '1', color: '#22c55e', Icon: Check },
-  { id: 'callback',  label: 'Callback',  key: '2', color: '#60a5fa', Icon: PhoneIncoming01 },
-  { id: 'no',        label: 'No',        key: '3', color: '#ef4444', Icon: PhoneHangUp },
-  { id: 'no-answer', label: 'No answer', key: '4', color: '#f59e0b', Icon: Voicemail },
-];
+// Status + outcome maps live in src/shared/semantics.js. Icons are resolved
+// here from their names so the bar keeps its Untitled UI glyphs.
+const OUTCOME_ICONS = { Check, PhoneIncoming01, PhoneHangUp, Voicemail };
+const OUTCOMES = SEM_OUTCOMES.map(o => ({ ...o, Icon: OUTCOME_ICONS[o.icon] }));
 const outcomeOf = (id) => OUTCOMES.find(o => o.id === id);
+const statusOf = callStatusOf;
 
 const WARN_RX = /(DO NOT|DISQUALIF|WARNING|never dial)/i;
 const PRIO_RANK = { hot: 0, warm: 1, cold: 2 };
 const STATUS_RANK = { 'not-called': 0, 'callback': 1, 'no-answer': 2, 'booked': 3, 'no': 4 };
 const SESSION_KEY = 'vz_call_session';
 
-const telOf = (lead) => lead?.phone ? `tel:${lead.phone.replace(/[^0-9+]/g, '')}` : null;
-const fmtMins = (ms) => {
-  const m = Math.floor(ms / 60000);
-  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
-};
-const fmtLogTime = (iso) => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-};
+const telOf = (lead) => telHref(lead?.phone);
+const fmtLogTime = fmtDateTime;
 
 // Standard script skeleton for manually added leads — same bones as the
 // notepad docs, personalized from the business fields.
@@ -1466,12 +1450,13 @@ const ccStyles = `
     font-family: 'Inter', -apple-system, sans-serif;
     letter-spacing: -0.011em;
     overscroll-behavior: none;
-    --c-border: rgba(255,255,255,0.09);
-    --c-card: #121212;
-    --c-card2: #1a1a1a;
-    --c-muted: #8a8a8a;
-    --c-sec: #cccccc;
-    --c-brand: #d44c43;
+    /* Aliases → design tokens (docs/TOKENS.md) */
+    --c-border: var(--v-border);
+    --c-card: var(--v-surface-1);
+    --c-card2: var(--v-surface-2);
+    --c-muted: var(--v-text-3);
+    --c-sec: var(--v-text-2);
+    --c-brand: var(--v-red);
     padding-top: var(--lay-safe-top);
   }
   /* Embedded inside the admin shell: the shell already carries the top inset */

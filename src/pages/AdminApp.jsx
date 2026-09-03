@@ -38,8 +38,10 @@ import AdminCalls from './AdminCalls';
 import AdminBooked from './AdminBooked';
 import AdminLeads from './AdminLeads';
 import AdminClients from './AdminClients';
+import AdminDesign from './AdminDesign';
 import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
 import { effectiveStage } from '../lib/booked';
+import { LEAD_STATUSES, ORDER_STATUSES } from '../shared/semantics';
 
 /* Rotating hello for the dashboard hero — always addressed to Rob. */
 const GREETINGS = [
@@ -62,20 +64,7 @@ import { normalizeSocials, hasAnySocial } from '../lib/socials';
 
 const BASE = IS_ADMIN_HOST ? '' : '/admin';
 
-const LEAD_STATUSES = [
-  { id: 'new',       label: 'New',       color: '#f59e0b' },
-  { id: 'contacted', label: 'Contacted', color: '#60a5fa' },
-  { id: 'replied',   label: 'Replied',   color: '#a78bfa' },
-  { id: 'landed',    label: 'Landed',    color: '#22c55e' },
-  { id: 'denied',    label: 'Denied',    color: '#ef4444' },
-];
-const ORDER_STATUSES = [
-  { id: 'new',           label: 'New',           color: '#f59e0b' },
-  { id: 'paid',          label: 'Paid',          color: '#60a5fa' },
-  { id: 'in-production', label: 'In Production', color: '#a78bfa' },
-  { id: 'packaged',      label: 'Packaged',      color: '#34d399' },
-  { id: 'delivered',     label: 'Delivered',     color: '#22c55e' },
-];
+// Status maps live in src/shared/semantics.js (one source of truth).
 const TYPE_LABELS = { start: 'Project Brief', 'shop-order': 'Shop Order', contact: 'Contact', other: 'Other' };
 
 const fmtDate = (iso) => {
@@ -828,6 +817,8 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
               <h1 className="aa-settings-h">Legacy tools</h1>
               <p className="aa-muted">The old print dashboard (invoices, client accounts, maintenance toggle). Its order lists are per-device — Orders in this app is the source of truth now.</p>
               <a className="aa-btn" href={IS_ADMIN_HOST ? '/prints' : '/admin/prints'}><Printer width={14} height={14} /> Open print dashboard</a>
+              <p className="aa-muted" style={{ marginTop: 8 }}>Design system reference for the CRM 3.0 rebuild: every token, color, and status pill rendered live.</p>
+              <a className="aa-btn" href={IS_ADMIN_HOST ? '/design' : '/admin/design'}><LayoutAlt01 width={14} height={14} /> Open design system</a>
             </div>
           )}
         </div>
@@ -906,6 +897,7 @@ export default function AdminApp() {
     if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/settings')) return 'settings';
+    if (p.startsWith('/design')) return 'design';
     return 'dashboard';
   }, [location.pathname]);
 
@@ -1138,6 +1130,9 @@ export default function AdminApp() {
           onGo={go}
         />
       )}
+      {section === 'design' && (
+        <AdminDesign onBack={() => go('settings')} />
+      )}
       {section === 'settings' && (
         <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} />
       )}
@@ -1179,13 +1174,14 @@ const aaStyles = `
     height: 100vh; height: 100dvh; display: flex;
     background: #080808; color: #fafafa;
     font-family: 'Inter', -apple-system, sans-serif;
-    --a-border: rgba(255,255,255,0.08);
-    --a-panel: #0a0a0a;
-    --a-card: #121212;
-    --a-raised: #1a1a1a;
-    --a-muted: #8a8a8a;
-    --a-sec: #cccccc;
-    --a-brand: #d44c43;
+    /* Aliases → design tokens (docs/TOKENS.md). Screens migrate to --v- in Prompts 4-12. */
+    --a-border: var(--v-border);
+    --a-panel: var(--v-bar);
+    --a-card: var(--v-surface-1);
+    --a-raised: var(--v-surface-2);
+    --a-muted: var(--v-text-3);
+    --a-sec: var(--v-text-2);
+    --a-brand: var(--v-red);
     overflow: hidden;
     padding-top: var(--lay-safe-top);
   }

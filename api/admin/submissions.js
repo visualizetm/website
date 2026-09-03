@@ -1,13 +1,12 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { requireAdmin } from '../_lib/auth.js';
+import { LEAD_STATUS_IDS, ORDER_STATUS_IDS } from '../_semantics.js';
 
 // Lead pipeline + shop-order pipeline share one status field; the UI shows the
 // set that matches the record's type.
-const STATUSES = [
-  'new', 'contacted', 'replied', 'landed', 'denied',            // submissions
-  'paid', 'in-production', 'packaged', 'delivered',             // orders
-];
+// Status ids: api/_semantics.js (mirror of src/shared/semantics.js)
+const STATUSES = [...new Set([...LEAD_STATUS_IDS, ...ORDER_STATUS_IDS])];
 
 const PURGE_DAYS = 30;
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
