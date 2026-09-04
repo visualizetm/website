@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export default function Contact() {
+  const location = useLocation();
+  const fromPortal = new URLSearchParams(location.search).get('from') === 'portal';
   useEffect(() => {
     if (window.location.hash === '#book') {
       document.getElementById('book')?.scrollIntoView({ behavior: 'smooth' });
@@ -20,6 +23,9 @@ export default function Contact() {
       <section className="contact-hero section" id="book">
         <div className="contact-hero-bg" aria-hidden="true" />
         <div className="wrap contact-hero-wrap">
+          {fromPortal && (
+            <p className="contact-notice" role="status">The client portal has moved. Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a> and we will send your files.</p>
+          )}
           <h1 className="contact-title">Book a Meeting to Discuss Your Business</h1>
           <p className="contact-lead">
             Schedule a call so I can learn about your business, your goals, and exactly what you need. No pitch, no pressure. Just a clear conversation about how I can help.
@@ -81,6 +87,12 @@ export default function Contact() {
           margin-bottom: var(--space-4);
           color: var(--text);
         }
+        .contact-notice {
+          margin: 0 0 var(--space-6); padding: var(--space-4) var(--space-5);
+          border: 1px solid rgba(212,76,67,0.35); border-radius: var(--radius);
+          background: rgba(212,76,67,0.08); color: var(--text); font-size: 0.95rem; line-height: 1.5;
+        }
+        .contact-notice a { color: var(--brand-light); font-weight: 600; }
         .contact-lead {
           font-size: 1.125rem;
           color: var(--text-secondary);

@@ -16,7 +16,6 @@ import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '
 import LeadImport from '../components/LeadImport';
 import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
-import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
@@ -146,9 +145,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const runDevice = async () => { setDeviceBusy(true); let created = 0; for (const row of devicePlan) { if (row.skip) continue; if (await onCreateOrder?.(row.doc)) created++; } setDeviceBusy(false); toast.success(`${created} imported, ${devicePlan.filter(r => r.skip).length} skipped.`); setDevicePlan(null); };
   const exportOne = (ex) => { try { downloadText(ex.file(), ex.build({ leads, projects, orders })); toast.success(`${ex.label} exported.`); } catch { toast.error('Could not build the file.'); } };
   const backup = async () => { const a = document.createElement('a'); a.href = '/api/admin/backup'; a.download = ''; a.click(); setTimeout(load, 1500); toast.info('Backup downloading.'); };
-
-  /* Danger */
-  const legacy = (p) => (IS_ADMIN_HOST ? p : `/admin${p}`);
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   const crons = [
@@ -314,9 +310,9 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <Row gap={2}><Button variant="secondary" icon={LogOut01} onClick={onLogout}>Sign out this device</Button></Row>
       </Card>
       <Card className="st-card">
-        <p className="pb-card-h">Legacy tools</p>
-        <p className="dt-muted">The old print dashboard and the design system reference. Both go away in the cleanup prompt.</p>
-        <Row gap={2} wrap><Button variant="secondary" icon="Printer" href={legacy('/prints')}>Open print dashboard</Button><Button variant="ghost" icon="Palette" onClick={() => shell?.go('design')}>Open design system</Button></Row>
+        <p className="pb-card-h">Design system</p>
+        <p className="dt-muted">Every token, color, and status pill rendered live. The old print dashboard was retired; its orders live in Print Orders and its saved orders import from the Data tab.</p>
+        <Row gap={2} wrap><Button variant="ghost" icon="Palette" onClick={() => shell?.go('design')}>Open design system</Button></Row>
       </Card>
     </Stagger>
   );

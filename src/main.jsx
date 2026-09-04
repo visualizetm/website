@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
@@ -134,16 +134,8 @@ const maintenancePassword = import.meta.env.VITE_MAINTENANCE_PASSWORD || 'previe
 
 function Root() {
   const [unlocked, setUnlocked] = useState(false);
-  const [preview, setPreview]   = useState(() => localStorage.getItem('vz_maintenance_preview') === 'true');
-
-  useEffect(() => {
-    const sync = () => setPreview(localStorage.getItem('vz_maintenance_preview') === 'true');
-    window.addEventListener('storage', sync);
-    window.addEventListener('vz-maintenance-change', sync);
-    return () => { window.removeEventListener('storage', sync); window.removeEventListener('vz-maintenance-change', sync); };
-  }, []);
-
-  if ((maintenanceMode || preview) && !unlocked) {
+  // The per-device preview flag went with the old print dashboard (Prompt 13); the env var is the only switch.
+  if (maintenanceMode && !unlocked) {
     return (
       <Maintenance
         onUnlock={(entered) => {

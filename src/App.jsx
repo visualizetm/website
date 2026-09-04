@@ -11,9 +11,6 @@ import Contact from './pages/Contact';
 import LeadPartner from './pages/LeadPartner';
 import Prints from './pages/Prints';
 import AdminApp from './pages/AdminApp';
-import PrintsAdmin from './pages/PrintsAdmin';
-import ClientPortal from './pages/ClientPortal';
-import IntakeForm from './pages/IntakeForm';
 import Start from './pages/Start';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 
@@ -96,7 +93,8 @@ export default function App() {
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
-    if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <PrintsAdmin />;
+    // The old print dashboard lived at /prints; Print Orders replaced it (Prompt 13).
+    if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <Navigate to="/orders" replace />;
     return <AdminApp />;
   }
 
@@ -104,14 +102,14 @@ export default function App() {
   // at the edge). Localhost keeps /admin/* working for development.
   if (location.pathname.startsWith('/admin')) {
     if (!IS_DEV_HOST) return <Navigate to="/" replace />;
-    if (location.pathname === '/admin/prints') return <PrintsAdmin />;
+    if (location.pathname === '/admin/prints') return <Navigate to="/admin/orders" replace />;
     return <AdminApp />;
   }
 
   // Routes outside the normal navbar/footer layout
   if (location.pathname === '/prints') return <Prints />;
-  if (location.pathname === '/portal') return <ClientPortal />;
-  if (location.pathname.startsWith('/intake')) return <IntakeForm />;
+  // The client portal and intake form were retired (Prompt 13); old links land on Contact with a notice.
+  if (location.pathname === '/portal' || location.pathname.startsWith('/intake')) return <Navigate to="/contact?from=portal" replace />;
 
   return (
     <>
@@ -129,7 +127,6 @@ export default function App() {
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
           <Route path="/prints"       element={<Prints />} />
-          <Route path="/portal"      element={<ClientPortal />} />
           <Route path="/start"       element={<Start />} />
         </Routes>
       </main>

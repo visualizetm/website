@@ -11,6 +11,7 @@
  * with PW_CHROME=/path/to/chrome.
  */
 import { chromium } from 'playwright-core';
+import { orderFromSubmission } from '../api/_lib/orders.js';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
@@ -230,12 +231,48 @@ for (const width of WIDTHS) {
     }
   };
 
+  // A layout check that also requires some text on the page (end to end proof).
+  const checkText = async (label, text) => {
+    await check(label);
+    const found = await page.getByText(text, { exact: false }).count().catch(() => 0);
+    if (!found) { failures++; console.log(`  FAIL [${width}px] ${label}: expected text "${text}" not found`); }
+  };
+
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   const only = process.env.AUDIT_ONLY; // 'settings', 'clients', or 'studio' reruns just that block
 
   if (!only || only === 'settings') {
+  // Shop checkout end to end (Prompt 13): the public shop posts a shop-order submission,
+  // the same server builder turns it into an order, and Print Orders shows it.
+  const shopOrders = [];
+  await page.route('**/api/submissions', async (r) => {
+    if (r.request().method() !== 'POST') return r.continue();
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch {}
+    const created = orderFromSubmission({ ...body, _id: 'subShop' + shopOrders.length, createdAt: new Date() });
+    shopOrders.push({ ...created, _id: 'OSHOP' + shopOrders.length });
+    return r.fulfill(json({ ok: true, id: 'subShop' + shopOrders.length }));
+  });
+  await page.route('https://api.web3forms.com/**', r => r.fulfill(json({ success: true })));
+  await goto('/prints');
+  await page.getByRole('button', { name: /Customize/ }).nth(3).click({ timeout: 4000 }).catch(() => {});
+  await page.locator('.ps-minput').first().fill('@visualize').catch(() => {});
+  await page.locator('.ps-color-row button').first().click({ timeout: 2000 }).catch(() => {});
+  const grids = page.locator('.ps-opt-grid');
+  for (let i = 0; i < await grids.count(); i++) await grids.nth(i).locator('.ps-opt').first().click({ timeout: 2000 }).catch(() => {});
+  await page.getByRole('button', { name: /Add to Cart/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('button', { name: /Continue to Checkout/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.ps-minput').nth(0).fill('Audit Shopper').catch(() => {});
+  await page.locator('.ps-minput').nth(1).fill('shopper@example.com').catch(() => {});
+  await page.locator('.ps-minput').nth(2).fill('(302) 555-0199').catch(() => {});
+  await page.getByRole('button', { name: /Place Order|Submit Order|Order/ }).last().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  await page.unroute('**/api/admin/orders**');
+  await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: [...shopOrders, ...orders], unimported: 0 })) : r.fulfill(json({ ok: true }))));
+  await goto('/admin/orders');
+  await checkText('shop checkout became a print order', shopOrders.length ? 'Audit Shopper' : 'NO ORDER WAS POSTED');
+
   // Settings and Submissions (Prompt 12).
   await goto('/admin/submissions');
   await check('submissions list');

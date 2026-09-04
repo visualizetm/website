@@ -447,7 +447,6 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
     setSubmitting(true);
     setSubmitErr('');
 
-    const cartSummary = cart.map(item => item.label).join(' | ');
 
     try {
       const subtotal = cart.reduce((s, i) => s + (i.priceMode !== 'quote' && i.priceTotal != null ? i.priceTotal : 0), 0);
@@ -471,21 +470,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
       fd.append('Payment', 'No deposit — collected when production begins');
       if (ACCESS_KEY) await fetch('https://api.web3forms.com/submit', { method: 'POST', body: fd });
 
-      const orderId = Date.now();
-      const orderData = {
-        id: orderId, date: new Date().toISOString(),
-        source: 'shop', status: 'pending',
-        name: form.name.trim(), email: form.email.trim(), phone: form.phone.trim(),
-        cartItems: cart.map(c => ({ productId: c.productId, productName: c.productName, label: c.label, priceMode: c.priceMode, priceTotal: c.priceTotal, vals: { ...c.vals, artworkFile: c.vals.artworkFile?.name || null } })),
-        summary: cartSummary,
-        estimatedSubtotal: subtotal, hasQuoteItems: hasQuote,
-      };
-      try {
-        const existing = JSON.parse(localStorage.getItem('vz_print_orders') || '[]');
-        localStorage.setItem('vz_print_orders', JSON.stringify([orderData, ...existing]));
-      } catch {}
-
-      // Also file the order as a lead in the admin panel (best-effort).
+      // The order is filed in the admin through /api/submissions; Print Orders reads it from there (Prompt 13).
       try {
         await fetch('/api/submissions', {
           method: 'POST',
@@ -662,13 +647,14 @@ function ProductCard({ product, onCustomize }) {
 
 export default function Prints() {
   const [cat, setCat]         = useState('all');
-  const [cart, setCart]       = useState(() => { try { return JSON.parse(localStorage.getItem('vz_cart') || '[]'); } catch { return []; } });
+  // The cart survives a refresh (sessionStorage), not a device: Print Orders in the admin is the record (Prompt 13).
+  const [cart, setCart]       = useState(() => { try { return JSON.parse(sessionStorage.getItem('vz_cart') || '[]'); } catch { return []; } });
   const [modal, setModal]     = useState(null);
   const [cartOpen, setCartOpen] = useState(false);
 
   const saveCart = useCallback((c) => {
     const serializable = c.map(item => ({ ...item, vals: { ...item.vals, artworkFile: null } }));
-    try { localStorage.setItem('vz_cart', JSON.stringify(serializable)); } catch {}
+    try { sessionStorage.setItem('vz_cart', JSON.stringify(serializable)); } catch {}
   }, []);
 
   const addToCart = (item) => {
@@ -687,7 +673,7 @@ export default function Prints() {
 
   const clearCart = () => {
     setCart([]);
-    localStorage.removeItem('vz_cart');
+    try { sessionStorage.removeItem('vz_cart'); } catch {}
   };
 
   const visible = cat === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.cat === cat);

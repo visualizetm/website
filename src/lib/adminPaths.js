@@ -11,4 +11,3 @@ export const IS_DEV_HOST = host === 'localhost' || host === '127.0.0.1';
 
 export const ADMIN_HOME   = IS_ADMIN_HOST ? '/'       : '/admin';
 export const ADMIN_CALLS  = IS_ADMIN_HOST ? '/calls'  : '/admin/calls';
-export const ADMIN_PRINTS = IS_ADMIN_HOST ? '/prints' : '/admin/prints';
