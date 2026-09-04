@@ -340,6 +340,10 @@ record or start a new one.
 ## Shared lead components (`src/components/`)
 
 - `LeadCard` (Prompt 6): the compact card. Styles ship in `uiStyles` since Prompt 7.
+- `Checklists` (kit build, Prompt 13): named task lists on Card, Checkbox, Input, IconButton. Props `lead`, `onPatch`.
+- `LinkedSubmissions` (kit build, Prompt 13): linked and suggested site submissions on ListRow, Pill, Collapsible. Props `lead`, `submissions`, `onLinkSubmission`; exports `suggestFor`.
+- `SocialLinks` (Prompt 13): only `SocialFields` remains (one kit Input per channel for LeadForm). The read view went with the old Clients screen.
+- Login (AdminApp): a kit Card, Input, and Button; the wrong-password shake is a token timed animation on `.aa-login.is-shaking`, disabled under reduced motion.
 - `LeadForm` (Prompt 7): the one create/edit form on kit fields, used by Leads and the Call Console. Props `lead`, `creating`, `onSave(values)`, `onCancel`, `onDelete(id)`.
 - `LeadHistory` (Prompt 7): callLog and contactLog merged newest first with outcome pills. Props `lead`, `limit`. Export `leadHistoryStyles`.
 - `LeadNotes` (Prompt 7): notes Textarea with InlineEdit semantics (save on blur or Cmd/Ctrl+Enter, rollback and toast on failure). Props `lead`, `onSave(id, notes)`, `rows`. Export `leadNotesStyles`.

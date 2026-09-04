@@ -1,211 +1,137 @@
-# VISUALIZE ADMIN — ARCHITECTURE (as of commit 93f5def, 2026-09-03)
+# VISUALIZE ADMIN, ARCHITECTURE (as of Prompt 13, 2026-09-04)
 
-Prompt 1 of the CRM 3.0 rebuild. Documentation only; nothing in this file
-changes code. Every claim below comes from reading the code in this repo or
-from live queries against the production database. Items that could not be
-verified are marked UNCONFIRMED.
+The admin CRM at admin.visualizeclients.com and the marketing site at
+visualizestudio.org share one Vite build. This file describes the app as it
+is now. History lives in reports/PROMPT-NN-REPORT.md; operations live in
+docs/RUNBOOK.md.
 
-Reading depth: every admin file, every api/ file, every src/lib file, the
-app shell, entry, service worker, deploy config, and PrintsAdmin were read
-line by line. Marketing pages (Home, Services, Work, Contact, Start,
-LeadPartner) and ClientPortal/Prints/IntakeForm were read structurally
-(component tree, all fetch/storage calls, all route logic) after having been
-built/refactored in this same repo history; their inner copy was not
-re-read line by line.
-
----
-
-## a. Stack
+## Stack
 
 | Layer | What it is |
 |---|---|
-| Framework | React 18.3.1, functions + hooks only, no class components |
-| Language | JavaScript (JSX). No TypeScript anywhere |
-| Build | Vite 6 (`@vitejs/plugin-react`), `__BUILD_SHA__` define from `VERCEL_GIT_COMMIT_SHA` |
-| Routing | react-router-dom 6.28 — but only the marketing site uses `<Routes>`; AdminApp does its own `location.pathname` section switch; App.jsx does host-based branching before routing |
-| Styling | **CSS-in-JSX template strings** per page/component (`<style>{xxStyles}</style>`), prefixed classes (`aa-` shell, `cc-/cq-/cs-/cb-/lk-` console, `bk-` booked, `ld-` leads, `cl-` clients, `ck-` checklists, `ls-` linked subs, `li-` import, `sl-` socials, `adm-` legacy print admin, `uc-` maintenance). Global tokens + resets live in `src/index.css`. No Tailwind, no CSS modules, no styled-components |
-| State | Local `useState`/`useMemo` per page. No global store. AdminApp lifts submissions + call_leads state and passes down. No react-query/SWR; hand-rolled fetch + optimistic update + rollback |
-| Data fetching | `fetch()` to same-origin `/api/*` Vercel serverless functions. Cookie auth (HttpOnly). No caching layer |
-| Backend | Vercel serverless (ESM handlers in `api/`), MongoDB Atlas via `mongodb` driver 7.5, cached client on `globalThis._vzMongo` (`api/_lib/mongo.js`), db name from URI path else `visualize` |
-| Auth | One admin password. HMAC-signed expiry cookie `vz_admin` (`SESSION_SECRET`), 30-day, timing-safe compare. Password = scrypt hash in `settings` collection if ever changed, else `ADMIN_PASSWORD` env (`api/_lib/auth.js`) |
-| Notifications | Web push (`web-push`, VAPID env keys) + Web3Forms email fallback (`api/_lib/notify.js`), both best-effort, toggled by `settings._id='prefs'` |
-| PWA | `public/manifest.webmanifest` (standalone, theme `#d44c43`), `public/sw.js` (skipWaiting/claim, no-op fetch handler for installability, push + notificationclick deep link). Registered in `main.jsx` |
-| Deployment | Vercel. `vercel.json`: SPA rewrite to index.html, `/admin/*` redirected to `/` unless host is `admin.visualizeclients.com`, security headers. Repo now lives at `visualizetm/website` (old remote redirects) |
-| Fonts | Google Fonts `<link>` in index.html: Inter 400–900, Barlow Condensed 500–800 |
-| Dependencies | `@babel/runtime` pinned ^7 (v8 breaks the icon package), `@untitled-ui/icons-react` (deep ESM imports), `mongodb`, `react`, `react-dom`, `react-router-dom`, `web-push`, `xlsx` (dynamic import → own chunk). Dev: vite, plugin-react, playwright-core (layout audit), sharp (**unused — no script references it anymore**) |
+| Framework | React 18, function components and hooks, no TypeScript |
+| Build | Vite 6 with @vitejs/plugin-react; `__BUILD_SHA__` from VERCEL_GIT_COMMIT_SHA |
+| Routing | react-router-dom 6 for the marketing site; AdminApp switches sections on `location.pathname`; App.jsx branches on host first |
+| Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules plus the font loads |
+| State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |
+| Data | fetch to same-origin /api/* Vercel functions, cookie auth, no client cache layer |
+| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js) |
+| Auth | One admin password (scrypt hash in settings.auth, else ADMIN_PASSWORD), HMAC signed 30 day cookie (api/_lib/auth.js) |
+| Push | web-push with VAPID keys; public/sw.js handles push and deep links |
+| Crons | Vercel cron: /api/cron/reminders every 15 minutes, /api/cron/daily at 06:00 UTC, both behind CRON_SECRET |
+| Integrations | Calendly (read), Stripe (read plus a signed webhook), Web3Forms (email backup) |
 
-## b. Directory map
+## Directory map
 
 ```
-api/                 Vercel serverless functions (ESM), one file = one route
-api/_lib/            mongo client cache, auth (HMAC cookie + scrypt), notify (push+email)
-api/admin/           admin-guarded endpoints (requireAdmin on every handler)
-docs/                build prompts + this documentation
-public/              static: logo.svg, wordmark png, PWA icons, sw.js, manifest, showcase imgs
-scripts/             dev-only: layout-audit.mjs (overflow regression), migrate-mongo.mjs
-src/App.jsx          host split (admin domain vs public), route table, splash, reveal observer
-src/main.jsx         entry, theme pre-paint sync, maintenance gate (env or preview), SW register
-src/index.css        design tokens (:root + [data-theme=light]), resets, layout guards, marketing styles
-src/components/      shared UI: AdminLayout primitives, Checklists, LinkedSubmissions,
-                     SocialLinks, LeadImport, Wordmark, ThemeToggle + marketing sections
-src/pages/           one file per screen; the five Admin* files are the CRM
-src/lib/             pure logic: phone, socials, booked (stage/pricing/prep), spreadsheet,
-                     adminPaths (host detection)
-src/data/            bundled call-leads-import.json (10 notepad leads), clients showcase data
-src/hooks/useReveal.js  scroll reveal hook — UNUSED (App.jsx observes inline); dead code
+api/                       Vercel functions
+  _lib/                    auth, mongo, notify (push + email), orders (shop order parser), stripe
+  _semantics.js            id lists mirrored from src/shared/semantics.js (functions cannot import src/)
+  admin/                   admin guarded endpoints (requireAdmin on every handler)
+  cron/                    reminders.js, daily.js
+  stripe/webhook.js        signed Stripe webhook
+  submissions.js, push-key.js   public endpoints
+docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, MIGRATION-MAP.md
+public/                    logo, wordmark, PWA icons, manifest, sw.js
+reports/                   one build report per prompt
+scripts/                   layout-audit.mjs, hex-count.js, css-orphans.mjs, dates-test.mjs, migrate-mongo.mjs
+src/
+  ui/                      the component kit (index.js exports everything and uiStyles)
+  shell/                   AppShell, Sidebar, TopBar, TabBar, MoreSheet, CommandBar, NotificationsDrawer, nav.js, notifications.js, shortcuts.js, install.js, storage.js, search.js
+  pages/                   one file per admin screen plus the marketing pages
+  components/              shared lead and client components, LeadPicker, imports
+  lib/                     pure logic: leads, calls, booked, projects, orders, reviews, events, exports, ics, socials, spreadsheet
+  shared/                  semantics (enums), pricing (catalog), dates, phone, format, api, color
+  data/                    the showcase client data for the marketing site, a bundled lead import
 ```
 
-## c. Screen inventory
+## Screens (all inside AdminApp, served on the admin host at root paths)
 
-### CRM (served on admin.visualizeclients.com, all inside AdminApp shell)
-
-| Route | Screen | Renders / layout | Endpoints |
-|---|---|---|---|
-| `/` | **Dashboard** | Logo + rotating greeting hero ("Coffee and cold calls, Rob?"), clickable Leads→Booked→Clients funnel strip, 6 stat cards 3-up (calls today/week/month/90d from callLog+contactLog, money made from purchases ledger, clients on retainer), Recent Activity feed (submissions), shortcut buttons | GET submissions, GET call-leads (via shell) |
-| `/leads` | **Leads** | 324px list panel (search, priority/status chips, industry select, per-row checkbox, bulk delete bar) + full-width detail (display-face business name, tap-to-call, socials, angle, notes editor, call history, checklists, linked submissions, edit form, guarded delete). Desktop detail = 2-col grid ≥1200px | GET/POST/PATCH/DELETE call-leads, POST leads/import, PATCH submissions (linking) |
-| `/booked` | **Booked workspace** | List panel (prep-status pills, meeting countdown chips, closed toggle) + collapsible-section detail (Meeting, Services game plan, hero Pricing cards with bullet inclusions + "Lead with this", Concepts + big demo/Drive buttons, Prep notes, Checklists, Their submissions, context folds), CALL MODE toggle reorders call-critical column first, pinned Won/Lost/Reschedule bar | PATCH call-leads |
-| `/clients` | **Clients** (rebuilt in Prompt 10) | Count line, search, chips (Active project, On retainer, Delivered, Paused, Owes a payment, Ready to deliver), ClientCards on mobile and a kit Table on desktop; detail is LeadDetail in client mode: Links and Brand blocks, Projects (stepper, revision rounds with the extra-round fee, delivery gate and Send delivery checklist), Payments (schedule, Mark paid into the purchases ledger, payment plan block with the Stripe reminder, lifetime ledger), Retainer (start, pause, resume, cancel with 30 days notice, monthly deliverables), Deliverables (Drive structure, Released toggle gated on full payment) | GET/POST/PATCH projects, PATCH/POST call-leads, PATCH submissions |
-| `/calls` | **Call Console** | Queue screen = session BUILDER (priority/status/industry count chips, include-no-phone, live "N leads in this queue" preview, pinned START). Session = fullscreen card (warning banner, tap-to-call hero, angle, facts, socials, folds) + pinned outcome bar (Booked/Callback/No/No-answer) + Reject-lead button; desktop 3-zone (rail / card / notes+log); keyboard (arrows, 1–4, N, ?, /); swipe on touch; localStorage session persistence; reverse phone lookup sheet; summary screen with Run-it-back. NO outcome soft-deletes the lead | GET/POST/PATCH/DELETE call-leads |
-| `/submissions` | **Submissions** (rebuilt in Prompt 12) | Chips by type plus Unread, search, cards or Table, detail in a right panel or Sheet (fields as ListRows, status Menu, Mark read, Link to lead, Convert to lead, Open brief with Copy brief, delete) | GET/PATCH/DELETE submissions, POST call-leads |
-| `/orders` | **Print Orders** (rebuilt in Prompt 11) | Count line, chips per status plus Rush and Due this week, search, OrderCards (Table on desktop), detail in a right panel (Sheet on mobile): customer block, Link to client (optional print project), stage stepper New to Delivered, items with price and artwork InlineEdits, Rush toggle, due date, notes, Mark paid into the client ledger, packaging checklist on Delivered; New order Sheet with the product picker; import banner for shop-order submissions | GET/POST/PATCH orders, PATCH call-leads, POST projects |
-| `/concepts` | **Concepts** (new in Prompt 11) | Grid of PackCards, chips by kind and industry, search; pack detail (right panel or Sheet): title, kind, industry, linked lead, tags, prompts with Copy, image links, notes, Mark shown | GET/POST/PATCH concept-packs, PATCH call-leads |
-| `/reviews` | **Reviews** (new in Prompt 11) | Cards per client with the Google link, NFC pill, baseline to latest delta, last ask; chips (Has NFC card, No Google link, Never asked, Asked this month, Delivered not asked); review Sheet (link, NFC toggle, counts, log an ask, copy ask text); Form submissions section for type review submissions | PATCH call-leads, PATCH submissions |
-| `/settings` | **Settings** (rebuilt in Prompt 12) | Tabs: Profile (name, avatar, daily target, business hours, password), Notifications (alerts, four reminder toggles, test push, this device, install the app), Integrations (Calendly, Stripe with Reconcile, scheduled tasks, enrichment and scraper health), Data (Recently deleted Table with Restore and Purge, lead and orders CSV import, device print order import, five client side CSV exports plus the submissions server export, backup download), Automation (cron list with last and next run), Shortcuts, Danger zone (purge, sign out, legacy links) | GET/POST/PATCH settings, stripe/*, backup, submissions?deleted=1, call-leads?deleted=1/restore/purgeDeleted |
-| (mobile) | **More sheet** | Bottom sheet with Dashboard/Submissions/Orders/Settings/Log out; the 5 thumb tabs are Leads/Booked/Clients/Calls/More | — |
-| (unauth) | **Login** | Centered card, shake on error | POST login |
-
-### Legacy admin (also on admin host)
-
-| Route | Screen | Notes |
+| Path | Screen | File |
 |---|---|---|
-| `/prints` (admin host) or `/admin/prints` | **PrintsAdmin** — 7-tab dashboard (Overview w/ localStorage analytics charts, Orders, Clients, Invoices, Briefs, Shop, Settings w/ maintenance toggle). Own `adm-` design system (#0f0f11 surfaces — different greys than the CRM). **All data is per-device localStorage** (`vz_print_orders`, `vz_clients`, `vz_invoices`, `vz_intake_forms`, `vz_analytics`) — nothing touches Mongo. Shares the admin cookie session | GET session, POST logout only |
+| / | Dashboard: greeting, funnel, stats, Today panel, revenue, activity | pages/AdminDashboard.jsx |
+| /leads | Leads: kanban and table, filters, bulk, duplicates, LeadDetail | pages/AdminLeads.jsx |
+| /calls | Call Console: session builder, queue, call room, outcomes, summary | pages/AdminCalls.jsx |
+| /booked | Booked workspace: meeting prep on LeadDetail | pages/AdminBooked.jsx |
+| /calendar | Calendar: day, week, month over meetings, callbacks, Calendly, bills | pages/AdminCalendar.jsx |
+| /clients | Clients: list, LeadDetail in client mode (projects, payments, retainer, deliverables) | pages/AdminClients.jsx, components/ClientWorkspace.jsx |
+| /orders | Print Orders | pages/AdminOrders.jsx |
+| /concepts | Concepts library | pages/AdminConcepts.jsx |
+| /reviews | Reviews | pages/AdminReviews.jsx |
+| /submissions | Submissions | pages/AdminSubmissions.jsx |
+| /settings | Settings (Profile, Notifications, Integrations, Data, Automation, Shortcuts, Danger zone); /settings/deleted opens Data | pages/AdminSettings.jsx |
+| /design | Design system reference | pages/AdminDesign.jsx |
 
-### Public site (visualizestudio.org)
+Navigation is one list in src/shell/nav.js. Redirects: /prints and /admin/prints on the admin host go to /orders; /portal and /intake/* on the public host go to /contact?from=portal (the retired portal notice). The public site keeps /, /services, /work, /work/:slug, /contact, /book, /lead-partner, /start, /prints (the shop), and the maintenance screen when VITE_MAINTENANCE_MODE is true.
 
-`/` Home, `/services`, `/work` + `/work/:slug` case studies, `/contact` (+`/book` alias), `/lead-partner`, `/start` (animated multi-step brief → POST /api/submissions + Web3Forms fallback), `/prints` (print shop with cart in `vz_cart`, checkout → POST /api/submissions AND localStorage order for the legacy dashboard), `/portal` (ClientPortal: localStorage account auth, Dashboard/Orders/Invoices/Meetings/Briefs views, Calendly via /api/calendly-meetings), `/intake/*` (IntakeForm → localStorage briefs), redirects `/showcase→/work`, `/pricing→/services`. Plus the Maintenance screen (star field + rocket + password gate) rendered by main.jsx when `VITE_MAINTENANCE_MODE` or the per-device preview flag is on.
+## Components
 
-**Screens total: 27** (9 CRM incl. login+More, 1 PrintsAdmin multi-tab, 11 public, maintenance) + 2 redirects.
+The kit (src/ui) is documented in docs/COMPONENTS.md. Shared record components: LeadCard, LeadDetail (lead, booked, and client modes), LeadForm, LeadHistory, LeadNotes, LeadPlaybook, Checklists, LinkedSubmissions, SocialLinks (SocialFields), CallbackPicker, LeadImport, OrdersImport, LeadPicker, ClientCard, ClientWorkspace. Marketing components stay under src/components as well (Navbar, Footer, Hero, Services, Process, Trust, Testimonials, CTA, ShowcasePreview, Wordmark, ThemeToggle).
 
-## d. Component inventory
+## Endpoints
 
-**True shared primitives (used consistently across the CRM):**
-- `AdminLayout.jsx` — `PageShell` (.lay-shell), `ScrollArea` (.lay-scroll, the ONLY sanctioned scroll container; gutter + safe-area padding), `StickyFooterBar` (.lay-footbar, in-flow pinned bars that cannot cover content), plus `.lay-card` row contract, `.lay-overlay`/`.lay-modal-box`, and all layout tokens on `.lay-root`. **Card is a CSS contract class, not a React component.** Adopted by every CRM section (verified: all pinned bars are StickyFooterBar; every scroller is ScrollArea). PrintsAdmin, ClientPortal, marketing pages do NOT use them.
-- `Checklists.jsx` — named task lists, props `{lead, onPatch}`; used by Leads, Booked, Clients.
-- `LinkedSubmissions.jsx` — linked + suggested submissions, props `{lead, submissions, onLinkSubmission}` + exported `suggestFor`; used by Leads, Booked, Clients.
-- `SocialLinks.jsx` — `SocialButtons`/`SocialFields`; used by Leads/Booked/Clients/Calls/Submissions detail + marketing footer icons style.
-- `LeadImport.jsx` — 3-step CSV/XLSX import sheet (dynamic `xlsx` chunk); used by Leads page only.
-- `Wordmark.jsx`, `ThemeToggle.jsx` (marketing only), `SplashScreen.jsx` (unused by App — UNCONFIRMED whether any route mounts it; grep shows no import in App.jsx).
+Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whitelist and `$set` only; nothing is renamed or dropped.
 
-**One-file locals (defined inside pages, not shared):** AdminApp: StatusBadge, ConfirmModal, Skeletons, ItemDetail, ListSection, Dashboard, SettingsSection, Login, usePush. AdminCalls: PriorityPill, StatusChip, QaTable, NewLeadForm (+exported defaultLead), EditLead, Collapse, ScriptBody, CallLogList, NotesPanel, OutcomeSheet, LookupSheet, ShortcutsOverlay. AdminBooked: GrowInput, Section, PriceCard, Fold→Section, LogList, PrepPill. AdminLeads: Pill, LeadForm, Block, ConfirmDelete, LeadDetail. AdminClients: Block (duplicate), ClientForm, Purchases, ContactHistory, ClientDetail, ContactChip. PrintsAdmin: StatusBadge (duplicate), StatCard, MiniBar. Marketing: Hero, Services, Process, Trust, Testimonials, CTA, CaseStudies, ShowcasePreview, Navbar, Footer.
+| Route | Methods | Callers |
+|---|---|---|
+| /api/admin/call-leads | GET (?deleted=1), POST (single or leads[]), PATCH ({id,set}, restore), DELETE (?id, ?ids, ?purgeDeleted=1) | AdminApp, AdminCalls, AdminLeads, AdminSettings, useOptimisticPatch |
+| /api/admin/leads/import | POST rows[] | LeadImport |
+| /api/admin/submissions | GET (?id, ?deleted=1, filters), PATCH (status, read, notes, socials, linkedLeadId, restore), DELETE (?ids) | AdminApp, AdminSettings |
+| /api/admin/projects | GET (?leadId, ?archived=1), POST, PATCH | AdminApp |
+| /api/admin/orders | GET (?status, returns unimported), POST (order or action import-submissions), PATCH | AdminApp |
+| /api/admin/concept-packs | GET (?leadId, ?industryKey, ?kind; seeds one pack when empty), POST, PATCH | AdminApp |
+| /api/admin/settings | GET (prefs, dashboard, notifications, profile, health, stripe, cron, calendly), PATCH (dailyCallTarget, dashboardLayout, notifications, profile), POST (password, prefs, test-push, purge) | AppShell, AdminDashboard, AdminSettings |
+| /api/admin/calendly/events | GET ?from&to (5 minute cache) | AppShell |
+| /api/admin/stripe/events | GET ?days or ?stored=1&unmatched=1 | AdminSettings |
+| /api/admin/stripe/reconcile | POST { eventId, leadId } | AdminSettings |
+| /api/admin/backup | GET, a JSON download | AdminSettings |
+| /api/admin/export | GET ?type=submissions&format=csv or json | AdminSettings |
+| /api/admin/push-subscribe | POST subscription (upsert by endpoint) | AdminSettings |
+| /api/admin/login, logout, session | POST, POST, GET | AdminApp, AdminCalls |
+| /api/push-key | GET | AdminSettings |
+| /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx, Prints.jsx |
+| /api/stripe/webhook | POST (Stripe signature) | Stripe |
+| /api/cron/reminders, /api/cron/daily | GET (CRON_SECRET) | Vercel cron |
 
-## e. Endpoint inventory (12 routes — all called; none dead)
+## Collections and sanitize shapes
 
-| Route | Methods | Auth | Collections | Called by |
-|---|---|---|---|---|
-| `/api/admin/call-leads` | GET (`?deleted=1` lazy-purges >30d), POST (single/`{leads[]}` idempotent by business + socials backfill), PATCH (`{id,set}` whitelisted via `sanitize()`, skips undefined; `{action:'restore',ids}`), DELETE (`?id=`/`?ids=a,b,c` soft, `?purgeDeleted=1` hard) | admin | call_leads | AdminApp shell, AdminCalls, (Leads/Booked/Clients via props) |
-| `/api/admin/leads/import` | POST `{rows[]}` ≤5000, match sourceId → business+last-10-phone, skip deleted, merge socials | admin | call_leads | LeadImport |
-| `/api/admin/submissions` | GET (`?id=`, `?deleted=1`), PATCH (`{id,set}`: status/read/notes/socials/linkedLeadId; `{action:'restore'}`), DELETE (`?ids=` soft) | admin | submissions | AdminApp |
-| `/api/admin/export` | GET `?type=&format=&status=&q=&days=` → CSV (RFC4180 + BOM, union field columns) or JSON | admin | submissions | ListSection, Settings, Dashboard shortcut |
-| `/api/admin/login` / `logout` / `session` | POST / POST / GET | — / — / — | settings (auth doc) | Login, shells, PrintsAdmin |
-| `/api/admin/stripe/events`, `/subscriptions`, `/reconcile` | GET recent Stripe events (`?days`, 5 minute cache) or stored rows (`?stored=1&unmatched=1`); GET active and ending subscriptions; POST `{eventId, leadId}` links an unmatched payment to a client | admin | stripe_events, call_leads, projects | Settings Integrations |
-| `/api/stripe/webhook` | POST, verifies STRIPE_WEBHOOK_SECRET on the raw body, stores each event once, matches a client and appends to the ledger | Stripe signature | stripe_events, call_leads, projects, settings | Stripe |
-| `/api/admin/backup` | GET one JSON of every collection (no push subscriptions, no raw Stripe payloads) as a download | admin | all | Settings Data |
-| `/api/cron/daily` | GET, CRON_SECRET, 06:00 UTC: rolls retainer bill dates, extends retainer schedules, cancels retainers past notice, writes the settings `health` document | cron | call_leads, projects, settings | Vercel cron |
-| `/api/admin/orders` | GET (`?status=`, returns `unimported`), POST (one order, or `{action:'import-submissions'}`), PATCH (`{id,set}` via `sanitize()`) | admin | orders, submissions | AdminApp shell (Print Orders, Dashboard feed, Settings import) |
-| `/api/admin/concept-packs` | GET (`?leadId`, `?industryKey`, `?kind`, seeds one pack when empty), POST, PATCH (`{id,set}`) | admin | concept_packs | AdminApp shell (Concepts, LeadDetail From library) |
-| `/api/admin/projects` | GET (`?leadId=`, `?archived=1`), POST (one project), PATCH (`{id,set}` via `sanitize()`, `$set` only) | admin | projects | AdminApp shell (Clients, Calendar, drawer) |
-| `/api/admin/settings` | GET (prefs+passwordOverridden), POST (`password`/`prefs`/`purge` — purge covers submissions only; leads purge lives on call-leads) | admin | settings, submissions | SettingsSection |
-| `/api/admin/push-subscribe` | POST subscription upsert-ish (insert; UNCONFIRMED dedupe by endpoint) | admin | push_subscriptions | usePush |
-| `/api/push-key` | GET VAPID public key | public | — | usePush |
-| `/api/submissions` (Prompt 11: also inserts an orders document for type shop-order and accepts type review) | POST public form intake → insert + push + email (prefs-gated) | public | submissions, settings, push_subscriptions | Start, Prints checkout |
-| `/api/calendly-meetings` | GET `?email=` → upcoming events + cancel/reschedule URLs (CORS `*`) | public (email-keyed) | — (Calendly API, `CALENDLY_PAT`) | ClientPortal Meetings |
+- call_leads: the lead, booked, and client record. Core fields business, industry, descriptor, phone, phoneNote, email, area, askFor, bestWindow, priority, callStatus, stage, angle, beforeYouDial[], script{}, objections[], close{}, afterCall{}, intel{}, socials{}, callLog[], contactLog[], notes, prepNotes, checklists[], meeting{date,time,type,location}, callbackAt, calendlyEventUri, concepts[]{id,label,status,link,packId}, gamePlan[], servicesPlanned[], pricingOptions[], conceptsTracker, purchases[]{id,label,amount,at,notes,projectId,source,stripeEventId}, bookedOutcome, clientSince, clientStatus, links{website,drive,clickup,instagram}, brand{primary,colors[],fontDisplay,fontBody,logoLink,notes}, retainer{projectId,planId,amount,status,startedAt,billDay,nextBillAt,cancelAt,stripeSubscriptionId,stripeCancelledAt}, reviews{nfcCard,nfcGivenAt,googleLink,baseline,latest,asks[]}, enrichment (written by the nightly job), sourceId, mergedInto, deleted, deletedAt, createdAt, updatedAt. Whitelist: api/admin/call-leads.js sanitize().
+- submissions: type, projectType, name, business, email, phone, fields{}, status, read, notes, socials, linkedLeadId, deleted, deletedAt, createdAt.
+- projects: leadId, name, kind, packageId, custom, stage, stages[], total, schedule[]{id,amount,dueAt,status,ledgerId,label,paidAt,extra}, revisions{max,used,log[]}, plan{months,monthly,stripeCancelled,stripeSubscriptionId,stripeCancelledAt}, links{drive,clickup}, deliverables[], delivery{}, releasedAt, monthly[], retainer{planId,billDay,startedAt}, archived, createdAt, updatedAt.
+- orders: source, status, leadId, projectId, submissionId, customer{name,email,phone}, items[]{id,productId,name,label,qty,options,artworkLink,priceTotal,quote}, subtotal, rush, dueAt, notes, paid{at,ledgerId,amount}, packaging{}, importKey, archived, createdAt, updatedAt.
+- concept_packs: title, leadId, industryKey, kind, prompts[]{id,label,text}, images[]{id,label,link}, tags[], notes, usedFor[], lastUsedAt, archived, createdAt, updatedAt.
+- stripe_events: id (unique), type, amount, currency, customerEmail, customerName, customerPhone, description, subscriptionId, paymentLinkId, at, matchedLeadId, ledgerId, raw (trimmed), receivedAt, reconciledAt.
+- settings documents by _id: prefs {pushEnabled, emailEnabled}, auth {salt, hash, changedAt}, dashboard {dailyCallTarget, dashboardLayout}, notifications {readIds, lastSeenAt, snoozedUntil, sentReminderKeys, reminders{meetings,callbacks,bills,reviews}}, profile {name, businessHours{start,end}}, health {enrichment, scraper, crons, stripe, lastBackupAt}.
+- push_subscriptions: one document per browser subscription (endpoint unique).
 
-Env vars used by api/: `MONGODB_URI`, `SESSION_SECRET`, `ADMIN_PASSWORD`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `WEB3FORMS_NOTIFY_KEY`, `CALENDLY_PAT`. Client-side: `VITE_MAINTENANCE_MODE`, `VITE_MAINTENANCE_PASSWORD`, Web3Forms access key in Prints/Start (VITE — ships in bundle; Web3Forms keys are designed to be public).
+Enums live in src/shared/semantics.js with id lists mirrored in api/_semantics.js: CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES (submission statuses; the old ORDER_STATUS_IDS stay only in the server whitelist for old shop-order submissions), CONTACT_TYPES, MEETING_TYPES, PLANS, CONCEPT_STATUSES, PROJECT_KINDS, PROJECT_STAGES, SCHEDULE_STATUSES, RETAINER_STATUSES, CLIENT_STATUSES, PRINT_ORDER_STATUSES, ORDER_SOURCES, CONCEPT_KINDS, REVIEW_CHANNELS, REVIEW_RESULTS, SUBMISSION_TYPES, WINDOWS.
 
-## f. Data model (live, from cluster VisualizeWebsite → db `visualize`, queried 2026-09-03)
+## Environment variables
 
-Collections that actually exist: **call_leads, submissions, push_subscriptions** (3 — confirmed via listCollections). The `settings` collection is referenced by code but **does not exist yet**; it is created lazily on first password change / prefs save / notification prefs read returns defaults meanwhile.
+See docs/RUNBOOK.md for what each unlocks and what breaks without it: MONGODB_URI, SESSION_SECRET, ADMIN_PASSWORD, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, WEB3FORMS_NOTIFY_KEY, CALENDLY_TOKEN (or CALENDLY_PAT), CRON_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, ADMIN_URL, VITE_MAINTENANCE_MODE, VITE_MAINTENANCE_PASSWORD, VITE_WEB3FORMS_KEY.
 
-### call_leads — 411 documents (359 live, 52 soft-deleted), 39 top-level fields
+## Crons and jobs
 
-App-written fields (all pass through `sanitize()` in call-leads.js — caps in parens):
+- reminders (every 15 minutes): callbacks due within 15 minutes, meetings within the hour, retainer bills due today, review asks three days after a release; once each through sentReminderKeys; stamps health.crons.reminders.
+- daily (06:00 UTC): rolls retainer.nextBillAt, extends retainer schedules to six future months, cancels retainers past their notice, writes the health document.
+- Outside this repo: the nightly enrichment scan and the scraper write straight into call_leads (enrichment{lastScanAt, scanCount}, sourceId); health reports when either is quiet for 36 hours.
 
-```
-business(200) industry(80) descriptor(400) phone(40) phoneNote(200) email(200)
-area(160) serviceInterest(200) sourceId(120|null) notes(3000) askFor(200)
-bestWindow(300) priority: hot|warm|cold  callStatus: not-called|callback|booked|no|no-answer
-angle(1200) beforeYouDial[≤30 str] 
-script{confirm,intro,homework,question,likelyAnswers[{say,respond}≤12],hook,ask}
-objections[{say,respond}≤12] close{lockIt,ifNo,noAnswer}
-afterCall{meeting,email,whatTheySaid,nextAction} intel{accomplishments[],gaps[],dropLines[]}
-socials{website,instagram,facebook,tiktok,google,yelp,linkedin,x,youtube — normalized URLs}
-callLog[≤200 {at:ISO-string, outcome, note(1000), meeting(300), email(200)}]
-stage: lead|booked|won|lost|client   clientSince: ISO-string
-meeting{date:'YYYY-MM-DD', time:'HH:MM', type: call|video|in-person}
-servicesPlanned[≤30 ids] pricingOptions[≤3 {label,price:num,plan:full|6mo|12mo,retainer,notes}]
-conceptsTracker{items[≤20 {label,done}], demoUrl, driveUrl}
-checklists[≤10 {name, items[≤50 {text,done}]}]
-purchases[≤50 {label,amount:num,at:'YYYY-MM-DD',notes}]
-contactLog[≤200 {type: call|meeting|email|text|other, at:'YYYY-MM-DD', note}]
-bookedOutcome{result: won|lost, reason, at:ISO}
-deleted:bool deletedAt:Date createdAt:Date updatedAt:Date
-```
+## Browser storage
 
-**Fields written by the external nightly enrichment/scraping jobs** (confirmed from live docs — none of this is written by app code):
+localStorage (admin, per device): vz_theme, vz_call_session, vz_builder_preset, vz_leads_view, vz_cal_view, vz_shell_collapsed, vz_notif_read, vz_callmode_<id>, vz_clients_cols, vz_orders_cols, vz_subs_cols. Legacy keys that are read once by Settings Data (Import print orders saved on this device) and otherwise untouched: vz_print_orders. Keys nobody reads any more and nothing writes: vz_clients, vz_invoices, vz_intake_forms, vz_analytics, vz_maintenance_preview, vz_portal_session. sessionStorage: vz_cart (the public shop's cart, survives a refresh only).
 
-- `enrichment: { lastScanAt: Date, scanCount: Number }` — present on **252 docs**
-- `stage: ""` (empty string) on **249 docs** — the enricher writes an empty stage; `effectiveStage()` treats falsy as `'lead'`, so this is survivable, but any future strict stage handling MUST keep treating `""` as lead
-- `updatedAt` (Date) bumped on scan
-- The enricher also creates whole new leads (sample: created 2026-08-21, empty `script{}` skeleton unlike app-created leads which get the full defaultLead script) and fills/overwrites: `notes` (appends `[Enrichment YYYY-MM-DD] …` text), `phoneNote`, `askFor`, `bestWindow`, `angle`, `beforeYouDial`, `descriptor`, `area`, `industry` (**lowercase**, e.g. `food & beverage`, while imported data is Title Case — the industry facet now has case-variant duplicates), `priority`, `socials`, `phone`, `email`
-- UNCONFIRMED: whether the enricher ever writes `callStatus` or touches `callLog` (no evidence it does in sampled docs)
+## Scripts
 
-### submissions — 4 documents (all currently soft-deleted test data)
+- `node scripts/layout-audit.mjs`: Playwright walk of every admin route at 320, 390, 430, 768, 1280 with mocked APIs; fails on any element past the viewport or a horizontal scroll. AUDIT_BASE, AUDIT_WIDTHS, AUDIT_ONLY (settings, clients, studio), AUDIT_SHOTS.
+- `node scripts/hex-count.js`: raw hex literals in src and api (should only go down).
+- `node scripts/css-orphans.mjs`: class selectors defined in style strings or index.css that no JSX renders.
+- `TZ=America/New_York node scripts/dates-test.mjs`: date parsing cases across formats and DST.
+- `node scripts/migrate-mongo.mjs`: one off copy of the database between clusters (env driven).
 
-`type: start|shop-order|contact|other`, `projectType`, `name`, `business`, `email`,
-`phone`, `fields{}` (free-form Q→A map), `status: new|contacted|replied|landed|denied`
-(orders reuse the field with order statuses), `read`, `notes`, `socials{}` (later
-feature; absent on existing docs), `linkedLeadId` (later feature; absent on
-existing docs), `deleted/deletedAt`, `createdAt`. No updatedAt.
+## Known issues
 
-### push_subscriptions — 2 documents
-
-`subscription{ endpoint, keys{p256dh, auth}, expirationTime:null }`, `updatedAt`.
-
-## g. Theming today
-
-- **Tokens:** `src/index.css` `:root` defines 68 CSS variables (brand ramp `--brand/#d44c43` family, dark surface set `--bg #080808` / `--bg-elevated` / `--bg-card`, 4-level text ramp, borders, 8px-base `--space-1..32`, `--radius`, glass set, `--ease`, `--font-body` Inter / `--font-display` Barlow Condensed) + one `[data-theme='light']` override block. Theme is set pre-paint in index.html from `vz_theme` localStorage else OS preference. **The CRM ignores the light theme entirely** — every admin surface hardcodes its own dark palette on its root (`.aa-app`, `.cc-page`, `.adm-page` each re-declare local `--a-*`/`--c-*`/custom vars).
-- **Hardcoded hex values: 629 occurrences, 102 unique colors** across src/+api (top offenders: AdminCalls 76, ClientPortal 73, AdminApp 64, PrintsAdmin 43, IntakeForm 42, AdminBooked 42). The same semantic colors are re-typed everywhere: `#d44c43` red, `#22c55e` green, `#f59e0b` amber, `#60a5fa` blue, `#ef4444`, `#8a8a8a` muted, `#121212/#1a1a1a` surfaces. PrintsAdmin uses a *different* dark ramp (`#0f0f11/#141418/#1a1a20`, muted `#636373`) than the CRM (`#080808/#121212/#1a1a1a`, muted `#8a8a8a`).
-- Status/priority color maps are re-declared in at least 5 files (AdminApp LEAD/ORDER_STATUSES, AdminCalls CALL_STATUSES+OUTCOMES, AdminLeads CALL_STATUSES+OUTCOME_META, AdminBooked OUTCOME_COLORS/LABELS, server call-leads.js CALL_STATUSES).
-- Fonts loaded once via Google Fonts link; admin re-declares `font-family: 'Inter', -apple-system…` per root and `'Barlow Condensed', 'Inter'` inline per display element rather than via `--font-display`.
-- The faint red grid texture is a global `.grid-texture` utility in index.css.
-
-## h. Loading and empty states today
-
-- **Skeletons:** only Submissions/Orders list (`Skeletons` rows) and Settings→Recently deleted.
-- **Text-only "Loading…":** Leads list, Clients list, Booked list, Call Console session card area.
-- **No loading state at all:** Dashboard stats (render zeros then pop when data lands), console queue/builder counts, PrintsAdmin (sync localStorage so none needed), portal views.
-- **Designed empty states:** console queue (import CTA), Leads, Clients, Booked, LinkedSubmissions, lookup sheet, Recently deleted, PrintsAdmin tabs, submissions/orders. Generally good coverage; copy uses em dashes (see bugs).
-
-## i. Known issues / bugs found (logged, NOT fixed)
-
-1. **Dashboard greeting name mangling (reported by Rob):** the GREETINGS array in AdminApp includes joke strings that read as a broken name, e.g. `"Hey there, Rob'neH?"`, `"Rob. The myth. The legend."`. Rendered verbatim in the hero. CRM 3.0: greetings must always address "Rob" cleanly.
-2. **Em dashes in UI copy (policy violation going forward):** ~67 occurrences across the admin surfaces alone (empty states, placeholders, confirm bodies, hints — e.g. "No calls logged yet — dial them from the Call Console."). All UI copy must drop em dashes in the rebuild.
-3. **Date-only strings display one day early in US timezones:** `fmtDate('2026-08-06')` → `new Date` parses as UTC midnight → renders Aug 5 in EDT/PDT. Affects purchases dates, contact-log dates, clientSince/won dates on Clients + Booked cards, and `lastContact` day-math ("Nd ago" can be off by one). PrintsAdmin already works around this exact bug for invoice due dates by appending `'T12:00:00'` — proof of the hazard. Meeting date/time is safe (parsed as local `date+'T'+time`).
-4. **Industry facet case duplicates (live-data bug):** the nightly enricher writes lowercase industries (`food & beverage`) while spreadsheet/app data is Title Case, so console/leads industry chips can show the same industry twice with split counts.
-5. **`stage: ""` on 249 live docs** (enricher). Tolerated by `effectiveStage()` only; any strict `stage === 'lead'` comparison would silently drop 249 leads.
-6. **Dead CSS in AdminCalls:** the entire old queue-card family (`.cq-list, .cq-card, .cq-dot, .cq-main, .cq-sub, .cq-side, .cq-hasphone, .cq-controls, .cq-pills, .cq-filterbtn, .cq-count, .cq-filtersheet, .cq-sheet-pills, .cq-nophone, .cc-search-wrap, .cc-search`) survives from before the session-builder rewrite; `.aa-callprog*` block in AdminApp survives the removed progress bar; session card emits `cs-card--flash-<outcome>` classes with no matching CSS rule.
-7. **Dead feature path:** the console still reads `vz_builder_preset` from localStorage on mount, but nothing writes it anymore (the stat cards that wrote it were replaced). Harmless today; either re-adopt or remove in 3.0.
-8. **Dead code:** `src/hooks/useReveal.js` (unused — App.jsx observes inline), `SplashScreen.jsx` (no importer found — UNCONFIRMED), the non-embedded Call Console topbar branch (AdminCalls is only ever mounted `embedded` via AdminApp; the standalone header + its Wordmark import are unreachable), unused icon imports in AdminCalls (`Phone`, `Plus`), `sharp` devDependency, `.bk-` `planLabel`-era leftovers are clean.
-9. **Duplicated logic (the copy count):** `normalizeSocials` ×3 (src/lib/socials.js, call-leads.js, submissions.js — serverless cannot import src/, documented but still 3 copies to keep in sync); phone last-10 normalizer ×2 (src/lib/phone.js + mirrored in leads/import.js, documented); `fmtDate`/`fmtLogTime`/`telOf`/`money` re-implemented in AdminLeads, AdminClients, AdminBooked; `Block` component duplicated (AdminLeads + AdminClients); ConfirmModal (AdminApp) vs ConfirmDelete (AdminLeads); StatusBadge duplicated (AdminApp + PrintsAdmin); status color maps ×5 (see g).
-10. **Legacy print/portal stack is per-device localStorage:** orders, invoices, client accounts (with **plaintext passwords displayed in a table**), briefs, and analytics live only in the browser that created them. The CRM's Orders (Mongo `shop-order` submissions) and PrintsAdmin's Shop tab (localStorage `vz_print_orders`) are two disconnected views of "orders". `ClientPortal` auth is a localStorage account list with a decorative 31-bit hash — not security, and data does not roam devices.
-11. **Small-target controls below 44px:** `aa-iconbtn`/`cc-iconbtn` 34×34, `aa-search-clear` ≈20×20, `ck-check` 24×24, delete `×` buttons ≈26px (measured from CSS). Collapse headers, tabs, chips are compliant (44–58px).
-12. **Placeholder contrast fails AA:** `#6a6a6a` placeholders on `rgba(255,255,255,0.04)` over `#131313` ≈ 2.9:1 (SocialFields); `--text-muted #636373` in PrintsAdmin on `#0f0f11` ≈ 3.9:1. CRM muted `#8a8a8a` on `#121212` ≈ 4.6:1 passes for body text but is used at 9–11px label sizes where more contrast is warranted.
-13. **Silent stale data on fetch failure:** console `load()` and shell `loadCallLeads()` swallow errors and keep the last list with no offline/error indicator (writes DO surface errors; reads don't).
-14. **More sheet has no Escape/focus trap;** modals generally stop at click-outside + Escape in some (ConfirmModal has Escape; More sheet, reject sheet do not).
-15. **`settings` purge asymmetry:** Settings "Purge all now" calls two endpoints (submissions purge via settings action, leads purge via call-leads `?purgeDeleted=1`) — works, but the settings action name `purge` now under-describes what the button does; a failure in the second call is unreported.
-16. **Bundled lead data in the public JS bundle:** `src/data/call-leads-import.json` (the 10 Drive notepads incl. names/phones) ships inside the admin bundle chunk served from the public origin. Low risk (admin bundle is fetchable by anyone) but real data in a static asset.
-17. **`push-subscribe` dedupe UNCONFIRMED:** repeated enables on one device may insert duplicate subscription docs (2 docs live; endpoint uniqueness not enforced in code).
-
-## j. Dead code, unused deps, duplication — summary counts
-
-Dead/unreachable: 3 files-or-branches (useReveal, SplashScreen UNCONFIRMED, console standalone header) + 2 orphaned CSS families + 1 dead localStorage feature path + 2 unused icon imports + 1 unused devDependency (sharp). Duplicated logic: 9 distinct clusters (item i.9). Legacy parallel systems: 2 (localStorage orders/invoices/portal vs Mongo submissions; two dark palettes).
+- Sign out everywhere is not available: sessions carry no generation number (RUNBOOK covers rotating SESSION_SECRET).
+- The Call Console keeps its own copy of the leads list and pings the shell on changes; two tabs can briefly disagree.
+- Reads swallow fetch errors and keep the last list; writes surface errors through toasts.
+- The light theme is a stub on `.lay-root[data-v-theme='light']` in src/ui/tokens.js and is wired to nothing (Prompt 14).
+- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total.

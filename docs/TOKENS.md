@@ -132,7 +132,7 @@ Weights: `--v-weight-regular` 400, `-medium` 500, `-semibold` 600, `-bold` 700.
 |---|---|
 | `--lay-gutter`, `--lay-tabbar-h`, `--lay-rail-w`, `--lay-bar-bg`, `--lay-border` | `var(--v-gutter)`, `var(--v-tabbar-h)`, `var(--v-sidebar-rail-w)`, `var(--v-bar)`, `var(--v-border)` |
 | `--lay-content-w` 760, `--lay-content-w-wide` 900, `--lay-panel-w` 324 | `var(--v-content-w)`, `var(--v-content-w-wide)`, `var(--v-panel-w)` (Prompt 3) |
-| `.aa-app`: `--a-border/-panel/-card/-raised/-muted/-sec/-brand` | `--v-border / --v-bar / --v-surface-1 / --v-surface-2 / --v-text-3 / --v-text-2 / --v-red` |
+| `.aa-app`: `--a-border/-panel/-card/-raised/-muted/-sec/-brand` | gone (Prompt 12); every admin rule reads `--v-` directly |
 | `.cc-page`: `--c-border/-card/-card2/-muted/-sec/-brand` | same mapping (`--c-border` was 0.09 alpha, now the shared 0.08) |
-| PrintsAdmin `--bg/--glass-*/--text-*` | untouched by decision (Prompt 11) |
+| PrintsAdmin `--bg/--glass-*/--text-*` | retired with the screen (Prompt 13) |
 | index.css marketing tokens (`--brand`, `--bg`, `--space-*`) | untouched; the admin does not read them |

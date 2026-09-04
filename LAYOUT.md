@@ -24,7 +24,7 @@ classes are impossible by construction:
 | `<ScrollArea>` | `.lay-scroll` | The only scroll container. Gutter padding (safe-area aware), `overflow-x: clip`, `overscroll-behavior: contain`. Children center via `.lay-content` / `.lay-content--wide` (pass `bare` to skip) |
 | `<StickyFooterBar>` | `.lay-footbar` | Pinned bottom actions. **In flow** (a sibling below the ScrollArea — structurally cannot cover rows), solid opaque `--lay-bar-bg`, safe-area bottom padding |
 | row/card contract | `.lay-card` | `width/max-width: 100%`, `min-width: 0` on itself and children; titles truncate one-line via `.lay-truncate` (the site-wide list treatment; long headings *wrap* instead — global `overflow-wrap: break-word` on `body`) |
-| overlay contract | `.lay-overlay` + `.lay-modal-box` | Fixed inset overlay with safe-area padding; box never wider/taller than the viewport, scrolls internally |
+| overlay contract | `.lay-overlay` | Fixed inset overlay with safe-area padding; the kit Sheet and Modal own their own box sizing (`.lay-modal-box` was removed in Prompt 13 as unused) |
 
 Since Prompt 3 the three primitives live in `src/ui/` and are imported from
 `'../ui'` like every other kit component (`import { PageShell, ScrollArea,
@@ -80,8 +80,8 @@ shells (`.aa-app`, `.cc-page`).
   its own container** — the container itself still fits the viewport.
 - The session view's desktop rail/side columns (`248px` / `320px`) are local
   to `.cs-wrap`'s grid in `AdminCalls.jsx`.
-- The legacy print dashboard (`PrintsAdmin.jsx`, linked from Settings →
-  Legacy tools) predates this system and is not covered.
+- The legacy print dashboard was retired in Prompt 13; every admin screen is
+  now covered by the audit.
 
 ## Regression check — run after touching layout
 
