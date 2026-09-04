@@ -36,7 +36,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     logMonth: 0, logMonthConnected: 0, logLastMonth: 0, logLastMonthConnected: 0,
     notCalled: 0, booked: 0, callbacks: 0, newLeads48h: 0,
     funnel: { leads: 0, contacted: 0, booked: 0, clients: 0 },
-    revenue: 0, revenueMonth: 0, retainerClients: 0, clients: 0,
+    revenue: 0, revenueMonth: 0, retainerClients: 0, clients: 0, mrr: 0,
   };
   const events = [];
   const bump = (t) => {
@@ -66,16 +66,16 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     if (stage === 'booked') s.booked++;
     if (l.callStatus === 'callback' && stage !== 'lost') s.callbacks++;
     if (created >= P.now - 2 * DAY) s.newLeads48h++;
-    let hasRetainer = false;
     for (const p of (l.purchases || [])) {
       const amt = Number(p.amount) || 0;
       s.revenue += amt;
       const t = new Date(p.at).getTime();
       if (t && t >= P.monthStart) s.revenueMonth += amt;
-      if (/retainer/i.test(`${p.label} ${p.notes}`)) hasRetainer = true;
       if (t) events.push({ id: `buy:${l._id}:${p.at}:${p.label}`, kind: 'purchase', at: t, lead: l, title: `${l.business} paid ${money(amt)}`, detail: p.label || 'Purchase recorded' });
     }
-    if (stage === 'client') { s.clients++; if (hasRetainer) s.retainerClients++; }
+    // Prompt 10: the retainer field replaces the label regex. Active and ending retainers count; paused and cancelled do not.
+    const onRetainer = stage === 'client' && ['active', 'ending'].includes(l.retainer?.status);
+    if (stage === 'client') { s.clients++; if (onRetainer) { s.retainerClients++; s.mrr += Number(l.retainer.amount) || 0; } }
     if (l.bookedOutcome?.result === 'won' && l.bookedOutcome.at) events.push({ id: `won:${l._id}`, kind: 'won', at: new Date(l.bookedOutcome.at).getTime(), lead: l, title: `${l.business} said yes`, detail: 'Lead won' });
     if (l.clientSince) events.push({ id: `client:${l._id}`, kind: 'client', at: new Date(l.clientSince).getTime(), lead: l, title: `${l.business} became a client`, detail: 'First invoice paid' });
     if (created) events.push({ id: `new:${l._id}`, kind: l.sourceId ? 'scraper' : 'lead', at: created, lead: l, title: `New lead: ${l.business}`, detail: [l.industry, l.area].filter(Boolean).join(', ') || 'Added by hand' });
@@ -110,7 +110,7 @@ function DashboardSkeleton({ desktop }) {
       <Stack gap={2}><SkeletonBlock width="60%" height={44} /><SkeletonBlock width="45%" height={16} /><Row gap={2}><SkeletonBlock width={180} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={120} height={44} radius="var(--v-radius-md)" /></Row></Stack>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3 || i === 7} />)}</Grid>
-      <Card><SkeletonBlock width={90} height={14} /><Grid minColumnWidth={150}>{[1, 2, 3].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
+      <Card><SkeletonBlock width={90} height={14} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
     </Stack>
   );
   const right = (
@@ -126,12 +126,12 @@ function DashboardSkeleton({ desktop }) {
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       {right}
       <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3} />)}</Grid>
-      <Card><SkeletonText lines={1} width={90} /><Grid minColumnWidth={150}>{[1, 2, 3].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
+      <Card><SkeletonText lines={1} width={90} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
     </Stack>
   );
 }
 
-export default function AdminDashboard({ leads, loading, subs, orders, onOpenSubmission }) {
+export default function AdminDashboard({ leads, projects = [], loading, subs, orders, onOpenSubmission }) {
   const shell = useShell();
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
@@ -148,7 +148,7 @@ export default function AdminDashboard({ leads, loading, subs, orders, onOpenSub
   };
 
   const s = useMemo(() => computeDashboard(leads || [], subs, orders), [leads, subs, orders]);
-  const notes = useMemo(() => buildNotifications(leads || []), [leads]);
+  const notes = useMemo(() => buildNotifications(leads || [], { projects }), [leads, projects]);
   const today = useMemo(() => {
     const cbs = notes.filter(n => n.kind === 'callback').sort((a, b) => (a.tone === 'danger' ? -1 : 1) - (b.tone === 'danger' ? -1 : 1) || a.at - b.at);
     const mts = notes.filter(n => n.kind === 'meeting' && n.group === 'today');
@@ -252,6 +252,7 @@ export default function AdminDashboard({ leads, loading, subs, orders, onOpenSub
         <Grid minColumnWidth={150}>
           <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
           <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
+          <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
           <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
         </Grid>
       </Section>

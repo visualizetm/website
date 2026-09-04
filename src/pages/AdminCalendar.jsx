@@ -22,7 +22,7 @@ const VIEW_KEY = 'vz_cal_view';
 const HOUR_PX = 56;
 const START_H = 7;
 const END_H = 21;
-const KINDS = ['meeting', 'callback', 'calendly', 'scraper'];
+const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill'];
 const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -38,7 +38,7 @@ function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
     ...(e.link ? [{ id: 'join', label: 'Join link', icon: 'ArrowRight', onSelect: () => window.open(e.link, '_blank', 'noopener') }] : []),
   ];
   return (
-    <ListRow className={`cal-row cal-row--${e.tone}`} leading={<IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
+    <ListRow className={`cal-row cal-row--${e.tone}`} leading={<IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : e.kind === 'bill' ? 'CurrencyDollar' : e.kind === 'planfinal' ? 'CreditCard01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
       title={e.title} subtitle={e.subtitle} meta={e.allDay ? 'All day' : fmtTime(e.at)} onClick={() => (e.leadId ? onOpen(e) : e.kind === 'calendly' ? onLink(e) : undefined)} chevron={false}
       trailing={<Menu label="Event actions" items={items} />} />
   );
@@ -66,8 +66,9 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60e3); return () => clearInterval(t); }, []);
 
   const calendly = shell?.calendly || { configured: null, events: [] };
-  const all = useMemo(() => buildEvents(leads, calendly.events, now), [leads, calendly.events, now]);
-  const events = useMemo(() => all.filter(e => !kinds.size || kinds.has(e.kind)), [all, kinds]);
+  const projects = shell?.projects || [];
+  const all = useMemo(() => buildEvents(leads, calendly.events, now, projects), [leads, calendly.events, now, projects]);
+  const events = useMemo(() => all.filter(e => !kinds.size || kinds.has(e.kind) || (e.kind === 'planfinal' && kinds.has('bill'))), [all, kinds]);
   const dayEvents = useMemo(() => { const list = eventsOn(events, cursor); return [...list.filter(e => e.overdue), ...list.filter(e => !e.overdue)]; }, [events, cursor]);
   const overdueAll = useMemo(() => events.filter(e => e.kind === 'callback' && e.overdue && !sameDay(e.at, cursor)), [events, cursor]);
   const week = useMemo(() => { const s = startOfWeek(cursor); return Array.from({ length: 7 }, (_, i) => addDays(s, i)); }, [cursor]);

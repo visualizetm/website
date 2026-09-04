@@ -62,7 +62,17 @@ New checks: calendar Day, Week, Month, Day with each filter, add callback Sheet,
 
 Pending Prompt 8 tally: the Prompt 8 run was interrupted on this container before finishing; the combined run below covers every Prompt 8 check as well.
 
-AUDIT_PLACEHOLDER
+Combined run (Prompts 8 and 9), finished on this container, exit 0:
+
+| Width | Checks | Result |
+|---|---|---|
+| 320 | 61 | all clean |
+| 390 | 61 | all clean |
+| 430 | 61 | all clean |
+| 768 | 64 | all clean |
+| 1280 | 64 | all clean |
+
+311 checks, zero offenders, no horizontal scroll at any width.
 
 ## 10. Decisions
 

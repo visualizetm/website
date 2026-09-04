@@ -18,7 +18,9 @@ import { ScriptSteps, Objections, CloseCards, IntelCards } from './LeadPlaybook'
 import Checklists from './Checklists';
 import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
-import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CONCEPT_STATUSES, CONCEPT_PRESETS, displayIndustry } from '../shared/semantics';
+import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
+import { lifetimeValue } from '../lib/projects';
+import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CONCEPT_STATUSES, CONCEPT_PRESETS, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/dates';
@@ -27,10 +29,13 @@ import { isNewLead } from '../lib/leads';
 import { downloadIcs } from '../lib/ics';
 
 /**
- * LeadDetail: ONE detail for Leads, Booked, and (read only until Prompt 10)
- * Clients. Stage aware: a lead shows the pipeline blocks; booked adds the
- * meeting workspace and the outcome bar; a client shows the same plus a link
- * to its client record.
+ * LeadDetail: ONE detail for Leads, Booked, and Clients. Stage aware: a lead
+ * shows the pipeline blocks; booked adds the meeting workspace and the outcome
+ * bar; a client opened from the Clients screen (the `client` prop) swaps the
+ * Playbook and Meeting sections for Projects, Payments, Retainer, and
+ * Deliverables (src/components/ClientWorkspace.jsx) and adds the Links and
+ * Brand blocks to the profile column. Opened anywhere else, a client shows the
+ * lead view plus a link to its client record.
  * @param {object} props
  * @param {object} props.lead
  * @param {Array} [props.submissions]
@@ -39,6 +44,7 @@ import { downloadIcs } from '../lib/ics';
  * @param {Function} [props.onLinkSubmission]
  * @param {Function} props.onClose back to the list
  * @param {boolean} [props.readOnly]
+ * @param {{ projects: Array, onCreateProject: Function, onPatchProject: Function }} [props.client] client mode (Prompt 10)
  */
 const LS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const SOCIAL_ACTIONS = [['instagram', 'Camera01', 'Instagram'], ['facebook', 'ThumbsUp', 'Facebook'], ['website', 'Globe01', 'Website'], ['google', 'MarkerPin01', 'Maps']];
@@ -92,12 +98,13 @@ function Block({ title, summary, callMode, action, children }) {
   );
 }
 
-export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false }) {
+export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null }) {
   const shell = useShell();
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
   const stage = normalizeStage(lead);
-  const booked = stage === 'booked' || stage === 'won' || stage === 'client';
+  const clientMode = !!client && (stage === 'client' || stage === 'won');
+  const booked = !clientMode && (stage === 'booked' || stage === 'won' || stage === 'client');
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
   const [linkSheet, setLinkSheet] = useState(null); // { key, label }
@@ -158,7 +165,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
         {isNewLead(lead) && <Pill tone="new" label="New" size="sm" variant="solid" icon={false} />}
         <Pill id={stage} list={STAGES} size="sm" variant="outline" />
         <Menu label="Change priority" trigger={<button type="button" className="dt-pillbtn" aria-label={`Priority ${lead.priority || 'warm'}, change`}><Pill id={lead.priority || 'warm'} size="sm" /></button>} items={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, disabled: (lead.priority || 'warm') === p.id, onSelect: () => patch({ priority: p.id }) }))} />
-        <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />
+        {clientMode ? <Menu label="Change client status" trigger={<button type="button" className="dt-pillbtn" aria-label={`Client status ${lead.clientStatus || 'active'}, change`}><Pill id={lead.clientStatus || 'active'} list={CLIENT_STATUSES} size="sm" /></button>} items={CLIENT_STATUSES.map(c => ({ id: c.id, label: c.label, icon: c.icon, disabled: (lead.clientStatus || 'active') === c.id, onSelect: () => patch({ clientStatus: c.id }) }))} /> : <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />}
         <InlineEdit value={lead.industry || ''} onSave={save('industry')} placeholder="Add industry" label="Industry" format={(v) => (v ? displayIndustry(v) : '')} className="dt-inline-pill" />
       </Row>
       <Row gap={1} wrap className="dt-actions" aria-label="Actions">
@@ -171,7 +178,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
       <Row gap={2} wrap>
         <Button icon={PhoneCall01} onClick={() => shell?.go('calls', { ids: [lead._id], autostart: true })} disabled={!lead.phone}>Start call</Button>
         {!readOnly && <Button variant="secondary" icon={Edit02} onClick={() => setEditAll(true)} className="dt-editall">Edit all</Button>}
-        {stage === 'client' && <Button variant="ghost" onClick={() => shell?.go('clients')}>Open client record</Button>}
+        {stage === 'client' && !clientMode && <Button variant="ghost" onClick={() => shell?.openRecord(lead)}>Open client record</Button>}
       </Row>
       <Stack gap={1} className="dt-facts">
         <Fact label="Phone" value={formatPhone(lead.phone) || ''} onSave={save('phone')} inputMode="tel" placeholder="Add phone" readOnly={readOnly} />
@@ -180,6 +187,8 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
         <Fact label="Best window" value={lead.bestWindow} onSave={save('bestWindow')} placeholder="Before 8am or after 5pm" readOnly={readOnly} />
         <Fact label="Email" value={lead.email} onSave={save('email')} inputMode="email" type="email" placeholder="Add email" readOnly={readOnly} />
         <Fact label="Address" value={lead.address} onSave={save('address')} placeholder="Add address" readOnly={readOnly} />
+        {clientMode && <Fact label="Since" value={fmtDate(lead.clientSince) || fmtDate(lead.bookedOutcome?.at) || ''} placeholder="Unknown" readOnly />}
+        {clientMode && <Fact label="Lifetime" value={fmtMoney(lifetimeValue(lead))} readOnly />}
         <Fact label="Source" value={lead.sourceId ? 'Nightly scraper' : 'Added by hand'} readOnly />
         <Fact label="Added" value={fmtDate(lead.createdAt) || ''} readOnly />
         <Fact label="Last scanned" value={lead.enrichment?.lastScanAt ? `${relativeTime(lead.enrichment.lastScanAt)}, ${lead.enrichment.scanCount || 1} scan${(lead.enrichment.scanCount || 1) === 1 ? '' : 's'}` : 'Never'} readOnly />
@@ -188,7 +197,9 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
     </Card>
   );
 
-  const tabs = [{ id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
+  const tabs = clientMode
+    ? [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: (client.projects || []).filter(p => String(p.leadId) === String(lead._id) && !p.archived && p.kind !== 'retainer').length || undefined }, { id: 'payments', label: 'Payments' }, { id: 'retainer', label: 'Retainer' }, { id: 'deliverables', label: 'Deliverables' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }]
+    : [{ id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
   const sec = (id) => ({ ref: (el) => { refs.current[id] = el; }, id: `dt-${id}`, className: 'dt-sec' });
 
   const overview = (
@@ -200,7 +211,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
       </Section>
     </section>
   );
-  const playbook = (
+  const playbook = !clientMode && (
     <section {...sec('playbook')}>
       <Section title="Playbook" description="Every line edits in place. Return to the ask after every objection.">
         <Card><p className="pb-card-h">Script</p><ScriptSteps lead={lead} onChange={readOnly ? undefined : (v) => patch({ script: v })} /></Card>
@@ -276,17 +287,19 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
       </Section>
     </section>
   );
+  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} />;
   const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs} value={tab} onChange={jump} /></div>;
-  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{notes}{history}</Stagger>;
+  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
+  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} readOnly={readOnly} /><ClientBrand lead={lead} patch={patch} readOnly={readOnly} /></> : profile;
 
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll" key={lead._id}>
         <div className="dt-inner">
           {desktop ? (
-            <div className="dt-cols"><div className="dt-left">{profile}</div><div className="dt-right">{subnav}{sections}</div></div>
+            <div className="dt-cols"><div className={`dt-left${clientMode ? ' dt-left--client' : ''}`}>{profileCol}</div><div className="dt-right">{subnav}{sections}</div></div>
           ) : (
-            <>{profile}{subnav}{sections}</>
+            <>{profileCol}{subnav}{sections}</>
           )}
         </div>
       </ScrollArea>

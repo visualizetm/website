@@ -14,7 +14,8 @@ import { chromium } from 'playwright-core';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
-const WIDTHS = [320, 390, 430, 768, 1280];
+const WIDTHS = process.env.AUDIT_WIDTHS ? process.env.AUDIT_WIDTHS.split(',').map(Number) : [320, 390, 430, 768, 1280];
+const SHOTS = process.env.AUDIT_SHOTS || ''; // directory: save a screenshot per check
 
 // Hostile fixtures: very long unbroken + slash-joined names, long emails.
 const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
@@ -31,21 +32,68 @@ const BOOKED_EXTRA = {
   prepNotes: UNBROKEN,
 };
 
+const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+const monthsAgo = (n, day) => { const d = new Date(); d.setMonth(d.getMonth() - n); if (day) d.setDate(day); return dayKey(d); };
+const daysFrom = (n) => dayKey(Date.now() + n * 864e5);
+const NOW_ISO = new Date().toISOString();
+
+// Clients module fixtures (Prompt 10): one single-project client (L10, won), one
+// payment plan client at month 5 of 6 (L11), one Content Kit retainer client
+// (L12), one delivered client (L13).
 const PIPE_EXTRA = {
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
         servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
-  11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z',
+  11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
         servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
         pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
         checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }],
+        links: { website: 'https://example.com/' + UNBROKEN, drive: 'https://drive.google.com/drive/folders/' + UNBROKEN, clickup: '', instagram: '' },
+        brand: { primary: '#d44c43', colors: ['#080808', '#fafafa', 'notahex', ''], fontDisplay: 'Barlow Condensed ' + UNBROKEN.slice(0, 20), fontBody: 'Inter', logoLink: 'https://example.com/' + UNBROKEN, notes: UNBROKEN },
         purchases: [
-          { label: LONG, amount: 1150, at: '2027-01-05', notes: UNBROKEN.slice(0, 50) },
-          { label: 'Retainer month 1', amount: 95, at: '2027-02-01', notes: '' },
+          { id: 'lg1', label: 'Launch Plan: Month 1 of 6', amount: 200, at: monthsAgo(4, 5), notes: UNBROKEN.slice(0, 50), projectId: 'P11' },
+          { id: 'lg2', label: 'Launch Plan: Month 2 of 6', amount: 200, at: monthsAgo(3, 5), notes: '', projectId: 'P11' },
+          { id: 'lg3', label: 'Launch Plan: Month 3 of 6', amount: 200, at: monthsAgo(2, 5), notes: '', projectId: 'P11' },
+          { id: 'lg4', label: 'Launch Plan: Month 4 of 6', amount: 200, at: monthsAgo(1, 5), notes: '', projectId: 'P11' },
+          { label: LONG, amount: 40, at: '2027-01-05', notes: UNBROKEN.slice(0, 50) },
         ],
         contactLog: [{ type: 'meeting', at: '2027-02-03', note: UNBROKEN }] },
+  12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
+        retainer: { projectId: 'P12', planId: 'content-kit', amount: 250, status: 'active', startedAt: monthsAgo(2, 12), billDay: 12, nextBillAt: daysFrom(3), cancelAt: '' },
+        purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }] },
+  13: { stage: 'client', callStatus: 'booked', clientSince: '2026-11-01T10:00:00Z', clientStatus: 'delivered',
+        purchases: [{ id: 'lg13', label: 'Brand Starter: Full payment', amount: 350, at: '2026-11-02', notes: '', projectId: 'P13' }] },
 };
+const projects = [
+  { _id: 'P10', leadId: 'L10', name: 'Web Essentials', kind: 'web', packageId: 'web-essentials', stage: 'design', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 500,
+    schedule: [{ id: 's1', amount: 500, dueAt: daysFrom(-10), status: 'upcoming', ledgerId: '', label: 'Full payment' }], revisions: { max: 2, used: 1, log: [{ at: NOW_ISO, note: 'Tightened the hero ' + UNBROKEN.slice(0, 40), extra: false }] }, plan: null,
+    links: { drive: '', clickup: '' }, deliverables: [{ id: 'd1', group: '02', label: 'Access and credentials', done: false, link: '' }, { id: 'd2', group: '02', label: 'Walkthrough video', done: false, link: '' }, { id: 'd3', group: '04', label: 'Source files', done: false, link: '' }],
+    delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' }, monthly: [], createdAt: daysFrom(-12), archived: false },
+  { _id: 'P11', leadId: 'L11', name: 'Launch Plan', kind: 'combined', packageId: 'launch-plan', stage: 'revisions', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 1275,
+    schedule: [
+      { id: 'm1', amount: 200, dueAt: monthsAgo(4, 5), status: 'paid', ledgerId: 'lg1', label: 'Month 1 of 6', paidAt: NOW_ISO },
+      { id: 'm2', amount: 200, dueAt: monthsAgo(3, 5), status: 'paid', ledgerId: 'lg2', label: 'Month 2 of 6' },
+      { id: 'm3', amount: 200, dueAt: monthsAgo(2, 5), status: 'paid', ledgerId: 'lg3', label: 'Month 3 of 6' },
+      { id: 'm4', amount: 200, dueAt: monthsAgo(1, 5), status: 'paid', ledgerId: 'lg4', label: 'Month 4 of 6' },
+      { id: 'm5', amount: 200, dueAt: daysFrom(2), status: 'upcoming', ledgerId: '', label: 'Month 5 of 6' },
+      { id: 'm6', amount: 200, dueAt: daysFrom(32), status: 'upcoming', ledgerId: '', label: 'Month 6 of 6' },
+      { id: 'x1', amount: 75, dueAt: daysFrom(-3), status: 'upcoming', ledgerId: '', label: 'Extra revision round 1', extra: true },
+    ],
+    revisions: { max: 2, used: 2, log: [{ at: NOW_ISO, note: 'Round one', extra: false }, { at: NOW_ISO, note: 'Round two ' + UNBROKEN.slice(0, 30), extra: false }, { at: NOW_ISO, note: 'They want the mark reworked after approving it ' + UNBROKEN.slice(0, 30), extra: true }] },
+    plan: { months: 6, monthly: 200, stripeCancelled: false }, links: { drive: 'https://drive.google.com/drive/folders/' + UNBROKEN, clickup: 'https://app.clickup.com/x' },
+    deliverables: [{ id: 'a1', group: '01', label: 'Logo PNG', done: true, link: 'https://drive.google.com/file/' + UNBROKEN }, { id: 'a2', group: '01', label: 'Logo SVG', done: false, link: '' }, { id: 'a3', group: '02', label: 'Access and credentials', done: false, link: '' }, { id: 'a4', group: '04', label: 'Source files', done: false, link: '' }],
+    delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' }, monthly: [], createdAt: monthsAgo(4, 5), archived: false },
+  { _id: 'P12', leadId: 'L12', name: 'Content Kit retainer', kind: 'retainer', packageId: 'content-kit', stage: 'kickoff', stages: ['kickoff', 'delivered'], total: 0,
+    schedule: [{ id: 'r1', amount: 250, dueAt: monthsAgo(2, 12), status: 'paid', ledgerId: 'lg12a', label: 'Month 1' }, { id: 'r2', amount: 250, dueAt: monthsAgo(1, 12), status: 'paid', ledgerId: 'lg12b', label: 'Month 2' }, { id: 'r3', amount: 250, dueAt: daysFrom(3), status: 'upcoming', ledgerId: '', label: 'Month 3' }, { id: 'r4', amount: 250, dueAt: daysFrom(33), status: 'upcoming', ledgerId: '', label: 'Month 4' }],
+    revisions: { max: 2, used: 0, log: [] }, plan: null, links: { drive: '', clickup: '' }, deliverables: [], delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' },
+    monthly: [{ month: dayKey(Date.now()).slice(0, 7), included: 8, delivered: 3, log: [{ at: NOW_ISO, count: 3, note: 'Three story graphics ' + UNBROKEN.slice(0, 30) }] }, { month: monthsAgo(1).slice(0, 7), included: 8, delivered: 8, log: [{ at: NOW_ISO, count: 8, note: 'Full month' }] }],
+    retainer: { planId: 'content-kit', billDay: 12, startedAt: monthsAgo(2, 12) }, createdAt: monthsAgo(2, 12), archived: false },
+  { _id: 'P13', leadId: 'L13', name: 'Brand Starter', kind: 'brand', packageId: 'brand-starter', stage: 'delivered', stages: ['kickoff', 'design', 'revisions', 'delivery', 'delivered'], total: 350,
+    schedule: [{ id: 'f1', amount: 350, dueAt: '2026-11-02', status: 'paid', ledgerId: 'lg13', label: 'Full payment' }], revisions: { max: 2, used: 2, log: [] }, plan: null, links: { drive: 'https://drive.google.com/drive/folders/abc', clickup: '' },
+    deliverables: [{ id: 'b1', group: '01', label: 'Logo PNG', done: true, link: '' }, { id: 'b2', group: '01', label: 'Logo SVG', done: true, link: '' }, { id: 'b3', group: '04', label: 'Source files', done: true, link: '' }],
+    delivery: { driveShared: true, emailSent: true, pitchSent: false, followUpLeadCallbackAt: '' }, releasedAt: '2026-11-20T10:00:00Z', monthly: [], createdAt: '2026-11-01', archived: false },
+];
 
-const leads = Array.from({ length: 12 }, (_, i) => ({
+const leads = Array.from({ length: 14 }, (_, i) => ({
   ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
   ...(PIPE_EXTRA[i] || {}),
   _id: 'L' + i,
@@ -86,7 +134,7 @@ const json = (data) => ({ status: 200, contentType: 'application/json', body: JS
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper'];
 
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
@@ -137,10 +185,12 @@ for (const width of WIDTHS) {
     { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
   ] })));
   await page.route('**/api/admin/call-leads**', r => r.fulfill(json({ items: leads })));
+  await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: projects })) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
 
   const check = async (label) => {
     await page.waitForTimeout(650);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/${width}-${label.replace(/[^a-z0-9]+/gi, '_')}.png` }).catch(() => {});
     const res = await collectOffenders(page);
     const hscroll = res.scrollW > res.vw + 1;
     if (hscroll || res.offenders.length) {
@@ -155,7 +205,9 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  const only = process.env.AUDIT_ONLY; // 'clients' reruns just the Clients module block
 
+  if (!only) {
   await goto('/admin');
   await page.evaluate(() => localStorage.removeItem('vz_call_session'));
   await check('dashboard');
@@ -289,10 +341,79 @@ for (const width of WIDTHS) {
     await check(`lead detail (${t.toLowerCase()})`);
   }
 
+  } // end !only
+
+  // Clients module (Prompt 10).
+  const openClient = async (name) => {
+    await goto('/admin/clients');
+    if (width >= 1024) await page.locator('.v-tr', { hasText: name }).first().click({ timeout: 4000 }).catch(() => {});
+    else await page.getByRole('button', { name: `Open ${name}` }).first().click({ timeout: 4000 }).catch(() => {});
+  };
+  const clientTab = async (t) => page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
   await goto('/admin/clients');
   await check('clients list');
-  await page.locator('.cl-card').first().click({ timeout: 4000 }).catch(() => {});
-  await check('client detail (hostile pricing/checklists)');
+  for (const f of ['Active project', 'On retainer', 'Delivered', 'Paused', 'Owes a payment', 'Ready to deliver']) {
+    await page.locator('.cl-chips .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`clients list: ${f.toLowerCase()}`);
+  }
+  await page.locator('.cl-chips .v-chip', { hasText: 'All' }).first().click({ timeout: 3000 }).catch(() => {});
+  await goto('/admin/clients?loading=1');
+  await check('clients skeleton');
+  await openClient('Lead Business 11');
+  await check('client detail (overview, plan client)');
+  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Notes', 'History']) {
+    await clientTab(t);
+    await check(`client detail (${t.toLowerCase()})`);
+  }
+  await clientTab('Projects');
+  await page.locator('.cw-new-project').first().click({ timeout: 3000 }).catch(() => {});
+  await check('new project sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.cw-extra-round').first().click({ timeout: 3000 }).catch(() => {});
+  await check('log extra round modal');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await clientTab('Payments');
+  await check('payment plan block at month 5');
+  await page.locator('.cw-mark-paid').first().click({ timeout: 3000 }).catch(() => {});
+  await check('mark paid modal');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.cw-add-manual').first().click({ timeout: 3000 }).catch(() => {});
+  await check('add manual payment sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await clientTab('Retainer');
+  await page.locator('.cw-start-retainer').first().click({ timeout: 3000 }).catch(() => {});
+  await check('start retainer sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await clientTab('Deliverables');
+  await check('deliverables (toggle disabled)');
+  await openClient('Lead Business 13');
+  await clientTab('Deliverables');
+  await check('deliverables (released, toggle enabled)');
+  await clientTab('Projects');
+  await check('delivered project (send delivery checklist)');
+  await openClient('Lead Business 12');
+  await clientTab('Retainer');
+  await check('retainer (content kit months)');
+  await page.locator('.cw-log-delivery').first().click({ timeout: 3000 }).catch(() => {});
+  await check('log delivery modal');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await openClient('Lead Business 10');
+  await check('client detail (hostile long name, single project)');
+  await clientTab('Payments');
+  await check('client detail (owes a payment)');
+  await goto('/admin/clients');
+  await page.locator('.cl-add').first().click({ timeout: 3000 }).catch(() => {});
+  await check('add client sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  if (width >= 768) {
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await check('sidebar collapsed: clients list');
+    await openClient('Lead Business 11');
+    await check('sidebar collapsed: client detail');
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
+  }
+  if (only) { await ctx.close(); continue; }
 
   await goto('/admin/leads');
   await page.locator('.sh-bell').first().click({ timeout: 4000 }).catch(() => {});

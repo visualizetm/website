@@ -329,9 +329,10 @@ they use two things:
   `newClient()`.
 
 `AppShell` receives `counts` for the badges (`leads`, `calls`, `booked`,
-`orders`, `submissions`), the call_leads list for the command bar and the
-notifications drawer, and callbacks for navigation, opening a record, quick
-add, and sign out. Screens receive `openId` (`{ id, n }`) and `createPreset`
+`orders`, `submissions`, `calendar`), the call_leads list for the command bar and the
+notifications drawer, the `projects` list (Prompt 10, for retainer bills and
+payment plan markers), and callbacks for navigation, opening a record, quick
+add, and sign out. `useShell()` also exposes `events`, `calendly`, and `projects`. Screens receive `openId` (`{ id, n }`) and `createPreset`
 (`{ preset, n }`) props from AdminApp when the shell asks them to open a
 record or start a new one.
 
@@ -342,3 +343,6 @@ record or start a new one.
 - `LeadHistory` (Prompt 7): callLog and contactLog merged newest first with outcome pills. Props `lead`, `limit`. Export `leadHistoryStyles`.
 - `LeadNotes` (Prompt 7): notes Textarea with InlineEdit semantics (save on blur or Cmd/Ctrl+Enter, rollback and toast on failure). Props `lead`, `onSave(id, notes)`, `rows`. Export `leadNotesStyles`.
 - `LeadPlaybook` (Prompt 7): `ScriptSteps`, `Objections`, `CloseCards`, `IntelCards`, each taking `lead`. Export `playbookStyles`.
+- `LeadDetail` (Prompt 8, client mode in Prompt 10): the one record detail. Pass `client={{ projects, onCreateProject, onPatchProject }}` to a client and it swaps Playbook and Meeting for Projects, Payments, Retainer, and Deliverables, and adds the Links and Brand blocks to the profile column.
+- `ClientCard` (Prompt 10): `LeadCard` compact plus the client line (active package, project stage, paid over total, retainer, next date). Props `lead`, `projects`, `onOpen`, `selected`, `compact`. Export `clientLine(lead, projects)` for the desktop Table. Styles (`clc-`) ship in `uiStyles`.
+- `ClientWorkspace` (Prompt 10): `ClientLinks`, `ClientBrand` (profile cards) and `ClientSections` (the four client sections with every Sheet and Modal). Rules live in `src/lib/projects.js`; this file only renders and writes. Styles (`cw-`) ship in `uiStyles`.

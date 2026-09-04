@@ -730,6 +730,39 @@ export default function AdminApp() {
     }
   }, []);
 
+  // Projects (Prompt 10): loaded at the shell level like call leads so the
+  // Calendar, the drawer, and the Clients list all read one array.
+  const [projects, setProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
+  const loadProjects = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/projects');
+      if (!res.ok) return;
+      const d = await res.json();
+      setProjects(d.items || []);
+    } catch { /* keep last */ }
+    finally { setProjectsLoading(false); }
+  }, []);
+  const createProject = useCallback(async (doc) => {
+    const res = await fetch('/api/admin/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (d.item) setProjects(ps => [d.item, ...ps]);
+    return d.item || null;
+  }, []);
+  const patchProject = useCallback(async (id, set) => {
+    let prev;
+    setProjects(ps => ps.map(p => { if (String(p._id) === String(id)) { prev = p; return { ...p, ...set }; } return p; }));
+    try {
+      const res = await fetch('/api/admin/projects', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) });
+      if (!res.ok) throw new Error();
+      return true;
+    } catch {
+      if (prev) setProjects(ps => ps.map(p => String(p._id) === String(id) ? prev : p));
+      return false;
+    }
+  }, []);
+
   const section = useMemo(() => {
     const p = location.pathname.slice(BASE.length) || '/';
     if (p.startsWith('/submissions')) return 'submissions';
@@ -796,6 +829,7 @@ export default function AdminApp() {
   }, []);
   useEffect(() => { if (authed) load(); }, [authed, load]);
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
+  useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
 
   const stageCounts = useMemo(() => {
     const c = { lead: 0, booked: 0, won: 0, client: 0, toCall: 0 };
@@ -916,10 +950,10 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading} leads={callLeads} leadsLoading={callLeadsLoading} onRefetchLeads={loadCallLeads}
-      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} onPatchLead={patchCallLead} styles={uiStyles + shellStyles + aaStyles}>
+      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
-        <AdminDashboard leads={callLeads} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)} />
+        <AdminDashboard leads={callLeads} projects={projects} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)} />
       )}
       {section === 'leads' && (
         <AdminLeads
@@ -933,7 +967,8 @@ export default function AdminApp() {
       )}
       {section === 'clients' && (
         <AdminClients
-          leads={callLeads} submissions={items} loading={callLeadsLoading}
+          leads={callLeads} submissions={items} loading={callLeadsLoading || projectsLoading || forceLoading}
+          projects={projects} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}

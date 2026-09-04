@@ -10,3 +10,9 @@ export const CONTACT_TYPE_IDS = ['call', 'meeting', 'email', 'text', 'other'];
 export const LEAD_STATUS_IDS = ['new', 'contacted', 'replied', 'landed', 'denied'];
 export const ORDER_STATUS_IDS = ['new', 'paid', 'in-production', 'packaged', 'delivered'];
 export const CONCEPT_STATUS_IDS = ['planned', 'generating', 'ready', 'shown'];
+// Prompt 10: Clients module enums.
+export const PROJECT_KIND_IDS = ['brand', 'web', 'combined', 'print', 'retainer'];
+export const PROJECT_STAGE_IDS = ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'];
+export const SCHEDULE_STATUS_IDS = ['paid', 'due', 'past-due', 'upcoming'];
+export const RETAINER_STATUS_IDS = ['active', 'paused', 'ending', 'cancelled'];
+export const CLIENT_STATUS_IDS = ['active', 'paused', 'delivered'];

@@ -17,11 +17,12 @@ export const PACKAGES = [
   { id: 'build-plan', label: 'Build Plan', price: 1800, kind: 'web', plan: { months: 6, monthly: 300 }, altPlan: { months: 12, monthly: 150 }, included: ['Brand Complete', 'Web Complete', 'Online shop or booking', 'Launch social graphics', 'NFC card', `${REVISION_ROUNDS} revision rounds per piece`] },
 ];
 
+/* monthly: what the Clients retainer tab counts each month (Prompt 10). */
 export const RETAINERS = [
-  { id: 'site-care', label: 'Site Care', price: 100, included: ['Hosting and updates', 'Monthly content edits', 'Uptime and backups'] },
-  { id: 'content-kit', label: 'Content Kit', price: 250, included: ['Eight posts a month', 'Story templates', 'Monthly content plan'] },
-  { id: 'ad-creatives', label: 'Ad Creatives', price: 350, included: ['Four ad sets a month', 'Landing page tweaks', 'Performance check-in'] },
-  { id: 'growth', label: 'Growth', price: 500, included: ['Everything in Content Kit and Site Care', 'Ad creatives', 'Quarterly strategy call'] },
+  { id: 'site-care', label: 'Site Care', price: 100, included: ['Hosting and updates', 'Monthly content edits', 'Uptime and backups'], monthly: { count: 2, unit: 'hours', label: 'Up to 2 hours of site care' } },
+  { id: 'content-kit', label: 'Content Kit', price: 250, included: ['Eight posts a month', 'Story templates', 'Monthly content plan'], monthly: { count: 8, unit: 'graphics', label: '8 graphics a month' } },
+  { id: 'ad-creatives', label: 'Ad Creatives', price: 350, included: ['Four ad sets a month', 'Landing page tweaks', 'Performance check-in'], monthly: { count: 10, unit: 'creatives', label: '10 ad creatives a month' } },
+  { id: 'growth', label: 'Growth', price: 500, included: ['Everything in Content Kit and Site Care', 'Ad creatives', 'Quarterly strategy call'], monthly: { count: 10, unit: 'creatives', label: '10 creatives a month plus Site Care and Google Business', extras: ['Site Care', 'Google Business'] } },
 ];
 
 /* freeWith: package ids that include the add-on at no charge. 'any' = any package. */
@@ -69,6 +70,9 @@ export function priceOption(opt) {
   const retainer = retainerOf(opt.retainerId || defaultRetainer(opt.packageId));
   return { pkg, addons, paid, free, total, plan, retainer, included: [...(pkg?.included || []), ...paid.map(a => a.label)] };
 }
+
+/* Where the extra revision round fee comes from for a project kind. */
+export const extraRoundFee = (kind) => (kind === 'web' || kind === 'combined' ? EXTRA_ROUND.web : EXTRA_ROUND.design);
 
 export const money = (n) => `$${Number(n || 0).toLocaleString()}`;
 /** "$1,200 as $200 a month for 6 months, first payment starts the project" */

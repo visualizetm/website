@@ -33,7 +33,7 @@ import { buildEvents } from '../lib/events';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onNewLead, onNewClient, onLogout, onPatchLead, styles, children,
+  onGo, onOpenLead, onNewLead, onNewClient, onLogout, onPatchLead, projects = [], styles, children,
 }) {
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
   // 768 to 1023px: the rail only. A 240px sidebar next to the 324px list panel
@@ -59,8 +59,8 @@ export default function AppShell({
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
 
-  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
-  const events = useMemo(() => buildEvents(leads || [], calendly.events), [leads, calendly.events]);
+  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
+  const events = useMemo(() => buildEvents(leads || [], calendly.events, Date.now(), projects), [leads, calendly.events, projects]);
   const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
   const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
   const snoozeUntil = (kind) => { const d = new Date(); if (kind === '1h') d.setTime(d.getTime() + 3600e3); else if (kind === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); } else { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0); } return d; };
@@ -87,8 +87,8 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, setTopBar, events, calendly,
-  }), [go, openLead, onNewLead, onNewClient, setTopBar, events, calendly]);
+    newLead: onNewLead, newClient: onNewClient, setTopBar, events, calendly, projects,
+  }), [go, openLead, onNewLead, onNewClient, setTopBar, events, calendly, projects]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;

@@ -54,6 +54,15 @@ import ThumbsUp from '@untitled-ui/icons-react/build/esm/ThumbsUp';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import ClockRewind from '@untitled-ui/icons-react/build/esm/ClockRewind';
 import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
+/* clients module (Prompt 10) */
+import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
+import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
+import Folder from '@untitled-ui/icons-react/build/esm/Folder';
+import CreditCard01 from '@untitled-ui/icons-react/build/esm/CreditCard01';
+import Send01 from '@untitled-ui/icons-react/build/esm/Send01';
+import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
+import Colors from '@untitled-ui/icons-react/build/esm/Colors';
+import PauseCircle from '@untitled-ui/icons-react/build/esm/PauseCircle';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -64,6 +73,8 @@ export const ICONS = {
   /* console + leads */
   PhoneX01: SlashCircle01, SlashCircle01, Sunrise, Sunset, Keyboard01, Copy01, SkipForward, Play, UserX01, Columns03, Rows01, GitMerge, ChevronDown, ChevronLeft,
   Globe01, MarkerPin01, Camera01, ThumbsUp, Clock, ClockRewind, CurrencyDollarCircle,
+  /* clients */
+  RefreshCw01, Link01, Folder, CreditCard01, Send01, LinkExternal01, Colors, PauseCircle,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

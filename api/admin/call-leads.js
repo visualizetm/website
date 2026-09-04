@@ -6,6 +6,7 @@ import {
   CONCEPT_STATUS_IDS,
   CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
+  RETAINER_STATUS_IDS, CLIENT_STATUS_IDS,
 } from '../_semantics.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
@@ -176,13 +177,35 @@ function sanitize(b) {
     calendlyEventUri: b.calendlyEventUri !== undefined ? str(b.calendlyEventUri, 200) : undefined,
     // What the client paid for — a purchases ledger. Additive.
     purchases: Array.isArray(b.purchases)
-      ? b.purchases.slice(0, 50).map(p => ({
+      ? b.purchases.slice(0, 200).map(p => ({
           label: str(p?.label, 160),
           amount: Number.isFinite(Number(p?.amount)) ? Math.max(0, Math.min(1000000, Number(p.amount))) : 0,
           at: str(p?.at, 40),
           notes: str(p?.notes, 400),
+          // Prompt 10 additive: ledger id (schedule items point at it) and the project it paid for.
+          ...(p?.id ? { id: str(p.id, 40) } : {}),
+          ...(p?.projectId ? { projectId: str(p.projectId, 64) } : {}),
         }))
       : undefined,
+    // ── Prompt 10 client fields (all additive) ──
+    links: b.links && typeof b.links === 'object' ? {
+      website: str(b.links.website, 400), drive: str(b.links.drive, 400), clickup: str(b.links.clickup, 400), instagram: str(b.links.instagram, 400),
+    } : undefined,
+    brand: b.brand && typeof b.brand === 'object' ? {
+      primary: str(b.brand.primary, 20),
+      colors: Array.isArray(b.brand.colors) ? b.brand.colors.slice(0, 4).map(c => str(c, 20)) : [],
+      fontDisplay: str(b.brand.fontDisplay, 120), fontBody: str(b.brand.fontBody, 120),
+      logoLink: str(b.brand.logoLink, 400), notes: str(b.brand.notes, 600),
+    } : undefined,
+    retainer: b.retainer && typeof b.retainer === 'object' ? {
+      projectId: str(b.retainer.projectId, 64), planId: str(b.retainer.planId, 40),
+      amount: Number.isFinite(Number(b.retainer.amount)) ? Math.max(0, Math.min(100000, Number(b.retainer.amount))) : 0,
+      status: RETAINER_STATUS_IDS.includes(b.retainer.status) ? b.retainer.status : 'active',
+      startedAt: str(b.retainer.startedAt, 40),
+      billDay: Math.max(1, Math.min(28, Math.round(Number(b.retainer.billDay)) || 1)),
+      nextBillAt: str(b.retainer.nextBillAt, 40), cancelAt: str(b.retainer.cancelAt, 40),
+    } : b.retainer === null ? null : undefined,
+    clientStatus: b.clientStatus !== undefined ? (CLIENT_STATUS_IDS.includes(b.clientStatus) ? b.clientStatus : '') : undefined,
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
       ? b.contactLog.slice(-200).map(c => ({

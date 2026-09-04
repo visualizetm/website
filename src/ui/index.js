@@ -33,7 +33,7 @@ import SegmentedControl, { segmentedControlStyles } from './SegmentedControl';
 import Tabs, { tabsStyles } from './Tabs';
 import Table, { tableStyles } from './Table';
 import { leadCardStyles } from './leadCard.styles';
-import { leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles } from './lead.styles';
+import { leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles } from './lead.styles';
 import Collapsible, { collapsibleStyles } from './Collapsible';
 import Sheet, { sheetStyles } from './Sheet';
 import Modal, { modalStyles } from './Modal';
@@ -64,7 +64,7 @@ export const uiStyles = [
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
-  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, collapsibleStyles,
+  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
 ].join('\n');
 
 export {

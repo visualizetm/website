@@ -124,6 +124,47 @@ export const PREP_STATUSES = [
 ];
 export const prepStatusOf = (id) => PREP_STATUSES.find(p => p.id === id) || PREP_STATUSES[2];
 
+/* ── Clients module enums (Prompt 10) ─────────────────────────── */
+export const PROJECT_KINDS = [
+  { id: 'brand',    label: 'Brand',    icon: 'Palette',     order: 0, ...tone('callback') },
+  { id: 'web',      label: 'Web',      icon: 'Globe01',     order: 1, ...tone('progress') },
+  { id: 'combined', label: 'Combined', icon: 'Zap',         order: 2, ...tone('won') },
+  { id: 'print',    label: 'Print',    icon: 'Package',     order: 3, ...tone('new') },
+  { id: 'retainer', label: 'Retainer', icon: 'RefreshCw01', order: 4, ...tone('booked') },
+];
+export const projectKindOf = (id) => PROJECT_KINDS.find(k => k.id === id) || PROJECT_KINDS[0];
+export const PROJECT_STAGES = [
+  { id: 'kickoff',   label: 'Kickoff',   icon: 'Play',       order: 0, ...tone('neutral') },
+  { id: 'design',    label: 'Design',    icon: 'Palette',    order: 1, ...tone('progress') },
+  { id: 'revisions', label: 'Revisions', icon: 'Edit02',     order: 2, ...tone('callback') },
+  { id: 'build',     label: 'Build',     icon: 'Columns03',  order: 3, ...tone('progress') },
+  { id: 'delivery',  label: 'Delivery',  icon: 'Package',    order: 4, ...tone('new') },
+  { id: 'delivered', label: 'Delivered', icon: 'Check',      order: 5, ...tone('booked') },
+];
+export const projectStageOf = (id) => PROJECT_STAGES.find(s => s.id === id) || PROJECT_STAGES[0];
+export const SCHEDULE_STATUSES = [
+  { id: 'paid',     label: 'Paid',     icon: 'Check',          order: 0, ...tone('booked') },
+  { id: 'due',      label: 'Due',      icon: 'Clock',          order: 1, ...tone('new') },
+  { id: 'past-due', label: 'Past due', icon: 'ClockRewind',    order: 2, ...tone('danger') },
+  { id: 'upcoming', label: 'Upcoming', icon: 'Calendar',       order: 3, ...tone('neutral') },
+];
+export const RETAINER_STATUSES = [
+  { id: 'active',    label: 'Active',    icon: 'RefreshCw01', order: 0, ...tone('booked') },
+  { id: 'paused',    label: 'Paused',    icon: 'Clock',       order: 1, ...tone('new') },
+  { id: 'ending',    label: 'Ending',    icon: 'ClockRewind', order: 2, ...tone('callback') },
+  { id: 'cancelled', label: 'Cancelled', icon: 'XClose',      order: 3, ...tone('neutral') },
+];
+export const CLIENT_STATUSES = [
+  { id: 'active',    label: 'Active',    icon: 'Zap',        order: 0, ...tone('progress') },
+  { id: 'paused',    label: 'Paused',    icon: 'Clock',      order: 1, ...tone('new') },
+  { id: 'delivered', label: 'Delivered', icon: 'Check',      order: 2, ...tone('booked') },
+];
+export const PROJECT_KIND_IDS = PROJECT_KINDS.map(k => k.id);
+export const PROJECT_STAGE_IDS = PROJECT_STAGES.map(s => s.id);
+export const SCHEDULE_STATUS_IDS = SCHEDULE_STATUSES.map(s => s.id);
+export const RETAINER_STATUS_IDS = RETAINER_STATUSES.map(s => s.id);
+export const CLIENT_STATUS_IDS = CLIENT_STATUSES.map(s => s.id);
+
 /* ── Industry normalization ────────────────────────────────────── */
 /** The nightly enricher writes lowercase industries ("food & beverage")
  *  while spreadsheet imports keep Title Case. Compare and group on this
