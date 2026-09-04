@@ -118,20 +118,11 @@ export default function AdminClients({
 }
 
 const clStyles = `
-  .cl-shell.aa-main { display: flex; flex-direction: column; }
-  .cl-page { --v-stack-gap: var(--v-space-4); }
-  .cl-search { max-width: 520px; }
-  .cl-clear { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; border-radius: var(--v-radius-sm); }
-  .cl-clear:hover { color: var(--v-text); }
-  .cl-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
-  .cl-stack > .v-stagger-item { display: contents; }
-  .cl-muted { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
-  .cl-muted-cell { color: var(--v-text-3); }
-  .cl-cell-biz { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 0; max-width: 200px; font-weight: var(--v-weight-semibold); }
-  .cl-table .v-td .v-pill { max-width: none; }
+  /* The list page rules (.cl-shell, .cl-page, .cl-search, .cl-clear, .cl-stack, .cl-muted, .cl-cell-biz) ship in uiStyles (src/ui/lead.styles.js). */
   .cl-cell-pay { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 160px; font-variant-numeric: tabular-nums; }
   .cl-cell-pay .v-bar { width: 72px; }
   .cl-table .v-td { max-width: 260px; }
+  .cl-table .v-td .v-pill { max-width: none; }
   .cl-panel { padding: var(--v-space-3); }
   .cl-panel-scroll { padding: 0; }
   @media (min-width: 1024px) and (max-width: 1279px) { .cl-panel--rail { width: 232px; } }

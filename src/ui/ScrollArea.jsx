@@ -49,9 +49,4 @@ export const scrollAreaStyles = `
     padding: max(var(--v-space-4), var(--v-inset-top)) max(var(--v-space-4), env(safe-area-inset-right))
              max(var(--v-space-4), var(--v-inset-bottom)) max(var(--v-space-4), env(safe-area-inset-left));
   }
-  .lay-modal-box {
-    max-width: 100%; min-width: 0;
-    max-height: calc(100dvh - var(--v-space-8) - var(--v-inset-top) - var(--v-inset-bottom));
-    overflow-y: auto; overscroll-behavior: contain;
-  }
 `;

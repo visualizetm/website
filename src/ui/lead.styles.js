@@ -98,7 +98,17 @@ export const leadDetailStyles = `
  * Prompt 12: the list plus right panel split (po-) used by Print Orders,
  * Concepts, and Submissions lives here so every screen shares it. */
 export const clientStyles = `
-  .po-shell.aa-main { display: flex; flex-direction: column; }
+  /* Shared list page rules (Prompt 13): every list screen uses these. */
+  .cl-shell.aa-main, .po-shell.aa-main { display: flex; flex-direction: column; }
+  .cl-page { --v-stack-gap: var(--v-space-4); }
+  .cl-search { max-width: 520px; }
+  .cl-clear { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; border-radius: var(--v-radius-sm); }
+  .cl-clear:hover { color: var(--v-text); }
+  .cl-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .cl-stack > .v-stagger-item { display: contents; }
+  .cl-muted { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .cl-muted-cell { color: var(--v-text-3); }
+  .cl-cell-biz { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 0; max-width: 200px; font-weight: var(--v-weight-semibold); }
   .po-split { display: flex; flex: 1; min-height: 0; min-width: 0; }
   .po-page { --v-stack-gap: var(--v-space-4); flex: 1; min-width: 0; }
   .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; }
