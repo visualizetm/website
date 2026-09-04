@@ -20,7 +20,7 @@ export const leadCardStyles = `
   .lc-social:hover { background: var(--v-surface-3); color: var(--v-text); }
   .lc-social--off { color: var(--v-text-3); opacity: 0.35; }
   .lc-row4 { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); flex-wrap: wrap; }
-  .lc-next { color: var(--v-status-callback-text); }
+  .lc-next { color: var(--v-status-callback-text); min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .lc-scan { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: auto; }
   .lc-scan.is-fresh { background: var(--v-status-booked-solid); box-shadow: 0 0 0 3px var(--v-status-booked-soft); }
   .lc-scan.is-stale { background: var(--v-status-new-solid); box-shadow: 0 0 0 3px var(--v-status-new-soft); }
