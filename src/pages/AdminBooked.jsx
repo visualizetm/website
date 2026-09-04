@@ -17,7 +17,7 @@ import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
-import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar } from '../ui';
 import { SocialButtons } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -867,7 +867,7 @@ const bkStyles = `
        column the pinned Won/Lost bar drops out of the layout entirely. */
     .aa-app.has-detail .aa-main.bk-main { display: flex; flex-direction: column; }
   }
-  .bk-detail { --lay-stack-gap: 18px; padding-bottom: 8px; }
+  .bk-detail { --v-stack-gap: 18px; padding-bottom: 8px; }
 
   /* Desktop workspace: two columns filling the space beside the rail.
      Below 1200px (and on mobile) the columns stack in the original order. */

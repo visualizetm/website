@@ -16,7 +16,7 @@ classes are impossible by construction:
 > Never hand-roll width, gutter padding, safe-area insets, or "padding-bottom
 > to clear the bar" — read the tokens instead.
 
-## Primitives — `src/components/AdminLayout.jsx`
+## Primitives — `src/ui/` (PageShell.jsx, ScrollArea.jsx, StickyFooterBar.jsx)
 
 | Primitive | Class | What it owns |
 |---|---|---|
@@ -26,9 +26,21 @@ classes are impossible by construction:
 | row/card contract | `.lay-card` | `width/max-width: 100%`, `min-width: 0` on itself and children; titles truncate one-line via `.lay-truncate` (the site-wide list treatment; long headings *wrap* instead — global `overflow-wrap: break-word` on `body`) |
 | overlay contract | `.lay-overlay` + `.lay-modal-box` | Fixed inset overlay with safe-area padding; box never wider/taller than the viewport, scrolls internally |
 
+Since Prompt 3 the three primitives live in `src/ui/` and are imported from
+`'../ui'` like every other kit component (`import { PageShell, ScrollArea,
+StickyFooterBar } from '../ui'`). Their classes (`.lay-shell`, `.lay-scroll`,
+`.lay-footbar`, `.lay-card`, `.lay-overlay`) and behavior are unchanged; their
+CSS now reads `--v-` tokens only. Per-page knobs are `--v-stack-gap` (vertical
+rhythm inside `.lay-content`) and `--v-scroll-extra` (extra bottom scroll
+padding), set on a page class. The kit's own layout helpers (Stack, Row, Grid,
+Section, Divider) are documented in `docs/COMPONENTS.md`; overlays (Sheet,
+Modal) portal into `.lay-root` so they inherit the tokens and honor the
+overlay contract.
+
 ## Tokens — defined once on `.lay-root`
 
-Since Prompt 2 the layout tokens are aliases of the `--v-` design tokens
+The token block lives in `src/ui/tokens.js` and is injected through
+`uiStyles` from `src/ui/index.js`. Since Prompt 2 the layout tokens are aliases of the `--v-` design tokens
 (`docs/TOKENS.md`): `--lay-gutter` → `--v-gutter`, `--lay-tabbar-h` →
 `--v-tabbar-h`, `--lay-rail-w` → `--v-sidebar-rail-w`, `--lay-bar-bg` →
 `--v-bar`, `--lay-border` → `--v-border`. New code reads the `--v-` names
@@ -37,17 +49,17 @@ primitives themselves are unchanged: every page still renders inside
 PageShell + ScrollArea, pinned bars are StickyFooterBar, rows carry `.lay-card`.
 
 ```
---lay-gutter        clamp(16px, 3vw, 24px)   horizontal page padding
---lay-gutter-l/-r   gutter, floored by safe-area left/right (landscape notch)
---lay-safe-top/bottom  env(safe-area-inset-*)
---lay-content-w     760px    detail / list content width
---lay-content-w-wide 900px   dashboard-style pages
---lay-tabbar-h      58px     mobile bottom tab bar
---lay-panel-w       324px    desktop contextual panel
---lay-rail-w        68px     desktop icon rail
---lay-bar-bg        #0a0a0a  pinned-bar surface (solid — never transparent)
---lay-stack-gap     per-page vertical rhythm inside .lay-content
---lay-scroll-extra  extra bottom scroll padding if an overlay is unavoidable
+--v-gutter          clamp(16px, 3vw, 24px)   horizontal page padding   (alias --lay-gutter)
+--v-gutter-l/-r     gutter, floored by safe-area left/right              (alias --lay-gutter-l/-r)
+--v-inset-top/-bottom  env(safe-area-inset-*)                            (alias --lay-safe-top/-bottom)
+--v-content-w       760px    detail / list content width                 (alias --lay-content-w)
+--v-content-w-wide  900px    dashboard-style pages                       (alias --lay-content-w-wide)
+--v-tabbar-h        58px     mobile bottom tab bar                       (alias --lay-tabbar-h)
+--v-panel-w         324px    desktop contextual panel                    (alias --lay-panel-w)
+--v-sidebar-rail-w  68px     desktop icon rail                           (alias --lay-rail-w)
+--v-bar             #0a0a0a  pinned-bar surface (solid, never transparent) (alias --lay-bar-bg)
+--v-stack-gap       per-page vertical rhythm inside .lay-content
+--v-scroll-extra    extra bottom scroll padding if an overlay is unavoidable
 ```
 
 Change a number here and every page follows. `.lay-root` sits on the app
@@ -82,7 +94,8 @@ node scripts/layout-audit.mjs   # walks every admin route at 320/390/430/768/128
 It loads hostile fixtures (80-char slash-joined names, unbroken 88-char
 strings, giant emails) through mocked APIs and fails if any element extends
 past the viewport or any page can scroll sideways. Zero offenders is the bar.
-Covered views: dashboard, submissions list + detail, orders, settings, call
-console session builder + session, the reverse-lookup sheet, the Booked
-workspace list + detail, the Leads page list + detail, the Clients page
-list + detail, and the mobile More sheet.
+Covered views: dashboard, submissions list + detail, orders, settings, the
+design system page with its Sheet and Modal open, call console session
+builder + session, the reverse-lookup sheet, the Booked workspace list +
+detail, the Leads page list + detail, the Clients page list + detail, and the
+mobile More sheet.

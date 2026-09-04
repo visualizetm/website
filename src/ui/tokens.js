@@ -1,46 +1,10 @@
-/* Admin layout primitives — the ONE place layout structure is defined.
- *
- * Every admin surface renders inside these. The rules:
- *   - Every page body is a <PageShell> (or carries .lay-shell).
- *   - Every scrolling list/detail area is a <ScrollArea> (.lay-scroll),
- *     with centered content in .lay-content / .lay-content--wide.
- *   - Every pinned bottom action area is a <StickyFooterBar> (.lay-footbar):
- *     IN-FLOW (a flex sibling below the scroll area), solid background,
- *     safe-area aware. Because it is in normal flow it is structurally
- *     incapable of covering the last list item.
- *   - List rows/cards carry .lay-card for the width/min-width/truncation
- *     contract.
- *
- * All shared measurements live as CSS variables on .lay-root so every
- * primitive (and any page-specific rule) reads the same numbers.
- * See LAYOUT.md at the repo root.
- */
-
-export function PageShell({ className = '', children, ...rest }) {
-  return <div className={`lay-shell ${className}`.trim()} {...rest}>{children}</div>;
-}
-
-export function ScrollArea({ className = '', contentClassName = '', wide = false, bare = false, children, ...rest }) {
-  return (
-    <div className={`lay-scroll ${className}`.trim()} {...rest}>
-      {bare ? children : (
-        <div className={`lay-content${wide ? ' lay-content--wide' : ''} ${contentClassName}`.trim()}>
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function StickyFooterBar({ className = '', children, ...rest }) {
-  return <div className={`lay-footbar ${className}`.trim()} {...rest}>{children}</div>;
-}
-
-export const adminLayoutStyles = `
+/* The Visualize Dark token block. Declared once on .lay-root; see docs/TOKENS.md.
+ * Injected through uiStyles (src/ui/index.js) by the app shells. */
+export const tokenStyles = `
   /* ══════════════════════════════════════════════════════════════
-     VISUALIZE DARK — design tokens (Prompt 2). Prefix --v-.
-     Dark is the only theme. Every admin surface reads these through
-     var() from its CSS-in-JSX string; nothing imports anything.
+     VISUALIZE DARK design tokens (Prompt 2). Prefix --v-.
+     Dark is the only theme. Every admin surface and every src/ui component
+     reads these through var(); nothing imports anything.
      Full reference with contrast table: docs/TOKENS.md
      ══════════════════════════════════════════════════════════════ */
   .lay-root {
@@ -139,16 +103,25 @@ export const adminLayoutStyles = `
       linear-gradient(90deg, rgba(204,34,34,0.045) 1px, transparent 1px);
     --v-grid-texture-size: 44px 44px;
 
-    /* ── Layout measurements (Prompt-1 era names kept as aliases to --v-) ── */
+    /* Layout measurements (Prompt 3): gutters floored by the notch, raw insets, content widths */
+    --v-gutter-l: max(var(--v-gutter), env(safe-area-inset-left));
+    --v-gutter-r: max(var(--v-gutter), env(safe-area-inset-right));
+    --v-inset-top: env(safe-area-inset-top, 0px);
+    --v-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --v-content-w: 760px;                         /* detail / list content */
+    --v-content-w-wide: 900px;                    /* dashboard-style pages */
+    --v-panel-w: 324px;                           /* desktop contextual panel */
+
+    /* ── Prompt-1 era names kept as aliases to --v- (existing screens only) ── */
     --lay-gutter: var(--v-gutter);
-    --lay-gutter-l: max(var(--v-gutter), env(safe-area-inset-left));
-    --lay-gutter-r: max(var(--v-gutter), env(safe-area-inset-right));
-    --lay-safe-top: env(safe-area-inset-top, 0px);
-    --lay-safe-bottom: env(safe-area-inset-bottom, 0px);
-    --lay-content-w: 760px;                       /* detail / list content */
-    --lay-content-w-wide: 900px;                  /* dashboard-style pages */
+    --lay-gutter-l: var(--v-gutter-l);
+    --lay-gutter-r: var(--v-gutter-r);
+    --lay-safe-top: var(--v-inset-top);
+    --lay-safe-bottom: var(--v-inset-bottom);
+    --lay-content-w: var(--v-content-w);
+    --lay-content-w-wide: var(--v-content-w-wide);
     --lay-tabbar-h: var(--v-tabbar-h);
-    --lay-panel-w: 324px;                         /* desktop contextual panel */
+    --lay-panel-w: var(--v-panel-w);
     --lay-rail-w: var(--v-sidebar-rail-w);
     --lay-bar-bg: var(--v-bar);
     --lay-border: var(--v-border);
@@ -166,62 +139,5 @@ export const adminLayoutStyles = `
     --v-ground: #f7f7f7; --v-surface-1: #ffffff; --v-surface-2: #f2f2f2; --v-surface-3: #e9e9e9;
     --v-text: #111111; --v-text-2: #3a3a3a; --v-text-3: #5f5f5f; --v-text-inverse: #ffffff;
     --v-border: rgba(0,0,0,0.08); --v-border-strong: rgba(0,0,0,0.16); --v-bar: #ffffff;
-  }
-
-  /* ── PageShell: a full-height column that can host scroll + pinned bars ── */
-  .lay-shell {
-    flex: 1 1 auto; display: flex; flex-direction: column;
-    min-width: 0; min-height: 0;
-    width: 100%; max-width: 100%;
-    position: relative;
-  }
-
-  /* ── ScrollArea: the standard scroll container ──
-     Bottom padding clears any overlay via --lay-scroll-extra (0 by default —
-     pinned bars are in-flow siblings, so nothing needs clearing). */
-  .lay-scroll {
-    flex: 1 1 auto; min-height: 0; min-width: 0;
-    overflow-y: auto; overflow-x: clip;
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: var(--lay-gutter) var(--lay-gutter-r)
-             calc(var(--lay-gutter) + var(--lay-scroll-extra, 0px))
-             var(--lay-gutter-l);
-    scroll-padding-bottom: calc(var(--lay-scroll-extra, 0px) + 16px);
-  }
-  .lay-content {
-    width: 100%; max-width: var(--lay-content-w); margin: 0 auto;
-    min-width: 0;
-    display: flex; flex-direction: column; gap: var(--lay-stack-gap, 20px);
-  }
-  .lay-content--wide { max-width: var(--lay-content-w-wide); }
-
-  /* ── StickyFooterBar: pinned bottom actions, in-flow, opaque, safe ── */
-  .lay-footbar {
-    flex-shrink: 0;
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    padding: 10px var(--lay-gutter-r) calc(10px + var(--lay-safe-bottom)) var(--lay-gutter-l);
-    background: var(--lay-bar-bg);
-    border-top: 1px solid var(--lay-border);
-  }
-
-  /* ── Card / list-row contract ──
-     A row can never poke past its parent; its flexible children can always
-     shrink; titles truncate to one line (the site-wide list treatment). */
-  .lay-card { width: 100%; max-width: 100%; min-width: 0; }
-  .lay-card > * { min-width: 0; }
-  .lay-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-  /* ── Overlays / modals / sheets: never wider or taller than the viewport,
-     internal scroll, safe-area aware ── */
-  .lay-overlay {
-    position: fixed; inset: 0;
-    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  }
-  .lay-modal-box {
-    max-width: 100%; min-width: 0;
-    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    overflow-y: auto; overscroll-behavior: contain;
   }
 `;

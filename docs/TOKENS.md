@@ -1,6 +1,6 @@
 # VISUALIZE DARK — design tokens
 
-Declared once on `.lay-root` in `src/components/AdminLayout.jsx`, prefix `--v-`.
+Declared once on `.lay-root` in `src/ui/tokens.js` (injected via `uiStyles` from `src/ui/index.js`), prefix `--v-`.
 Every admin surface reads them with `var()` from its CSS-in-JSX string; nothing
 is imported. Dark is the only theme. A light STUB exists as
 `.lay-root[data-v-theme='light']` with placeholder values and is wired to
@@ -106,8 +106,10 @@ Weights: `--v-weight-regular` 400, `-medium` 500, `-semibold` 600, `-bold` 700.
 ## Spacing, radius, sizing
 
 - `--v-space-1..12` = 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48px.
-- `--v-gutter` `clamp(16px, 3vw, 24px)`; `--v-tabbar-h` 58px;
-  `--v-safe-bottom` = tab bar + `env(safe-area-inset-bottom)`.
+- `--v-gutter` `clamp(16px, 3vw, 24px)`; `--v-gutter-l/-r` = gutter floored by
+  the side safe-area insets; `--v-inset-top/-bottom` = raw `env(safe-area-inset-*)`;
+  `--v-tabbar-h` 58px; `--v-safe-bottom` = tab bar + `env(safe-area-inset-bottom)`.
+- `--v-content-w` 760, `--v-content-w-wide` 900, `--v-panel-w` 324 (Prompt 3).
 - `--v-radius-sm` 6, `-md` 10, `-lg` 16, `-xl` 22, `-pill` 999.
 - `--v-tap` 44, `--v-tap-lg` 56, `--v-control-h` 44; `--v-icon-sm/md/lg`
   14/18/24; `--v-sidebar-w` 240, `--v-sidebar-rail-w` 68.
@@ -129,7 +131,7 @@ Weights: `--v-weight-regular` 400, `-medium` 500, `-semibold` 600, `-bold` 700.
 | Old variable | Now |
 |---|---|
 | `--lay-gutter`, `--lay-tabbar-h`, `--lay-rail-w`, `--lay-bar-bg`, `--lay-border` | `var(--v-gutter)`, `var(--v-tabbar-h)`, `var(--v-sidebar-rail-w)`, `var(--v-bar)`, `var(--v-border)` |
-| `--lay-content-w` 760, `--lay-content-w-wide` 900, `--lay-panel-w` 324 | no `--v-` equivalent yet (layout widths belong to Prompt 4's shell) |
+| `--lay-content-w` 760, `--lay-content-w-wide` 900, `--lay-panel-w` 324 | `var(--v-content-w)`, `var(--v-content-w-wide)`, `var(--v-panel-w)` (Prompt 3) |
 | `.aa-app`: `--a-border/-panel/-card/-raised/-muted/-sec/-brand` | `--v-border / --v-bar / --v-surface-1 / --v-surface-2 / --v-text-3 / --v-text-2 / --v-red` |
 | `.cc-page`: `--c-border/-card/-card2/-muted/-sec/-brand` | same mapping (`--c-border` was 0.09 alpha, now the shared 0.08) |
 | PrintsAdmin `--bg/--glass-*/--text-*` | untouched by decision (Prompt 11) |
