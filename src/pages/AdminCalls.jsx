@@ -539,10 +539,13 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   // Session
   const [mode, setMode] = useState('queue'); // queue | session | summary
   // Builder preset from the shell (dashboard tiles): { status: [...], prio: [...] }.
+  // { ids: [...] } builds the queue from exactly those leads (Leads bulk "Add to session").
+  const [presetIds, setPresetIds] = useState(null);
   useEffect(() => {
     if (!builderPreset) return;
     const p = builderPreset.preset || {};
     setSelStatus(new Set(p.status || [])); setSelPrio(new Set(p.prio || [])); setSelInd(new Set());
+    setPresetIds(Array.isArray(p.ids) && p.ids.length ? p.ids : null);
     setMode('queue');
   }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -698,6 +701,10 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   );
 
   const filtered = useMemo(() => {
+    if (presetIds) {
+      const order = new Map(presetIds.map((id, i) => [id, i]));
+      return leads.filter(l => order.has(l._id)).sort((a, b) => order.get(a._id) - order.get(b._id));
+    }
     return leads
       .filter(l =>
         // Only open pipeline leads are dialable — booked/won/client/lost
@@ -712,7 +719,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
         (STATUS_RANK[a.callStatus] ?? 9) - (STATUS_RANK[b.callStatus] ?? 9) ||
         new Date(b.createdAt) - new Date(a.createdAt)
       );
-  }, [leads, selPrio, selStatus, selInd]);
+  }, [leads, selPrio, selStatus, selInd, presetIds]);
 
   const callable = useMemo(
     () => includePhoneless ? filtered : filtered.filter(l => l.phone),
@@ -944,6 +951,14 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
                     <p className="cb-sub">Pick the kind of leads for this block of calls. Nothing selected in a group means &ldquo;all of them.&rdquo;</p>
                   </div>
 
+                  {presetIds && (
+                    <div className="cb-group">
+                      <p className="cb-group-h">Picked from Leads</p>
+                      <div className="cb-row">
+                        {builderChip(true, 'picked', `${presetIds.length} selected lead${presetIds.length === 1 ? '' : 's'}`, presetIds.length, () => setPresetIds(null))}
+                      </div>
+                    </div>
+                  )}
                   <div className="cb-group">
                     <p className="cb-group-h">Priority</p>
                     <div className="cb-row">

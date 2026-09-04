@@ -147,6 +147,8 @@ function sanitize(b) {
       : undefined,
     // Set when the first invoice is paid and the lead becomes a client.
     clientSince: b.clientSince !== undefined ? str(b.clientSince, 40) : undefined,
+    // Prompt 6 merge: the losing duplicate points at the record it was folded into (additive).
+    mergedInto: b.mergedInto !== undefined ? str(b.mergedInto, 64) : undefined,
     // What the client paid for — a purchases ledger. Additive.
     purchases: Array.isArray(b.purchases)
       ? b.purchases.slice(0, 50).map(p => ({
@@ -259,7 +261,9 @@ export default async function handler(req, res) {
     const raw = req.query?.ids ? String(req.query.ids).split(',') : (req.query?.id ? [req.query.id] : []);
     const ids = raw.map(x => { try { return new ObjectId(String(x).trim()); } catch { return null; } }).filter(Boolean);
     if (!ids.length) return res.status(400).json({ error: 'id required' });
-    await col.updateMany({ _id: { $in: ids } }, { $set: { deleted: true, deletedAt: new Date() } });
+    // Optional reason ('merged' from the duplicates merge); additive field, ignored otherwise.
+    const reason = req.query?.reason === 'merged' ? 'merged' : undefined;
+    await col.updateMany({ _id: { $in: ids } }, { $set: { deleted: true, deletedAt: new Date(), ...(reason ? { deletedReason: reason } : {}) } });
     return res.status(200).json({ ok: true, deleted: ids.length });
   }
 

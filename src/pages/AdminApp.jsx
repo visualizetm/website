@@ -799,6 +799,11 @@ export default function AdminApp() {
     await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
     setCallLeads(prev => prev.filter(l => l._id !== id));
   }, []);
+  const restoreCallLeads = useCallback(async (ids) => {
+    const res = await fetch('/api/admin/call-leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restore', ids }) });
+    if (res.ok) await loadCallLeads();
+    return res.ok;
+  }, [loadCallLeads]);
   const bulkDeleteCallLeads = useCallback(async (ids) => {
     const idSet = new Set(ids);
     const prev = [];
@@ -892,9 +897,9 @@ export default function AdminApp() {
       )}
       {section === 'leads' && (
         <AdminLeads
-          leads={callLeads} submissions={items} loading={callLeadsLoading}
+          leads={callLeads} submissions={items} loading={callLeadsLoading || forceLoading}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
-          onBulkDelete={bulkDeleteCallLeads}
+          onBulkDelete={bulkDeleteCallLeads} onRestore={restoreCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
           openId={reqFor('leads')} createPreset={createFor('leads')} filterPreset={presetFor('leads')}

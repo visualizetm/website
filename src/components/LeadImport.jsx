@@ -1,6 +1,6 @@
+import { Sheet } from '../ui';
 import { useState, useCallback } from 'react';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
-import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
@@ -98,12 +98,8 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
   };
 
   return (
-    <div className="li-overlay" role="dialog" aria-modal="true" aria-label="Import leads">
+    <Sheet open onClose={onClose} title="Upload spreadsheet" tall width={720} className="li-sheet">
       <div className="li-panel">
-        <div className="li-head">
-          <h2 className="li-title">Upload spreadsheet</h2>
-          <button type="button" className="li-x" onClick={onClose} aria-label="Close"><XClose width={18} height={18} /></button>
-        </div>
 
         {error && <div className="li-error"><AlertCircle width={15} height={15} /> {error}</div>}
 
@@ -204,41 +200,16 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
         )}
       </div>
       <style>{liStyles}</style>
-    </div>
+    </Sheet>
   );
 }
 
 const liStyles = `
-  .li-overlay {
-    position: fixed; inset: 0; z-index: 600;
-    background: rgba(0,0,0,0.72); backdrop-filter: blur(5px);
-    display: flex; align-items: center; justify-content: center;
-    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-             max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-    font-family: 'Inter', -apple-system, sans-serif;
-  }
-  .li-panel {
-    width: min(720px, 100%); max-width: 100%; min-width: 0;
-    max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain;
-    background: #121212; border: 1px solid rgba(255,255,255,0.1); border-radius: 18px;
-    box-shadow: 0 30px 90px rgba(0,0,0,0.8); color: #fafafa;
-  }
-  .li-head {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.08);
-    position: sticky; top: 0; background: #121212; z-index: 1;
-  }
-  .li-title { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; }
-  .li-x {
-    width: 34px; height: 34px; border-radius: 9px; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #8a8a8a;
-  }
-  .li-x:hover { color: #fafafa; background: rgba(255,255,255,0.1); }
-  .li-body { padding: 20px 22px; display: flex; flex-direction: column; gap: 16px; }
+  .li-panel { min-width: 0; display: flex; flex-direction: column; }
+  .li-body { padding: 0; display: flex; flex-direction: column; gap: 16px; }
 
   .li-error {
-    display: flex; align-items: center; gap: 8px; margin: 16px 22px 0;
+    display: flex; align-items: center; gap: 8px; margin: 0 0 12px;
     padding: 10px 14px; border-radius: 10px; font-size: 0.83rem; font-weight: 600;
     color: #fca5a5; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
   }

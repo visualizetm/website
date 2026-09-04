@@ -52,7 +52,8 @@ const leads = Array.from({ length: 12 }, (_, i) => ({
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : `Lead Business ${i}`,
   industry: 'Auto Detailing', area: 'Wilmington DE',
   descriptor: 'A local business with strong reviews.',
-  phone: i % 3 === 2 ? '' : `(302) 555-01${10 + i}`,
+  phone: i % 3 === 2 ? '' : i === 5 ? '(302) 555-0114' : `(302) 555-01${10 + i}`, // i=5 duplicates i=4 (merge modal)
+  enrichment: i % 2 ? { lastScanAt: new Date(Date.now() - (i > 6 ? 20 : 2) * 864e5).toISOString(), scanCount: i } : undefined,
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
   angle: 'Their reviews carry them but the site is a dead link — show them what they lose. '.repeat(3),
@@ -83,7 +84,7 @@ const json = (data) => ({ status: 200, contentType: 'application/json', body: JS
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll'];
 
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
@@ -203,9 +204,37 @@ for (const width of WIDTHS) {
   await page.locator('.bk-card').first().click({ timeout: 4000 }).catch(() => {});
   await check('booked detail (hostile fixtures)');
 
+  for (const v of ['kanban', 'list']) {
+    await page.evaluate((x) => localStorage.setItem('vz_leads_view', JSON.stringify(x)), v).catch(() => {});
+    await goto('/admin/leads');
+    await check(`leads ${v}`);
+  }
+  await page.locator('.ld-frow-chips .v-chip').first().click({ timeout: 4000 }).catch(() => {});
+  await check('leads filtered (status chip)');
+  await page.locator('.ld-frow-chips .v-chip').first().click({ timeout: 4000 }).catch(() => {});
+  if (width < 768) {
+    await page.getByRole('button', { name: 'Select', exact: true }).click({ timeout: 4000 }).catch(() => {});
+    await page.locator('.lc-check input').first().click({ timeout: 4000 }).catch(() => {});
+  } else {
+    await page.locator('.v-th--check input').first().click({ timeout: 4000 }).catch(() => {});
+  }
+  await check('leads bulk bar');
+  await page.getByRole('button', { name: 'Clear', exact: true }).click({ timeout: 4000 }).catch(() => {});
+  await page.getByRole('button', { name: 'Import', exact: true }).click({ timeout: 4000 }).catch(() => {});
+  await check('leads import sheet');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+  await page.locator('.ld-frow-chips .v-chip', { hasText: 'Possible duplicates' }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('leads duplicates');
+  await page.getByRole('button', { name: /^Merge$/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('leads merge modal');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+  await goto('/admin/leads?loading=1');
+  await check('leads skeleton');
+  await page.evaluate(() => localStorage.setItem('vz_leads_view', JSON.stringify('kanban'))).catch(() => {});
   await goto('/admin/leads');
-  await check('leads list');
-  await page.locator('.ld-card').first().click({ timeout: 4000 }).catch(() => {});
+  await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
   await check('lead detail (long name)');
 
   await goto('/admin/clients');
