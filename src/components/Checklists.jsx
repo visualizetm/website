@@ -3,6 +3,7 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import { useConfirm } from '../ui';
 
 /* Named task lists for a lead/booked/client record.
  *
@@ -11,6 +12,7 @@ import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
  * the caller's optimistic onPatch. Shared by Leads, Booked, and Clients.
  */
 export default function Checklists({ lead, onPatch }) {
+  const [confirm, confirmDialog] = useConfirm();
   const lists = lead.checklists || [];
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
@@ -25,10 +27,10 @@ export default function Checklists({ lead, onPatch }) {
     setName('');
     setNaming(false);
   };
-  const removeList = (li) => {
+  const removeList = async (li) => {
     const l = lists[li];
     const count = l.items?.length || 0;
-    if (count && !window.confirm(`Delete "${l.name}" and its ${count} task${count === 1 ? '' : 's'}?`)) return;
+    if (count && !(await confirm({ title: `Delete "${l.name}"?`, body: `Its ${count} task${count === 1 ? '' : 's'} go with it.`, danger: true, confirmLabel: 'Delete' }))) return;
     save(lists.filter((_, j) => j !== li));
   };
   const addItem = (li) => {
@@ -46,6 +48,7 @@ export default function Checklists({ lead, onPatch }) {
 
   return (
     <div className="ck-wrap">
+      {confirmDialog}
       {lists.map((l, li) => {
         const done = (l.items || []).filter(i => i.done).length;
         return (

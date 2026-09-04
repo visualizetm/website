@@ -20,7 +20,7 @@ import IMPORT_LEADS from '../data/call-leads-import.json';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
 import UserX01 from '@untitled-ui/icons-react/build/esm/UserX01';
 import { ADMIN_HOME } from '../lib/adminPaths';
-import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar, uiStyles, useConfirm } from '../ui';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
 import { digitsOf, matchRank, formatPhone } from '../shared/phone';
@@ -196,6 +196,7 @@ function NewLeadForm({ onCreate, onClose, initial }) {
 /* ── Edit lead (overlay) ───────────────────────────────────────── */
 
 function EditLead({ lead, onPatch, onDelete, onClose }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [d, setD] = useState({
     business: lead.business || '', descriptor: lead.descriptor || '', industry: lead.industry || '',
     phone: lead.phone || '', phoneNote: lead.phoneNote || '', askFor: lead.askFor || '',
@@ -250,6 +251,7 @@ function EditLead({ lead, onPatch, onDelete, onClose }) {
         </div>
       </div>
       <div className="cc-edit-actions">
+        {confirmDialog}
         <button type="submit" className="cc-btn cc-btn--primary" disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
         <button type="button" className="cc-btn" onClick={onClose}>Cancel</button>
         <span style={{ flex: 1 }} />
@@ -259,7 +261,7 @@ function EditLead({ lead, onPatch, onDelete, onClose }) {
           <button
             type="button"
             className="cc-btn cc-btn--danger"
-            onClick={() => { if (window.confirm(`Delete ${lead.business}? It moves to Recently deleted in Settings (30-day restore).`)) onDelete(lead._id); }}
+            onClick={async () => { if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) onDelete(lead._id); }}
           >
             <Trash01 width={14} height={14} /> Delete
           </button>
@@ -990,7 +992,7 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
 
   const toCall = leads.filter(l => effectiveStage(l) === 'lead' && l.callStatus === 'not-called').length;
 
-  if (authed === null) return <div className="cc-page lay-root"><style>{adminLayoutStyles + ccStyles}</style></div>;
+  if (authed === null) return <div className="cc-page lay-root"><style>{uiStyles + ccStyles}</style></div>;
 
   const elapsed = session ? fmtMins(Date.now() - session.startedAt) : '0m';
   const warned = current && WARN_RX.test(`${current.notes || ''} ${current.phoneNote || ''}`);
@@ -1405,7 +1407,7 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
         </div>
       )}
 
-      <style>{adminLayoutStyles + ccStyles}</style>
+      <style>{uiStyles + ccStyles}</style>
     </div>
   );
 }
@@ -1498,7 +1500,7 @@ const ccStyles = `
      .cq-inner as its centered .lay-content; the start bar is an in-flow
      StickyFooterBar below it — no clearance padding, it cannot cover rows. */
   .cq-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; flex-direction: column; }
-  .cq-inner { --lay-stack-gap: 12px; }
+  .cq-inner { --v-stack-gap: 12px; }
   .cq-embedbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 8px; }
   .cq-embedbar-spacer { flex: 1; }
   .cq-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); flex-shrink: 0; }
@@ -1581,7 +1583,7 @@ const ccStyles = `
     -webkit-tap-highlight-color: transparent;
   }
   .cs-card {
-    --lay-stack-gap: 14px;
+    --v-stack-gap: 14px;
     animation: cs-in-fwd 0.22s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
   .cs-card--back { animation-name: cs-in-back; }

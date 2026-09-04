@@ -11,7 +11,7 @@ import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
-import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar, ConfirmDialog } from '../ui';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -25,24 +25,6 @@ import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, callStatusOf } from '..
 import { fmtDateTime } from '../shared/dates';
 import { telHref } from '../shared/phone';
 import { defaultLead } from './AdminCalls';
-
-/* Deliberate-tap delete confirm (uses the shell's aa-modal styles). */
-function ConfirmDelete({ title, body, onConfirm, onCancel }) {
-  return (
-    <div className="aa-modal-overlay lay-overlay" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="aa-modal lay-modal-box">
-        <h2 className="aa-modal-title">{title}</h2>
-        <p className="aa-modal-body">{body}</p>
-        <div className="aa-modal-actions">
-          <button type="button" className="aa-btn" onClick={onCancel}>Cancel</button>
-          <button type="button" className="aa-btn aa-btn--danger" onClick={onConfirm}>
-            <Trash01 width={14} height={14} /> Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Status/priority/outcome maps: src/shared/semantics.js (one source of truth).
 const CALL_STATUSES = SEM_CALL_STATUSES.filter(x => x.id !== 'booked');
@@ -152,14 +134,12 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
           ><Trash01 width={15} height={15} /></button>
         </div>
         {blockReason && <p className="ld-delblocked">{blockReason}</p>}
-        {confirmOpen && !blockReason && (
-          <ConfirmDelete
-            title={`Delete ${lead.business}?`}
-            body="It moves to Recently deleted in Settings and can be restored for 30 days. A spreadsheet re-upload won't recreate it."
-            onConfirm={() => { setConfirmOpen(false); onDelete(lead._id); }}
-            onCancel={() => setConfirmOpen(false)}
-          />
-        )}
+        <ConfirmDialog open={confirmOpen && !blockReason} danger confirmLabel="Delete"
+          title={`Delete ${lead.business}?`}
+          body="It moves to Recently deleted in Settings and can be restored for 30 days. A spreadsheet re-upload won't recreate it."
+          onConfirm={() => { setConfirmOpen(false); onDelete(lead._id); }}
+          onClose={() => setConfirmOpen(false)}
+        />
 
         <header className="ld-head">
           <div className="ld-head-meta">
@@ -382,14 +362,12 @@ export default function AdminLeads({
         )}
       </aside>
 
-      {bulkConfirm && (
-        <ConfirmDelete
-          title={`Delete ${deletable.length} lead${deletable.length === 1 ? '' : 's'}?`}
-          body={`They move to Recently deleted in Settings (30-day restore).${blockedCount ? ` ${blockedCount} selected lead${blockedCount === 1 ? ' has' : 's have'} call history or booked status and will be skipped.` : ''}`}
-          onConfirm={runBulkDelete}
-          onCancel={() => setBulkConfirm(false)}
-        />
-      )}
+      <ConfirmDialog open={bulkConfirm} danger confirmLabel="Delete"
+        title={`Delete ${deletable.length} lead${deletable.length === 1 ? '' : 's'}?`}
+        body={`They move to Recently deleted in Settings (30-day restore).${blockedCount ? ` ${blockedCount} selected lead${blockedCount === 1 ? ' has' : 's have'} call history or booked status and will be skipped.` : ''}`}
+        onConfirm={runBulkDelete}
+        onClose={() => setBulkConfirm(false)}
+      />
       {toast && <div className="ld-toast" role="status">{toast}</div>}
 
       <main className="aa-main ld-main">
@@ -497,7 +475,7 @@ const ldStyles = `
     .aa-app.has-detail .aa-main.ld-main { display: flex; flex-direction: column; }
   }
   .ld-scroll { display: flex; flex-direction: column; }
-  .ld-detail { --lay-stack-gap: 16px; }
+  .ld-detail { --v-stack-gap: 16px; }
   @media (min-width: 1200px) { .ld-detail.lay-content--wide { max-width: 1320px; } }
   .ld-cols { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .ld-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }

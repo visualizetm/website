@@ -39,7 +39,7 @@ import AdminBooked from './AdminBooked';
 import AdminLeads from './AdminLeads';
 import AdminClients from './AdminClients';
 import AdminDesign from './AdminDesign';
-import { ScrollArea, StickyFooterBar, adminLayoutStyles } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog } from '../ui';
 import { effectiveStage } from '../lib/booked';
 import { LEAD_STATUSES, ORDER_STATUSES } from '../shared/semantics';
 
@@ -142,31 +142,7 @@ function Login({ onAuthed }) {
           {busy ? '…' : 'Sign In'}
         </button>
       </form>
-      <style>{adminLayoutStyles + aaStyles}</style>
-    </div>
-  );
-}
-
-/* ── Confirm modal (deliberate delete) ─────────────────────────── */
-
-function ConfirmModal({ title, body, confirmLabel, onConfirm, onCancel }) {
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onCancel]);
-  return (
-    <div className="aa-modal-overlay lay-overlay" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="aa-modal lay-modal-box">
-        <h2 className="aa-modal-title">{title}</h2>
-        <p className="aa-modal-body">{body}</p>
-        <div className="aa-modal-actions">
-          <button type="button" className="aa-btn" onClick={onCancel}>Cancel</button>
-          <button type="button" className="aa-btn aa-btn--danger" onClick={onConfirm}>
-            <Trash01 width={14} height={14} /> {confirmLabel}
-          </button>
-        </div>
-      </div>
+      <style>{uiStyles + aaStyles}</style>
     </div>
   );
 }
@@ -452,12 +428,12 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
       </main>
 
       {confirm && (
-        <ConfirmModal
+        <ConfirmDialog open danger
           title={`Delete ${confirm.length} ${confirm.length === 1 ? label.slice(0, -1).toLowerCase() : label.toLowerCase()}?`}
           body={`${confirm.length === 1 ? 'It moves' : 'They move'} to Recently deleted in Settings and can be restored for 30 days. After that ${confirm.length === 1 ? 'it is' : 'they are'} gone for good.`}
           confirmLabel={`Delete ${confirm.length}`}
           onConfirm={doDelete}
-          onCancel={() => setConfirm(null)}
+          onClose={() => setConfirm(null)}
         />
       )}
     </>
@@ -824,15 +800,13 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
         </div>
       </main>
 
-      {confirmPurge && (
-        <ConfirmModal
-          title={`Permanently purge ${(deleted?.length || 0) + (deletedLeads?.length || 0)} deleted records?`}
-          body="This empties Recently deleted immediately. There is no undo after a purge."
-          confirmLabel="Purge all"
-          onConfirm={purge}
-          onCancel={() => setConfirmPurge(false)}
-        />
-      )}
+      <ConfirmDialog open={confirmPurge} danger
+        title={`Permanently purge ${(deleted?.length || 0) + (deletedLeads?.length || 0)} deleted records?`}
+        body="This empties Recently deleted immediately. There is no undo after a purge."
+        confirmLabel="Purge all"
+        onConfirm={purge}
+        onClose={() => setConfirmPurge(false)}
+      />
     </>
   );
 }
@@ -1027,7 +1001,7 @@ export default function AdminApp() {
     setAuthed(false);
   };
 
-  if (authed === null) return <div className="aa-app lay-root"><style>{adminLayoutStyles + aaStyles}</style></div>;
+  if (authed === null) return <div className="aa-app lay-root"><style>{uiStyles + aaStyles}</style></div>;
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
 
   // mob: 'tab' = one of the five thumb tabs; 'more' = lives in the More sheet.
@@ -1045,6 +1019,7 @@ export default function AdminApp() {
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
 
   return (
+    <ToastProvider>
     <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen) ? ' has-detail' : ''}`}>
       {/* Icon rail */}
       <nav className="aa-rail" aria-label="Admin sections">
@@ -1162,8 +1137,9 @@ export default function AdminApp() {
         </div>
       )}
 
-      <style>{adminLayoutStyles + aaStyles}</style>
+      <style>{uiStyles + aaStyles}</style>
     </div>
+    </ToastProvider>
   );
 }
 
@@ -1376,7 +1352,7 @@ const aaStyles = `
     height: 100%; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 12px; color: var(--a-muted); font-size: 0.9rem; text-align: center; padding: 24px;
   }
-  .aa-detail { --lay-stack-gap: 22px; }
+  .aa-detail { --v-stack-gap: 22px; }
   .aa-detail-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
   .aa-detail-topbtns { display: flex; gap: 8px; }
   .aa-back {
@@ -1427,7 +1403,7 @@ const aaStyles = `
   .aa-sec .aa-btn { align-self: flex-start; }
 
   /* ── Dashboard ── */
-  .aa-dash { --lay-stack-gap: 20px; }
+  .aa-dash { --v-stack-gap: 20px; }
   .aa-greet-title {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: none;
@@ -1522,22 +1498,6 @@ const aaStyles = `
   .aa-switch.is-on .aa-switch-thumb { transform: translateX(18px); }
   .aa-exportgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 460px; }
   @media (max-width: 560px) { .aa-exportgrid { grid-template-columns: 1fr; } }
-
-  /* ── Modal ── */
-  .aa-modal-overlay {
-    z-index: 500;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-    display: flex; align-items: center; justify-content: center;
-  }
-  .aa-modal {
-    width: min(420px, 100%); background: var(--a-raised);
-    border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
-    padding: 24px; display: flex; flex-direction: column; gap: 12px;
-    box-shadow: 0 24px 80px rgba(0,0,0,0.8);
-  }
-  .aa-modal-title { font-size: 1.05rem; font-weight: 800; letter-spacing: -0.01em; }
-  .aa-modal-body { font-size: 0.875rem; color: var(--a-sec); line-height: 1.6; }
-  .aa-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 
   /* ── Mobile "More" sheet ── */
   .aa-more-back {

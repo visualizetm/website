@@ -15,7 +15,7 @@ import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import MessageCircle01 from '@untitled-ui/icons-react/build/esm/MessageCircle01';
-import { ScrollArea, StickyFooterBar } from '../components/AdminLayout';
+import { ScrollArea, StickyFooterBar, useConfirm } from '../ui';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -59,6 +59,7 @@ function Block({ title, children, action }) {
 
 /* Create/edit form — same fields both ways, socials included. */
 function ClientForm({ lead, creating, onSave, onCancel, onDelete }) {
+  const [confirm, confirmDialog] = useConfirm();
   const [f, setF] = useState({
     business: lead?.business || '', askFor: lead?.askFor || '', phone: lead?.phone || '',
     email: lead?.email || '', area: lead?.area || '', industry: lead?.industry || '',
@@ -95,6 +96,7 @@ function ClientForm({ lead, creating, onSave, onCancel, onDelete }) {
         <SocialFields values={f.socials} onChange={(k, v) => setF(p => ({ ...p, socials: { ...p.socials, [k]: v } }))} />
       </div>
       <div className="cl-form-actions">
+        {confirmDialog}
         <button type="submit" className="aa-btn aa-btn--primary" disabled={busy || !f.business.trim()}>
           <Check width={14} height={14} /> {busy ? 'Saving…' : creating ? 'Add client' : 'Save changes'}
         </button>
@@ -103,7 +105,7 @@ function ClientForm({ lead, creating, onSave, onCancel, onDelete }) {
           <>
             <span style={{ flex: 1 }} />
             <button type="button" className="aa-btn aa-btn--dangerghost"
-              onClick={() => { if (window.confirm(`Delete ${lead.business}? This removes them from the CRM.`)) onDelete(lead._id); }}>
+              onClick={async () => { if (await confirm({ title: `Delete ${lead.business}?`, body: 'This removes them from the CRM.', danger: true, confirmLabel: 'Delete' })) onDelete(lead._id); }}>
               <Trash01 width={14} height={14} /> Delete
             </button>
           </>
@@ -115,6 +117,7 @@ function ClientForm({ lead, creating, onSave, onCancel, onDelete }) {
 
 /* What they paid for — ledger with running total. */
 function Purchases({ lead, onPatch }) {
+  const [confirm, confirmDialog] = useConfirm();
   const rows = lead.purchases || [];
   const [adding, setAdding] = useState(false);
   const [d, setD] = useState({ label: '', amount: '', at: todayInput(), notes: '' });
@@ -127,14 +130,15 @@ function Purchases({ lead, onPatch }) {
     setD({ label: '', amount: '', at: todayInput(), notes: '' });
     setAdding(false);
   };
-  const remove = (i) => {
-    if (!window.confirm(`Remove "${rows[i].label}" (${money(rows[i].amount)}) from the ledger?`)) return;
+  const remove = async (i) => {
+    if (!(await confirm({ title: `Remove "${rows[i].label}"?`, body: `${money(rows[i].amount)} comes off the ledger total.`, danger: true, confirmLabel: 'Remove' }))) return;
     save(rows.filter((_, j) => j !== i));
   };
   const sorted = rows.map((p, i) => ({ ...p, _i: i })).sort((a, b) => new Date(b.at) - new Date(a.at));
 
   return (
     <div className="cl-pay">
+      {confirmDialog}
       <div className="cl-pay-total">
         <span className="cl-pay-num">{money(total)}</span>
         <span className="cl-pay-lbl">total paid · {rows.length} purchase{rows.length === 1 ? '' : 's'}</span>
@@ -242,6 +246,7 @@ function ContactHistory({ lead, onPatch }) {
 }
 
 function ClientDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, onClose }) {
+  const [confirm, confirmDialog] = useConfirm();
   const stage = effectiveStage(lead);
   const isClient = stage === 'client';
   const [editing, setEditing] = useState(false);
@@ -249,8 +254,8 @@ function ClientDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, 
   const [notesState, setNotesState] = useState('idle');
 
   const firstInvoicePaid = () => onPatch(lead._id, { stage: 'client', clientSince: new Date().toISOString() });
-  const backToBooked = () => {
-    if (window.confirm(`Move ${lead.business} back to Booked?`)) onPatch(lead._id, { stage: 'booked' });
+  const backToBooked = async () => {
+    if (await confirm({ title: `Move ${lead.business} back to Booked?`, body: 'They leave the Clients list and return to the Booked workspace.', confirmLabel: 'Move back' })) onPatch(lead._id, { stage: 'booked' });
   };
   const saveNotes = async () => {
     setNotesState('saving');
@@ -260,6 +265,7 @@ function ClientDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, 
 
   return (
     <>
+      {confirmDialog}
       <ScrollArea bare className="cl-scroll" key={lead._id}>
         <div className="cl-detail lay-content lay-content--wide">
           <div className="cl-top">
@@ -534,7 +540,7 @@ const clStyles = `
     .aa-app.has-detail .aa-main.cl-main { display: flex; flex-direction: column; }
   }
   .cl-scroll { display: flex; flex-direction: column; }
-  .cl-detail { --lay-stack-gap: 16px; }
+  .cl-detail { --v-stack-gap: 16px; }
   @media (min-width: 1200px) { .cl-detail.lay-content--wide { max-width: 1320px; } }
   .cl-cols, .cl-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   @media (min-width: 1200px) {
