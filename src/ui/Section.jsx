@@ -27,5 +27,5 @@ export const sectionStyles = `
   .v-section-text { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; flex: 1 1 180px; }
   .v-section-title { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .v-section-desc { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
-  .v-section-action { flex-shrink: 0; display: flex; align-items: center; gap: var(--v-space-2); }
+  .v-section-action { flex: 0 1 auto; min-width: 0; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-2); }
 `;
