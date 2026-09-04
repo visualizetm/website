@@ -32,6 +32,7 @@ import Checkbox, { checkboxStyles } from './Checkbox';
 import SegmentedControl, { segmentedControlStyles } from './SegmentedControl';
 import Tabs, { tabsStyles } from './Tabs';
 import Table, { tableStyles } from './Table';
+import { leadCardStyles } from './leadCard.styles';
 import Sheet, { sheetStyles } from './Sheet';
 import Modal, { modalStyles } from './Modal';
 import ConfirmDialog, { useConfirm } from './ConfirmDialog';
@@ -61,7 +62,7 @@ export const uiStyles = [
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
-  staggerStyles, revealStyles, progressRingStyles, progressBarStyles,
+  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles,
 ].join('\n');
 
 export {

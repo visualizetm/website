@@ -334,3 +334,11 @@ notifications drawer, and callbacks for navigation, opening a record, quick
 add, and sign out. Screens receive `openId` (`{ id, n }`) and `createPreset`
 (`{ preset, n }`) props from AdminApp when the shell asks them to open a
 record or start a new one.
+
+## Shared lead components (`src/components/`)
+
+- `LeadCard` (Prompt 6): the compact card. Styles ship in `uiStyles` since Prompt 7.
+- `LeadForm` (Prompt 7): the one create/edit form on kit fields, used by Leads and the Call Console. Props `lead`, `creating`, `onSave(values)`, `onCancel`, `onDelete(id)`.
+- `LeadHistory` (Prompt 7): callLog and contactLog merged newest first with outcome pills. Props `lead`, `limit`. Export `leadHistoryStyles`.
+- `LeadNotes` (Prompt 7): notes Textarea with InlineEdit semantics (save on blur or Cmd/Ctrl+Enter, rollback and toast on failure). Props `lead`, `onSave(id, notes)`, `rows`. Export `leadNotesStyles`.
+- `LeadPlaybook` (Prompt 7): `ScriptSteps`, `Objections`, `CloseCards`, `IntelCards`, each taking `lead`. Export `playbookStyles`.

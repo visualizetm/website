@@ -79,6 +79,8 @@ function sanitize(b) {
     notes: str(b.notes, 3000),
     askFor: str(b.askFor, 200),
     bestWindow: str(b.bestWindow, 300),
+    // Prompt 7: when the callback is due (ISO). Additive; read by the notifications drawer.
+    callbackAt: b.callbackAt !== undefined ? str(b.callbackAt, 40) : undefined,
     priority: PRIORITIES.includes(b.priority) ? b.priority : 'warm',
     callStatus: CALL_STATUSES.includes(b.callStatus) ? b.callStatus : 'not-called',
     angle: str(b.angle, 1200),

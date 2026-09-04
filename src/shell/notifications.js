@@ -22,12 +22,17 @@ export function buildNotifications(leads, now = Date.now()) {
     if (lead.callStatus === 'callback' && stage !== 'lost') {
       const entries = (lead.callLog || []).filter(e => e.outcome === 'callback');
       const last = entries[entries.length - 1];
-      const at = last?.at ? new Date(last.at).getTime() : new Date(lead.updatedAt || lead.createdAt || now).getTime();
-      const overdue = !sameDay(new Date(at), nowD);
+      // With a callbackAt (Prompt 7) the due time is real: overdue when it has passed,
+      // today when it is today, upcoming otherwise. Without it, the old rule applies:
+      // due today if asked today, overdue if asked on a previous day.
+      const due = lead.callbackAt ? new Date(lead.callbackAt).getTime() : null;
+      const at = due || (last?.at ? new Date(last.at).getTime() : new Date(lead.updatedAt || lead.createdAt || now).getTime());
+      const overdue = due ? due < now : !sameDay(new Date(at), nowD);
+      const group = due && !overdue && !sameDay(new Date(due), nowD) ? 'upcoming' : 'today';
       items.push({
-        id: `cb:${lead._id}:${last?.at || ''}`, kind: 'callback', group: 'today', tone: overdue ? 'danger' : 'callback', icon: 'PhoneIncoming01',
-        title: `${overdue ? 'Overdue callback' : 'Callback due'}: ${lead.business}`,
-        detail: last?.note || (lead.bestWindow ? `Best window ${lead.bestWindow}` : 'They asked you to call back.'),
+        id: `cb:${lead._id}:${lead.callbackAt || last?.at || ''}`, kind: 'callback', group, tone: overdue ? 'danger' : 'callback', icon: 'PhoneIncoming01',
+        title: `${overdue ? 'Overdue callback' : group === 'upcoming' ? 'Callback' : 'Callback due'}: ${lead.business}`,
+        detail: due ? `${new Date(due).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${last?.note ? `, ${last.note}` : ''}` : (last?.note || (lead.bestWindow ? `Best window ${lead.bestWindow}` : 'They asked you to call back.')),
         at, lead,
       });
     }

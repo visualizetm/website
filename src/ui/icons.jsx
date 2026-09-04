@@ -34,6 +34,19 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
+import SlashCircle01 from '@untitled-ui/icons-react/build/esm/SlashCircle01';
+import Sunrise from '@untitled-ui/icons-react/build/esm/Sunrise';
+import Sunset from '@untitled-ui/icons-react/build/esm/Sunset';
+import Keyboard01 from '@untitled-ui/icons-react/build/esm/Keyboard01';
+import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
+import SkipForward from '@untitled-ui/icons-react/build/esm/SkipForward';
+import Play from '@untitled-ui/icons-react/build/esm/Play';
+import UserX01 from '@untitled-ui/icons-react/build/esm/UserX01';
+import Columns03 from '@untitled-ui/icons-react/build/esm/Columns03';
+import Rows01 from '@untitled-ui/icons-react/build/esm/Rows01';
+import GitMerge from '@untitled-ui/icons-react/build/esm/GitMerge';
+import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
+import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -41,6 +54,8 @@ export const ICONS = {
   CurrencyDollar, Package, Calendar, User01,
   /* shell + nav */
   LayoutAlt01, PhoneCall01, Image01, Star01, Palette, Trash01, Settings01, Inbox01, SearchMd, Plus, LogOut01, Edit02, ArrowRight,
+  /* console + leads */
+  PhoneX01: SlashCircle01, SlashCircle01, Sunrise, Sunset, Keyboard01, Copy01, SkipForward, Play, UserX01, Columns03, Rows01, GitMerge, ChevronDown, ChevronLeft,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

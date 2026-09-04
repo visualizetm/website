@@ -23,16 +23,26 @@ export const CALL_STATUSES = [
   { id: 'callback',   label: 'Callback',   icon: 'PhoneIncoming01', order: 1, ...tone('callback') },
   { id: 'no-answer',  label: 'No answer',  icon: 'Voicemail',       order: 2, ...tone('new') },
   { id: 'booked',     label: 'Booked',     icon: 'Check',           order: 3, ...tone('booked') },
-  { id: 'no',         label: 'No',         icon: 'PhoneHangUp',     order: 4, ...tone('danger') },
+  { id: 'no',         label: 'Said no',    icon: 'PhoneHangUp',     order: 4, ...tone('danger') },
+  /* Prompt 7: additive. Logging it also stamps phoneNote with the date. */
+  { id: 'wrong-number', label: 'Wrong number', icon: 'PhoneX01',      order: 5, ...tone('danger') },
 ];
 export const callStatusOf = (id) => CALL_STATUSES.find(s => s.id === id) || CALL_STATUSES[0];
 
 /* The four outcomes on the console bar, in bar order, with key hints. */
 export const OUTCOMES = [
-  { ...callStatusOf('booked'),    key: '1' },
-  { ...callStatusOf('callback'),  key: '2' },
-  { ...callStatusOf('no'),        key: '3' },
-  { ...callStatusOf('no-answer'), key: '4' },
+  { ...callStatusOf('booked'),       key: '1' },
+  { ...callStatusOf('callback'),     key: '2' },
+  { ...callStatusOf('no-answer'),    key: '3' },
+  { ...callStatusOf('no'),           key: '4' },
+  { ...callStatusOf('wrong-number'), key: '5' },
+];
+/* Best-window buckets for bestWindow text (Prompt 7). */
+export const WINDOWS = [
+  { id: 'morning',   label: 'Morning',   icon: 'Sunrise', hours: [5, 11] },
+  { id: 'midday',    label: 'Midday',    icon: 'Sun',     hours: [11, 14] },
+  { id: 'afternoon', label: 'Afternoon', icon: 'Sun',     hours: [14, 17] },
+  { id: 'evening',   label: 'Evening',   icon: 'Sunset',  hours: [17, 24] },
 ];
 export const outcomeOf = (id) => OUTCOMES.find(o => o.id === id);
 

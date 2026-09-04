@@ -1,7 +1,7 @@
 // Server mirror of src/shared/semantics.js ID LISTS. Vercel serverless
 // functions cannot import from src/, so these arrays are duplicated here on
 // purpose and must be kept identical to the client module.
-export const CALL_STATUS_IDS = ['not-called', 'callback', 'no-answer', 'booked', 'no'];
+export const CALL_STATUS_IDS = ['not-called', 'callback', 'no-answer', 'booked', 'no', 'wrong-number'];
 export const PRIORITY_IDS = ['hot', 'warm', 'cold'];
 export const STAGE_IDS = ['lead', 'booked', 'won', 'client', 'lost'];
 export const MEETING_TYPE_IDS = ['call', 'video', 'in-person'];

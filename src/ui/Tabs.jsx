@@ -12,8 +12,10 @@ import Badge from './Badge';
 export default function Tabs({ tabs, value, onChange, label, className = '' }) {
   const ref = useRef(null);
   useEffect(() => {
-    const el = ref.current?.querySelector('[aria-selected="true"]');
-    el?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    // Scroll the strip sideways only; never move the page vertically.
+    const p = ref.current; const el = p?.querySelector('[aria-selected="true"]');
+    if (!p || !el) return;
+    if (el.offsetLeft < p.scrollLeft || el.offsetLeft + el.offsetWidth > p.scrollLeft + p.clientWidth) p.scrollTo({ left: Math.max(0, el.offsetLeft - 16) });
   }, [value]);
   const onKey = (e) => {
     const i = tabs.findIndex(t => t.id === value);
