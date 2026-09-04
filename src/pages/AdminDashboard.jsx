@@ -80,9 +80,14 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     if (l.clientSince) events.push({ id: `client:${l._id}`, kind: 'client', at: new Date(l.clientSince).getTime(), lead: l, title: `${l.business} became a client`, detail: 'First invoice paid' });
     if (created) events.push({ id: `new:${l._id}`, kind: l.sourceId ? 'scraper' : 'lead', at: created, lead: l, title: `New lead: ${l.business}`, detail: [l.industry, l.area].filter(Boolean).join(', ') || 'Added by hand' });
   }
-  for (const it of [...(subs || []), ...(orders || [])]) {
+  for (const it of (subs || [])) {
     const t = new Date(it.createdAt).getTime();
-    if (t) events.push({ id: `sub:${it._id}`, kind: it.type === 'shop-order' ? 'order' : 'submission', at: t, item: it, title: `${it.type === 'shop-order' ? 'Order' : 'Brief'} from ${it.business || it.name || 'the site'}`, detail: it.type === 'shop-order' ? 'Shop order received' : 'Submission received' });
+    if (t) events.push({ id: `sub:${it._id}`, kind: 'submission', at: t, item: it, title: `Brief from ${it.business || it.name || 'the site'}`, detail: 'Submission received' });
+  }
+  // Prompt 11: print orders come from the orders collection.
+  for (const o of (orders || [])) {
+    const t = new Date(o.createdAt).getTime();
+    if (t) events.push({ id: `order:${o._id}`, kind: 'order', at: t, order: o, title: `Order from ${o.customer?.name || 'a walk in'}`, detail: (o.items || []).length ? `${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}, ${o.source === 'shop' ? 'from the shop' : o.source}` : 'Print order' });
   }
   events.sort((a, b) => b.at - a.at);
   // Consecutive scraper inserts collapse into one row.
@@ -131,7 +136,7 @@ function DashboardSkeleton({ desktop }) {
   );
 }
 
-export default function AdminDashboard({ leads, projects = [], loading, subs, orders, onOpenSubmission }) {
+export default function AdminDashboard({ leads, projects = [], loading, subs, orders, onOpenSubmission, onOpenOrder }) {
   const shell = useShell();
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
@@ -266,7 +271,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
             {s.feed.map(e => (
               <ListRow key={e.id} leading={<IconTile icon={EVENT_ICON[e.kind]} tone={EVENT_TONE[e.kind]} size="sm" glow={false} />} title={e.title} subtitle={e.detail || undefined} meta={relativeTime(e.at)} chevron={false}
                 trailing={e.kind === 'call' && e.outcome ? <Pill id={e.outcome} list={CALL_STATUSES} size="sm" /> : undefined}
-                onClick={e.lead ? () => shell.openRecord(e.lead) : e.item ? () => onOpenSubmission?.(e.item) : undefined} />
+                onClick={e.lead ? () => shell.openRecord(e.lead) : e.item ? () => onOpenSubmission?.(e.item) : e.order ? () => onOpenOrder?.(e.order) : undefined} />
             ))}
           </Stack>
         ) : (

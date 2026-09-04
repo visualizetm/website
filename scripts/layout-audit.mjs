@@ -58,6 +58,7 @@ const PIPE_EXTRA = {
         ],
         contactLog: [{ type: 'meeting', at: '2027-02-03', note: UNBROKEN }] },
   12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
+        reviews: { nfcCard: true, nfcGivenAt: daysFrom(-20), googleLink: 'https://g.page/r/' + UNBROKEN, baseline: { count: 12, rating: 4.3, at: daysFrom(-30) }, latest: { count: 19, rating: 4.6, at: daysFrom(-2) }, asks: [{ at: new Date(Date.now() - 5 * 864e5).toISOString(), channel: 'nfc', result: 'asked', note: 'Handed the card ' + UNBROKEN.slice(0, 30) }, { at: NOW_ISO, channel: 'text', result: 'left', note: '' }] },
         retainer: { projectId: 'P12', planId: 'content-kit', amount: 250, status: 'active', startedAt: monthsAgo(2, 12), billDay: 12, nextBillAt: daysFrom(3), cancelAt: '' },
         purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }] },
   13: { stage: 'client', callStatus: 'booked', clientSince: '2026-11-01T10:00:00Z', clientStatus: 'delivered',
@@ -90,7 +91,22 @@ const projects = [
   { _id: 'P13', leadId: 'L13', name: 'Brand Starter', kind: 'brand', packageId: 'brand-starter', stage: 'delivered', stages: ['kickoff', 'design', 'revisions', 'delivery', 'delivered'], total: 350,
     schedule: [{ id: 'f1', amount: 350, dueAt: '2026-11-02', status: 'paid', ledgerId: 'lg13', label: 'Full payment' }], revisions: { max: 2, used: 2, log: [] }, plan: null, links: { drive: 'https://drive.google.com/drive/folders/abc', clickup: '' },
     deliverables: [{ id: 'b1', group: '01', label: 'Logo PNG', done: true, link: '' }, { id: 'b2', group: '01', label: 'Logo SVG', done: true, link: '' }, { id: 'b3', group: '04', label: 'Source files', done: true, link: '' }],
-    delivery: { driveShared: true, emailSent: true, pitchSent: false, followUpLeadCallbackAt: '' }, releasedAt: '2026-11-20T10:00:00Z', monthly: [], createdAt: '2026-11-01', archived: false },
+    delivery: { driveShared: true, emailSent: true, pitchSent: false, followUpLeadCallbackAt: '' }, releasedAt: new Date(Date.now() - 6 * 864e5).toISOString(), monthly: [], createdAt: '2026-11-01', archived: false },
+];
+// Studio fixtures (Prompt 11): two shop orders (one rush), one client order, two packs, one review submission.
+const orders = [
+  { _id: 'O1', source: 'shop', status: 'new', submissionId: 'id0', leadId: '', customer: { name: 'Person 0 ' + UNBROKEN.slice(0, 20), email: 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com', phone: '(302) 555-0100' },
+    items: [{ id: 'i1', productId: '', name: 'Logo Die-Cut Sticker', label: 'Qty 100, 3 in', qty: 100, options: {}, artworkLink: '', priceTotal: 100, quote: false }, { id: 'i2', productId: '', name: 'Custom Text Vinyl ' + UNBROKEN.slice(0, 30), label: '6 x 24', qty: 1, options: { color: 'White' }, artworkLink: 'https://example.com/' + UNBROKEN, priceTotal: null, quote: true }],
+    subtotal: 100, rush: true, dueAt: daysFrom(2), notes: UNBROKEN, paid: null, createdAt: daysFrom(-1), archived: false },
+  { _id: 'O2', source: 'shop', status: 'cut', submissionId: 'id4', leadId: '', customer: { name: 'Person 4', email: 'p4@x.com', phone: '' },
+    items: [{ id: 'i3', productId: 'nfc-card', name: 'NFC card', label: '', qty: 2, options: {}, artworkLink: '', priceTotal: 50, quote: false }], subtotal: 50, rush: false, dueAt: daysFrom(5), notes: '', paid: { at: daysFrom(-2), ledgerId: '', amount: 50 }, createdAt: daysFrom(-3), archived: false },
+  { _id: 'O3', source: 'client', status: 'delivered', leadId: 'L11', projectId: 'P11', customer: { name: 'Lead Business 11', email: '', phone: '' },
+    items: [{ id: 'i4', productId: 'stickers-50', name: 'Stickers, 50 pack', label: '', qty: 1, options: {}, artworkLink: '', priceTotal: 40, quote: false }, { id: 'i5', productId: 'cards-250', name: 'Business cards, 250', label: '', qty: 1, options: {}, artworkLink: '', priceTotal: 35, quote: false }],
+    subtotal: 75, rush: false, dueAt: daysFrom(-8), notes: '', paid: { at: daysFrom(-9), ledgerId: 'lg4', amount: 75 }, packaging: { polyBag: true, headerCard: false, usageGuide: false }, createdAt: daysFrom(-15), archived: false },
+];
+const packs = [
+  { _id: 'K1', title: 'Universal logo directions', leadId: '', industryKey: '', kind: 'logo', tags: ['seed', 'logo'], prompts: [{ id: 'p1', label: 'Direction 1: wordmark', text: 'A clean, confident wordmark for [business] ' + UNBROKEN }, { id: 'p2', label: 'Direction 2: mark and lockup', text: 'A simple geometric brand mark.' }, { id: 'p3', label: 'Direction 3: badge', text: 'A circular badge logo.' }], images: [], notes: 'Edit these.', usedFor: [], createdAt: daysFrom(-10), updatedAt: daysFrom(-1) },
+  { _id: 'K2', title: 'Auto detailing social grid ' + UNBROKEN.slice(0, 20), leadId: 'L8', industryKey: 'auto detailing', kind: 'social', tags: ['grid', 'before and after'], prompts: [{ id: 'p4', label: 'Nine post grid', text: 'A nine post Instagram grid for a mobile detailer.' }], images: [{ id: 'm1', label: 'Grid mock', link: 'https://example.com/grid.png' }, { id: 'm2', label: 'Story', link: 'https://example.com/story.jpg' }, { id: 'm3', label: 'Drive folder', link: 'https://drive.google.com/drive/folders/x' }], notes: '', usedFor: ['L8'], lastUsedAt: daysFrom(-2), createdAt: daysFrom(-20), updatedAt: daysFrom(-2) },
 ];
 
 const leads = Array.from({ length: 14 }, (_, i) => ({
@@ -117,16 +133,16 @@ const leads = Array.from({ length: 14 }, (_, i) => ({
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
 }));
 
-const items = Array.from({ length: 12 }, (_, i) => ({
+const items = Array.from({ length: 13 }, (_, i) => ({
   _id: 'id' + i,
-  type: i % 4 === 0 ? 'shop-order' : 'start',
+  type: i === 12 ? 'review' : i % 4 === 0 ? 'shop-order' : 'start',
   projectType: 'Brand', name: 'Person ' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : 'Business ' + i,
   email: i === 2 ? 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com' : `p${i}@x.com`,
   linkedLeadId: i === 3 ? 'L0' : undefined,
   phone: '(302) 555-0100', status: ['new', 'contacted', 'replied', 'landed', 'denied'][i % 5],
   read: i % 2 === 0, notes: '', socials: {},
-  fields: { 'Business Description': UNBROKEN, Budget: '$600' },
+  fields: i === 12 ? { rating: 5, text: 'Rob nailed the logo. ' + UNBROKEN } : { 'Business Description': UNBROKEN, Budget: '$600' },
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
 }));
 
@@ -185,6 +201,8 @@ for (const width of WIDTHS) {
     { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
   ] })));
   await page.route('**/api/admin/call-leads**', r => r.fulfill(json({ items: leads })));
+  await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: orders, unimported: 2 })) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
+  await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: packs })) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: projects })) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
 
@@ -205,7 +223,7 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'clients' reruns just the Clients module block
+  const only = process.env.AUDIT_ONLY; // 'clients' or 'studio' reruns just that block
 
   if (!only) {
   await goto('/admin');
@@ -343,6 +361,7 @@ for (const width of WIDTHS) {
 
   } // end !only
 
+  if (only !== 'studio') {
   // Clients module (Prompt 10).
   const openClient = async (name) => {
     await goto('/admin/clients');
@@ -410,6 +429,106 @@ for (const width of WIDTHS) {
     await check('sidebar collapsed: clients list');
     await openClient('Lead Business 11');
     await check('sidebar collapsed: client detail');
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
+  }
+  } // end clients block
+
+  // Studio (Prompt 11): print orders, concepts, reviews.
+  const openOrder = async (name) => {
+    await goto('/admin/orders');
+    if (width >= 1024) await page.locator('.v-tr', { hasText: name }).first().click({ timeout: 4000 }).catch(() => {});
+    else await page.getByRole('button', { name: new RegExp(`^Open order for ${name}`) }).first().click({ timeout: 4000 }).catch(() => {});
+  };
+  await goto('/admin/orders');
+  await check('orders list (import banner)');
+  for (const f of ['New', 'Designed', 'Cut', 'Packed', 'Delivered', 'Cancelled', 'Rush', 'Due this week']) {
+    await page.locator('.po-chips .v-chip', { hasText: new RegExp('^' + f) }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`orders list: ${f.toLowerCase()}`);
+  }
+  await page.locator('.po-chips .v-chip', { hasText: /^All/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await goto('/admin/orders?loading=1');
+  await check('orders skeleton');
+  await openOrder('Person 0');
+  await check('order detail (rush shop order, long names)');
+  await page.locator('.po-link-client').first().click({ timeout: 3000 }).catch(() => {});
+  await check('order: link to client sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.po-mark-paid').first().click({ timeout: 3000 }).catch(() => {});
+  await check('order: mark paid modal');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await openOrder('Lead Business 11');
+  await check('order detail (delivered, packaging checklist)');
+  await goto('/admin/orders');
+  await page.locator('.po-new').first().click({ timeout: 3000 }).catch(() => {});
+  await check('new order sheet');
+  await page.locator('.po-add-item').first().click({ timeout: 3000 }).catch(() => {});
+  await check('new order sheet: item added');
+  await page.locator('.po-pick-client').first().click({ timeout: 3000 }).catch(() => {});
+  await check('new order: pick a client');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/settings');
+  await page.getByRole('button', { name: /^Data/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.evaluate(() => { try { localStorage.setItem('vz_print_orders', JSON.stringify([{ id: 1, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Local Person Superlongunbrokenname', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'logo-sticker', productName: 'Logo Die-Cut Sticker', label: 'Qty 100', priceMode: 'sticker', priceTotal: 100, vals: { qty: '100', size: '3 in' } }], summary: 'x', estimatedSubtotal: 100, hasQuoteItems: false }, { id: 2, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Person 4', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'ig-vinyl', productName: 'Instagram Handle Vinyl', label: '@x', priceMode: 'flat', priceTotal: 15, vals: {} }], summary: 'y', estimatedSubtotal: 15, hasQuoteItems: false }])); } catch {} }).catch(() => {});
+  await page.locator('.aa-import-local').first().click({ timeout: 3000 }).catch(() => {});
+  await check('settings: import preview');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.evaluate(() => localStorage.removeItem('vz_print_orders')).catch(() => {});
+
+  await goto('/admin/concepts');
+  await check('concepts grid');
+  await page.locator('.cp-kinds .v-chip', { hasText: /^Social/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await check('concepts grid: social filter');
+  await page.locator('.cp-kinds .v-chip', { hasText: /^Social/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.cp-inds .v-chip').first().click({ timeout: 3000 }).catch(() => {});
+  await check('concepts grid: industry filter');
+  await page.locator('.cp-inds .v-chip').first().click({ timeout: 3000 }).catch(() => {});
+  await goto('/admin/concepts?loading=1');
+  await check('concepts skeleton');
+  await goto('/admin/concepts');
+  await page.getByRole('button', { name: /^Open Universal logo directions/ }).first().click({ timeout: 4000 }).catch(() => {});
+  for (const h of ['Direction 2', 'Direction 3']) await page.locator('.cp-prompt-head', { hasText: h }).first().click({ timeout: 2000 }).catch(() => {});
+  await check('pack detail (prompts expanded)');
+  await page.locator('.cp-link-lead').first().click({ timeout: 3000 }).catch(() => {});
+  await check('pack: link a lead sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/concepts');
+  await page.locator('.cp-new').first().click({ timeout: 3000 }).catch(() => {});
+  await check('new pack sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/booked');
+  await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
+  await page.getByRole('tab', { name: /^Meeting/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('button', { name: 'Add the usual five' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dt-from-library').first().click({ timeout: 3000 }).catch(() => {});
+  await check('booked: from library picker');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+
+  await goto('/admin/reviews');
+  await check('reviews list');
+  for (const f of ['Has NFC card', 'No Google link', 'Never asked', 'Asked this month', 'Delivered not asked']) {
+    await page.locator('.rv-chips .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`reviews list: ${f.toLowerCase()}`);
+  }
+  await page.locator('.rv-chips .v-chip', { hasText: /^All/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await goto('/admin/reviews?loading=1');
+  await check('reviews skeleton');
+  await goto('/admin/reviews');
+  await page.getByRole('button', { name: /^Open reviews for Lead Business 12/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('review sheet (nfc, counts, asks)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.rv-link-form').first().click({ timeout: 3000 }).catch(() => {});
+  await check('reviews: link form submission');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  if (width >= 768) {
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await goto('/admin/orders');
+    await check('sidebar collapsed: orders');
+    await goto('/admin/concepts');
+    await check('sidebar collapsed: concepts');
+    await goto('/admin/reviews');
+    await check('sidebar collapsed: reviews');
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
     await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
   }

@@ -113,38 +113,38 @@ const ckStyles = `
   .ck-wrap { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .ck-list {
     display: flex; flex-direction: column; gap: 8px; min-width: 0;
-    background: var(--a-raised, #1a1a1a); border: 1px solid var(--a-border, rgba(255,255,255,0.08));
+    background: var(--v-surface-2); border: 1px solid var(--v-border);
     border-radius: 12px; padding: 12px 14px;
   }
   .ck-list-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
-  .ck-list-name { font-size: 0.86rem; font-weight: 800; color: #fafafa; min-width: 0; overflow-wrap: anywhere; }
+  .ck-list-name { font-size: 0.86rem; font-weight: 800; color: var(--v-text); min-width: 0; overflow-wrap: anywhere; }
   .ck-list-n {
-    font-size: 0.66rem; font-weight: 800; color: var(--a-muted, #8a8a8a);
+    font-size: 0.66rem; font-weight: 800; color: var(--v-text-3);
     background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
   }
   .ck-list-del {
     margin-left: auto; flex-shrink: 0; display: flex; padding: 6px; border-radius: 8px;
     background: none; border: none; cursor: pointer; color: transparent; transition: color 0.15s;
   }
-  .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { color: var(--a-muted, #8a8a8a); }
-  .ck-list-del:hover { color: #f87171 !important; }
+  .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { color: var(--v-text-3); }
+  .ck-list-del:hover { color: var(--v-status-danger-text) !important; }
   .ck-item { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .ck-check {
     width: 24px; height: 24px; border-radius: 7px; cursor: pointer; flex-shrink: 0;
     display: inline-flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.16); color: #fff;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.16); color: var(--v-text);
     transition: background 0.15s, border-color 0.15s;
     touch-action: manipulation;
   }
-  .ck-check.is-done { background: #22c55e; border-color: #22c55e; color: #08130a; }
+  .ck-check.is-done { background: var(--v-status-booked-solid); border-color: var(--v-status-booked-solid); color: var(--v-text-inverse); }
   .ck-item-text { flex: 1; min-width: 0; font-size: 0.88rem; line-height: 1.45; overflow-wrap: anywhere; }
-  .ck-item-text.is-done { color: var(--a-muted, #8a8a8a); text-decoration: line-through; }
+  .ck-item-text.is-done { color: var(--v-text-3); text-decoration: line-through; }
   .ck-item-del {
     background: none; border: none; cursor: pointer; color: transparent;
     display: flex; padding: 5px; flex-shrink: 0; transition: color 0.15s;
   }
-  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible { color: var(--a-muted, #8a8a8a); }
-  .ck-item-del:hover { color: #f87171 !important; }
+  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible { color: var(--v-text-3); }
+  .ck-item-del:hover { color: var(--v-status-danger-text) !important; }
   .ck-add { display: flex; gap: 8px; min-width: 0; }
   .ck-add .aa-input { flex: 1; min-width: 0; }
   .ck-wrap > .aa-btn { align-self: flex-start; }

@@ -20,6 +20,7 @@ import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
+import { PackPicker } from '../pages/AdminConcepts';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CONCEPT_STATUSES, CONCEPT_PRESETS, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
 import { formatPhone, telHref } from '../shared/phone';
@@ -112,6 +113,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const [cbOpen, setCbOpen] = useState(false);
   const [resched, setResched] = useState(false);
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
+  const [packFor, setPackFor] = useState(null); // concept id picking a pack (Prompt 11)
   const [outcomeNote, setOutcomeNote] = useState('');
   const [callMode, setCallModeState] = useState(() => LS(`vz_callmode_${lead._id}`, false));
   const setCallMode = (v) => { setCallModeState(v); try { localStorage.setItem(`vz_callmode_${lead._id}`, JSON.stringify(v)); } catch { /* fine */ } };
@@ -259,8 +261,10 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
                   <IconTile icon="Image01" tone={CONCEPT_STATUSES.find(s => s.id === c.status) ? c.status === 'planned' ? 'neutral' : c.status === 'generating' ? 'progress' : c.status === 'ready' ? 'booked' : 'won' : 'neutral'} size="sm" glow={false} />
                   <InlineEdit value={c.label} onSave={(v) => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, label: v } : x)) })} label="Concept" className="dt-concept-label" />
                   <span style={{ flex: 1 }} />
-                  <Menu label="Status" trigger={<button type="button" className="dt-pillbtn"><Pill id={c.status} list={CONCEPT_STATUSES} size="sm" /></button>} items={[...CONCEPT_STATUSES.map(s => ({ id: s.id, label: s.label, disabled: s.id === c.status, onSelect: () => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, status: s.id } : x)) }) })), 'divider', { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => patch({ concepts: concepts.filter(x => x.id !== c.id) }) }]} />
+                  <Menu label="Status" trigger={<button type="button" className="dt-pillbtn"><Pill id={c.status} list={CONCEPT_STATUSES} size="sm" /></button>} items={[...CONCEPT_STATUSES.map(s => ({ id: s.id, label: s.label, disabled: s.id === c.status, onSelect: () => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, status: s.id } : x)) }) })), 'divider', { id: 'lib', label: c.packId ? 'Change library pack' : 'From library', icon: 'Image01', onSelect: () => setPackFor(c.id) }, 'divider', { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => patch({ concepts: concepts.filter(x => x.id !== c.id) }) }]} />
                 </Row>
+                {c.packId && <Row gap={1} align="center"><Pill tone="callback" label={(shell?.packs || []).find(pk => String(pk._id) === String(c.packId))?.title || 'Library pack'} size="sm" icon="Image01" variant="outline" className="dt-concept-pack" /><Button variant="ghost" size="md" onClick={() => shell?.go('concepts')}>Open library</Button></Row>}
+                {!readOnly && !c.link && !c.packId && <Button variant="ghost" size="md" icon="Image01" onClick={() => setPackFor(c.id)} className="dt-from-library">From library</Button>}
                 {c.link ? <Button variant="secondary" full href={c.link} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
               </Card>
             ))}
@@ -318,6 +322,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
           <Input label={linkSheet.label} value={linkDraft} onChange={(e) => setLinkDraft(e.target.value)} placeholder={linkSheet.social ? 'Handle or URL' : ''} inputMode={linkSheet.key === 'phone' ? 'tel' : linkSheet.key === 'email' ? 'email' : undefined} data-autofocus />
         </Modal>
       )}
+      {packFor && <PackPicker packs={shell?.packs || []} industry={lead.industry} onClose={() => setPackFor(null)} onPick={(pk) => { const first = (pk.images || []).find(i => i.link)?.link || ''; patch({ concepts: concepts.map(x => (x.id === packFor ? { ...x, packId: String(pk._id), link: x.link || first } : x)) }); setPackFor(null); toast.success(`${pk.title} linked.`); }} />}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       {resched && <RescheduleSheet lead={lead} onClose={() => setResched(false)} onSave={async (m) => { const ok = await saveMeeting(m); if (ok) { setResched(false); toast.success('Meeting updated.'); } }} />}
       <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} as won?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'They become a client now, with everything here kept.' : 'They leave Booked. Undo is available for six seconds.'}

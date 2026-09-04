@@ -6,7 +6,7 @@ import {
   CONCEPT_STATUS_IDS,
   CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
-  RETAINER_STATUS_IDS, CLIENT_STATUS_IDS,
+  RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
 } from '../_semantics.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
@@ -130,6 +130,8 @@ function sanitize(b) {
           id: str(c?.id, 40), label: str(c?.label, 120),
           status: CONCEPT_STATUS_IDS.includes(c?.status) ? c.status : 'planned',
           link: str(c?.link, 400),
+          // Prompt 11 additive: the concept pack it was linked from.
+          ...(c?.packId ? { packId: str(c.packId, 64) } : {}),
         })) : undefined,
     gamePlan: Array.isArray(b.gamePlan)
       ? b.gamePlan.slice(0, 40).map(g => ({ serviceId: str(g?.serviceId, 60), checked: !!g?.checked, note: str(g?.note, 300) })) : undefined,
@@ -206,6 +208,13 @@ function sanitize(b) {
       nextBillAt: str(b.retainer.nextBillAt, 40), cancelAt: str(b.retainer.cancelAt, 40),
     } : b.retainer === null ? null : undefined,
     clientStatus: b.clientStatus !== undefined ? (CLIENT_STATUS_IDS.includes(b.clientStatus) ? b.clientStatus : '') : undefined,
+    // Prompt 11 additive: Google reviews tracking.
+    reviews: b.reviews && typeof b.reviews === 'object' ? {
+      nfcCard: !!b.reviews.nfcCard, nfcGivenAt: str(b.reviews.nfcGivenAt, 40), googleLink: str(b.reviews.googleLink, 400),
+      baseline: b.reviews.baseline && typeof b.reviews.baseline === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.baseline.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.baseline.rating) || 0)), at: str(b.reviews.baseline.at, 40) } : null,
+      latest: b.reviews.latest && typeof b.reviews.latest === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.latest.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.latest.rating) || 0)), at: str(b.reviews.latest.at, 40) } : null,
+      asks: Array.isArray(b.reviews.asks) ? b.reviews.asks.slice(-200).map(a => ({ at: str(a?.at, 40), channel: REVIEW_CHANNEL_IDS.includes(a?.channel) ? a.channel : 'text', result: REVIEW_RESULT_IDS.includes(a?.result) ? a.result : 'asked', note: str(a?.note, 400) })) : [],
+    } : undefined,
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
       ? b.contactLog.slice(-200).map(c => ({

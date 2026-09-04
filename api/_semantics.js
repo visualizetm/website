@@ -16,3 +16,9 @@ export const PROJECT_STAGE_IDS = ['kickoff', 'design', 'revisions', 'build', 'de
 export const SCHEDULE_STATUS_IDS = ['paid', 'due', 'past-due', 'upcoming'];
 export const RETAINER_STATUS_IDS = ['active', 'paused', 'ending', 'cancelled'];
 export const CLIENT_STATUS_IDS = ['active', 'paused', 'delivered'];
+// Prompt 11: Studio enums.
+export const PRINT_ORDER_STATUS_IDS = ['new', 'designed', 'cut', 'packed', 'delivered', 'cancelled'];
+export const ORDER_SOURCE_IDS = ['shop', 'client', 'walk-in', 'import'];
+export const CONCEPT_KIND_IDS = ['logo', 'brand-board', 'social', 'website', 'signage', 'apparel', 'vehicle', 'packaging', 'ads', 'other'];
+export const REVIEW_CHANNEL_IDS = ['nfc', 'text', 'email', 'in-person'];
+export const REVIEW_RESULT_IDS = ['asked', 'left', 'declined'];

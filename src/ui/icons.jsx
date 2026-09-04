@@ -63,6 +63,10 @@ import Send01 from '@untitled-ui/icons-react/build/esm/Send01';
 import LinkExternal01 from '@untitled-ui/icons-react/build/esm/LinkExternal01';
 import Colors from '@untitled-ui/icons-react/build/esm/Colors';
 import PauseCircle from '@untitled-ui/icons-react/build/esm/PauseCircle';
+/* studio (Prompt 11) */
+import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
+import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
+import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -75,6 +79,8 @@ export const ICONS = {
   Globe01, MarkerPin01, Camera01, ThumbsUp, Clock, ClockRewind, CurrencyDollarCircle,
   /* clients */
   RefreshCw01, Link01, Folder, CreditCard01, Send01, LinkExternal01, Colors, PauseCircle,
+  /* studio */
+  Scissors01, Download01, Upload01,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

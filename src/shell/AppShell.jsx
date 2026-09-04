@@ -33,7 +33,7 @@ import { buildEvents } from '../lib/events';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onNewLead, onNewClient, onLogout, onPatchLead, projects = [], styles, children,
+  onGo, onOpenLead, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], packs = [], styles, children,
 }) {
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
   // 768 to 1023px: the rail only. A 240px sidebar next to the 324px list panel
@@ -87,8 +87,8 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, setTopBar, events, calendly, projects,
-  }), [go, openLead, onNewLead, onNewClient, setTopBar, events, calendly, projects]);
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs,
+  }), [go, openLead, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
@@ -102,6 +102,7 @@ export default function AppShell({
     { id: 'lead', label: 'New lead', icon: 'Users01', onSelect: () => onNewLead({}) },
     { id: 'call', label: 'Log a call', icon: 'PhoneCall01', onSelect: () => go('calls') },
     { id: 'client', label: 'New client', icon: 'Briefcase01', onSelect: () => onNewClient() },
+    { id: 'order', label: 'New order', icon: 'Package', onSelect: () => onNewOrder?.() },
   ];
 
   return (

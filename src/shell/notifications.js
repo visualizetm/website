@@ -5,6 +5,7 @@
 import { normalizeStage } from '../shared/semantics';
 import { buildEvents, sameDay } from '../lib/events';
 import { projectsOf, scheduleStatus, localDate, money } from '../lib/projects';
+import { reviewAskDue } from '../lib/reviews';
 
 const H = 3600e3;
 export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
@@ -48,6 +49,13 @@ export function buildNotifications(leads, opts = {}) {
         items.push({ id, kind: 'payment', group: 'overdue', tone: 'danger', icon: ICON.payment, title: `Payment past due: ${l.business}`, detail: `${money(s.amount)} for ${p.name}, ${s.label || 'schedule item'}, was due ${new Date(at).toLocaleDateString([], { month: 'short', day: 'numeric' })}.`, at, lead: l });
       }
     }
+  }
+  // Prompt 11: ask for a review 3 days after a release with zero asks (System).
+  for (const l of leads) {
+    const due = reviewAskDue(l, opts.projects || [], now);
+    if (!due) continue;
+    const id = `review:${l._id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
+    items.push({ id, kind: 'review', group: 'system', tone: 'won', icon: 'Star01', title: `Ask ${l.business} for a review`, detail: `${due.project.name} was released ${new Date(due.project.releasedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} and nobody has asked yet.`, at: due.at, lead: l });
   }
   // New leads in the last 48 hours.
   for (const l of leads) {

@@ -36,6 +36,23 @@ export const ADDONS = [
   { id: 'rush', label: 'Rush delivery', price: 20 },
 ];
 
+/* Print order product picker (Prompt 11). Prices come from ADDONS where one
+ * exists; the two sticker packs and the vinyl size tiers are new lines. Edit
+ * here, nowhere else. sizes: a Select whose choice sets the line price. */
+export const PRINT_PRODUCTS = [
+  { id: 'stickers-2', label: 'Stickers, 2 pack', price: 10, sticker: true },
+  { id: 'stickers-50', label: 'Stickers, 50 pack', price: 40, addonId: 'stickers', sticker: true },
+  { id: 'vinyl', label: 'Custom vinyl', price: 15, sizes: [{ id: 'small', label: 'Small, up to 8 in', price: 15 }, { id: 'medium', label: 'Medium, up to 16 in', price: 25 }, { id: 'large', label: 'Large, up to 32 in', price: 40 }], sticker: true },
+  { id: 'cards-250', label: 'Business cards, 250', price: 35, addonId: 'cards-250' },
+  { id: 'cards-500', label: 'Business cards, 500', price: 50, addonId: 'cards-500' },
+  { id: 'card-design', label: 'Business card design', price: 30, addonId: 'card-design' },
+  { id: 'nfc-card', label: 'NFC card', price: 25, addonId: 'nfc-card' },
+];
+export const RUSH_FEE = ADDONS.find(a => a.id === 'rush')?.price || 20;
+/* Turnaround: 7 days, 3 with rush. */
+export const TURNAROUND_DAYS = { standard: 7, rush: 3 };
+export const printProductOf = (id) => PRINT_PRODUCTS.find(p => p.id === id) || null;
+
 export const packageOf = (id) => PACKAGES.find(p => p.id === id) || null;
 export const retainerOf = (id) => RETAINERS.find(r => r.id === id) || null;
 export const addonOf = (id) => ADDONS.find(a => a.id === id) || null;

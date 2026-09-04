@@ -165,6 +165,51 @@ export const SCHEDULE_STATUS_IDS = SCHEDULE_STATUSES.map(s => s.id);
 export const RETAINER_STATUS_IDS = RETAINER_STATUSES.map(s => s.id);
 export const CLIENT_STATUS_IDS = CLIENT_STATUSES.map(s => s.id);
 
+/* ── Studio enums (Prompt 11): print orders, concept packs, reviews ── */
+export const PRINT_ORDER_STATUSES = [
+  { id: 'new',       label: 'New',       icon: 'Bell01',    order: 0, ...tone('new') },
+  { id: 'designed',  label: 'Designed',  icon: 'Palette',   order: 1, ...tone('progress') },
+  { id: 'cut',       label: 'Cut',       icon: 'Scissors01', order: 2, ...tone('callback') },
+  { id: 'packed',    label: 'Packed',    icon: 'Package',   order: 3, ...tone('booked') },
+  { id: 'delivered', label: 'Delivered', icon: 'Check',     order: 4, ...tone('booked') },
+  { id: 'cancelled', label: 'Cancelled', icon: 'XClose',    order: 5, ...tone('neutral') },
+];
+export const PRINT_ORDER_STATUS_IDS = PRINT_ORDER_STATUSES.map(s => s.id);
+export const printOrderStatusOf = (id) => PRINT_ORDER_STATUSES.find(s => s.id === id) || PRINT_ORDER_STATUSES[0];
+export const ORDER_SOURCES = [
+  { id: 'shop',    label: 'Shop',    icon: 'Package',      order: 0, ...tone('progress') },
+  { id: 'client',  label: 'Client',  icon: 'Briefcase01',  order: 1, ...tone('booked') },
+  { id: 'walk-in', label: 'Walk in', icon: 'User01',       order: 2, ...tone('neutral') },
+  { id: 'import',  label: 'Import',  icon: 'Download01',   order: 3, ...tone('neutral') },
+];
+export const ORDER_SOURCE_IDS = ORDER_SOURCES.map(s => s.id);
+export const CONCEPT_KINDS = [
+  { id: 'logo',        label: 'Logo',        icon: 'Palette',    order: 0, ...tone('won') },
+  { id: 'brand-board', label: 'Brand board', icon: 'Colors',     order: 1, ...tone('callback') },
+  { id: 'social',      label: 'Social',      icon: 'Camera01',   order: 2, ...tone('progress') },
+  { id: 'website',     label: 'Website',     icon: 'Globe01',    order: 3, ...tone('progress') },
+  { id: 'signage',     label: 'Signage',     icon: 'MarkerPin01', order: 4, ...tone('new') },
+  { id: 'apparel',     label: 'Apparel',     icon: 'User01',     order: 5, ...tone('new') },
+  { id: 'vehicle',     label: 'Vehicle',     icon: 'Package',    order: 6, ...tone('neutral') },
+  { id: 'packaging',   label: 'Packaging',   icon: 'Package',    order: 7, ...tone('neutral') },
+  { id: 'ads',         label: 'Ads',         icon: 'Zap',        order: 8, ...tone('booked') },
+  { id: 'other',       label: 'Other',       icon: 'Image01',    order: 9, ...tone('neutral') },
+];
+export const CONCEPT_KIND_IDS = CONCEPT_KINDS.map(k => k.id);
+export const REVIEW_CHANNELS = [
+  { id: 'nfc',       label: 'NFC card',  icon: 'CreditCard01',    order: 0 },
+  { id: 'text',      label: 'Text',      icon: 'MessageCircle01', order: 1 },
+  { id: 'email',     label: 'Email',     icon: 'Mail01',          order: 2 },
+  { id: 'in-person', label: 'In person', icon: 'User01',          order: 3 },
+];
+export const REVIEW_CHANNEL_IDS = REVIEW_CHANNELS.map(c => c.id);
+export const REVIEW_RESULTS = [
+  { id: 'asked',    label: 'Asked',    icon: 'Send01',  order: 0, ...tone('progress') },
+  { id: 'left',     label: 'Left',     icon: 'Star01',  order: 1, ...tone('booked') },
+  { id: 'declined', label: 'Declined', icon: 'XClose',  order: 2, ...tone('neutral') },
+];
+export const REVIEW_RESULT_IDS = REVIEW_RESULTS.map(r => r.id);
+
 /* ── Industry normalization ────────────────────────────────────── */
 /** The nightly enricher writes lowercase industries ("food & beverage")
  *  while spreadsheet imports keep Title Case. Compare and group on this

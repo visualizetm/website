@@ -27,12 +27,18 @@ import AdminClients from './AdminClients';
 import AdminDesign from './AdminDesign';
 import AdminDashboard from './AdminDashboard';
 import AdminCalendar from './AdminCalendar';
-import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog } from '../ui';
+import AdminOrders from './AdminOrders';
+import AdminConcepts from './AdminConcepts';
+import AdminReviews from './AdminReviews';
+import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog, Sheet, Table, Button, Pill } from '../ui';
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { useTopBar } from '../shell/ShellContext';
 import { navForPath, navById, sectionOf } from '../shell/nav';
 import { effectiveStage } from '../lib/booked';
-import { LEAD_STATUSES, ORDER_STATUSES } from '../shared/semantics';
+import { LEAD_STATUSES, PRINT_ORDER_STATUSES } from '../shared/semantics';
+import { reviewAsksDue } from '../lib/reviews';
+import { readLocalOrders, planImport, itemSummary, orderSubtotal } from '../lib/orders';
+import { money } from '../shared/format';
 
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
@@ -228,7 +234,7 @@ function ItemDetail({ item, statusSet, onPatch, onDelete, onClose }) {
       </div>
 
       <div className="aa-sec">
-        <p className="aa-sec-label">{item.type === 'shop-order' ? 'Order' : 'Submission'}</p>
+        <p className="aa-sec-label">Submission</p>
         <div className="aa-answers">
           {Object.entries(item.fields || {}).map(([k, v]) => (
             <div key={k} className="aa-answer">
@@ -401,7 +407,7 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
         ) : (
           <div className="aa-main-empty">
             <Inbox01 width={34} height={34} />
-            <p>Select {label.toLowerCase() === 'orders' ? 'an order' : 'a submission'} to see the full detail.</p>
+            <p>Select a submission to see the full detail.</p>
           </div>
         )}
       </main>
@@ -421,8 +427,22 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
 
 /* ── Settings ──────────────────────────────────────────────────── */
 
-function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSub }) {
+function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSub, orders = [], onCreateOrder }) {
   const [sub, setSub] = useState(initialSub || 'security');
+  // Prompt 11: one time import of the print orders this browser saved (vz_print_orders).
+  const [importPlan, setImportPlan] = useState(null); // [{ doc, key, skip, reason }]
+  const [importBusy, setImportBusy] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const openImport = () => { const raw = readLocalOrders(); setImportResult(null); setImportPlan(planImport(raw, orders)); };
+  const runImport = async () => {
+    if (!importPlan) return;
+    setImportBusy(true);
+    let created = 0; let failed = 0;
+    for (const row of importPlan) { if (row.skip) continue; const item = await onCreateOrder?.(row.doc); if (item) created++; else failed++; }
+    setImportBusy(false);
+    setImportResult({ created, skipped: importPlan.filter(r => r.skip).length, failed });
+    setImportPlan(null);
+  };
   useEffect(() => { if (initialSub) { setSub(initialSub); onMobileOpen?.(); } }, [initialSub]); // eslint-disable-line react-hooks/exhaustive-deps
   const [prefs, setPrefs] = useState(null);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
@@ -498,7 +518,7 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSu
   const SUBS = [
     { id: 'security', label: 'Security', icon: Key01 },
     { id: 'notifications', label: 'Notifications', icon: Bell01 },
-    { id: 'export', label: 'Export', icon: Download01 },
+    { id: 'export', label: 'Data', icon: Download01 },
     { id: 'deleted', label: 'Recently deleted', icon: Archive },
     { id: 'legacy', label: 'Legacy tools', icon: Printer },
   ];
@@ -593,7 +613,11 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSu
 
           {sub === 'export' && (
             <div className="aa-sec">
-              <h1 className="aa-settings-h">Export everything</h1>
+              <h1 className="aa-settings-h">Import from this device</h1>
+              <p className="aa-muted">The old print dashboard kept its orders in this browser only. Bring them into Print Orders once; duplicates (same email, day, and subtotal) are skipped. Nothing is deleted from the browser.</p>
+              <Button variant="secondary" icon="Upload01" onClick={openImport} className="aa-import-local">Import print orders saved on this device</Button>
+              {importResult && <p className="aa-msg-ok">{importResult.created} imported, {importResult.skipped} skipped{importResult.failed ? `, ${importResult.failed} failed` : ''}.</p>}
+              <h1 className="aa-settings-h" style={{ marginTop: 24 }}>Export everything</h1>
               <p className="aa-muted">Full unfiltered exports. For filtered exports, use the export button inside Submissions or Orders — it respects whatever filter you have on.</p>
               <div className="aa-exportgrid">
                 <a className="aa-btn" href="/api/admin/export?type=submissions&format=csv" download><Download01 width={14} height={14} /> Submissions CSV</a>
@@ -667,6 +691,20 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSu
         </div>
       </main>
 
+      {importPlan && (
+        <Sheet open onClose={() => setImportPlan(null)} title="Import print orders" description={importPlan.length ? `${importPlan.filter(r => !r.skip).length} to create, ${importPlan.filter(r => r.skip).length} skipped as duplicates.` : 'Nothing saved on this device.'} tall width={720} className="aa-import-sheet"
+          footer={<><Button variant="ghost" onClick={() => setImportPlan(null)} disabled={importBusy}>Cancel</Button><Button loading={importBusy} disabled={!importPlan.some(r => !r.skip)} icon="Download01" onClick={runImport}>Create {importPlan.filter(r => !r.skip).length}</Button></>}>
+          <Table aria-label="Orders to import" density="sm" columnChooser={false} rows={importPlan} rowKey={(r) => r.key + r.doc.localId}
+            columns={[
+              { id: 'customer', label: 'Customer', always: true, render: (r) => r.doc.customer.name || r.doc.customer.email || 'Unknown' },
+              { id: 'date', label: 'Date', render: (r) => fmtDate(r.doc.createdAt) },
+              { id: 'items', label: 'Items', render: (r) => itemSummary(r.doc) },
+              { id: 'subtotal', label: 'Subtotal', align: 'end', render: (r) => money(orderSubtotal(r.doc)) },
+              { id: 'status', label: 'Status', render: (r) => <Pill id={r.doc.status} list={PRINT_ORDER_STATUSES} size="sm" /> },
+              { id: 'result', label: 'Result', render: (r) => (r.skip ? <Pill tone="neutral" label="Skip" size="sm" icon={false} /> : <Pill tone="booked" label="Create" size="sm" icon={false} />) },
+            ]} empty={<p className="aa-muted">No orders found in this browser.</p>} />
+        </Sheet>
+      )}
       <ConfirmDialog open={confirmPurge} danger
         title={`Permanently purge ${(deleted?.length || 0) + (deletedLeads?.length || 0)} deleted records?`}
         body="This empties Recently deleted immediately. There is no undo after a purge."
@@ -689,7 +727,6 @@ export default function AdminApp() {
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selSub, setSelSub] = useState(null);
-  const [selOrder, setSelOrder] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [bookedOpen, setBookedOpen] = useState(false);
   const [leadsOpen, setLeadsOpen] = useState(false);
@@ -763,6 +800,54 @@ export default function AdminApp() {
     }
   }, []);
 
+  // Print orders and concept packs (Prompt 11), loaded at the shell level like projects.
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [unimported, setUnimported] = useState(0);
+  const loadOrders = useCallback(async () => {
+    try { const res = await fetch('/api/admin/orders'); if (!res.ok) return; const d = await res.json(); setOrders(d.items || []); setUnimported(d.unimported || 0); } catch { /* keep last */ }
+    finally { setOrdersLoading(false); }
+  }, []);
+  const createOrder = useCallback(async (doc) => {
+    const res = await fetch('/api/admin/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (d.item) setOrders(os => [d.item, ...os]);
+    return d.item || null;
+  }, []);
+  const patchOrder = useCallback(async (id, set) => {
+    let prev;
+    setOrders(os => os.map(o => { if (String(o._id) === String(id)) { prev = o; return { ...o, ...set }; } return o; }));
+    try { const res = await fetch('/api/admin/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }); if (!res.ok) throw new Error(); return true; }
+    catch { if (prev) setOrders(os => os.map(o => String(o._id) === String(id) ? prev : o)); return false; }
+  }, []);
+  const importSubmissionOrders = useCallback(async () => {
+    const res = await fetch('/api/admin/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'import-submissions' }) });
+    if (!res.ok) return null;
+    const d = await res.json();
+    await loadOrders();
+    return d.created || 0;
+  }, [loadOrders]);
+  const [packs, setPacks] = useState([]);
+  const [packsLoading, setPacksLoading] = useState(true);
+  const loadPacks = useCallback(async () => {
+    try { const res = await fetch('/api/admin/concept-packs'); if (!res.ok) return; const d = await res.json(); setPacks(d.items || []); } catch { /* keep last */ }
+    finally { setPacksLoading(false); }
+  }, []);
+  const createPack = useCallback(async (doc) => {
+    const res = await fetch('/api/admin/concept-packs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (d.item) setPacks(ps => [d.item, ...ps]);
+    return d.item || null;
+  }, []);
+  const patchPack = useCallback(async (id, set) => {
+    let prev;
+    setPacks(ps => ps.map(x => { if (String(x._id) === String(id)) { prev = x; return { ...x, ...set }; } return x; }));
+    try { const res = await fetch('/api/admin/concept-packs', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }); if (!res.ok) throw new Error(); return true; }
+    catch { if (prev) setPacks(ps => ps.map(x => String(x._id) === String(id) ? prev : x)); return false; }
+  }, []);
+
   const section = useMemo(() => {
     const p = location.pathname.slice(BASE.length) || '/';
     if (p.startsWith('/submissions')) return 'submissions';
@@ -772,6 +857,8 @@ export default function AdminApp() {
     if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/calendar')) return 'calendar';
     if (p.startsWith('/clients')) return 'clients';
+    if (p.startsWith('/concepts')) return 'concepts';
+    if (p.startsWith('/reviews')) return 'reviews';
     if (p.startsWith('/settings')) return 'settings';
     if (p.startsWith('/design')) return 'design';
     return 'dashboard';
@@ -785,7 +872,7 @@ export default function AdminApp() {
     navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}` || '/');
     if (itemId) {
       const it = items.find(x => x._id === itemId);
-      if (it) (it.type === 'shop-order' ? setSelOrder : setSelSub)(it);
+      if (it) setSelSub(it);
     }
   }, [navigate, items]);
 
@@ -808,6 +895,8 @@ export default function AdminApp() {
   }, [go]);
   const newLead = useCallback((preset) => { go('leads'); setCreateReq({ section: 'leads', preset: preset || {}, n: Date.now() }); }, [go]);
   const newClient = useCallback(() => { go('clients'); setCreateReq({ section: 'clients', preset: {}, n: Date.now() }); }, [go]);
+  const newOrder = useCallback((preset) => { go('orders'); setCreateReq({ section: 'orders', preset: preset || {}, n: Date.now() }); }, [go]);
+  const openOrder = useCallback((order) => { go('orders'); setOpenReq({ section: 'orders', id: order._id, n: Date.now() }); }, [go]);
 
   useEffect(() => {
     fetch('/api/admin/session').then(r => r.json())
@@ -830,6 +919,7 @@ export default function AdminApp() {
   useEffect(() => { if (authed) load(); }, [authed, load]);
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
   useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
+  useEffect(() => { if (authed) { loadOrders(); loadPacks(); } }, [authed, loadOrders, loadPacks]);
 
   const stageCounts = useMemo(() => {
     const c = { lead: 0, booked: 0, won: 0, client: 0, toCall: 0 };
@@ -878,10 +968,11 @@ export default function AdminApp() {
     }
   }, []);
 
-  const subs = useMemo(() => items.filter(it => it.type !== 'shop-order'), [items]);
-  const orders = useMemo(() => items.filter(it => it.type === 'shop-order'), [items]);
+  // Shop orders live in the orders collection now (Prompt 11); reviews have their own screen.
+  const subs = useMemo(() => items.filter(it => it.type !== 'shop-order' && it.type !== 'review'), [items]);
   const unreadSubs = subs.filter(s => !s.read).length;
-  const unreadOrders = orders.filter(o => !o.read).length;
+  const newOrders = useMemo(() => orders.filter(o => o.status === 'new' && !o.archived).length, [orders]);
+  const reviewsDue = useMemo(() => reviewAsksDue(callLeads, projects), [callLeads, projects]);
 
   useEffect(() => {
     document.title = unread > 0 ? `(${unread}) Admin — Visualize` : 'Admin — Visualize';
@@ -897,7 +988,8 @@ export default function AdminApp() {
       .then(r => r.json())
       .then(d => {
         if (!d.submission) return;
-        if (d.submission.type === 'shop-order') { navigate(`${BASE}/orders`); setSelOrder(d.submission); }
+        if (d.submission.type === 'shop-order') { navigate(`${BASE}/orders`); setOpenReq({ section: 'orders', submissionId: String(d.submission._id), n: Date.now() }); }
+        else if (d.submission.type === 'review') navigate(`${BASE}/reviews`);
         else { navigate(`${BASE}/submissions`); setSelSub(d.submission); }
       })
       .catch(() => {});
@@ -908,7 +1000,6 @@ export default function AdminApp() {
     const prev = items;
     setItems(cur => cur.map(it => it._id === id ? { ...it, ...set } : it));
     setSelSub(cur => (cur && cur._id === id ? { ...cur, ...set } : cur));
-    setSelOrder(cur => (cur && cur._id === id ? { ...cur, ...set } : cur));
     if ('read' in set) setUnread(u => Math.max(0, u + (set.read ? -1 : 1)));
     try {
       const res = await fetch('/api/admin/submissions', {
@@ -916,7 +1007,8 @@ export default function AdminApp() {
         body: JSON.stringify({ id, set }),
       });
       if (!res.ok) throw new Error();
-    } catch { setItems(prev); load(); }
+      return true;
+    } catch { setItems(prev); load(); return false; }
   };
 
   // Optimistic soft delete with rollback.
@@ -925,7 +1017,6 @@ export default function AdminApp() {
     const idSet = new Set(ids);
     setItems(cur => cur.filter(it => !idSet.has(it._id)));
     setSelSub(cur => (cur && idSet.has(cur._id) ? null : cur));
-    setSelOrder(cur => (cur && idSet.has(cur._id) ? null : cur));
     try {
       const res = await fetch(`/api/admin/submissions?ids=${ids.join(',')}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
@@ -940,9 +1031,9 @@ export default function AdminApp() {
   if (authed === null) return <div className="aa-app lay-root"><style>{uiStyles + aaStyles}</style></div>;
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
 
-  const hasDetail = (section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
+  const hasDetail = (section === 'submissions' && selSub) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: unreadOrders, submissions: unreadSubs, calendar: calendarToday };
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -950,10 +1041,10 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading} leads={callLeads} leadsLoading={callLeadsLoading} onRefetchLeads={loadCallLeads}
-      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
-        <AdminDashboard leads={callLeads} projects={projects} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)} />
+        <AdminDashboard leads={callLeads} projects={projects} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go('submissions', it._id)} onOpenOrder={openOrder} />
       )}
       {section === 'leads' && (
         <AdminLeads
@@ -980,8 +1071,15 @@ export default function AdminApp() {
           exportType="submissions" sel={selSub} onSelect={setSelSub} onPatch={patch} onDelete={softDelete} />
       )}
       {section === 'orders' && (
-        <ListSection label="Orders" items={orders} loading={loading} statusSet={ORDER_STATUSES}
-          exportType="orders" sel={selOrder} onSelect={setSelOrder} onPatch={patch} onDelete={softDelete} />
+        <AdminOrders orders={orders} loading={ordersLoading || callLeadsLoading || forceLoading} unimported={unimported} leads={callLeads} projects={projects}
+          onCreate={createOrder} onPatch={patchOrder} onRefresh={loadOrders} onImportSubmissions={importSubmissionOrders} onPatchLead={patchCallLead} onCreateProject={createProject}
+          openId={reqFor('orders')} createPreset={createFor('orders')} />
+      )}
+      {section === 'concepts' && (
+        <AdminConcepts packs={packs} loading={packsLoading || callLeadsLoading || forceLoading} leads={callLeads} onCreate={createPack} onPatch={patchPack} onPatchLead={patchCallLead} onRefresh={loadPacks} openId={reqFor('concepts')} />
+      )}
+      {section === 'reviews' && (
+        <AdminReviews leads={callLeads} projects={projects} submissions={items} loading={callLeadsLoading || projectsLoading || forceLoading} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
       )}
       {section === 'calls' && (
         <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} /></div>
@@ -1007,7 +1105,7 @@ export default function AdminApp() {
         <AdminDesign onBack={() => go('settings')} />
       )}
       {section === 'settings' && (
-        <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} initialSub={relPath.startsWith('/settings/deleted') ? 'deleted' : undefined} />
+        <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} initialSub={relPath.startsWith('/settings/deleted') ? 'deleted' : undefined} orders={orders} onCreateOrder={createOrder} />
       )}
 
     </AppShell>
