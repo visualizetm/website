@@ -3,6 +3,7 @@ import { getDb } from '../_lib/mongo.js';
 import { requireAdmin } from '../_lib/auth.js';
 
 import {
+  CONCEPT_STATUS_IDS,
   CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
 } from '../_semantics.js';
@@ -119,11 +120,31 @@ function sanitize(b) {
       date: str(b.meeting.date, 10),
       time: str(b.meeting.time, 5),
       type: MEETING_TYPES.includes(b.meeting.type) ? b.meeting.type : 'call',
+      location: str(b.meeting.location, 300), // Prompt 8: place or link
     } : undefined,
+    // Prompt 8 additive: street address, concepts list, services game plan.
+    address: b.address !== undefined ? str(b.address, 300) : undefined,
+    concepts: Array.isArray(b.concepts)
+      ? b.concepts.slice(0, 30).map(c => ({
+          id: str(c?.id, 40), label: str(c?.label, 120),
+          status: CONCEPT_STATUS_IDS.includes(c?.status) ? c.status : 'planned',
+          link: str(c?.link, 400),
+        })) : undefined,
+    gamePlan: Array.isArray(b.gamePlan)
+      ? b.gamePlan.slice(0, 40).map(g => ({ serviceId: str(g?.serviceId, 60), checked: !!g?.checked, note: str(g?.note, 300) })) : undefined,
     servicesPlanned: Array.isArray(b.servicesPlanned)
       ? b.servicesPlanned.slice(0, 30).map(x => str(x, 60)) : undefined,
+    // Pricing options: the Prompt 8 builder shape (id, packageId, addonIds, retainerId,
+    // recommended, note) plus the older free-text fields (label, price, plan, retainer,
+    // notes) so pre-existing options and the Clients screen keep reading. Additive.
     pricingOptions: Array.isArray(b.pricingOptions)
       ? b.pricingOptions.slice(0, 3).map(o => ({
+          id: str(o?.id, 40),
+          packageId: str(o?.packageId, 40),
+          addonIds: Array.isArray(o?.addonIds) ? o.addonIds.slice(0, 12).map(x => str(x, 40)) : [],
+          retainerId: str(o?.retainerId, 40),
+          recommended: !!o?.recommended,
+          note: str(o?.note, 600),
           label: str(o?.label, 80),
           price: Number.isFinite(Number(o?.price)) ? Math.max(0, Math.min(100000, Number(o.price))) : 0,
           plan: PLAN_IDS.includes(o?.plan) ? o.plan : 'full',

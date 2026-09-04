@@ -47,6 +47,13 @@ import Rows01 from '@untitled-ui/icons-react/build/esm/Rows01';
 import GitMerge from '@untitled-ui/icons-react/build/esm/GitMerge';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
+import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
+import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
+import ThumbsUp from '@untitled-ui/icons-react/build/esm/ThumbsUp';
+import Clock from '@untitled-ui/icons-react/build/esm/Clock';
+import ClockRewind from '@untitled-ui/icons-react/build/esm/ClockRewind';
+import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -56,6 +63,7 @@ export const ICONS = {
   LayoutAlt01, PhoneCall01, Image01, Star01, Palette, Trash01, Settings01, Inbox01, SearchMd, Plus, LogOut01, Edit02, ArrowRight,
   /* console + leads */
   PhoneX01: SlashCircle01, SlashCircle01, Sunrise, Sunset, Keyboard01, Copy01, SkipForward, Play, UserX01, Columns03, Rows01, GitMerge, ChevronDown, ChevronLeft,
+  Globe01, MarkerPin01, Camera01, ThumbsUp, Clock, ClockRewind, CurrencyDollarCircle,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

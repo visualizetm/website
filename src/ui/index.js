@@ -33,6 +33,8 @@ import SegmentedControl, { segmentedControlStyles } from './SegmentedControl';
 import Tabs, { tabsStyles } from './Tabs';
 import Table, { tableStyles } from './Table';
 import { leadCardStyles } from './leadCard.styles';
+import { leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles } from './lead.styles';
+import Collapsible, { collapsibleStyles } from './Collapsible';
 import Sheet, { sheetStyles } from './Sheet';
 import Modal, { modalStyles } from './Modal';
 import ConfirmDialog, { useConfirm } from './ConfirmDialog';
@@ -62,13 +64,13 @@ export const uiStyles = [
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
-  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles,
+  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, collapsibleStyles,
 ].join('\n');
 
 export {
   PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider,
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, ErrorState, ListRow,
-  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table,
+  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
   SkeletonBlock, SkeletonText, SkeletonCircle, Stagger, Reveal, ProgressRing, ProgressBar, Spinner,
   useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock,

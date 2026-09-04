@@ -109,6 +109,14 @@ export const PLANS = [
   { id: '6mo',  label: '6-month plan',  months: 6,  order: 1 },
   { id: '12mo', label: '12-month plan', months: 12, order: 2 },
 ];
+export const CONCEPT_STATUSES = [
+  { id: 'planned',    label: 'Planned',    order: 0, ...tone('neutral') },
+  { id: 'generating', label: 'Generating', order: 1, ...tone('progress') },
+  { id: 'ready',      label: 'Ready',      order: 2, ...tone('booked') },
+  { id: 'shown',      label: 'Shown',      order: 3, ...tone('won') },
+];
+export const CONCEPT_STATUS_IDS = CONCEPT_STATUSES.map(c => c.id);
+export const CONCEPT_PRESETS = ['Logo directions', 'Brand board', 'Social grid', 'Website demo', 'Drive folder'];
 export const PREP_STATUSES = [
   { id: 'soon',       label: 'Meeting soon',   order: 0, ...tone('new') },
   { id: 'ready',      label: 'Concepts ready', order: 1, ...tone('booked') },

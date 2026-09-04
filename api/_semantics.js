@@ -9,3 +9,4 @@ export const PLAN_IDS = ['full', '6mo', '12mo'];
 export const CONTACT_TYPE_IDS = ['call', 'meeting', 'email', 'text', 'other'];
 export const LEAD_STATUS_IDS = ['new', 'contacted', 'replied', 'landed', 'denied'];
 export const ORDER_STATUS_IDS = ['new', 'paid', 'in-production', 'packaged', 'delivered'];
+export const CONCEPT_STATUS_IDS = ['planned', 'generating', 'ready', 'shown'];
