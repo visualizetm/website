@@ -180,24 +180,38 @@ for (const width of WIDTHS) {
   await goto('/admin/calls');
   await page.evaluate(() => localStorage.removeItem('vz_call_session')).catch(() => {});
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  await check('call console queue');
-
-  if (width < 768) {
-    await page.locator('.sh-top-searchbtn').first().click({ timeout: 4000 }).catch(() => {});
-    await page.locator('.sh-cmd-field input').fill('0110').catch(() => {});
-    await check('command bar (mobile sheet, digit query)');
+  await check('call console builder');
+  await goto('/admin/calls?loading=1');
+  await check('call console skeleton');
+  await goto('/admin/calls');
+  await page.locator('.cc-start').click({ timeout: 4000 }).catch(() => {});
+  await check('call session queue');
+  if (width < 1024) { await page.locator('.cc-qcard .lc').first().click({ timeout: 4000 }).catch(() => {}); }
+  await check('call room (script)');
+  for (const t of ['Objections', 'Close', 'Intel', 'Notes', 'History']) {
+    const tab = page.getByRole('tab', { name: new RegExp('^' + t) });
+    if (await tab.count()) { await tab.first().click({ timeout: 3000 }).catch(() => {}); await check(`call room (${t.toLowerCase()})`); }
+  }
+  for (const o of ['booked', 'callback', 'no-answer', 'no', 'wrong-number']) {
+    await page.locator('.cc-out--' + o).first().click({ timeout: 4000 }).catch(() => {});
+    await check(`outcome sheet: ${o}`);
     await page.keyboard.press('Escape').catch(() => {});
-    await page.waitForTimeout(300);
-  } else {
-    await page.locator('.sh-cmd-field input').first().click({ timeout: 4000 }).catch(() => {});
-    await page.locator('.sh-cmd-field input').fill('0110').catch(() => {});
-    await check('command bar (desktop popover, digit query)');
+    await page.waitForTimeout(350);
+  }
+  if (width >= 1024) {
+    await page.locator('.cc-keys-btn').first().click({ timeout: 4000 }).catch(() => {});
+    await check('shortcuts modal');
     await page.keyboard.press('Escape').catch(() => {});
     await page.waitForTimeout(300);
   }
-
-  await page.locator('.cq-start').click({ timeout: 4000 }).catch(() => {});
-  await check('call session (long name lead)');
+  await page.locator('.cc-edit-btn').first().click({ timeout: 4000 }).catch(() => {});
+  await check('edit lead sheet');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { try { const s = JSON.parse(localStorage.getItem('vz_call_session')); if (s) { s.mode = 'summary'; localStorage.setItem('vz_call_session', JSON.stringify(s)); } } catch {} }).catch(() => {});
+  await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  await check('session summary');
+  await page.evaluate(() => localStorage.removeItem('vz_call_session')).catch(() => {});
 
   await goto('/admin/booked');
   await check('booked list');
@@ -260,7 +274,7 @@ for (const width of WIDTHS) {
     await goto('/admin/?loading=1');
     await check('sidebar collapsed: dashboard skeleton');
     await goto('/admin/calls');
-    await check('sidebar collapsed: call console');
+    await check('sidebar collapsed: call console builder');
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
     await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
   }

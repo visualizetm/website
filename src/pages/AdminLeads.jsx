@@ -16,12 +16,13 @@ import {
   Pill, Pill as UiPill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast,
 } from '../ui';
 import { useTopBar, useShell } from '../shell/ShellContext';
-import LeadCard, { leadMenuItems, leadCardStyles } from '../components/LeadCard';
+import LeadCard, { leadMenuItems } from '../components/LeadCard';
+import LeadForm from '../components/LeadForm';
 import {
   EMPTY_FILTERS, openLeads, findDuplicates, applyFilters, countFor, industryFacets, sortLeads, SORTS, isNewLead, lastCall, conflicts, mergePayload, leadsToCsv,
 } from '../lib/leads';
 import { apiFetch } from '../shared/api';
-import { SocialButtons, SocialFields } from '../components/SocialLinks';
+import { SocialButtons } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
 import LeadImport from '../components/LeadImport';
@@ -44,61 +45,6 @@ const OUTCOME_META = Object.fromEntries(SEM_CALL_STATUSES.map(x => [x.id, [x.lab
 
 function PrioPill({ p }) {
   return <UiPill id={p || 'warm'} size="sm" />;
-}
-
-/* Compact create/edit form — aa- input system, socials included. */
-function LeadForm({ lead, onSave, onCancel, creating }) {
-  const [f, setF] = useState({
-    business: lead?.business || '', industry: lead?.industry || '', area: lead?.area || '',
-    phone: lead?.phone || '', phoneNote: lead?.phoneNote || '', email: lead?.email || '',
-    askFor: lead?.askFor || '', bestWindow: lead?.bestWindow || 'Before 8am or after 5pm.',
-    priority: lead?.priority || 'warm', angle: lead?.angle || '', descriptor: lead?.descriptor || '',
-    socials: { ...(lead?.socials || {}) },
-  });
-  const [busy, setBusy] = useState(false);
-  const set = (k) => (e) => setF(p => ({ ...p, [k]: e.target.value }));
-  const submit = async (e) => {
-    e.preventDefault();
-    if (!f.business.trim()) return;
-    setBusy(true);
-    await onSave({ ...f, socials: normalizeSocials(f.socials) });
-    setBusy(false);
-  };
-  return (
-    <form className="ld-form" onSubmit={submit}>
-      <div className="ld-form-grid">
-        {[['business', 'Business', true], ['industry', 'Industry'], ['area', 'Area'],
-          ['phone', 'Phone'], ['phoneNote', 'Phone note'], ['email', 'Email'],
-          ['askFor', 'Ask for'], ['bestWindow', 'Best window'], ['descriptor', 'Descriptor']]
-          .map(([k, label, req]) => (
-            <label key={k} className="aa-field">
-              <span>{label}</span>
-              <input className="aa-input" value={f[k]} onChange={set(k)} required={!!req} />
-            </label>
-          ))}
-        <label className="aa-field">
-          <span>Priority</span>
-          <select className="aa-input" value={f.priority} onChange={set('priority')}>
-            {PRIORITIES.map(p => <option key={p.id} value={p.id}>{p.label.toUpperCase()}</option>)}
-          </select>
-        </label>
-      </div>
-      <label className="aa-field">
-        <span>The angle</span>
-        <textarea className="aa-input" rows={3} value={f.angle} onChange={set('angle')} placeholder="Why this lead — the gap you'd pitch." />
-      </label>
-      <div className="aa-field">
-        <span>Social links &amp; website</span>
-        <SocialFields values={f.socials} onChange={(k, v) => setF(p => ({ ...p, socials: { ...p.socials, [k]: v } }))} />
-      </div>
-      <div className="ld-form-actions">
-        <button type="submit" className="aa-btn aa-btn--primary" disabled={busy || !f.business.trim()}>
-          <Check width={14} height={14} /> {busy ? 'Saving…' : creating ? 'Add lead' : 'Save changes'}
-        </button>
-        <button type="button" className="aa-btn" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
-  );
 }
 
 function Block({ title, children, action }) {
@@ -714,7 +660,6 @@ const ldStyles = `
   /* Detail split: the list stays in the left panel */
   .ld-panel { padding: var(--v-space-3); }
   .ld-panel-scroll { padding: 0; }
-${leadCardStyles}
   .ld-muted { color: var(--a-muted); font-size: 0.82rem; line-height: 1.55; }
 
   .ld-delblocked { font-size: 0.76rem; font-weight: 700; color: var(--a-muted); }
@@ -786,8 +731,4 @@ ${leadCardStyles}
   .ld-log-top span { font-size: 0.68rem; color: var(--a-muted); }
   .ld-log-note { font-size: 0.8rem; color: var(--a-sec); line-height: 1.5; overflow-wrap: anywhere; }
 
-  .ld-form { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-  .ld-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  @media (max-width: 640px) { .ld-form-grid { grid-template-columns: 1fr; } }
-  .ld-form-actions { display: flex; gap: 8px; }
 `;

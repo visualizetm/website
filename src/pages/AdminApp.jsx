@@ -923,7 +923,7 @@ export default function AdminApp() {
           exportType="orders" sel={selOrder} onSelect={setSelOrder} onPatch={patch} onDelete={softDelete} />
       )}
       {section === 'calls' && (
-        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} /></div>
+        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} /></div>
       )}
       {section === 'booked' && (
         <AdminBooked
