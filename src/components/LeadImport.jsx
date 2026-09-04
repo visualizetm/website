@@ -103,7 +103,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
 
         {error && <div className="li-error"><AlertCircle width={15} height={15} /> {error}</div>}
 
-        {/* Step 1 — pick a file or paste */}
+        {/* Step 1: pick a file or paste */}
         {step === 'pick' && (
           <div className="li-body">
             <label className="li-drop">
@@ -121,7 +121,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
           </div>
         )}
 
-        {/* Step 2 — map columns + preview */}
+        {/* Step 2: map columns + preview */}
         {step === 'map' && (
           <div className="li-body">
             <p className="li-file">{fileName} · {rows.length} data row{rows.length !== 1 ? 's' : ''}</p>
@@ -140,7 +140,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
                 <label key={f.key} className="li-maprow">
                   <span className="li-mapfield">{f.label}{f.required && <i className="li-req">*</i>}</span>
                   <select className="li-select" value={mapping[f.key] ?? -1} onChange={e => setField(f.key, Number(e.target.value))}>
-                    <option value={-1}>— none —</option>
+                    <option value={-1}>none</option>
                     {headers.map((h, i) => <option key={i} value={i}>{h || `Column ${i + 1}`}</option>)}
                   </select>
                 </label>
@@ -155,10 +155,10 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
                   {preview.map((r, i) => (
                     <tr key={i} className={!r.business ? 'li-tr-bad' : ''}>
                       <td>{r.business || <span className="li-bad">missing</span>}</td>
-                      <td>{r.phone || '—'}</td>
+                      <td>{r.phone || 'none'}</td>
                       <td>{r.priority || 'warm'}</td>
                       <td>{r.status || 'not called'}</td>
-                      <td>{['instagram', 'facebook', 'website', 'google'].filter(k => r[k]).length || '—'}</td>
+                      <td>{['instagram', 'facebook', 'website', 'google'].filter(k => r[k]).length || 'none'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -175,7 +175,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
           </div>
         )}
 
-        {/* Step 3 — result */}
+        {/* Step 3: result */}
         {step === 'result' && result && (
           <div className="li-body">
             <div className="li-done"><Check width={28} height={28} /></div>
@@ -188,7 +188,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
               <div className="li-skips">
                 <p className="li-seclabel">Skipped</p>
                 {result.skipped.slice(0, 50).map((s, i) => (
-                  <p key={i} className="li-skip"><b>{s.business}</b> — {s.reason}</p>
+                  <p key={i} className="li-skip"><b>{s.business}</b>: {s.reason}</p>
                 ))}
               </div>
             )}

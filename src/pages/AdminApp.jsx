@@ -13,7 +13,7 @@ import AdminConcepts from './AdminConcepts';
 import AdminReviews from './AdminReviews';
 import AdminSettings from './AdminSettings';
 import AdminSubmissions from './AdminSubmissions';
-import { uiStyles, ToastProvider } from '../ui';
+import { uiStyles, ToastProvider, Card, Stack, Input, Button } from '../ui';
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { navForPath, navById, sectionOf } from '../shell/nav';
 import '../shell/install';
@@ -25,7 +25,7 @@ import { IS_ADMIN_HOST } from '../lib/adminPaths';
 
 const BASE = IS_ADMIN_HOST ? '' : '/admin';
 
-/* ── Login ─────────────────────────────────────────────────────── */
+/* ── Login (kit build, Prompt 13) ─────────────────────────────── */
 
 function Login({ onAuthed }) {
   const [pw, setPw] = useState('');
@@ -35,28 +35,24 @@ function Login({ onAuthed }) {
     e.preventDefault();
     setBusy(true); setErr(false);
     try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw }),
-      });
+      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
       if (!res.ok) throw new Error();
       onAuthed();
     } catch { setErr(true); }
     finally { setBusy(false); }
   };
   return (
-    <div className="aa-loginpage grid-texture">
-      <form onSubmit={submit} className={`aa-login${err ? ' aa-shake' : ''}`}>
-        <Wordmark size={22} />
-        <h1 className="aa-login-title">Admin</h1>
-        <p className="aa-login-sub">Owner access only</p>
-        <input type="password" className="aa-input aa-login-input" value={pw}
-          onChange={(e) => { setPw(e.target.value); setErr(false); }}
-          placeholder="Password" autoFocus autoComplete="current-password" />
-        {err && <p className="aa-login-err" role="alert">Incorrect password</p>}
-        <button type="submit" className="aa-btn aa-btn--primary aa-login-btn" disabled={busy || !pw}>
-          {busy ? '…' : 'Sign In'}
-        </button>
+    <div className="lay-root aa-loginpage">
+      <form onSubmit={submit} className={`aa-login${err ? ' is-shaking' : ''}`}>
+        <Card className="aa-login-card">
+          <Stack gap={2} align="center">
+            <Wordmark size={22} />
+            <h1 className="aa-login-title">Admin</h1>
+            <p className="aa-login-sub">Owner access only</p>
+          </Stack>
+          <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err ? 'Incorrect password' : undefined} className="aa-login-input" />
+          <Button type="submit" size="lg" full loading={busy} disabled={!pw}>Sign in</Button>
+        </Card>
       </form>
       <style>{uiStyles + aaStyles}</style>
     </div>
@@ -79,7 +75,7 @@ export default function AdminApp() {
   const [createReq, setCreateReq] = useState(null); // { section, preset, n } from quick add
   const deepLinked = useRef(false);
 
-  // Call leads — loaded at the shell level so the Booked tab badge is live
+  // Call leads, loaded at the shell level so the Booked tab badge is live
   // and the Booked workspace has data. The Call Console keeps its own copy;
   // it pings us (onDataChanged) whenever stages/statuses move.
   const [callLeads, setCallLeads] = useState([]);
@@ -453,54 +449,22 @@ export default function AdminApp() {
 /* ── Styles ────────────────────────────────────────────────────── */
 const aaStyles = `
   /* .aa-app is the content row inside the shell (src/shell/AppShell.jsx);
-     the shell owns height, background, font, and safe areas. What is left of
-     the old aa- stylesheet after Prompt 12: the content row, the list panel
-     and main split the Leads, Booked, and Clients screens still use, the
-     embedded console, the login card, and the three controls Checklists.jsx
-     still renders (aa-input, aa-btn, aa-iconbtn). Prompt 13 retires those. */
+     the shell owns height, background, font, and safe areas. What is left
+     after Prompt 13: the content row, the list panel and main split the
+     Leads, Booked, and Clients screens use, the embedded console, and the
+     login page. Every rule reads tokens. */
   .aa-app { flex: 1; min-height: 0; min-width: 0; display: flex; }
-  .aa-input {
-    padding: 9px 12px; border-radius: var(--v-radius-md); width: 100%;
-    border: 1px solid var(--v-border-strong); background: var(--v-surface-2);
-    color: var(--v-text); font-size: var(--v-text-sm); font-family: inherit; outline: none;
-    transition: border-color var(--v-dur-fast) var(--v-ease-out);
-  }
-  .aa-input:focus { border-color: var(--v-border-focus); }
-  .aa-btn {
-    display: inline-flex; align-items: center; gap: 7px; min-height: var(--v-tap);
-    padding: 9px 14px; border-radius: var(--v-radius-md); cursor: pointer;
-    border: 1px solid var(--v-border); background: var(--v-surface-2);
-    color: var(--v-text-2); font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); font-family: inherit;
-    text-decoration: none; white-space: nowrap; transition: background var(--v-dur-fast), color var(--v-dur-fast);
-  }
-  .aa-btn:hover { background: var(--v-surface-3); color: var(--v-text); }
-  .aa-btn--primary { background: var(--v-red); border-color: var(--v-red); color: var(--v-text-on-red); }
-  .aa-btn--primary:hover { background: var(--v-red-hover); color: var(--v-text-on-red); }
-  .aa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .aa-iconbtn {
-    width: var(--v-tap); height: var(--v-tap); border-radius: var(--v-radius-md); cursor: pointer; flex-shrink: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    border: 1px solid var(--v-border); background: var(--v-surface-2);
-    color: var(--v-text-3); text-decoration: none; transition: color var(--v-dur-fast), background var(--v-dur-fast);
-  }
-  .aa-iconbtn:hover { color: var(--v-text); background: var(--v-surface-3); }
-  .aa-iconbtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   /* ── Login ── */
-  .aa-loginpage { height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--v-ground); color: var(--v-text); font-family: var(--v-font-body); }
-  .aa-login {
-    width: min(360px, 90vw); padding: 40px 32px;
-    background: var(--v-surface-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-lg);
-    display: flex; flex-direction: column; align-items: center; gap: 10px;
-    box-shadow: var(--v-shadow-lg, 0 24px 80px rgba(0,0,0,0.7));
-  }
-  .aa-login-title { font-size: var(--v-text-xl); font-weight: var(--v-weight-bold); margin: 10px 0 0; }
-  .aa-login-sub { font-size: var(--v-text-sm); color: var(--v-text-3); margin: 0 0 12px; }
-  .aa-login-input { text-align: center; }
-  .aa-login-btn { width: 100%; justify-content: center; margin-top: 4px; }
-  .aa-login-err { font-size: var(--v-text-sm); color: var(--v-status-danger-text); margin: 0; }
+  .aa-loginpage { min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--v-ground); background-image: var(--v-grid-texture); background-size: var(--v-grid-texture-size); color: var(--v-text); font-family: var(--v-font-body); padding: var(--v-space-4); }
+  .aa-login { width: min(360px, 100%); }
+  .aa-login-card { gap: var(--v-space-4); padding: var(--v-space-6) var(--v-space-5); box-shadow: var(--v-shadow-lg, 0 24px 80px rgba(0,0,0,0.7)); }
+  .aa-login-title { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); }
+  .aa-login-sub { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-3); }
+  .aa-login-input .v-field-control { text-align: center; }
   @keyframes aaShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
-  .aa-shake { animation: aaShake 0.45s ease; }
+  .aa-login.is-shaking { animation: aaShake var(--v-dur-slow) var(--v-ease-out); }
+  @media (prefers-reduced-motion: reduce) { .aa-login.is-shaking { animation: none; } }
 
   /* ── Contextual panel (Leads, Booked, Clients list beside a detail) ── */
   .aa-panel {

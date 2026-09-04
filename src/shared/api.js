@@ -3,7 +3,7 @@
  * apiFetch: fetch + JSON with a uniform { ok, status, data } result so call
  * sites never repeat the headers/JSON/ok dance.
  *
- * patchWithRollback: the optimistic PATCH pattern every admin screen uses —
+ * patchWithRollback: the optimistic PATCH pattern every admin screen uses:
  * apply locally first, send, and undo on failure. `apply` returns the undo
  * function (or nothing); `onError` gets the failure so the screen can show
  * its own loud toast. Returns true on success.

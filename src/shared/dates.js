@@ -54,7 +54,7 @@ export function daysSince(v, now = Date.now()) {
   const t = toMs(v);
   return t ? Math.max(0, Math.floor((now - t) / 864e5)) : null;
 }
-/** "today" / "3d ago" / "2h ago" / "just now" — compact relative time. */
+/** "today" / "3d ago" / "2h ago" / "just now", compact relative time. */
 export function relativeTime(v, now = Date.now()) {
   const t = toMs(v);
   if (!t) return '';
@@ -67,7 +67,7 @@ export function relativeTime(v, now = Date.now()) {
   const d = Math.floor(h / 24);
   return `${d}d ago`;
 }
-/** "today" / "tomorrow" / "in 2 days" / "3 days ago" — calendar-day countdown. */
+/** "today" / "tomorrow" / "in 2 days" / "3 days ago", calendar-day countdown. */
 export function countdownLabel(v, now = Date.now()) {
   const d = parseDate(v);
   if (!d) return null;

@@ -1,12 +1,12 @@
 import { MEETING_TYPES, PLANS, PREP_STATUSES, normalizeStage } from '../shared/semantics';
 import { countdownLabel } from '../shared/dates';
 /* Booked-pipeline helpers: stage derivation, the Visualize services catalog,
- * pricing rules, and meeting/prep-status utilities. Pure functions only —
+ * pricing rules, and meeting/prep-status utilities. Pure functions only,
  * no data mutation here.
  */
 
 /**
- * A lead's pipeline stage. Older records have no `stage` field — a lead whose
+ * A lead's pipeline stage. Older records have no `stage` field; a lead whose
  * callStatus is 'booked' is treated as booked so pre-existing bookings appear
  * in the workspace without any data migration.
  */
@@ -29,23 +29,23 @@ export function lastContact(lead, now = Date.now()) {
 }
 
 /**
- * Delete safety rule: a lead is deletable only if it has never been worked —
+ * Delete safety rule: a lead is deletable only if it has never been worked,
  * empty call log AND still in the open-lead stage. Returns null when
  * deletable, otherwise a short human reason to show beside the disabled
  * control. (Clients added directly are managed from the Clients page.)
  */
 export function deleteBlockReason(lead) {
-  if ((lead?.callLog || []).length > 0) return "Has call history — can't delete";
+  if ((lead?.callLog || []).length > 0) return "Has call history, cannot delete";
   const s = effectiveStage(lead);
-  if (s === 'booked') return "Booked — can't delete";
-  if (s === 'won' || s === 'client') return "Won/client — can't delete";
+  if (s === 'booked') return "Booked, cannot delete";
+  if (s === 'won' || s === 'client') return "Won or client, cannot delete";
   return null;
 }
 
 /** Sum of the purchases ledger. */
 export const totalPaid = (lead) => (lead?.purchases || []).reduce((n, p) => n + (Number(p.amount) || 0), 0);
 
-/** Total / done across all of a lead's checklists — for n/m badges. */
+/** Total / done across all of a lead's checklists, for n/m badges. */
 export function checklistProgress(lead) {
   const lists = lead?.checklists || [];
   let total = 0; let done = 0;

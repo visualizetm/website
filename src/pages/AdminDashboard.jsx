@@ -9,7 +9,7 @@ import {
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { buildNotifications } from '../shell/notifications';
 import { normalizeStage, CALL_STATUSES } from '../shared/semantics';
-import { relativeTime, fmtDate } from '../shared/dates';
+import { relativeTime, fmtDate, toMs } from '../shared/dates';
 import { money } from '../shared/format';
 import { apiFetch } from '../shared/api';
 
@@ -69,7 +69,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     for (const p of (l.purchases || [])) {
       const amt = Number(p.amount) || 0;
       s.revenue += amt;
-      const t = new Date(p.at).getTime();
+      const t = toMs(p.at); // date-only strings are local days since Prompt 12
       if (t && t >= P.monthStart) s.revenueMonth += amt;
       if (t) events.push({ id: `buy:${l._id}:${p.at}:${p.label}`, kind: 'purchase', at: t, lead: l, title: `${l.business} paid ${money(amt)}`, detail: p.label || 'Purchase recorded' });
     }

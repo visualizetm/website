@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import './index.css';
 
-// Deterministic star field — stable across renders, no Math.random
+// Deterministic star field, stable across renders, no Math.random
 const STARS = (() => {
   let s = 0xdeadbeef;
   const next = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0x100000000; };

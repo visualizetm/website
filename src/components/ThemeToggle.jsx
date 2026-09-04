@@ -7,7 +7,7 @@ const KEY = 'vz_theme';
 export default function ThemeToggle({ className = '' }) {
   const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark');
 
-  // Follow OS theme changes live — but only while the user hasn't chosen explicitly.
+  // Follow OS theme changes live, but only while the user hasn't chosen explicitly.
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
     const onChange = (e) => {

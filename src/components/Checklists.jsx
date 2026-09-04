@@ -3,149 +3,87 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
-import { useConfirm } from '../ui';
+import { Card, Stack, Row, Input, Button, IconButton, Checkbox, Pill, useConfirm } from '../ui';
 
-/* Named task lists for a lead/booked/client record.
+/* Named task lists for a lead, booked, or client record (kit build, Prompt 13).
  *
- * Optional by design: with no lists the whole UI is one "Add checklist"
- * button. Every mutation patches the additive `checklists` field through
- * the caller's optimistic onPatch. Shared by Leads, Booked, and Clients.
- */
+ * Optional by design: with no lists the whole UI is one Add checklist button.
+ * Every mutation patches the additive `checklists` field through the caller's
+ * optimistic onPatch. Props { lead, onPatch } are unchanged. */
 export default function Checklists({ lead, onPatch }) {
   const [confirm, confirmDialog] = useConfirm();
   const lists = lead.checklists || [];
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
-  const [drafts, setDrafts] = useState({}); // per-list new-item text
+  const [drafts, setDrafts] = useState({}); // per-list new task text
 
   const save = (next) => onPatch(lead._id, { checklists: next });
-
-  const addList = () => {
-    const n = name.trim();
-    if (!n) return;
-    save([...lists, { name: n, items: [] }]);
-    setName('');
-    setNaming(false);
-  };
+  const addList = () => { const n = name.trim(); if (!n) return; save([...lists, { name: n, items: [] }]); setName(''); setNaming(false); };
   const removeList = async (li) => {
-    const l = lists[li];
-    const count = l.items?.length || 0;
+    const l = lists[li]; const count = l.items?.length || 0;
     if (count && !(await confirm({ title: `Delete "${l.name}"?`, body: `Its ${count} task${count === 1 ? '' : 's'} go with it.`, danger: true, confirmLabel: 'Delete' }))) return;
     save(lists.filter((_, j) => j !== li));
   };
-  const addItem = (li) => {
-    const text = (drafts[li] || '').trim();
-    if (!text) return;
-    save(lists.map((l, j) => j === li ? { ...l, items: [...(l.items || []), { text, done: false }] } : l));
-    setDrafts(d => ({ ...d, [li]: '' }));
-  };
-  const toggleItem = (li, ii) => save(lists.map((l, j) => j === li
-    ? { ...l, items: l.items.map((it, k) => k === ii ? { ...it, done: !it.done } : it) }
-    : l));
-  const removeItem = (li, ii) => save(lists.map((l, j) => j === li
-    ? { ...l, items: l.items.filter((_, k) => k !== ii) }
-    : l));
+  const addItem = (li) => { const text = (drafts[li] || '').trim(); if (!text) return; save(lists.map((l, j) => (j === li ? { ...l, items: [...(l.items || []), { text, done: false }] } : l))); setDrafts(d => ({ ...d, [li]: '' })); };
+  const toggleItem = (li, ii, v) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.map((it, k) => (k === ii ? { ...it, done: v } : it)) } : l)));
+  const removeItem = (li, ii) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.filter((_, k) => k !== ii) } : l)));
 
   return (
-    <div className="ck-wrap">
+    <Stack gap={3} className="ck-wrap">
       {confirmDialog}
       {lists.map((l, li) => {
         const done = (l.items || []).filter(i => i.done).length;
         return (
-          <div key={li} className="ck-list">
-            <div className="ck-list-head">
+          <Card key={li} level={2} padding={3} className="ck-list">
+            <Row gap={2} align="center">
               <span className="ck-list-name">{l.name}</span>
-              {l.items?.length > 0 && <span className="ck-list-n">{done}/{l.items.length}</span>}
-              <button type="button" className="ck-list-del" onClick={() => removeList(li)} aria-label={`Delete ${l.name}`}>
-                <Trash01 width={14} height={14} />
-              </button>
-            </div>
-            {(l.items || []).map((it, ii) => (
-              <div key={ii} className="ck-item">
-                <button type="button" className={`ck-check${it.done ? ' is-done' : ''}`} onClick={() => toggleItem(li, ii)} aria-pressed={it.done}>
-                  {it.done && <Check width={13} height={13} />}
-                </button>
-                <span className={`ck-item-text${it.done ? ' is-done' : ''}`}>{it.text}</span>
-                <button type="button" className="ck-item-del" onClick={() => removeItem(li, ii)} aria-label="Remove task">
-                  <XClose width={13} height={13} />
-                </button>
-              </div>
-            ))}
+              {l.items?.length > 0 && <Pill tone={done === l.items.length ? 'booked' : 'neutral'} label={`${done}/${l.items.length}`} size="sm" icon={false} variant="outline" />}
+              <span style={{ flex: 1 }} />
+              <IconButton icon={Trash01} label={`Delete ${l.name}`} variant="ghost" onClick={() => removeList(li)} className="ck-list-del" />
+            </Row>
+            <Stack gap={0}>
+              {(l.items || []).map((it, ii) => (
+                <Row key={ii} gap={1} align="center" className="ck-item">
+                  <Checkbox checked={!!it.done} onChange={(v) => toggleItem(li, ii, v)} label={it.text} className={`ck-check${it.done ? ' is-done' : ''}`} />
+                  <IconButton icon={XClose} label="Remove task" variant="ghost" onClick={() => removeItem(li, ii)} className="ck-item-del" />
+                </Row>
+              ))}
+            </Stack>
             <form className="ck-add" onSubmit={(e) => { e.preventDefault(); addItem(li); }}>
-              <input
-                className="aa-input"
-                value={drafts[li] || ''}
-                onChange={e => setDrafts(d => ({ ...d, [li]: e.target.value }))}
-                placeholder="Add a task…"
-              />
-              <button type="submit" className="aa-iconbtn" disabled={!(drafts[li] || '').trim()} aria-label="Add task">
-                <Plus width={15} height={15} />
-              </button>
+              <Row gap={1} align="center">
+                <Input value={drafts[li] || ''} onChange={(e) => setDrafts(d => ({ ...d, [li]: e.target.value }))} placeholder="Add a task" aria-label={`Add a task to ${l.name}`} className="ck-add-input" />
+                <IconButton icon={Plus} label="Add task" variant="secondary" type="submit" disabled={!(drafts[li] || '').trim()} />
+              </Row>
             </form>
-          </div>
+          </Card>
         );
       })}
-
       {naming ? (
         <form className="ck-add" onSubmit={(e) => { e.preventDefault(); addList(); }}>
-          <input
-            className="aa-input"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Checklist name — e.g. Onboarding, Launch day…"
-            autoFocus
-          />
-          <button type="submit" className="aa-iconbtn" disabled={!name.trim()} aria-label="Create checklist"><Check width={15} height={15} /></button>
-          <button type="button" className="aa-iconbtn" onClick={() => { setNaming(false); setName(''); }} aria-label="Cancel"><XClose width={15} height={15} /></button>
+          <Row gap={1} align="center">
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Checklist name, like Onboarding or Launch day" aria-label="Checklist name" autoFocus className="ck-add-input" />
+            <IconButton icon={Check} label="Create checklist" variant="primary" type="submit" disabled={!name.trim()} />
+            <IconButton icon={XClose} label="Cancel" variant="ghost" onClick={() => { setNaming(false); setName(''); }} />
+          </Row>
         </form>
       ) : (
-        <button type="button" className="aa-btn" onClick={() => setNaming(true)}>
-          <Plus width={14} height={14} /> Add checklist
-        </button>
+        <Row gap={2}><Button variant="secondary" size="md" icon={Plus} onClick={() => setNaming(true)} className="ck-new">Add checklist</Button></Row>
       )}
-
       <style>{ckStyles}</style>
-    </div>
+    </Stack>
   );
 }
 
 const ckStyles = `
-  .ck-wrap { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-  .ck-list {
-    display: flex; flex-direction: column; gap: 8px; min-width: 0;
-    background: var(--v-surface-2); border: 1px solid var(--v-border);
-    border-radius: 12px; padding: 12px 14px;
-  }
-  .ck-list-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
-  .ck-list-name { font-size: 0.86rem; font-weight: 800; color: var(--v-text); min-width: 0; overflow-wrap: anywhere; }
-  .ck-list-n {
-    font-size: 0.66rem; font-weight: 800; color: var(--v-text-3);
-    background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
-  }
-  .ck-list-del {
-    margin-left: auto; flex-shrink: 0; display: flex; padding: 6px; border-radius: 8px;
-    background: none; border: none; cursor: pointer; color: transparent; transition: color 0.15s;
-  }
-  .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { color: var(--v-text-3); }
-  .ck-list-del:hover { color: var(--v-status-danger-text) !important; }
-  .ck-item { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .ck-check {
-    width: 24px; height: 24px; border-radius: 7px; cursor: pointer; flex-shrink: 0;
-    display: inline-flex; align-items: center; justify-content: center;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.16); color: var(--v-text);
-    transition: background 0.15s, border-color 0.15s;
-    touch-action: manipulation;
-  }
-  .ck-check.is-done { background: var(--v-status-booked-solid); border-color: var(--v-status-booked-solid); color: var(--v-text-inverse); }
-  .ck-item-text { flex: 1; min-width: 0; font-size: 0.88rem; line-height: 1.45; overflow-wrap: anywhere; }
-  .ck-item-text.is-done { color: var(--v-text-3); text-decoration: line-through; }
-  .ck-item-del {
-    background: none; border: none; cursor: pointer; color: transparent;
-    display: flex; padding: 5px; flex-shrink: 0; transition: color 0.15s;
-  }
-  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible { color: var(--v-text-3); }
-  .ck-item-del:hover { color: var(--v-status-danger-text) !important; }
-  .ck-add { display: flex; gap: 8px; min-width: 0; }
-  .ck-add .aa-input { flex: 1; min-width: 0; }
-  .ck-wrap > .aa-btn { align-self: flex-start; }
+  .ck-wrap { min-width: 0; }
+  .ck-list { gap: var(--v-space-2); }
+  .ck-list-name { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; overflow-wrap: anywhere; }
+  .ck-item { min-width: 0; }
+  .ck-item .v-check { flex: 1; min-width: 0; }
+  .ck-item .v-check-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+  .ck-check.is-done .v-check-label { color: var(--v-text-3); text-decoration: line-through; }
+  .ck-item-del, .ck-list-del { opacity: 0.5; }
+  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible, .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { opacity: 1; }
+  .ck-add { min-width: 0; }
+  .ck-add-input { flex: 1; min-width: 0; }
 `;

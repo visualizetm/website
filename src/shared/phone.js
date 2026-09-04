@@ -1,4 +1,4 @@
-/* Shared phone normalization — the ONE way phone numbers are compared.
+/* Shared phone normalization, the ONE way phone numbers are compared.
  *
  * Stored numbers are inconsistent: "302-345-0738", "(302) 345-0738",
  * "3023450738", "+1 302 345 0738". Every comparison anywhere in the app
@@ -6,7 +6,7 @@
  * never misses on formatting.
  *
  * api/admin/leads/import.js keeps a mirrored copy of last10() because
- * serverless functions can't import from src/ — keep them in sync.
+ * serverless functions can't import from src/; keep them in sync.
  */
 
 /** Digits only: strips spaces, dashes, parens, dots, +, everything. */

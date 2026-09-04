@@ -35,7 +35,7 @@ export function leadMenuItems(lead, actions) {
   if (actions.onStatus) items.push('divider', ...CALL_STATUSES.filter(s => s.id !== 'booked').map(s => ({ id: `s:${s.id}`, label: `Status: ${s.label}${(lead.callStatus || 'not-called') === s.id ? ' (current)' : ''}`, icon: s.icon, disabled: (lead.callStatus || 'not-called') === s.id, onSelect: () => actions.onStatus(s.id) })));
   const firstSocial = SOCIALS.map(([k]) => lead.socials?.[k]).find(Boolean);
   if (firstSocial) items.push('divider', { id: 'social', label: 'Open socials', icon: 'ArrowRight', onSelect: () => { window.open(firstSocial, '_blank', 'noopener'); actions.onOpenSocials?.(); } });
-  if (actions.onDelete) items.push('divider', { id: 'del', label: block ? `Delete: ${block.split(/ [\u2014-] /)[0].toLowerCase()}` : 'Delete', icon: 'Trash01', danger: true, disabled: !!block, onSelect: () => actions.onDelete() });
+  if (actions.onDelete) items.push('divider', { id: 'del', label: block ? `Delete: ${block.split(', ')[0].toLowerCase()}` : 'Delete', icon: 'Trash01', danger: true, disabled: !!block, onSelect: () => actions.onDelete() });
   return items;
 }
 

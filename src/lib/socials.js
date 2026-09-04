@@ -35,7 +35,7 @@ export function normalizeSocial(key, raw) {
   let v = String(raw ?? '').trim().replace(/^[<"'\s]+|[>"'\s]+$/g, '').trim();
   if (!v) return '';
 
-  if (/^https?:\/\//i.test(v)) return v;                 // full URL — use as-is
+  if (/^https?:\/\//i.test(v)) return v;                 // full URL, use as-is
   if (/^www\./i.test(v)) return 'https://' + v;          // www.x.com → https://…
   if (v.includes('/') || looksLikeDomain(v)) {           // bare-domain URL
     return 'https://' + v.replace(/^\/+/, '');
