@@ -7,11 +7,11 @@ import {
   Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, ProgressBar, EmptyState, IconTile, Table, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, projectStageOf } from '../shared/semantics';
-import { PACKAGES, RETAINERS, ADDONS, retainerOf, planFor, planLine, REVISION_ROUNDS } from '../shared/pricing';
+import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
 import {
-  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, scheduleFor, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
+  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
   planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject,
   DELIVERABLE_GROUPS, deliverablesFor, DELIVERY_STEPS, FOLLOW_UP_DAYS, retainerMonthly, isOnRetainer, cancelAtFor, monthRecord, projectsOf, brandText, isHex, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
 } from '../lib/projects';
