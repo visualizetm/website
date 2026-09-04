@@ -203,8 +203,6 @@ for (const width of WIDTHS) {
   })));
   await page.route('**/api/admin/settings**', r => r.fulfill(json({ prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, passwordOverridden: false })));
   await page.route('**/api/admin/stripe/**', r => r.fulfill(json({ configured: true, items: stripeEvents.filter(e => !e.matchedLeadId), events: stripeEvents, ok: true })));
-  await page.route('**/api/admin/submissions?deleted=1**', r => r.fulfill(json({ items: items.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
-  await page.route('**/api/admin/call-leads?deleted=1**', r => r.fulfill(json({ items: leads.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
   await page.route('**/api/admin/calendly/events**', r => r.fulfill(json({ configured: true, events: [
     { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
     { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
@@ -214,6 +212,9 @@ for (const width of WIDTHS) {
   await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: packs })) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: projects })) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
+  // Registered last so they win over the broader submissions and call-leads routes above.
+  await page.route('**/api/admin/submissions?deleted=1**', r => r.fulfill(json({ items: items.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
+  await page.route('**/api/admin/call-leads?deleted=1**', r => r.fulfill(json({ items: leads.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
 
   const check = async (label) => {
     await page.waitForTimeout(650);
