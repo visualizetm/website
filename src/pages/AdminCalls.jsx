@@ -516,7 +516,7 @@ function ShortcutsOverlay({ onClose }) {
 const EMPTY_STATS = { calls: 0, booked: 0, callbacks: 0, no: 0, noAnswer: 0 };
 const STAT_KEY = { booked: 'booked', callback: 'callbacks', no: 'no', 'no-answer': 'noAnswer' };
 
-export default function AdminCalls({ embedded = false, onDataChanged }) {
+export default function AdminCalls({ embedded = false, onDataChanged, builderPreset }) {
   const [authed, setAuthed] = useState(null);
   const [leads, setLeads] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -538,6 +538,13 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
 
   // Session
   const [mode, setMode] = useState('queue'); // queue | session | summary
+  // Builder preset from the shell (dashboard tiles): { status: [...], prio: [...] }.
+  useEffect(() => {
+    if (!builderPreset) return;
+    const p = builderPreset.preset || {};
+    setSelStatus(new Set(p.status || [])); setSelPrio(new Set(p.prio || [])); setSelInd(new Set());
+    setMode('queue');
+  }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // peek = a lead viewed as a session card WITHOUT disturbing any active
   // session. Its opener (the reverse lookup) moved to the shell command bar

@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LayoutAlt01 from '@untitled-ui/icons-react/build/esm/LayoutAlt01';
 import Inbox01 from '@untitled-ui/icons-react/build/esm/Inbox01';
-import Package from '@untitled-ui/icons-react/build/esm/Package';
-import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
-import Settings01 from '@untitled-ui/icons-react/build/esm/Settings01';
-import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
@@ -15,9 +11,6 @@ import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
-import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
-import TrendUp01 from '@untitled-ui/icons-react/build/esm/TrendUp01';
-import TrendDown01 from '@untitled-ui/icons-react/build/esm/TrendDown01';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
@@ -26,19 +19,13 @@ import Archive from '@untitled-ui/icons-react/build/esm/Archive';
 import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
-import CalendarCheck01 from '@untitled-ui/icons-react/build/esm/CalendarCheck01';
-import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
-import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
-import Zap from '@untitled-ui/icons-react/build/esm/Zap';
-import Users01 from '@untitled-ui/icons-react/build/esm/Users01';
-import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
-import DotsGrid from '@untitled-ui/icons-react/build/esm/DotsGrid';
 import Wordmark from '../components/Wordmark';
 import AdminCalls from './AdminCalls';
 import AdminBooked from './AdminBooked';
 import AdminLeads from './AdminLeads';
 import AdminClients from './AdminClients';
 import AdminDesign from './AdminDesign';
+import AdminDashboard from './AdminDashboard';
 import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog } from '../ui';
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { useTopBar } from '../shell/ShellContext';
@@ -46,19 +33,6 @@ import { navForPath, navById, sectionOf } from '../shell/nav';
 import { effectiveStage } from '../lib/booked';
 import { LEAD_STATUSES, ORDER_STATUSES } from '../shared/semantics';
 
-/* Rotating hello for the dashboard hero — always addressed to Rob. */
-const GREETINGS = [
-  'Coffee and cold calls, Rob?',
-  "Hey there, Rob'neH?",
-  'Back on the phones, Rob?',
-  "Who's getting booked today, Rob?",
-  'The pipeline missed you, Rob.',
-  'Rob. The myth. The legend.',
-  'Another day, another closed deal, Rob?',
-  'Dial it up, Rob.',
-  'Ship visuals, take names, Rob.',
-  'The leads called — they want you back, Rob.',
-];
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials, hasAnySocial } from '../lib/socials';
@@ -444,142 +418,6 @@ function ListSection({ label, items, loading, statusSet, exportType, sel, onSele
   );
 }
 
-/* ── Dashboard ─────────────────────────────────────────────────── */
-
-function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
-  const greeting = useMemo(() => GREETINGS[Math.floor(Math.random() * GREETINGS.length)], []);
-
-  // Calls made + money made + retainers — from the real records: every
-  // call-log entry (console + manual contact log) and the purchases ledger.
-  const stats = useMemo(() => {
-    const now = Date.now();
-    const dayStart = new Date().setHours(0, 0, 0, 0);
-    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-    let callsToday = 0; let callsWeek = 0; let callsMonth = 0; let calls90 = 0;
-    let revenue = 0; let revenueMonth = 0; let retainerClients = 0; let clients = 0;
-    for (const l of callLeads) {
-      const bump = (t) => {
-        if (!t) return;
-        if (now - t < 90 * 864e5) calls90++;
-        if (now - t < 30 * 864e5) callsMonth++;
-        if (now - t < 7 * 864e5) callsWeek++;
-        if (t >= dayStart) callsToday++;
-      };
-      for (const e of (l.callLog || [])) bump(new Date(e.at).getTime());
-      for (const e of (l.contactLog || [])) {
-        if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
-      }
-      let hasRetainer = false;
-      for (const p of (l.purchases || [])) {
-        const amt = Number(p.amount) || 0;
-        revenue += amt;
-        const t = new Date(p.at).getTime();
-        if (t && t >= monthStart) revenueMonth += amt;
-        if (/retainer/i.test(`${p.label} ${p.notes}`)) hasRetainer = true;
-      }
-      if (effectiveStage(l) === 'client') {
-        clients++;
-        if (hasRetainer) retainerClients++;
-      }
-    }
-    return { callsToday, callsWeek, callsMonth, calls90, revenue, revenueMonth, retainerClients, clients };
-  }, [callLeads]);
-
-  const money = (n) => `$${Number(n || 0).toLocaleString()}`;
-  const cards = [
-    { label: 'Calls today', value: stats.callsToday, icon: PhoneOutgoing01, accent: '#d44c43', go: 'calls' },
-    { label: 'Calls this week', value: stats.callsWeek, icon: PhoneCall01, accent: '#60a5fa', go: 'calls' },
-    { label: 'Calls this month', value: stats.callsMonth, icon: TrendUp01, accent: '#a78bfa', go: 'calls' },
-    { label: 'Calls last 90 days', value: stats.calls90, icon: Zap, accent: '#f59e0b', go: 'calls' },
-    { label: 'Money made', value: money(stats.revenue), icon: CurrencyDollarCircle, accent: '#22c55e',
-      trend: { up: true, text: `${money(stats.revenueMonth)} this month` }, go: 'clients' },
-    { label: 'Clients on retainer', value: stats.retainerClients, icon: Briefcase01, accent: '#22c55e',
-      trend: { up: true, text: `of ${stats.clients} client${stats.clients === 1 ? '' : 's'}` }, go: 'clients' },
-  ];
-
-  const feed = [...subs, ...orders]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 8);
-
-  const FUNNEL = [
-    { id: 'leads', label: 'Leads', n: stageCounts.lead },
-    { id: 'booked', label: 'Booked', n: stageCounts.booked },
-    { id: 'clients', label: 'Clients', n: stageCounts.client + stageCounts.won },
-  ];
-
-  return (
-    <main className="aa-main aa-main--wide lay-scroll">
-      <div className="aa-dash lay-content lay-content--wide">
-        <header className="aa-greet">
-          <h1 className="aa-greet-title"><img src="/logo.svg" alt="" width="24" height="24" className="aa-greet-mark" />{greeting}</h1>
-          <div className="aa-funnel" aria-label="Pipeline">
-            {FUNNEL.map((f, i) => (
-              <span key={f.id} className="aa-funnel-seg">
-                {i > 0 && <span className="aa-funnel-arrow" aria-hidden="true">→</span>}
-                <button type="button" className="aa-funnel-btn" onClick={() => onGo(f.id)}>
-                  <strong>{f.n}</strong> {f.label}
-                </button>
-              </span>
-            ))}
-            {stageCounts.won > 0 && (
-              <span className="aa-funnel-hint">{stageCounts.won} awaiting first invoice</span>
-            )}
-          </div>
-        </header>
-
-        <div className="aa-cards">
-          {cards.map(c => {
-            const IconEl = c.icon;
-            return (
-              <button key={c.label} type="button" className="aa-card" style={{ '--ac': c.accent }} onClick={() => onGo(c.go)}>
-                <span className="aa-card-icon"><IconEl width={17} height={17} /></span>
-                <span className="aa-card-value">{c.value}</span>
-                <span className="aa-card-label">{c.label}</span>
-                {c.trend && (
-                  <span className={`aa-card-trend${c.trend.up ? ' is-up' : ' is-down'}`}>
-                    {c.trend.up ? <TrendUp01 width={12} height={12} /> : <TrendDown01 width={12} height={12} />}
-                    {c.trend.text}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="aa-panelbox">
-          <div className="aa-panelbox-head">
-            <h2 className="aa-panelbox-title">Recent Activity</h2>
-            <button type="button" className="aa-minibtn" onClick={() => onGo('submissions')}>
-              Open Submissions <ArrowUpRight width={12} height={12} />
-            </button>
-          </div>
-          {feed.length === 0 ? (
-            <p className="aa-muted">Nothing yet — new briefs and orders show up here the moment they land.</p>
-          ) : (
-            <div className="aa-feed">
-              {feed.map(it => (
-                <button key={it._id} type="button" className="aa-feed-row"
-                  onClick={() => onGo(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)}>
-                  <span className={`aa-feed-dot${it.read ? '' : ' is-new'}`} />
-                  <span className="aa-feed-name">{it.business || it.name}</span>
-                  <span className="aa-feed-type">{TYPE_LABELS[it.type] || it.type}</span>
-                  <span className="aa-feed-date">{fmtDate(it.createdAt)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="aa-shortcuts">
-          <button type="button" className="aa-btn" onClick={() => onGo('calls')}><PhoneCall01 width={14} height={14} /> Call Console</button>
-          <a className="aa-btn" href="/api/admin/export?type=submissions&format=csv" download><Download01 width={14} height={14} /> Export submissions</a>
-          <button type="button" className="aa-btn" onClick={() => onGo('settings')}><Settings01 width={14} height={14} /> Settings</button>
-        </div>
-      </div>
-    </main>
-  );
-}
-
 /* ── Settings ──────────────────────────────────────────────────── */
 
 function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSub }) {
@@ -882,6 +720,7 @@ export default function AdminApp() {
   }, [location.pathname]);
 
   const relPath = location.pathname.slice(BASE.length) || '/';
+  const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // layout audit: skeleton state
   const activeNav = useMemo(() => navForPath(relPath), [relPath]);
 
   const go = useCallback((sec, itemId) => {
@@ -893,11 +732,14 @@ export default function AdminApp() {
   }, [navigate, items]);
 
   // Shell navigation by nav.js id ('deleted' is a Settings sub-view).
-  const goNav = useCallback((navId) => {
+  const [presetReq, setPresetReq] = useState(null); // { section, preset, n } from the dashboard or the shell
+  const goNav = useCallback((navId, preset) => {
     const entry = navById(navId);
     if (!entry || entry.soon) return;
     if (entry.id === 'deleted') { navigate(`${BASE}/settings/deleted`); return; }
-    go(sectionOf(entry));
+    const sec = sectionOf(entry);
+    go(sec);
+    setPresetReq(preset ? { section: sec, preset, n: Date.now() } : null);
   }, [go, navigate]);
   // Open a lead in whichever screen owns its stage.
   const openLead = useCallback((lead) => {
@@ -1038,6 +880,7 @@ export default function AdminApp() {
   const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: unreadOrders, submissions: unreadSubs };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
+  const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
 
   return (
     <ToastProvider>
@@ -1045,7 +888,7 @@ export default function AdminApp() {
       hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
-        <Dashboard subs={subs} orders={orders} unread={unread} onGo={go} stageCounts={stageCounts} callLeads={callLeads} />
+        <AdminDashboard leads={callLeads} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)} />
       )}
       {section === 'leads' && (
         <AdminLeads
@@ -1054,7 +897,7 @@ export default function AdminApp() {
           onBulkDelete={bulkDeleteCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
-          openId={reqFor('leads')} createPreset={createFor('leads')}
+          openId={reqFor('leads')} createPreset={createFor('leads')} filterPreset={presetFor('leads')}
         />
       )}
       {section === 'clients' && (
@@ -1075,7 +918,7 @@ export default function AdminApp() {
           exportType="orders" sel={selOrder} onSelect={setSelOrder} onPatch={patch} onDelete={softDelete} />
       )}
       {section === 'calls' && (
-        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} /></div>
+        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} /></div>
       )}
       {section === 'booked' && (
         <AdminBooked
@@ -1279,7 +1122,7 @@ const aaStyles = `
 
   /* ── Main / detail ──
      .aa-main is a ScrollArea (padding + overflow come from .lay-scroll);
-     .aa-detail / .aa-dash are .lay-content (width + centering from tokens). */
+     .aa-detail is .lay-content (width + centering from tokens). */
   .aa-main-empty {
     height: 100%; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 12px; color: var(--a-muted); font-size: 0.9rem; text-align: center; padding: 24px;
@@ -1333,77 +1176,6 @@ const aaStyles = `
   .aa-answer-v { font-size: 0.9rem; color: #eaeaea; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
   .aa-notes { resize: vertical; min-height: 90px; }
   .aa-sec .aa-btn { align-self: flex-start; }
-
-  /* ── Dashboard ── */
-  .aa-dash { --v-stack-gap: 20px; }
-  .aa-greet-title {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: none;
-    font-size: clamp(1.9rem, 5vw, 2.7rem); font-weight: 700; letter-spacing: 0.002em;
-    overflow-wrap: anywhere;
-  }
-  .aa-greet-mark { flex-shrink: 0; }
-  .aa-funnel { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
-  .aa-funnel-seg { display: inline-flex; align-items: center; gap: 8px; }
-  .aa-funnel-arrow { color: var(--a-muted); font-size: 0.9rem; }
-  .aa-funnel-btn {
-    display: inline-flex; align-items: baseline; gap: 7px; cursor: pointer;
-    padding: 8px 15px; border-radius: 999px;
-    background: var(--a-card); border: 1px solid var(--a-border);
-    color: var(--a-sec); font-size: 0.82rem; font-weight: 700; font-family: inherit;
-    transition: border-color 0.15s, color 0.15s; touch-action: manipulation;
-  }
-  .aa-funnel-btn:hover { border-color: rgba(212,76,67,0.5); color: #fafafa; }
-  .aa-funnel-btn strong { font-size: 1.05rem; font-weight: 900; color: #fafafa; }
-  .aa-funnel-hint { font-size: 0.72rem; font-weight: 700; color: #fbbf24; }
-  .aa-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-  @media (max-width: 760px) { .aa-cards { grid-template-columns: 1fr 1fr; } }
-  .aa-card-value { overflow-wrap: anywhere; }
-
-  .aa-card {
-    position: relative; overflow: hidden; text-align: left; cursor: pointer;
-    display: flex; flex-direction: column; gap: 4px;
-    padding: 18px; border-radius: 18px; font-family: inherit;
-    background: var(--a-card); border: 1px solid var(--a-border);
-    transition: border-color 0.15s, transform 0.15s;
-  }
-  .aa-card:hover { border-color: color-mix(in srgb, var(--ac) 45%, transparent); transform: translateY(-2px); }
-  .aa-card::after {
-    content: ''; position: absolute; top: -28px; right: -28px;
-    width: 86px; height: 86px; border-radius: 50%;
-    background: var(--ac); opacity: 0.12; filter: blur(6px);
-  }
-  .aa-card-icon {
-    width: 32px; height: 32px; border-radius: 9px; margin-bottom: 6px;
-    display: inline-flex; align-items: center; justify-content: center;
-    color: var(--ac); background: color-mix(in srgb, var(--ac) 15%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ac) 30%, transparent);
-  }
-  .aa-card-value { font-size: 1.85rem; font-weight: 900; letter-spacing: -0.03em; color: #fafafa; line-height: 1; }
-  .aa-card-label { font-size: 0.72rem; font-weight: 600; color: var(--a-muted); }
-  .aa-card-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 0.66rem; font-weight: 700; margin-top: 4px; }
-  .aa-card-trend.is-up { color: #22c55e; }
-  .aa-card-trend.is-down { color: #f87171; }
-
-  .aa-panelbox { background: var(--a-card); border: 1px solid var(--a-border); border-radius: 18px; padding: 18px 20px; }
-  .aa-panelbox-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; gap: 10px; }
-  .aa-panelbox-title { font-size: 0.92rem; font-weight: 700; }
-  .aa-feed { display: flex; flex-direction: column; }
-  .aa-feed-row {
-    display: grid; grid-template-columns: 12px 1.3fr 0.8fr auto; align-items: center; gap: 12px;
-    padding: 11px 4px; border: none; border-bottom: 1px solid var(--a-border);
-    background: none; cursor: pointer; text-align: left; font-family: inherit; color: inherit; width: 100%;
-    transition: background 0.12s;
-  }
-  .aa-feed-row--static { grid-template-columns: 1.3fr 0.7fr auto auto; cursor: default; }
-  .aa-feed-row:last-child { border-bottom: none; }
-  .aa-feed-row:not(.aa-feed-row--static):hover { background: rgba(255,255,255,0.03); }
-  .aa-feed-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; }
-  .aa-feed-dot.is-new { background: var(--a-brand); }
-  .aa-feed-name { font-size: 0.85rem; font-weight: 600; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .aa-feed-type { font-size: 0.74rem; color: var(--a-muted); white-space: nowrap; }
-  .aa-feed-date { font-size: 0.7rem; color: var(--a-muted); white-space: nowrap; }
-  .aa-shortcuts { display: flex; gap: 8px; flex-wrap: wrap; }
 
   /* ── Settings ── */
   .aa-settings-h { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }

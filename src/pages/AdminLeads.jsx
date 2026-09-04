@@ -223,7 +223,7 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
 
 export default function AdminLeads({
   leads, submissions, loading, onPatch, onCreate, onDelete, onBulkDelete, onRefresh,
-  onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
+  onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset, filterPreset,
 }) {
   const [q, setQ] = useState('');
   const [prio, setPrio] = useState(() => new Set());
@@ -259,6 +259,13 @@ export default function AdminLeads({
   // Shell requests: open a lead (command bar, notifications) or start a new one (quick add, "Add as new lead").
   useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (createPreset) { setCreating(true); setSelId(null); onMobileOpen?.(); } }, [createPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Filter preset from the shell: { status: [...], prio: [...], industry }. Missing keys clear that filter.
+  useEffect(() => {
+    if (!filterPreset) return;
+    const p = filterPreset.preset || {};
+    setStatus(new Set(p.status || [])); setPrio(new Set(p.prio || [])); setIndustry(p.industry || 'all'); setQ('');
+    setSelId(null); setCreating(false); onMobileClose?.();
+  }, [filterPreset]); // eslint-disable-line react-hooks/exhaustive-deps
   useTopBar(creating ? { title: 'New lead', back } : sel ? { title: sel.business, back } : null);
   const toggleSet = (setter) => (id) => setter(prev => {
     const next = new Set(prev);

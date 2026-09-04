@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef } from 'react';
 /**
  * Shell context: what the shell exposes to screens.
- *   useShell()  -> { go, openRecord, openCommand, openNotifications, newLead, newClient, setTopBar }
+ *   useShell()  -> { go(navId, preset?), openRecord, openCommand, openNotifications, newLead, newClient, setTopBar }
+ *   preset: Leads accepts { status: [...callStatus ids], prio: [...], industry }, Call Console accepts { status: [...], prio: [...] }
  *   useTopBar({ title, back })  -> sets the top bar title and back button while mounted
  *
  * A screen with a detail view calls:

@@ -24,7 +24,7 @@ import { KEYS, readJSON, writeJSON } from './storage';
  *  leadsLoading    true while it loads
  *  onRefetchLeads  async refetch used by the command bar when memory has no match
  *  hasDetail       a detail view is open (mobile shows main instead of panel)
- *  onGo(navId)     navigate to a nav entry
+ *  onGo(navId, preset)  navigate to a nav entry; preset is an optional filter/builder preset the screen applies
  *  onOpenLead(lead) open a record in the right screen
  *  onNewLead(preset), onNewClient(), onLogout()
  *  styles          the stylesheet string to inject once
@@ -64,7 +64,7 @@ export default function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const go = useCallback((navId) => { setMoreOpen(false); setNotifOpen(false); onGo(navId); }, [onGo]);
+  const go = useCallback((navId, preset) => { setMoreOpen(false); setNotifOpen(false); onGo(navId, preset); }, [onGo]);
   const openLead = useCallback((lead) => { setNotifOpen(false); onOpenLead(lead); }, [onOpenLead]);
 
   const ctx = useMemo(() => ({

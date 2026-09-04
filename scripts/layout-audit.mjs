@@ -83,7 +83,7 @@ const json = (data) => ({ status: 200, contentType: 'application/json', body: JS
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel'];
 
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
@@ -152,6 +152,8 @@ for (const width of WIDTHS) {
   await goto('/admin');
   await page.evaluate(() => localStorage.removeItem('vz_call_session'));
   await check('dashboard');
+  await goto('/admin/?loading=1');
+  await check('dashboard skeleton');
 
   await goto('/admin/submissions');
   await check('submissions list');
@@ -226,6 +228,8 @@ for (const width of WIDTHS) {
     await check('sidebar collapsed: leads list');
     await goto('/admin');
     await check('sidebar collapsed: dashboard');
+    await goto('/admin/?loading=1');
+    await check('sidebar collapsed: dashboard skeleton');
     await goto('/admin/calls');
     await check('sidebar collapsed: call console');
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
