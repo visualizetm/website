@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
@@ -12,6 +12,7 @@ import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import { ScrollArea, StickyFooterBar, ConfirmDialog } from '../ui';
+import { useTopBar } from '../shell/ShellContext';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -222,7 +223,7 @@ function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, on
 
 export default function AdminLeads({
   leads, submissions, loading, onPatch, onCreate, onDelete, onBulkDelete, onRefresh,
-  onLinkSubmission, onMobileOpen, onMobileClose, onGo,
+  onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
 }) {
   const [q, setQ] = useState('');
   const [prio, setPrio] = useState(() => new Set());
@@ -255,6 +256,10 @@ export default function AdminLeads({
   const sel = selId ? pool.find(l => l._id === selId) : null;
   const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
   const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
+  // Shell requests: open a lead (command bar, notifications) or start a new one (quick add, "Add as new lead").
+  useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (createPreset) { setCreating(true); setSelId(null); onMobileOpen?.(); } }, [createPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  useTopBar(creating ? { title: 'New lead', back } : sel ? { title: sel.business, back } : null);
   const toggleSet = (setter) => (id) => setter(prev => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -378,7 +383,7 @@ export default function AdminLeads({
                 <button type="button" className="ld-back" onClick={back}><ArrowLeft width={15} height={15} /> Leads</button>
               </div>
               <Block title="New lead">
-                <LeadForm creating onSave={async (f) => { await onCreate(defaultLead(f)); back(); }} onCancel={back} />
+                <LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { await onCreate(defaultLead(f)); back(); }} onCancel={back} />
               </Block>
             </div>
           </ScrollArea>

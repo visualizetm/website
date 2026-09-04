@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import CurrencyDollarCircle from '@untitled-ui/icons-react/build/esm/CurrencyDollarCircle';
@@ -16,6 +16,7 @@ import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import MessageCircle01 from '@untitled-ui/icons-react/build/esm/MessageCircle01';
 import { ScrollArea, StickyFooterBar, useConfirm } from '../ui';
+import { useTopBar } from '../shell/ShellContext';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -373,7 +374,7 @@ function ClientDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, 
 
 export default function AdminClients({
   leads, submissions, loading, onPatch, onCreate, onDelete, onRefresh,
-  onLinkSubmission, onMobileOpen, onMobileClose, onGo,
+  onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
 }) {
   const [selId, setSelId] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -393,6 +394,9 @@ export default function AdminClients({
   const selVisible = sel && ['won', 'client'].includes(effectiveStage(sel));
   const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
   const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
+  useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (createPreset) { setCreating(true); setSelId(null); onMobileOpen?.(); } }, [createPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  useTopBar(creating ? { title: 'New client', back } : selVisible ? { title: sel.business, back } : null);
 
   const Card = ({ l, won: isWon }) => {
     const ck = checklistProgress(l);

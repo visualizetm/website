@@ -18,6 +18,7 @@ import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import { ScrollArea, StickyFooterBar } from '../ui';
+import { useTopBar } from '../shell/ShellContext';
 import { SocialButtons } from '../components/SocialLinks';
 import Checklists from '../components/Checklists';
 import LinkedSubmissions from '../components/LinkedSubmissions';
@@ -653,7 +654,7 @@ function BookedDetail({ lead, submissions, onPatch, onLinkSubmission, onClose, o
 
 /* ── Section: list rail + detail ───────────────────────────────── */
 
-export default function AdminBooked({ leads, submissions = [], loading, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo }) {
+export default function AdminBooked({ leads, submissions = [], loading, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
   const [selId, setSelId] = useState(null);
   const [chip, setChip] = useState('all'); // all | needs-prep | ready | week
   const [showClosed, setShowClosed] = useState(false);
@@ -691,6 +692,8 @@ export default function AdminBooked({ leads, submissions = [], loading, onPatch,
 
   const pick = (id) => { setSelId(id); onMobileOpen?.(); };
   const back = () => { setSelId(null); onMobileClose?.(); };
+  useEffect(() => { if (openId?.id) { setSelId(openId.id); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useTopBar(sel ? { title: sel.business, back } : null);
 
   const closedOut = (result) => {
     setToast(result === 'won'

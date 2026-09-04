@@ -40,6 +40,9 @@ import AdminLeads from './AdminLeads';
 import AdminClients from './AdminClients';
 import AdminDesign from './AdminDesign';
 import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog } from '../ui';
+import AppShell, { shellStyles } from '../shell/AppShell';
+import { useTopBar } from '../shell/ShellContext';
+import { navForPath, navById, sectionOf } from '../shell/nav';
 import { effectiveStage } from '../lib/booked';
 import { LEAD_STATUSES, ORDER_STATUSES } from '../shared/semantics';
 
@@ -277,6 +280,7 @@ function ItemDetail({ item, statusSet, onPatch, onDelete, onClose }) {
 /* ── List section (Submissions / Orders share this) ────────────── */
 
 function ListSection({ label, items, loading, statusSet, exportType, sel, onSelect, onPatch, onDelete }) {
+  useTopBar(sel ? { title: sel.business || sel.name || label, back: () => onSelect(null) } : null);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('all');
   const [checked, setChecked] = useState(() => new Set());
@@ -578,8 +582,9 @@ function Dashboard({ subs, orders, unread, onGo, stageCounts, callLeads }) {
 
 /* ── Settings ──────────────────────────────────────────────────── */
 
-function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose }) {
-  const [sub, setSub] = useState('security');
+function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSub }) {
+  const [sub, setSub] = useState(initialSub || 'security');
+  useEffect(() => { if (initialSub) { setSub(initialSub); onMobileOpen?.(); } }, [initialSub]); // eslint-disable-line react-hooks/exhaustive-deps
   const [prefs, setPrefs] = useState(null);
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState(null);
@@ -827,7 +832,8 @@ export default function AdminApp() {
   const [bookedOpen, setBookedOpen] = useState(false);
   const [leadsOpen, setLeadsOpen] = useState(false);
   const [clientsOpen, setClientsOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [openReq, setOpenReq] = useState(null);     // { section, id, n } from the command bar / notifications
+  const [createReq, setCreateReq] = useState(null); // { section, preset, n } from quick add
   const deepLinked = useRef(false);
 
   // Call leads — loaded at the shell level so the Booked tab badge is live
@@ -875,6 +881,9 @@ export default function AdminApp() {
     return 'dashboard';
   }, [location.pathname]);
 
+  const relPath = location.pathname.slice(BASE.length) || '/';
+  const activeNav = useMemo(() => navForPath(relPath), [relPath]);
+
   const go = useCallback((sec, itemId) => {
     navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}` || '/');
     if (itemId) {
@@ -882,6 +891,23 @@ export default function AdminApp() {
       if (it) (it.type === 'shop-order' ? setSelOrder : setSelSub)(it);
     }
   }, [navigate, items]);
+
+  // Shell navigation by nav.js id ('deleted' is a Settings sub-view).
+  const goNav = useCallback((navId) => {
+    const entry = navById(navId);
+    if (!entry || entry.soon) return;
+    if (entry.id === 'deleted') { navigate(`${BASE}/settings/deleted`); return; }
+    go(sectionOf(entry));
+  }, [go, navigate]);
+  // Open a lead in whichever screen owns its stage.
+  const openLead = useCallback((lead) => {
+    const stage = effectiveStage(lead);
+    const sec = stage === 'booked' ? 'booked' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
+    go(sec);
+    setOpenReq({ section: sec, id: lead._id, n: Date.now() });
+  }, [go]);
+  const newLead = useCallback((preset) => { go('leads'); setCreateReq({ section: 'leads', preset: preset || {}, n: Date.now() }); }, [go]);
+  const newClient = useCallback(() => { go('clients'); setCreateReq({ section: 'clients', preset: {}, n: Date.now() }); }, [go]);
 
   useEffect(() => {
     fetch('/api/admin/session').then(r => r.json())
@@ -914,6 +940,9 @@ export default function AdminApp() {
     return c;
   }, [callLeads]);
   const bookedCount = stageCounts.booked;
+  // Callbacks due: every open callback (the console stores no due date, so an
+  // unfinished callback is due). Feeds the Call tab badge.
+  const callbacksDue = useMemo(() => callLeads.filter(l => l.callStatus === 'callback' && effectiveStage(l) !== 'lost').length, [callLeads]);
 
   // Lead create/delete for the Leads page (reuses the guarded endpoints).
   const createCallLead = useCallback(async (lead) => {
@@ -1004,62 +1033,16 @@ export default function AdminApp() {
   if (authed === null) return <div className="aa-app lay-root"><style>{uiStyles + aaStyles}</style></div>;
   if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
 
-  // mob: 'tab' = one of the five thumb tabs; 'more' = lives in the More sheet.
-  const RAIL = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutAlt01, mob: 'more' },
-    { id: 'leads', label: 'Leads', icon: Users01, badge: stageCounts.toCall, mob: 'tab' },
-    { id: 'booked', label: 'Booked', icon: CalendarCheck01, badge: bookedCount, mob: 'tab' },
-    { id: 'clients', label: 'Clients', icon: Briefcase01, badge: stageCounts.won, mob: 'tab' },
-    { id: 'calls', label: 'Calls', icon: PhoneCall01, mob: 'tab' },
-    { id: 'submissions', label: 'Submissions', icon: Inbox01, badge: unreadSubs, mob: 'more' },
-    { id: 'orders', label: 'Orders', icon: Package, badge: unreadOrders, mob: 'more' },
-  ];
-  const moreItems = RAIL.filter(r => r.mob === 'more');
-  const moreBadge = moreItems.reduce((n, r) => n + (r.badge || 0), 0);
+  const hasDetail = (section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: unreadOrders, submissions: unreadSubs };
+  const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
+  const createFor = (sec) => (createReq?.section === sec ? createReq : null);
 
   return (
     <ToastProvider>
-    <div className={`aa-app lay-root${(section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen) ? ' has-detail' : ''}`}>
-      {/* Icon rail */}
-      <nav className="aa-rail" aria-label="Admin sections">
-        <a href={BASE || '/'} className="aa-rail-logo" aria-label="Dashboard" onClick={(e) => { e.preventDefault(); go('dashboard'); }}>
-          <img src="/logo.svg" alt="" width="26" height="26" />
-        </a>
-        <div className="aa-rail-items">
-          {RAIL.map(r => {
-            const IconEl = r.icon;
-            return (
-              <button key={r.id} type="button"
-                className={`aa-rail-btn aa-rail-btn--${r.mob}${section === r.id ? ' is-on' : ''}`}
-                onClick={() => go(r.id)} aria-label={r.label} title={r.label}>
-                <IconEl width={19} height={19} />
-                {r.badge > 0 && <span className="aa-rail-badge">{r.badge}</span>}
-                <span className="aa-rail-lbl">{r.label}</span>
-              </button>
-            );
-          })}
-          {/* Mobile-only: everything that isn't a thumb tab lives in More */}
-          <button type="button"
-            className={`aa-rail-btn aa-rail-btn--morebtn${moreOpen || ['dashboard', 'submissions', 'orders', 'settings'].includes(section) ? ' is-on' : ''}`}
-            onClick={() => setMoreOpen(true)} aria-label="More sections">
-            <DotsGrid width={19} height={19} />
-            {moreBadge > 0 && <span className="aa-rail-badge">{moreBadge}</span>}
-            <span className="aa-rail-lbl">More</span>
-          </button>
-        </div>
-        <div className="aa-rail-bottom">
-          <button type="button" className={`aa-rail-btn${section === 'settings' ? ' is-on' : ''}`} onClick={() => go('settings')} aria-label="Settings" title="Settings">
-            <Settings01 width={19} height={19} />
-            <span className="aa-rail-lbl">Settings</span>
-          </button>
-          <button type="button" className="aa-rail-btn aa-rail-btn--quiet" onClick={logout} aria-label="Log out" title="Log out">
-            <LogOut01 width={18} height={18} />
-            <span className="aa-rail-lbl">Log out</span>
-          </button>
-        </div>
-      </nav>
-
+    <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading} leads={callLeads} leadsLoading={callLeadsLoading} onRefetchLeads={loadCallLeads}
+      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
         <Dashboard subs={subs} orders={orders} unread={unread} onGo={go} stageCounts={stageCounts} callLeads={callLeads} />
@@ -1071,6 +1054,7 @@ export default function AdminApp() {
           onBulkDelete={bulkDeleteCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
+          openId={reqFor('leads')} createPreset={createFor('leads')}
         />
       )}
       {section === 'clients' && (
@@ -1079,6 +1063,7 @@ export default function AdminApp() {
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
+          openId={reqFor('clients')} createPreset={createFor('clients')}
         />
       )}
       {section === 'submissions' && (
@@ -1103,42 +1088,17 @@ export default function AdminApp() {
           onMobileOpen={() => setBookedOpen(true)}
           onMobileClose={() => setBookedOpen(false)}
           onGo={go}
+          openId={reqFor('booked')}
         />
       )}
       {section === 'design' && (
         <AdminDesign onBack={() => go('settings')} />
       )}
       {section === 'settings' && (
-        <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} />
+        <SettingsSection onDataChanged={load} onMobileOpen={() => setSettingsOpen(true)} onMobileClose={() => setSettingsOpen(false)} initialSub={relPath.startsWith('/settings/deleted') ? 'deleted' : undefined} />
       )}
 
-      {/* Mobile "More" sheet — the sections that aren't thumb tabs */}
-      {moreOpen && (
-        <div className="aa-more-back" onClick={() => setMoreOpen(false)}>
-          <div className="aa-more" onClick={e => e.stopPropagation()} role="dialog" aria-label="More sections">
-            <div className="aa-more-grid">
-              {[...moreItems, { id: 'settings', label: 'Settings', icon: Settings01 }].map(r => {
-                const IconEl = r.icon;
-                return (
-                  <button key={r.id} type="button" className={`aa-more-btn${section === r.id ? ' is-on' : ''}`}
-                    onClick={() => { setMoreOpen(false); go(r.id); }}>
-                    <IconEl width={20} height={20} />
-                    {r.badge > 0 && <span className="aa-rail-badge">{r.badge}</span>}
-                    <span>{r.label}</span>
-                  </button>
-                );
-              })}
-              <button type="button" className="aa-more-btn" onClick={() => { setMoreOpen(false); logout(); }}>
-                <LogOut01 width={20} height={20} />
-                <span>Log out</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style>{uiStyles + aaStyles}</style>
-    </div>
+    </AppShell>
     </ToastProvider>
   );
 }
@@ -1146,11 +1106,11 @@ export default function AdminApp() {
 /* ── Styles ────────────────────────────────────────────────────── */
 
 const aaStyles = `
+  /* .aa-app is now the content row inside the shell (src/shell/AppShell.jsx);
+     the shell owns height, background, font, and safe areas. */
   .aa-app {
-    height: 100vh; height: 100dvh; display: flex;
-    background: #080808; color: #fafafa;
-    font-family: 'Inter', -apple-system, sans-serif;
-    /* Aliases → design tokens (docs/TOKENS.md). Screens migrate to --v- in Prompts 4-12. */
+    flex: 1; min-height: 0; min-width: 0; display: flex;
+    /* Aliases to design tokens (docs/TOKENS.md). Screens migrate to --v- in Prompts 5-12. */
     --a-border: var(--v-border);
     --a-panel: var(--v-bar);
     --a-card: var(--v-surface-1);
@@ -1158,8 +1118,6 @@ const aaStyles = `
     --a-muted: var(--v-text-3);
     --a-sec: var(--v-text-2);
     --a-brand: var(--v-red);
-    overflow: hidden;
-    padding-top: var(--lay-safe-top);
   }
   .aa-muted { color: var(--a-muted); font-size: 0.85rem; line-height: 1.6; }
 
@@ -1205,46 +1163,20 @@ const aaStyles = `
   .aa-field > span { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--a-muted); }
 
   /* ── Login ── */
-  .aa-loginpage { height: 100dvh; display: flex; align-items: center; justify-content: center; background: #080808; color: #fafafa; font-family: 'Inter', sans-serif; }
+  .aa-loginpage { height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--v-ground); color: var(--v-text); font-family: var(--v-font-body); }
   .aa-login {
     width: min(360px, 90vw); padding: 40px 32px;
-    background: #121212; border: 1px solid rgba(255,255,255,0.08); border-radius: 18px;
+    background: var(--v-surface-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-lg);
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     box-shadow: 0 24px 80px rgba(0,0,0,0.7);
   }
   .aa-login-title { font-size: 1.3rem; font-weight: 800; margin-top: 10px; }
-  .aa-login-sub { font-size: 0.8rem; color: #8a8a8a; margin-bottom: 12px; }
+  .aa-login-sub { font-size: 0.8rem; color: var(--v-text-3); margin-bottom: 12px; }
   .aa-login-input { text-align: center; }
   .aa-login-btn { width: 100%; justify-content: center; margin-top: 4px; }
-  .aa-login-err { font-size: 0.8rem; color: #f87171; }
+  .aa-login-err { font-size: 0.8rem; color: var(--v-status-danger-text); }
   @keyframes aaShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
   .aa-shake { animation: aaShake 0.45s ease; }
-
-  /* ── Rail ── */
-  .aa-rail {
-    width: var(--lay-rail-w); flex-shrink: 0; display: flex; flex-direction: column; align-items: center;
-    padding: 14px 0; gap: 10px;
-    background: #060606; border-right: 1px solid var(--a-border);
-  }
-  .aa-rail-logo { display: flex; padding: 6px; border-radius: 10px; margin-bottom: 4px; }
-  .aa-rail-items { display: flex; flex-direction: column; gap: 6px; flex: 1; }
-  .aa-rail-bottom { display: flex; flex-direction: column; gap: 6px; }
-  .aa-rail-btn {
-    position: relative; width: 46px; height: 46px; border-radius: 13px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    background: none; border: 1px solid transparent; color: var(--a-muted);
-    font-family: inherit; transition: all 0.15s;
-  }
-  .aa-rail-btn:hover { color: #fafafa; background: rgba(255,255,255,0.06); }
-  .aa-rail-btn.is-on { color: var(--a-brand); background: rgba(212,76,67,0.12); border-color: rgba(212,76,67,0.35); }
-  .aa-rail-badge {
-    position: absolute; top: 6px; right: 6px; min-width: 16px; height: 16px;
-    border-radius: 999px; padding: 0 4px;
-    background: var(--a-brand); color: #fff; font-size: 0.6rem; font-weight: 800;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .aa-rail-lbl { display: none; }
-  .aa-rail-btn--morebtn { display: none; } /* mobile-only entry */
 
   /* ── Contextual panel ── */
   .aa-panel {
@@ -1499,59 +1431,13 @@ const aaStyles = `
   .aa-exportgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 460px; }
   @media (max-width: 560px) { .aa-exportgrid { grid-template-columns: 1fr; } }
 
-  /* ── Mobile "More" sheet ── */
-  .aa-more-back {
-    position: fixed; inset: 0; z-index: 400;
-    background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
-    display: flex; align-items: flex-end; justify-content: center;
-    padding-top: max(16px, env(safe-area-inset-top));
-  }
-  .aa-more {
-    width: 100%; max-width: 560px;
-    background: #161616; border: 1px solid rgba(255,255,255,0.12); border-bottom: none;
-    border-radius: 18px 18px 0 0;
-    padding: 18px 18px calc(18px + env(safe-area-inset-bottom));
-  }
-  .aa-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .aa-more-btn {
-    position: relative;
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
-    min-height: 76px; padding: 12px 8px; border-radius: 13px; cursor: pointer;
-    background: rgba(255,255,255,0.04); border: 1px solid var(--a-border);
-    color: var(--a-sec); font-size: 0.72rem; font-weight: 700; font-family: inherit;
-    touch-action: manipulation; transition: color 0.15s, border-color 0.15s;
-  }
-  .aa-more-btn:hover { color: #fafafa; }
-  .aa-more-btn.is-on { color: var(--a-brand); border-color: rgba(212,76,67,0.4); background: rgba(212,76,67,0.1); }
-  .aa-more-btn .aa-rail-badge { top: 8px; right: 14px; }
-  @media (min-width: 761px) {
-    .aa-more-back { align-items: center; }
-    .aa-more { border-radius: 18px; border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 18px; }
-  }
-
   /* ── Embedded call console ── */
   .aa-embed { flex: 1; min-width: 0; display: flex; }
   .aa-embed .cc-page { height: 100%; flex: 1; }
 
-  /* ── Mobile: rail → bottom tabs, panel-first, full-screen detail ── */
-  @media (max-width: 760px) {
+  /* ── Mobile: panel-first, full-screen detail (the shell supplies the tab bar) ── */
+  @media (max-width: 767px) {
     .aa-app { flex-direction: column; }
-    .aa-rail {
-      order: 2; width: 100%; height: calc(var(--lay-tabbar-h) + var(--lay-safe-bottom));
-      flex-direction: row; align-items: center; justify-content: space-around;
-      padding: 0 max(6px, env(safe-area-inset-left)) var(--lay-safe-bottom) max(6px, env(safe-area-inset-right)); gap: 0;
-      border-right: none; border-top: 1px solid var(--a-border);
-    }
-    .aa-rail-logo { display: none; }
-    .aa-rail-items { flex-direction: row; flex: initial; gap: 2px; display: contents; }
-    /* Five thumb tabs: Leads, Booked, Clients, Calls, More.
-       Everything else lives in the More sheet on a phone. */
-    .aa-rail-bottom { display: none; }
-    .aa-rail-btn--more { display: none; }
-    .aa-rail-btn--morebtn { display: flex; }
-    .aa-rail-btn { width: auto; min-width: 52px; height: 48px; flex-direction: column; gap: 2px; border-radius: 11px; }
-    .aa-rail-btn--quiet { display: none; }
-    .aa-rail-lbl { display: block; font-size: 0.55rem; font-weight: 700; letter-spacing: 0.02em; }
     .aa-panel { width: 100%; flex: 1; border-right: none; }
     .aa-main { display: none; }
     .aa-main--wide { display: block; flex: 1; }
