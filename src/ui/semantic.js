@@ -1,7 +1,7 @@
 /* Lookups over src/shared/semantics.js so kit components can be driven by an
  * id alone: <Pill id="booked" /> resolves label, tone, and icon itself. */
 import {
-  CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES, ORDER_STATUSES, PREP_STATUSES, CONTACT_TYPES,
+  CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES, CONTACT_TYPES,
 } from '../shared/semantics';
 
 export const TONES = ['new', 'progress', 'callback', 'booked', 'won', 'danger', 'neutral'];
@@ -12,7 +12,7 @@ export function toneOf(entry) {
   return m ? m[1] : 'neutral';
 }
 
-const LISTS = [CALL_STATUSES, PRIORITIES, STAGES, PREP_STATUSES, LEAD_STATUSES, ORDER_STATUSES, CONTACT_TYPES];
+const LISTS = [CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES, CONTACT_TYPES];
 
 /** First semantics entry with this id, searched in pipeline order. Pass a
  *  list to disambiguate ids shared across sets ('new' is a submission AND an

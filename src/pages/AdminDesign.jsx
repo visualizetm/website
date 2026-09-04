@@ -5,7 +5,7 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import DesignComponents from './AdminDesignComponents';
 import { contrast, composite } from '../shared/color';
 import {
-  CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES, ORDER_STATUSES, PREP_STATUSES,
+  CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES,
 } from '../shared/semantics';
 
 /* /design: the Visualize Dark system rendered from the live tokens on
@@ -69,7 +69,7 @@ export default function AdminDesign({ onBack }) {
   const toneFor = (entry) => (entry.solid || '').replace('var(--v-status-', '').replace('-solid)', '');
   const groups = useMemo(() => [
     ['Call status', CALL_STATUSES], ['Priority', PRIORITIES], ['Stage', STAGES],
-    ['Submission status', LEAD_STATUSES], ['Order status', ORDER_STATUSES], ['Prep status', PREP_STATUSES],
+    ['Submission status', LEAD_STATUSES],
   ], []);
 
   return (

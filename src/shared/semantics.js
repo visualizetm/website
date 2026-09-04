@@ -80,13 +80,6 @@ export const LEAD_STATUSES = [
   { id: 'landed',    label: 'Landed',    icon: 'Check',     order: 3, ...tone('booked') },
   { id: 'denied',    label: 'Denied',    icon: 'XClose',    order: 4, ...tone('danger') },
 ];
-export const ORDER_STATUSES = [
-  { id: 'new',           label: 'New',           icon: 'Bell01',   order: 0, ...tone('new') },
-  { id: 'paid',          label: 'Paid',          icon: 'CurrencyDollar', order: 1, ...tone('progress') },
-  { id: 'in-production', label: 'In Production', icon: 'Package',  order: 2, ...tone('callback') },
-  { id: 'packaged',      label: 'Packaged',      icon: 'Package',  order: 3, ...tone('booked') },
-  { id: 'delivered',     label: 'Delivered',     icon: 'Check',    order: 4, ...tone('booked') },
-];
 
 /* ── Manual contact log (call_leads.contactLog[].type) ─────────── */
 export const CONTACT_TYPES = [
@@ -117,12 +110,6 @@ export const CONCEPT_STATUSES = [
 ];
 export const CONCEPT_STATUS_IDS = CONCEPT_STATUSES.map(c => c.id);
 export const CONCEPT_PRESETS = ['Logo directions', 'Brand board', 'Social grid', 'Website demo', 'Drive folder'];
-export const PREP_STATUSES = [
-  { id: 'soon',       label: 'Meeting soon',   order: 0, ...tone('new') },
-  { id: 'ready',      label: 'Concepts ready', order: 1, ...tone('booked') },
-  { id: 'needs-prep', label: 'Needs prep',     order: 2, ...tone('neutral') },
-];
-export const prepStatusOf = (id) => PREP_STATUSES.find(p => p.id === id) || PREP_STATUSES[2];
 
 /* ── Clients module enums (Prompt 10) ─────────────────────────── */
 export const PROJECT_KINDS = [
