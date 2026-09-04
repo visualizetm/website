@@ -83,7 +83,7 @@ const json = (data) => ({ status: 200, contentType: 'application/json', body: JS
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg'];
 
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
@@ -163,6 +163,16 @@ for (const width of WIDTHS) {
 
   await goto('/admin/settings');
   await check('settings');
+
+  await goto('/admin/design');
+  await check('design system (tokens + components)');
+  await page.locator('.dc-open-sheet').first().click({ timeout: 4000 }).catch(() => {});
+  await check('design: Sheet open');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+  await page.locator('.dc-open-modal').first().click({ timeout: 4000 }).catch(() => {});
+  await check('design: Modal open');
+  await page.keyboard.press('Escape').catch(() => {});
 
   await goto('/admin/calls');
   await page.evaluate(() => localStorage.removeItem('vz_call_session')).catch(() => {});

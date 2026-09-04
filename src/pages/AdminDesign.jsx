@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
-import { ScrollArea } from '../components/AdminLayout';
+import DesignComponents from './AdminDesignComponents';
 import { contrast, composite } from '../shared/color';
 import {
   CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES, ORDER_STATUSES, PREP_STATUSES,
@@ -73,7 +73,7 @@ export default function AdminDesign({ onBack }) {
   ], []);
 
   return (
-    <main className={`aa-main lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
+    <main className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
       <div className="lay-content lay-content--wide ds-wrap">
         <header className="ds-hero">
           <p className="ds-kicker">Visualize Dark</p>
@@ -86,6 +86,7 @@ export default function AdminDesign({ onBack }) {
             <button type="button" className="ds-btn" onClick={() => setTexture(x => !x)}>
               <Check width={14} height={14} style={{ opacity: texture ? 1 : 0.25 }} /> Grid texture {texture ? 'on' : 'off'}
             </button>
+            <a className="ds-btn ds-btn--ghost" href="#components">Jump to components</a>
             {onBack && <button type="button" className="ds-btn ds-btn--ghost" onClick={onBack}>Back to settings</button>}
           </div>
         </header>
@@ -234,6 +235,8 @@ export default function AdminDesign({ onBack }) {
             <div className="ds-z">{['base', 'sticky', 'tabbar', 'sheet', 'modal', 'toast', 'command'].map(z => <div key={z} className="ds-z-row"><code>--v-z-{z}</code><span>{v(`z-${z}`)}</span></div>)}</div>
           </div>
         </section>
+
+        <DesignComponents />
       </div>
       <style>{dsStyles}</style>
     </main>
@@ -243,7 +246,7 @@ export default function AdminDesign({ onBack }) {
 const dsStyles = `
   .ds-page { color: var(--v-text); font-family: var(--v-font-body); }
   .ds-page--texture { background-image: var(--v-grid-texture); background-size: var(--v-grid-texture-size); }
-  .ds-wrap { --lay-stack-gap: var(--v-space-8); }
+  .ds-wrap { --v-stack-gap: var(--v-space-8); }
   .ds-hero { display: flex; flex-direction: column; gap: var(--v-space-3); padding-top: var(--v-space-2); }
   .ds-kicker { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-red-highlight); }
   .ds-title { font-family: var(--v-font-display); font-size: var(--v-display-lg); line-height: var(--v-lh-display-lg); letter-spacing: var(--v-ls-display-lg); text-transform: uppercase; font-weight: var(--v-weight-bold); }
