@@ -64,7 +64,17 @@ Shared. `src/components/LeadForm.jsx` is one form on kit fields (Input, Select, 
 
 New console checks: builder, skeleton, session queue, room on Script, Objections, Close, Intel, Notes, History, each of the five outcome sheets, shortcuts modal (desktop), edit lead sheet, session summary, plus the collapsed-sidebar builder.
 
-Status at the time of this report: the console audit is queued behind the Prompt 6 rerun on this container and has not produced its tally yet. Screenshots at 390 and 1280 of the builder, queue, room (two scroll positions), callback and booked sheets, the post-log undo toast, and the summary were reviewed; two issues they showed (the display title breaking mid-word in the room, and the desktop center column too narrow beside 324px and 320px side columns) were fixed before the audited build. The Prompt 6 rerun found one more 320px offender, the card's "Next: call back" line not wrapping, fixed in the LeadCard styles. The audit tally is appended to this file in a follow-up commit as soon as the run completes.
+Status at the time of this report: the console audit is queued behind the Prompt 6 rerun on this container and has not produced its tally yet. Screenshots at 390 and 1280 of the builder, queue, room (two scroll positions), callback and booked sheets, the post-log undo toast, and the summary were reviewed; two issues they showed (the display title breaking mid-word in the room, and the desktop center column too narrow beside 324px and 320px side columns) were fixed before the audited build. The Prompt 6 rerun found one more 320px offender, the card's "Next: call back" line not wrapping, fixed in the LeadCard styles. Final run on commit 1dfe9fb (after the LeadCard wrap fix), covering the builder, skeleton, queue, the room on every tab, the five outcome sheets, the shortcuts modal, the edit sheet, the summary, and the collapsed-sidebar builder:
+
+| Width | Checks | Result |
+|---|---|---|
+| 320 | 40 | all clean |
+| 390 | 40 | all clean |
+| 430 | 40 | all clean |
+| 768 | 43 | all clean |
+| 1280 | 42 | all clean |
+
+Exit 0, zero offenders (205 checks).
 
 ## 10. Decisions
 
