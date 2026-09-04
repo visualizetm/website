@@ -179,10 +179,19 @@ for (const width of WIDTHS) {
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   await check('call console queue');
 
-  await page.locator('.cc-lookupbtn').first().click({ timeout: 4000 }).catch(() => {});
-  await page.locator('.lk-input').fill('0110').catch(() => {});
-  await check('reverse lookup sheet');
-  await page.keyboard.press('Escape').catch(() => {});
+  if (width < 768) {
+    await page.locator('.sh-top-searchbtn').first().click({ timeout: 4000 }).catch(() => {});
+    await page.locator('.sh-cmd-field input').fill('0110').catch(() => {});
+    await check('command bar (mobile sheet, digit query)');
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(300);
+  } else {
+    await page.locator('.sh-cmd-field input').first().click({ timeout: 4000 }).catch(() => {});
+    await page.locator('.sh-cmd-field input').fill('0110').catch(() => {});
+    await check('command bar (desktop popover, digit query)');
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(300);
+  }
 
   await page.locator('.cq-start').click({ timeout: 4000 }).catch(() => {});
   await check('call session (long name lead)');
@@ -202,10 +211,25 @@ for (const width of WIDTHS) {
   await page.locator('.cl-card').first().click({ timeout: 4000 }).catch(() => {});
   await check('client detail (hostile pricing/checklists)');
 
-  if (width < 761) {
-    await goto('/admin/leads');
-    await page.locator('.aa-rail-btn--morebtn').click({ timeout: 4000 }).catch(() => {});
+  await goto('/admin/leads');
+  await page.locator('.sh-bell').first().click({ timeout: 4000 }).catch(() => {});
+  await check('notifications sheet');
+  await page.keyboard.press('Escape').catch(() => {});
+  await page.waitForTimeout(300);
+
+  if (width < 768) {
+    await page.locator('.sh-tab--more').click({ timeout: 4000 }).catch(() => {});
     await check('mobile More sheet');
+    await page.keyboard.press('Escape').catch(() => {});
+  } else {
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await check('sidebar collapsed: leads list');
+    await goto('/admin');
+    await check('sidebar collapsed: dashboard');
+    await goto('/admin/calls');
+    await check('sidebar collapsed: call console');
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
   }
 
   await ctx.close();

@@ -23,7 +23,7 @@ import { ADMIN_HOME } from '../lib/adminPaths';
 import { ScrollArea, StickyFooterBar, uiStyles, useConfirm } from '../ui';
 import { SocialButtons, SocialFields } from '../components/SocialLinks';
 import { normalizeSocials } from '../lib/socials';
-import { digitsOf, matchRank, formatPhone } from '../shared/phone';
+import { formatPhone } from '../shared/phone';
 import { effectiveStage, deleteBlockReason } from '../lib/booked';
 import { CALL_STATUSES, callStatusOf, OUTCOMES as SEM_OUTCOMES } from '../shared/semantics';
 import { fmtDateTime, fmtMins } from '../shared/dates';
@@ -479,106 +479,6 @@ function OutcomeSheet({ outcome, lead, onLog, onCancel }) {
   );
 }
 
-/* ── "Who's calling?" reverse phone lookup ─────────────────────── */
-
-function LookupSheet({ leads, recentIds, onPick, onAddNew, onClose }) {
-  const [q, setQ] = useState('');
-  const inputRef = useRef(null);
-  useEffect(() => { inputRef.current?.focus(); }, []);
-
-  const qd = digitsOf(q);
-  const matches = useMemo(() => {
-    if (!qd) return [];
-    return leads
-      .map(l => ({ l, rank: matchRank(l.phone, qd) }))
-      .filter(x => x.rank >= 0)
-      .sort((a, b) => a.rank - b.rank || String(a.l.business).localeCompare(String(b.l.business)))
-      .slice(0, 8);
-  }, [leads, qd]);
-
-  const recents = useMemo(
-    () => recentIds.map(id => leads.find(l => l._id === id)).filter(Boolean).slice(0, 6),
-    [recentIds, leads]
-  );
-
-  const lastCallLine = (l) => {
-    const e = l.callLog?.[l.callLog.length - 1];
-    if (!e) return null;
-    const o = outcomeOf(e.outcome);
-    return `${o ? o.label : e.outcome} · ${fmtLogTime(e.at)}`;
-  };
-
-  const Row = ({ l, exact }) => (
-    <button type="button" className={`lk-row lay-card${exact ? ' is-exact' : ''}`} onClick={() => onPick(l)}>
-      <span className="cq-dot" style={{ '--sc': statusOf(l.callStatus).color }} />
-      <span className="lk-row-main">
-        <span className="lk-row-name lay-truncate">{l.business}</span>
-        <span className="lk-row-sub lay-truncate">
-          {formatPhone(l.phone)}
-          {lastCallLine(l) ? ` · ${lastCallLine(l)}` : ''}
-        </span>
-      </span>
-      <PriorityPill p={l.priority} />
-    </button>
-  );
-
-  return (
-    <div className="cc-sheet-back" onClick={onClose}>
-      <div
-        className="cc-sheet lk-sheet"
-        style={{ '--sc': '#d44c43' }}
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } }}
-      >
-        <div className="cc-sheet-head">
-          <span className="cc-sheet-badge"><PhoneIncoming01 width={16} height={16} /> Who&rsquo;s calling?</span>
-          <button type="button" className="cc-iconbtn" onClick={onClose} aria-label="Close">
-            <XClose width={16} height={16} />
-          </button>
-        </div>
-        <input
-          ref={inputRef}
-          className="cc-input lk-input"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Type or paste the number…"
-          inputMode="tel"
-          autoComplete="off"
-          aria-label="Phone number to look up"
-        />
-        {!qd && (
-          <div className="lk-empty">
-            <p className="lk-hint">
-              Paste the number that&rsquo;s calling — any format works, even just the last 4 digits.
-              <span className="lk-kbd-hint"> Press <kbd>/</kbd> to open this anywhere.</span>
-            </p>
-            {recents.length > 0 && (
-              <>
-                <p className="lk-label">Recent lookups</p>
-                <div className="lk-list">{recents.map(l => <Row key={l._id} l={l} />)}</div>
-              </>
-            )}
-          </div>
-        )}
-        {qd && matches.length > 0 && (
-          <div className="lk-list">
-            {matches.map(({ l, rank }) => <Row key={l._id} l={l} exact={rank === 0} />)}
-          </div>
-        )}
-        {qd.length >= 3 && matches.length === 0 && (
-          <div className="lk-nomatch">
-            <p>No lead matches <strong>{formatPhone(qd) || qd}</strong>.</p>
-            <button type="button" className="cc-btn cc-btn--primary" onClick={() => onAddNew(qd)}>
-              <UserPlus01 width={15} height={15} /> Add as new lead
-            </button>
-            <p className="lk-hint">A callback from an unknown number is often a warm lead worth capturing.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ── Keyboard shortcuts overlay ────────────────────────────────── */
 
 function ShortcutsOverlay({ onClose }) {
@@ -639,18 +539,10 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
   // Session
   const [mode, setMode] = useState('queue'); // queue | session | summary
 
-  // Reverse phone lookup ("Who's calling?"). peek = a lead opened from the
-  // lookup, viewed as a session card WITHOUT disturbing any active session.
-  const [lookupOpen, setLookupOpen] = useState(false);
+  // peek = a lead viewed as a session card WITHOUT disturbing any active
+  // session. Its opener (the reverse lookup) moved to the shell command bar
+  // in Prompt 4; the branches stay until the console rebuild retires them.
   const [peek, setPeek] = useState(null);
-  const [recentLookups, setRecentLookups] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('vz_lookup_recent')) || []; } catch { return []; }
-  });
-  const pushRecentLookup = (id) => setRecentLookups(prev => {
-    const next = [id, ...prev.filter(x => x !== id)].slice(0, 8);
-    try { localStorage.setItem('vz_lookup_recent', JSON.stringify(next)); } catch { /* fine */ }
-    return next;
-  });
   const [session, setSession] = useState(null);
   const [sheet, setSheet] = useState(null); // { outcome }
   const [dir, setDir] = useState(1);
@@ -944,12 +836,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
         if (e.key === 'Escape') { e.target.blur(); setSheet(null); }
         return;
       }
-      if (lookupOpen) {
-        if (e.key === 'Escape') setLookupOpen(false);
-        return;
-      }
-      // "/" opens the reverse lookup from anywhere in the console.
-      if (e.key === '/') { e.preventDefault(); setLookupOpen(true); return; }
       if (!inSessionView) return;
       if (showKeys) {
         if (e.key === 'Escape' || e.key === '?') setShowKeys(false);
@@ -974,7 +860,7 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, session, sheet, showKeys, advance, lookupOpen, isPeek]);
+  }, [mode, session, sheet, showKeys, advance, isPeek]);
 
   /* ── Swipe (session card) ── */
 
@@ -1029,9 +915,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                   <span className="cc-topbar-title">Call Console</span>
                   {toCall > 0 && <span className="cc-tocall">{toCall} to call</span>}
                   <span className="cq-embedbar-spacer" />
-                  <button type="button" className="cc-iconbtn cc-lookupbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
-                    <PhoneIncoming01 width={15} height={15} />
-                  </button>
                   <button type="button" className="cc-iconbtn" onClick={load} title="Refresh"><RefreshCw01 width={15} height={15} /></button>
                 </div>
               )}
@@ -1152,11 +1035,8 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                     <ArrowLeft width={16} height={16} />
                   </button>
                   <div className="cs-progress-wrap">
-                    <span className="cs-progress-label">Who&rsquo;s calling — looked up</span>
+                    <span className="cs-progress-label">Looked up</span>
                   </div>
-                  <button type="button" className="cc-iconbtn" onClick={() => setLookupOpen(true)} title="Look up another number ( / )">
-                    <PhoneIncoming01 width={15} height={15} />
-                  </button>
                 </>
               ) : (
                 <>
@@ -1173,9 +1053,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
                     <span><strong>{session.stats.callbacks}</strong> cb</span>
                     <span><strong>{elapsed}</strong></span>
                   </div>
-                  <button type="button" className="cc-iconbtn" onClick={() => setLookupOpen(true)} title="Who's calling? ( / )">
-                    <PhoneIncoming01 width={15} height={15} />
-                  </button>
                   <button type="button" className="cc-iconbtn cs-keysbtn" onClick={() => setShowKeys(true)} title="Keyboard shortcuts">
                     <Keyboard01 width={15} height={15} />
                   </button>
@@ -1378,15 +1255,6 @@ export default function AdminCalls({ embedded = false, onDataChanged }) {
       )}
 
       {/* Shared overlays */}
-      {lookupOpen && (
-        <LookupSheet
-          leads={leads}
-          recentIds={recentLookups}
-          onPick={(l) => { pushRecentLookup(l._id); setLookupOpen(false); setPeek(l._id); }}
-          onAddNew={(qd) => { setLookupOpen(false); setNewOpen({ phone: formatPhone(qd) || qd }); }}
-          onClose={() => setLookupOpen(false)}
-        />
-      )}
       {newOpen && (
         <div className="cc-overlay lay-overlay" onClick={() => setNewOpen(false)}>
           <div className="cc-panel lay-modal-box" onClick={e => e.stopPropagation()}>
@@ -1821,36 +1689,6 @@ const ccStyles = `
     align-self: center;
   }
   /* ── Reverse lookup sheet ── */
-  .lk-sheet { gap: 12px; }
-  .lk-input {
-    font-size: 1.25rem; font-weight: 700; letter-spacing: 0.04em;
-    padding: 14px 16px; text-align: center;
-  }
-  .lk-list { display: flex; flex-direction: column; gap: 6px; max-height: min(46vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
-  .lk-row {
-    display: flex; align-items: center; gap: 11px;
-    padding: 11px 13px; border-radius: 12px; cursor: pointer;
-    background: var(--c-card); border: 1px solid var(--c-border);
-    font-family: inherit; color: inherit; text-align: left;
-    transition: border-color 0.15s;
-  }
-  .lk-row:hover { border-color: rgba(212,76,67,0.45); }
-  .lk-row.is-exact { border-color: rgba(212,76,67,0.55); background: rgba(212,76,67,0.07); }
-  .lk-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .lk-row-name { font-size: 0.9rem; font-weight: 700; }
-  .lk-row-sub { font-size: 0.72rem; color: var(--c-muted); }
-  .lk-empty { display: flex; flex-direction: column; gap: 12px; }
-  .lk-hint { font-size: 0.78rem; color: var(--c-muted); line-height: 1.55; }
-  .lk-kbd-hint { display: none; }
-  .lk-kbd-hint kbd {
-    padding: 1px 7px; border-radius: 6px; font-family: inherit; font-size: 0.72rem;
-    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); color: #fafafa;
-  }
-  @media (min-width: 700px) { .lk-kbd-hint { display: inline; } }
-  .lk-label { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase; color: var(--c-muted); }
-  .lk-nomatch { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
-  .lk-nomatch p { font-size: 0.88rem; color: var(--c-sec); }
-  .lk-nomatch strong { color: #fafafa; }
 
   .cc-keys-grid { display: flex; flex-direction: column; gap: 8px; }
   .cc-keys-row { display: flex; align-items: center; gap: 12px; font-size: 0.82rem; color: var(--c-sec); }
