@@ -21,11 +21,26 @@ import CurrencyDollar from '@untitled-ui/icons-react/build/esm/CurrencyDollar';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import User01 from '@untitled-ui/icons-react/build/esm/User01';
+import LayoutAlt01 from '@untitled-ui/icons-react/build/esm/LayoutAlt01';
+import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
+import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
+import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
+import Palette from '@untitled-ui/icons-react/build/esm/Palette';
+import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
+import Settings01 from '@untitled-ui/icons-react/build/esm/Settings01';
+import Inbox01 from '@untitled-ui/icons-react/build/esm/Inbox01';
+import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
+import Plus from '@untitled-ui/icons-react/build/esm/Plus';
+import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
+import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
+import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
   CalendarCheck01, Trophy01, Briefcase01, XClose, Bell01, Mail01, MessageCircle01,
   CurrencyDollar, Package, Calendar, User01,
+  /* shell + nav */
+  LayoutAlt01, PhoneCall01, Image01, Star01, Palette, Trash01, Settings01, Inbox01, SearchMd, Plus, LogOut01, Edit02, ArrowRight,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

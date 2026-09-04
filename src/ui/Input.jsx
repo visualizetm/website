@@ -1,6 +1,7 @@
+import { forwardRef } from 'react';
 import FieldShell from './FieldShell';
 /**
- * Input: single-line text field on the shared FieldShell.
+ * Input: single-line text field on the shared FieldShell. Forwards its ref to the <input>.
  * @param {object} props
  * @param {string} [props.label]
  * @param {string} [props.hint]
@@ -11,11 +12,12 @@ import FieldShell from './FieldShell';
  * @param {string} [props.type='text']
  * Remaining props go to the <input>.
  */
-export default function Input({ label, hint, error, leading, trailing, required, disabled, id, className = '', type = 'text', ...rest }) {
+const Input = forwardRef(function Input({ label, hint, error, leading, trailing, required, disabled, id, className = '', type = 'text', ...rest }, ref) {
   return (
     <FieldShell id={id} label={label} hint={hint} error={error} leading={leading} trailing={trailing} required={required} disabled={disabled} className={className}>
-      {(a) => <input className="v-field-control" type={type} {...a} {...rest} />}
+      {(a) => <input ref={ref} className="v-field-control" type={type} {...a} {...rest} />}
     </FieldShell>
   );
-}
+});
+export default Input;
 export const inputStyles = '';

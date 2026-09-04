@@ -298,3 +298,26 @@ flips between skeleton and loaded to show the stagger entrance, toast
 triggers, Sheet and Modal triggers, an InlineEdit wired to a save that fails
 every third time, and the ProgressRing animating. `scripts/layout-audit.mjs`
 walks it (with the Sheet and Modal open) at 320, 390, 430, 768, and 1280.
+
+---
+
+## The shell (`src/shell/`)
+
+Built in Prompt 4 on top of the kit. Screens never import shell internals;
+they use two things:
+
+- `src/shell/nav.js`: the single list of destinations (id, label, icon, path,
+  group, badge key, mobile tab, soon). Sidebar, tab bar, More sheet, command
+  bar "Jump to", and the top bar title all render from it.
+- `useTopBar({ title, back })` from `src/shell/ShellContext.jsx`: a screen with
+  an open detail sets the top bar title and back button while mounted; pass
+  `null` to restore the nav label. `useShell()` exposes `go(navId)`,
+  `openRecord(lead)`, `openCommand()`, `openNotifications()`, `newLead(preset)`,
+  `newClient()`.
+
+`AppShell` receives `counts` for the badges (`leads`, `calls`, `booked`,
+`orders`, `submissions`), the call_leads list for the command bar and the
+notifications drawer, and callbacks for navigation, opening a record, quick
+add, and sign out. Screens receive `openId` (`{ id, n }`) and `createPreset`
+(`{ preset, n }`) props from AdminApp when the shell asks them to open a
+record or start a new one.
