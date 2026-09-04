@@ -30,7 +30,5 @@ export default function LeadHistory({ lead, limit }) {
     </div>
   );
 }
-export const leadHistoryStyles = `
-  .lh { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
-  .lh-row .v-lrow-sub { white-space: normal; }
-`;
+/* leadHistoryStyles lives in src/ui/lead.styles.js (uiStyles). */
+

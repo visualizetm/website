@@ -8,20 +8,21 @@ import { useToast } from '../ui';
  * and toasts on failure. Reusable in the lead detail (Prompt 8).
  * @param {object} props
  * @param {object} props.lead
- * @param {Function} props.onSave (id, notes) => Promise<boolean>
+ * @param {Function} props.onSave (id, value) => Promise<boolean>
+ * @param {string} [props.field='notes'] which lead field to bind (notes, prepNotes)
  * @param {number} [props.rows=5]
  */
-export default function LeadNotes({ lead, onSave, rows = 5, placeholder = 'Notes on this lead.' }) {
-  const [draft, setDraft] = useState(lead.notes || '');
+export default function LeadNotes({ lead, onSave, rows = 5, placeholder = 'Notes on this lead.', field = 'notes' }) {
+  const [draft, setDraft] = useState(lead[field] || '');
   const [state, setState] = useState('idle'); // idle | dirty | saving | saved
   const toast = useToast();
-  useEffect(() => { setDraft(lead.notes || ''); setState('idle'); }, [lead._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDraft(lead[field] || ''); setState('idle'); }, [lead._id, field]); // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
-    if (draft === (lead.notes || '')) { setState('idle'); return; }
+    if (draft === (lead[field] || '')) { setState('idle'); return; }
     setState('saving');
     const ok = await onSave(lead._id, draft);
     if (ok) { setState('saved'); setTimeout(() => setState(s => (s === 'saved' ? 'idle' : s)), 1500); }
-    else { setDraft(lead.notes || ''); setState('idle'); toast.error('Could not save the notes. Your change was undone.'); }
+    else { setDraft(lead[field] || ''); setState('idle'); toast.error('Could not save the notes. Your change was undone.'); }
   };
   return (
     <div className="ln">
@@ -35,8 +36,5 @@ export default function LeadNotes({ lead, onSave, rows = 5, placeholder = 'Notes
     </div>
   );
 }
-export const leadNotesStyles = `
-  .ln { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; }
-  .ln-state { min-height: var(--v-lh-xs); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
-  .ln-saved { color: var(--v-status-booked-text); }
-`;
+/* leadNotesStyles lives in src/ui/lead.styles.js (uiStyles). */
+

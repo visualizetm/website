@@ -1,7 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
-import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
@@ -18,13 +16,11 @@ import {
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadCard, { leadMenuItems } from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
+import LeadDetail from '../components/LeadDetail';
 import {
   EMPTY_FILTERS, openLeads, findDuplicates, applyFilters, countFor, industryFacets, sortLeads, SORTS, isNewLead, lastCall, conflicts, mergePayload, leadsToCsv,
 } from '../lib/leads';
 import { apiFetch } from '../shared/api';
-import { SocialButtons } from '../components/SocialLinks';
-import Checklists from '../components/Checklists';
-import LinkedSubmissions from '../components/LinkedSubmissions';
 import LeadImport from '../components/LeadImport';
 import { normalizeSocials } from '../lib/socials';
 import { formatPhone } from '../shared/phone';
@@ -36,142 +32,7 @@ import { defaultLead } from './AdminCalls';
 
 // Status/priority/outcome maps: src/shared/semantics.js (one source of truth).
 const CALL_STATUSES = SEM_CALL_STATUSES.filter(x => x.id !== 'booked');
-const PRIO_RANK = { hot: 0, warm: 1, cold: 2 };
-const STATUS_RANK = { 'not-called': 0, callback: 1, 'no-answer': 2, no: 3, booked: 4 };
-const statusOf = callStatusOf;
-const telOf = (lead) => telHref(lead?.phone);
-const fmtLogTime = fmtDateTime;
-const OUTCOME_META = Object.fromEntries(SEM_CALL_STATUSES.map(x => [x.id, [x.label, x.color]]));
 
-function PrioPill({ p }) {
-  return <UiPill id={p || 'warm'} size="sm" />;
-}
-
-function Block({ title, children, action }) {
-  return (
-    <section className="ld-block">
-      <div className="ld-block-head"><h2>{title}</h2>{action}</div>
-      {children}
-    </section>
-  );
-}
-
-function LeadDetail({ lead, submissions, onPatch, onDelete, onLinkSubmission, onClose, onGo }) {
-  const [editing, setEditing] = useState(false);
-  const [notes, setNotes] = useState(lead.notes || '');
-  const [notesState, setNotesState] = useState('idle');
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const blockReason = deleteBlockReason(lead);
-  const log = [...(lead.callLog || [])].reverse();
-
-  const saveNotes = async () => {
-    setNotesState('saving');
-    const ok = await onPatch(lead._id, { notes });
-    setNotesState(ok ? 'idle' : 'dirty');
-  };
-
-  return (
-    <ScrollArea bare className="ld-scroll" key={lead._id}>
-      <div className="ld-detail lay-content lay-content--wide">
-        <div className="ld-top">
-          <button type="button" className="ld-back" onClick={onClose}><ArrowLeft width={15} height={15} /> Leads</button>
-          <span className="ld-top-spacer" />
-          <button type="button" className="aa-btn" onClick={() => onGo('calls')}>
-            <PhoneOutgoing01 width={14} height={14} /> Dial in Call Console
-          </button>
-          <button type="button" className="aa-iconbtn" onClick={() => setEditing(v => !v)} title="Edit lead"><Edit02 width={15} height={15} /></button>
-          <button
-            type="button" className="aa-iconbtn" disabled={!!blockReason}
-            title={blockReason || 'Delete lead'}
-            onClick={() => setConfirmOpen(true)}
-          ><Trash01 width={15} height={15} /></button>
-        </div>
-        {blockReason && <p className="ld-delblocked">{blockReason}</p>}
-        <ConfirmDialog open={confirmOpen && !blockReason} danger confirmLabel="Delete"
-          title={`Delete ${lead.business}?`}
-          body="It moves to Recently deleted in Settings and can be restored for 30 days. A spreadsheet re-upload won't recreate it."
-          onConfirm={() => { setConfirmOpen(false); onDelete(lead._id); }}
-          onClose={() => setConfirmOpen(false)}
-        />
-
-        <header className="ld-head">
-          <div className="ld-head-meta">
-            <PrioPill p={lead.priority} />
-            <span className="ld-status" style={{ '--sc': statusOf(lead.callStatus).color }}>
-              <span className="ld-status-dot" />{statusOf(lead.callStatus).label}
-            </span>
-            {lead.industry && <span className="ld-meta-txt">{lead.industry}</span>}
-            {lead.area && <span className="ld-meta-txt">{lead.area}</span>}
-          </div>
-          <h1 className="ld-biz display">{lead.business}</h1>
-          {lead.askFor && <p className="ld-askfor">Ask for {lead.askFor.replace(/^Ask for /i, '')}</p>}
-        </header>
-
-        {editing ? (
-          <Block title="Edit lead">
-            <LeadForm
-              lead={lead}
-              onSave={async (f) => { await onPatch(lead._id, f); setEditing(false); }}
-              onCancel={() => setEditing(false)}
-            />
-          </Block>
-        ) : (
-          <>
-            {telOf(lead) && (
-              <a href={telOf(lead)} className="ld-phone">
-                <PhoneCall01 width={19} height={19} />
-                <span>{formatPhone(lead.phone)}</span>
-                {lead.phoneNote && <em>{lead.phoneNote}</em>}
-              </a>
-            )}
-            <SocialButtons socials={lead.socials} onAdd={() => setEditing(true)} />
-
-            <div className="ld-cols">
-              <div className="ld-col">
-                {lead.angle && <Block title="The angle"><p className="ld-angle">{lead.angle}</p></Block>}
-                <Block title="Notes">
-                  <textarea
-                    className="aa-input ld-notes" rows={4} value={notes}
-                    onChange={e => { setNotes(e.target.value); setNotesState('dirty'); }}
-                    placeholder="Everything you know about them…"
-                  />
-                  {notesState !== 'idle' && (
-                    <button type="button" className="aa-btn aa-btn--primary" onClick={saveNotes} disabled={notesState === 'saving'}>
-                      {notesState === 'saving' ? 'Saving…' : 'Save notes'}
-                    </button>
-                  )}
-                </Block>
-                <Block title={`Call history${log.length ? ` · ${log.length}` : ''}`}>
-                  {!log.length && <p className="ld-muted">No calls logged yet — dial them from the Call Console.</p>}
-                  {log.map((e, i) => {
-                    const [label, color] = OUTCOME_META[e.outcome] || OUTCOME_META['not-called'];
-                    return (
-                      <div key={i} className="ld-log" style={{ '--sc': color }}>
-                        <span className="ld-log-dot" />
-                        <div>
-                          <p className="ld-log-top"><strong>{label}</strong><span>{fmtLogTime(e.at)}</span></p>
-                          {e.note && <p className="ld-log-note">{e.note}</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </Block>
-              </div>
-              <div className="ld-col">
-                <Block title="Checklists"><Checklists lead={lead} onPatch={onPatch} /></Block>
-                <Block title="Their site submissions">
-                  <LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission} />
-                </Block>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </ScrollArea>
-  );
-}
-
-/* ── Page: full-width lead management (pre-booked pipeline) ────── */
 
 /* ── Leads list screen (Prompt 6): kanban, table, cards, filters, bulk, duplicates ── */
 
@@ -436,16 +297,9 @@ export default function AdminLeads({
         </aside>
         <main className="aa-main ld-main">
           {creating ? (
-            <ScrollArea bare className="ld-scroll">
-              <div className="ld-detail lay-content lay-content--wide">
-                <div className="ld-top"><button type="button" className="ld-back" onClick={back}><ArrowLeft width={15} height={15} /> Leads</button></div>
-                <Block title="New lead">
-                  <LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { await onCreate(defaultLead(f)); back(); }} onCancel={back} />
-                </Block>
-              </div>
-            </ScrollArea>
+            <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { await onCreate(defaultLead(f)); back(); }} onCancel={back} /></Section></Card></ScrollArea>
           ) : (
-            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { await onDelete(id); back(); }} onLinkSubmission={onLinkSubmission} onClose={back} onGo={onGo} />
+            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { await onDelete(id); back(); }} onLinkSubmission={onLinkSubmission} onClose={back} />
           )}
         </main>
         <style>{ldStyles}</style>
@@ -660,75 +514,8 @@ const ldStyles = `
   /* Detail split: the list stays in the left panel */
   .ld-panel { padding: var(--v-space-3); }
   .ld-panel-scroll { padding: 0; }
-  .ld-muted { color: var(--a-muted); font-size: 0.82rem; line-height: 1.55; }
-
-  .ld-delblocked { font-size: 0.76rem; font-weight: 700; color: var(--a-muted); }
-  .aa-iconbtn:disabled { opacity: 0.45; cursor: not-allowed; }
-
-  /* Detail — full width beside the rail, two columns on desktop */
-  .ld-main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
-  @media (max-width: 760px) {
-    .aa-app.has-detail .aa-main.ld-main { display: flex; flex-direction: column; }
-  }
-  .ld-scroll { display: flex; flex-direction: column; }
-  .ld-detail { --v-stack-gap: 16px; }
-  @media (min-width: 1200px) { .ld-detail.lay-content--wide { max-width: 1320px; } }
-  .ld-cols { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  .ld-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-  @media (min-width: 1200px) {
-    .ld-cols { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; align-items: start; }
-  }
-
-  .ld-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .ld-top-spacer { flex: 1; }
-  .ld-back {
-    display: inline-flex; align-items: center; gap: 7px;
-    background: none; border: none; color: var(--a-muted); cursor: pointer;
-    font-size: 0.85rem; font-weight: 600; font-family: inherit; padding: 0;
-  }
-  .ld-back:hover { color: #fafafa; }
-  .ld-head { display: flex; flex-direction: column; gap: 6px; }
-  .ld-head-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .ld-meta-txt { font-size: 0.72rem; font-weight: 600; color: var(--a-muted); }
-  .ld-status {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 0.64rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
-    color: var(--sc); background: color-mix(in srgb, var(--sc) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--sc) 30%, transparent);
-  }
-  .ld-status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--sc); }
-  .ld-biz {
-    font-family: 'Barlow Condensed', 'Inter', sans-serif; text-transform: uppercase;
-    font-size: clamp(1.9rem, 6vw, 2.8rem); line-height: 0.95; font-weight: 700;
-  }
-  .ld-askfor { font-size: 0.92rem; font-weight: 600; color: var(--a-sec); }
-  .ld-phone {
-    display: inline-flex; align-items: center; gap: 11px; align-self: flex-start; max-width: 100%;
-    padding: 12px 17px; border-radius: 13px; text-decoration: none;
-    background: var(--a-brand); border: 1px solid var(--a-brand); color: #fff;
-    font-size: 1.05rem; font-weight: 800;
-    box-shadow: 0 6px 24px rgba(212,76,67,0.28); transition: background 0.15s;
-  }
-  .ld-phone:hover { background: #c2413a; }
-  .ld-phone em { font-style: normal; font-size: 0.7rem; font-weight: 600; opacity: 0.8; min-width: 0; overflow-wrap: anywhere; }
-
-  .ld-block {
-    display: flex; flex-direction: column; gap: 12px; min-width: 0;
-    background: var(--a-card); border: 1px solid var(--a-border);
-    border-radius: 14px; padding: 15px 16px;
-  }
-  .ld-block > * { min-width: 0; }
-  .ld-block-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-  .ld-block-head h2 { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--a-sec); }
-  .ld-angle { font-size: 0.94rem; line-height: 1.65; color: #eaeaea; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .ld-notes { resize: vertical; min-height: 90px; line-height: 1.55; }
-  .ld-block .aa-btn { align-self: flex-start; }
-
-  .ld-log { display: flex; gap: 10px; min-width: 0; }
-  .ld-log-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); flex-shrink: 0; margin-top: 5px; }
-  .ld-log-top { display: flex; gap: 8px; align-items: baseline; font-size: 0.8rem; }
-  .ld-log-top strong { color: var(--sc); font-weight: 800; }
-  .ld-log-top span { font-size: 0.68rem; color: var(--a-muted); }
-  .ld-log-note { font-size: 0.8rem; color: var(--a-sec); line-height: 1.5; overflow-wrap: anywhere; }
-
+  .ld-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  @media (max-width: 767px) { .aa-app.has-detail .aa-main.ld-main { display: flex; } }
+  .ld-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .ld-create { --v-stack-gap: var(--v-space-4); }
 `;

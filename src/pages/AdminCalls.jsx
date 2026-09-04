@@ -15,9 +15,9 @@ import {
 import { useShell, useTopBar } from '../shell/ShellContext';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
-import LeadHistory, { leadHistoryStyles } from '../components/LeadHistory';
-import LeadNotes, { leadNotesStyles } from '../components/LeadNotes';
-import { ScriptSteps, Objections, CloseCards, IntelCards, playbookStyles } from '../components/LeadPlaybook';
+import LeadHistory from '../components/LeadHistory';
+import LeadNotes from '../components/LeadNotes';
+import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/LeadPlaybook';
 import { normalizeSocials } from '../lib/socials';
 import { effectiveStage } from '../lib/booked';
 import { industryFacets } from '../lib/leads';
@@ -292,6 +292,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [size, setSize] = useState(() => readLS(SIZE_KEY, 25));
   const [includePhoneless, setIncludePhoneless] = useState(false);
   const [presetIds, setPresetIds] = useState(null);
+  const [autostart, setAutostart] = useState(null); // ids to start with as soon as leads load (lead detail 'Start call')
   const [indMore, setIndMore] = useState(false);
   const indMoreRef = useRef(null);
 
@@ -318,6 +319,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setSelStatus(new Set(p.status || [])); setSelPrio(new Set(p.prio || [])); setSelInd(new Set()); setSelWin(new Set()); setRightNow(false);
     setPresetIds(Array.isArray(p.ids) && p.ids.length ? p.ids : null);
     setMode('builder');
+    if (p.autostart && Array.isArray(p.ids) && p.ids.length) setAutostart(p.ids);
   }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -392,6 +394,14 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const done = session ? sessionIds.filter(id => session.logged[id]).length : 0;
   const nextIdx = session ? sessionIds.findIndex((id, i) => i >= curIdx && !session.logged[id]) : -1;
 
+  useEffect(() => {
+    if (!autostart || !loaded) return;
+    const ids = autostart.filter(id => leadsById.has(id));
+    setAutostart(null);
+    if (!ids.length) return;
+    setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length });
+    setPredial({}); setTimer(null); setSheet(null); setMode('room');
+  }, [autostart, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const startSession = (startId) => {
     let ids = sized.map(l => l._id);
     if (startId && !ids.includes(startId)) ids = callable.map(l => l._id);
@@ -689,5 +699,4 @@ const ccStyles = `
   .cc-desk-center { min-width: 0; min-height: 0; }
   .cc-desk-scroll { padding: var(--v-space-4); }
   .cc-osheet-form { display: flex; flex-direction: column; gap: var(--v-space-3); }
-${leadHistoryStyles}${leadNotesStyles}${playbookStyles}
 `;

@@ -929,7 +929,7 @@ export default function AdminApp() {
         <AdminBooked
           leads={callLeads}
           submissions={items}
-          loading={callLeadsLoading}
+          loading={callLeadsLoading || forceLoading}
           onPatch={patchCallLead}
           onRefresh={loadCallLeads}
           onLinkSubmission={linkSubmission}
