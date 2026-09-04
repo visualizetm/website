@@ -26,6 +26,7 @@ import AdminLeads from './AdminLeads';
 import AdminClients from './AdminClients';
 import AdminDesign from './AdminDesign';
 import AdminDashboard from './AdminDashboard';
+import AdminCalendar from './AdminCalendar';
 import { ScrollArea, StickyFooterBar, uiStyles, ToastProvider, ConfirmDialog } from '../ui';
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { useTopBar } from '../shell/ShellContext';
@@ -429,9 +430,12 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSu
   const [deleted, setDeleted] = useState(null);
   const [confirmPurge, setConfirmPurge] = useState(false);
   const { state: pushState, enable: enablePush } = usePush();
+  const [integr, setIntegr] = useState(null);
+  const saveReminders = async (rem) => { setIntegr(i => ({ ...i, notif: { ...(i?.notif || {}), reminders: rem } })); await fetch('/api/admin/settings', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ set: { notifications: { reminders: rem } } }) }); };
+  const testPush = async () => { const r = await fetch('/api/admin/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'test-push' }) }); setPwMsg(r.ok ? { err: false, text: 'Test notification sent to every subscribed device.' } : { err: true, text: 'Could not send the test.' }); };
 
   useEffect(() => {
-    fetch('/api/admin/settings').then(r => r.json()).then(d => setPrefs(d.prefs)).catch(() => {});
+    fetch('/api/admin/settings').then(r => r.json()).then(d => { setPrefs(d.prefs); setIntegr({ calendly: d.calendly, reminders: d.reminders, notif: d.notifications }); }).catch(() => {});
   }, []);
 
   const [deletedLeads, setDeletedLeads] = useState(null);
@@ -554,6 +558,26 @@ function SettingsSection({ onDataChanged, onMobileOpen, onMobileClose, initialSu
                     <span><strong>Email backup</strong><br /><span className="aa-muted">contact@visualizeclients.com on every submission</span></span>
                     <span className={`aa-switch${prefs.emailEnabled ? ' is-on' : ''}`}><span className="aa-switch-thumb" /></span>
                   </button>
+                </div>
+              )}
+              {integr && (
+                <div className="aa-togglelist" style={{ marginTop: 8 }}>
+                  <p className="aa-sec-label">Reminders (push, every 15 minutes)</p>
+                  <button type="button" className="aa-togglerow" onClick={() => saveReminders({ ...(integr.notif?.reminders || {}), meetings: !(integr.notif?.reminders?.meetings !== false) })}>
+                    <span><strong>Meeting reminders</strong><br /><span className="aa-muted">One hour before a booked meeting</span></span>
+                    <span className={`aa-switch${integr.notif?.reminders?.meetings !== false ? ' is-on' : ''}`}><span className="aa-switch-thumb" /></span>
+                  </button>
+                  <button type="button" className="aa-togglerow" onClick={() => saveReminders({ ...(integr.notif?.reminders || {}), callbacks: !(integr.notif?.reminders?.callbacks !== false) })}>
+                    <span><strong>Callback reminders</strong><br /><span className="aa-muted">Fifteen minutes before a callback is due</span></span>
+                    <span className={`aa-switch${integr.notif?.reminders?.callbacks !== false ? ' is-on' : ''}`}><span className="aa-switch-thumb" /></span>
+                  </button>
+                  {!integr.reminders?.configured && <p className="aa-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
+                  <button type="button" className="aa-btn" onClick={testPush}><Bell01 width={14} height={14} /> Send test notification</button>
+                  {pwMsg && sub === 'notifications' && <p className={pwMsg.err ? 'aa-msg-err' : 'aa-msg-ok'}>{pwMsg.text}</p>}
+                  <p className="aa-sec-label" style={{ marginTop: 8 }}>Calendly</p>
+                  {integr.calendly?.configured
+                    ? <p className="aa-msg-ok">Connected. Scheduled events show on the Calendar and in notifications.</p>
+                    : <p className="aa-muted">Not connected. Add CALENDLY_TOKEN (a personal access token) in Vercel environment variables and redeploy; nothing else is needed.</p>}
                 </div>
               )}
               <div className="aa-sec" style={{ marginTop: 8 }}>
@@ -713,6 +737,7 @@ export default function AdminApp() {
     if (p.startsWith('/calls')) return 'calls';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/booked')) return 'booked';
+    if (p.startsWith('/calendar')) return 'calendar';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/settings')) return 'settings';
     if (p.startsWith('/design')) return 'design';
@@ -785,6 +810,7 @@ export default function AdminApp() {
   // Callbacks due: every open callback (the console stores no due date, so an
   // unfinished callback is due). Feeds the Call tab badge.
   const callbacksDue = useMemo(() => callLeads.filter(l => l.callStatus === 'callback' && effectiveStage(l) !== 'lost').length, [callLeads]);
+  const calendarToday = useMemo(() => { const today = new Date(); const same = (d) => d && d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate(); return callLeads.filter(l => { const st = effectiveStage(l); if (st === 'lost') return false; if (l.callStatus === 'callback' && (!l.callbackAt || same(new Date(l.callbackAt)) || new Date(l.callbackAt) < today)) return true; if ((st === 'booked' || st === 'won' || st === 'client') && l.meeting?.date) return same(new Date(`${l.meeting.date}T${l.meeting.time || '09:00'}`)); return false; }).length; }, [callLeads]);
 
   // Lead create/delete for the Leads page (reuses the guarded endpoints).
   const createCallLead = useCallback(async (lead) => {
@@ -882,7 +908,7 @@ export default function AdminApp() {
 
   const hasDetail = (section === 'submissions' && selSub) || (section === 'orders' && selOrder) || (section === 'settings' && settingsOpen) || (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: unreadOrders, submissions: unreadSubs };
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: unreadOrders, submissions: unreadSubs, calendar: calendarToday };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -890,7 +916,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading} leads={callLeads} leadsLoading={callLeadsLoading} onRefetchLeads={loadCallLeads}
-      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} styles={uiStyles + shellStyles + aaStyles}>
+      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onLogout={logout} onPatchLead={patchCallLead} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
         <AdminDashboard leads={callLeads} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go(it.type === 'shop-order' ? 'orders' : 'submissions', it._id)} />
@@ -939,6 +965,9 @@ export default function AdminApp() {
           openId={reqFor('booked')}
         />
       )}
+      {section === 'calendar' && (
+        <AdminCalendar leads={callLeads} loading={callLeadsLoading || forceLoading} onPatch={patchCallLead} onCreate={createCallLead} onRefresh={loadCallLeads} openId={reqFor('calendar')} />
+      )}
       {section === 'design' && (
         <AdminDesign onBack={() => go('settings')} />
       )}
@@ -973,7 +1002,7 @@ const aaStyles = `
   .aa-input {
     padding: 9px 12px; border-radius: 10px; width: 100%;
     border: 1px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.04);
-    color: #fafafa; font-size: 0.875rem; font-family: inherit; outline: none;
+    color: var(--v-text); font-size: 0.875rem; font-family: inherit; outline: none;
     transition: border-color 0.2s;
   }
   .aa-input:focus { border-color: var(--a-brand); }
@@ -984,13 +1013,13 @@ const aaStyles = `
     color: var(--a-sec); font-size: 0.8125rem; font-weight: 600; font-family: inherit;
     text-decoration: none; white-space: nowrap; transition: background 0.15s, color 0.15s;
   }
-  .aa-btn:hover { background: rgba(255,255,255,0.1); color: #fafafa; }
-  .aa-btn--primary { background: var(--a-brand); border-color: var(--a-brand); color: #fff; }
-  .aa-btn--primary:hover { background: #c2413a; color: #fff; }
-  .aa-btn--danger { background: #b3362e; border-color: #b3362e; color: #fff; }
-  .aa-btn--danger:hover { background: #9d2f28; color: #fff; }
-  .aa-btn--dangerghost { color: #f87171; border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.07); }
-  .aa-btn--dangerghost:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+  .aa-btn:hover { background: rgba(255,255,255,0.1); color: var(--v-text); }
+  .aa-btn--primary { background: var(--a-brand); border-color: var(--a-brand); color: var(--v-text-on-red); }
+  .aa-btn--primary:hover { background: var(--v-red-hover); color: var(--v-text-on-red); }
+  .aa-btn--danger { background: #b3362e; border-color: #b3362e; color: var(--v-text-on-red); }
+  .aa-btn--danger:hover { background: #9d2f28; color: var(--v-text-on-red); }
+  .aa-btn--dangerghost { color: var(--v-status-danger-text); border-color: rgba(239,68,68,0.35); background: rgba(239,68,68,0.07); }
+  .aa-btn--dangerghost:hover { background: rgba(239,68,68,0.15); color: var(--v-status-danger-text); }
   .aa-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .aa-iconbtn {
     width: 34px; height: 34px; border-radius: 10px; cursor: pointer; flex-shrink: 0;
@@ -998,7 +1027,7 @@ const aaStyles = `
     border: 1px solid var(--a-border); background: rgba(255,255,255,0.05);
     color: var(--a-muted); text-decoration: none; transition: color 0.15s, background 0.15s;
   }
-  .aa-iconbtn:hover { color: #fafafa; background: rgba(255,255,255,0.1); }
+  .aa-iconbtn:hover { color: var(--v-text); background: rgba(255,255,255,0.1); }
   .aa-minibtn {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 6px 11px; border-radius: 8px; cursor: pointer;
@@ -1006,7 +1035,7 @@ const aaStyles = `
     color: var(--a-muted); font-size: 0.72rem; font-weight: 700; font-family: inherit;
     text-decoration: none; transition: color 0.15s;
   }
-  .aa-minibtn:hover { color: #fafafa; }
+  .aa-minibtn:hover { color: var(--v-text); }
   .aa-field { display: flex; flex-direction: column; gap: 5px; }
   .aa-field > span { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; color: var(--a-muted); }
 
@@ -1050,20 +1079,20 @@ const aaStyles = `
     transition: background 0.12s;
   }
   .aa-group:hover { background: rgba(255,255,255,0.05); }
-  .aa-group.is-on { background: rgba(212,76,67,0.12); color: #fafafa; }
+  .aa-group.is-on { background: rgba(212,76,67,0.12); color: var(--v-text); }
   .aa-group-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--sc, var(--a-muted)); flex-shrink: 0; }
   .aa-group-n {
     margin-left: auto; font-size: 0.68rem; font-weight: 800; color: var(--a-muted);
     background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 999px; min-width: 24px; text-align: center;
   }
-  .aa-group.is-on .aa-group-n { background: rgba(212,76,67,0.25); color: #fff; }
+  .aa-group.is-on .aa-group-n { background: rgba(212,76,67,0.25); color: var(--v-text-on-red); }
 
   .aa-selectall {
     display: flex; align-items: center; gap: 8px; padding: 6px 10px;
     background: none; border: none; color: var(--a-muted); cursor: pointer;
     font-size: 0.72rem; font-weight: 700; font-family: inherit;
   }
-  .aa-selectall:hover { color: #fafafa; }
+  .aa-selectall:hover { color: var(--v-text); }
 
   /* The rows list is a ScrollArea; the panel already carries the gutter,
      so the list itself pads only at the bottom. The bulk bar is an in-flow
@@ -1080,7 +1109,7 @@ const aaStyles = `
     display: flex; align-items: center; padding: 0 4px 0 10px;
     background: none; border: none; color: var(--a-muted); cursor: pointer;
   }
-  .aa-row-check:hover { color: #fafafa; }
+  .aa-row-check:hover { color: var(--v-text); }
   .aa-row-main {
     flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
     padding: 11px 8px; background: none; border: none; cursor: pointer;
@@ -1089,7 +1118,7 @@ const aaStyles = `
   .aa-row-dot { width: 7px; height: 7px; border-radius: 50%; background: transparent; flex-shrink: 0; }
   .aa-row.is-unread .aa-row-dot { background: var(--a-brand); }
   .aa-row-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .aa-row-name { font-size: 0.84rem; font-weight: 600; color: #fafafa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .aa-row-name { font-size: 0.84rem; font-weight: 600; color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .aa-row.is-unread .aa-row-name { font-weight: 800; }
   .aa-row-sub { font-size: 0.68rem; color: var(--a-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .aa-row-del {
@@ -1098,7 +1127,7 @@ const aaStyles = `
     transition: color 0.15s;
   }
   .aa-row:hover .aa-row-del { color: var(--a-muted); }
-  .aa-row-del:hover { color: #f87171 !important; }
+  .aa-row-del:hover { color: var(--v-status-danger-text) !important; }
 
   .aa-badge {
     display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
@@ -1140,7 +1169,7 @@ const aaStyles = `
     background: none; border: none; color: var(--a-muted); cursor: pointer;
     font-size: 0.85rem; font-weight: 600; font-family: inherit; padding: 0;
   }
-  .aa-back:hover { color: #fafafa; }
+  .aa-back:hover { color: var(--v-text); }
   .aa-back--mobile { display: none; }
   @media (max-width: 760px) { .aa-back--mobile { display: inline-flex; } }
   .aa-detail-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
@@ -1156,7 +1185,7 @@ const aaStyles = `
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
     color: var(--a-muted); cursor: pointer; font-family: inherit; transition: all 0.15s;
   }
-  .aa-status-opt:hover { color: #fafafa; }
+  .aa-status-opt:hover { color: var(--v-text); }
   .aa-status-opt.is-on {
     color: var(--sc); background: color-mix(in srgb, var(--sc) 14%, transparent);
     border-color: color-mix(in srgb, var(--sc) 45%, transparent);
@@ -1185,14 +1214,14 @@ const aaStyles = `
   /* ── Settings ── */
   .aa-settings-h { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
   .aa-pwform { display: flex; flex-direction: column; gap: 12px; max-width: 380px; margin-top: 6px; }
-  .aa-msg-err { color: #f87171; font-size: 0.82rem; font-weight: 600; }
-  .aa-msg-ok { color: #22c55e; font-size: 0.82rem; font-weight: 600; }
+  .aa-msg-err { color: var(--v-status-danger-text); font-size: 0.82rem; font-weight: 600; }
+  .aa-msg-ok { color: var(--v-status-booked-text); font-size: 0.82rem; font-weight: 600; }
   .aa-togglelist { display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
   .aa-togglerow {
     display: flex; align-items: center; justify-content: space-between; gap: 14px;
     padding: 13px 16px; border-radius: 13px; cursor: pointer;
     background: var(--a-card); border: 1px solid var(--a-border);
-    color: #fafafa; font-size: 0.85rem; font-family: inherit; text-align: left;
+    color: var(--v-text); font-size: 0.85rem; font-family: inherit; text-align: left;
     line-height: 1.45;
   }
   .aa-switch {
@@ -1202,7 +1231,7 @@ const aaStyles = `
   .aa-switch.is-on { background: var(--a-brand); }
   .aa-switch-thumb {
     position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
-    border-radius: 50%; background: #fff; transition: transform 0.2s; display: block;
+    border-radius: 50%; background: var(--v-text-on-red); transition: transform 0.2s; display: block;
   }
   .aa-switch.is-on .aa-switch-thumb { transform: translateX(18px); }
   .aa-exportgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-width: 460px; }

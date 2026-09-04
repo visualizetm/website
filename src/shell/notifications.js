@@ -1,67 +1,52 @@
-/* Notification sources that need no new endpoints. All derived from the
- * call_leads list the shell already loads.
- *
- *  1. Callbacks due: callStatus === 'callback'. The console stores no due
- *     date for a callback (only the log entry's note and timestamp), so
- *     every open callback is due: today if asked today, overdue otherwise.
- *  2. Meetings in the next 24 hours: stage booked with meeting.date/time
- *     (meetingDate() in src/lib/booked.js) between now and now + 24h.
- *  3. New leads in the last 48 hours: createdAt >= now - 48h, stage lead.
- */
+/* Notifications (Prompt 9) built from the one event source in src/lib/events.js
+ * plus two more: an enrichment summary for the last 24 hours and Calendly
+ * bookings that arrived since lastSeenAt. Groups: overdue, today, upcoming
+ * (next 7 days), new (leads created in the last 48h), system. */
 import { normalizeStage } from '../shared/semantics';
-import { meetingDate } from '../lib/booked';
+import { buildEvents, sameDay } from '../lib/events';
 
 const H = 3600e3;
-const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
+export const GROUP_ORDER = ['overdue', 'today', 'upcoming', 'new', 'system'];
+const ICON = { meeting: 'CalendarCheck01', callback: 'PhoneIncoming01', calendly: 'Calendar', scraper: 'Users01' };
 
-export function buildNotifications(leads, now = Date.now()) {
-  const nowD = new Date(now);
+/**
+ * @param {Array} leads
+ * @param {{ calendly?: Array, lastSeenAt?: string|null, snoozedUntil?: object, now?: number }} opts
+ */
+export function buildNotifications(leads, opts = {}) {
+  const now = opts.now || Date.now();
+  const snoozed = opts.snoozedUntil || {};
   const items = [];
-  for (const lead of leads) {
-    const stage = normalizeStage(lead);
-    if (lead.callStatus === 'callback' && stage !== 'lost') {
-      const entries = (lead.callLog || []).filter(e => e.outcome === 'callback');
-      const last = entries[entries.length - 1];
-      // With a callbackAt (Prompt 7) the due time is real: overdue when it has passed,
-      // today when it is today, upcoming otherwise. Without it, the old rule applies:
-      // due today if asked today, overdue if asked on a previous day.
-      const due = lead.callbackAt ? new Date(lead.callbackAt).getTime() : null;
-      const at = due || (last?.at ? new Date(last.at).getTime() : new Date(lead.updatedAt || lead.createdAt || now).getTime());
-      const overdue = due ? due < now : !sameDay(new Date(at), nowD);
-      const group = due && !overdue && !sameDay(new Date(due), nowD) ? 'upcoming' : 'today';
-      items.push({
-        id: `cb:${lead._id}:${lead.callbackAt || last?.at || ''}`, kind: 'callback', group, tone: overdue ? 'danger' : 'callback', icon: 'PhoneIncoming01',
-        title: `${overdue ? 'Overdue callback' : group === 'upcoming' ? 'Callback' : 'Callback due'}: ${lead.business}`,
-        detail: due ? `${new Date(due).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${last?.note ? `, ${last.note}` : ''}` : (last?.note || (lead.bestWindow ? `Best window ${lead.bestWindow}` : 'They asked you to call back.')),
-        at, lead,
-      });
-    }
-    if (stage === 'booked') {
-      const d = meetingDate(lead);
-      if (d && d.getTime() >= now - H && d.getTime() <= now + 24 * H) {
-        items.push({
-          id: `mt:${lead._id}:${lead.meeting?.date}:${lead.meeting?.time || ''}`, kind: 'meeting', group: sameDay(d, nowD) ? 'today' : 'upcoming', tone: 'booked', icon: 'CalendarCheck01',
-          title: `Meeting: ${lead.business}`,
-          detail: `${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${lead.meeting?.type ? ` by ${lead.meeting.type === 'in-person' ? 'in person' : lead.meeting.type}` : ''}${lead.askFor ? `, ask for ${lead.askFor.replace(/^Ask for /i, '')}` : ''}`,
-          at: d.getTime(), lead,
-        });
-      }
-    }
-    if (stage === 'lead' && lead.createdAt) {
-      const c = new Date(lead.createdAt).getTime();
-      if (c >= now - 48 * H && c <= now + H) {
-        items.push({
-          id: `new:${lead._id}`, kind: 'new', group: 'new', tone: 'new', icon: 'Users01',
-          title: `New lead: ${lead.business}`,
-          detail: [lead.industry, lead.area].filter(Boolean).join(', ') || 'Added to the pipeline.',
-          at: c, lead,
-        });
-      }
-    }
+  const events = buildEvents(leads, opts.calendly || [], now);
+  for (const e of events) {
+    if (e.kind === 'scraper') continue;
+    const s = snoozed[e.id]; if (s && new Date(s).getTime() > now) continue;
+    let group;
+    if (e.kind === 'callback' && e.overdue) group = 'overdue';
+    else if (sameDay(e.at, now)) group = 'today';
+    else if (e.at > now && e.at <= now + 7 * 864e5) group = 'upcoming';
+    else if (e.at < now && e.kind === 'meeting') continue; // past meetings are history
+    else if (e.at < now) group = 'overdue';
+    else continue;
+    const lastSeen = opts.lastSeenAt ? new Date(opts.lastSeenAt).getTime() : 0;
+    if (e.kind === 'calendly' && !e.leadId && !(e.calendly?.createdAt ? new Date(e.calendly.createdAt).getTime() > lastSeen : true)) continue;
+    items.push({ id: e.id, kind: e.kind, group, tone: e.tone, icon: ICON[e.kind] || 'Bell01', title: e.title, detail: e.kind === 'callback' || e.kind === 'meeting' || e.kind === 'calendly' ? `${new Date(e.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${e.subtitle ? `, ${e.subtitle}` : ''}` : e.subtitle, at: e.at, lead: e.lead, event: e });
   }
-  const order = { today: 0, upcoming: 1, new: 2 };
-  items.sort((a, b) => order[a.group] - order[b.group] || (a.group === 'new' ? b.at - a.at : a.at - b.at));
+  // New leads in the last 48 hours.
+  for (const l of leads) {
+    if (normalizeStage(l) !== 'lead' || !l.createdAt) continue;
+    const c = new Date(l.createdAt).getTime();
+    if (c >= now - 48 * H && c <= now + H) items.push({ id: `new:${l._id}`, kind: 'new', group: 'new', tone: 'new', icon: 'Users01', title: `New lead: ${l.business}`, detail: [l.industry, l.area].filter(Boolean).join(', ') || (l.sourceId ? 'From the nightly scraper' : 'Added by hand'), at: c, lead: l });
+  }
+  // Enrichment summary for the last 24 hours (System).
+  const scanned = leads.filter(l => l.enrichment?.lastScanAt && now - new Date(l.enrichment.lastScanAt).getTime() < 24 * H);
+  if (scanned.length) {
+    const fields = scanned.reduce((n, l) => n + ['descriptor', 'industry', 'phone', 'email', 'socials', 'intel'].filter(k => l[k] && (typeof l[k] !== 'object' || Object.values(l[k]).some(Boolean))).length, 0);
+    const at = Math.max(...scanned.map(l => new Date(l.enrichment.lastScanAt).getTime()));
+    items.push({ id: `scan:${new Date(at).toISOString().slice(0, 10)}`, kind: 'system', group: 'system', tone: 'progress', icon: 'RefreshCw01', title: `Scan filled ${fields} field${fields === 1 ? '' : 's'} on ${scanned.length} lead${scanned.length === 1 ? '' : 's'}`, detail: `Last scan ${new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`, at });
+  }
+  const order = Object.fromEntries(GROUP_ORDER.map((g, i) => [g, i]));
+  items.sort((a, b) => order[a.group] - order[b.group] || (a.group === 'new' || a.group === 'system' ? b.at - a.at : a.at - b.at));
   return items;
 }
-
-export const GROUP_LABELS = { today: 'Today', upcoming: 'Upcoming', new: 'New leads' };

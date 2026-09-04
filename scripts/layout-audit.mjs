@@ -22,7 +22,7 @@ const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat
 
 const BOOKED_EXTRA = {
   stage: 'booked', callStatus: 'booked',
-  meeting: { date: '2027-01-15', time: '07:00', type: 'call' },
+  meeting: { date: new Date().toISOString().slice(0, 10), time: '16:30', type: 'call', location: 'Zoom ' + UNBROKEN.slice(0, 20) },
   servicesPlanned: ['logo', 'site-onepager', 'stickers', 'brand-kit'],
   pricingOptions: [
     { label: 'Recommended', price: 1150, plan: '6mo', retainer: '$95/mo growth retainer', notes: LONG },
@@ -54,6 +54,8 @@ const leads = Array.from({ length: 12 }, (_, i) => ({
   descriptor: 'A local business with strong reviews.',
   phone: i % 3 === 2 ? '' : i === 5 ? '(302) 555-0114' : `(302) 555-01${10 + i}`, // i=5 duplicates i=4 (merge modal)
   enrichment: i % 2 ? { lastScanAt: new Date(Date.now() - (i > 6 ? 20 : 2) * 864e5).toISOString(), scanCount: i } : undefined,
+  callbackAt: i === 1 ? new Date(Date.now() + 2 * 3600e3).toISOString() : i === 6 ? new Date(Date.now() - 26 * 3600e3).toISOString() : undefined,
+  sourceId: i > 9 ? 'gm:' + i : undefined,
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
   angle: 'Their reviews carry them but the site is a dead link — show them what they lose. '.repeat(3),
@@ -129,7 +131,11 @@ for (const width of WIDTHS) {
   await page.route('**/api/admin/submissions**', r => r.fulfill(json({
     items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }],
   })));
-  await page.route('**/api/admin/settings**', r => r.fulfill(json({ prefs: { pushEnabled: true, emailEnabled: true } })));
+  await page.route('**/api/admin/settings**', r => r.fulfill(json({ prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }, calendly: { configured: true }, reminders: { configured: false, push: true } })));
+  await page.route('**/api/admin/calendly/events**', r => r.fulfill(json({ configured: true, events: [
+    { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
+    { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
+  ] })));
   await page.route('**/api/admin/call-leads**', r => r.fulfill(json({ items: leads })));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
 
@@ -166,6 +172,8 @@ for (const width of WIDTHS) {
 
   await goto('/admin/settings');
   await check('settings');
+  await page.getByRole('button', { name: /Notifications/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await check('settings: notifications and calendly rows');
 
   await goto('/admin/design');
   await check('design system (tokens + components)');
@@ -212,6 +220,33 @@ for (const width of WIDTHS) {
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   await check('session summary');
   await page.evaluate(() => localStorage.removeItem('vz_call_session')).catch(() => {});
+
+  for (const v of ['day', 'week', 'month']) {
+    await page.evaluate((x) => localStorage.setItem('vz_cal_view', JSON.stringify(x)), v).catch(() => {});
+    await goto('/admin/calendar');
+    await check(`calendar ${v}`);
+    if (v === 'day') {
+      for (const f of ['Meetings', 'Callbacks', 'Calendly', 'New leads']) {
+        await page.locator('.cal-filters .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
+        await check(`calendar day: ${f.toLowerCase()} filter`);
+        await page.locator('.cal-filters .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
+      }
+      await page.locator('.cal-add').first().click({ timeout: 3000 }).catch(() => {});
+      await check('calendar: add callback sheet');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+      await page.locator('.cal-row .v-ibtn').first().click({ timeout: 3000 }).catch(() => {});
+      await page.getByRole('menuitem', { name: 'Link to lead' }).first().click({ timeout: 2000 }).catch(() => {});
+      await check('calendar: link to lead sheet');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    }
+    if (v === 'week' && width >= 1024) {
+      await page.locator('.cal-block').first().click({ timeout: 3000 }).catch(() => {});
+      await check('calendar week: event popover');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    }
+  }
+  await goto('/admin/calendar?loading=1');
+  await check('calendar skeleton');
 
   await goto('/admin/booked');
   await check('booked list');

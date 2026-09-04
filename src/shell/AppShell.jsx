@@ -11,6 +11,8 @@ import { quickAddStyles } from './QuickAdd';
 import { navById } from './nav';
 import { buildNotifications } from './notifications';
 import { KEYS, readJSON, writeJSON } from './storage';
+import { apiFetch } from '../shared/api';
+import { buildEvents } from '../lib/events';
 
 /**
  * AppShell: sidebar (desktop), top bar, content, tab bar (mobile), plus the
@@ -31,7 +33,7 @@ import { KEYS, readJSON, writeJSON } from './storage';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onNewLead, onNewClient, onLogout, styles, children,
+  onGo, onOpenLead, onNewLead, onNewClient, onLogout, onPatchLead, styles, children,
 }) {
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
   // 768 to 1023px: the rail only. A 240px sidebar next to the 324px list panel
@@ -43,14 +45,30 @@ export default function AppShell({
   const [cmdOpen, setCmdOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [topBar, setTopBarState] = useState(null);
-  const [readIds, setReadIds] = useState(() => new Set(readJSON(KEYS.notifRead, [])));
+  // Read state, snoozes and Calendly events (Prompt 9). Server first, localStorage as the offline fallback.
+  const [notifDoc, setNotifDoc] = useState(() => ({ readIds: readJSON(KEYS.notifRead, []), lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }));
+  const [calendly, setCalendly] = useState({ configured: null, events: [] });
+  useEffect(() => {
+    apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications); });
+    const from = new Date(Date.now() - 7 * 864e5).toISOString(); const to = new Date(Date.now() + 30 * 864e5).toISOString();
+    apiFetch(`/api/admin/calendly/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then(r => { if (r.ok && r.data) setCalendly({ configured: !!r.data.configured, events: r.data.events || [] }); });
+  }, []);
+  const readIds = useMemo(() => new Set(notifDoc.readIds || []), [notifDoc.readIds]);
+  const saveNotif = useCallback((patch) => { setNotifDoc(d => ({ ...d, ...patch })); if (patch.readIds) writeJSON(KEYS.notifRead, patch.readIds); apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { notifications: patch } } }); }, []);
 
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
 
-  const notifications = useMemo(() => buildNotifications(leads || []), [leads]);
-  const todayUnread = notifications.filter(n => n.group === 'today' && !readIds.has(n.id)).length;
-  const markRead = (ids) => setReadIds(prev => { const next = new Set(prev); ids.forEach(id => next.add(id)); writeJSON(KEYS.notifRead, [...next].slice(-500)); return next; });
+  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
+  const events = useMemo(() => buildEvents(leads || [], calendly.events), [leads, calendly.events]);
+  const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
+  const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
+  const snoozeUntil = (kind) => { const d = new Date(); if (kind === '1h') d.setTime(d.getTime() + 3600e3); else if (kind === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); } else { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0); } return d; };
+  const snooze = (item, kind) => {
+    const until = snoozeUntil(kind);
+    if (item.kind === 'callback' && item.lead && onPatchLead) { onPatchLead(item.lead._id, { callbackAt: until.toISOString() }); }
+    else saveNotif({ snoozedUntil: { ...(notifDoc.snoozedUntil || {}), [item.id]: until.toISOString() } });
+  };
 
   // "/" or Cmd/Ctrl+K opens the command bar unless focus is in a field.
   useEffect(() => {
@@ -69,8 +87,8 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, setTopBar,
-  }), [go, openLead, onNewLead, onNewClient, setTopBar]);
+    newLead: onNewLead, newClient: onNewClient, setTopBar, events, calendly,
+  }), [go, openLead, onNewLead, onNewClient, setTopBar, events, calendly]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
@@ -99,7 +117,8 @@ export default function AppShell({
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />
         <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} items={notifications} loading={leadsLoading} readIds={readIds}
-          onOpenItem={(item) => { markRead([item.id]); openLead(item.lead); }} onMarkAllRead={() => markRead(notifications.map(n => n.id))} onGoCalls={() => go('calls')} />
+          onOpenItem={(item) => { markRead([item.id]); if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
+          onMarkAllRead={() => markRead(notifications.map(n => n.id))} onSnooze={snooze} onDone={(item) => markRead([item.id])} onGoCalls={() => go('calls')} />
         <style>{styles}</style>
       </div>
     </ShellCtx.Provider>

@@ -224,7 +224,7 @@ export default function AdminDashboard({ leads, loading, subs, orders, onOpenSub
   );
   const todayPanel = (
     <Card className="db-today">
-      <Section title="Today" description={`${s.callsToday} of ${target} calls`}>
+      <Section title="Today" description={`${s.callsToday} of ${target} calls`} action={<Button variant="ghost" icon="Calendar" onClick={() => shell.go('calendar')}>Open calendar</Button>}>
         <Row gap={4} align="center">
           <ProgressRing value={ringPct} size={88} thickness={8} tone={ringPct >= 100 ? 'booked' : 'won'} label="Calls today against target">
             <span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.callsToday}</span>

@@ -1,30 +1,40 @@
 import { useMemo } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import CheckDone01 from '@untitled-ui/icons-react/build/esm/CheckDone01';
-import { Sheet, ListRow, IconTile, EmptyState, Button, useDelayedLoading } from '../ui';
+import { Sheet, ListRow, IconTile, EmptyState, Button, Menu, useDelayedLoading } from '../ui';
 import { relativeTime } from '../shared/dates';
-import { GROUP_LABELS } from './notifications';
+import { GROUP_LABELS, GROUP_ORDER } from './notifications';
 
-/** One notification: IconTile with tone, title, one line, relative time. */
-export function NotificationItem({ item, read, onOpen }) {
+const SNOOZES = [['1h', 'In 1 hour'], ['tomorrow', 'Tomorrow 9am'], ['week', 'Next week']];
+
+/** One notification: IconTile with tone, title, one line, relative time, actions Menu. */
+export function NotificationItem({ item, read, onOpen, onSnooze, onDone }) {
+  const canSnooze = item.kind === 'callback' || item.kind === 'meeting' || item.kind === 'calendly';
+  const items = [
+    { id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => onOpen(item) },
+    ...(canSnooze ? ['divider', ...SNOOZES.map(([id, label]) => ({ id: `s:${id}`, label: `Snooze: ${label}`, icon: 'Clock', onSelect: () => onSnooze(item, id) }))] : []),
+    'divider',
+    { id: 'done', label: 'Done', icon: 'Check', onSelect: () => onDone(item) },
+  ];
   return (
     <ListRow className={`sh-notif${read ? ' is-read' : ''}`} leading={<IconTile icon={item.icon} tone={item.tone} size="sm" glow={!read} />}
-      title={item.title} subtitle={item.detail} meta={relativeTime(item.at)} onClick={() => onOpen(item)} chevron={false} />
+      title={item.title} subtitle={item.detail} meta={relativeTime(item.at)} onClick={() => onOpen(item)} chevron={false}
+      trailing={<Menu label="Notification actions" items={items} />} />
   );
 }
 
 /**
- * Notifications drawer: a tall Sheet with Today, Upcoming, New leads.
- * Read state is tracked in localStorage by id until Prompt 9.
+ * Notifications drawer: Overdue, Today, Upcoming, New leads, System.
+ * Read state and snoozes live on the settings 'notifications' document.
  */
-export default function NotificationsDrawer({ open, onClose, items, loading, readIds, onOpenItem, onMarkAllRead, onGoCalls }) {
+export default function NotificationsDrawer({ open, onClose, items, loading, readIds, onOpenItem, onMarkAllRead, onSnooze, onDone, onGoCalls }) {
   const showSkel = useDelayedLoading(loading);
-  const groups = useMemo(() => ['today', 'upcoming', 'new'].map(g => ({ id: g, label: GROUP_LABELS[g], items: items.filter(i => i.group === g) })).filter(g => g.items.length), [items]);
+  const groups = useMemo(() => GROUP_ORDER.map(g => ({ id: g, label: GROUP_LABELS[g], items: items.filter(i => i.group === g) })).filter(g => g.items.length), [items]);
   const unread = items.filter(i => !readIds.has(i.id)).length;
   return (
     <Sheet open={open} onClose={onClose} title="Notifications" tall
       description={items.length ? `${unread} unread` : undefined}
-      footer={items.length ? <Button variant="ghost" icon={CheckDone01} onClick={onMarkAllRead} disabled={!unread}>Mark all read</Button> : undefined}>
+      footer={items.length ? <Button variant="ghost" icon={CheckDone01} onClick={onMarkAllRead} disabled={!unread} className="sh-markall">Mark all read</Button> : undefined}>
       {showSkel && !items.length ? (
         <div className="sh-notif-list">{[1, 2, 3, 4].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</div>
       ) : !items.length ? (
@@ -32,7 +42,7 @@ export default function NotificationsDrawer({ open, onClose, items, loading, rea
       ) : groups.map(g => (
         <div key={g.id} className="sh-notif-group">
           <p className="sh-side-label">{g.label}</p>
-          <div className="sh-notif-list">{g.items.map(item => <NotificationItem key={item.id} item={item} read={readIds.has(item.id)} onOpen={onOpenItem} />)}</div>
+          <div className="sh-notif-list">{g.items.map(item => <NotificationItem key={item.id} item={item} read={readIds.has(item.id)} onOpen={onOpenItem} onSnooze={onSnooze} onDone={onDone} />)}</div>
         </div>
       ))}
     </Sheet>
