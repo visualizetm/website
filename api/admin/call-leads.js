@@ -172,6 +172,8 @@ function sanitize(b) {
     clientSince: b.clientSince !== undefined ? str(b.clientSince, 40) : undefined,
     // Prompt 6 merge: the losing duplicate points at the record it was folded into (additive).
     mergedInto: b.mergedInto !== undefined ? str(b.mergedInto, 64) : undefined,
+    // Prompt 9: the Calendly scheduled event this lead was linked to (additive).
+    calendlyEventUri: b.calendlyEventUri !== undefined ? str(b.calendlyEventUri, 200) : undefined,
     // What the client paid for — a purchases ledger. Additive.
     purchases: Array.isArray(b.purchases)
       ? b.purchases.slice(0, 50).map(p => ({

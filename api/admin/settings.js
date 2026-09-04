@@ -1,7 +1,17 @@
 import { getDb } from '../_lib/mongo.js';
 import { requireAdmin, verifyAdminPassword, hashPassword } from '../_lib/auth.js';
+import { sendPush } from '../_lib/notify.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
+// Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
+const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true } };
+const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
+const notifShape = (d = {}) => ({
+  readIds: strList(d.readIds, 500),
+  lastSeenAt: typeof d.lastSeenAt === 'string' ? d.lastSeenAt : null,
+  snoozedUntil: d.snoozedUntil && typeof d.snoozedUntil === 'object' ? Object.fromEntries(Object.entries(d.snoozedUntil).filter(([, v]) => typeof v === 'string').slice(-200)) : {},
+  reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false },
+});
 const clampTarget = (v) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? Math.max(1, Math.min(500, n)) : DASHBOARD_DEFAULTS.dailyCallTarget;
@@ -24,7 +34,11 @@ export default async function handler(req, res) {
       { upsert: true, returnDocument: 'after' },
     );
     const dashDoc = dash?.value || dash || {};
+    const notif = await settings.findOne({ _id: 'notifications' });
     return res.status(200).json({
+      notifications: notifShape(notif || NOTIF_DEFAULTS),
+      calendly: { configured: !!(process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT) },
+      reminders: { configured: !!process.env.CRON_SECRET, push: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) },
       prefs: {
         pushEnabled: prefs?.pushEnabled !== false,
         emailEnabled: prefs?.emailEnabled !== false,
@@ -44,6 +58,18 @@ export default async function handler(req, res) {
     const allowed = {};
     if (set.dailyCallTarget !== undefined) allowed.dailyCallTarget = clampTarget(set.dailyCallTarget);
     if (set.dashboardLayout !== undefined) allowed.dashboardLayout = set.dashboardLayout && typeof set.dashboardLayout === 'object' ? set.dashboardLayout : null;
+    // Prompt 9: PATCH { set: { notifications: { readIds?, lastSeenAt?, snoozedUntil?, reminders? } } }
+    if (set.notifications && typeof set.notifications === 'object') {
+      const n = set.notifications; const upd = {};
+      if (n.readIds !== undefined) upd.readIds = strList(n.readIds, 500);
+      if (n.lastSeenAt !== undefined) upd.lastSeenAt = typeof n.lastSeenAt === 'string' ? n.lastSeenAt : null;
+      if (n.snoozedUntil !== undefined) upd.snoozedUntil = notifShape({ snoozedUntil: n.snoozedUntil }).snoozedUntil;
+      if (n.reminders !== undefined) upd.reminders = notifShape({ reminders: n.reminders }).reminders;
+      if (!Object.keys(upd).length) return res.status(400).json({ error: 'nothing to update' });
+      await settings.updateOne({ _id: 'notifications' }, { $set: { ...upd, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+      const doc = await settings.findOne({ _id: 'notifications' });
+      return res.status(200).json({ ok: true, notifications: notifShape(doc || {}) });
+    }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     await settings.updateOne({ _id: 'dashboard' }, { $set: { ...allowed, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
     return res.status(200).json({ ok: true, dashboard: allowed });
@@ -72,6 +98,11 @@ export default async function handler(req, res) {
         { $set: { pushEnabled: b.pushEnabled !== false, emailEnabled: b.emailEnabled !== false } },
         { upsert: true },
       );
+      return res.status(200).json({ ok: true });
+    }
+
+    if (b.action === 'test-push') {
+      await sendPush(db, { title: 'Visualize test', body: 'Push reminders reach this device.', url: '/' });
       return res.status(200).json({ ok: true });
     }
 

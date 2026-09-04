@@ -16,6 +16,7 @@ export const NAV = [
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      group: 'Pipeline', badge: 'leads',     tab: true },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabLabel: 'Call' },
   { id: 'booked',      label: 'Booked',           icon: 'CalendarCheck01', path: '/booked',     group: 'Pipeline', badge: 'booked',    tab: true },
+  { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   group: 'Pipeline', badge: 'calendar' },
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    group: 'Clients',  badge: null },
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: null,          group: 'Studio',   badge: null, soon: true },
