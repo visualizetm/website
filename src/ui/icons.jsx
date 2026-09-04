@@ -67,6 +67,15 @@ import PauseCircle from '@untitled-ui/icons-react/build/esm/PauseCircle';
 import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
+/* settings + submissions (Prompt 12) */
+import File06 from '@untitled-ui/icons-react/build/esm/File06';
+import Key01 from '@untitled-ui/icons-react/build/esm/Key01';
+import Archive from '@untitled-ui/icons-react/build/esm/Archive';
+import Printer from '@untitled-ui/icons-react/build/esm/Printer';
+import Database01 from '@untitled-ui/icons-react/build/esm/Database01';
+import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
+import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
+import Download04 from '@untitled-ui/icons-react/build/esm/Download04';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -81,6 +90,8 @@ export const ICONS = {
   RefreshCw01, Link01, Folder, CreditCard01, Send01, LinkExternal01, Colors, PauseCircle,
   /* studio */
   Scissors01, Download01, Upload01,
+  /* settings + submissions */
+  File06, Key01, Archive, Printer, Database01, AlertTriangle, CheckCircle, Download04,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

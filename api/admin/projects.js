@@ -40,7 +40,7 @@ function sanitize(b) {
       used: Math.max(0, Math.min(50, Math.round(num(b.revisions.used, 50)))),
       log: Array.isArray(b.revisions.log) ? b.revisions.log.slice(-50).map(r => ({ at: str(r?.at, 40), note: str(r?.note, 600), extra: !!r?.extra })) : [],
     } : undefined,
-    plan: b.plan && typeof b.plan === 'object' ? { months: Math.round(num(b.plan.months, 60)), monthly: num(b.plan.monthly), stripeCancelled: !!b.plan.stripeCancelled } : b.plan === null ? null : undefined,
+    plan: b.plan && typeof b.plan === 'object' ? { months: Math.round(num(b.plan.months, 60)), monthly: num(b.plan.monthly), stripeCancelled: !!b.plan.stripeCancelled, stripeSubscriptionId: str(b.plan.stripeSubscriptionId, 80), stripeCancelledAt: str(b.plan.stripeCancelledAt, 40) } : b.plan === null ? null : undefined,
     links: b.links && typeof b.links === 'object' ? { drive: str(b.links.drive, 400), clickup: str(b.links.clickup, 400) } : undefined,
     deliverables: Array.isArray(b.deliverables)
       ? b.deliverables.slice(0, 60).map(d => ({ id: str(d?.id, 40), group: str(d?.group, 8), label: str(d?.label, 120), done: !!d?.done, link: str(d?.link, 400) })) : undefined,

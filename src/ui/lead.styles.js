@@ -94,8 +94,17 @@ export const leadDetailStyles = `
   .dt-outbar-row > .v-btn { flex: 1 1 140px; }
 `;
 
-/* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-). */
+/* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-).
+ * Prompt 12: the list plus right panel split (po-) used by Print Orders,
+ * Concepts, and Submissions lives here so every screen shares it. */
 export const clientStyles = `
+  .po-shell.aa-main { display: flex; flex-direction: column; }
+  .po-split { display: flex; flex: 1; min-height: 0; min-width: 0; }
+  .po-page { --v-stack-gap: var(--v-space-4); flex: 1; min-width: 0; }
+  .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; }
+  @media (min-width: 1440px) { .po-panel { width: 520px; } }
+  .po-panel-scroll { padding: var(--v-space-4); }
+
   .clc { display: flex; flex-direction: column; min-width: 0; }
   .clc .lc { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   .clc:has(> .lc:only-child) .lc, .clc > .lc:last-child { border-radius: var(--v-radius-md); }
@@ -153,6 +162,9 @@ export const clientStyles = `
   .cw-plan { gap: var(--v-space-3); }
   .cw-kv { display: flex; flex-direction: column; gap: 2px; font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 0; font-variant-numeric: tabular-nums; }
   .cw-stripe { gap: var(--v-space-2); border-color: color-mix(in srgb, var(--v-status-danger-solid) 45%, transparent); background: var(--v-status-danger-soft); }
+  .cw-stripe--ok { border-color: color-mix(in srgb, var(--v-status-booked-solid) 45%, transparent); background: var(--v-status-booked-soft); }
+  .cw-stripe-h--ok { color: var(--v-status-booked-text); }
+  .cw-sub-id { font-size: var(--v-text-sm); font-family: var(--v-font-mono, monospace); }
   .cw-stripe-h { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-status-danger-text); }
   .cw-ledger { gap: var(--v-space-3); }
   .cw-ledger-row .v-lrow-meta { font-weight: var(--v-weight-bold); color: var(--v-text); font-variant-numeric: tabular-nums; }

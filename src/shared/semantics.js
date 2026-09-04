@@ -210,6 +210,17 @@ export const REVIEW_RESULTS = [
 ];
 export const REVIEW_RESULT_IDS = REVIEW_RESULTS.map(r => r.id);
 
+/* ── Submission types (Prompt 12) ──────────────────────────────── */
+export const SUBMISSION_TYPES = [
+  { id: 'start',      label: 'Brief',     icon: 'Inbox01',   order: 0, ...tone('progress') },
+  { id: 'contact',    label: 'Contact',   icon: 'Mail01',    order: 1, ...tone('callback') },
+  { id: 'review',     label: 'Review',    icon: 'Star01',    order: 2, ...tone('won') },
+  { id: 'shop-order', label: 'Shop order', icon: 'Package',  order: 3, ...tone('booked') },
+  { id: 'other',      label: 'Other',     icon: 'File06',    order: 4, ...tone('neutral') },
+];
+export const SUBMISSION_TYPE_IDS = SUBMISSION_TYPES.map(t => t.id);
+export const submissionTypeOf = (id) => SUBMISSION_TYPES.find(t => t.id === id) || SUBMISSION_TYPES[4];
+
 /* ── Industry normalization ────────────────────────────────────── */
 /** The nightly enricher writes lowercase industries ("food & beverage")
  *  while spreadsheet imports keep Title Case. Compare and group on this

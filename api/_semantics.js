@@ -22,3 +22,5 @@ export const ORDER_SOURCE_IDS = ['shop', 'client', 'walk-in', 'import'];
 export const CONCEPT_KIND_IDS = ['logo', 'brand-board', 'social', 'website', 'signage', 'apparel', 'vehicle', 'packaging', 'ads', 'other'];
 export const REVIEW_CHANNEL_IDS = ['nfc', 'text', 'email', 'in-person'];
 export const REVIEW_RESULT_IDS = ['asked', 'left', 'declined'];
+// Prompt 12: submission types accepted by api/submissions.js.
+export const SUBMISSION_TYPE_IDS = ['start', 'contact', 'review', 'shop-order', 'other'];

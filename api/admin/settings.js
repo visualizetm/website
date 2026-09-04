@@ -1,16 +1,21 @@
 import { getDb } from '../_lib/mongo.js';
 import { requireAdmin, verifyAdminPassword, hashPassword } from '../_lib/auth.js';
 import { sendPush } from '../_lib/notify.js';
+import { stripeHealth } from '../_lib/stripe.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
-const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true } };
+const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true } };
+// Prompt 12: the profile document (greeting name, business hours for the best window).
+const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } };
+const hhmm = (v, d) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
+const profileShape = (d = {}) => ({ name: String(d.name || PROFILE_DEFAULTS.name).slice(0, 80), businessHours: { start: hhmm(d.businessHours?.start, '09:00'), end: hhmm(d.businessHours?.end, '17:00') } });
 const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
 const notifShape = (d = {}) => ({
   readIds: strList(d.readIds, 500),
   lastSeenAt: typeof d.lastSeenAt === 'string' ? d.lastSeenAt : null,
   snoozedUntil: d.snoozedUntil && typeof d.snoozedUntil === 'object' ? Object.fromEntries(Object.entries(d.snoozedUntil).filter(([, v]) => typeof v === 'string').slice(-200)) : {},
-  reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false },
+  reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false, bills: d.reminders?.bills !== false, reviews: d.reminders?.reviews !== false },
 });
 const clampTarget = (v) => {
   const n = Math.round(Number(v));
@@ -34,9 +39,15 @@ export default async function handler(req, res) {
       { upsert: true, returnDocument: 'after' },
     );
     const dashDoc = dash?.value || dash || {};
-    const notif = await settings.findOne({ _id: 'notifications' });
+    const [notif, profile, health] = await Promise.all([settings.findOne({ _id: 'notifications' }), settings.findOne({ _id: 'profile' }), settings.findOne({ _id: 'health' })]);
+    let stripe = { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
+    try { stripe = await stripeHealth(db); } catch { /* the card shows not connected */ }
     return res.status(200).json({
       notifications: notifShape(notif || NOTIF_DEFAULTS),
+      profile: profileShape(profile || {}),
+      health: health ? { enrichment: health.enrichment || null, scraper: health.scraper || null, crons: health.crons || {}, stripe: health.stripe || null, lastBackupAt: health.lastBackupAt ? new Date(health.lastBackupAt).toISOString() : null } : null,
+      stripe,
+      cron: { configured: !!process.env.CRON_SECRET },
       calendly: { configured: !!(process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT) },
       reminders: { configured: !!process.env.CRON_SECRET, push: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) },
       prefs: {
@@ -58,6 +69,13 @@ export default async function handler(req, res) {
     const allowed = {};
     if (set.dailyCallTarget !== undefined) allowed.dailyCallTarget = clampTarget(set.dailyCallTarget);
     if (set.dashboardLayout !== undefined) allowed.dashboardLayout = set.dashboardLayout && typeof set.dashboardLayout === 'object' ? set.dashboardLayout : null;
+    // Prompt 12: PATCH { set: { profile: { name?, businessHours? } } }
+    if (set.profile && typeof set.profile === 'object') {
+      const cur = (await settings.findOne({ _id: 'profile' })) || {};
+      const next = profileShape({ ...cur, ...set.profile, businessHours: { ...(cur.businessHours || {}), ...(set.profile.businessHours || {}) } });
+      await settings.updateOne({ _id: 'profile' }, { $set: { ...next, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+      if (!Object.keys(allowed).length && !set.notifications) return res.status(200).json({ ok: true, profile: next });
+    }
     // Prompt 9: PATCH { set: { notifications: { readIds?, lastSeenAt?, snoozedUntil?, reminders? } } }
     if (set.notifications && typeof set.notifications === 'object') {
       const n = set.notifications; const upd = {};

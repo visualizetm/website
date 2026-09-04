@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   const db = await getDb();
   const settings = db.collection('settings');
   const doc = (await settings.findOne({ _id: 'notifications' })) || {};
-  const prefs = { meetings: doc.reminders?.meetings !== false, callbacks: doc.reminders?.callbacks !== false };
+  const prefs = { meetings: doc.reminders?.meetings !== false, callbacks: doc.reminders?.callbacks !== false, bills: doc.reminders?.bills !== false, reviews: doc.reminders?.reviews !== false };
   const sent = new Set(doc.sentReminderKeys || []);
   const now = Date.now();
   const leads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ callStatus: 'callback', callbackAt: { $exists: true, $ne: '' } }, { 'meeting.date': { $exists: true, $ne: '' } }] }).project({ business: 1, callbackAt: 1, callStatus: 1, meeting: 1, stage: 1, phone: 1 }).toArray();
@@ -32,11 +32,28 @@ export default async function handler(req, res) {
       if (d && d.getTime() >= now - 60e3 && d.getTime() <= now + 60 * 60e3) due.push({ key: `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`, title: `Meeting with ${l.business}`, body: `Starts ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.meeting.location ? `, ${l.meeting.location}` : ''}`, url: `${base}/booked?open=${l._id}` });
     }
   }
+  // Prompt 12: retainer bills due today (once per bill date) and review asks (3 days after a release, zero asks), once each.
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayKey = (() => { const x = new Date(); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; })();
+  if (prefs.bills || prefs.reviews) {
+    const clients = await db.collection('call_leads').find({ deleted: { $ne: true }, stage: 'client' }).project({ business: 1, retainer: 1, reviews: 1 }).toArray();
+    const released = prefs.reviews ? await db.collection('projects').find({ archived: { $ne: true }, releasedAt: { $exists: true, $ne: '' } }).project({ leadId: 1, name: 1, releasedAt: 1 }).toArray() : [];
+    for (const l of clients) {
+      const r = l.retainer;
+      if (prefs.bills && r && ['active', 'ending'].includes(r.status) && String(r.nextBillAt || '').slice(0, 10) === todayKey) due.push({ key: `bill:${l._id}:${todayKey}`, title: `Bill ${l.business} today`, body: `$${Number(r.amount || 0).toLocaleString()} retainer bill is due today.`, url: `${base}/clients?open=${l._id}` });
+      if (prefs.reviews && !(l.reviews?.asks || []).length) {
+        const rel = released.filter(p => String(p.leadId) === String(l._id)).sort((a, b) => new Date(b.releasedAt) - new Date(a.releasedAt))[0];
+        if (rel && new Date(rel.releasedAt).getTime() + 3 * 864e5 <= now) due.push({ key: `review:${l._id}:${String(rel.releasedAt).slice(0, 10)}`, title: `Ask ${l.business} for a review`, body: `${rel.name} was released three days ago and nobody has asked yet.`, url: `${base}/reviews?open=${l._id}` });
+      }
+    }
+  }
   const fresh = due.filter(d => !sent.has(d.key));
   for (const d of fresh) { try { await sendPush(db, { title: d.title, body: d.body, url: d.url }); } catch { /* one bad subscription must not stop the rest */ } }
   if (fresh.length) {
     const keys = [...sent, ...fresh.map(d => d.key)].slice(-500);
     await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
+  // Task health stamp (Prompt 12).
+  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders': { lastRunAt: new Date().toISOString(), checked: due.length, sent: fresh.length }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length });
 }

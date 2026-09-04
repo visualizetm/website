@@ -14,7 +14,7 @@ const ICON = { meeting: 'CalendarCheck01', callback: 'PhoneIncoming01', calendly
 
 /**
  * @param {Array} leads
- * @param {{ calendly?: Array, projects?: Array, lastSeenAt?: string|null, snoozedUntil?: object, now?: number }} opts
+ * @param {{ calendly?: Array, projects?: Array, health?: object, lastSeenAt?: string|null, snoozedUntil?: object, now?: number }} opts
  */
 export function buildNotifications(leads, opts = {}) {
   const now = opts.now || Date.now();
@@ -56,6 +56,14 @@ export function buildNotifications(leads, opts = {}) {
     if (!due) continue;
     const id = `review:${l._id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
     items.push({ id, kind: 'review', group: 'system', tone: 'won', icon: 'Star01', title: `Ask ${l.business} for a review`, detail: `${due.project.name} was released ${new Date(due.project.releasedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} and nobody has asked yet.`, at: due.at, lead: l });
+  }
+  // Prompt 12: task health. The enrichment scan or the scraper going quiet for 36 hours is a System item.
+  const h = opts.health;
+  if (h) {
+    const stale = (at) => !at || now - new Date(at).getTime() > 36 * H;
+    const staleMsg = (at) => (at ? `Last ran ${new Date(at).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric' })}.` : 'No run recorded yet.');
+    if (h.enrichment && stale(h.enrichment.lastScanAt)) { const id = 'health:enrichment'; const sn = snoozed[id]; if (!(sn && new Date(sn).getTime() > now)) items.push({ id, kind: 'health', group: 'system', tone: 'danger', icon: 'AlertTriangle', title: 'The enrichment scan has not run in 36 hours', detail: `${staleMsg(h.enrichment.lastScanAt)} Check the nightly job.`, at: now }); }
+    if (h.scraper && stale(h.scraper.lastInsertAt)) { const id = 'health:scraper'; const sn = snoozed[id]; if (!(sn && new Date(sn).getTime() > now)) items.push({ id, kind: 'health', group: 'system', tone: 'danger', icon: 'AlertTriangle', title: 'The scraper has not added a lead in 36 hours', detail: `${staleMsg(h.scraper.lastInsertAt)} Check the nightly job.`, at: now }); }
   }
   // New leads in the last 48 hours.
   for (const l of leads) {

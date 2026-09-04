@@ -1,22 +1,32 @@
 /* One date toolkit for the mixed formats the data carries:
  *   - ISO timestamps    "2026-08-22T17:10:34.820Z"  (callLog.at, clientSince, bookedOutcome.at)
- *   - date-only strings "2026-08-06"                (purchases.at, contactLog.at, meeting.date)
+ *   - date-only strings "2026-08-06"                (purchases.at, contactLog.at, meeting.date, dueAt)
  *   - Date objects      (createdAt / updatedAt from the driver)
  *
- * KNOWN BUG, DELIBERATELY PRESERVED (Prompt 2 rule: identical output):
- * parseDate() still hands date-only strings to `new Date(s)`, which the
- * spec parses as UTC midnight, so fmtDate('2026-08-06') renders "Aug 5" in
- * US timezones. A later prompt fixes it here, in one place, by parsing
- * YYYY-MM-DD as local midnight. Do not fix it piecemeal in screens.
+ * Prompt 12: a date-only string is a calendar day the user typed, so it
+ * parses as LOCAL midnight (the spec's default is UTC midnight, which showed
+ * "Aug 5" for "2026-08-06" in US time zones). Nothing stored changes; only
+ * parsing does. scripts/dates-test.mjs covers both formats and DST edges.
  */
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Date | null. Accepts Date, ISO string, YYYY-MM-DD, or epoch number. */
+/** Date | null. Accepts Date, ISO string, YYYY-MM-DD (local midnight), or epoch number. */
 export function parseDate(v) {
   if (v == null || v === '') return null;
-  const d = v instanceof Date ? v : new Date(v);
+  if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
+  if (typeof v === 'string' && DATE_ONLY.test(v)) {
+    const [y, m, d] = v.split('-').map(Number);
+    const local = new Date(y, m - 1, d);
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+  const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+/** The local calendar day of any date value as YYYY-MM-DD. */
+export function dayKey(v = new Date()) {
+  const d = parseDate(v); if (!d) return '';
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 export const isDateOnly = (v) => typeof v === 'string' && DATE_ONLY.test(v);
 export const toMs = (v) => parseDate(v)?.getTime() || 0;
@@ -36,8 +46,8 @@ export function fmtWeekdayDateTime(v) {
   const d = parseDate(v);
   return d ? d.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 }
-/** Local ISO date for <input type="date"> defaults. */
-export const todayInput = () => new Date().toISOString().slice(0, 10);
+/** Local calendar date for <input type="date"> defaults (was UTC before Prompt 12). */
+export const todayInput = () => dayKey(new Date());
 
 /** Whole days between v and now (floored, never negative). */
 export function daysSince(v, now = Date.now()) {

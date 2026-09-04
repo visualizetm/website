@@ -295,12 +295,7 @@ export default function AdminOrders({ orders = [], loading, unimported = 0, lead
 }
 
 const poStyles = `
-  .po-shell.aa-main { display: flex; flex-direction: column; }
-  .po-split { display: flex; flex: 1; min-height: 0; min-width: 0; }
-  .po-page { --v-stack-gap: var(--v-space-4); flex: 1; min-width: 0; }
-  .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; }
-  @media (min-width: 1440px) { .po-panel { width: 520px; } }
-  .po-panel-scroll { padding: var(--v-space-4); }
+  /* The list plus panel split (.po-split, .po-panel) ships in uiStyles (src/ui/lead.styles.js). */
   .po-card { gap: var(--v-space-2); text-align: left; align-items: stretch; }
   .po-card-name { flex: 1; min-width: 0; font-weight: var(--v-weight-bold); color: var(--v-text); }
   .po-card-items { font-size: var(--v-text-sm); color: var(--v-text-2); }

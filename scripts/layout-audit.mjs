@@ -94,6 +94,12 @@ const projects = [
     delivery: { driveShared: true, emailSent: true, pitchSent: false, followUpLeadCallbackAt: '' }, releasedAt: new Date(Date.now() - 6 * 864e5).toISOString(), monthly: [], createdAt: '2026-11-01', archived: false },
 ];
 // Studio fixtures (Prompt 11): two shop orders (one rush), one client order, two packs, one review submission.
+// Prompt 12 fixtures: two Stripe events (one unmatched), a health document with a stale scraper.
+const stripeEvents = [
+  { id: 'evt_matched', type: 'charge.succeeded', amount: 200, currency: 'usd', customerEmail: 'p4@x.com', customerName: 'Lead Business 11', description: 'Launch Plan month 5', subscriptionId: 'sub_1', at: daysFrom(-1), matchedLeadId: 'L11', ledgerId: 'lg4', receivedAt: daysFrom(-1) },
+  { id: 'evt_unmatched', type: 'invoice.paid', amount: 250, currency: 'usd', customerEmail: 'unknown.person@' + UNBROKEN.slice(0, 20).toLowerCase() + '.com', customerName: 'Unknown Person ' + UNBROKEN.slice(0, 20), description: 'Content Kit ' + UNBROKEN.slice(0, 20), subscriptionId: 'sub_2', at: NOW_ISO, matchedLeadId: '', ledgerId: '', receivedAt: NOW_ISO },
+];
+const health = { enrichment: { lastScanAt: new Date(Date.now() - 6 * 3600e3).toISOString(), leadsScannedLast24h: 41, fieldsFilledLast24h: 97 }, scraper: { lastInsertAt: new Date(Date.now() - 50 * 3600e3).toISOString(), insertedLast24h: 0, insertedLast7d: 63 }, crons: { reminders: { lastRunAt: new Date(Date.now() - 9 * 60e3).toISOString(), checked: 3, sent: 1 }, daily: { lastRunAt: new Date(Date.now() - 5 * 3600e3).toISOString(), rolled: 1, cancelled: 0, extended: 1 } }, stripe: { lastWebhookAt: NOW_ISO, unmatched: 1 }, lastBackupAt: daysFrom(-3) };
 const orders = [
   { _id: 'O1', source: 'shop', status: 'new', submissionId: 'id0', leadId: '', customer: { name: 'Person 0 ' + UNBROKEN.slice(0, 20), email: 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com', phone: '(302) 555-0100' },
     items: [{ id: 'i1', productId: '', name: 'Logo Die-Cut Sticker', label: 'Qty 100, 3 in', qty: 100, options: {}, artworkLink: '', priceTotal: 100, quote: false }, { id: 'i2', productId: '', name: 'Custom Text Vinyl ' + UNBROKEN.slice(0, 30), label: '6 x 24', qty: 1, options: { color: 'White' }, artworkLink: 'https://example.com/' + UNBROKEN, priceTotal: null, quote: true }],
@@ -135,14 +141,14 @@ const leads = Array.from({ length: 14 }, (_, i) => ({
 
 const items = Array.from({ length: 13 }, (_, i) => ({
   _id: 'id' + i,
-  type: i === 12 ? 'review' : i % 4 === 0 ? 'shop-order' : 'start',
+  type: i === 12 ? 'review' : i === 2 ? 'contact' : i === 6 ? 'other' : i % 4 === 0 ? 'shop-order' : 'start',
   projectType: 'Brand', name: 'Person ' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : 'Business ' + i,
   email: i === 2 ? 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com' : `p${i}@x.com`,
   linkedLeadId: i === 3 ? 'L0' : undefined,
   phone: '(302) 555-0100', status: ['new', 'contacted', 'replied', 'landed', 'denied'][i % 5],
   read: i % 2 === 0, notes: '', socials: {},
-  fields: i === 12 ? { rating: 5, text: 'Rob nailed the logo. ' + UNBROKEN } : { 'Business Description': UNBROKEN, Budget: '$600' },
+  fields: i === 12 ? { rating: 5, text: 'Rob nailed the logo. ' + UNBROKEN } : i === 2 ? { Message: 'Can you do a quick logo? ' + UNBROKEN } : { 'Business Description': UNBROKEN, Budget: '$600', 'What do you sell': 'Mobile detailing for busy people.\nSecond line of the answer.', Timeline: 'Two weeks' },
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
 }));
 
@@ -195,7 +201,10 @@ for (const width of WIDTHS) {
   await page.route('**/api/admin/submissions**', r => r.fulfill(json({
     items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }],
   })));
-  await page.route('**/api/admin/settings**', r => r.fulfill(json({ prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }, calendly: { configured: true }, reminders: { configured: false, push: true } })));
+  await page.route('**/api/admin/settings**', r => r.fulfill(json({ prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, passwordOverridden: false })));
+  await page.route('**/api/admin/stripe/**', r => r.fulfill(json({ configured: true, items: stripeEvents.filter(e => !e.matchedLeadId), events: stripeEvents, ok: true })));
+  await page.route('**/api/admin/submissions?deleted=1**', r => r.fulfill(json({ items: items.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
+  await page.route('**/api/admin/call-leads?deleted=1**', r => r.fulfill(json({ items: leads.slice(0, 2).map(x => ({ ...x, deleted: true, deletedAt: NOW_ISO })) })));
   await page.route('**/api/admin/calendly/events**', r => r.fulfill(json({ configured: true, events: [
     { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
     { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
@@ -223,27 +232,87 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'clients' or 'studio' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', or 'studio' reruns just that block
 
-  if (!only) {
+  if (!only || only === 'settings') {
+  // Settings and Submissions (Prompt 12).
+  await goto('/admin/submissions');
+  await check('submissions list');
+  for (const f of ['Unread', 'Brief', 'Contact', 'Review', 'Shop order', 'Other']) {
+    await page.locator('.sb-chips .v-chip', { hasText: new RegExp('^' + f) }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`submissions list: ${f.toLowerCase()}`);
+    await page.locator('.sb-chips .v-chip', { hasText: /^All/ }).first().click({ timeout: 3000 }).catch(() => {});
+  }
+  await goto('/admin/submissions?loading=1');
+  await check('submissions skeleton');
+  await goto('/admin/submissions');
+  if (width >= 1024) await page.locator('.v-tr', { hasText: 'Business 5' }).first().click({ timeout: 4000 }).catch(() => {});
+  else await page.getByRole('button', { name: /^Open submission from Business 5/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('submission detail (brief)');
+  await page.locator('.sb-open-brief').first().click({ timeout: 3000 }).catch(() => {});
+  await check('submission: brief view');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.sb-link').first().click({ timeout: 3000 }).catch(() => {});
+  await check('submission: link to lead sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.sb-convert').first().click({ timeout: 3000 }).catch(() => {});
+  await check('submission: convert to lead sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/submissions');
+  if (width >= 1024) await page.locator('.v-tr', { hasText: LONG }).first().click({ timeout: 4000 }).catch(() => {});
+  else await page.getByRole('button', { name: new RegExp('^Open submission from Philly') }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('submission detail (long name, shop order)');
+
+  await goto('/admin/settings');
+  await check('settings: profile');
+  for (const t of ['Notifications', 'Integrations', 'Data', 'Automation', 'Shortcuts', 'Danger zone']) {
+    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`settings: ${t.toLowerCase()}`);
+    if (t === 'Integrations') {
+      await page.locator('.st-reconcile').first().click({ timeout: 3000 }).catch(() => {});
+      await check('settings: reconcile sheet');
+      await page.locator('.st-link-event').first().click({ timeout: 3000 }).catch(() => {});
+      await check('settings: reconcile link to client');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    }
+    if (t === 'Data') {
+      await page.locator('.st-import-leads').first().click({ timeout: 3000 }).catch(() => {});
+      await check('settings: lead import sheet');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+      await page.locator('.st-import-orders').first().click({ timeout: 3000 }).catch(() => {});
+      await check('settings: orders csv import sheet');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+      await page.evaluate(() => { try { localStorage.setItem('vz_print_orders', JSON.stringify([{ id: 1, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Local Person Superlongunbrokenname', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'logo-sticker', productName: 'Logo Die-Cut Sticker', label: 'Qty 100', priceMode: 'sticker', priceTotal: 100, vals: { qty: '100', size: '3 in' } }], summary: 'x', estimatedSubtotal: 100, hasQuoteItems: false }])); } catch {} }).catch(() => {});
+      await page.locator('.st-import-device').first().click({ timeout: 3000 }).catch(() => {});
+      await check('settings: device import preview');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+      await page.evaluate(() => localStorage.removeItem('vz_print_orders')).catch(() => {});
+    }
+  }
+  await goto('/admin/settings?loading=1');
+  await check('settings skeleton');
+  await goto('/admin/settings/deleted');
+  await check('settings: recently deleted via nav');
+  if (width >= 768) {
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await goto('/admin/settings');
+    await check('sidebar collapsed: settings');
+    await goto('/admin/submissions');
+    await check('sidebar collapsed: submissions');
+    await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+    await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
+  }
+  if (only === 'settings') { await ctx.close(); continue; }
+
   await goto('/admin');
   await page.evaluate(() => localStorage.removeItem('vz_call_session'));
   await check('dashboard');
   await goto('/admin/?loading=1');
   await check('dashboard skeleton');
 
-  await goto('/admin/submissions');
-  await check('submissions list');
-  await page.locator('.aa-row-main').first().click({ timeout: 4000 }).catch(() => {});
-  await check('submission detail (long name)');
-
   await goto('/admin/orders');
   await check('orders list');
-
-  await goto('/admin/settings');
-  await check('settings');
-  await page.getByRole('button', { name: /Notifications/ }).first().click({ timeout: 3000 }).catch(() => {});
-  await check('settings: notifications and calendly rows');
 
   await goto('/admin/design');
   await check('design system (tokens + components)');
@@ -468,13 +537,6 @@ for (const width of WIDTHS) {
   await check('new order: pick a client');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await goto('/admin/settings');
-  await page.getByRole('button', { name: /^Data/ }).first().click({ timeout: 3000 }).catch(() => {});
-  await page.evaluate(() => { try { localStorage.setItem('vz_print_orders', JSON.stringify([{ id: 1, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Local Person Superlongunbrokenname', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'logo-sticker', productName: 'Logo Die-Cut Sticker', label: 'Qty 100', priceMode: 'sticker', priceTotal: 100, vals: { qty: '100', size: '3 in' } }], summary: 'x', estimatedSubtotal: 100, hasQuoteItems: false }, { id: 2, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Person 4', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'ig-vinyl', productName: 'Instagram Handle Vinyl', label: '@x', priceMode: 'flat', priceTotal: 15, vals: {} }], summary: 'y', estimatedSubtotal: 15, hasQuoteItems: false }])); } catch {} }).catch(() => {});
-  await page.locator('.aa-import-local').first().click({ timeout: 3000 }).catch(() => {});
-  await check('settings: import preview');
-  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await page.evaluate(() => localStorage.removeItem('vz_print_orders')).catch(() => {});
 
   await goto('/admin/concepts');
   await check('concepts grid');

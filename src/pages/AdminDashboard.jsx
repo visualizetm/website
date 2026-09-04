@@ -104,7 +104,8 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
   return s;
 }
 
-const greetingFor = (h) => (h < 12 ? 'Good morning, Rob.' : h < 17 ? 'Good afternoon, Rob.' : 'Good evening, Rob.');
+const greetingFor = (h, name = 'Rob') => (h < 12 ? `Good morning, ${name}.` : h < 17 ? `Good afternoon, ${name}.` : `Good evening, ${name}.`);
+const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return true; const m = d.getHours() * 60 + d.getMinutes(); const [a, b] = [bh.start, bh.end].map(t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }); return m >= a && m < b; };
 const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cur - prev >= 0 ? '+' : ''}${cur - prev} vs ${label}`, direction: cur > prev ? 'up' : cur < prev ? 'down' : 'flat' });
 const EVENT_TONE = { call: 'progress', purchase: 'won', won: 'won', client: 'booked', lead: 'new', scraper: 'new', submission: 'callback', order: 'callback' };
 const EVENT_ICON = { call: 'PhoneCall01', purchase: 'CurrencyDollar', won: 'Trophy01', client: 'Briefcase01', lead: 'Users01', scraper: 'Users01', submission: 'Inbox01', order: 'Package' };
@@ -162,12 +163,14 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
   }, [notes]);
 
   const hour = new Date().getHours();
+  const name = (shell?.profile?.name || 'Rob').split(' ')[0];
+  const outside = !inHours(shell?.profile?.businessHours);
   const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const mtToday = notes.filter(n => n.kind === 'meeting' && n.group === 'today').length;
   const context = s.callbacks > 0 ? `${s.callbacks} callback${s.callbacks === 1 ? '' : 's'} due`
     : mtToday > 0 ? `${mtToday} meeting${mtToday === 1 ? '' : 's'} today`
     : s.newLeads48h > 0 ? `${s.newLeads48h} new lead${s.newLeads48h === 1 ? '' : 's'} since yesterday`
-    : 'Queue is clear. Good day to dial.';
+    : outside ? 'Outside business hours. Plan tomorrow or prep concepts.' : 'Queue is clear. Good day to dial.';
 
   if (showSkel || (loading && !(leads || []).length)) {
     return (
@@ -202,7 +205,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
   const header = (
     <div className="db-head">
       <Stack gap={1}>
-        <h2 className="db-greet">{greetingFor(hour)}</h2>
+        <h2 className="db-greet">{greetingFor(hour, name)}</h2>
         <p className="db-context">{dateLine}. {context}</p>
       </Stack>
       <Row gap={2} wrap className="db-head-actions">

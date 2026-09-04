@@ -187,6 +187,9 @@ function sanitize(b) {
           // Prompt 10 additive: ledger id (schedule items point at it) and the project it paid for.
           ...(p?.id ? { id: str(p.id, 40) } : {}),
           ...(p?.projectId ? { projectId: str(p.projectId, 64) } : {}),
+          // Prompt 12 additive: where the payment came from (stripe) and the Stripe event that wrote it.
+          ...(p?.source ? { source: str(p.source, 20) } : {}),
+          ...(p?.stripeEventId ? { stripeEventId: str(p.stripeEventId, 80) } : {}),
         }))
       : undefined,
     // ── Prompt 10 client fields (all additive) ──
@@ -206,6 +209,8 @@ function sanitize(b) {
       startedAt: str(b.retainer.startedAt, 40),
       billDay: Math.max(1, Math.min(28, Math.round(Number(b.retainer.billDay)) || 1)),
       nextBillAt: str(b.retainer.nextBillAt, 40), cancelAt: str(b.retainer.cancelAt, 40),
+      // Prompt 12 additive: the Stripe subscription behind this retainer, and when Stripe reported it cancelled.
+      stripeSubscriptionId: str(b.retainer.stripeSubscriptionId, 80), stripeCancelledAt: str(b.retainer.stripeCancelledAt, 40),
     } : b.retainer === null ? null : undefined,
     clientStatus: b.clientStatus !== undefined ? (CLIENT_STATUS_IDS.includes(b.clientStatus) ? b.clientStatus : '') : undefined,
     // Prompt 11 additive: Google reviews tracking.

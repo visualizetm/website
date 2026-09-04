@@ -15,7 +15,7 @@
  */
 import { PACKAGES, RETAINERS, ADDONS, REVISION_ROUNDS, planFor, packageOf, retainerOf, extraRoundFee } from '../shared/pricing';
 import { normalizeStage } from '../shared/semantics';
-import { parseDate } from '../shared/dates';
+import { parseDate, dayKey as dayKeyOf } from '../shared/dates';
 
 export const CANCEL_NOTICE_DAYS = 30;
 export const FOLLOW_UP_DAYS = 3;
@@ -24,11 +24,11 @@ export const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* ── Dates (YYYY-MM-DD, local) ─────────────────────────────────── */
 const pad = (n) => String(n).padStart(2, '0');
-export const dayKey = (d) => { const x = d instanceof Date ? d : new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
+export const dayKey = (d) => dayKeyOf(d);
 export const monthKey = (d = new Date()) => { const x = d instanceof Date ? d : new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}`; };
 export const today = () => dayKey(new Date());
 /** A date-only string as local midnight (avoids the UTC-midnight bug in fmtDate). */
-export const localDate = (s) => { if (!s) return null; const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00`) : parseDate(s); return d && !Number.isNaN(d.getTime()) ? d : null; };
+export const localDate = (s) => parseDate(s); // date-only strings parse as local midnight since Prompt 12
 /** Same day-of-month `n` months later, clamped to the month's length. */
 export function addMonths(dateStr, n, dayOfMonth) {
   const d = localDate(dateStr) || new Date();

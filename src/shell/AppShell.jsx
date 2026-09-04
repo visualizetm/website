@@ -48,8 +48,10 @@ export default function AppShell({
   // Read state, snoozes and Calendly events (Prompt 9). Server first, localStorage as the offline fallback.
   const [notifDoc, setNotifDoc] = useState(() => ({ readIds: readJSON(KEYS.notifRead, []), lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }));
   const [calendly, setCalendly] = useState({ configured: null, events: [] });
+  const [health, setHealth] = useState(null);
+  const [profile, setProfile] = useState(null);
   useEffect(() => {
-    apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications); });
+    apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications); if (r.ok && r.data) { setHealth(r.data.health || null); setProfile(r.data.profile || null); } });
     const from = new Date(Date.now() - 7 * 864e5).toISOString(); const to = new Date(Date.now() + 30 * 864e5).toISOString();
     apiFetch(`/api/admin/calendly/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then(r => { if (r.ok && r.data) setCalendly({ configured: !!r.data.configured, events: r.data.events || [] }); });
   }, []);
@@ -59,7 +61,7 @@ export default function AppShell({
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
 
-  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
+  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
   const events = useMemo(() => buildEvents(leads || [], calendly.events, Date.now(), projects), [leads, calendly.events, projects]);
   const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
   const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
@@ -87,8 +89,8 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs,
-  }), [go, openLead, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs]);
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, setProfile,
+  }), [go, openLead, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs, health, profile]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;

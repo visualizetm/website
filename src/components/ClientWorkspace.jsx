@@ -343,7 +343,12 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
           <div className="cw-kv"><span className="dt-fact-label">Next due</span><span>{nx ? fmtDay(nx.dueAt) : 'Paid in full'}</span></div>
           <div className="cw-kv"><span className="dt-fact-label">Remaining</span><span>{money(planRemaining(current))}</span></div>
         </Grid>
-        {remind && (
+        <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={current.plan.stripeSubscriptionId || ''} onSave={(v) => pp(current, { plan: { ...current.plan, stripeSubscriptionId: v.trim() } })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
+        {current.plan.stripeCancelledAt ? (
+          <Card level={3} padding={3} className="cw-stripe cw-stripe--ok" glow="booked">
+            <p className="cw-stripe-h cw-stripe-h--ok">Stripe reports this subscription cancelled ({fmtDate(current.plan.stripeCancelledAt)}).</p>
+          </Card>
+        ) : remind && (
           <Card level={3} padding={3} className="cw-stripe" glow="danger">
             <p className="cw-stripe-h">Cancel the Stripe subscription after the final payment. Stripe does not stop it for you.</p>
             <Checkbox label="Stripe subscription cancelled" checked={!!current.plan.stripeCancelled} onChange={(v) => pp(current, { plan: { ...current.plan, stripeCancelled: v } })} disabled={readOnly} />
@@ -396,6 +401,8 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
               <div className="cw-kv"><span className="dt-fact-label">Bill day</span><span>Day {ret.billDay}</span></div>
               {ret.cancelAt && <div className="cw-kv"><span className="dt-fact-label">Ends</span><span>{fmtDate(ret.cancelAt)}</span></div>}
             </Grid>
+            <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={ret.stripeSubscriptionId || ''} onSave={(v) => setRet({ stripeSubscriptionId: v.trim() })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
+            {ret.stripeCancelledAt && <p className="dt-muted">Stripe reported this subscription cancelled on {fmtDate(ret.stripeCancelledAt)}.</p>}
             {retProject && nextUnpaid(retProject) && ret.status !== 'paused' && (
               <Card level={2} padding={3} className="cw-nextbill">
                 <Row gap={2} justify="between" align="center" wrap>

@@ -332,7 +332,8 @@ they use two things:
 `orders`, `submissions`, `calendar`), the call_leads list for the command bar and the
 notifications drawer, the `projects` list (Prompt 10, for retainer bills and
 payment plan markers), and callbacks for navigation, opening a record, quick
-add, and sign out. `useShell()` also exposes `events`, `calendly`, `projects`, `packs` (Prompt 11, the concept packs), and `newOrder()`. Screens receive `openId` (`{ id, n }`) and `createPreset`
+add, and sign out. `useShell()` also exposes `events`, `calendly`, `projects`, `packs` (Prompt 11, the concept packs), `newOrder()`, and (Prompt 12) `health` (the task health document) and `profile` with `setProfile`.
+`src/shell/shortcuts.js` holds every keyboard shortcut (rendered by Settings); `src/shell/install.js` captures the PWA install prompt. Screens receive `openId` (`{ id, n }`) and `createPreset`
 (`{ preset, n }`) props from AdminApp when the shell asks them to open a
 record or start a new one.
 
@@ -347,4 +348,5 @@ record or start a new one.
 - `ClientCard` (Prompt 10): `LeadCard` compact plus the client line (active package, project stage, paid over total, retainer, next date). Props `lead`, `projects`, `onOpen`, `selected`, `compact`. Export `clientLine(lead, projects)` for the desktop Table. Styles (`clc-`) ship in `uiStyles`.
 - `LeadPicker` (Prompt 11): a Sheet with a search over the loaded leads. Props `leads`, `onPick(lead)`, `onClose`, `title`, `description`, `filter(lead)`, `sort`. Used by Print Orders (Link to client, New order), Concepts (Link a lead), Reviews (Link to client).
 - `PackPicker` (Prompt 11, exported from `src/pages/AdminConcepts.jsx`): the From library picker LeadDetail opens on a concept item. Props `packs`, `industry`, `onPick(pack)`, `onClose`.
+- `OrdersImport` (Prompt 12): the print orders CSV import Sheet (paste or file, column mapping, preview, dedupe by email, day, subtotal). Props `existing`, `onClose`, `onCreate(doc)`. Exports `parseCsv`.
 - `ClientWorkspace` (Prompt 10): `ClientLinks`, `ClientBrand` (profile cards) and `ClientSections` (the four client sections with every Sheet and Modal). Rules live in `src/lib/projects.js`; this file only renders and writes. Styles (`cw-`) ship in `uiStyles`.
