@@ -113,7 +113,17 @@ Prompt 9 combined tally (Prompts 8 and 9, finished on this container, also writt
 
 New checks this prompt: clients list with each of the six chips, clients skeleton (table skeleton on desktop, card skeletons on mobile), client detail on every tab for the payment plan client, new project Sheet, log extra round Modal, payment plan block at month 5 of 6, mark paid Modal, add manual payment Sheet, start retainer Sheet, deliverables with the toggle disabled (plan client) and enabled (delivered client), the delivered project's Send delivery checklist, the retainer client's monthly cards and log delivery Modal, the hostile long name single project client on Overview and Payments (owes a payment), add client Sheet, and sidebar collapsed on the list and the detail. Fixtures: L10 single project client (Web Essentials, unpaid, one round used), L11 payment plan client at month 5 of 6 with both rounds used and an extra round on the schedule, L12 Content Kit retainer client billing in three days with two logged months, L13 delivered and released client. The projects endpoint is mocked for GET and answers POST and PATCH with ok.
 
-AUDIT_TABLE
+Full run on the final build (every screen, every width), exit 0:
+
+| Width | Checks | Result |
+|---|---|---|
+| 320 | 88 | all clean |
+| 390 | 88 | all clean |
+| 430 | 88 | all clean |
+| 768 | 93 | all clean |
+| 1280 | 93 | all clean |
+
+450 checks, zero offenders, no horizontal scroll at any width.
 
 ## 11. Decisions
 
