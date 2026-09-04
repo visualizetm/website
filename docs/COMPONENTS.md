@@ -171,6 +171,19 @@ Use when: two to four views of the same data (Kanban / Table, Week / Day).
 scrolls sideways on narrow screens, arrow keys move, the active tab scrolls into view.
 Use when: sections of one record. Not when: switching views of a list (SegmentedControl).
 
+### Table
+`columns [{ id, label, render(row), sortable, defaultDir, width, align, always }]`,
+`rows` (already sorted by the parent), `rowKey` (default `_id`), `selectable`,
+`selected` (Set), `onSelect(nextSet)`, `sort {id, dir}` with `onSort`, `density`
+md|sm, `onRowClick(row)`, `rowActions(row)` (a Menu in the trailing cell),
+`storageKey` (persists hidden columns), `columnChooser` (default true),
+`empty` slot, `rowClassName(row)`. Sticky header, sticky first column on
+horizontal scroll, header checkbox with indeterminate state, keyboard sort
+(the header is a button), Enter opens a row. `Table.Skeleton({ rows, cols,
+density, selectable })` has the same header shape.
+Use when: desktop data with many columns. Not when: mobile (render a Stack
+of cards) or a short list (ListRow).
+
 ---
 
 ## Overlays and feedback

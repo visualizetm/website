@@ -31,6 +31,7 @@ import Toggle, { toggleStyles } from './Toggle';
 import Checkbox, { checkboxStyles } from './Checkbox';
 import SegmentedControl, { segmentedControlStyles } from './SegmentedControl';
 import Tabs, { tabsStyles } from './Tabs';
+import Table, { tableStyles } from './Table';
 import Sheet, { sheetStyles } from './Sheet';
 import Modal, { modalStyles } from './Modal';
 import ConfirmDialog, { useConfirm } from './ConfirmDialog';
@@ -58,7 +59,7 @@ export const uiStyles = [
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
   emptyStateStyles, errorStateStyles, listRowStyles,
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
-  toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles,
+  toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
   staggerStyles, revealStyles, progressRingStyles, progressBarStyles,
 ].join('\n');
@@ -66,7 +67,7 @@ export const uiStyles = [
 export {
   PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider,
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, ErrorState, ListRow,
-  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs,
+  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
   SkeletonBlock, SkeletonText, SkeletonCircle, Stagger, Reveal, ProgressRing, ProgressBar, Spinner,
   useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock,
