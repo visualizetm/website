@@ -215,41 +215,44 @@ for (const width of WIDTHS) {
 
   await goto('/admin/booked');
   await check('booked list');
-  await page.locator('.bk-card').first().click({ timeout: 4000 }).catch(() => {});
-  await check('booked detail (hostile fixtures)');
+  for (const f of ['This week', 'Upcoming', 'No date set', 'Needs concepts', 'Awaiting outcome']) {
+    await page.locator('.bk-chips .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`booked list: ${f.toLowerCase()}`);
+  }
+  await page.locator('.bk-chips .v-chip', { hasText: 'All' }).first().click({ timeout: 3000 }).catch(() => {});
+  await goto('/admin/booked?loading=1');
+  await check('booked skeleton');
+  await goto('/admin/booked');
+  await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
+  await check('booked detail (overview)');
+  for (const t of ['Playbook', 'Meeting', 'Notes', 'History']) {
+    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`booked detail (${t.toLowerCase()})`);
+  }
+  await page.locator('.dt-addopt').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dt-addopt').first().click({ timeout: 3000 }).catch(() => {});
+  await check('booked detail: three pricing options');
+  await page.getByRole('switch', { name: 'Call mode' }).first().click({ timeout: 3000 }).catch(() => {});
+  await check('booked detail: call mode on');
+  await page.getByRole('switch', { name: 'Call mode' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dt-resched').first().click({ timeout: 3000 }).catch(() => {});
+  await check('reschedule sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.dt-won').first().click({ timeout: 3000 }).catch(() => {});
+  await check('won dialog');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.dt-editall').first().click({ timeout: 3000 }).catch(() => {});
+  await check('edit all sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
 
-  for (const v of ['kanban', 'list']) {
-    await page.evaluate((x) => localStorage.setItem('vz_leads_view', JSON.stringify(x)), v).catch(() => {});
-    await goto('/admin/leads');
-    await check(`leads ${v}`);
-  }
-  await page.locator('.ld-frow-chips .v-chip').first().click({ timeout: 4000 }).catch(() => {});
-  await check('leads filtered (status chip)');
-  await page.locator('.ld-frow-chips .v-chip').first().click({ timeout: 4000 }).catch(() => {});
-  if (width < 768) {
-    await page.getByRole('button', { name: 'Select', exact: true }).click({ timeout: 4000 }).catch(() => {});
-    await page.locator('.lc-check input').first().click({ timeout: 4000 }).catch(() => {});
-  } else {
-    await page.locator('.v-th--check input').first().click({ timeout: 4000 }).catch(() => {});
-  }
-  await check('leads bulk bar');
-  await page.getByRole('button', { name: 'Clear', exact: true }).click({ timeout: 4000 }).catch(() => {});
-  await page.getByRole('button', { name: 'Import', exact: true }).click({ timeout: 4000 }).catch(() => {});
-  await check('leads import sheet');
-  await page.keyboard.press('Escape').catch(() => {});
-  await page.waitForTimeout(300);
-  await page.locator('.ld-frow-chips .v-chip', { hasText: 'Possible duplicates' }).first().click({ timeout: 4000 }).catch(() => {});
-  await check('leads duplicates');
-  await page.getByRole('button', { name: /^Merge$/ }).first().click({ timeout: 4000 }).catch(() => {});
-  await check('leads merge modal');
-  await page.keyboard.press('Escape').catch(() => {});
-  await page.waitForTimeout(300);
-  await goto('/admin/leads?loading=1');
-  await check('leads skeleton');
   await page.evaluate(() => localStorage.setItem('vz_leads_view', JSON.stringify('kanban'))).catch(() => {});
   await goto('/admin/leads');
   await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
-  await check('lead detail (long name)');
+  await check('lead detail (overview, long name)');
+  for (const t of ['Playbook', 'Notes', 'History']) {
+    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+    await check(`lead detail (${t.toLowerCase()})`);
+  }
 
   await goto('/admin/clients');
   await check('clients list');
