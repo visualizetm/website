@@ -8,11 +8,12 @@ import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, Table, Sheet, ListRow, EmptyState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm,
 } from '../ui';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { SHORTCUT_GROUPS } from '../shell/shortcuts';
 import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '../shell/install';
+import { THEME_MODES } from '../shell/appearance';
 import LeadImport from '../components/LeadImport';
 import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
@@ -164,6 +165,12 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <Card className="st-card">
         <p className="pb-card-h">Daily call target</p>
         <Row gap={2} align="baseline"><InlineEdit value={String(data?.dashboard?.dailyCallTarget || 25)} onSave={saveTarget} type="number" inputMode="numeric" label="Daily call target" format={(v) => `${v} calls`} className="st-target" /><span className="dt-muted">The same number the Dashboard ring counts against.</span></Row>
+      </Card>
+      <Card className="st-card st-appearance">
+        <p className="pb-card-h">Appearance</p>
+        <p className="dt-muted">Saved on your profile, so every device follows. Dark is the studio look; Light is the same system on cream.</p>
+        <div className="v-field"><span className="v-field-label">Theme</span><SegmentedControl label="Theme" options={THEME_MODES.map(m => ({ id: m.id, label: m.label, icon: m.id === 'light' ? 'Sun' : m.id === 'dark' ? 'Moon01' : 'Monitor01' }))} value={shell?.appearance?.mode || 'dark'} onChange={(m) => shell?.saveAppearance?.({ theme: m })} className="st-theme" /></div>
+        <Toggle label="Reduce motion" description={shell?.appearance?.reduceOS ? 'Your device already asks for less motion. This keeps it off here too.' : 'Skips entrances, slides, and the skeleton shimmer. Everything still happens, just without the movement.'} checked={!!shell?.appearance?.reduce} onChange={(v) => shell?.saveAppearance?.({ reduceMotion: v })} className="st-motion" />
       </Card>
       <Card className="st-card">
         <p className="pb-card-h">Business hours</p>
@@ -322,7 +329,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <ScrollArea wide className="cl-page">
         <Section title="Settings" description={showSkel ? undefined : `${profile.name}, ${data?.passwordOverridden ? 'custom password' : 'env password'}, ${leads.length} leads loaded`} />
         <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>
-        {body}
+        <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
       </ScrollArea>
       {confirmDialog}
       {leadImport && <LeadImport existingLeads={leads} onClose={() => setLeadImport(false)} onImported={() => { setLeadImport(false); onLeadsImported?.(); }} />}

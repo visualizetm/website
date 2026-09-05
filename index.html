@@ -3,19 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <script>
-    // Set theme before first paint: saved choice wins, otherwise follow the OS.
+    // Pre-paint (Prompt 14): the theme for both halves, the admin's motion
+    // switch, and which boot frame to show, all read from localStorage before
+    // the first paint. Marketing: a saved choice wins, otherwise the OS.
+    // Admin: dark unless Rob picked light or system in Settings.
     (function () {
-      try {
-        var t = localStorage.getItem('vz_theme');
-        if (t !== 'light' && t !== 'dark') {
-          t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-        }
-        document.documentElement.dataset.theme = t;
-      } catch (e) {
-        document.documentElement.dataset.theme = 'dark';
+      var de = document.documentElement, ls = {}, osLight = false;
+      try { ls.theme = localStorage.getItem('vz_theme'); ls.motion = localStorage.getItem('vz_motion'); ls.boot = localStorage.getItem('vz_boot'); ls.side = localStorage.getItem('vz_shell_collapsed'); } catch (e) {}
+      try { osLight = window.matchMedia('(prefers-color-scheme: light)').matches; } catch (e) {}
+      var admin = /^admin\./.test(location.hostname) || /^\/admin(\/|$)/.test(location.pathname);
+      var t = (ls.theme === 'light' || ls.theme === 'dark') ? ls.theme : (admin && ls.theme !== 'system') ? 'dark' : (osLight ? 'light' : 'dark');
+      de.dataset.theme = t;
+      if (admin) {
+        de.dataset.vTheme = t;
+        if (ls.motion === 'reduce') de.dataset.vMotion = 'reduce';
+        de.dataset.vzBoot = ls.boot === '1' ? 'shell' : 'login';
+        if (ls.side === 'true') de.dataset.vzSide = 'rail';
       }
+      // Google Fonts stays render blocking on the marketing site (no swap on
+      // the hero); the admin paints its frame first and lets the fonts arrive behind it.
+      var href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@500;600;700;800&display=swap';
+      document.currentScript.insertAdjacentHTML('afterend', '<link href="' + href + '" rel="stylesheet"' + (admin ? ' media="print" onload="this.media=\'all\'"' : '') + '>');
     })();
   </script>
+  <!-- vz-boot-css -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Visualize: a solo brand development and website design studio. I create logos, brand identity, websites, print design, and digital business setup for local businesses." />
   <title>Visualize: Brand & Website Design Studio</title>
@@ -27,10 +38,9 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet" />
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root"><!-- vz-boot --></div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import useFocusTrap from './useFocusTrap';
 import useScrollLock from './useScrollLock';
 import { portalRoot } from './portal';
+import { durationMs } from './motion';
 /**
  * Modal: centered dialog for confirmations and short forms. Focus trap,
  * scroll lock, Escape and backdrop close, z from --v-z-modal.
@@ -27,7 +28,7 @@ export default function Modal({ open, onClose, title, description, footer, size 
     if (open) { setMounted(true); setClosing(false); return undefined; }
     if (!mounted) return undefined;
     setClosing(true);
-    const t = setTimeout(() => { setMounted(false); setClosing(false); }, 220);
+    const t = setTimeout(() => { setMounted(false); setClosing(false); }, durationMs('--v-dur-base') + 20);
     return () => clearTimeout(t);
   }, [open, mounted]);
   useScrollLock(mounted);

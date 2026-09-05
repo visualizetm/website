@@ -33,4 +33,5 @@ export const progressBarStyles = `
   .v-bar.is-indeterminate .v-bar-track { background-image: linear-gradient(90deg, transparent, var(--v-bar-c), transparent); background-size: 40% 100%; background-repeat: no-repeat; animation: v-bar-slide calc(var(--v-dur-slow) * 4) var(--v-ease-in-out) infinite; }
   @keyframes v-bar-slide { from { background-position: -60% 0; } to { background-position: 160% 0; } }
   @media (prefers-reduced-motion: reduce) { .v-bar.is-indeterminate .v-bar-track { animation: none; background-image: none; background-color: color-mix(in srgb, var(--v-bar-c) 35%, var(--v-surface-3)); } }
+  [data-v-motion='reduce'] .v-bar.is-indeterminate .v-bar-track { animation: none; background-image: none; background-color: color-mix(in srgb, var(--v-bar-c) 35%, var(--v-surface-3)); }
 `;

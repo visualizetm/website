@@ -7,9 +7,16 @@ const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
 const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true } };
 // Prompt 12: the profile document (greeting name, business hours for the best window).
-const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } };
+// Prompt 14 adds the additive appearance fields: theme (system, dark, light; default dark) and reduceMotion.
+const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false };
 const hhmm = (v, d) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
-const profileShape = (d = {}) => ({ name: String(d.name || PROFILE_DEFAULTS.name).slice(0, 80), businessHours: { start: hhmm(d.businessHours?.start, '09:00'), end: hhmm(d.businessHours?.end, '17:00') } });
+const THEMES = new Set(['system', 'dark', 'light']);
+const profileShape = (d = {}) => ({
+  name: String(d.name || PROFILE_DEFAULTS.name).slice(0, 80),
+  businessHours: { start: hhmm(d.businessHours?.start, '09:00'), end: hhmm(d.businessHours?.end, '17:00') },
+  theme: THEMES.has(d.theme) ? d.theme : PROFILE_DEFAULTS.theme,
+  reduceMotion: d.reduceMotion === true,
+});
 const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
 const notifShape = (d = {}) => ({
   readIds: strList(d.readIds, 500),

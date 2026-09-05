@@ -13,10 +13,12 @@ import AdminConcepts from './AdminConcepts';
 import AdminReviews from './AdminReviews';
 import AdminSettings from './AdminSettings';
 import AdminSubmissions from './AdminSubmissions';
-import { uiStyles, ToastProvider, Card, Stack, Input, Button } from '../ui';
+import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal } from '../ui';
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { navForPath, navById, sectionOf } from '../shell/nav';
 import '../shell/install';
+import BootFrame from '../shell/BootFrame';
+import { applyAppearance, setBootHint } from '../shell/appearance';
 import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
@@ -43,7 +45,7 @@ function Login({ onAuthed }) {
   };
   return (
     <div className="lay-root aa-loginpage">
-      <form onSubmit={submit} className={`aa-login${err ? ' is-shaking' : ''}`}>
+      <Reveal as="form" onSubmit={submit} className={`aa-login${err ? ' is-shaking' : ''}`}>
         <Card className="aa-login-card">
           <Stack gap={2} align="center">
             <Wordmark size={22} />
@@ -53,7 +55,7 @@ function Login({ onAuthed }) {
           <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err ? 'Incorrect password' : undefined} className="aa-login-input" />
           <Button type="submit" size="lg" full loading={busy} disabled={!pw}>Sign in</Button>
         </Card>
-      </form>
+      </Reveal>
       <style>{uiStyles + aaStyles}</style>
     </div>
   );
@@ -236,16 +238,23 @@ export default function AdminApp() {
   const openOrder = useCallback((order) => { go('orders'); setOpenReq({ section: 'orders', id: order._id, n: Date.now() }); }, [go]);
 
   useEffect(() => {
+    applyAppearance();
     fetch('/api/admin/session').then(r => r.json())
-      .then(d => setAuthed(!!d.authed))
+      .then(d => { setAuthed(!!d.authed); setBootHint(!!d.authed); })
       .catch(() => setAuthed(false));
   }, []);
+  // ?open=<id> deep links a record on the current screen (push links and the feel audit use it).
+  useEffect(() => {
+    if (!authed) return;
+    const id = new URLSearchParams(window.location.search).get('open');
+    if (id) setOpenReq({ section, id, n: Date.now() });
+  }, [authed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/admin/submissions');
-      if (res.status === 401) { setAuthed(false); return; }
+      if (res.status === 401) { setAuthed(false); setBootHint(false); return; }
       const d = await res.json();
       setItems(d.items || []);
       setUnread(d.unread || 0);
@@ -359,11 +368,13 @@ export default function AdminApp() {
 
   const logout = async () => {
     await fetch('/api/admin/logout', { method: 'POST' });
+    setBootHint(false);
     setAuthed(false);
   };
 
-  if (authed === null) return <div className="aa-app lay-root"><style>{uiStyles + aaStyles}</style></div>;
-  if (!authed) return <Login onAuthed={() => setAuthed(true)} />;
+  // While the session check is in flight the parser's boot frame stays up (index.html) and React renders the same frame over it.
+  if (authed === null) return <BootFrame />;
+  if (!authed) return <Login onAuthed={() => { setBootHint(true); setAuthed(true); }} />;
 
   const hasDetail = (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
@@ -465,6 +476,7 @@ const aaStyles = `
   @keyframes aaShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-7px)} 40%,80%{transform:translateX(7px)} }
   .aa-login.is-shaking { animation: aaShake var(--v-dur-slow) var(--v-ease-out); }
   @media (prefers-reduced-motion: reduce) { .aa-login.is-shaking { animation: none; } }
+  [data-v-motion='reduce'] .aa-login.is-shaking { animation: none; }
 
   /* ── Contextual panel (Leads, Booked, Clients list beside a detail) ── */
   .aa-panel {

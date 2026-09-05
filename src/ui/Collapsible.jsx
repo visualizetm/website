@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { durationMs } from './motion';
 /**
  * Collapsible: measured-height open/close so sections animate reliably on
  * mobile (no max-height guessing). Content stays mounted.
@@ -14,7 +15,7 @@ export default function Collapsible({ open, className = '', children }) {
     const el = ref.current; if (!el) return undefined;
     if (first.current) { first.current = false; setH(open ? 'auto' : 0); return undefined; }
     const full = el.scrollHeight;
-    if (open) { setH(full); const t = setTimeout(() => setH('auto'), 340); return () => clearTimeout(t); }
+    if (open) { setH(full); const t = setTimeout(() => setH('auto'), durationMs('--v-dur-slow') + 20); return () => clearTimeout(t); }
     setH(full); const raf = requestAnimationFrame(() => requestAnimationFrame(() => setH(0)));
     return () => cancelAnimationFrame(raf);
   }, [open]);

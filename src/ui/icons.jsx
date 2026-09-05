@@ -76,6 +76,9 @@ import Database01 from '@untitled-ui/icons-react/build/esm/Database01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import Download04 from '@untitled-ui/icons-react/build/esm/Download04';
+import Moon01 from '@untitled-ui/icons-react/build/esm/Moon01';
+import Monitor01 from '@untitled-ui/icons-react/build/esm/Monitor01';
+import WifiOff from '@untitled-ui/icons-react/build/esm/WifiOff';
 
 export const ICONS = {
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
@@ -92,6 +95,8 @@ export const ICONS = {
   Scissors01, Download01, Upload01,
   /* settings + submissions */
   File06, Key01, Archive, Printer, Database01, AlertTriangle, CheckCircle, Download04,
+  /* appearance + shell state (Prompt 14) */
+  Moon01, Monitor01, WifiOff,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

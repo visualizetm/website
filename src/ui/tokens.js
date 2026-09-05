@@ -129,13 +129,22 @@ export const tokenStyles = `
     overflow-x: clip;
     font-family: var(--v-font-body);
   }
+  /* Reduced motion (Prompt 14): the OS setting and the in-app switch
+     (data-v-motion='reduce' on .lay-root, mirrored on <html> for portals and
+     the boot frame) both zero every duration. Components that animate with
+     their own keyframes check the same two conditions. */
   @media (prefers-reduced-motion: reduce) {
     .lay-root {
       --v-dur-fast: 0ms; --v-dur-base: 0ms; --v-dur-slow: 0ms; --v-dur-enter: 0ms; --v-stagger: 0ms;
     }
   }
-  /* Light variant STUB (Phase E). Placeholder values, wired to nothing. */
-  .lay-root[data-v-theme='light'] {
+  .lay-root[data-v-motion='reduce'], [data-v-motion='reduce'] .lay-root {
+    --v-dur-fast: 0ms; --v-dur-base: 0ms; --v-dur-slow: 0ms; --v-dur-enter: 0ms; --v-stagger: 0ms;
+  }
+  /* Light theme (Prompt 14). The picker sets data-v-theme on <html> (and the
+     shell repeats it on .lay-root); every --v- variable the dark block
+     declares is redefined here. Values and the contrast table: docs/TOKENS.md. */
+  .lay-root[data-v-theme='light'], [data-v-theme='light'] .lay-root {
     --v-ground: #f7f7f7; --v-surface-1: #ffffff; --v-surface-2: #f2f2f2; --v-surface-3: #e9e9e9;
     --v-text: #111111; --v-text-2: #3a3a3a; --v-text-3: #5f5f5f; --v-text-inverse: #ffffff;
     --v-border: rgba(0,0,0,0.08); --v-border-strong: rgba(0,0,0,0.16); --v-bar: #ffffff;

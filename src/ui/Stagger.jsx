@@ -1,4 +1,5 @@
 import { Children, useEffect, useRef, useState } from 'react';
+import { durationMs } from './motion';
 /**
  * Stagger: sequential entrance for a list. The first `cap` children step in
  * --v-stagger apart; everything after arrives with the last stepped child, so
@@ -15,10 +16,7 @@ export default function Stagger({ cap = 8, as: Tag = 'div', className = '', styl
   useEffect(() => {
     if (played.current) return undefined;
     played.current = true;
-    const root = document.documentElement;
-    const ms = (v, d) => { const n = parseFloat(v); return Number.isNaN(n) ? d : n; };
-    const cs = getComputedStyle(document.querySelector('.lay-root') || root);
-    const total = ms(cs.getPropertyValue('--v-dur-enter'), 400) + cap * ms(cs.getPropertyValue('--v-stagger'), 40) + 50;
+    const total = durationMs('--v-dur-enter') + cap * durationMs('--v-stagger') + 50;
     const t = setTimeout(() => setPlaying(false), total);
     return () => clearTimeout(t);
   }, [cap]);

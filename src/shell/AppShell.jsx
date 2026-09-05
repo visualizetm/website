@@ -13,6 +13,8 @@ import { buildNotifications } from './notifications';
 import { KEYS, readJSON, writeJSON } from './storage';
 import { apiFetch } from '../shared/api';
 import { buildEvents } from '../lib/events';
+import { useAppearance, setThemeMode, setReduceMotion, THEME_MODES } from './appearance';
+import { useToast } from '../ui';
 
 /**
  * AppShell: sidebar (desktop), top bar, content, tab bar (mobile), plus the
@@ -50,8 +52,29 @@ export default function AppShell({
   const [calendly, setCalendly] = useState({ configured: null, events: [] });
   const [health, setHealth] = useState(null);
   const [profile, setProfile] = useState(null);
+  const appearance = useAppearance();
+  const toast = useToast();
+  // The profile document is the source of truth for the theme and the motion
+  // switch; localStorage mirrors it for the pre-paint script. Saving writes both.
+  const saveAppearance = useCallback(async (patch) => {
+    if (patch.theme) setThemeMode(patch.theme);
+    if ('reduceMotion' in patch) setReduceMotion(!!patch.reduceMotion);
+    setProfile(p => ({ ...(p || {}), ...patch }));
+    const r = await apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { profile: patch } } });
+    if (!r.ok) toast.error('Could not save that. It stays on this device only.');
+    return r.ok;
+  }, [toast]);
   useEffect(() => {
-    apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications); if (r.ok && r.data) { setHealth(r.data.health || null); setProfile(r.data.profile || null); } });
+    apiFetch('/api/admin/settings').then(r => {
+      if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications);
+      if (r.ok && r.data) {
+        setHealth(r.data.health || null); setProfile(r.data.profile || null);
+        // Another device may have changed the appearance; the document wins over the local mirror.
+        const p = r.data.profile || {};
+        if (p.theme && p.theme !== appearance.mode) setThemeMode(p.theme);
+        if (typeof p.reduceMotion === 'boolean' && p.reduceMotion !== appearance.reduce) setReduceMotion(p.reduceMotion);
+      }
+    });
     const from = new Date(Date.now() - 7 * 864e5).toISOString(); const to = new Date(Date.now() + 30 * 864e5).toISOString();
     apiFetch(`/api/admin/calendly/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then(r => { if (r.ok && r.data) setCalendly({ configured: !!r.data.configured, events: r.data.events || [] }); });
   }, []);
@@ -89,14 +112,18 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, setProfile,
-  }), [go, openLead, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs, health, profile]);
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, setProfile, appearance, saveAppearance,
+  }), [go, openLead, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
+  // Theme in the account menu: one item that steps Dark, Light, System (the full picker is in Settings Profile).
+  const nextMode = { dark: 'light', light: 'system', system: 'dark' }[appearance.mode] || 'dark';
+  const modeLabel = (m) => THEME_MODES.find(x => x.id === m)?.label || m;
   const menuItems = [
     { id: 'settings', label: 'Settings', icon: 'Settings01', onSelect: () => go('settings') },
     { id: 'design', label: 'Design system', icon: 'Palette', onSelect: () => go('design') },
+    { id: 'theme', label: `Theme: ${modeLabel(appearance.mode)}, switch to ${modeLabel(nextMode).toLowerCase()}`, icon: appearance.theme === 'light' ? 'Sun' : appearance.mode === 'system' ? 'Monitor01' : 'Moon01', onSelect: () => saveAppearance({ theme: nextMode }) },
     'divider',
     { id: 'logout', label: 'Sign out', icon: 'LogOut01', danger: true, onSelect: onLogout },
   ];
@@ -109,13 +136,13 @@ export default function AppShell({
 
   return (
     <ShellCtx.Provider value={ctx}>
-      <div className={`sh-root lay-root${collapsed ? ' is-collapsed' : ''}`}>
+      <div className={`sh-root lay-root${collapsed ? ' is-collapsed' : ''}`} data-v-theme={appearance.theme} data-v-motion={appearance.reduce || appearance.reduceOS ? 'reduce' : undefined}>
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
           <TopBar title={title} onBack={topBar?.back || null}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
-          <div className={`aa-app sh-content${hasDetail ? ' has-detail' : ''}`}>{children}</div>
+          <div key={activeNavId} className={`aa-app sh-content lay-view${hasDetail ? ' has-detail' : ''}`}>{children}</div>
           <TabBar activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} onMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />

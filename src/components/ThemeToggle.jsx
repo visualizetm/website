@@ -11,7 +11,8 @@ export default function ThemeToggle({ className = '' }) {
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
     const onChange = (e) => {
-      try { if (localStorage.getItem(KEY)) return; } catch { /* fall through */ }
+      // 'system' (written by the admin's theme picker) counts as no explicit choice.
+      try { const v = localStorage.getItem(KEY); if (v === 'light' || v === 'dark') return; } catch { /* fall through */ }
       const next = e.matches ? 'light' : 'dark';
       document.documentElement.dataset.theme = next;
       setTheme(next);

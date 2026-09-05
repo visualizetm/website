@@ -5,6 +5,7 @@ import useFocusTrap from './useFocusTrap';
 import useScrollLock from './useScrollLock';
 import useMediaQuery, { DESKTOP_QUERY } from './useMediaQuery';
 import { portalRoot } from './portal';
+import { durationMs } from './motion';
 /**
  * Sheet: bottom sheet on mobile (drag handle, sized to content, swipe down to
  * dismiss, respects --v-safe-bottom), right side panel on desktop. Focus trap,
@@ -32,7 +33,7 @@ export default function Sheet({ open, onClose, title, description, footer, width
     if (open) { setMounted(true); setClosing(false); setDragY(0); return undefined; }
     if (!mounted) return undefined;
     setClosing(true);
-    const t = setTimeout(() => { setMounted(false); setClosing(false); }, 260);
+    const t = setTimeout(() => { setMounted(false); setClosing(false); }, durationMs('--v-dur-base') + 60);
     return () => clearTimeout(t);
   }, [open, mounted]);
 

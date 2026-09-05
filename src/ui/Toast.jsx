@@ -6,6 +6,7 @@ import InfoCircle from '@untitled-ui/icons-react/build/esm/InfoCircle';
 import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import { portalRoot } from './portal';
+import { durationMs } from './motion';
 /**
  * Toast system. Mount <ToastProvider> once in the app shell (it renders the
  * host); call useToast() anywhere below it.
@@ -37,7 +38,7 @@ export function ToastProvider({ children, max = 4 }) {
   useEffect(() => {
     const leaving = items.filter(t => t.leaving);
     if (!leaving.length) return undefined;
-    const t = setTimeout(() => setItems(list => list.filter(x => !x.leaving)), 220);
+    const t = setTimeout(() => setItems(list => list.filter(x => !x.leaving)), durationMs('--v-dur-base') + 20);
     return () => clearTimeout(t);
   }, [items]);
   const show = useCallback((opts) => {

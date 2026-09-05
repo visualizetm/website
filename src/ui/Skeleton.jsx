@@ -40,4 +40,5 @@ export const skeletonStyles = `
   .v-skel-text { display: flex; flex-direction: column; }
   @keyframes v-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
   @media (prefers-reduced-motion: reduce) { .v-skel { animation: none; background-image: none; } }
+  [data-v-motion='reduce'] .v-skel { animation: none; background-image: none; }
 `;

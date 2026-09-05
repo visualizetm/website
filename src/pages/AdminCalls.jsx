@@ -26,6 +26,7 @@ import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, MEETING_TYPES, industryKe
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtMins, relativeTime, fmtDate } from '../shared/dates';
 import { ADMIN_HOME } from '../lib/adminPaths';
+import { durationMs } from '../ui/motion';
 import IMPORT_LEADS from '../data/call-leads-import.json';
 
 /* Call Console 3.0 (Prompt 7). Mobile first: builder, queue, call room, summary.
@@ -211,7 +212,7 @@ function RoomBody({ lead, tab, onTab, desktop, onSaveNotes }) {
   return (
     <Stack gap={3}>
       <Tabs label="Playbook" tabs={tabs.map(x => x.id === 'objections' ? { ...x, count: (lead.objections || []).length || undefined } : x.id === 'history' ? { ...x, count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined } : x)} value={t} onChange={onTab} />
-      <div className="cc-tabbody" key={`${lead._id}-${t}`}>
+      <div className="lay-tabbody" key={`${lead._id}-${t}`}>
         {t === 'script' && <ScriptSteps lead={lead} />}
         {t === 'objections' && <Objections lead={lead} />}
         {t === 'close' && <CloseCards lead={lead} />}
@@ -449,7 +450,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       return false;
     }
     onDataChanged?.();
-    setPulse(outcome); setTimeout(() => setPulse(null), 400);
+    setPulse(outcome); setTimeout(() => setPulse(null), durationMs('--v-dur-slow') + 80);
     let removed = false;
     if (outcome === 'no') { removed = true; removeFromLists(lead._id); fetch(`/api/admin/call-leads?id=${encodeURIComponent(lead._id)}`, { method: 'DELETE' }).catch(() => {}); }
     const label = OUTCOMES.find(o => o.id === outcome)?.label || outcome;
@@ -461,7 +462,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       setSession(s => (s ? { ...s, ids: s.ids.includes(lead._id) ? s.ids : [...s.ids.slice(0, s.idx), lead._id, ...s.ids.slice(s.idx)], stats: { ...s.stats, calls: Math.max(0, s.stats.calls - 1), [STAT_KEY[outcome]]: Math.max(0, (s.stats[STAT_KEY[outcome]] || 1) - 1) }, logged: { ...s.logged, [lead._id]: undefined } } : s));
       toast.success(`Undid ${label.toLowerCase()} for ${lead.business}.`);
     }, { seconds: 6 });
-    setTimeout(() => advance(1), 520);
+    setTimeout(() => advance(1), durationMs('--v-dur-slow') + 200); // a beat to read the outcome, then the next lead
     return true;
   };
   const onOutcome = (id) => {
@@ -671,7 +672,6 @@ const ccStyles = `
   .cc-phone-none { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap-lg); padding: 0 var(--v-space-4); border-radius: var(--v-radius-lg); background: var(--v-status-danger-soft); color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
   .cc-phone-note { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-3); text-align: center; }
   .cc-predial { gap: var(--v-space-1); }
-  .cc-tabbody { animation: v-enter var(--v-dur-base) var(--v-ease-out) both; min-width: 0; }
   /* Outcome bar */
   .cc-outbar { gap: var(--v-space-2); }
   .cc-outs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--v-space-1); width: 100%; max-width: 760px; }
