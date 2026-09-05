@@ -59,6 +59,21 @@ nightly enrichment and scraper health. The notifications drawer raises a
 System item when the enrichment scan or the scraper is quiet for 36 hours.
 A job can be run by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://admin.visualizeclients.com/api/cron/daily`.
 
+Both crons run once a day because the Hobby plan only allows daily cron
+schedules (a schedule that fires more than once a day fails the Vercel
+deploy). `/api/cron/reminders` runs at 13:00 UTC (9am Eastern) and sends one
+morning digest push instead of a push per event: every callback due today or
+overdue, every meeting today, retainer bills due today, and review asks due,
+as one notification with a deep link to the Dashboard. `sentReminderKeys`
+dedupes on one key per day, so a manual rerun the same day sends nothing.
+`/api/cron/daily` is unchanged, at 06:00 UTC.
+
+If the account moves to the Pro plan, near-real-time reminders (a push the
+moment a callback or meeting is due) can come back with two changes: set
+`FIFTEEN_MINUTE_MODE = true` at the top of api/cron/reminders.js, and change
+the reminders schedule in vercel.json back to every 15 minutes. The file
+keeps the old per-event logic behind that flag for exactly this.
+
 ## Take a backup
 
 Settings, Data, Download backup saves visualize-backup-YYYY-MM-DD.json (every

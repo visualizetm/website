@@ -185,7 +185,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   const crons = [
-    { id: 'reminders', label: 'Reminders', every: 'Every 15 minutes', what: 'Pushes callbacks due in 15 minutes, meetings starting within the hour, retainer bills due today, and review asks.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 15), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
+    { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, and review asks due, with a deep link to the Dashboard.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
     { id: 'daily', label: 'Daily', every: 'Once a day, 06:00 UTC', what: 'Rolls retainer bill dates forward, extends retainer schedules, cancels retainers past their notice, and writes task health.', last: health?.crons?.daily?.lastRunAt, next: nextRun(health?.crons?.daily?.lastRunAt, 24 * 60), extra: health?.crons?.daily ? `${health.crons.daily.rolled || 0} rolled, ${health.crons.daily.cancelled || 0} cancelled` : '' },
   ];
   const cronArmed = !!(data?.cron?.configured ?? data?.reminders?.configured);
@@ -245,12 +245,13 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     <Stagger className="v-stack st-stack">
       <Card className="st-card"><p className="pb-card-h">Alerts</p><Stack gap={0}><Toggle label="Push notifications" description="New submissions and orders, to every device you enabled." checked={prefs.pushEnabled !== false} onChange={(v) => savePrefs({ ...prefs, pushEnabled: v })} /><Toggle label="Email backup" description="contact@visualizeclients.com on every submission." checked={prefs.emailEnabled !== false} onChange={(v) => savePrefs({ ...prefs, emailEnabled: v })} /></Stack></Card>
       <Card className="st-card">
-        <p className="pb-card-h">Reminders (push, every 15 minutes)</p>
+        <p className="pb-card-h">Reminders (one push, every morning)</p>
+        <p className="dt-muted">One digest at 9am Eastern with today's callbacks, meetings, bills, and review asks. The Hobby plan only allows a once-a-day cron; move to Pro and flip FIFTEEN_MINUTE_MODE in api/cron/reminders.js plus the schedule in vercel.json to go back to a push the moment each one is due.</p>
         <Stack gap={0}>
-          <Toggle label="Meeting reminders" description="One hour before a booked meeting." checked={reminders.meetings !== false} onChange={(v) => saveReminders({ ...reminders, meetings: v })} />
-          <Toggle label="Callback reminders" description="Fifteen minutes before a callback is due." checked={reminders.callbacks !== false} onChange={(v) => saveReminders({ ...reminders, callbacks: v })} />
-          <Toggle label="Bill reminders" description="The morning a retainer bill is due." checked={reminders.bills !== false} onChange={(v) => saveReminders({ ...reminders, bills: v })} className="st-rem-bills" />
-          <Toggle label="Review ask reminders" description="Three days after a release with no ask logged." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
+          <Toggle label="Meeting reminders" description="Include today's booked meetings in the morning digest." checked={reminders.meetings !== false} onChange={(v) => saveReminders({ ...reminders, meetings: v })} />
+          <Toggle label="Callback reminders" description="Include callbacks due today or overdue in the morning digest." checked={reminders.callbacks !== false} onChange={(v) => saveReminders({ ...reminders, callbacks: v })} />
+          <Toggle label="Bill reminders" description="Include retainer bills due today in the morning digest." checked={reminders.bills !== false} onChange={(v) => saveReminders({ ...reminders, bills: v })} className="st-rem-bills" />
+          <Toggle label="Review ask reminders" description="Include clients due for a review ask (three days after a release, none logged yet) in the morning digest." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
         </Stack>
         {!cronArmed && <p className="dt-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
         <Row gap={2}><Button variant="secondary" icon={Bell01} onClick={testPush}>Send test notification</Button></Row>
