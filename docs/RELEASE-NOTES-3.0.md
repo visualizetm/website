@@ -73,8 +73,8 @@ lead, and CSV or JSON export.
 
 **Notifications.** The bell holds today's callbacks, meetings, bills, review
 asks, Calendly bookings, and a system line when the nightly jobs go quiet.
-Mark read, snooze, and push reminders to the phone 15 minutes before a
-callback and an hour before a meeting.
+Mark read, snooze, and one morning digest push at 9am Eastern with the
+day's callbacks (due today or overdue), meetings, bills, and review asks.
 
 **Search.** Slash or the search box finds leads, clients, and screens; type
 a phone number and it matches the lead that is calling, or offers to create
@@ -115,7 +115,9 @@ Variables (Production), then redeploy.
 6. **CRON_SECRET**: any random string. Unlocks the two scheduled tasks and
    the health document. Vercel sends it on its own; confirm both crons show
    in Vercel, Project, Settings, Cron Jobs after the deploy: `/api/cron/reminders`
-   every 15 minutes and `/api/cron/daily` at 06:00 UTC. Settings, Automation
+   once a day at 13:00 UTC (9am Eastern, a morning digest of the day's
+   callbacks, meetings, bills, and review asks; the Hobby plan only allows a
+   daily schedule) and `/api/cron/daily` at 06:00 UTC. Settings, Automation
    shows their last run.
 7. **CALENDLY_TOKEN**: Calendly, Integrations, API and webhooks, Personal
    access token. Unlocks Calendly bookings on the Calendar and in the bell.

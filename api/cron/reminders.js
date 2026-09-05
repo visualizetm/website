@@ -16,10 +16,14 @@ import { route } from '../_lib/handler.js';
  * (the cron expression this file used before the Hobby plan limit: minute
  * star-slash-15, then a star for every hour, day, month, and weekday).
  * With it true the cron instead pushes one notification per callback within
- * 15 minutes of due and per meeting within 60 minutes of start, each with
- * its own dedupe key, the way this file worked before that limit.
+ * CALLBACK_LOOKAHEAD_MS of due and per meeting within MEETING_LOOKAHEAD_MS
+ * of start, each with its own dedupe key, the way this file worked before
+ * that limit.
  */
 const FIFTEEN_MINUTE_MODE = false;
+const CALLBACK_LOOKAHEAD_MS = 15 * 60e3; // FIFTEEN_MINUTE_MODE only: how far ahead a callback counts as due
+const MEETING_LOOKAHEAD_MS = 60 * 60e3; // FIFTEEN_MINUTE_MODE only: how far ahead a meeting counts as starting soon
+const REVIEW_ASK_DELAY_MS = 3 * 864e5; // both modes: how long after a release with no ask logged before it is due
 
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -55,7 +59,7 @@ async function handler(req, res) {
       if (prefs.bills && r && ['active', 'ending'].includes(r.status) && String(r.nextBillAt || '').slice(0, 10) === today) bills.push({ _id: l._id, business: l.business, amount: r.amount });
       if (prefs.reviews && !(l.reviews?.asks || []).length) {
         const rel = released.filter(p => String(p.leadId) === String(l._id)).sort((a, b) => new Date(b.releasedAt) - new Date(a.releasedAt))[0];
-        if (rel && now.getTime() - new Date(rel.releasedAt).getTime() >= 3 * 864e5) reviews.push({ _id: l._id, business: l.business, releasedAt: rel.releasedAt, project: rel.name });
+        if (rel && now.getTime() - new Date(rel.releasedAt).getTime() >= REVIEW_ASK_DELAY_MS) reviews.push({ _id: l._id, business: l.business, releasedAt: rel.releasedAt, project: rel.name });
       }
     }
   }
@@ -67,11 +71,11 @@ async function handler(req, res) {
     for (const l of leads) {
       if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
         const t = new Date(l.callbackAt).getTime();
-        if (t >= nowMs - 60e3 && t <= nowMs + 15 * 60e3) due.push({ key: `cb:${l._id}:${l.callbackAt}`, title: `Call back ${l.business}`, body: `Due ${new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.phone ? `, ${l.phone}` : ''}`, url: `${base}/leads?open=${l._id}` });
+        if (t >= nowMs - 60e3 && t <= nowMs + CALLBACK_LOOKAHEAD_MS) due.push({ key: `cb:${l._id}:${l.callbackAt}`, title: `Call back ${l.business}`, body: `Due ${new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.phone ? `, ${l.phone}` : ''}`, url: `${base}/leads?open=${l._id}` });
       }
       if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage)) {
         const d = localDate(l);
-        if (d && d.getTime() >= nowMs - 60e3 && d.getTime() <= nowMs + 60 * 60e3) due.push({ key: `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`, title: `Meeting with ${l.business}`, body: `Starts ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.meeting.location ? `, ${l.meeting.location}` : ''}`, url: `${base}/booked?open=${l._id}` });
+        if (d && d.getTime() >= nowMs - 60e3 && d.getTime() <= nowMs + MEETING_LOOKAHEAD_MS) due.push({ key: `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`, title: `Meeting with ${l.business}`, body: `Starts ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.meeting.location ? `, ${l.meeting.location}` : ''}`, url: `${base}/booked?open=${l._id}` });
       }
     }
     for (const b of bills) due.push({ key: `bill:${b._id}:${today}`, title: `Bill ${b.business} today`, body: `$${Number(b.amount || 0).toLocaleString()} retainer bill is due today.`, url: `${base}/clients?open=${b._id}` });

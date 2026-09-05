@@ -34,7 +34,7 @@ export function ReviewCard({ lead, projects, onOpen, selected }) {
         {r.latest ? <><span className="rv-num">{r.latest.count} review{r.latest.count === 1 ? '' : 's'}, {Number(r.latest.rating).toFixed(1)}</span>{d && (d.count || d.rating) ? <Pill tone={d.count < 0 || d.rating < 0 ? 'danger' : 'booked'} label={`${d.count >= 0 ? '+' : ''}${d.count}, ${d.rating >= 0 ? '+' : ''}${d.rating.toFixed(1)} since ${fmtDate(r.baseline.at)}`} size="sm" icon={false} /> : r.baseline ? <span className="dt-muted">Baseline {r.baseline.count} at {Number(r.baseline.rating).toFixed(1)}</span> : null}</> : <span className="dt-muted">No counts yet</span>}
       </Row>
       <span className="dt-muted rv-last">{la ? `Last ask ${relativeTime(la.at)} by ${channelLabel(la.channel).toLowerCase()}, ${la.result}` : 'Never asked'}</span>
-      {r.googleLink ? <Button variant="secondary" size="md" full icon="Star01" iconEnd="LinkExternal01" href={r.googleLink} target="_blank" rel="noopener noreferrer" className="v-above" onClick={(e) => e.stopPropagation()} className="rv-glink">Open Google reviews</Button> : <span className="dt-muted">No Google link</span>}
+      {r.googleLink ? <Button variant="secondary" size="md" full icon="Star01" iconEnd="LinkExternal01" href={r.googleLink} target="_blank" rel="noopener noreferrer" className="v-above rv-glink" onClick={(e) => e.stopPropagation()}>Open Google reviews</Button> : <span className="dt-muted">No Google link</span>}
     </Card>
   );
 }
