@@ -58,11 +58,10 @@ export const cardStyles = `
   .v-card--interactive:active { transform: translateY(0) scale(0.995); }
   .v-card--interactive:focus-visible, .v-card.is-selected { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .v-card.is-selected { border-color: var(--v-red); }
-  .v-card--glow::before {
-    content: ''; position: absolute; top: -40px; right: -40px; width: 140px; height: 140px; border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--v-card-glow) 28%, transparent) 0%, transparent 70%);
-    pointer-events: none; z-index: -1;
-  }
+  /* The corner glow is a background layer, not a pseudo element box: a box hanging 40px past the
+     edge widened the document's scrollable area even under overflow hidden (found by the
+     reduced motion layout audit, Prompt 14). */
+  .v-card--glow { background-image: radial-gradient(110px circle at calc(100% + 30px) -30px, color-mix(in srgb, var(--v-card-glow) 28%, transparent) 0%, transparent 100%); }
   /* Success moment (Prompt 14): a one shot ring and lift in the won tone, color and scale only. */
   .v-pulse-won { animation: v-pulse-won calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
   @keyframes v-pulse-won { 0% { box-shadow: 0 0 0 0 var(--v-status-won-soft); transform: scale(1); } 30% { box-shadow: 0 0 0 6px var(--v-status-won-soft), 0 0 0 1px var(--v-status-won-solid); transform: scale(1.012); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }

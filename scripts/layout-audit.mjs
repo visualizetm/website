@@ -93,7 +93,22 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', or 'design' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', or 'dashboard' reruns just that block
+  if (only === 'dashboard') {
+    await goto('/admin');
+    await page.evaluate(() => localStorage.removeItem('vz_call_session'));
+    await check('dashboard');
+    await page.waitForTimeout(1200);
+    await check('dashboard (settled)');
+    await goto('/admin/?loading=1');
+    await check('dashboard skeleton');
+    if (width >= 768) {
+      await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
+      await check('sidebar collapsed: dashboard');
+      await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
+    }
+    await ctx.close(); continue;
+  }
   if (only === 'design') {
     await goto('/admin/design');
     await check('design system (tokens + components)');
