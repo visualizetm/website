@@ -72,7 +72,7 @@ into Atlas from that file.
 npm run build                                  # Vite build to dist/
 npx vite preview --port 4330                   # serve dist/ for the audit
 node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs
-AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs
+AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs   # also clients, studio, design, dashboard
 AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs   # the other theme, motion off
 node scripts/feel-audit.mjs                    # skeleton, fit, entrance, empty, error, layout shift per screen
 AUDIT_THEME=both AUDIT_MOTION=both AUDIT_OUT=/tmp/feel.json node scripts/feel-audit.mjs

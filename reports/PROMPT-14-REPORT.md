@@ -5,7 +5,8 @@ order: e53855d (feel audit and shared fixtures), 2ca54e2 (boot frame, page
 crossfade, reduced motion switch), 4a42f3d (skeletons, entrances, write
 feedback, empty and error states), afed1b8 (light theme, picker, sidebar
 tokens), 6e456b4 (the last writes through apiFetch), aebaed3 (skeleton
-shapes for the settings tabs and detail sheets), then this report.
+shapes for the settings tabs and detail sheets), 1a82339 (card glow as a
+background layer), then this report.
 
 No new features, no schema changes beyond the two additive profile fields
 (`theme`, `reduceMotion`), no endpoint changes. Every change reads
@@ -235,9 +236,22 @@ page defines its white, green, and gold once.
 Prompt 13 final tally (filled in commit 11c7363): 750 checks clean at 320,
 390, 430, 768, and 1280 on build 3226283; Prompt 12: 745 clean.
 
-Prompt 14 final build:
+Prompt 14, every screen at 320, 390, 430, 768, and 1280 in both themes with
+Reduce motion off and on:
 
 LAYOUT_TABLE
+
+The first battery ran on aebaed3. Both Reduce motion runs failed the loaded
+Dashboard at 768 and 1280 (and the collapsed sidebar Dashboard): the document
+scrolled 40px sideways once the entrance had settled, because the card glow
+pseudo element hung 40px past the card's edge and Chrome counted it in the
+scrollable area even under overflow hidden. The motion off runs passed only
+because their check landed inside the entrance. Commit 1a82339 turns the glow
+into a background layer on the card; the two Reduce motion runs above are the
+full re-runs on that build, and the Dashboard block (loaded, settled,
+skeleton, collapsed sidebar, five widths) was re-run clean in dark and light
+with motion off on the same build. The glow change is layout neutral, so the
+750 clean rows of the motion off runs stand.
 
 ## 10. Decisions
 
