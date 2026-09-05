@@ -152,7 +152,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
           </Section>
         )}
       </ScrollArea>
-      {pendingOpen && !sel && <Sheet open onClose={() => setSelId(null)} title={<SkeletonBlock width={140} height={22} />} tall width={520} className="rv-sheet">{showSkel && <RecordSkeleton cards={3} header={false} />}</Sheet>}
+      {pendingOpen && !sel && <Sheet open onClose={() => setSelId(null)} title={<SkeletonBlock width={140} height={22} />} tall width={520} className="rv-sheet">{showSkel && <RecordSkeleton cards={3} header={false} heights={[300, 220, 350]} />}</Sheet>}
       {sel && <ReviewSheet lead={sel} projects={projects} onPatch={patch} onPatchRaw={onPatch} onClose={() => setSelId(null)} />}
       {linkSub && <LeadPicker leads={leads} title="Link to client" description={`${linkSub.business || linkSub.name}: logs an ask with result left.`} filter={(l) => normalizeStage(l) === 'client'} onClose={() => setLinkSub(null)} onPick={(l) => linkForm(linkSub, l)} />}
       <style>{rvStyles}</style>

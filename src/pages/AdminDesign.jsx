@@ -350,7 +350,8 @@ const dsStyles = `
   .ds-theme-layer code { background: transparent; padding: 0; }
   .ds-table-wrap { overflow-x: auto; min-width: 0; }
   .ds-table { width: 100%; border-collapse: collapse; font-size: var(--v-text-xs); }
-  .ds-table th, .ds-table td { padding: var(--v-space-1) var(--v-space-2); text-align: left; white-space: nowrap; }
+  .ds-table th, .ds-table td { padding: var(--v-space-1) var(--v-space-2); text-align: left; vertical-align: top; }
+  .ds-table td code { display: block; }
   .ds-table th { font-weight: var(--v-weight-bold); letter-spacing: var(--v-ls-xs); text-transform: uppercase; }
   .ds-table td code { padding: 0 4px; }
   .ds-swatches { display: flex; flex-wrap: wrap; gap: var(--v-space-3); }

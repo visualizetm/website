@@ -268,7 +268,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
   ];
 
   const pendingOpen = !!openId?.id && loading && !sel; // deep link while the list resolves: the record shape, not the list skeleton
-  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} />) : sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} headerHeight={300} heights={[116, 300, 150]} />) : sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? () => setSelId(null) : undefined} />;
   const panelOpen = !!sel || pendingOpen;
   return (
     <PageShell className={`aa-main aa-main--wide po-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
@@ -302,7 +302,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
         </ScrollArea>
         {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : undefined} tall width={520} className="po-sheet">{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : <SkeletonBlock width={200} height={14} />} tall width={520} className="po-sheet">{detail}</Sheet>}
       {creating && <NewOrderSheet leads={leads} onClose={() => setCreating(false)} onCreate={create} preset={createPreset?.preset} />}
       <style>{poStyles}</style>
     </PageShell>

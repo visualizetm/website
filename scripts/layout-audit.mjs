@@ -25,7 +25,7 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap'];
 
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
@@ -93,7 +93,17 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', or 'studio' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', or 'design' reruns just that block
+  if (only === 'design') {
+    await goto('/admin/design');
+    await check('design system (tokens + components)');
+    await page.locator('.dc-open-sheet').first().click({ timeout: 4000 }).catch(() => {});
+    await check('design: Sheet open');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.dc-open-modal').first().click({ timeout: 4000 }).catch(() => {});
+    await check('design: Modal open');
+    await ctx.close(); continue;
+  }
 
   if (!only || only === 'settings') {
   // Shop checkout end to end (Prompt 13): the public shop posts a shop-order submission,

@@ -166,7 +166,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
         </ScrollArea>
         {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : undefined} tall width={520}>{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : <SkeletonBlock width={120} height={14} />} tall width={520}>{detail}</Sheet>}
       <style>{sbStyles}</style>
     </PageShell>
   );

@@ -174,8 +174,18 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     <Card key="hours" className="st-card">{line(130, 16)}{desc('95%')}<Grid minColumnWidth={140} gap={2}><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack></Grid></Card>,
     <Card key="password" className="st-card">{line(90, 12)}{line('80%', 14)}<Stack gap={2}>{line(120, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /><Grid minColumnWidth={160} gap={2}><Stack gap={1}>{line(140, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(60, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Grid><Row gap={2}><SkeletonBlock width={180} height={44} radius="var(--v-radius-md)" /></Row></Stack></Card>,
   ];
+  // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
+  const TAB_HEIGHTS = {
+    notifications: { n: [190, 318, 114, 150], d: [158, 302, 114, 74] },
+    integrations: { n: [96, 222, 144, 276], d: [78, 126, 126, 102] },
+    data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
+    automation: { n: [260, 260, 142], d: [124, 124, 106] },
+    shortcuts: { n: [218, 218, 634, 220], d: [114, 114, 270, 166] },
+    danger: { n: [162, 216, 180], d: [144, 162, 162] },
+  };
+  const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
-    : <Card key={i} className="st-card">{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
+    : <Card key={i} className="st-card" style={heightFor(i) ? { minHeight: heightFor(i) } : undefined}>{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
   const body = pending ? null : showSkel ? (
     <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: TAB_CARDS[tab] || 3 }, (_, i) => skeletonCard(i))}</Stack>
   ) : loadError && !data ? (
