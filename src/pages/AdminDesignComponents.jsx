@@ -266,7 +266,7 @@ export default function DesignComponents() {
               <Input label="Business" placeholder="Garcia Landscaping" hint="As it appears on their sign." />
               <Input label="Phone" inputMode="tel" defaultValue="(302) 555-0110" leading={<PhoneCall01 width={16} height={16} />} />
               <Input label="Email" type="email" error="That does not look like an email." defaultValue="rob@visualize" />
-              <Input label="Search" placeholder="Search leads" leading={<SearchMd width={16} height={16} />} trailing={<Button variant="ghost" size="md" style={{ minHeight: 32, marginRight: -8 }}>Clear</Button>} />
+              <Input label="Search" placeholder="Search leads" leading={<SearchMd width={16} height={16} />} trailing={<Button variant="ghost" size="md" style={{ marginRight: -8 }}>Clear</Button>} />
               <Input label="Disabled" disabled defaultValue="Read only" />
               <Select label="Priority" options={PRIORITIES.map(p => ({ id: p.id, label: p.label }))} defaultValue="warm" />
               <Select label="Stage" placeholder="Pick a stage" options={STAGES.map(s => ({ id: s.id, label: s.label }))} defaultValue="" />

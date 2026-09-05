@@ -111,7 +111,13 @@ const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cu
 const EVENT_TONE = { call: 'progress', purchase: 'won', won: 'won', client: 'booked', lead: 'new', scraper: 'new', submission: 'callback', order: 'callback' };
 const EVENT_ICON = { call: 'PhoneCall01', purchase: 'CurrencyDollar', won: 'Trophy01', client: 'Briefcase01', lead: 'Users01', scraper: 'Users01', submission: 'Inbox01', order: 'Package' };
 
+/* The Today card's row count follows the data, so the skeleton reads the last
+ * known count from localStorage (written on every loaded render) and draws
+ * that many rows; a zero draws the small empty state's height (Prompt 15). */
+const TODAY_KEY = 'vz_dash_today';
+const readTodayCount = () => { try { const n = Number(localStorage.getItem(TODAY_KEY)); return Number.isFinite(n) && n >= 0 ? Math.min(n, 12) : 3; } catch { return 3; } };
 function DashboardSkeleton({ desktop, wide }) {
+  const todayRows = readTodayCount();
   // The greeting is text, so its skeleton is text lines (under 40px each): one display-md line between 1024 and 1279, three in the narrow column at 1280 and up.
   const left = (
     <Stack gap={5}>
@@ -123,7 +129,7 @@ function DashboardSkeleton({ desktop, wide }) {
   );
   const right = (
     <Stack gap={5}>
-      <Card><Row gap={4}><SkeletonCircle size={88} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={14} /><SkeletonBlock width="50%" height={12} /></Stack></Row><Stack gap={2}>{[1, 2, 3].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</Stack></Card>
+      <Card><Row gap={4}><SkeletonCircle size={88} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={14} /><SkeletonBlock width="50%" height={12} /></Stack></Row>{todayRows ? <Stack gap={2}>{Array.from({ length: todayRows }, (_, i) => <ListRow.Skeleton key={i} trailing={false} />)}</Stack> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Card>
       <Card><SkeletonBlock width={120} height={14} /><Stack gap={2}>{[1, 2, 3, 4, 5].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</Stack></Card>
     </Stack>
   );
@@ -167,6 +173,7 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
     return [...cbs, ...mts, ...nw];
   }, [notes]);
 
+  useEffect(() => { if (!loading) { try { localStorage.setItem(TODAY_KEY, String(today.length)); } catch { /* private mode */ } } }, [loading, today.length]);
   const hour = new Date().getHours();
   const name = (shell?.profile?.name || 'Rob').split(' ')[0];
   const outside = !inHours(shell?.profile?.businessHours);

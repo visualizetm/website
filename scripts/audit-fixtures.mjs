@@ -5,6 +5,10 @@
  *   import { mockRoutes, leads, items, ... } from './audit-fixtures.mjs';
  *   await mockRoutes(page, { delay: 400, empty: ['leads'], fail: ['orders'], session: 'hang' });
  *
+ * Every audit context is created with serviceWorkers: 'block' (Prompt 15): a
+ * registered worker answers fetches itself and Playwright's route mocks never
+ * see them, so the walk would run against the preview server's SPA fallback.
+ *
  * Resource names for `empty` and `fail`: leads, submissions, orders, packs,
  * projects, settings, calendly, stripe. `delay` adds milliseconds to every
  * admin GET so a real skeleton shows before data lands. `session` is true

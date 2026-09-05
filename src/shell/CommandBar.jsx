@@ -154,7 +154,7 @@ export const commandBarStyles = `
   .sh-cmd { width: 100%; max-width: 560px; }
   .sh-cmd .v-field-shell { min-height: var(--v-control-h); background: var(--v-surface-2); }
   .sh-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); background: var(--v-surface-3); color: var(--v-text-3); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--v-text-xs); }
-  .sh-cmd-clear { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
+  .sh-cmd-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); margin-right: calc(-1 * var(--v-space-3)); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
   .sh-cmd-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
   .sh-cmd-pop { padding: var(--v-space-1); }
   .sh-cmd-list { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

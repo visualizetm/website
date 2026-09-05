@@ -12,7 +12,8 @@ import { Card, StatCard, Pill, Button, Sheet, useToast, Stagger, useDelayedLoadi
 `uiStyles` (tokens + every component stylesheet) is injected once by each
 app shell: `<style>{uiStyles}</style>` inside the `.lay-root` element.
 Overlays (Sheet, Modal, Popover, Toast) portal into `.lay-root` so they
-inherit the tokens.
+inherit the tokens. The toast host is one polite live region that stays
+mounted; the shell's offline banner is the other.
 
 Rules the kit keeps for you: every interactive element is at least
 `--v-tap` (44px) on both axes, shows a `--v-border-focus` ring on
@@ -30,8 +31,10 @@ from semantics (`'Phone'`, `'Zap'`, `'CalendarCheck01'`); see
 
 ### PageShell, ScrollArea, StickyFooterBar
 Unchanged from LAYOUT.md (moved from `src/components/AdminLayout.jsx`).
-`ScrollArea` props: `wide`, `bare`, `contentClassName`. Per-page knobs:
-`--v-stack-gap`, `--v-scroll-extra`.
+`PageShell` wraps its children in an `ErrorBoundary` (`label` names the
+region in the message). `ScrollArea` props: `wide`, `bare`, `contentClassName`;
+a scroller whose only child is `aria-busy` stops scrolling until the data
+lands. Per-page knobs: `--v-stack-gap`, `--v-scroll-extra`.
 Use when: every page. Not when: never hand-roll a scroll container.
 
 ### Stack
@@ -105,16 +108,31 @@ Use when: a lead, client, or person. Not when: a category icon (IconTile).
 Copy rule: say what will appear here and how to make it happen. Never "No data".
 
 ### ErrorState
-`title`, `description`, `onRetry`, `retrying`, `details` (behind a disclosure). `role="alert"`.
+`title`, `description`, `onRetry`, `retryLabel` (default Try again), `retrying`, `details` (behind a disclosure). `role="alert"`.
+
+### ErrorBoundary
+`label` (what broke, for the message), `reload` (the button reloads the page
+instead of resetting the boundary), `fallback(error, reset)`, `onError`.
+Catches a render error below it, logs it through `src/shared/log.js` to
+/api/admin/log, and shows ErrorState with Reload. PageShell mounts one per
+screen region; AdminApp keys one per section; `src/shell/ShellCrash.jsx` is
+the top level one (the login card outline with the message).
 `useRetry(refetch)` returns `[retry, retrying]` for the Try again button.
 Copy for every empty and error state lives in `src/shared/copy.js`
 (`COPY.empty['screen.state']`, `COPY.error.<resource>`); screens never type it inline.
 
 ### ListRow
-`leading`, `title`, `subtitle`, `meta`, `trailing`, `onClick` (renders a
-button with a chevron), `selected`, `chevron`. `ListRow.Skeleton({ leading, trailing })`.
+`leading`, `title`, `subtitle`, `meta`, `trailing`, `onClick`, `selected`,
+`chevron`, `aria-label`. `ListRow.Skeleton({ leading, trailing })`.
 Titles truncate on one line (`.lay-truncate`). Min height `--v-tap-lg`.
-Use when: any list. Not when: a table with many columns (Prompt 5 adds one).
+A row with `onClick` keeps one real button stretched over the row
+(`.v-stretch`, named by `aria-label` or the string title); `leading` and
+`trailing` sit above it (`.v-above`), so a Menu or a Button in `trailing`
+never nests inside the row's button. Rows given a `role` (the command bar's
+options) stay one element. The same two classes are the pattern for any card
+that opens something (LeadCard, the Reviews card): the parent is
+`position: relative`, the open button is `.v-stretch`, other controls are `.v-above`.
+Use when: any list. Not when: a table with many columns (Table).
 
 ---
 
@@ -167,7 +185,8 @@ The whole 44px row is the target.
 
 ### SegmentedControl
 `options [{id,label,icon}]`, `value`, `onChange`, `size` md|sm, `full`, `label`.
-Radio semantics, arrow keys move.
+Radio semantics, arrow keys move. Every option is a 44px target in both
+sizes; `sm` only shrinks the label and padding.
 Use when: two to four views of the same data (Kanban / Table, Week / Day).
 
 ### Tabs
@@ -183,7 +202,9 @@ Use when: sections of one record. Not when: switching views of a list (Segmented
 `selected` (Set), `onSelect(nextSet)`, `sort {id, dir}` with `onSort`, `density`
 md|sm, `onRowClick(row)`, `rowActions(row)` (a Menu in the trailing cell),
 `storageKey` (persists hidden columns), `columnChooser` (default true),
-`empty` slot, `rowClassName(row)`. Sticky header, sticky first column on
+`empty` slot, `rowClassName(row)`, `pageSize` (default 80: rows mount in
+pages as the end scrolls into view, so 400 rows never mount at once; sort and
+selection still cover every row). Sticky header, sticky first column on
 horizontal scroll, header checkbox with indeterminate state, keyboard sort
 (the header is a button), Enter opens a row. The first eight rows step in
 `--v-stagger` apart on mount (`data-v-enter`); rows added later settle. `Table.Skeleton({ rows, cols,

@@ -124,10 +124,10 @@ export const toastStyles = `
   .v-toast-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .v-toast-title { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-bold); overflow-wrap: anywhere; }
   .v-toast-desc { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
-  .v-toast-action { flex-shrink: 0; min-height: 36px; padding: 0 var(--v-space-3); border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); background: var(--v-surface-2); color: var(--v-text); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
+  .v-toast-action { flex-shrink: 0; min-height: var(--v-tap); padding: 0 var(--v-space-3); border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); background: var(--v-surface-2); color: var(--v-text); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
   .v-toast-action:hover { border-color: var(--v-red); color: var(--v-red-highlight); }
   .v-toast-action:focus-visible, .v-toast-x:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
-  .v-toast-x { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--v-radius-sm); border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; }
+  .v-toast-x { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); margin-right: calc(-1 * var(--v-space-2)); border-radius: var(--v-radius-sm); border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; }
   .v-toast-x:hover { color: var(--v-text); background: var(--v-surface-2); }
   .v-toast-bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--v-toast-c); transform-origin: left; animation: v-toast-count var(--v-toast-dur) linear both; }
   .v-toast-bar.is-paused { animation-play-state: paused; }

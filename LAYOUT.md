@@ -104,7 +104,15 @@ node scripts/layout-audit.mjs   # walks every admin route at 320/390/430/768/128
 
 It loads hostile fixtures (80-char slash-joined names, unbroken 88-char
 strings, giant emails) through mocked APIs and fails if any element extends
-past the viewport or any page can scroll sideways. Zero offenders is the bar.
+past the viewport, any page can scroll sideways, or any interactive element
+measures under 44 by 44 (text links inside prose are the one exemption;
+inputs measure by their field shell, checkboxes and toggles by their row).
+`AUDIT_ONLY=a11y` adds the 200 percent zoom pass (a viewport of half the
+CSS pixels at twice the device scale, which is what browser zoom does) and
+the WCAG text spacing overrides on the Dashboard, Leads, and the call room.
+Zero offenders is the bar. Intended horizontal scrollers are listed in
+HSCROLL_OK; the calendar strip, week, and month are there because they keep
+44px columns and scroll on the narrowest phones instead of shrinking targets.
 Covered views: dashboard, submissions list + detail, orders, settings, the
 design system page with its Sheet and Modal open, call console session
 builder + session, the reverse-lookup sheet, the Booked workspace list +

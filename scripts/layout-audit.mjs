@@ -25,7 +25,7 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month'];
 
 /* Touch targets (Prompt 15): every interactive element is at least 44 by 44.
  * Text links inside running prose are the one exemption (WCAG 2.5.8 inline
@@ -46,7 +46,7 @@ async function collectSmallTargets(page) {
       const r = box.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue;
       // A hidden native input inside a kit control (checkbox, toggle) is measured by its visible wrapper.
-      const hit = el.matches('input[type="checkbox"]') ? el.closest('.v-check, .v-toggle') || el : box;
+      const hit = el.matches('input[type="checkbox"]') ? el.closest('.v-check, .v-toggle') || el : el.matches('input, select, textarea') ? el.closest('.v-field-shell') || el : box;
       const hr = hit.getBoundingClientRect();
       if (hr.width + 0.5 >= min && hr.height + 0.5 >= min) continue;
       const key = (el.className && typeof el.className === 'string' ? el.className.split(' ')[0] : el.tagName) + ':' + Math.round(hr.width) + 'x' + Math.round(hr.height);
@@ -95,7 +95,7 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 let failures = 0;
 
 for (const width of WIDTHS) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference' });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
   const page = await ctx.newPage();
   await page.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
   await mockRoutes(page);
@@ -138,7 +138,7 @@ for (const width of WIDTHS) {
      * fails, not a wide document. */
     const ROOM = { ids: ['L0', 'L1', 'L3', 'L4', 'L6', 'L7'], idx: 0, stats: {}, logged: {}, startedAt: Date.now(), size: 6, mode: 'room' };
     const targets = [['dashboard', '/admin', () => localStorage.removeItem('vz_call_session')], ['leads', '/admin/leads', () => localStorage.setItem('vz_leads_view', JSON.stringify('list'))], ['call room', '/admin/calls', (s) => localStorage.setItem('vz_call_session', JSON.stringify(s))]];
-    const zctx = await browser.newContext({ viewport: { width: Math.round(width / 2), height: 422 }, deviceScaleFactor: 2, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference' });
+    const zctx = await browser.newContext({ viewport: { width: Math.round(width / 2), height: 422 }, deviceScaleFactor: 2, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
     const zpage = await zctx.newPage();
     await zpage.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
     await mockRoutes(zpage);
@@ -225,6 +225,7 @@ for (const width of WIDTHS) {
   });
   await page.route('https://api.web3forms.com/**', r => r.fulfill(json({ success: true })));
   await goto('/prints');
+  await page.getByRole('button', { name: /Customize/ }).nth(3).waitFor({ timeout: 10000 }).catch(() => {}); // the shop is a lazy chunk (Prompt 15)
   await page.getByRole('button', { name: /Customize/ }).nth(3).click({ timeout: 4000 }).catch(() => {});
   await page.locator('.ps-minput').first().fill('@visualize').catch(() => {});
   await page.locator('.ps-color-row button').first().click({ timeout: 2000 }).catch(() => {});

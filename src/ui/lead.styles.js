@@ -52,9 +52,9 @@ export const leadDetailStyles = `
   .dt-profile { gap: var(--v-space-3); }
   .dt-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
   .dt-desc { color: var(--v-text-2); font-size: var(--v-text-md); }
-  .dt-pillbtn { border: 0; background: transparent; padding: 0; cursor: pointer; display: inline-flex; min-height: 26px; }
+  .dt-pillbtn { border: 0; background: transparent; padding: 0; cursor: pointer; display: inline-flex; align-items: center; min-height: var(--v-tap); min-width: var(--v-tap); }
   .dt-pillbtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-pill); }
-  .dt-inline-pill { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.04em; color: var(--v-text-2); min-height: 26px; }
+  .dt-inline-pill { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.04em; color: var(--v-text-2); min-height: var(--v-tap); display: inline-flex; align-items: center; }
   .dt-actions .v-ibtn--ghost { color: var(--v-text-3); opacity: 0.6; }
   .dt-facts { margin-top: var(--v-space-1); }
   .dt-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-1); border-bottom: 1px solid var(--v-border); background: transparent; border-left: 0; border-right: 0; border-top: 0; color: inherit; text-align: left; font: inherit; width: 100%; }
@@ -102,7 +102,7 @@ export const clientStyles = `
   .cl-shell.aa-main, .po-shell.aa-main { display: flex; flex-direction: column; }
   .cl-page { --v-stack-gap: var(--v-space-4); }
   .cl-search { max-width: 520px; }
-  .cl-clear { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; border-radius: var(--v-radius-sm); }
+  .cl-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; border-radius: var(--v-radius-sm); }
   .cl-clear:hover { color: var(--v-text); }
   .cl-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .cl-stack > .v-stagger-item { display: contents; }

@@ -210,7 +210,7 @@ async function bootTiming(browser) {
   const results = [];
   for (const hint of ['authed', 'fresh']) {
     for (const throttle of [true, false]) {
-      const ctx = await browser.newContext({ viewport: { width: 390, height: VIEW_H }, hasTouch: true });
+      const ctx = await browser.newContext({ viewport: { width: 390, height: VIEW_H }, hasTouch: true, serviceWorkers: 'block' });
       const page = await ctx.newPage();
       const cdp = await ctx.newCDPSession(page);
       await cdp.send('Network.enable');
@@ -253,7 +253,7 @@ if (BOOT) {
 
 const rows = [];
 for (const theme of THEMES) for (const motion of MOTIONS) for (const width of WIDTHS) {
-  const ctx = await browser.newContext({ viewport: { width, height: VIEW_H }, hasTouch: width < 500, reducedMotion: motion === 'reduce' ? 'reduce' : 'no-preference' });
+  const ctx = await browser.newContext({ viewport: { width, height: VIEW_H }, hasTouch: width < 500, reducedMotion: motion === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
     if (s.minWidth && width < s.minWidth) continue;

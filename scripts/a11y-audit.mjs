@@ -63,7 +63,7 @@ async function state(ctx, s, width, theme, skeleton) {
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 const rows = [];
 for (const theme of THEMES) for (const width of WIDTHS) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500 });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, serviceWorkers: 'block' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
     if (s.minWidth && width < s.minWidth) continue;

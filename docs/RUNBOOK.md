@@ -66,22 +66,60 @@ collection except push subscriptions, no raw Stripe payloads). The last backup
 time shows on the card. There is no in-app restore; a restore is a hand import
 into Atlas from that file.
 
+## Security
+
+What the API enforces (Prompt 15 review; every route goes through
+`route()` in api/_lib/handler.js):
+
+- Every non public route sits behind the admin cookie. Public: /api/submissions (POST), /api/push-key, /api/admin/session, /api/admin/login, /api/admin/logout. The Stripe webhook and both crons verify their own secret instead.
+- Method allow lists per route (405 with Allow), a body size cap per route (413; 512KB default, 1MB call-leads and the webhook, 2MB the spreadsheet import, small caps on login, settings, push, reconcile).
+- CSRF: every POST, PATCH, and DELETE on an admin route (login and logout included) needs `X-Requested-With: visualize`. apiFetch in src/shared/api.js sends it on every request; a cross site form or a plain script cannot. The webhook, the crons, and the public submissions route are exempt.
+- Session cookie: HttpOnly, Secure, SameSite=Lax, 30 days, HMAC signed with SESSION_SECRET, compared in constant time. Sliding renewal: any authed request on a cookie older than a day reissues it for 30 days, so a device in daily use never expires and one left alone does 30 days after its last visit.
+- Login: 10 failed attempts per IP per 15 minutes, counted on the settings `login-limit` document so every serverless instance shares one count (an in memory map is only the fallback while the database is unreachable; it resets per instance and per cold start, which is why it is not the primary store). Success clears the IP. The password compare is constant time on both the scrypt path and the ADMIN_PASSWORD path.
+- Input: every write goes through the route's sanitize() whitelist and `$set` only; ids are cast with ObjectId (a bad id is a 400, never a query operator); search strings are escaped before they become a regular expression; nothing from the request reaches a Mongo operator name.
+- Output: no route returns a secret, a stack, or an env var. Errors answer `{ error: 'message' }`; a thrown error answers 500 `server error` with the stack in the Vercel function log only.
+- Stripe webhook: raw body, signature verified with 300 seconds of replay tolerance, and the event row is inserted under the unique `id` index before any ledger write, so a retry that lands mid processing is a duplicate with no side effects (applyPayment also refuses a second ledger entry for the same event id).
+- Headers (vercel.json): X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (camera, microphone, geolocation, payment, usb off) on every host. The admin host also gets a Content-Security-Policy: self only for scripts (plus the sha256 of the one inline pre-paint script, which the build pins into vercel.json), styles self and inline (the kit's CSS-in-JSX and the boot frame need it), fonts self (self hosted latin subsets in /fonts), images self plus data and https (concept pack thumbnails), connect self, frame-ancestors none. The marketing host has no CSP header and is unaffected.
+- The client error log (/api/admin/log) is admin guarded, capped at 500 entries, and stores messages, not payloads.
+
+Findings from the review that were fixed: no rate limit on login; no CSRF header (SameSite=Lax alone let a same site navigation POST through); cookies never renewed (a daily user was signed out every 30 days); the webhook stored the event after the ledger write; four handlers had no method check; api/submissions and push-subscribe had no body cap; no CSP; two handlers could throw an unhandled error into Vercel's default 500 page.
+
 ## Scripts
 
 ```
-npm run build                                  # Vite build to dist/
-npx vite preview --port 4330                   # serve dist/ for the audit
-node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs
+npm run build                                  # Vite build to dist/ (also pins the CSP hash in vercel.json)
+npx vite preview --port 4330                   # serve dist/ for the audits
+node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs, 44px targets
 AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs   # also clients, studio, design, dashboard
 AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs   # the other theme, motion off
+AUDIT_ONLY=a11y AUDIT_WIDTHS=390,1280 node scripts/layout-audit.mjs   # 200 percent zoom and text spacing on Dashboard, Leads, call room
 node scripts/feel-audit.mjs                    # skeleton, fit, entrance, empty, error, layout shift per screen
 AUDIT_THEME=both AUDIT_MOTION=both AUDIT_OUT=/tmp/feel.json node scripts/feel-audit.mjs
 node scripts/feel-audit.mjs --boot             # time to first shell paint on a throttled network
-node scripts/hex-count.js                      # raw hex literals in src and api
-node scripts/css-orphans.mjs                   # class selectors nothing renders
+AUDIT_THEME=both node scripts/a11y-audit.mjs   # axe-core on every screen, both themes, 390 and 1280
+node scripts/regression.mjs                    # docs/QA-CHECKLIST.md as a Playwright walk, 390 and 1280
+node scripts/render-profile.mjs                # kanban with 400 leads, month with 60 events
+DIST=dist PORT=4350 node scripts/mock-server.mjs &   # fixture backed server for Lighthouse (MOCK_HOST=admin adds the CSP)
+LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, both themes
+node scripts/fetch-fonts.mjs                   # refresh the self hosted latin font subsets
+node scripts/hex-count.js                      # raw hex literals in src and api (145 or lower)
+node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
 OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry
 ```
+
+Every audit context blocks the service worker (Playwright `serviceWorkers: 'block'`); otherwise the worker answers the mocked requests itself. Lighthouse runs against the mock server over real HTTP, so the worker is live there.
+
+## Errors
+
+The admin logs its own errors: a screen that throws shows the kit ErrorState
+with Reload inside its region (the shell stays up), the shell itself failing
+shows the login card outline with the message, and every such error, every
+unhandled promise rejection, every write refused offline, and every API call
+that answered 500 posts to /api/admin/log. Settings, Automation, Errors on
+this app shows the last 20 with a Clear button; the settings `client-log`
+document keeps 500. Server side errors go to the Vercel function log with the
+stack; the client only ever sees `{ error: 'server error' }`.
 
 ## If something is off
 
@@ -89,3 +127,7 @@ OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry
 - Push never arrives: Settings, Notifications, This device must say push is on; VAPID keys must be set; iPhone needs the app installed to the Home Screen.
 - Calendar has no Calendly events: CALENDLY_TOKEN missing or expired; the Calendly card says which.
 - Payments do not appear on a client: Settings, Integrations, Stripe, Reconcile; unmatched events wait there. Matching is by email, then phone, then business name.
+- Signed out after a deploy or every write answers 403: the cookie is fine, the request is missing the X-Requested-With header. Hard reload the admin so the current bundle's apiFetch is in use.
+- Too many attempts on sign in: 10 wrong passwords from one IP in 15 minutes; wait 15 minutes, or delete the settings `login-limit` document in Atlas.
+- The admin is blank after a change to index.html's pre-paint script: the CSP hash moved. `npm run build` rewrites it in vercel.json; commit that file with the change.
+- A screen shows Something broke: reload it; the message is under Settings, Automation, Errors on this app, and in the browser console.

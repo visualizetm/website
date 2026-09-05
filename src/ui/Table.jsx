@@ -28,11 +28,26 @@ import { durationMs } from './motion';
  * @param {boolean} [props.columnChooser=true]
  * @param {import('react').ReactNode} [props.empty] shown when rows is empty
  * @param {Function} [props.rowClassName] (row) => string
+ * @param {number} [props.pageSize=80] rows mounted per page; the next page mounts as the end scrolls into view
  */
 export default function Table({
   columns, rows, rowKey = (r) => r._id, selectable = false, selected, onSelect, sort, onSort, density = 'md',
-  onRowClick, rowActions, storageKey, columnChooser = true, empty, rowClassName, className = '', 'aria-label': label,
+  onRowClick, rowActions, storageKey, columnChooser = true, empty, rowClassName, className = '', 'aria-label': label, pageSize = 80,
 }) {
+  // Windowing (Prompt 15): only the first `pageSize` rows render; a sentinel under the table extends the
+  // window by another page as it scrolls into view, so 400 rows never mount at once. Selection and sort
+  // still cover every row (they read `rows`), only the DOM is paged.
+  const [limit, setLimit] = useState(pageSize);
+  const sentinelRef = useRef(null);
+  useEffect(() => { setLimit(pageSize); }, [rows.length, sort?.id, sort?.dir, pageSize]);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || limit >= rows.length || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver((entries) => { if (entries.some(e => e.isIntersecting)) setLimit(l => Math.min(rows.length, l + pageSize)); }, { rootMargin: '400px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [limit, rows.length, pageSize]);
+  const shown = rows.length > limit ? rows.slice(0, limit) : rows;
   const [hidden, setHidden] = useState(() => {
     try { return new Set(storageKey ? JSON.parse(localStorage.getItem(storageKey) || '[]') : []); } catch { return new Set(); }
   });
@@ -90,7 +105,7 @@ export default function Table({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, ri) => {
+            {shown.map((row, ri) => {
               const k = rowKey(row);
               const on = selected?.has(k);
               return (
@@ -106,6 +121,7 @@ export default function Table({
           </tbody>
         </table>
         {!rows.length && <div className="v-table-empty">{empty}</div>}
+        {rows.length > shown.length && <div ref={sentinelRef} className="v-table-more"><button type="button" className="v-table-more-btn" onClick={() => setLimit(l => Math.min(rows.length, l + pageSize))}>Show more ({rows.length - shown.length} of {rows.length} to go)</button></div>}
       </div>
     </div>
   );
@@ -153,5 +169,9 @@ export const tableStyles = `
   .v-tr:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
   .v-tr.is-selected .v-td { background: var(--v-red-soft); }
   .v-table-empty { padding: var(--v-space-6) var(--v-space-4); }
+  .v-table-more { display: flex; justify-content: center; padding: var(--v-space-2); border-top: 1px solid var(--v-border); }
+  .v-table-more-btn { min-height: var(--v-tap); padding: 0 var(--v-space-4); border: 0; border-radius: var(--v-radius-md); background: transparent; color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
+  .v-table-more-btn:hover { background: var(--v-surface-2); color: var(--v-text); }
+  .v-table-more-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
   .v-table-chooser { display: flex; flex-direction: column; padding: var(--v-space-1) var(--v-space-3); }
 `;

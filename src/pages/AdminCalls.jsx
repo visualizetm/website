@@ -671,7 +671,7 @@ const ccStyles = `
   .cc-desc { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }
   .cc-askfor { margin: 0; font-size: var(--v-text-md); color: var(--v-text-2); }
   .cc-askfor strong { color: var(--v-text); }
-  .cc-head-links .v-btn { min-height: 36px; padding: 0 var(--v-space-2); }
+  .cc-head-links .v-btn { padding: 0 var(--v-space-2); }
   .cc-phone { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .cc-phone .v-row > .v-btn--full { flex: 1 1 auto; width: auto; min-width: 0; }
   .cc-phone .v-row > .v-ibtn { flex-shrink: 0; }

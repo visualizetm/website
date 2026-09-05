@@ -10,7 +10,7 @@ import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import CallbackPicker from '../components/CallbackPicker';
 import LeadForm from '../components/LeadForm';
-import { buildEvents, eventsOn, sameDay, KIND_LABEL } from '../lib/events';
+import { buildEvents, sameDay, KIND_LABEL } from '../lib/events';
 import { normalizeStage } from '../shared/semantics';
 import { matchesSearch } from '../lib/leads';
 import { defaultLead } from '../lib/defaultLead';
@@ -20,7 +20,7 @@ import { toLocalInput } from '../lib/calls';
 /* Calendar (Prompt 9): Day (mobile first), Week (desktop first), Month.
  * One event source: buildEvents in src/lib/events.js. */
 const VIEW_KEY = 'vz_cal_view';
-const HOUR_PX = 56;
+const HOUR_PX = 88; // a 30 minute block is 44px, the minimum target (Prompt 15)
 const START_H = 7;
 const END_H = 21;
 const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill'];
@@ -73,7 +73,11 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const projects = shell?.projects || [];
   const all = useMemo(() => buildEvents(leads, calendly.events, now, projects), [leads, calendly.events, now, projects]);
   const events = useMemo(() => all.filter(e => !kinds.size || kinds.has(e.kind) || (e.kind === 'planfinal' && kinds.has('bill'))), [all, kinds]);
-  const dayEvents = useMemo(() => { const list = eventsOn(events, cursor); return [...list.filter(e => e.overdue), ...list.filter(e => !e.overdue)]; }, [events, cursor]);
+  // One bucket per day (Prompt 15): the strip, the week, and the 42 month cells read a Map instead of filtering every event per cell.
+  const dk = (d) => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`; };
+  const byDay = useMemo(() => { const m = new Map(); for (const e of events) { const k = dk(e.at); if (!m.has(k)) m.set(k, []); m.get(k).push(e); } return m; }, [events]);
+  const eventsFor = (d) => byDay.get(dk(d)) || [];
+  const dayEvents = useMemo(() => { const list = eventsFor(cursor); return [...list.filter(e => e.overdue), ...list.filter(e => !e.overdue)]; }, [byDay, cursor]); // eslint-disable-line react-hooks/exhaustive-deps
   const overdueAll = useMemo(() => events.filter(e => e.kind === 'callback' && e.overdue && !sameDay(e.at, cursor)), [events, cursor]);
   const week = useMemo(() => { const s = startOfWeek(cursor); return Array.from({ length: 7 }, (_, i) => addDays(s, i)); }, [cursor]);
   const monthDays = useMemo(() => { const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1); const s = startOfWeek(first); return Array.from({ length: 42 }, (_, i) => addDays(s, i)); }, [cursor]);
@@ -119,7 +123,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   /* Views */
   const dayStrip = (
     <div className="cal-strip v-reveal" role="group" aria-label="Week" onTouchStart={(e) => { touch.current = e.touches[0].clientX; }} onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1); }}>
-      {week.map(d => { const has = eventsOn(events, d); const on = sameDay(d, cursor); const isToday = sameDay(d, now); return (
+      {week.map(d => { const has = eventsFor(d); const on = sameDay(d, cursor); const isToday = sameDay(d, now); return (
         <button key={+d} type="button" className={`cal-strip-day${on ? ' is-on' : ''}${isToday ? ' is-today' : ''}`} onClick={() => setCursor(d)} aria-pressed={on} aria-label={d.toDateString()}>
           <span className="cal-strip-dow">{DOW[(d.getDay() + 6) % 7]}</span><span className="cal-strip-n">{d.getDate()}</span>
           <span className="cal-strip-dots">{[...new Set(has.map(e => e.tone))].slice(0, 3).map(t => <span key={t} className="cal-dot" style={{ background: `var(--v-status-${t}-solid)` }} />)}</span>
@@ -140,7 +144,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
     <div className="cal-week" role="grid" aria-label={`Week of ${week[0].toLocaleDateString([], { month: 'long', day: 'numeric' })}`}>
       <div className="cal-week-head" role="row">
         <div className="cal-gutter" role="columnheader"><span className="v-sr-only">Time</span></div>
-        {week.map(d => <div key={+d} role="columnheader" className={`cal-week-day${sameDay(d, now) ? ' is-today' : ''}`}><button type="button" className="cal-week-daybtn" onClick={() => { setCursor(d); setMode('day'); }} aria-label={d.toDateString()}>{DOW[(d.getDay() + 6) % 7]} <strong>{d.getDate()}</strong></button><div className="cal-allday">{eventsOn(events, d).filter(e => e.allDay).map(e => <Pill key={e.id} tone={e.tone} label={e.title} size="sm" icon={false} className="cal-allday-pill" />)}</div></div>)}
+        {week.map(d => <div key={+d} role="columnheader" className={`cal-week-day${sameDay(d, now) ? ' is-today' : ''}`}><button type="button" className="cal-week-daybtn" onClick={() => { setCursor(d); setMode('day'); }} aria-label={d.toDateString()}>{DOW[(d.getDay() + 6) % 7]} <strong>{d.getDate()}</strong></button><div className="cal-allday">{eventsFor(d).filter(e => e.allDay).map(e => <Pill key={e.id} tone={e.tone} label={e.title} size="sm" icon={false} className="cal-allday-pill" />)}</div></div>)}
       </div>
       <ScrollArea bare className="cal-week-scroll">
         <div className="cal-grid" style={{ height: hours.length * HOUR_PX }} role="row">
@@ -149,8 +153,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
             <div key={+d} role="gridcell" aria-label={d.toDateString()} className={`cal-col${sameDay(d, now) ? ' is-today' : ''}`} onClick={(ev) => { if (ev.target !== ev.currentTarget) return; const rect = ev.currentTarget.getBoundingClientRect(); const h = START_H + Math.floor((ev.clientY - rect.top) / HOUR_PX); const slot = new Date(d); slot.setHours(h, 0, 0, 0); setAddSlot(slot); setAddLead(null); }}>
               {hours.map(h => <div key={h} className="cal-line" style={{ top: (h - START_H) * HOUR_PX }} />)}
               {sameDay(d, now) && <div className="cal-now" style={{ top: posOf(now) }} />}
-              {eventsOn(events, d).filter(e => !e.allDay).map((e, bi) => (
-                <button key={e.id} type="button" className={`cal-block cal-block--${e.tone} v-reveal`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(28, posOf(e.end) - posOf(e.at)), animationDelay: `calc(${Math.min(bi, 8)} * var(--v-stagger))` }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
+              {eventsFor(d).filter(e => !e.allDay).map((e, bi) => (
+                <button key={e.id} type="button" className={`cal-block cal-block--${e.tone} v-reveal`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(44, posOf(e.end) - posOf(e.at)), animationDelay: `calc(${Math.min(bi, 8)} * var(--v-stagger))` }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
                   <span className="cal-block-t">{fmtTime(e.at)}</span><span className="cal-block-title lay-truncate">{e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}</span>
                 </button>
               ))}
@@ -166,7 +170,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
       <div role="row" className="cal-month-row">{DOW.map(d => <div key={d} role="columnheader" className="cal-month-dow">{d}</div>)}</div>
       {Array.from({ length: 6 }, (_, w) => (
         <div key={w} role="row" className="cal-month-row">
-          {monthDays.slice(w * 7, w * 7 + 7).map((d, di) => { const i = w * 7 + di; const list = eventsOn(events, d); const other = d.getMonth() !== cursor.getMonth(); return (
+          {monthDays.slice(w * 7, w * 7 + 7).map((d, di) => { const i = w * 7 + di; const list = eventsFor(d); const other = d.getMonth() !== cursor.getMonth(); return (
             <div key={+d} role="gridcell" className="cal-month-cell">
               <button type="button" className={`cal-month-day v-reveal${other ? ' is-other' : ''}${sameDay(d, now) ? ' is-today' : ''}`} style={{ animationDelay: `calc(${Math.floor(i / 7)} * var(--v-stagger))` }} onClick={() => { setCursor(d); setMode('day'); }} aria-label={`${d.toDateString()}, ${list.length} event${list.length === 1 ? '' : 's'}`} aria-current={sameDay(d, now) ? 'date' : undefined}>
                 <span className="cal-month-n">{d.getDate()}</span>
@@ -246,7 +250,8 @@ const calStyles = `
   .cal-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   .cal-page .v-section-title { font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); color: var(--v-text); }
   .cal-hint { font-size: var(--v-text-sm); color: var(--v-text-3); }
-  .cal-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--v-space-1); }
+  .cal-strip { display: grid; grid-template-columns: repeat(7, minmax(var(--v-tap), 1fr)); gap: var(--v-space-1); overflow-x: auto; scrollbar-width: none; }
+  .cal-strip::-webkit-scrollbar { display: none; }
   .cal-strip-day { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: var(--v-tap-lg); padding: var(--v-space-1) 0; border: 1px solid var(--v-border); border-radius: var(--v-radius-md); background: var(--v-surface-1); color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); }
   .cal-strip-day.is-on { border-color: var(--v-red); background: var(--v-red-soft); color: var(--v-text); }
   .cal-strip-day.is-today .cal-strip-n { color: var(--v-red-highlight); }
@@ -257,24 +262,25 @@ const calStyles = `
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
   .cal-row--danger { border-color: color-mix(in srgb, var(--v-status-danger-text) 40%, transparent); }
   /* Week */
-  .cal-week { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--v-border); border-radius: var(--v-radius-lg); background: var(--v-surface-1); overflow: hidden; }
-  .cal-week-head { display: grid; grid-template-columns: 56px repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--v-border); }
-  .cal-week-day { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-1); min-width: 0; border-left: 1px solid var(--v-border); }
+  .cal-week { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--v-border); border-radius: var(--v-radius-lg); background: var(--v-surface-1); overflow: hidden auto; overflow-x: auto; }
+  .cal-week-head, .cal-grid { min-width: calc(40px + 7 * (var(--v-tap) + 1px)); }
+  .cal-week-head { display: grid; grid-template-columns: 40px repeat(7, minmax(var(--v-tap), 1fr)); border-bottom: 1px solid var(--v-border); }
+  .cal-week-day { display: flex; flex-direction: column; gap: 2px; padding: 0 0 var(--v-space-1); min-width: 0; border-left: 1px solid var(--v-border); }
   .cal-week-day.is-today .cal-week-daybtn { color: var(--v-red-highlight); }
-  .cal-week-daybtn { border: 0; background: transparent; color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-xs); text-transform: uppercase; letter-spacing: var(--v-ls-xs); min-height: var(--v-tap); border-radius: var(--v-radius-sm); }
+  .cal-week-daybtn { border: 0; background: transparent; color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-xs); text-transform: uppercase; letter-spacing: var(--v-ls-xs); min-height: var(--v-tap); width: 100%; min-width: var(--v-tap); border-radius: var(--v-radius-sm); }
   .cal-week-daybtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
   .cal-week-daybtn strong { color: var(--v-text); font-size: var(--v-text-md); }
   .cal-allday { display: flex; flex-direction: column; gap: 2px; min-height: 4px; }
   .cal-allday-pill { max-width: 100%; }
   .cal-week-scroll { max-height: 70vh; }
-  .cal-grid { display: grid; grid-template-columns: 56px repeat(7, minmax(0, 1fr)); position: relative; }
+  .cal-grid { display: grid; grid-template-columns: 40px repeat(7, minmax(var(--v-tap), 1fr)); position: relative; }
   .cal-gutter { position: relative; }
   .cal-hour { position: absolute; right: var(--v-space-2); transform: translateY(-50%); font-size: 10px; color: var(--v-text-3); }
   .cal-col { position: relative; border-left: 1px solid var(--v-border); min-width: 0; cursor: cell; }
   .cal-col.is-today { background: color-mix(in srgb, var(--v-red) 4%, transparent); }
   .cal-line { position: absolute; left: 0; right: 0; height: 1px; background: var(--v-border); pointer-events: none; }
   .cal-now { position: absolute; left: 0; right: 0; height: 2px; background: var(--v-red); z-index: 2; pointer-events: none; box-shadow: var(--v-glow-red); }
-  .cal-block { position: absolute; left: 2px; right: 2px; display: flex; flex-direction: column; gap: 1px; padding: 2px 6px; border-radius: var(--v-radius-sm); border: 0; border-left: 3px solid var(--v-status-neutral-solid); background: var(--v-status-neutral-soft); color: var(--v-status-neutral-text); text-align: left; cursor: pointer; overflow: hidden; font-family: var(--v-font-body); z-index: 1; }
+  .cal-block { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; gap: 1px; padding: 2px 6px; border-radius: var(--v-radius-sm); border: 0; border-left: 3px solid var(--v-status-neutral-solid); background: var(--v-status-neutral-soft); color: var(--v-status-neutral-text); text-align: left; cursor: pointer; overflow: hidden; font-family: var(--v-font-body); z-index: 1; }
   .cal-block:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 1px; }
   .cal-block--booked { border-left-color: var(--v-status-booked-solid); background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
   .cal-block--callback { border-left-color: var(--v-status-callback-solid); background: var(--v-status-callback-soft); color: var(--v-status-callback-text); }
@@ -283,7 +289,8 @@ const calStyles = `
   .cal-block-t { font-size: 10px; font-weight: var(--v-weight-bold); }
   .cal-block-title { font-size: var(--v-text-xs); font-weight: var(--v-weight-semibold); }
   /* Month */
-  .cal-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+  .cal-month { display: grid; grid-template-columns: repeat(7, minmax(var(--v-tap), 1fr)); gap: 2px; overflow-x: auto; scrollbar-width: none; }
+  .cal-month::-webkit-scrollbar { display: none; }
   .cal-month-row, .cal-month-cell { display: contents; }
   .cal-month-dow { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); text-align: center; padding: var(--v-space-1) 0; }
   .cal-month-day { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 84px; width: 100%; padding: var(--v-space-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-sm); background: var(--v-surface-1); color: var(--v-text); cursor: pointer; font-family: var(--v-font-body); text-align: left; min-width: 0; overflow: hidden; }

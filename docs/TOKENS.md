@@ -55,11 +55,25 @@ Status set (`-solid` fills carry `--v-text-inverse`; `-soft` tints carry `-text`
 | progress | Contacted / In progress / Paid | `#60a5fa` | `rgba(96,165,250,0.14)` | `#60a5fa` |
 | callback | Callback, Replied, In production | `#a78bfa` | `rgba(167,139,250,0.14)` | `#a78bfa` |
 | booked | Booked, Landed, Client, Delivered | `#22c55e` | `rgba(34,197,94,0.14)` | `#22c55e` |
-| won | Won, Hot priority | `#d44c43` | `rgba(212,76,67,0.16)` | `#e66b63` |
-| danger | Denied, Said no, Lost | `#dc2626` | `rgba(239,68,68,0.14)` | `#f87171` |
-| neutral | Not called, misc | `#8f8f8f` | `rgba(255,255,255,0.07)` | `#8f8f8f` |
+| won | Won, Hot priority | `#c2413a` (white label) | `rgba(212,76,67,0.16)` | `#e66b63` |
+| danger | Denied, Said no, Lost | `#ef4444` | `rgba(239,68,68,0.14)` | `#f87171` |
+| neutral | Not called, misc | `#8f8f8f` | `rgba(255,255,255,0.07)` | `#a3a3a3` |
 
-Charts: `--v-chart-1..6` = `#d44c43 #60a5fa #22c55e #f59e0b #a78bfa #34d399`.
+Charts: `--v-chart-1..6` = `#d44c43 #60a5fa #22c55e #f59e0b #a78bfa #34d399`;
+`--v-chart-text` (the label on a bar) is `--v-text-inverse`. Light redefines the six as
+`#c2413a #1d4ed8 #15803d #b45309 #6d28d9 #047857` with a white `--v-chart-text`
+(bars 3.65 to 6.43 against the cream layers, labels 5.02 to 7.10 on the bars). Every bar reads
+3:1 or better against every layer and the label 4.5:1 on the bar (the design
+page shows the numbers live).
+
+Prompt 15 retunes (axe against rendered pixels): the won solid is the pressed
+red `#c2413a` and carries the white label (5.11:1; the brand red under white
+was 4.27), the danger solid is `#ef4444` so the dark label passes (4.9; the
+old `#dc2626` was 4.35), neutral text is `#a3a3a3` so a neutral pill still
+passes on a selected card (surface-2 plus the tint, 5.0; `#8f8f8f` was 4.43),
+and the active tab bar label and sidebar item use `--v-red-highlight`
+(5.93 on surface-1; the base red was 4.38). `.v-sr-only` is the visually
+hidden text utility for assistive technology.
 
 ## Contrast table (WCAG 2.x, computed)
 
@@ -73,6 +87,7 @@ Charts: `--v-chart-1..6` = `#d44c43 #60a5fa #22c55e #f59e0b #a78bfa #34d399`.
 | callback text #a78bfa | 7.36 | 6.88 | 6.40 | 5.78 |
 | booked text #22c55e | 8.79 | 8.22 | 7.64 | 6.90 |
 | won text #e66b63 | 6.34 | 5.93 | 5.51 | 4.98 |
+| neutral text #a3a3a3 | 7.87 | 7.36 | 6.84 | 6.18 |
 | danger text #f87171 | 7.24 | 6.77 | 6.29 | 5.68 |
 | neutral text #8f8f8f | 6.19 | 5.79 | 5.38 | 4.86 |
 | retired #8a8a8a | 5.80 | 5.43 | 5.04 | 4.55 |

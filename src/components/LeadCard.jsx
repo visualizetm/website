@@ -2,6 +2,7 @@ import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
 import ThumbsUp from '@untitled-ui/icons-react/build/esm/ThumbsUp';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import { memo } from 'react';
 import { Avatar, Pill, Menu, Tooltip, Checkbox, SkeletonBlock, SkeletonCircle } from '../ui';
 import { CALL_STATUSES, PRIORITIES, displayIndustry } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
@@ -40,7 +41,7 @@ export function leadMenuItems(lead, actions) {
   return items;
 }
 
-export default function LeadCard({ lead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, compact = false, className = '', ...rest }) {
+function LeadCardInner({ lead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, compact = false, className = '', ...rest }) {
   const lc = lastCall(lead);
   const touched = lastTouchAt(lead);
   const scan = scanAgeDays(lead);
@@ -88,6 +89,11 @@ export default function LeadCard({ lead, onOpen, selected = false, selectable = 
   );
 }
 
+/* Memoized (Prompt 15): the kanban re-renders a column's cards only when their own lead or flags change.
+ * Callers pass stable-ish handlers; the shallow compare on `lead` (a new object only when it was patched)
+ * is what skips the other 399 cards when one moves. */
+const LeadCard = memo(LeadCardInner, (a, b) => a.lead === b.lead && a.selected === b.selected && a.selectable === b.selectable && a.checked === b.checked && a.dragging === b.dragging && a.compact === b.compact && a.className === b.className && a.style === b.style && a.draggable === b.draggable);
+export default LeadCard;
 LeadCard.Skeleton = function LeadCardSkeleton({ compact = false }) {
   return (
     <div className="lc lay-card" aria-busy="true" aria-hidden="true">

@@ -1,4 +1,4 @@
-# VISUALIZE ADMIN, ARCHITECTURE (as of Prompt 13, 2026-09-04)
+# VISUALIZE ADMIN, ARCHITECTURE (as of 3.0.0, Prompt 15, 2026-09-05)
 
 The admin CRM at admin.visualizeclients.com and the marketing site at
 visualizestudio.org share one Vite build. This file describes the app as it
@@ -10,38 +10,40 @@ docs/RUNBOOK.md.
 | Layer | What it is |
 |---|---|
 | Framework | React 18, function components and hooks, no TypeScript |
-| Build | Vite 6 with @vitejs/plugin-react; `__BUILD_SHA__` from VERCEL_GIT_COMMIT_SHA |
-| Routing | react-router-dom 6 for the marketing site; AdminApp switches sections on `location.pathname`; App.jsx branches on host first |
-| Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules plus the font loads |
+| Build | Vite 6 with @vitejs/plugin-react; `__BUILD_SHA__` from VERCEL_GIT_COMMIT_SHA; the boot frame and the CSP hash are injected by two plugins in vite.config.js; one lazy chunk per admin screen and per marketing page, Leads and the Call Console prefetched after first paint, xlsx behind its own import |
+| Routing | react-router-dom 6 for the marketing site; AdminApp switches sections on `location.pathname`; App.jsx branches on host first and loads only that host's chunks |
+| Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules; src/fonts.css declares the self hosted latin subsets in public/fonts (scripts/fetch-fonts.mjs) |
 | State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |
-| Data | fetch to same-origin /api/* Vercel functions, cookie auth, no client cache layer |
-| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js) |
-| Auth | One admin password (scrypt hash in settings.auth, else ADMIN_PASSWORD), HMAC signed 30 day cookie (api/_lib/auth.js) |
-| Push | web-push with VAPID keys; public/sw.js handles push and deep links |
+| Data | apiFetch (src/shared/api.js) to same-origin /api/* Vercel functions with the X-Requested-With header, cookie auth; the service worker keeps the last successful GET of the five main lists for offline reading |
+| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js); every function is wrapped by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, CSRF header, one try/catch) |
+| Auth | One admin password (scrypt hash in settings.auth, else ADMIN_PASSWORD, constant time compare), HMAC signed 30 day cookie with sliding renewal, login rate limited per IP (api/_lib/auth.js) |
+| Push | web-push with VAPID keys; public/sw.js handles push, deep links, and the versioned offline caches (shell, fonts, icons, the last list GETs) |
 | Crons | Vercel cron: /api/cron/reminders every 15 minutes, /api/cron/daily at 06:00 UTC, both behind CRON_SECRET |
-| Integrations | Calendly (read), Stripe (read plus a signed webhook), Web3Forms (email backup) |
+| Integrations | Calendly (read), Stripe (read plus a signed webhook with a claim before side effects), Web3Forms (email backup) |
+| Errors | ErrorBoundary per screen region (PageShell) and per section (AdminApp), ShellCrash at the top; client errors, rejections, refused writes, and 500s post to /api/admin/log (settings `client-log`, 500 entries); Settings, Automation shows the last 20 |
+| Headers | vercel.json: nosniff, DENY framing, Referrer-Policy, Permissions-Policy everywhere; Content-Security-Policy and no-store on the admin host; immutable caching for /assets and /fonts |
 
 ## Directory map
 
 ```
 api/                       Vercel functions
-  _lib/                    auth, mongo, notify (push + email), orders (shop order parser), stripe
+  _lib/                    auth, handler (route wrapper), mongo, notify (push + email), orders (shop order parser), stripe
   _semantics.js            id lists mirrored from src/shared/semantics.js (functions cannot import src/)
-  admin/                   admin guarded endpoints (requireAdmin on every handler)
+  admin/                   admin guarded endpoints (route() with admin: true on every handler; log.js is the client error log)
   cron/                    reminders.js, daily.js
   stripe/webhook.js        signed Stripe webhook
   submissions.js, push-key.js   public endpoints
-docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, MIGRATION-MAP.md
-public/                    logo, wordmark, PWA icons, manifest, sw.js
+docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, QA-CHECKLIST.md, RELEASE-NOTES-3.0.md, MIGRATION-MAP.md
+public/                    logo, wordmark, PWA icons, manifest, sw.js, fonts/ (latin woff2 subsets)
 reports/                   one build report per prompt
-scripts/                   layout-audit.mjs, hex-count.js, css-orphans.mjs, dates-test.mjs, migrate-mongo.mjs
+scripts/                   layout-audit, feel-audit, a11y-audit, regression, render-profile, lighthouse, mock-server, audit-fixtures, audit-screens, fetch-fonts, hex-count, css-orphans, dates-test, migrate-mongo
 src/
-  ui/                      the component kit (index.js exports everything and uiStyles)
-  shell/                   AppShell, Sidebar, TopBar, TabBar, MoreSheet, CommandBar, NotificationsDrawer, nav.js, notifications.js, shortcuts.js, install.js, storage.js, search.js
-  pages/                   one file per admin screen plus the marketing pages
+  ui/                      the component kit (index.js exports everything and uiStyles); ErrorBoundary, motion, RecordSkeleton, useOnline
+  shell/                   AppShell, Sidebar, TopBar, TabBar, MoreSheet, CommandBar, NotificationsDrawer, BootFrame and bootFrame.js, appearance.js, ShellCrash, nav.js, notifications.js, shortcuts.js, install.js, storage.js, search.js
+  pages/                   one file per admin screen (each a lazy chunk) plus the marketing pages (lazy too)
   components/              shared lead and client components, LeadPicker, imports
-  lib/                     pure logic: leads, calls, booked, projects, orders, reviews, events, exports, ics, socials, spreadsheet
-  shared/                  semantics (enums), pricing (catalog), dates, phone, format, api, color
+  lib/                     pure logic: leads, calls, defaultLead, booked, projects, orders, reviews, events, exports, ics, socials, spreadsheet
+  shared/                  semantics (enums), pricing (catalog), dates, phone, format, api (apiFetch with the CSRF header), copy (every empty and error string), log (the client error log), color
   data/                    the showcase client data for the marketing site, a bundled lead import
 ```
 
@@ -87,7 +89,8 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/admin/backup | GET, a JSON download | AdminSettings |
 | /api/admin/export | GET ?type=submissions&format=csv or json | AdminSettings |
 | /api/admin/push-subscribe | POST subscription (upsert by endpoint) | AdminSettings |
-| /api/admin/login, logout, session | POST, POST, GET | AdminApp, AdminCalls |
+| /api/admin/login, logout, session | POST (rate limited), POST, GET (renews the cookie) | AdminApp, AdminCalls |
+| /api/admin/log | GET ?limit, POST { kind, message, stack, url, at }, DELETE | src/shared/log.js, AdminSettings |
 | /api/push-key | GET | AdminSettings |
 | /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx, Prints.jsx |
 | /api/stripe/webhook | POST (Stripe signature) | Stripe |
@@ -101,7 +104,8 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 - orders: source, status, leadId, projectId, submissionId, customer{name,email,phone}, items[]{id,productId,name,label,qty,options,artworkLink,priceTotal,quote}, subtotal, rush, dueAt, notes, paid{at,ledgerId,amount}, packaging{}, importKey, archived, createdAt, updatedAt.
 - concept_packs: title, leadId, industryKey, kind, prompts[]{id,label,text}, images[]{id,label,link}, tags[], notes, usedFor[], lastUsedAt, archived, createdAt, updatedAt.
 - stripe_events: id (unique), type, amount, currency, customerEmail, customerName, customerPhone, description, subscriptionId, paymentLinkId, at, matchedLeadId, ledgerId, raw (trimmed), receivedAt, reconciledAt.
-- settings documents by _id: prefs {pushEnabled, emailEnabled}, auth {salt, hash, changedAt}, dashboard {dailyCallTarget, dashboardLayout}, notifications {readIds, lastSeenAt, snoozedUntil, sentReminderKeys, reminders{meetings,callbacks,bills,reviews}}, profile {name, businessHours{start,end}}, health {enrichment, scraper, crons, stripe, lastBackupAt}.
+- settings documents by _id: prefs {pushEnabled, emailEnabled}, auth {salt, hash, changedAt}, dashboard {dailyCallTarget, dashboardLayout}, notifications {readIds, lastSeenAt, snoozedUntil, sentReminderKeys, reminders{meetings,callbacks,bills,reviews}}, profile {name, businessHours{start,end}, theme, reduceMotion}, health {enrichment, scraper, crons, stripe, lastBackupAt}, login-limit {hits{ip: [timestamps]}}, client-log {items[]{kind,message,stack,url,at,ua,receivedAt}, capped at 500}.
+- stripe_events also carries processedAt (Prompt 15): the row is inserted as a claim before the ledger write.
 - push_subscriptions: one document per browser subscription (endpoint unique).
 
 Enums live in src/shared/semantics.js with id lists mirrored in api/_semantics.js: CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES (submission statuses; the old ORDER_STATUS_IDS stay only in the server whitelist for old shop-order submissions), CONTACT_TYPES, MEETING_TYPES, PLANS, CONCEPT_STATUSES, PROJECT_KINDS, PROJECT_STAGES, SCHEDULE_STATUSES, RETAINER_STATUSES, CLIENT_STATUSES, PRINT_ORDER_STATUSES, ORDER_SOURCES, CONCEPT_KINDS, REVIEW_CHANNELS, REVIEW_RESULTS, SUBMISSION_TYPES, WINDOWS.
@@ -118,20 +122,20 @@ See docs/RUNBOOK.md for what each unlocks and what breaks without it: MONGODB_UR
 
 ## Browser storage
 
-localStorage (admin, per device): vz_theme, vz_call_session, vz_builder_preset, vz_leads_view, vz_cal_view, vz_shell_collapsed, vz_notif_read, vz_callmode_<id>, vz_clients_cols, vz_orders_cols, vz_subs_cols. Legacy keys that are read once by Settings Data (Import print orders saved on this device) and otherwise untouched: vz_print_orders. Keys nobody reads any more and nothing writes: vz_clients, vz_invoices, vz_intake_forms, vz_analytics, vz_maintenance_preview, vz_portal_session. sessionStorage: vz_cart (the public shop's cart, survives a refresh only).
+localStorage (admin, per device): vz_theme, vz_motion, vz_boot, vz_call_session, vz_builder_preset, vz_leads_view, vz_cal_view, vz_shell_collapsed, vz_notif_read, vz_cmd_recent, vz_callmode_<id>, vz_clients_cols, vz_orders_cols, vz_subs_cols, vz_leads_cols, vz_dash_today (the Today card's last row count, for its skeleton). Legacy keys that are read once by Settings Data (Import print orders saved on this device) and otherwise untouched: vz_print_orders. Keys nobody reads any more and nothing writes: vz_clients, vz_invoices, vz_intake_forms, vz_analytics, vz_maintenance_preview, vz_portal_session. sessionStorage: vz_cart (the public shop's cart, survives a refresh only).
 
 ## Scripts
 
-- `node scripts/layout-audit.mjs`: Playwright walk of every admin route at 320, 390, 430, 768, 1280 with mocked APIs; fails on any element past the viewport or a horizontal scroll. AUDIT_BASE, AUDIT_WIDTHS, AUDIT_ONLY (settings, clients, studio), AUDIT_SHOTS.
-- `node scripts/hex-count.js`: raw hex literals in src and api (should only go down).
-- `node scripts/css-orphans.mjs`: class selectors defined in style strings or index.css that no JSX renders.
-- `TZ=America/New_York node scripts/dates-test.mjs`: date parsing cases across formats and DST.
-- `node scripts/migrate-mongo.mjs`: one off copy of the database between clusters (env driven).
+All in docs/RUNBOOK.md with their flags. The walking audits (layout, feel,
+a11y, regression, render-profile) share scripts/audit-fixtures.mjs (the
+hostile data and the route mocks) and scripts/audit-screens.mjs (the screen
+and state table); Lighthouse runs against scripts/mock-server.mjs over real
+HTTP. hex-count, css-orphans, and dates-test are the static checks.
 
 ## Known issues
 
 - Sign out everywhere is not available: sessions carry no generation number (RUNBOOK covers rotating SESSION_SECRET).
 - The Call Console keeps its own copy of the leads list and pings the shell on changes; two tabs can briefly disagree.
-- Reads swallow fetch errors and keep the last list; writes surface errors through toasts.
-- The light theme is a stub on `.lay-root[data-v-theme='light']` in src/ui/tokens.js and is wired to nothing (Prompt 14).
-- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total.
+- Reads keep the last list and show an ErrorState with Retry when a fetch fails; writes roll back and toast.
+- Offline writes are refused, not queued (Prompt 14 decision); the service worker serves the last GET of each list for reading.
+- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total (145 at 3.0.0).

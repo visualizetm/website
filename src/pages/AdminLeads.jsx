@@ -170,7 +170,8 @@ export default function AdminLeads({
   const filtered = useMemo(() => applyFilters(pool, filters, q, dupes.ids), [pool, filters, q, dupes]);
   const sorted = useMemo(() => sortLeads(filtered, sort), [filtered, sort]);
   const facets = useMemo(() => industryFacets(applyFilters(pool, filters, q, dupes.ids, 'industry')), [pool, filters, q, dupes]);
-  const count = (g, v) => countFor(pool, filters, q, dupes.ids, g, v);
+  // Chip counts (flagged in Prompt 6): each count walks the pool once, so they are cached per render input.
+  const count = useMemo(() => { const cache = new Map(); return (g, v) => { const k = `${g}:${v}`; if (!cache.has(k)) cache.set(k, countFor(pool, filters, q, dupes.ids, g, v)); return cache.get(k); }; }, [pool, filters, q, dupes.ids]);
   const toCall = pool.filter(l => (l.callStatus || 'not-called') === 'not-called').length;
   const activeCount = filters.status.length + filters.prio.length + filters.industry.length + filters.data.length + (q ? 1 : 0);
   const setGroup = (g) => (vals) => setFilters(f => ({ ...f, [g]: vals }));
@@ -474,7 +475,7 @@ const ldStyles = `
   .ld-page { --v-content-w-wide: 1400px; --v-stack-gap: var(--v-space-4); }
   .ld-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   .ld-search { max-width: 480px; flex: 1; }
-  .ld-clear { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
+  .ld-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
   .ld-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
   .ld-views .ld-frow-chips { align-items: center; }
   .ld-view { display: inline-flex; align-items: center; gap: 2px; }
