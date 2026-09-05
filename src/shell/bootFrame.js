@@ -23,7 +23,7 @@ const val = (block, name, fallback) => {
 };
 // The shimmer sweep is the kit's: --v-dur-slow times four, read from the same token block.
 const SHIMMER_MS = (parseFloat(val(darkBlock, '--v-dur-slow', '320ms')) || 320) * 4;
-const NAMES = ['--v-ground', '--v-bar', '--v-surface-1', '--v-surface-2', '--v-surface-3', '--v-border'];
+const NAMES = ['--v-ground', '--v-bar', '--v-surface-1', '--v-surface-2', '--v-surface-3', '--v-border', '--v-sidebar-bg', '--v-sidebar-border'];
 const vars = (block) => NAMES.map(n => `${n}:${val(block, n, val(darkBlock, n, ''))}`).join(';');
 
 const skel = (w, h, extra = '') => `<i class="vz-skel" style="width:${w};height:${h}${extra ? ';' + extra : ''}"></i>`;
@@ -63,14 +63,14 @@ html[data-vz-boot='login'] .vz-boot--login{display:flex;align-items:center;justi
 @keyframes vz-shimmer{from{background-position:120% 0}to{background-position:-120% 0}}
 @media (prefers-reduced-motion: reduce){.vz-skel{animation:none;background-image:none}}
 html[data-v-motion='reduce'] .vz-skel{animation:none;background-image:none}
-.vz-boot-side{display:none;flex-direction:column;flex-shrink:0;width:240px;height:100%;padding:12px 8px;background:var(--v-bar);border-right:1px solid var(--v-border);gap:8px}
+.vz-boot-side{display:none;flex-direction:column;flex-shrink:0;width:240px;height:100%;padding:12px 8px;background:var(--v-sidebar-bg);border-right:1px solid var(--v-sidebar-border);gap:8px}
 html[data-vz-side='rail'] .vz-boot-side{width:68px}
 html[data-vz-side='rail'] .vz-boot-side .vz-skel:not(:first-child),html[data-vz-side='rail'] .vz-boot-user .vz-skel:last-child{display:none}
 @media (min-width:768px){.vz-boot-side{display:flex}}
 .vz-boot-brand,.vz-boot-nav,.vz-boot-user{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px}
 .vz-boot-navs{flex:1;display:flex;flex-direction:column;gap:2px;min-height:0;overflow:hidden}
 .vz-boot-gap{height:12px;flex-shrink:0}
-.vz-boot-user{border-top:1px solid var(--v-border);padding-top:8px}
+.vz-boot-user{border-top:1px solid var(--v-sidebar-border);padding-top:8px}
 .vz-boot-col{flex:1;min-width:0;display:flex;flex-direction:column;height:100%}
 .vz-boot-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;padding:8px max(clamp(16px,3vw,24px),env(safe-area-inset-right)) 8px max(clamp(16px,3vw,24px),env(safe-area-inset-left));padding-top:calc(8px + env(safe-area-inset-top,0px));background:var(--v-surface-1);border-bottom:1px solid var(--v-border);flex-shrink:0}
 .vz-boot-top-r{display:flex;gap:4px}
@@ -83,6 +83,7 @@ html[data-vz-side='rail'] .vz-boot-side .vz-skel:not(:first-child),html[data-vz-
 .vz-boot-card--tall{justify-content:flex-start;padding:16px}
 .vz-boot-tabs{display:flex;justify-content:space-around;align-items:center;height:calc(58px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--v-surface-1);border-top:1px solid var(--v-border);flex-shrink:0}
 @media (min-width:768px){.vz-boot-tabs{display:none}}
+html[data-v-theme='light'] .vz-boot-side .vz-skel{background-color:rgba(255,255,255,0.08);background-image:linear-gradient(105deg,transparent 38%,rgba(255,255,255,0.14) 50%,transparent 62%)}
 .vz-boot-tab{display:flex;flex-direction:column;align-items:center;gap:6px}
 .vz-boot-login{width:min(360px,100%);display:flex;flex-direction:column;align-items:center;gap:12px;padding:24px 20px;background:var(--v-surface-1);border:1px solid var(--v-border);border-radius:16px;box-sizing:border-box}
 `.replace(/\n\s*/g, '');

@@ -9,6 +9,10 @@
   --brand-deep: #cc2222;
   --brand-dark: #a83a32;
   --brand-light: #e66b63;
+  /* The three browser window dots drawn on Hero, Services, CaseStudy, LeadPartner */
+  --dot-close: #ff5f57;
+  --dot-min: #febc2e;
+  --dot-max: #28c840;
 
   /* Neutrals — dark brand system */
   --bg: #0a0a0a;

@@ -42,6 +42,37 @@ function useTokens() {
   return t;
 }
 
+/* Declared values of both theme blocks, read from the stylesheet (not computed), so the
+ * light table renders while the page is dark and the other way round. Simple var() aliases resolve. */
+function useThemeTokens() {
+  const [t, setT] = useState({ dark: {}, light: {} });
+  useEffect(() => {
+    const dark = {}; const light = {};
+    for (const sheet of document.styleSheets) {
+      let rules = [];
+      try { rules = [...sheet.cssRules]; } catch { continue; }
+      for (const r of rules) {
+        if (!r.selectorText || !r.style) continue;
+        const target = r.selectorText === '.lay-root' ? dark : r.selectorText.includes("[data-v-theme='light']") ? light : null;
+        if (!target) continue;
+        for (const p of r.style) if (p.startsWith('--v-')) target[p] = r.style.getPropertyValue(p).trim();
+      }
+    }
+    const resolve = (map, fallback) => (name, depth = 0) => {
+      const raw = map[name] ?? fallback[name] ?? '';
+      const m = /^var\((--v-[a-z0-9-]+)\)$/.exec(raw);
+      return m && depth < 4 ? resolve(map, fallback)(m[1], depth + 1) : raw;
+    };
+    const rd = resolve(dark, {}); const rl = resolve(light, dark);
+    const out = { dark: {}, light: {} };
+    for (const n of new Set([...Object.keys(dark), ...Object.keys(light)])) { out.dark[n] = rd(n); out.light[n] = rl(n); }
+    setT(out);
+  }, []);
+  return t;
+}
+const CONTRAST_TEXT = [['text', '--v-text'], ['text-2', '--v-text-2'], ['text-3', '--v-text-3'], ['new', '--v-status-new-text'], ['progress', '--v-status-progress-text'], ['callback', '--v-status-callback-text'], ['booked', '--v-status-booked-text'], ['won', '--v-status-won-text'], ['danger', '--v-status-danger-text'], ['red as text', '--v-red-highlight']];
+const CONTRAST_LAYERS = [['ground', '--v-ground'], ['surface-1', '--v-surface-1'], ['surface-2', '--v-surface-2'], ['surface-3', '--v-surface-3']];
+
 const hexOf = (v) => (v || '').trim();
 const ratio = (fg, bg) => {
   try {
@@ -62,6 +93,7 @@ function Pill({ label, tone, variant }) {
 
 export default function AdminDesign({ onBack, loading = false }) {
   const t = useTokens();
+  const themes = useThemeTokens();
   const showSkel = useDelayedLoading(loading);
   const [texture, setTexture] = useState(true);
   const [enterKey, setEnterKey] = useState(0);
@@ -127,6 +159,27 @@ export default function AdminDesign({ onBack, loading = false }) {
           <div className="ds-swatches">
             {['overlay', 'bar', 'border', 'border-strong', 'border-focus', 'text-inverse', 'text-on-red'].map(n => (
               <div key={n} className="ds-swatch"><span className="ds-chip" style={{ background: `var(--v-${n})` }} /><span>--v-{n}</span><code>{v(n)}</code></div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Both themes: the contrast table (Prompt 14) ── */}
+        <section className="ds-sec">
+          <h2 className="ds-h">Both themes</h2>
+          <p className="ds-p">Every text token on every layer, dark and light, computed from the declared values. 4.5:1 is the bar for text; the raw brand red is listed so its failure as small text stays visible.</p>
+          <div className="ds-themes">
+            {['dark', 'light'].map(th => (
+              <div key={th} className="ds-theme" data-v-theme={th} style={{ background: themes[th]['--v-ground'], color: themes[th]['--v-text'], borderColor: themes[th]['--v-border-strong'] }}>
+                <div className="ds-theme-name">{th === 'dark' ? 'Visualize Dark' : 'Visualize Light'}</div>
+                <div className="ds-theme-layers">{CONTRAST_LAYERS.map(([ln, lv]) => <div key={ln} className="ds-theme-layer" style={{ background: themes[th][lv] }}><span>{ln}</span><code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][lv]}</code></div>)}</div>
+                <div className="ds-table-wrap"><table className="ds-table"><thead><tr><th>text</th>{CONTRAST_LAYERS.map(([ln]) => <th key={ln}>{ln}</th>)}</tr></thead><tbody>
+                  {CONTRAST_TEXT.map(([tn, tv]) => (
+                    <tr key={tn}><td><span style={{ color: themes[th][tv] }}>{tn}</span> <code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][tv]}</code></td>
+                      {CONTRAST_LAYERS.map(([ln, lv]) => { const r = themes[th][tv] && themes[th][lv] ? Number(ratio(themes[th][tv], themes[th][lv])) : null; return <td key={ln} style={{ background: themes[th][lv], color: themes[th][tv] }}>{r == null ? '' : `${r.toFixed(2)} ${grade(r)}`}</td>; })}
+                    </tr>
+                  ))}
+                </tbody></table></div>
+              </div>
             ))}
           </div>
         </section>
@@ -288,6 +341,18 @@ const dsStyles = `
   .ds-layer-name { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-2); display: flex; gap: var(--v-space-2); align-items: center; flex-wrap: wrap; }
   .ds-layer-row { display: flex; justify-content: space-between; gap: var(--v-space-2); font-size: var(--v-text-md); line-height: var(--v-lh-md); }
   .ds-ratio { font-size: var(--v-text-xs); color: var(--v-text-3); white-space: nowrap; }
+  .ds-themes { display: grid; grid-template-columns: 1fr; gap: var(--v-space-4); }
+  @media (min-width: 1100px) { .ds-themes { grid-template-columns: 1fr 1fr; } }
+  .ds-theme { border: 1px solid; border-radius: var(--v-radius-lg); padding: var(--v-space-4); display: flex; flex-direction: column; gap: var(--v-space-3); min-width: 0; }
+  .ds-theme-name { font-family: var(--v-font-display); font-size: var(--v-text-xl); text-transform: uppercase; font-weight: var(--v-weight-bold); }
+  .ds-theme-layers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--v-space-2); }
+  .ds-theme-layer { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2); border-radius: var(--v-radius-sm); font-size: var(--v-text-xs); min-width: 0; }
+  .ds-theme-layer code { background: transparent; padding: 0; }
+  .ds-table-wrap { overflow-x: auto; min-width: 0; }
+  .ds-table { width: 100%; border-collapse: collapse; font-size: var(--v-text-xs); }
+  .ds-table th, .ds-table td { padding: var(--v-space-1) var(--v-space-2); text-align: left; white-space: nowrap; }
+  .ds-table th { font-weight: var(--v-weight-bold); letter-spacing: var(--v-ls-xs); text-transform: uppercase; }
+  .ds-table td code { padding: 0 4px; }
   .ds-swatches { display: flex; flex-wrap: wrap; gap: var(--v-space-3); }
   .ds-swatch { display: flex; align-items: center; gap: var(--v-space-2); font-size: var(--v-text-sm); color: var(--v-text-2); }
   .ds-chip { width: 28px; height: 28px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); display: inline-block; }

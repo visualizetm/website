@@ -252,9 +252,9 @@ const csStyles = `
     border-bottom: 1px solid var(--border); background: var(--bg-elevated);
   }
   .cs-browser-bar span { width: 10px; height: 10px; border-radius: 50%; background: var(--surface); }
-  .cs-browser-bar span:nth-child(1) { background: #ff5f57; }
-  .cs-browser-bar span:nth-child(2) { background: #febc2e; }
-  .cs-browser-bar span:nth-child(3) { background: #28c840; }
+  .cs-browser-bar span:nth-child(1) { background: var(--dot-close); }
+  .cs-browser-bar span:nth-child(2) { background: var(--dot-min); }
+  .cs-browser-bar span:nth-child(3) { background: var(--dot-max); }
   .cs-browser .cs-slot { border: none; border-radius: 0; }
   .cs-browser-shot { width: 100%; display: block; }
 

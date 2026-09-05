@@ -447,7 +447,7 @@ const aaStyles = `
   /* ── Login ── */
   .aa-loginpage { min-height: 100dvh; display: flex; align-items: center; justify-content: center; background: var(--v-ground); background-image: var(--v-grid-texture); background-size: var(--v-grid-texture-size); color: var(--v-text); font-family: var(--v-font-body); padding: var(--v-space-4); }
   .aa-login { width: min(360px, 100%); }
-  .aa-login-card { gap: var(--v-space-4); padding: var(--v-space-6) var(--v-space-5); box-shadow: var(--v-shadow-lg, 0 24px 80px rgba(0,0,0,0.7)); }
+  .aa-login-card { gap: var(--v-space-4); padding: var(--v-space-6) var(--v-space-5); box-shadow: var(--v-shadow-3); }
   .aa-login-title { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); }
   .aa-login-sub { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-3); }
   .aa-login-input .v-field-control { text-align: center; }

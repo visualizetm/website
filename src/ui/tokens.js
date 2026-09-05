@@ -93,6 +93,12 @@ export const tokenStyles = `
     --v-icon-sm: 14px; --v-icon-md: 18px; --v-icon-lg: 24px;
     --v-sidebar-w: 240px; --v-sidebar-rail-w: 68px;
 
+    /* Sidebar (Prompt 14): the rail stays Visualize black in both themes, so it
+       reads its own tokens. In dark they alias the shell's; the light block
+       pins them to the dark values. */
+    --v-sidebar-bg: var(--v-bar); --v-sidebar-text: var(--v-text); --v-sidebar-text-2: var(--v-text-2); --v-sidebar-text-3: var(--v-text-3);
+    --v-sidebar-border: var(--v-border); --v-sidebar-hover: var(--v-surface-2); --v-sidebar-active-bg: var(--v-red-soft); --v-sidebar-active: var(--v-red);
+
     /* Z index */
     --v-z-base: 0; --v-z-sticky: 10; --v-z-tabbar: 50; --v-z-sheet: 60;
     --v-z-modal: 70; --v-z-toast: 90; --v-z-command: 100;
@@ -145,8 +151,36 @@ export const tokenStyles = `
      shell repeats it on .lay-root); every --v- variable the dark block
      declares is redefined here. Values and the contrast table: docs/TOKENS.md. */
   .lay-root[data-v-theme='light'], [data-v-theme='light'] .lay-root {
-    --v-ground: #f7f7f7; --v-surface-1: #ffffff; --v-surface-2: #f2f2f2; --v-surface-3: #e9e9e9;
-    --v-text: #111111; --v-text-2: #3a3a3a; --v-text-3: #5f5f5f; --v-text-inverse: #ffffff;
-    --v-border: rgba(0,0,0,0.08); --v-border-strong: rgba(0,0,0,0.16); --v-bar: #ffffff;
+    /* Layers: a cream ground, warm surfaces stepping darker */
+    --v-ground: #f7f3ee; --v-surface-1: #f1ece5; --v-surface-2: #eae4db; --v-surface-3: #e2dbd0;
+    --v-overlay: rgba(26,22,19,0.45);
+    --v-bar: #f3efe8;
+    /* Lines */
+    --v-border: rgba(26,22,19,0.10); --v-border-strong: rgba(26,22,19,0.20);
+    /* Text: text-3 passes 4.5:1 on every surface (5.16 on surface-3) */
+    --v-text: #1a1613; --v-text-2: #4a433c; --v-text-3: #5f574e;
+    --v-text-inverse: var(--v-text);                 /* solid fills stay light, so their label is the dark text */
+    /* Brand: the same red; as text it uses the won tone's dark red */
+    --v-red-highlight: var(--v-status-won-text);
+    --v-red-soft: rgba(212,76,67,0.12);
+    --v-red-glow: 0 8px 28px rgba(212,76,67,0.22);
+    /* Semantic text retuned so every text-on-surface pairing passes 4.5:1; solids keep their hue with dark labels */
+    --v-status-new-text: #8a3d0c;
+    --v-status-progress-text: #1a44c2;
+    --v-status-callback-text: #6d28d9;
+    --v-status-booked-text: #166534;
+    --v-status-won-text: #9e2f28;      --v-status-won-soft: rgba(212,76,67,0.12);
+    --v-status-danger-solid: #f87171;  --v-status-danger-text: #a91b1b;  --v-status-danger-soft: rgba(239,68,68,0.12);
+    --v-status-neutral-solid: #a3a3a3; --v-status-neutral-text: var(--v-text-3); --v-status-neutral-soft: rgba(26,22,19,0.06);
+    /* Shadows: more spread, warm */
+    --v-shadow-2: 0 6px 20px rgba(26,22,19,0.12), 0 0 0 1px var(--v-border);
+    --v-shadow-3: 0 16px 48px rgba(26,22,19,0.18), 0 0 0 1px var(--v-border-strong);
+    /* Texture toned down */
+    --v-grid-texture:
+      linear-gradient(rgba(204,34,34,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(204,34,34,0.03) 1px, transparent 1px);
+    /* The sidebar stays Visualize black */
+    --v-sidebar-bg: #0a0a0a; --v-sidebar-text: #fafafa; --v-sidebar-text-2: #cccccc; --v-sidebar-text-3: #8f8f8f;
+    --v-sidebar-border: rgba(255,255,255,0.08); --v-sidebar-hover: rgba(255,255,255,0.06); --v-sidebar-active-bg: rgba(212,76,67,0.18); --v-sidebar-active: #e66b63;
   }
 `;

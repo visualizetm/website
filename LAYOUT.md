@@ -4,26 +4,26 @@ One layout system for every admin surface (Dashboard, Submissions, Orders,
 Call Console, Settings, detail views, modals, forms). It exists so three bug
 classes are impossible by construction:
 
-1. **Horizontal overflow** — nothing can be wider than the viewport.
-2. **Pinned bars covering content** — pinned bars are in normal flow, so the
+1. **Horizontal overflow**: nothing can be wider than the viewport.
+2. **Pinned bars covering content**: pinned bars are in normal flow, so the
    last list item is always reachable.
-3. **Edge/notch crowding** — safe-area insets are handled once, centrally.
+3. **Edge/notch crowding**: safe-area insets are handled once, centrally.
 
 ## The rule for every new page
 
 > Every page renders inside **PageShell + ScrollArea**; every pinned bottom
 > bar is a **StickyFooterBar**; list rows/cards carry **`.lay-card`**.
 > Never hand-roll width, gutter padding, safe-area insets, or "padding-bottom
-> to clear the bar" — read the tokens instead.
+> to clear the bar": read the tokens instead.
 
-## Primitives — `src/ui/` (PageShell.jsx, ScrollArea.jsx, StickyFooterBar.jsx)
+## Primitives: `src/ui/` (PageShell.jsx, ScrollArea.jsx, StickyFooterBar.jsx)
 
 | Primitive | Class | What it owns |
 |---|---|---|
 | `<PageShell>` | `.lay-shell` | Full-height flex column, `min-width/height: 0`, hosts scroll + bars |
 | `<ScrollArea>` | `.lay-scroll` | The only scroll container. Gutter padding (safe-area aware), `overflow-x: clip`, `overscroll-behavior: contain`. Children center via `.lay-content` / `.lay-content--wide` (pass `bare` to skip) |
-| `<StickyFooterBar>` | `.lay-footbar` | Pinned bottom actions. **In flow** (a sibling below the ScrollArea — structurally cannot cover rows), solid opaque `--lay-bar-bg`, safe-area bottom padding |
-| row/card contract | `.lay-card` | `width/max-width: 100%`, `min-width: 0` on itself and children; titles truncate one-line via `.lay-truncate` (the site-wide list treatment; long headings *wrap* instead — global `overflow-wrap: break-word` on `body`) |
+| `<StickyFooterBar>` | `.lay-footbar` | Pinned bottom actions. **In flow** (a sibling below the ScrollArea: structurally cannot cover rows), solid opaque `--lay-bar-bg`, safe-area bottom padding |
+| row/card contract | `.lay-card` | `width/max-width: 100%`, `min-width: 0` on itself and children; titles truncate one-line via `.lay-truncate` (the site-wide list treatment; long headings *wrap* instead: global `overflow-wrap: break-word` on `body`) |
 | overlay contract | `.lay-overlay` | Fixed inset overlay with safe-area padding; the kit Sheet and Modal own their own box sizing (`.lay-modal-box` was removed in Prompt 13 as unused) |
 
 Since Prompt 3 the three primitives live in `src/ui/` and are imported from
@@ -37,7 +37,7 @@ Section, Divider) are documented in `docs/COMPONENTS.md`; overlays (Sheet,
 Modal) portal into `.lay-root` so they inherit the tokens and honor the
 overlay contract.
 
-## Tokens — defined once on `.lay-root`
+## Tokens: defined once on `.lay-root`
 
 The token block lives in `src/ui/tokens.js` and is injected through
 `uiStyles` from `src/ui/index.js`. Since Prompt 2 the layout tokens are aliases of the `--v-` design tokens
@@ -65,10 +65,21 @@ PageShell + ScrollArea, pinned bars are StickyFooterBar, rows carry `.lay-card`.
 Change a number here and every page follows. `.lay-root` sits on the app
 shells (`.aa-app`, `.cc-page`).
 
-## Global guards — `src/index.css`
+## Boot and page transitions (Prompt 14)
+
+The first paint of the admin is the shell frame in skeleton: index.html's
+pre-paint script reads the theme, motion, and signed in hint from
+localStorage and the parser paints `src/shell/bootFrame.js` (injected at
+build time) with the same geometry as the shell (sidebar 240 or 68, top bar
+60, tab bar 58). React renders the identical frame while the session check
+runs, so nothing flashes. Route changes keep the shell mounted; AppShell keys
+the content region by nav id and PageShell's `.lay-view` rule crossfades it
+over `--v-dur-base`. That is the only page level transition.
+
+## Global guards: `src/index.css`
 
 - `html, body, #root { width: 100%; max-width: 100%; }`, `body { overflow-x:
-  hidden; overflow-wrap: break-word; }` — a long unbroken business name can
+  hidden; overflow-wrap: break-word; }`: a long unbroken business name can
   never force page width. These are the safety net, not the fix; the fix is
   the primitives above.
 - `box-sizing: border-box` on everything; `img/svg/video/canvas/iframe { max-width: 100% }`.
@@ -77,13 +88,13 @@ shells (`.aa-app`, `.cc-page`).
 ## Known intentional exceptions
 
 - `.li-tablewrap` (spreadsheet import preview) scrolls horizontally **inside
-  its own container** — the container itself still fits the viewport.
+  its own container**: the container itself still fits the viewport.
 - The session view's desktop rail/side columns (`248px` / `320px`) are local
   to `.cs-wrap`'s grid in `AdminCalls.jsx`.
 - The legacy print dashboard was retired in Prompt 13; every admin screen is
   now covered by the audit.
 
-## Regression check — run after touching layout
+## Regression check: run after touching layout
 
 ```bash
 npm run build

@@ -51,7 +51,8 @@ dashboard stat-card pattern.
 Use when: cards or tiles of equal weight. Not when: a list (Stack of ListRow).
 
 ### Section
-`title`, `description`, `action` (right slot), `gap`.
+`title`, `description`, `action` (right slot), `gap`, `loading` (keeps the
+description line as a skeleton so the header never shifts when the summary lands).
 Renders the uppercase xs label, optional description, and an action slot.
 Use when: grouping a block of a detail page. Not when: page titles (those are display type in the shell).
 
@@ -105,6 +106,9 @@ Copy rule: say what will appear here and how to make it happen. Never "No data".
 
 ### ErrorState
 `title`, `description`, `onRetry`, `retrying`, `details` (behind a disclosure). `role="alert"`.
+`useRetry(refetch)` returns `[retry, retrying]` for the Try again button.
+Copy for every empty and error state lives in `src/shared/copy.js`
+(`COPY.empty['screen.state']`, `COPY.error.<resource>`); screens never type it inline.
 
 ### ListRow
 `leading`, `title`, `subtitle`, `meta`, `trailing`, `onClick` (renders a
@@ -167,8 +171,10 @@ Radio semantics, arrow keys move.
 Use when: two to four views of the same data (Kanban / Table, Week / Day).
 
 ### Tabs
-`tabs [{id,label,count,icon}]`, `value`, `onChange`, `label`. Underline style,
-scrolls sideways on narrow screens, arrow keys move, the active tab scrolls into view.
+`tabs [{id,label,count,icon,pulse}]`, `value`, `onChange`, `label`. One
+underline slides between tabs (`--v-dur-base`), scrolls sideways on narrow
+screens, arrow keys move, the active tab scrolls into view; `pulse` plays one
+booked tone pulse on that tab (a retainer just started).
 Use when: sections of one record. Not when: switching views of a list (SegmentedControl).
 
 ### Table
@@ -179,7 +185,8 @@ md|sm, `onRowClick(row)`, `rowActions(row)` (a Menu in the trailing cell),
 `storageKey` (persists hidden columns), `columnChooser` (default true),
 `empty` slot, `rowClassName(row)`. Sticky header, sticky first column on
 horizontal scroll, header checkbox with indeterminate state, keyboard sort
-(the header is a button), Enter opens a row. `Table.Skeleton({ rows, cols,
+(the header is a button), Enter opens a row. The first eight rows step in
+`--v-stagger` apart on mount (`data-v-enter`); rows added later settle. `Table.Skeleton({ rows, cols,
 density, selectable })` has the same header shape.
 Use when: desktop data with many columns. Not when: mobile (render a Stack
 of cards) or a short list (ListRow).
@@ -266,10 +273,10 @@ if (showSkeleton) return <Grid>{[1,2,3,4].map(i => <StatCard.Skeleton key={i} />
 ```
 
 ### Stagger
-`cap` (default 8), `as`, `className`, `style`. Wraps each child in a
-`.v-stagger-item` that fades in and rises 8px, `--v-stagger` apart for the
-first `cap` children; everything after arrives with the last. Plays once per
-mount, never on re-render. Give it the Grid or Stack class to keep the layout:
+`cap` (default 8), `offset` (stagger steps to wait, for reading order across
+columns), `as`, `className`, `style`. Wraps each child in a `.v-stagger-item`
+that fades in and rises 8px, `--v-stagger` apart for the first `cap` children;
+everything after arrives with the last. Plays once per mount, never on re-render. Give it the Grid or Stack class to keep the layout:
 `<Stagger className="v-grid" style={{ gridTemplateColumns: ..., gap: ... }}>`.
 
 ### Reveal
@@ -285,6 +292,25 @@ mount, never on re-render. Give it the Grid or Stack class to keep the layout:
 ### Spinner
 `size`. Inline only, for button loading. Never full page.
 
+### RecordSkeleton
+`cards` (default 3), `tabs`, `header` (default true). The shape of a record
+detail while a deep link resolves: a header card (avatar, name, pills,
+actions), an optional tab strip line, then content cards. Panels, Sheets, and
+`LeadDetail.Skeleton` (which adds the profile column) use it.
+
+### Motion helpers (`src/ui/motion.js`)
+`durationMs('--v-dur-base')` reads a duration token from `.lay-root` (0 under
+reduced motion), `motionReduced()` says whether motion is off. Every JS timer
+that has to outlast a transition (Sheet and Modal close, Collapsible settle,
+Toast leave, Stagger settle, the call room pulse) reads these. The page level
+crossfade lives in PageShell (`.lay-view` on the shell's content region,
+`.lay-tabbody` for tab bodies inside a screen).
+
+### Success moments
+`.v-pulse-won` (Card styles) is the one shot ring and lift in the won tone;
+Badge ticks (scale bounce) when its count grows; Checkbox marks pop; the
+Dashboard ring pulses red once when the target is hit.
+
 ### useOptimisticPatch
 ```js
 const mutate = useOptimisticPatch();
@@ -299,7 +325,8 @@ back with an error toast on failure. Resolves true or false.
 
 ### Other hooks
 `useMediaQuery(query)` (+ `DESKTOP_QUERY`, `HOVER_QUERY`), `useFocusTrap(ref,
-active, { onEscape })`, `useScrollLock(active)`.
+active, { onEscape })`, `useScrollLock(active)`, `useOnline()` (the shell's
+offline banner; `apiFetch` refuses writes while offline and fires a toast).
 
 ---
 
@@ -333,7 +360,9 @@ they use two things:
 notifications drawer, the `projects` list (Prompt 10, for retainer bills and
 payment plan markers), and callbacks for navigation, opening a record, quick
 add, and sign out. `useShell()` also exposes `events`, `calendly`, `projects`, `packs` (Prompt 11, the concept packs), `newOrder()`, and (Prompt 12) `health` (the task health document) and `profile` with `setProfile`.
-`src/shell/shortcuts.js` holds every keyboard shortcut (rendered by Settings); `src/shell/install.js` captures the PWA install prompt. Screens receive `openId` (`{ id, n }`) and `createPreset`
+`src/shell/shortcuts.js` holds every keyboard shortcut (rendered by Settings); `src/shell/install.js` captures the PWA install prompt.
+`src/shell/appearance.js` (Prompt 14) owns the theme mode and the Reduce motion switch (`useAppearance`, `setThemeMode`, `setReduceMotion`, the `vz_theme`, `vz_motion`, and `vz_boot` keys); `useShell()` exposes `appearance` and `saveAppearance(patch)`, which also writes the profile document.
+`src/shell/bootFrame.js` is the skeleton frame index.html paints before the bundle (injected by the Vite plugin in vite.config.js) and `BootFrame.jsx` renders the same markup while the session check runs. Screens receive `openId` (`{ id, n }`) and `createPreset`
 (`{ preset, n }`) props from AdminApp when the shell asks them to open a
 record or start a new one.
 

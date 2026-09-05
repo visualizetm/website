@@ -563,9 +563,9 @@ export default function ServicesPage() {
         .sv-vis-doc-bar span:not(.sv-vis-doc-name) {
           width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
         }
-        .sv-vis-doc-bar span:nth-child(1) { background: #ff5f57; }
-        .sv-vis-doc-bar span:nth-child(2) { background: #febc2e; }
-        .sv-vis-doc-bar span:nth-child(3) { background: #28c840; }
+        .sv-vis-doc-bar span:nth-child(1) { background: var(--dot-close); }
+        .sv-vis-doc-bar span:nth-child(2) { background: var(--dot-min); }
+        .sv-vis-doc-bar span:nth-child(3) { background: var(--dot-max); }
         .sv-vis-doc-name {
           font-size: 0.65rem; color: rgba(255,255,255,0.35);
           margin-left: 6px; font-family: monospace;

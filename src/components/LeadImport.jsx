@@ -217,7 +217,7 @@ const liStyles = `
   .li-drop {
     display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 34px 20px; border-radius: 14px; cursor: pointer; text-align: center;
-    border: 1.5px dashed rgba(255,255,255,0.2); background: rgba(255,255,255,0.03);
+    border: 1.5px dashed var(--v-border-strong); background: var(--v-surface-1);
     color: var(--v-text-2); transition: border-color 0.15s, background 0.15s;
   }
   .li-drop:hover { border-color: rgba(212,76,67,0.55); background: rgba(212,76,67,0.06); }
@@ -226,10 +226,10 @@ const liStyles = `
   .li-drop-sub { font-size: 0.78rem; color: var(--v-text-3); }
   .li-fileinput { display: none; }
   .li-or { display: flex; align-items: center; gap: 12px; color: var(--v-text-3); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
-  .li-or::before, .li-or::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+  .li-or::before, .li-or::after { content: ''; flex: 1; height: 1px; background: var(--v-border); }
   .li-paste {
     width: 100%; border-radius: 10px; padding: 12px 14px; resize: vertical; min-height: 90px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    background: var(--v-surface-2); border: 1px solid var(--v-border-strong);
     color: var(--v-text); font-family: monospace; font-size: 0.8rem; outline: none;
   }
   .li-paste:focus { border-color: var(--v-red); }
@@ -238,7 +238,7 @@ const liStyles = `
   .li-counts, .li-result { display: flex; gap: 8px; flex-wrap: wrap; }
   .li-count {
     font-size: 0.78rem; color: var(--v-text-2); padding: 6px 12px; border-radius: 999px;
-    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    background: var(--v-surface-2); border: 1px solid var(--v-border-strong);
   }
   .li-count b { color: var(--v-text); }
   .li-count--new { color: var(--v-status-booked-text); border-color: rgba(34,197,94,0.35); background: rgba(34,197,94,0.08); }
@@ -256,16 +256,16 @@ const liStyles = `
   .li-req { color: var(--v-red); font-style: normal; margin-left: 2px; }
   .li-select {
     flex: 1; min-width: 0; max-width: 58%; padding: 7px 10px; border-radius: 8px;
-    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.12);
+    background: var(--v-surface-2); border: 1px solid var(--v-border-strong);
     color: var(--v-text); font-family: inherit; font-size: 0.78rem; outline: none; cursor: pointer;
   }
   .li-select:focus { border-color: var(--v-red); }
   .li-select option { background: var(--v-surface-2); }
 
-  .li-tablewrap { overflow-x: auto; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
+  .li-tablewrap { overflow-x: auto; border: 1px solid var(--v-border); border-radius: 10px; }
   .li-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  .li-table th { text-align: left; padding: 8px 12px; color: var(--v-text-3); font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.08); white-space: nowrap; }
-  .li-table td { padding: 8px 12px; color: var(--v-text-2); border-bottom: 1px solid rgba(255,255,255,0.05); white-space: nowrap; }
+  .li-table th { text-align: left; padding: 8px 12px; color: var(--v-text-3); font-weight: 700; border-bottom: 1px solid var(--v-border); white-space: nowrap; }
+  .li-table td { padding: 8px 12px; color: var(--v-text-2); border-bottom: 1px solid var(--v-surface-2); white-space: nowrap; }
   .li-table tr:last-child td { border-bottom: none; }
   .li-tr-bad { background: rgba(239,68,68,0.06); }
   .li-bad { color: var(--v-status-danger-text); }
@@ -274,11 +274,11 @@ const liStyles = `
   .li-btn {
     display: inline-flex; align-items: center; gap: 7px;
     padding: 10px 16px; border-radius: 10px; cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+    border: 1px solid var(--v-border-strong); background: var(--v-surface-2);
     color: var(--v-text-2); font-size: 0.83rem; font-weight: 700; font-family: inherit;
     transition: background 0.15s, color 0.15s;
   }
-  .li-btn:hover { background: rgba(255,255,255,0.1); color: var(--v-text); }
+  .li-btn:hover { background: var(--v-border-strong); color: var(--v-text); }
   .li-btn--primary { background: var(--v-red); border-color: var(--v-red); color: var(--v-text-on-red); }
   .li-btn--primary:hover { background: var(--v-red-hover); color: var(--v-text-on-red); }
   .li-btn:disabled { opacity: 0.5; cursor: not-allowed; }

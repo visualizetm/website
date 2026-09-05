@@ -1,10 +1,14 @@
-# VISUALIZE DARK — design tokens
+# VISUALIZE DARK: design tokens
 
 Declared once on `.lay-root` in `src/ui/tokens.js` (injected via `uiStyles` from `src/ui/index.js`), prefix `--v-`.
 Every admin surface reads them with `var()` from its CSS-in-JSX string; nothing
-is imported. Dark is the only theme. A light STUB exists as
-`.lay-root[data-v-theme='light']` with placeholder values and is wired to
-nothing (Phase E). The `/design` route renders all of this live.
+is imported. Dark is the default theme; Light (Prompt 14) redefines every color
+token under `.lay-root[data-v-theme='light'], [data-v-theme='light'] .lay-root`.
+The picker (Settings Profile, or the account menu) saves the mode on the
+profile document and mirrors it to the `vz_theme` key the marketing site
+already reads; the pre-paint script in index.html stamps `data-v-theme` on
+`<html>` before the bundle runs. The `/design` route renders both themes and
+their contrast tables live.
 
 Usage rules
 - New code uses `--v-` tokens only. Raw hex belongs in this file and the token
@@ -84,6 +88,52 @@ Known exception, recorded not hidden: `--v-text-on-red` #ffffff on `--v-red`
 #c2413a it is 5.11:1. Prompt 3 decides whether primary buttons use 15px+ bold
 labels or the hover shade as the fill; the brand red itself is not changing.
 
+## Light theme (Prompt 14)
+
+Cream canvas, warm surfaces stepping darker, dark text ramps, the same brand
+red, semantic hues retuned so every text-on-surface pairing passes 4.5:1. The
+sidebar stays Visualize black in both themes through its own tokens
+(`--v-sidebar-bg`, `-text`, `-text-2`, `-text-3`, `-border`, `-hover`,
+`-active-bg`, `-active`), which alias the shell in dark and are pinned to the
+dark values in light.
+
+| Token | Light value |
+|---|---|
+| `--v-ground` | `#f7f3ee` |
+| `--v-surface-1` / `-2` / `-3` | `#f1ece5` / `#eae4db` / `#e2dbd0` |
+| `--v-bar` | `#f3efe8` |
+| `--v-overlay` | `rgba(26,22,19,0.45)` |
+| `--v-border` / `--v-border-strong` | `rgba(26,22,19,0.10)` / `rgba(26,22,19,0.20)` |
+| `--v-text` / `-2` / `-3` | `#1a1613` / `#4a433c` / `#5f574e` |
+| `--v-text-inverse` | `var(--v-text)` (solid fills keep their hue and carry the dark label) |
+| `--v-red-highlight` | `var(--v-status-won-text)` = `#9e2f28` |
+| `--v-red-soft` | `rgba(212,76,67,0.12)` |
+| status text: new / progress / callback / booked / won / danger | `#8a3d0c` / `#1a44c2` / `#6d28d9` / `#166534` / `#9e2f28` / `#a91b1b` |
+| status solid: danger / neutral | `#f87171` / `#a3a3a3` (the other solids keep their dark values) |
+| `--v-shadow-2` / `-3` | `0 6px 20px rgba(26,22,19,0.12)` / `0 16px 48px rgba(26,22,19,0.18)`, each with the hairline ring |
+| `--v-grid-texture` | the same grid at 0.03 alpha |
+
+Light contrast table (WCAG 2.x, computed):
+
+| Text | on ground #f7f3ee | on surface-1 #f1ece5 | on surface-2 #eae4db | on surface-3 #e2dbd0 |
+|---|---|---|---|---|
+| `--v-text` #1a1613 | 16.27 | 15.30 | 14.23 | 13.08 |
+| `--v-text-2` #4a433c | 8.80 | 8.28 | 7.70 | 7.08 |
+| `--v-text-3` #5f574e | 6.42 | 6.04 | 5.61 | 5.16 |
+| new text #8a3d0c | 6.90 | 6.49 | 6.03 | 5.55 |
+| progress text #1a44c2 | 7.17 | 6.74 | 6.27 | 5.77 |
+| callback text #6d28d9 | 6.43 | 6.05 | 5.62 | 5.17 |
+| booked text #166534 | 6.45 | 6.07 | 5.64 | 5.19 |
+| won text #9e2f28 | 6.58 | 6.19 | 5.75 | 5.28 |
+| danger text #a91b1b | 6.65 | 6.26 | 5.82 | 5.34 |
+| raw red #d44c43 as text | 3.87 (fail) | 3.64 (fail) | 3.38 (fail) | 3.11 (fail) |
+
+Solid fills with the dark label #1a1613: new 8.37, progress 7.07, callback
+6.61, booked 7.89, won (red) 4.21 (Pill solid won uses the white label through
+`--v-text-on-red`, 4.27 as in dark), danger #f87171 6.50, neutral #a3a3a3
+7.13. Soft tints with their text on surface-3: new 5.16, progress 5.27,
+callback 4.73, booked 4.76, won 4.62, danger 4.69.
+
 ## Typography
 
 `--v-font-display` Barlow Condensed (fallback Inter), `--v-font-body` Inter.
@@ -120,7 +170,10 @@ Weights: `--v-weight-regular` 400, `-medium` 500, `-semibold` 600, `-bold` 700.
 - `--v-glow-red`; `--v-glow-status` = 3px ring of `currentColor` at 22%.
 - `--v-dur-fast/base/slow/enter` 120/200/320/400ms, `--v-stagger` 40ms,
   `--v-ease-out`, `--v-ease-in-out`, `--v-ease-spring`. Under
-  `prefers-reduced-motion: reduce` every duration is 0ms.
+  `prefers-reduced-motion: reduce` and under `data-v-motion='reduce'` (the
+  Settings Profile switch, mirrored to the `vz_motion` key) every duration is
+  0ms. JS timers that follow a transition read the tokens through
+  `durationMs()` in src/ui/motion.js, so nothing hardcodes a duration.
 - `--v-z-base` 0, `-sticky` 10, `-tabbar` 50, `-sheet` 60, `-modal` 70,
   `-toast` 90, `-command` 100.
 - `--v-grid-texture` (+ `--v-grid-texture-size` 44px): the faint red grid,

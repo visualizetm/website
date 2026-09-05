@@ -73,6 +73,10 @@ npm run build                                  # Vite build to dist/
 npx vite preview --port 4330                   # serve dist/ for the audit
 node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs
 AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs
+AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs   # the other theme, motion off
+node scripts/feel-audit.mjs                    # skeleton, fit, entrance, empty, error, layout shift per screen
+AUDIT_THEME=both AUDIT_MOTION=both AUDIT_OUT=/tmp/feel.json node scripts/feel-audit.mjs
+node scripts/feel-audit.mjs --boot             # time to first shell paint on a throttled network
 node scripts/hex-count.js                      # raw hex literals in src and api
 node scripts/css-orphans.mjs                   # class selectors nothing renders
 TZ=America/New_York node scripts/dates-test.mjs

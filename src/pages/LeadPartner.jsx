@@ -319,9 +319,9 @@ export default function LeadPartner() {
         .lp-vis-card-bar span:not(.lp-vis-card-label) {
           width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
         }
-        .lp-vis-card-bar span:nth-child(1) { background: #ff5f57; }
-        .lp-vis-card-bar span:nth-child(2) { background: #febc2e; }
-        .lp-vis-card-bar span:nth-child(3) { background: #28c840; }
+        .lp-vis-card-bar span:nth-child(1) { background: var(--dot-close); }
+        .lp-vis-card-bar span:nth-child(2) { background: var(--dot-min); }
+        .lp-vis-card-bar span:nth-child(3) { background: var(--dot-max); }
         .lp-vis-card-label {
           font-size: 0.65rem; color: rgba(255,255,255,0.35);
           margin-left: 6px; font-family: monospace;

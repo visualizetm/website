@@ -17,6 +17,8 @@ const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linu
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const WIDTHS = process.env.AUDIT_WIDTHS ? process.env.AUDIT_WIDTHS.split(',').map(Number) : [320, 390, 430, 768, 1280];
 const SHOTS = process.env.AUDIT_SHOTS || ''; // directory: save a screenshot per check
+const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): the admin theme under test
+const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
 import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-fixtures.mjs';
 
@@ -62,8 +64,9 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 let failures = 0;
 
 for (const width of WIDTHS) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500 });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference' });
   const page = await ctx.newPage();
+  await page.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
   await mockRoutes(page);
 
   const check = async (label) => {
@@ -76,7 +79,7 @@ for (const width of WIDTHS) {
       console.log(`  FAIL [${width}px] ${label} — scrollW=${res.scrollW} vw=${res.vw}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
     } else {
-      console.log(`  ok   [${width}px] ${label}`);
+      console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);
     }
   };
 

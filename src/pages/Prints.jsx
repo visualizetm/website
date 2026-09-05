@@ -182,7 +182,7 @@ function ColorRow({ value, onChange }) {
           className={`ps-swatch${value === c.label ? ' is-sel' : ''}`}
           onClick={() => onChange(c.label)}
           style={{ background: c.hex || 'conic-gradient(red,orange,yellow,green,blue,purple,red)', border: c.border ? '2px solid #555' : undefined }}>
-          {value === c.label && <Check width={12} height={12} color={c.border ? '#333' : '#fff'} />}
+          {value === c.label && <Check width={12} height={12} color={c.border ? '#333' : 'var(--ps-white)'} />}
         </button>
       ))}
     </div>
@@ -370,7 +370,7 @@ function CustomizeModal({ product, onClose, onAdd }) {
               <label className="ps-mlabel">Artwork / Logo File</label>
               <div className="ps-upload-zone" onClick={() => fileRef.current?.click()}>
                 {vals.artworkFile
-                  ? <><Check width={18} height={18} color="#22c55e" /><span className="ps-upload-name">{vals.artworkFile.name}</span><button type="button" className="ps-upload-clear" onClick={e => { e.stopPropagation(); set('artworkFile', null); }}>Remove</button></>
+                  ? <><Check width={18} height={18} color="var(--ps-ok)" /><span className="ps-upload-name">{vals.artworkFile.name}</span><button type="button" className="ps-upload-clear" onClick={e => { e.stopPropagation(); set('artworkFile', null); }}>Remove</button></>
                   : <><Upload01 width={20} height={20} /><span>Click to upload file<br /><small>.ai, .pdf, .png, .svg, .psd</small></span></>}
               </div>
               <input ref={fileRef} type="file" accept=".ai,.pdf,.png,.svg,.psd,.jpg,.jpeg,.eps" style={{ display: 'none' }}
@@ -762,8 +762,8 @@ const psStyles = `
 
   .ps-page {
     min-height: 100vh;
-    background: #0d0d0f;
     --ps-bg:      #0d0d0f;
+    background: var(--ps-bg);
     --ps-surface: #141418;
     --ps-card:    #1a1a22;
     --ps-border:  rgba(255,255,255,0.09);
@@ -771,6 +771,9 @@ const psStyles = `
     --ps-sub:     #9a9aab;
     --ps-muted:   #5e5e6e;
     --ps-brand:   #d44c43;
+    --ps-white:   #fff;
+    --ps-ok:      #22c55e;
+    --ps-gold:    #c9a12a;
     --ps-brand-dim: rgba(212,76,67,0.12);
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
     color: var(--ps-text);
@@ -803,7 +806,7 @@ const psStyles = `
   .ps-cart-count {
     position: absolute; top: -7px; right: -7px;
     width: 20px; height: 20px; border-radius: 50%;
-    background: var(--ps-brand); color: #fff;
+    background: var(--ps-brand); color: var(--ps-white);
     font-size: 0.65rem; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
@@ -851,7 +854,7 @@ const psStyles = `
     transition: all 0.18s;
   }
   .ps-chip:hover { border-color: rgba(212,76,67,0.4); color: var(--ps-text); }
-  .ps-chip.is-sel { background: var(--ps-brand); border-color: var(--ps-brand); color: #fff; }
+  .ps-chip.is-sel { background: var(--ps-brand); border-color: var(--ps-brand); color: var(--ps-white); }
 
   /* ── Product grid ────────────────────── */
   .ps-grid-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px 48px; }
@@ -878,7 +881,7 @@ const psStyles = `
     display: flex; align-items: center; gap: 4px;
   }
   .ps-card-badge--pop { background: rgba(212,76,67,0.18); color: var(--ps-brand); border: 1px solid rgba(212,76,67,0.3); }
-  .ps-card-badge--price { background: rgba(201,161,42,0.15); color: #c9a12a; border: 1px solid rgba(201,161,42,0.3); }
+  .ps-card-badge--price { background: rgba(201,161,42,0.15); color: var(--ps-gold); border: 1px solid rgba(201,161,42,0.3); }
   .ps-card-icon {
     width: 52px; height: 52px; color: var(--ps-brand);
     display: flex; align-items: center; justify-content: center;
@@ -894,7 +897,7 @@ const psStyles = `
   .ps-card-btn {
     display: flex; align-items: center; gap: 5px;
     padding: 8px 18px; border-radius: 999px;
-    background: var(--ps-brand); color: #fff;
+    background: var(--ps-brand); color: var(--ps-white);
     border: none; font-size: 0.84rem; font-weight: 700;
     cursor: pointer; font-family: inherit;
     transition: opacity 0.18s, transform 0.15s;
@@ -989,7 +992,7 @@ const psStyles = `
     transition: border-color 0.18s, background 0.18s;
   }
   .ps-upload-zone:hover { border-color: rgba(212,76,67,0.5); background: var(--ps-brand-dim); }
-  .ps-upload-name { font-weight: 600; color: #22c55e; }
+  .ps-upload-name { font-weight: 600; color: var(--ps-ok); }
   .ps-upload-clear { background: none; border: none; color: var(--ps-muted); font-size: 0.78rem; cursor: pointer; text-decoration: underline; font-family: inherit; margin-left: 8px; }
 
   /* ── Cart drawer ─────────────────────── */
@@ -1037,7 +1040,7 @@ const psStyles = `
   .ps-btn-primary {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     padding: 14px 24px; border-radius: 12px;
-    background: var(--ps-brand); color: #fff;
+    background: var(--ps-brand); color: var(--ps-white);
     border: none; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em;
     cursor: pointer; font-family: inherit;
     box-shadow: 0 4px 20px rgba(212,76,67,0.3);
@@ -1050,7 +1053,7 @@ const psStyles = `
   .ps-done-icon {
     width: 64px; height: 64px; border-radius: 50%;
     background: rgba(34,197,94,0.12); border: 1.5px solid rgba(34,197,94,0.3);
-    display: flex; align-items: center; justify-content: center; color: #22c55e;
+    display: flex; align-items: center; justify-content: center; color: var(--ps-ok);
   }
   .ps-done-banner {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 300;
@@ -1062,7 +1065,7 @@ const psStyles = `
   .ps-done-banner button { background: none; border: none; color: inherit; cursor: pointer; display: flex; align-items: center; margin-left: 4px; }
   .ps-spinner {
     width: 18px; height: 18px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: var(--ps-white);
     animation: spin 0.6s linear infinite;
   }
   @keyframes spin { to{transform:rotate(360deg)} }

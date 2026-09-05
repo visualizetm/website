@@ -198,9 +198,9 @@ export default function Hero() {
           display: flex; align-items: center; padding: 0 10px; gap: 5px;
         }
         .hv-screen-bar span { width: 6px; height: 6px; border-radius: 50%; }
-        .hv-screen-bar span:nth-child(1){background:#ff5f57}
-        .hv-screen-bar span:nth-child(2){background:#ffbd2e}
-        .hv-screen-bar span:nth-child(3){background:#28c840}
+        .hv-screen-bar span:nth-child(1){background:var(--dot-close)}
+        .hv-screen-bar span:nth-child(2){background:var(--dot-min)}
+        .hv-screen-bar span:nth-child(3){background:var(--dot-max)}
         .hv-screen-body { padding: 12px; }
         .hv-screen-hero-block { margin-bottom: 10px; }
         .hv-screen-line { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.1); margin-bottom: 5px; }
