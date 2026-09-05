@@ -8,7 +8,7 @@ import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, RecordSkeleton, SkeletonBlock, SkeletonCircle, useToast, useMediaQuery, EmptyState, IconTile,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState, IconTile,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import LeadForm from './LeadForm';

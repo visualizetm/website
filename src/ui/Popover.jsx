@@ -19,7 +19,8 @@ import { portalRoot } from './portal';
 export default function Popover({ open, onClose, anchorRef, align = 'start', side = 'bottom', width, trap = false, z = 'var(--v-z-command)', label, className = '', children }) {
   const boxRef = useRef(null);
   const [pos, setPos] = useState(null);
-  useFocusTrap(boxRef, open && trap, { onEscape: onClose });
+  // The box mounts once it is placed, so the trap arms on `pos`, not on `open` alone (Prompt 15).
+  useFocusTrap(boxRef, open && trap && !!pos, { onEscape: onClose });
   useLayoutEffect(() => {
     if (!open || !anchorRef?.current) return undefined;
     const place = () => {

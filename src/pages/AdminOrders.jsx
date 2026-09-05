@@ -30,7 +30,7 @@ const dueTone = (o, now = Date.now()) => { const t = localDate(o.dueAt)?.getTime
 function Stepper({ status }) {
   const cur = STEPPER.indexOf(status);
   return (
-    <ol className="cw-stepper" aria-label="Order stages">
+    <ol className="cw-stepper" aria-label="Order stages" tabIndex={0}>
       {STEPPER.map((s, i) => <li key={s} className={`cw-step${i < cur ? ' is-done' : ''}${i === cur ? ' is-current' : ''}`}><span className="cw-step-dot" aria-hidden="true">{i < cur ? <Check width={10} height={10} /> : i + 1}</span><span className="cw-step-label">{printOrderStatusOf(s).label}</span></li>)}
     </ol>
   );

@@ -62,7 +62,7 @@ export const chipStyles = `
   .v-chip:disabled { opacity: 0.5; cursor: not-allowed; }
   .v-chip.is-selected { background: var(--v-red-soft); border-color: var(--v-red); color: var(--v-text); }
   .v-chip-count { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: var(--v-radius-pill); background: var(--v-surface-3); color: var(--v-text-3); font-size: var(--v-text-xs); font-variant-numeric: tabular-nums; }
-  .v-chip.is-selected .v-chip-count { background: var(--v-red); color: var(--v-text-on-red); }
+  .v-chip.is-selected .v-chip-count { background: var(--v-red-hover); color: var(--v-text-on-red); }
   .v-chipgroup { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-2); min-width: 0; }
   .v-chipgroup-all { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); padding: 0 var(--v-space-1); }
 `;
