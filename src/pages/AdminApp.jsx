@@ -47,7 +47,7 @@ function loginErrorMessage(status) {
   if (status === 429) return 'Too many tries. Wait 15 minutes.';
   if (status === 403) return 'Session check failed. Refresh and try again.';
   if (status >= 500 || status === 0) return 'Server error, check Vercel logs.';
-  return 'Sign in failed. Try again.';
+  return `Sign in failed (HTTP ${status}). Check Vercel logs.`;
 }
 
 function Login({ onAuthed }) {
