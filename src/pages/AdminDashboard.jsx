@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import {
-  Stack, Row, Grid, Section, Card, StatCard, IconTile, Pill, ListRow, EmptyState, Button, InlineEdit, ProgressRing,
-  Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast,
+  Stack, Row, Grid, Section, Card, StatCard, IconTile, Pill, ListRow, EmptyState, ErrorState, Button, InlineEdit, ProgressRing,
+  Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useRetry, durationMs,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { buildNotifications } from '../shell/notifications';
 import { normalizeStage, CALL_STATUSES } from '../shared/semantics';
@@ -110,10 +111,11 @@ const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cu
 const EVENT_TONE = { call: 'progress', purchase: 'won', won: 'won', client: 'booked', lead: 'new', scraper: 'new', submission: 'callback', order: 'callback' };
 const EVENT_ICON = { call: 'PhoneCall01', purchase: 'CurrencyDollar', won: 'Trophy01', client: 'Briefcase01', lead: 'Users01', scraper: 'Users01', submission: 'Inbox01', order: 'Package' };
 
-function DashboardSkeleton({ desktop }) {
+function DashboardSkeleton({ desktop, wide }) {
+  // The greeting is text, so its skeleton is text lines (under 40px each): one display-md line between 1024 and 1279, three in the narrow column at 1280 and up.
   const left = (
     <Stack gap={5}>
-      <Stack gap={2}><SkeletonBlock width="60%" height={44} /><SkeletonBlock width="45%" height={16} /><Row gap={2}><SkeletonBlock width={180} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={120} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+      <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 3 : 1} lineHeight={wide ? 38 : 40} gap={1} width={300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3 || i === 7} />)}</Grid>
       <Card><SkeletonBlock width={90} height={14} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
@@ -128,7 +130,7 @@ function DashboardSkeleton({ desktop }) {
   if (desktop) return <div className="db-layout">{left}{right}</div>;
   return (
     <Stack gap={5}>
-      <Stack gap={2}><SkeletonBlock width="80%" height={40} /><SkeletonBlock width="60%" height={16} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack>
+      <div className="db-head"><Stack gap={1}><SkeletonBlock width="80%" height={32} /><SkeletonBlock width="60%" height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /></Row></div>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       {right}
       <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3} />)}</Grid>
@@ -137,19 +139,22 @@ function DashboardSkeleton({ desktop }) {
   );
 }
 
-export default function AdminDashboard({ leads, projects = [], loading, subs, orders, onOpenSubmission, onOpenOrder }) {
+export default function AdminDashboard({ leads, projects = [], loading, error, onRetry, subs, orders, onOpenSubmission, onOpenOrder }) {
   const shell = useShell();
-  const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1024px)');
+  const wide = useMediaQuery('(min-width: 1280px)');
   useTopBar(null);
   const showSkel = useDelayedLoading(loading);
   const [target, setTarget] = useState(25);
   useEffect(() => { apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.dashboard?.dailyCallTarget) setTarget(r.data.dashboard.dailyCallTarget); }); }, []);
+  // Optimistic with rollback; InlineEdit shows the failure toast, success is the number itself.
   const saveTarget = async (v) => {
     const n = Math.max(1, Math.min(500, Math.round(Number(v)) || 0));
     if (!n) return false;
+    const prev = target; setTarget(n);
     const r = await apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { dailyCallTarget: n } } });
-    if (r.ok) { setTarget(n); toast.success(`Daily target is now ${n} calls.`); }
+    if (!r.ok) setTarget(prev);
     return r.ok;
   };
 
@@ -167,15 +172,36 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
   const outside = !inHours(shell?.profile?.businessHours);
   const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const mtToday = notes.filter(n => n.kind === 'meeting' && n.group === 'today').length;
-  const context = s.callbacks > 0 ? `${s.callbacks} callback${s.callbacks === 1 ? '' : 's'} due`
+  const ringPct = target ? Math.min(100, Math.round((s.callsToday / target) * 100)) : 0;
+  // Target hit (Prompt 14): one red pulse the moment the ring crosses 100 in this session, and the context line for the rest of the day.
+  const [hit, setHit] = useState(false);
+  const hitRef = useRef(null);
+  useEffect(() => {
+    if (loading) return undefined;
+    if (hitRef.current === null) { hitRef.current = ringPct >= 100; return undefined; }
+    if (ringPct >= 100 && !hitRef.current) { hitRef.current = true; setHit(true); const t = setTimeout(() => setHit(false), durationMs('--v-dur-slow') * 2 + 100); return () => clearTimeout(t); }
+    if (ringPct < 100) hitRef.current = false;
+    return undefined;
+  }, [ringPct, loading]);
+  const context = ringPct >= 100 ? COPY.success.targetHit
+    : s.callbacks > 0 ? `${s.callbacks} callback${s.callbacks === 1 ? '' : 's'} due`
     : mtToday > 0 ? `${mtToday} meeting${mtToday === 1 ? '' : 's'} today`
     : s.newLeads48h > 0 ? `${s.newLeads48h} new lead${s.newLeads48h === 1 ? '' : 's'} since yesterday`
     : outside ? 'Outside business hours. Plan tomorrow or prep concepts.' : 'Queue is clear. Good day to dial.';
 
-  if (showSkel || (loading && !(leads || []).length)) {
+  // Loading: nothing for the first 150ms (useDelayedLoading), then the skeleton; never the empty numbers.
+  if (loading) {
     return (
       <main className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true">
-        <div className="lay-content lay-content--wide"><DashboardSkeleton desktop={desktop} /></div>
+        <div className="lay-content lay-content--wide">{showSkel && <DashboardSkeleton desktop={desktop} wide={wide} />}</div>
+        <style>{dbStyles}</style>
+      </main>
+    );
+  }
+  if (error && !(leads || []).length) {
+    return (
+      <main className="aa-main aa-main--wide lay-scroll db-page">
+        <div className="lay-content lay-content--wide"><Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card></div>
         <style>{dbStyles}</style>
       </main>
     );
@@ -200,7 +226,6 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
       trend: s.connectRate != null && s.connectRateLast != null ? { value: `${s.connectRate - s.connectRateLast >= 0 ? '+' : ''}${s.connectRate - s.connectRateLast} pts vs last month`, direction: s.connectRate > s.connectRateLast ? 'up' : s.connectRate < s.connectRateLast ? 'down' : 'flat' } : undefined,
       go: () => shell.go('calls') },
   ];
-  const ringPct = target ? Math.min(100, Math.round((s.callsToday / target) * 100)) : 0;
 
   const header = (
     <div className="db-head">
@@ -234,7 +259,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
     <Card className="db-today">
       <Section title="Today" description={`${s.callsToday} of ${target} calls`} action={<Button variant="ghost" icon="Calendar" onClick={() => shell.go('calendar')}>Open calendar</Button>}>
         <Row gap={4} align="center">
-          <ProgressRing value={ringPct} size={88} thickness={8} tone={ringPct >= 100 ? 'booked' : 'won'} label="Calls today against target">
+          <ProgressRing value={ringPct} size={88} thickness={8} tone={ringPct >= 100 ? 'booked' : 'won'} label="Calls today against target" className={`db-ring${hit ? ' is-hit' : ''}`}>
             <span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.callsToday}</span>
           </ProgressRing>
           <Stack gap={0}>
@@ -249,7 +274,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
             ))}
           </Stack>
         ) : (
-          <EmptyState size="sm" icon={PhoneCall01} title="All caught up" description="Start a call session." action={{ label: 'Start call session', icon: PhoneCall01, onClick: () => shell.go('calls') }} />
+          <EmptyState size="sm" icon={PhoneCall01} title={COPY.empty['dashboard.today'].title} description={COPY.empty['dashboard.today'].description} action={{ label: COPY.empty['dashboard.today'].action, icon: PhoneCall01, onClick: () => shell.go('calls') }} />
         )}
       </Section>
     </Card>
@@ -278,7 +303,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
             ))}
           </Stack>
         ) : (
-          <p className="db-empty">Nothing yet. New calls, briefs, and orders show up here the moment they land.</p>
+          <EmptyState size="sm" icon="Zap" title={COPY.empty['dashboard.activity'].title} description={COPY.empty['dashboard.activity'].description} action={{ label: COPY.empty['dashboard.activity'].action, icon: PhoneCall01, onClick: () => shell.go('calls') }} />
         )}
       </Section>
     </Card>
@@ -290,7 +315,7 @@ export default function AdminDashboard({ leads, projects = [], loading, subs, or
         {desktop ? (
           <div className="db-layout">
             <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{strip}{statGrid}{revenue}</Stagger>
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{todayPanel}{activity}</Stagger>
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }} offset={4}>{todayPanel}{activity}</Stagger>
           </div>
         ) : (
           <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{strip}{todayPanel}{statGrid}{revenue}{activity}</Stagger>
@@ -325,5 +350,8 @@ const dbStyles = `
   .db-target-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .db-target-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .db-today .v-inline { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); }
-  .db-empty { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .db-ring.is-hit { animation: db-ring-pop calc(var(--v-dur-slow) * 2) var(--v-ease-spring) 1; }
+  .db-ring.is-hit .v-ring-fill { animation: db-ring-glow calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
+  @keyframes db-ring-pop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
+  @keyframes db-ring-glow { 0% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--v-red) 45%, transparent)); } 40% { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--v-red) 85%, transparent)); } 100% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--v-ring-c) 45%, transparent)); } }
 `;

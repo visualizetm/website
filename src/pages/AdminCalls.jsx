@@ -10,8 +10,10 @@ import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
   PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, Input, Textarea, SegmentedControl, Tabs, Pill, Avatar, Badge, IconTile, Menu, Popover, Checkbox,
-  Sheet, Modal, EmptyState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, Tooltip, uiStyles,
+  Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, Reveal, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
 } from '../ui';
+import { COPY } from '../shared/copy';
+import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
@@ -249,10 +251,10 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
   const s = session.stats;
   const connects = connectsOf(s);
   const booked = session.ids.filter(id => session.logged[id] === 'booked').map(id => leadsById.get(id)).filter(Boolean);
-  const copy = async () => { try { await navigator.clipboard.writeText(winLine(s)); toast.success('Copied the win line.'); } catch { toast.error('Could not copy. Long press the line to select it.'); } };
+  const copy = async () => { try { await navigator.clipboard.writeText(winLine(s)); toast.success('Copied the win line.'); } catch { toast.error(COPY.error.copy); } };
   return (
     <ScrollArea className="cc-summary">
-      <Stack gap={4}>
+      <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
         <Card>
           <Section title="Session complete" description={fmtMins(Date.now() - session.startedAt) + ' on the phones'}>
             <Row gap={5} align="center" wrap className="cc-sumrow">
@@ -268,7 +270,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
           <Card><Section title="Booked this session"><Stack gap={2}>{booked.map(l => <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={l.meeting?.date ? `${l.meeting.date} ${l.meeting.time || ''}` : 'Meeting set'} onClick={() => onOpenLead(l)} />)}</Stack></Section></Card>
         )}
         <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to dashboard</Button></Row>
-      </Stack>
+      </Stagger>
     </ScrollArea>
   );
 }
@@ -281,7 +283,10 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [authed, setAuthed] = useState(null);
   const [leads, setLeads] = useState([]);
   const [loaded, setLoaded] = useState(false);
-  const showSkel = useDelayedLoading(!loaded || forceLoading);
+  const [loadError, setLoadError] = useState(false);
+  const fetching = !loaded && !loadError;
+  const showSkel = useDelayedLoading(fetching || forceLoading);
+  const pending = (fetching || forceLoading) && !showSkel; // the first 150ms of a load: the frame only
 
   // Builder
   const [selPrio, setSelPrio] = useState(() => new Set());
@@ -328,9 +333,13 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     fetch('/api/admin/session').then(r => r.json()).then(d => { if (d.authed) setAuthed(true); else window.location.replace(ADMIN_HOME); }).catch(() => window.location.replace(ADMIN_HOME));
   }, [embedded]);
   const load = useCallback(async () => {
-    try { const res = await fetch('/api/admin/call-leads'); if (res.status === 401) { window.location.replace(ADMIN_HOME); return; } const d = await res.json(); setLeads(d.items || []); setLoaded(true); } catch { /* keep last */ }
+    const r = await apiFetch('/api/admin/call-leads');
+    if (r.status === 401) { window.location.replace(ADMIN_HOME); return; }
+    if (r.ok) { setLeads(r.data?.items || []); setLoaded(true); setLoadError(false); } else setLoadError(true);
   }, []);
   useEffect(() => { if (authed) load(); }, [authed, load]);
+  const [retry, retrying] = useRetry(load);
+  const loadFailed = loadError && !loaded && <Card><ErrorState title={COPY.error.calls.title} description={COPY.error.calls.description} onRetry={retry} retrying={retrying} /></Card>;
 
   // Persisted session survives a phone call or a reload.
   useEffect(() => {
@@ -345,27 +354,32 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   useEffect(() => { if (!timer) return undefined; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [timer]);
 
   /* ── Data ops ── */
-  const patch = useCallback(async (id, set) => {
-    try { const res = await fetch('/api/admin/call-leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }); return res.ok; } catch { return false; }
-  }, []);
+  const patch = useCallback(async (id, set) => (await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set } })).ok, []);
   const patchLead = useCallback(async (id, set) => {
     let prev; setLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const ok = await patch(id, set);
-    if (!ok && prev) { setLeads(ls => ls.map(l => (l._id === id ? prev : l))); toast.error('Could not save. Your change was undone.'); }
+    if (!ok && prev) { setLeads(ls => ls.map(l => (l._id === id ? prev : l))); toast.error(COPY.error.save); }
     else onDataChanged?.();
     return ok;
   }, [patch, onDataChanged, toast]);
   const saveNotes = useCallback((id, notes) => patchLead(id, { notes }), [patchLead]);
   const createLead = async (values) => {
-    const res = await fetch('/api/admin/call-leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(defaultLead(values)) });
-    if (res.ok) { setNewOpen(false); await load(); onDataChanged?.(); toast.success(`Added ${values.business}.`); } else toast.error('Could not add the lead.');
+    const r = await apiFetch('/api/admin/call-leads', { method: 'POST', body: defaultLead(values) });
+    if (r.ok) { setNewOpen(false); await load(); onDataChanged?.(); toast.success(`Added ${values.business}.`); } else toast.error(COPY.error.create);
   };
   const removeFromLists = useCallback((id) => {
     setLeads(prev => prev.filter(l => l._id !== id));
     setSession(s => { if (!s) return s; const ids = s.ids.filter(x => x !== id); return { ...s, ids, idx: Math.min(s.idx, Math.max(0, ids.length - 1)) }; });
   }, []);
-  const deleteLead = async (id) => { setEditOpen(false); removeFromLists(id); await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {}); onDataChanged?.(); if (mode === 'room' && !desktop) setMode('queue'); };
-  const importNotepads = async () => { setImporting(true); try { await fetch('/api/admin/call-leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leads: IMPORT_LEADS }) }); await load(); onDataChanged?.(); } finally { setImporting(false); } };
+  const deleteLead = async (id) => {
+    setEditOpen(false);
+    const prevLeads = leads; const prevSession = session;
+    removeFromLists(id);
+    const r = await apiFetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!r.ok) { setLeads(prevLeads); setSession(prevSession); toast.error(COPY.error.del); return; }
+    onDataChanged?.(); if (mode === 'room' && !desktop) setMode('queue');
+  };
+  const importNotepads = async () => { setImporting(true); try { const r = await apiFetch('/api/admin/call-leads', { method: 'POST', body: { leads: IMPORT_LEADS } }); if (!r.ok) toast.error('Import failed. Nothing was added.'); await load(); onDataChanged?.(); } finally { setImporting(false); } };
 
   /* ── Builder ── */
   const pool = useMemo(() => leads.filter(l => effectiveStage(l) === 'lead'), [leads]);
@@ -446,7 +460,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (!ok) {
       setLeads(ls => ls.map(l => (l._id === lead._id ? { ...l, ...prev } : l)));
       setSession(s => (s ? { ...s, stats: { ...s.stats, calls: s.stats.calls - 1, [STAT_KEY[outcome]]: Math.max(0, (s.stats[STAT_KEY[outcome]] || 1) - 1) }, logged: { ...s.logged, [lead._id]: undefined } } : s));
-      toast.error('That outcome did not save. It was undone.');
+      toast.error(COPY.error.save);
       return false;
     }
     onDataChanged?.();
@@ -509,13 +523,17 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const builderView = (
     <PageShell className="cc-shell">
       <ScrollArea className="cc-builder">
-        {showSkel ? (
+        {pending ? null : loadFailed ? loadFailed : showSkel ? (
           <Stack gap={5} aria-busy="true">
-            <Stack gap={2}><SkeletonBlock width={140} height={14} /><SkeletonBlock width="70%" height={40} /><SkeletonBlock width="90%" height={16} /></Stack>
-            {[3, 4, 4, 5].map((n, i) => <Stack key={i} gap={2}><SkeletonBlock width={90} height={12} /><Row gap={2} wrap>{Array.from({ length: n }, (_, j) => <SkeletonBlock key={j} width={110} height={44} radius="var(--v-radius-md)" />)}</Row></Stack>)}
+            {/* The section titles and descriptions are real (static copy); only the chips and controls are skeleton, sized like the usual set. */}
+            <Stack gap={1}><SkeletonBlock width={140} height={16} /><SkeletonText lines={desktop ? 1 : 2} lineHeight={desktop ? 38 : 30} gap={1} width="70%" /><SkeletonText lines={desktop ? 1 : 2} lineHeight={18} gap={1} width="90%" /></Stack>
+            {[['Priority', [100, 112, 108]], ['Call status', [148, 139, 151, 132, 178]], ['Industry', [154]]].map(([t, ws]) => <Section key={t} title={t}><Row gap={2} wrap>{ws.map((w, j) => <SkeletonBlock key={j} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row></Section>)}
+            <Section title="Best window" description="From each lead's best window. Right now picks the window for this hour."><Row gap={2} wrap>{[148, 136, 129, 147, 135, 140].map((w, j) => <SkeletonBlock key={j} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row></Section>
+            <Section title="Options"><Row gap={2} wrap><SkeletonBlock width={255} height={44} radius="var(--v-radius-pill)" /></Row><Grid minColumnWidth={200} gap={3}><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" /></Grid></Section>
+            <Card level={2} padding={3} className="cc-preview" style={{ minHeight: 91 }}><SkeletonBlock width={40} height={32} /><SkeletonBlock width={180} height={14} /></Card>
           </Stack>
         ) : !pool.length && loaded ? (
-          <Card><EmptyState icon="PhoneCall01" title="No leads to dial" description="Add leads on the Leads page or import the notepads." action={{ label: importing ? 'Importing' : `Import ${IMPORT_LEADS.length} notepads`, icon: Download01, onClick: importNotepads }} secondary={{ label: 'Add a lead', onClick: () => setNewOpen(true) }} /></Card>
+          <Card><EmptyState icon="PhoneCall01" title={COPY.empty['calls.builder'].title} description={COPY.empty['calls.builder'].description} action={{ label: importing ? 'Importing' : `${COPY.empty['calls.builder'].action} (${IMPORT_LEADS.length})`, icon: Download01, onClick: importNotepads }} secondary={{ label: COPY.empty['calls.builder'].secondary, onClick: () => setNewOpen(true) }} /></Card>
         ) : (
           <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
             <Stack gap={1}><p className="cc-kicker">Build your session</p><h2 className="cc-title">Who are we dialing?</h2><p className="cc-sub">Pick the kind of leads for this block of calls. Nothing selected in a group means all of them.</p></Stack>
@@ -561,7 +579,33 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     </PageShell>
   );
 
-  const queuePanel = session && (
+  /* Skeletons for a persisted session while the leads load (Prompt 14). */
+  const queueSkeleton = (
+    <div className="cc-queue" aria-busy="true">
+      <Section title="Session" loading><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Section>
+      <div className="cc-qlist">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} compact />)}</div>
+    </div>
+  );
+  const roomSkeleton = (
+    <ScrollArea bare className="cc-room" aria-busy="true">
+      <div className="cc-room-inner lay-content">
+        <Card className="cc-head">
+          <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={30} /><Row gap={1}>{[80, 56, 72].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row>
+          <SkeletonText lines={2} />
+          <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
+        </Card>
+        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{[1, 2, 3].map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 44 }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
+        <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
+      </div>
+    </ScrollArea>
+  );
+  const summarySkeleton = (
+    <ScrollArea className="cc-summary" aria-busy="true">
+      <Stack gap={4}><Card><SkeletonBlock width={140} height={12} /><Row gap={5} align="center"><SkeletonCircle size={96} /><Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{[1, 2, 3, 4, 5, 6].map(i => <Card key={i} level={2} padding={3}><SkeletonBlock width={40} height={30} /><SkeletonBlock width={60} height={12} /></Card>)}</Grid></Row><SkeletonBlock height={56} radius="var(--v-radius-lg)" /></Card><Row gap={2}><SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={160} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+    </ScrollArea>
+  );
+
+  const queuePanel = session && (pending ? <div className="cc-queue" /> : loadFailed ? <div className="cc-queue">{loadFailed}</div> : showSkel ? queueSkeleton : (
     <div className="cc-queue">
       <Section title="Session" description={`${Math.max(0, sessionIds.length - done)} left of ${sessionIds.length}`}
         action={<Menu label="Session" items={[{ id: 'pause', label: 'Pause and come back later', icon: 'ClockRewind', onSelect: () => shell?.go('dashboard') }, { id: 'end', label: 'End session', icon: 'Check', onSelect: endSession }, 'divider', { id: 'new', label: 'Discard and start over', icon: 'Trash01', danger: true, onSelect: newSession }]} />}>
@@ -576,18 +620,18 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           </div>); })}
       </Stagger>
     </div>
-  );
+  ));
 
-  const roomCenter = current ? (
+  const roomCenter = pending ? <div className="cc-room" /> : loadFailed ? <div className="cc-room cc-room--empty">{loadFailed}</div> : showSkel ? roomSkeleton : current ? (
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
-      <div className="cc-room-inner lay-content">
+      <Stagger className="cc-room-inner lay-content" cap={3}>
         <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} />
-        <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />
+        {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
-      </div>
+      </Stagger>
     </ScrollArea>
   ) : (
-    <div className="cc-room cc-room--empty"><EmptyState icon="PhoneCall01" title={loaded ? 'Nothing left in this session' : 'Loading'} description={loaded ? 'Every lead in this block has an outcome.' : ''} action={loaded ? { label: 'See the summary', onClick: endSession } : undefined} /></div>
+    <div className="cc-room cc-room--empty"><EmptyState icon="PhoneCall01" title={COPY.empty['calls.room'].title} description={COPY.empty['calls.room'].description} action={{ label: COPY.empty['calls.room'].action, onClick: endSession }} /></div>
   );
   const bar = <OutcomeBar current={current} position={curIdx + 1} total={sessionIds.length} onOutcome={onOutcome} onSkip={() => current && skipToEnd(current._id)} desktop={desktop} onKeys={() => setKeysOpen(true)} disabled={!!sheet} />;
 
@@ -603,7 +647,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   return (
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
       {mode === 'builder' && builderView}
-      {mode === 'summary' && session && <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} />}
+      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} />)}
       {(mode === 'queue' || mode === 'room') && session && (desktop ? (
         <div className="cc-desk">
           <aside className="cc-desk-left"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>
@@ -651,6 +695,7 @@ const ccStyles = `
   /* Room */
   .cc-room { flex: 1; min-height: 0; padding: var(--v-space-4) var(--v-gutter-r) var(--v-space-4) var(--v-gutter-l); }
   .cc-room-inner { gap: var(--v-space-3); }
+  .cc-room-inner > .v-stagger-item { display: contents; }
   .cc-room--empty { display: flex; align-items: center; justify-content: center; padding: var(--v-space-6); }
   .cc-head { gap: var(--v-space-3); transition: box-shadow var(--v-dur-slow) var(--v-ease-out), border-color var(--v-dur-slow) var(--v-ease-out); }
   .cc-head.is-pulse { animation: cc-pulse var(--v-dur-slow) var(--v-ease-out); }

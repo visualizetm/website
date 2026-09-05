@@ -6,8 +6,9 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, InlineEdit, Collapsible, ListRow, Sheet, EmptyState, Stagger, IconTile, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, InlineEdit, Collapsible, ListRow, Sheet, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, SkeletonText, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadPicker from '../components/LeadPicker';
 import { CONCEPT_KINDS, industryKey, displayIndustry } from '../shared/semantics';
@@ -20,7 +21,7 @@ import { uid } from '../lib/projects';
 
 const IMG_RX = /\.(png|jpe?g|webp|gif|svg)(\?|$)/i;
 export const isImageLink = (u) => IMG_RX.test(String(u || '')) || /googleusercontent|drive\.google\.com\/uc\?|imgur|cloudinary/i.test(String(u || ''));
-const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error('Could not copy.'); } };
+const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error(COPY.error.copy); } };
 export function matchesPack(p, q) {
   const n = String(q || '').trim().toLowerCase(); if (!n) return true;
   return [p.title, ...(p.tags || []), ...(p.prompts || []).map(x => `${x.label} ${x.text}`), p.notes].join(' ').toLowerCase().includes(n);
@@ -39,7 +40,7 @@ export function PackCard({ pack: p, leads, onOpen, selected, compact = false }) 
     </Card>
   );
 }
-PackCard.Skeleton = function PackCardSkeleton() { return <Card padding={3} aria-busy="true"><SkeletonBlock width="70%" height={16} /><Row gap={1}><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={90} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonText lines={1} /></Card>; };
+PackCard.Skeleton = function PackCardSkeleton() { return <Card padding={3} aria-busy="true" style={{ minHeight: 109 }}><SkeletonBlock width="70%" height={16} /><Row gap={1}><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={90} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="80%" height={12} /></Card>; };
 
 /** PackPicker: the From library picker LeadDetail opens on a concept item. */
 export function PackPicker({ packs = [], industry, onPick, onClose }) {
@@ -51,7 +52,7 @@ export function PackPicker({ packs = [], industry, onPick, onClose }) {
     <Sheet open onClose={onClose} title="From library" description={key && !all ? `Packs for ${displayIndustry(key)} and packs without an industry.` : 'Every pack.'} tall width={520}>
       <Stack gap={2}>
         <Row gap={2} align="center"><Input placeholder="Search packs" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search packs" data-autofocus />{key && <Chip label="All industries" selected={all} onClick={() => setAll(v => !v)} />}</Row>
-        {list.length ? list.map(p => <ListRow key={p._id} leading={<IconTile icon={CONCEPT_KINDS.find(k => k.id === p.kind)?.icon || 'Image01'} tone="callback" size="sm" glow={false} />} title={p.title} subtitle={`${(p.prompts || []).length} prompts, ${(p.images || []).length} images${p.industryKey ? `, ${displayIndustry(p.industryKey)}` : ''}`} onClick={() => onPick(p)} />) : <EmptyState size="sm" icon="Image01" title="No pack matches" description="Build one in Concepts first." />}
+        {list.length ? list.map(p => <ListRow key={p._id} leading={<IconTile icon={CONCEPT_KINDS.find(k => k.id === p.kind)?.icon || 'Image01'} tone="callback" size="sm" glow={false} />} title={p.title} subtitle={`${(p.prompts || []).length} prompts, ${(p.images || []).length} images${p.industryKey ? `, ${displayIndustry(p.industryKey)}` : ''}`} onClick={() => onPick(p)} />) : <EmptyState size="sm" icon="Image01" title={COPY.empty['concepts.picker'].title} description={COPY.empty['concepts.picker'].description} />}
       </Stack>
     </Sheet>
   );
@@ -77,16 +78,17 @@ function PromptRow({ prompt, onChange, onRemove, onCopy, defaultOpen = false }) 
   );
 }
 
-function PackDetail({ pack: p, leads, industries, onPatch, onPatchLead, onClose }) {
+function PackDetail({ pack: p, leads, industries, onPatch, onPatchRaw, onPatchLead, onClose }) {
   const toast = useToast();
   const [pick, setPick] = useState(false);
   const [tag, setTag] = useState('');
   const [img, setImg] = useState({ label: '', link: '' });
   const [showImg, setShowImg] = useState(false);
   const lead = p.leadId ? leads.find(l => String(l._id) === String(p.leadId)) : null;
-  const pp = (set) => onPatch(p._id, set);
+  const pp = (set) => onPatch(p._id, set); // toasts on failure
+  const ppRaw = (set) => (onPatchRaw || onPatch)(p._id, set); // for InlineEdit, which toasts itself
   const prompts = p.prompts || [];
-  const setPrompt = (id, patch) => pp({ prompts: prompts.map(x => (x.id === id ? { ...x, ...patch } : x)) });
+  const setPrompt = (id, patch) => ppRaw({ prompts: prompts.map(x => (x.id === id ? { ...x, ...patch } : x)) });
   const markShown = async () => {
     if (!lead) return;
     const ok = await pp({ usedFor: [...new Set([...(p.usedFor || []), String(lead._id)])], lastUsedAt: new Date().toISOString() });
@@ -97,11 +99,12 @@ function PackDetail({ pack: p, leads, industries, onPatch, onPatchLead, onClose 
     toast.success(`Marked shown to ${lead.business}${match.length ? ', concept updated' : ''}.`);
   };
   return (
-    <Stack gap={4} className="cp-detail">
+    <div className="cp-detail">
+    <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
       <Card className="cp-head">
         <Row gap={2} align="start">
           <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-            <InlineEdit value={p.title} onSave={(v) => pp({ title: v })} label="Pack title" className="cp-title" />
+            <InlineEdit value={p.title} onSave={(v) => ppRaw({ title: v })} label="Pack title" className="cp-title" />
             <span className="dt-muted">{(p.usedFor || []).length} lead{(p.usedFor || []).length === 1 ? '' : 's'} shown{p.lastUsedAt ? `, last ${relativeTime(p.lastUsedAt)}` : ''}</span>
           </Stack>
           {onClose && <IconButton icon={XClose} label="Close" variant="ghost" onClick={onClose} />}
@@ -125,7 +128,7 @@ function PackDetail({ pack: p, leads, industries, onPatch, onPatchLead, onClose 
         <Row gap={2} justify="between" align="center"><p className="pb-card-h" style={{ margin: 0 }}>Prompts</p><Button variant="ghost" size="md" icon={Plus} onClick={() => pp({ prompts: [...prompts, { id: uid(), label: `Prompt ${prompts.length + 1}`, text: '' }] })} className="cp-add-prompt">Add prompt</Button></Row>
         <Stack gap={1}>
           {prompts.map((x, i) => <PromptRow key={x.id} prompt={x} defaultOpen={i === 0} onChange={(patch) => setPrompt(x.id, patch)} onRemove={() => pp({ prompts: prompts.filter(y => y.id !== x.id) })} onCopy={() => copyText(toast, x.text, x.label || 'Prompt')} />)}
-          {!prompts.length && <p className="dt-muted">No prompts yet.</p>}
+          {!prompts.length && <EmptyState size="sm" icon="Edit02" title={COPY.empty['concepts.prompts'].title} description={COPY.empty['concepts.prompts'].description} action={{ label: COPY.empty['concepts.prompts'].action, icon: Plus, onClick: () => pp({ prompts: [{ id: uid(), label: 'Prompt 1', text: '' }] }) }} />}
         </Stack>
       </Card>
       <Card>
@@ -133,18 +136,22 @@ function PackDetail({ pack: p, leads, industries, onPatch, onPatchLead, onClose 
         {showImg && <Row gap={2} wrap align="end"><Input label="Label" value={img.label} onChange={(e) => setImg(v => ({ ...v, label: e.target.value }))} placeholder="Direction 1" /><Input label="Link" value={img.link} onChange={(e) => setImg(v => ({ ...v, link: e.target.value }))} placeholder="https://" /><Button size="md" icon={Plus} disabled={!img.link.trim()} onClick={() => { pp({ images: [...(p.images || []), { id: uid(), label: img.label.trim(), link: img.link.trim() }] }); setImg({ label: '', link: '' }); }}>Add</Button></Row>}
         <Stack gap={1}>
           {(p.images || []).map(i => <ListRow key={i.id} leading={isImageLink(i.link) ? <img src={i.link} alt="" className="cp-thumb cp-thumb--sm" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} /> : <IconTile icon="Image01" tone="neutral" size="sm" glow={false} />} title={i.label || i.link.replace(/^https?:\/\//, '')} subtitle={i.label ? i.link.replace(/^https?:\/\//, '') : undefined} trailing={<Row gap={0}><IconButton icon="LinkExternal01" label="Open image" variant="ghost" onClick={() => window.open(i.link, '_blank', 'noopener')} /><IconButton icon={XClose} label="Remove image" variant="ghost" onClick={() => pp({ images: p.images.filter(x => x.id !== i.id) })} /></Row>} chevron={false} />)}
-          {!(p.images || []).length && <p className="dt-muted">No image links yet. Paste Drive or hosted links.</p>}
+          {!(p.images || []).length && <EmptyState size="sm" icon="Image01" title={COPY.empty['concepts.images'].title} description={COPY.empty['concepts.images'].description} action={{ label: COPY.empty['concepts.images'].action, icon: Plus, onClick: () => setShowImg(true) }} />}
         </Stack>
       </Card>
-      <Card><p className="pb-card-h">Notes</p><InlineEdit value={p.notes || ''} onSave={(v) => pp({ notes: v })} multiline placeholder="What works, what to avoid." label="Pack notes" /></Card>
+      <Card><p className="pb-card-h">Notes</p><InlineEdit value={p.notes || ''} onSave={(v) => ppRaw({ notes: v })} multiline placeholder="What works, what to avoid." label="Pack notes" /></Card>
+    </Stagger>
       {pick && <LeadPicker leads={leads} title="Link a lead" onClose={() => setPick(false)} onPick={(l) => { setPick(false); pp({ leadId: String(l._id), ...(l.industry && !p.industryKey ? { industryKey: industryKey(l.industry) } : {}) }); }} />}
-    </Stack>
+    </div>
   );
 }
 
 /* ── Screen ────────────────────────────────────────────────────── */
-export default function AdminConcepts({ packs = [], loading, leads = [], onCreate, onPatch, onPatchLead, onRefresh, openId }) {
+export default function AdminConcepts({ packs = [], loading, error, onRetry, leads = [], onCreate, onPatch, onPatchLead, onRefresh, openId }) {
   const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
+  const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [selId, setSelId] = useState(null);
   const [kind, setKind] = useState('');
@@ -154,6 +161,7 @@ export default function AdminConcepts({ packs = [], loading, leads = [], onCreat
   const [draft, setDraft] = useState({ title: '', kind: 'logo', industryKey: '' });
   const [busy, setBusy] = useState(false);
   const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel;
   useTopBar(null);
   useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
 
@@ -162,34 +170,40 @@ export default function AdminConcepts({ packs = [], loading, leads = [], onCreat
   const list = useMemo(() => live.filter(p => (!kind || p.kind === kind) && (!ind || p.industryKey === ind) && matchesPack(p, q)), [live, kind, ind, q]);
   const sel = selId ? live.find(p => String(p._id) === String(selId)) : null;
   const kindCounts = useMemo(() => Object.fromEntries(CONCEPT_KINDS.map(k => [k.id, live.filter(p => p.kind === k.id).length])), [live]);
-  const create = async () => { if (!draft.title.trim()) return; setBusy(true); const item = await onCreate?.({ ...draft, title: draft.title.trim(), prompts: [], images: [], tags: [], notes: '', usedFor: [] }); setBusy(false); if (item) { toast.success('Pack created.'); setCreating(false); setDraft({ title: '', kind: 'logo', industryKey: '' }); setSelId(item._id); } else toast.error('Could not create the pack.'); };
-  const detail = sel && <PackDetail pack={sel} leads={leads} industries={industries} onPatch={onPatch} onPatchLead={onPatchLead} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const create = async () => { if (!draft.title.trim()) return; setBusy(true); const item = await onCreate?.({ ...draft, title: draft.title.trim(), prompts: [], images: [], tags: [], notes: '', usedFor: [] }); setBusy(false); if (item) { toast.success('Pack created.'); setCreating(false); setDraft({ title: '', kind: 'logo', industryKey: '' }); setSelId(item._id); } else toast.error(COPY.error.create); };
+  const pendingOpen = !!openId?.id && loading && !sel;
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} />) : sel && <PackDetail pack={sel} leads={leads} industries={industries} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const panelOpen = !!sel || pendingOpen;
 
   return (
-    <PageShell className={`aa-main aa-main--wide po-shell cp-shell${sel && desktop ? ' has-panel' : ''}`}>
+    <PageShell className={`aa-main aa-main--wide po-shell cp-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Concepts" description={showSkel ? undefined : `${live.length} pack${live.length === 1 ? '' : 's'}, ${live.reduce((n, p) => n + (p.prompts || []).length, 0)} prompts`} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cp-new">New pack</Button>}>
+          <Section title="Concepts" loading={loading} description={loading ? undefined : `${live.length} pack${live.length === 1 ? '' : 's'}, ${live.reduce((n, p) => n + (p.prompts || []).length, 0)} prompts`} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cp-new">New pack</Button>}>
             <Stack gap={2}>
               <Input className="cl-search" placeholder="Search title, tags, prompt text" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search packs" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
-              <Row gap={2} wrap className="cp-kinds">{CONCEPT_KINDS.filter(k => kindCounts[k.id] || k.id === kind).map(k => <Chip key={k.id} label={k.label} count={kindCounts[k.id]} icon={k.icon} selected={kind === k.id} onClick={() => setKind(kind === k.id ? '' : k.id)} />)}</Row>
-              {industries.length > 0 && <Row gap={2} wrap className="cp-inds">{industries.map(k => <Chip key={k} label={displayIndustry(k)} count={live.filter(p => p.industryKey === k).length} selected={ind === k} onClick={() => setInd(ind === k ? '' : k)} />)}</Row>}
+              {loading && <Row gap={2} wrap className="cp-kinds" aria-busy="true">{[116, 123].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row>}
+              {loading && <Row gap={2} wrap className="cp-inds" aria-busy="true"><SkeletonBlock width={154} height={44} radius="var(--v-radius-pill)" /></Row>}
+              {!loading && <Row gap={2} wrap className="cp-kinds">{CONCEPT_KINDS.filter(k => kindCounts[k.id] || k.id === kind).map(k => <Chip key={k.id} label={k.label} count={kindCounts[k.id]} icon={k.icon} selected={kind === k.id} onClick={() => setKind(kind === k.id ? '' : k.id)} />)}</Row>}
+              {!loading && industries.length > 0 && <Row gap={2} wrap className="cp-inds">{industries.map(k => <Chip key={k} label={displayIndustry(k)} count={live.filter(p => p.industryKey === k).length} selected={ind === k} onClick={() => setInd(ind === k ? '' : k)} />)}</Row>}
             </Stack>
           </Section>
-          {showSkel ? (
+          {pending ? null : showSkel ? (
             <Grid minColumnWidth={240} gap={3} aria-busy="true">{[1, 2, 3].map(i => <PackCard.Skeleton key={i} />)}</Grid>
+          ) : error && !packs.length ? (
+            <Card><ErrorState title={COPY.error.packs.title} description={COPY.error.packs.description} onRetry={retry} retrying={retrying} /></Card>
           ) : !live.length ? (
-            <Card><EmptyState icon="Image01" title="No packs yet" description="A pack is a set of prompts and image links for one kind of concept. Start with the logo directions." action={{ label: 'New pack', icon: Plus, onClick: () => setCreating(true) }} /></Card>
+            <Card><EmptyState icon="Image01" title={E('concepts.none').title} description={E('concepts.none').description} action={{ label: E('concepts.none').action, icon: Plus, onClick: () => setCreating(true) }} /></Card>
           ) : !list.length ? (
-            <Card><EmptyState size="sm" icon="SearchMd" title="Nothing in this filter" action={{ label: 'Show all', onClick: () => { setKind(''); setInd(''); setQ(''); } }} /></Card>
+            <Card><EmptyState size="sm" icon="SearchMd" title={E('concepts.filter').title} description={E('concepts.filter').description} action={{ label: E('concepts.filter').action, onClick: () => { setKind(''); setInd(''); setQ(''); } }} /></Card>
           ) : (
             <Stagger className={`cp-grid${sel && desktop ? ' is-narrow' : ''}`}>{list.map(p => <PackCard key={p._id} pack={p} leads={leads} onOpen={() => setSelId(p._id)} selected={sel && String(sel._id) === String(p._id)} compact={!!sel && desktop} />)}</Stagger>
           )}
-          {!showSkel && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
+          {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {sel && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {sel && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel.title} tall width={520}>{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? sel.title : <SkeletonBlock width={140} height={22} />} tall width={520}>{detail}</Sheet>}
       {creating && <Sheet open onClose={() => setCreating(false)} title="New pack" width={460} footer={<><Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button><Button loading={busy} disabled={!draft.title.trim()} icon={Check} onClick={create}>Create</Button></>}>
         <Stack gap={3}>
           <Input label="Title" value={draft.title} onChange={(e) => setDraft(d => ({ ...d, title: e.target.value }))} placeholder="Barber shop logo directions" data-autofocus />

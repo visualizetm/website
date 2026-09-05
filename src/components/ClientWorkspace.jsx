@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { COPY } from '../shared/copy';
+import { durationMs } from '../ui/motion';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
@@ -23,15 +25,17 @@ import {
 
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
 const fmtDayShort = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
-const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error('Could not copy.'); } };
+const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error(COPY.error.copy); } };
+const E = (k) => COPY.empty[k];
 
 /* ── Links block ─────────────────────────────────────────────────── */
 const LINKS = [['website', 'Website', 'Globe01'], ['drive', 'Google Drive', 'Folder'], ['clickup', 'ClickUp', 'Columns03'], ['instagram', 'Instagram', 'Camera01']];
-export function ClientLinks({ lead, patch, readOnly }) {
+export function ClientLinks({ lead, patch, patchRaw, readOnly }) {
   const toast = useToast();
+  const write = patchRaw || patch;
   const links = lead.links || {};
   const valueOf = (k) => links[k] || (k === 'website' ? lead.socials?.website : k === 'instagram' ? lead.socials?.instagram : '') || '';
-  const save = (k) => (v) => patch({ links: { website: '', drive: '', clickup: '', instagram: '', ...links, [k]: v } });
+  const save = (k) => (v) => write({ links: { website: '', drive: '', clickup: '', instagram: '', ...links, [k]: v } });
   return (
     <Card className="cw-links">
       <p className="pb-card-h">Links</p>
@@ -59,10 +63,10 @@ function Swatch({ value, label, onSave, readOnly }) {
     </div>
   );
 }
-export function ClientBrand({ lead, patch, readOnly }) {
+export function ClientBrand({ lead, patch, patchRaw, readOnly }) {
   const toast = useToast();
   const b = { primary: '', colors: [], fontDisplay: '', fontBody: '', logoLink: '', notes: '', ...(lead.brand || {}) };
-  const write = (next) => patch({ brand: { ...b, ...next } });
+  const write = (next) => (patchRaw || patch)({ brand: { ...b, ...next } });
   const colors = [0, 1, 2, 3].map(i => b.colors[i] || '');
   return (
     <Card className="cw-brand">
@@ -135,8 +139,10 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
  * @param {Function} props.sec (id) => section props from LeadDetail
  * @param {Function} props.jump (tabId) => void
  */
-export function ClientSections({ lead, projects, patch, onCreateProject, onPatchProject, sec, jump, readOnly }) {
+export function ClientSections({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, sec, jump, readOnly, onPulseTab }) {
   const toast = useToast();
+  const [paidPulse, setPaidPulse] = useState(null); // schedule item id that just got paid
+  const [retPulse, setRetPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const wide = useMediaQuery('(min-width: 1440px)'); // the detail column is narrow below this; the schedule stacks
   const mine = useMemo(() => projectsOf(projects, lead._id), [projects, lead._id]);
@@ -157,7 +163,9 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
   const [logForm, setLogForm] = useState({ count: '1', note: '' });
   const [busy, setBusy] = useState(false);
 
-  const pp = (p, set) => onPatchProject(p._id, set);
+  // Project writes: `pp` toasts on failure (buttons, menus, checkboxes); `ppRaw` is for InlineEdit, which toasts itself.
+  const ppRaw = (p, set) => onPatchProject(p._id, set);
+  const pp = async (p, set) => { const ok = await ppRaw(p, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const otherActive = (p) => work.some(x => String(x._id) !== String(p._id) && isActiveProject(x));
 
   /* Stage changes, with the delivery gate. */
@@ -210,7 +218,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
     const ok2 = await pp(p, set);
     if (ok2 && p.kind === 'retainer' && lead.retainer) { const nx = nextUnpaid({ schedule }); patch({ retainer: { ...lead.retainer, nextBillAt: nx?.dueAt || '' } }); }
     setBusy(false);
-    if (ok2) { toast.success(`${money(amount)} recorded.`); setPay(null); }
+    if (ok2) { toast.success(`${money(amount)} recorded.`); setPay(null); setPaidPulse(item.id); setTimeout(() => setPaidPulse(null), durationMs('--v-dur-slow') * 2 + 60); }
   };
   const saveManual = async () => {
     const amount = Number(manualForm.amount) || 0; if (!manualForm.label.trim()) return;
@@ -230,7 +238,8 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
       await patch({ retainer: { projectId: String(item._id), planId: r.id, amount: r.price, status: 'active', startedAt: retForm.start, billDay, nextBillAt: first?.dueAt || retForm.start, cancelAt: '' }, clientStatus: lead.clientStatus === 'paused' ? 'active' : (lead.clientStatus || 'active') });
       toast.success(`${r.label} retainer started, ${money(r.price)} a month.`);
       setRetOpen(false);
-    } else toast.error('Could not start the retainer.');
+      setRetPulse(true); onPulseTab?.('retainer'); setTimeout(() => setRetPulse(false), durationMs('--v-dur-slow') * 2 + 60);
+    } else toast.error(COPY.error.create);
     setBusy(false);
   };
   const setRet = (next) => patch({ retainer: { ...lead.retainer, ...next } });
@@ -320,7 +329,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
     <section {...sec('projects')}>
       <Section title="Projects" description={work.length ? `${work.filter(isActiveProject).length} active of ${work.length}` : undefined} action={!readOnly && <Button icon={Plus} onClick={() => setNewOpen(true)} className="cw-new-project">New project</Button>}>
         {work.length ? <Stack gap={3}>{work.map(projectCard)}</Stack>
-          : <Card><EmptyState size="sm" icon="Briefcase01" title="No projects yet" description="Start one from a package, an add-on set, or a custom total. The payment schedule fills itself in." action={!readOnly ? { label: 'New project', icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
+          : <Card><EmptyState size="sm" icon="Briefcase01" title={E('clients.projects').title} description={E('clients.projects').description} action={!readOnly ? { label: E('clients.projects').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
       </Section>
     </section>
   );
@@ -343,7 +352,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
           <div className="cw-kv"><span className="dt-fact-label">Next due</span><span>{nx ? fmtDay(nx.dueAt) : 'Paid in full'}</span></div>
           <div className="cw-kv"><span className="dt-fact-label">Remaining</span><span>{money(planRemaining(current))}</span></div>
         </Grid>
-        <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={current.plan.stripeSubscriptionId || ''} onSave={(v) => pp(current, { plan: { ...current.plan, stripeSubscriptionId: v.trim() } })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
+        <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={current.plan.stripeSubscriptionId || ''} onSave={(v) => ppRaw(current, { plan: { ...current.plan, stripeSubscriptionId: v.trim() } })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
         {current.plan.stripeCancelledAt ? (
           <Card level={3} padding={3} className="cw-stripe cw-stripe--ok" glow="booked">
             <p className="cw-stripe-h cw-stripe-h--ok">Stripe reports this subscription cancelled ({fmtDate(current.plan.stripeCancelledAt)}).</p>
@@ -370,16 +379,16 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
                   { id: 'amount', label: 'Amount', align: 'end', render: (r) => money(r.amount) },
                   { id: 'due', label: 'Due', render: (r) => fmtDay(r.dueAt) },
                   { id: 'status', label: 'Status', render: statusPill },
-                ]} rowActions={payAction} empty={<p className="dt-muted">No schedule.</p>} />
+                ]} rowActions={payAction} rowClassName={(r) => (r.id === paidPulse ? 'cw-row-paid' : '')} empty={<EmptyState size="sm" icon="CreditCard01" title={E('clients.schedule').title} description={E('clients.schedule').description} />} />
             ) : (
-              <Stack gap={2}>{scheduleRows.map(s => <ListRow key={s.id} title={s.label || 'Payment'} subtitle={`${money(s.amount)}, due ${fmtDay(s.dueAt)}`} trailing={<Row gap={1}>{statusPill(s)}{payAction(s)}</Row>} chevron={false} className="cw-sched-row" />)}</Stack>
+              <Stack gap={2}>{scheduleRows.map(s => <ListRow key={s.id} title={s.label || 'Payment'} subtitle={`${money(s.amount)}, due ${fmtDay(s.dueAt)}`} trailing={<Row gap={1}>{statusPill(s)}{payAction(s)}</Row>} chevron={false} className={`cw-sched-row${s.id === paidPulse ? ' v-pulse-won' : ''}`} />)}</Stack>
             )}
             {planBlock}
           </Stack>
-        ) : <Card><EmptyState size="sm" icon="CreditCard01" title="No project to bill" description="Create a project and its schedule shows up here." action={!readOnly ? { label: 'New project', icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
+        ) : <Card><EmptyState size="sm" icon="CreditCard01" title={E('clients.payments').title} description={E('clients.payments').description} action={!readOnly ? { label: E('clients.payments').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
         <Card className="cw-ledger">
           <Row gap={2} justify="between" align="center" wrap><span className="pb-card-h" style={{ margin: 0 }}>Lifetime ledger, {money(ledger.reduce((n, x) => n + (Number(x.amount) || 0), 0))}</span>{!readOnly && <Button variant="secondary" size="md" icon={Plus} onClick={() => setManual(true)} className="cw-add-manual">Add manual payment</Button>}</Row>
-          {ledger.length ? <Stack gap={1}>{ledger.map(x => { const proj = x.projectId ? mine.find(p => String(p._id) === String(x.projectId)) : null; return <ListRow key={x.id || x._i} id={x.id ? `ledger-${x.id}` : undefined} leading={<IconTile icon="CurrencyDollar" tone="won" size="sm" glow={false} />} title={x.label || 'Payment'} subtitle={[fmtDay(x.at) || fmtDate(x.at), proj?.name, x.notes].filter(Boolean).join(', ')} meta={money(x.amount)} chevron={false} className="cw-ledger-row" />; })}</Stack> : <p className="dt-muted">Nothing paid yet.</p>}
+          {ledger.length ? <Stack gap={1}>{ledger.map(x => { const proj = x.projectId ? mine.find(p => String(p._id) === String(x.projectId)) : null; return <ListRow key={x.id || x._i} id={x.id ? `ledger-${x.id}` : undefined} leading={<IconTile icon="CurrencyDollar" tone="won" size="sm" glow={false} />} title={x.label || 'Payment'} subtitle={[fmtDay(x.at) || fmtDate(x.at), proj?.name, x.notes].filter(Boolean).join(', ')} meta={money(x.amount)} chevron={false} className="cw-ledger-row" />; })}</Stack> : <EmptyState size="sm" icon="CurrencyDollar" title={E('clients.ledger').title} description={E('clients.ledger').description} action={!readOnly ? { label: E('clients.ledger').action, icon: Plus, onClick: () => setManual(true) } : undefined} />}
         </Card>
       </Section>
     </section>
@@ -393,7 +402,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
     <section {...sec('retainer')}>
       <Section title="Retainer" description={ret ? `${retPlan?.label || ret.planId}, ${money(ret.amount)} a month` : 'Every delivery ends with a retainer pitch.'} action={!ret || ret.status === 'cancelled' ? (!readOnly && <Button icon={RefreshCw01} onClick={() => setRetOpen(true)} className="cw-start-retainer">Start a retainer</Button>) : undefined}>
         {ret && ret.status !== 'cancelled' ? (
-          <Card className="cw-retainer">
+          <Card className={`cw-retainer${retPulse ? ' v-pulse-won' : ''}`}>
             <Row gap={2} wrap align="center"><Pill id={ret.status} list={RETAINER_STATUSES} size="sm" /><span className="cw-project-name">{retPlan?.label || ret.planId}</span><span className="dt-opt-n cw-ret-price">{money(ret.amount)}<small>/mo</small></span></Row>
             <Grid minColumnWidth={140} gap={2}>
               <div className="cw-kv"><span className="dt-fact-label">Started</span><span>{fmtDay(ret.startedAt) || fmtDate(ret.startedAt) || 'Unknown'}</span></div>
@@ -401,7 +410,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
               <div className="cw-kv"><span className="dt-fact-label">Bill day</span><span>Day {ret.billDay}</span></div>
               {ret.cancelAt && <div className="cw-kv"><span className="dt-fact-label">Ends</span><span>{fmtDate(ret.cancelAt)}</span></div>}
             </Grid>
-            <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={ret.stripeSubscriptionId || ''} onSave={(v) => setRet({ stripeSubscriptionId: v.trim() })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
+            <div className="cw-kv"><span className="dt-fact-label">Stripe subscription</span><InlineEdit value={ret.stripeSubscriptionId || ''} onSave={(v) => (patchRaw || patch)({ retainer: { ...lead.retainer, stripeSubscriptionId: v.trim() } })} placeholder="sub_... (so a cancellation reconciles)" label="Stripe subscription id" className="cw-sub-id" /></div>
             {ret.stripeCancelledAt && <p className="dt-muted">Stripe reported this subscription cancelled on {fmtDate(ret.stripeCancelledAt)}.</p>}
             {retProject && nextUnpaid(retProject) && ret.status !== 'paused' && (
               <Card level={2} padding={3} className="cw-nextbill">
@@ -432,7 +441,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
             )}
           </Card>
         ) : (
-          <Card><EmptyState size="sm" icon="RefreshCw01" title={ret?.status === 'cancelled' ? 'Retainer cancelled' : 'No retainer yet'} description={ret?.status === 'cancelled' ? `${retPlan?.label || 'The plan'} ended ${fmtDate(ret.cancelAt) || 'recently'}. Start a new one when they are ready.` : 'Site Care for web work, Content Kit for everything else. Pitch it with the delivery.'} action={!readOnly ? { label: 'Start a retainer', icon: RefreshCw01, onClick: () => setRetOpen(true) } : undefined} /></Card>
+          <Card><EmptyState size="sm" icon="RefreshCw01" title={ret?.status === 'cancelled' ? E('clients.retainer.cancelled').title : E('clients.retainer').title} description={ret?.status === 'cancelled' ? `${retPlan?.label || 'The plan'} ended ${fmtDate(ret.cancelAt) || 'recently'}. ${E('clients.retainer.cancelled').description}` : E('clients.retainer').description} action={!readOnly ? { label: E('clients.retainer').action, icon: RefreshCw01, onClick: () => setRetOpen(true) } : undefined} /></Card>
         )}
       </Section>
     </section>
@@ -456,13 +465,13 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
                 <Stack gap={1}>{(current.deliverables || []).filter(d => d.group === g.id).map(d => (
                   <div key={d.id} className="cw-deliv">
                     <Checkbox label={d.label} checked={!!d.done} onChange={(v) => pp(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, done: v } : x)) })} disabled={readOnly} />
-                    <span className="cw-deliv-link">{readOnly ? (d.link ? <a href={d.link} target="_blank" rel="noopener noreferrer" className="cw-deliv-a lay-truncate">{d.link.replace(/^https?:\/\//, '')}</a> : null) : <InlineEdit value={d.link || ''} onSave={(v) => pp(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, link: v } : x)) })} placeholder="Add a link" label={`${d.label} link`} format={(v) => v.replace(/^https?:\/\//, '')} className={`cw-deliv-edit${d.link ? ' has-link' : ''}`} />}{d.link && <IconButton icon="LinkExternal01" label={`Open ${d.label}`} variant="ghost" onClick={() => window.open(d.link, '_blank', 'noopener')} />}</span>
+                    <span className="cw-deliv-link">{readOnly ? (d.link ? <a href={d.link} target="_blank" rel="noopener noreferrer" className="cw-deliv-a lay-truncate">{d.link.replace(/^https?:\/\//, '')}</a> : null) : <InlineEdit value={d.link || ''} onSave={(v) => ppRaw(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, link: v } : x)) })} placeholder="Add a link" label={`${d.label} link`} format={(v) => v.replace(/^https?:\/\//, '')} className={`cw-deliv-edit${d.link ? ' has-link' : ''}`} />}{d.link && <IconButton icon="LinkExternal01" label={`Open ${d.label}`} variant="ghost" onClick={() => window.open(d.link, '_blank', 'noopener')} />}</span>
                   </div>
                 ))}</Stack>
               </Card>
-            )) : <Card><EmptyState size="sm" icon="Folder" title="No deliverables listed" description="Prefill the Drive structure for this kind of project." action={!readOnly ? { label: 'Add the usual set', onClick: () => pp(current, { deliverables: deliverablesFor(current.kind) }) } : undefined} /></Card>}
+            )) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables').title} description={E('clients.deliverables').description} action={!readOnly ? { label: E('clients.deliverables').action, onClick: () => pp(current, { deliverables: deliverablesFor(current.kind) }) } : undefined} /></Card>}
           </Stack>
-        ) : <Card><EmptyState size="sm" icon="Folder" title="Nothing to deliver yet" description="Deliverables follow the project. Create one first." /></Card>}
+        ) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables.noproject').title} description={E('clients.deliverables.noproject').description} action={!readOnly ? { label: E('clients.deliverables.noproject').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
       </Section>
     </section>
   );
@@ -471,7 +480,7 @@ export function ClientSections({ lead, projects, patch, onCreateProject, onPatch
     <>
       {projectsSection}{paymentsSection}{retainerSection}{deliverablesSection}
       {confirmDialog}
-      {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if ((doc.links?.drive || doc.links?.clickup) && !(lead.links?.drive || lead.links?.clickup)) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: lead.links?.drive || doc.links.drive, clickup: lead.links?.clickup || doc.links.clickup } }); } else toast.error('Could not create the project.'); }} />}
+      {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if ((doc.links?.drive || doc.links?.clickup) && !(lead.links?.drive || lead.links?.clickup)) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: lead.links?.drive || doc.links.drive, clickup: lead.links?.clickup || doc.links.clickup } }); } else toast.error(COPY.error.create); }} />}
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>
         <Textarea label={round?.extra ? 'Reason' : 'What changed'} rows={3} value={roundNote} onChange={(e) => setRoundNote(e.target.value)} placeholder={round?.extra ? 'They want the mark reworked after approving it.' : 'Tightened the wordmark spacing, swapped the secondary color.'} data-autofocus />

@@ -22,6 +22,7 @@ import { applyAppearance, setBootHint } from '../shell/appearance';
 import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
+import { apiFetch } from '../shared/api';
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -70,6 +71,9 @@ export default function AdminApp() {
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Per resource load failures (Prompt 14): each screen renders an ErrorState with Retry from these.
+  const [errors, setErrors] = useState({});
+  const setErr = useCallback((k, v) => setErrors(e => (e[k] === v ? e : { ...e, [k]: v })), []);
   const [bookedOpen, setBookedOpen] = useState(false);
   const [leadsOpen, setLeadsOpen] = useState(false);
   const [clientsOpen, setClientsOpen] = useState(false);
@@ -83,30 +87,19 @@ export default function AdminApp() {
   const [callLeads, setCallLeads] = useState([]);
   const [callLeadsLoading, setCallLeadsLoading] = useState(true);
   const loadCallLeads = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/call-leads');
-      if (!res.ok) return;
-      const d = await res.json();
-      setCallLeads(d.items || []);
-    } catch { /* keep last */ }
-    finally { setCallLeadsLoading(false); }
-  }, []);
+    const r = await apiFetch('/api/admin/call-leads');
+    if (r.ok) { setCallLeads(r.data?.items || []); setErr('leads', false); } else setErr('leads', true);
+    setCallLeadsLoading(false);
+  }, [setErr]);
 
   // Optimistic patch for booked-workspace edits, with rollback on failure.
   const patchCallLead = useCallback(async (id, set) => {
     let prev;
     setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
-    try {
-      const res = await fetch('/api/admin/call-leads', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, set }),
-      });
-      if (!res.ok) throw new Error();
-      return true;
-    } catch {
-      if (prev) setCallLeads(ls => ls.map(l => l._id === id ? prev : l));
-      return false;
-    }
+    const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    if (prev) setCallLeads(ls => ls.map(l => l._id === id ? prev : l));
+    return false;
   }, []);
 
   // Projects (Prompt 10): loaded at the shell level like call leads so the
@@ -114,32 +107,23 @@ export default function AdminApp() {
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
   const loadProjects = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/projects');
-      if (!res.ok) return;
-      const d = await res.json();
-      setProjects(d.items || []);
-    } catch { /* keep last */ }
-    finally { setProjectsLoading(false); }
-  }, []);
+    const r = await apiFetch('/api/admin/projects');
+    if (r.ok) { setProjects(r.data?.items || []); setErr('projects', false); } else setErr('projects', true);
+    setProjectsLoading(false);
+  }, [setErr]);
   const createProject = useCallback(async (doc) => {
-    const res = await fetch('/api/admin/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
-    if (!res.ok) return null;
-    const d = await res.json();
-    if (d.item) setProjects(ps => [d.item, ...ps]);
-    return d.item || null;
+    const r = await apiFetch('/api/admin/projects', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setProjects(ps => [r.data.item, ...ps]);
+    return r.data?.item || null;
   }, []);
   const patchProject = useCallback(async (id, set) => {
     let prev;
     setProjects(ps => ps.map(p => { if (String(p._id) === String(id)) { prev = p; return { ...p, ...set }; } return p; }));
-    try {
-      const res = await fetch('/api/admin/projects', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) });
-      if (!res.ok) throw new Error();
-      return true;
-    } catch {
-      if (prev) setProjects(ps => ps.map(p => String(p._id) === String(id) ? prev : p));
-      return false;
-    }
+    const r = await apiFetch('/api/admin/projects', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    if (prev) setProjects(ps => ps.map(p => String(p._id) === String(id) ? prev : p));
+    return false;
   }, []);
 
   // Print orders and concept packs (Prompt 11), loaded at the shell level like projects.
@@ -147,47 +131,50 @@ export default function AdminApp() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [unimported, setUnimported] = useState(0);
   const loadOrders = useCallback(async () => {
-    try { const res = await fetch('/api/admin/orders'); if (!res.ok) return; const d = await res.json(); setOrders(d.items || []); setUnimported(d.unimported || 0); } catch { /* keep last */ }
-    finally { setOrdersLoading(false); }
-  }, []);
+    const r = await apiFetch('/api/admin/orders');
+    if (r.ok) { setOrders(r.data?.items || []); setUnimported(r.data?.unimported || 0); setErr('orders', false); } else setErr('orders', true);
+    setOrdersLoading(false);
+  }, [setErr]);
   const createOrder = useCallback(async (doc) => {
-    const res = await fetch('/api/admin/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
-    if (!res.ok) return null;
-    const d = await res.json();
-    if (d.item) setOrders(os => [d.item, ...os]);
-    return d.item || null;
+    const r = await apiFetch('/api/admin/orders', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setOrders(os => [r.data.item, ...os]);
+    return r.data?.item || null;
   }, []);
   const patchOrder = useCallback(async (id, set) => {
     let prev;
     setOrders(os => os.map(o => { if (String(o._id) === String(id)) { prev = o; return { ...o, ...set }; } return o; }));
-    try { const res = await fetch('/api/admin/orders', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }); if (!res.ok) throw new Error(); return true; }
-    catch { if (prev) setOrders(os => os.map(o => String(o._id) === String(id) ? prev : o)); return false; }
+    const r = await apiFetch('/api/admin/orders', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    if (prev) setOrders(os => os.map(o => String(o._id) === String(id) ? prev : o));
+    return false;
   }, []);
   const importSubmissionOrders = useCallback(async () => {
-    const res = await fetch('/api/admin/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'import-submissions' }) });
-    if (!res.ok) return null;
-    const d = await res.json();
+    const r = await apiFetch('/api/admin/orders', { method: 'POST', body: { action: 'import-submissions' } });
+    if (!r.ok) return null;
     await loadOrders();
-    return d.created || 0;
+    return r.data?.created || 0;
   }, [loadOrders]);
   const [packs, setPacks] = useState([]);
   const [packsLoading, setPacksLoading] = useState(true);
   const loadPacks = useCallback(async () => {
-    try { const res = await fetch('/api/admin/concept-packs'); if (!res.ok) return; const d = await res.json(); setPacks(d.items || []); } catch { /* keep last */ }
-    finally { setPacksLoading(false); }
-  }, []);
+    const r = await apiFetch('/api/admin/concept-packs');
+    if (r.ok) { setPacks(r.data?.items || []); setErr('packs', false); } else setErr('packs', true);
+    setPacksLoading(false);
+  }, [setErr]);
   const createPack = useCallback(async (doc) => {
-    const res = await fetch('/api/admin/concept-packs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(doc) });
-    if (!res.ok) return null;
-    const d = await res.json();
-    if (d.item) setPacks(ps => [d.item, ...ps]);
-    return d.item || null;
+    const r = await apiFetch('/api/admin/concept-packs', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setPacks(ps => [r.data.item, ...ps]);
+    return r.data?.item || null;
   }, []);
   const patchPack = useCallback(async (id, set) => {
     let prev;
     setPacks(ps => ps.map(x => { if (String(x._id) === String(id)) { prev = x; return { ...x, ...set }; } return x; }));
-    try { const res = await fetch('/api/admin/concept-packs', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }); if (!res.ok) throw new Error(); return true; }
-    catch { if (prev) setPacks(ps => ps.map(x => String(x._id) === String(id) ? prev : x)); return false; }
+    const r = await apiFetch('/api/admin/concept-packs', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    if (prev) setPacks(ps => ps.map(x => String(x._id) === String(id) ? prev : x));
+    return false;
   }, []);
 
   const section = useMemo(() => {
@@ -207,7 +194,8 @@ export default function AdminApp() {
   }, [location.pathname]);
 
   const relPath = location.pathname.slice(BASE.length) || '/';
-  const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // layout audit: skeleton state
+  const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
+  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [] } : { leads: callLeads, items, projects, orders, packs };
   const activeNav = useMemo(() => navForPath(relPath), [relPath]);
 
   const go = useCallback((sec, itemId) => {
@@ -251,16 +239,11 @@ export default function AdminApp() {
   }, [authed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/admin/submissions');
-      if (res.status === 401) { setAuthed(false); setBootHint(false); return; }
-      const d = await res.json();
-      setItems(d.items || []);
-      setUnread(d.unread || 0);
-    } catch { /* keep last */ }
-    finally { setLoading(false); }
-  }, []);
+    const r = await apiFetch('/api/admin/submissions');
+    if (r.status === 401) { setAuthed(false); setBootHint(false); return; }
+    if (r.ok) { setItems(r.data?.items || []); setUnread(r.data?.unread || 0); setErr('submissions', false); } else setErr('submissions', true);
+    setLoading(false);
+  }, [setErr]);
   useEffect(() => { if (authed) load(); }, [authed, load]);
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
   useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
@@ -283,34 +266,32 @@ export default function AdminApp() {
 
   // Lead create/delete for the Leads page (reuses the guarded endpoints).
   const createCallLead = useCallback(async (lead) => {
-    const res = await fetch('/api/admin/call-leads', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(lead),
-    });
-    if (res.ok) await loadCallLeads();
-    return res.ok;
+    const r = await apiFetch('/api/admin/call-leads', { method: 'POST', body: lead });
+    if (r.ok) await loadCallLeads();
+    return r.ok;
   }, [loadCallLeads]);
+  // Optimistic delete with rollback; resolves false (and puts the lead back) on failure.
   const deleteCallLead = useCallback(async (id) => {
-    await fetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    setCallLeads(prev => prev.filter(l => l._id !== id));
+    let prev;
+    setCallLeads(cur => cur.filter(l => { if (l._id === id) { prev = l; return false; } return true; }));
+    const r = await apiFetch(`/api/admin/call-leads?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (r.ok) return true;
+    if (prev) setCallLeads(cur => [...cur, prev]);
+    return false;
   }, []);
   const restoreCallLeads = useCallback(async (ids) => {
-    const res = await fetch('/api/admin/call-leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restore', ids }) });
-    if (res.ok) await loadCallLeads();
-    return res.ok;
+    const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids } });
+    if (r.ok) await loadCallLeads();
+    return r.ok;
   }, [loadCallLeads]);
   const bulkDeleteCallLeads = useCallback(async (ids) => {
     const idSet = new Set(ids);
     const prev = [];
     setCallLeads(cur => cur.filter(l => { if (idSet.has(l._id)) { prev.push(l); return false; } return true; }));
-    try {
-      const res = await fetch(`/api/admin/call-leads?ids=${ids.map(encodeURIComponent).join(',')}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
-      return true;
-    } catch {
-      setCallLeads(cur => [...cur, ...prev]);
-      return false;
-    }
+    const r = await apiFetch(`/api/admin/call-leads?ids=${ids.map(encodeURIComponent).join(',')}`, { method: 'DELETE' });
+    if (r.ok) return true;
+    setCallLeads(cur => [...cur, ...prev]);
+    return false;
   }, []);
 
   // Shop orders live in the orders collection (Prompt 11); the Dashboard feed reads briefs and contacts only.
@@ -345,29 +326,25 @@ export default function AdminApp() {
     const prev = items;
     setItems(cur => cur.map(it => it._id === id ? { ...it, ...set } : it));
     if ('read' in set) setUnread(u => Math.max(0, u + (set.read ? -1 : 1)));
-    try {
-      const res = await fetch('/api/admin/submissions', {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, set }),
-      });
-      if (!res.ok) throw new Error();
-      return true;
-    } catch { setItems(prev); load(); return false; }
+    const r = await apiFetch('/api/admin/submissions', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    setItems(prev); if ('read' in set) setUnread(u => Math.max(0, u + (set.read ? 1 : -1)));
+    return false;
   };
 
-  // Optimistic soft delete with rollback.
+  // Optimistic soft delete with rollback; resolves false on failure.
   const softDelete = async (ids) => {
     const prev = items;
     const idSet = new Set(ids);
     setItems(cur => cur.filter(it => !idSet.has(it._id)));
-    try {
-      const res = await fetch(`/api/admin/submissions?ids=${ids.join(',')}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error();
-    } catch { setItems(prev); }
+    const r = await apiFetch(`/api/admin/submissions?ids=${ids.join(',')}`, { method: 'DELETE' });
+    if (r.ok) return true;
+    setItems(prev);
+    return false;
   };
 
   const logout = async () => {
-    await fetch('/api/admin/logout', { method: 'POST' });
+    await apiFetch('/api/admin/logout', { method: 'POST' });
     setBootHint(false);
     setAuthed(false);
   };
@@ -385,15 +362,15 @@ export default function AdminApp() {
 
   return (
     <ToastProvider>
-    <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading} leads={callLeads} leadsLoading={callLeadsLoading} onRefetchLeads={loadCallLeads}
-      hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
+    <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content */}
       {section === 'dashboard' && (
-        <AdminDashboard leads={callLeads} projects={projects} loading={callLeadsLoading || forceLoading} subs={subs} orders={orders} onOpenSubmission={(it) => go('submissions', it._id)} onOpenOrder={openOrder} />
+        <AdminDashboard leads={V.leads} projects={V.projects} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onOpenSubmission={(it) => go('submissions', it._id)} onOpenOrder={openOrder} />
       )}
       {section === 'leads' && (
         <AdminLeads
-          leads={callLeads} submissions={items} loading={callLeadsLoading || forceLoading}
+          leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onBulkDelete={bulkDeleteCallLeads} onRestore={restoreCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
@@ -403,8 +380,8 @@ export default function AdminApp() {
       )}
       {section === 'clients' && (
         <AdminClients
-          leads={callLeads} submissions={items} loading={callLeadsLoading || projectsLoading || forceLoading}
-          projects={projects} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
+          leads={V.leads} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }}
+          projects={V.projects} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
@@ -412,27 +389,28 @@ export default function AdminApp() {
         />
       )}
       {section === 'submissions' && (
-        <AdminSubmissions items={items} loading={loading || forceLoading} leads={callLeads} onPatch={patch} onDelete={softDelete} onLinkLead={linkSubmission} onPatchLead={patchCallLead} onCreateLead={createCallLead} onRefresh={load} openId={reqFor('submissions')} />
+        <AdminSubmissions items={V.items} loading={loading || forceLoading} error={errors.submissions} onRetry={load} leads={V.leads} onPatch={patch} onDelete={softDelete} onLinkLead={linkSubmission} onPatchLead={patchCallLead} onCreateLead={createCallLead} onRefresh={load} openId={reqFor('submissions')} />
       )}
       {section === 'orders' && (
-        <AdminOrders orders={orders} loading={ordersLoading || callLeadsLoading || forceLoading} unimported={unimported} leads={callLeads} projects={projects}
+        <AdminOrders orders={V.orders} loading={ordersLoading || callLeadsLoading || forceLoading} error={errors.orders} onRetry={loadOrders} unimported={unimported} leads={V.leads} projects={V.projects}
           onCreate={createOrder} onPatch={patchOrder} onRefresh={loadOrders} onImportSubmissions={importSubmissionOrders} onPatchLead={patchCallLead} onCreateProject={createProject}
           openId={reqFor('orders')} createPreset={createFor('orders')} />
       )}
       {section === 'concepts' && (
-        <AdminConcepts packs={packs} loading={packsLoading || callLeadsLoading || forceLoading} leads={callLeads} onCreate={createPack} onPatch={patchPack} onPatchLead={patchCallLead} onRefresh={loadPacks} openId={reqFor('concepts')} />
+        <AdminConcepts packs={V.packs} loading={packsLoading || callLeadsLoading || forceLoading} error={errors.packs} onRetry={loadPacks} leads={V.leads} onCreate={createPack} onPatch={patchPack} onPatchLead={patchCallLead} onRefresh={loadPacks} openId={reqFor('concepts')} />
       )}
       {section === 'reviews' && (
-        <AdminReviews leads={callLeads} projects={projects} submissions={items} loading={callLeadsLoading || projectsLoading || forceLoading} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
+        <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
       )}
       {section === 'calls' && (
         <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} /></div>
       )}
       {section === 'booked' && (
         <AdminBooked
-          leads={callLeads}
-          submissions={items}
+          leads={V.leads}
+          submissions={V.items}
           loading={callLeadsLoading || forceLoading}
+          error={errors.leads} onRetry={loadCallLeads}
           onPatch={patchCallLead}
           onRefresh={loadCallLeads}
           onLinkSubmission={linkSubmission}
@@ -443,10 +421,10 @@ export default function AdminApp() {
         />
       )}
       {section === 'calendar' && (
-        <AdminCalendar leads={callLeads} loading={callLeadsLoading || forceLoading} onPatch={patchCallLead} onCreate={createCallLead} onRefresh={loadCallLeads} openId={reqFor('calendar')} />
+        <AdminCalendar leads={V.leads} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatch={patchCallLead} onCreate={createCallLead} onRefresh={loadCallLeads} openId={reqFor('calendar')} />
       )}
       {section === 'design' && (
-        <AdminDesign onBack={() => go('settings')} />
+        <AdminDesign onBack={() => go('settings')} loading={forceLoading} />
       )}
       {section === 'settings' && (
         <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />

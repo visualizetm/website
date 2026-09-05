@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { COPY } from '../shared/copy';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { Sheet, Stack, Row, Grid, Select, Button, Table, Pill, Textarea, EmptyState } from '../ui';
 import { PRINT_ORDER_STATUSES, PRINT_ORDER_STATUS_IDS } from '../shared/semantics';
@@ -80,7 +81,7 @@ export default function OrdersImport({ existing = [], onClose, onCreate }) {
               { id: 'status', label: 'Status', render: (r) => <Pill id={r.doc.status} list={PRINT_ORDER_STATUSES} size="sm" /> },
               { id: 'result', label: 'Result', render: (r) => (r.skip ? <Pill tone="neutral" label={r.reason || 'Skip'} size="sm" icon={false} /> : <Pill tone="booked" label="Create" size="sm" icon={false} />) },
             ]} />
-        ) : text.trim() ? <EmptyState size="sm" icon="Package" title="Nothing to import yet" description="Add a header row and at least one order row." /> : null}
+        ) : text.trim() ? <EmptyState size="sm" icon="Package" title={COPY.empty['orders.import.csv'].title} description={COPY.empty['orders.import.csv'].description} /> : null}
       </Stack>
     </Sheet>
   );

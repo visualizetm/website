@@ -8,8 +8,9 @@ import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { SHORTCUT_GROUPS } from '../shell/shortcuts';
 import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '../shell/install';
@@ -94,23 +95,28 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
   useTopBar(null);
   const [data, setData] = useState(null);
-  const load = useCallback(() => apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data) { setData(r.data); shell?.setProfile?.(r.data.profile || null); } }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [loadError, setLoadError] = useState(false);
+  const load = useCallback(() => apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data) { setData(r.data); setLoadError(false); shell?.setProfile?.(r.data.profile || null); } else setLoadError(true); }), []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
-  const showSkel = useDelayedLoading(!data || loading);
+  const [retry, retrying] = useRetry(load);
+  const fetching = !data && !loadError;
+  const showSkel = useDelayedLoading(fetching || loading);
+  const pending = (fetching || loading) && !showSkel;
   const { state: pushState, enable: enablePush } = usePush();
   const [installTick, setInstallTick] = useState(0);
   useEffect(() => onInstallChange(() => setInstallTick(t => t + 1)), []);
 
   /* Profile */
   const profile = data?.profile || { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } };
-  const saveProfile = async (next) => { const merged = { ...profile, ...next, businessHours: { ...profile.businessHours, ...(next.businessHours || {}) } }; setData(d => ({ ...d, profile: merged })); const r = await patch({ profile: next }); if (r.ok) shell?.setProfile?.(merged); else toast.error('Could not save.'); return r.ok; };
-  const saveTarget = async (v) => { const n = Math.max(1, Math.min(500, Math.round(Number(v)) || 0)); if (!n) return false; const r = await patch({ dailyCallTarget: n }); if (r.ok) setData(d => ({ ...d, dashboard: { ...(d?.dashboard || {}), dailyCallTarget: n } })); return r.ok; };
+  // Every settings write is optimistic with rollback (Prompt 14); InlineEdit and the toggles show the failure toast, success is the value itself.
+  const saveProfile = async (next) => { const before = profile; const merged = { ...profile, ...next, businessHours: { ...profile.businessHours, ...(next.businessHours || {}) } }; setData(d => ({ ...d, profile: merged })); const r = await patch({ profile: next }); if (r.ok) shell?.setProfile?.(merged); else { setData(d => ({ ...d, profile: before })); toast.error(COPY.error.save); } return r.ok; };
+  const saveTarget = async (v) => { const n = Math.max(1, Math.min(500, Math.round(Number(v)) || 0)); if (!n) return false; const before = data?.dashboard?.dailyCallTarget; setData(d => ({ ...d, dashboard: { ...(d?.dashboard || {}), dailyCallTarget: n } })); const r = await patch({ dailyCallTarget: n }); if (!r.ok) setData(d => ({ ...d, dashboard: { ...(d?.dashboard || {}), dailyCallTarget: before } })); return r.ok; };
 
   /* Notifications */
   const prefs = data?.prefs || { pushEnabled: true, emailEnabled: true };
-  const savePrefs = async (next) => { setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) toast.error('Could not save.'); };
+  const savePrefs = async (next) => { const before = prefs; setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) { setData(d => ({ ...d, prefs: before })); toast.error(COPY.error.save); } };
   const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true };
-  const saveReminders = async (next) => { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) toast.error('Could not save.'); };
+  const saveReminders = async (next) => { const before = reminders; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: before } })); toast.error(COPY.error.save); } };
   const testPush = async () => { const r = await post({ action: 'test-push' }); if (r.ok) toast.success('Test notification sent to every subscribed device.'); else toast.error('Could not send the test.'); };
   const install = async () => { const r = await promptInstall(); if (r === 'accepted') toast.success('Installed. Open it from your home screen.'); else if (r === 'unavailable') toast.info('Use your browser menu to install.'); };
 
@@ -131,13 +137,14 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   useEffect(() => { if (tab === 'data' || tab === 'danger') loadDeleted(); }, [tab, loadDeleted]);
   const restore = async (row) => {
     const r = row._kind === 'lead' ? await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } }) : await apiFetch('/api/admin/submissions', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } });
-    if (r.ok) { toast.success(`${row.business || row.name} restored.`); loadDeleted(); if (row._kind === 'lead') onRestoreLeads?.(); else onDataChanged?.(); } else toast.error('Could not restore.');
+    if (r.ok) { toast.success(`${row.business || row.name} restored.`); loadDeleted(); if (row._kind === 'lead') onRestoreLeads?.(); else onDataChanged?.(); } else toast.error(COPY.error.restore);
   };
   const purge = async () => {
     const n = (deleted || []).length;
     if (!(await confirm({ title: `Permanently purge ${n} deleted record${n === 1 ? '' : 's'}?`, body: 'This empties Recently deleted immediately. There is no undo after a purge.', danger: true, confirmLabel: 'Purge all' }))) return;
-    await post({ action: 'purge' }); await apiFetch('/api/admin/call-leads?purgeDeleted=1', { method: 'DELETE' });
-    toast.success('Recently deleted is empty.'); loadDeleted();
+    const [a, b] = await Promise.all([post({ action: 'purge' }), apiFetch('/api/admin/call-leads?purgeDeleted=1', { method: 'DELETE' })]);
+    if (a.ok && b.ok) toast.success('Recently deleted is empty.'); else toast.error('Purge did not finish. Some records are still in the bin.');
+    loadDeleted();
   };
   const [leadImport, setLeadImport] = useState(false);
   const [orderImport, setOrderImport] = useState(false);
@@ -145,7 +152,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const [deviceBusy, setDeviceBusy] = useState(false);
   const runDevice = async () => { setDeviceBusy(true); let created = 0; for (const row of devicePlan) { if (row.skip) continue; if (await onCreateOrder?.(row.doc)) created++; } setDeviceBusy(false); toast.success(`${created} imported, ${devicePlan.filter(r => r.skip).length} skipped.`); setDevicePlan(null); };
   const exportOne = (ex) => { try { downloadText(ex.file(), ex.build({ leads, projects, orders })); toast.success(`${ex.label} exported.`); } catch { toast.error('Could not build the file.'); } };
-  const backup = async () => { const a = document.createElement('a'); a.href = '/api/admin/backup'; a.download = ''; a.click(); setTimeout(load, 1500); toast.info('Backup downloading.'); };
+  const backup = async () => { const a = document.createElement('a'); a.href = '/api/admin/backup'; a.download = ''; a.click(); setTimeout(load, 1500); };
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   const crons = [
@@ -155,8 +162,24 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const cronArmed = !!(data?.cron?.configured ?? data?.reminders?.configured);
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
-  const body = showSkel ? (
-    <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonBlock width={160} height={14} /><SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>)}</Stack>
+  // One skeleton per tab, shaped like that tab's cards (Prompt 14).
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 4, data: 4, automation: 3, shortcuts: SHORTCUT_GROUPS.length, danger: 3 };
+  const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
+  const narrow = !desktop && !useMediaQuery('(min-width: 768px)'); // descriptions wrap to two lines under 768
+  const desc = (w) => line(w, narrow ? 36 : 18);
+  const PROFILE_CARDS = [
+    <Card key="name" className="st-card"><Row gap={3} align="center"><SkeletonBlock width={72} height={72} radius="var(--v-radius-pill)" /><Stack gap={1} style={{ flex: 1 }}>{line(40, 16)}{line('30%', 44)}{desc('60%')}</Stack></Row></Card>,
+    <Card key="target" className="st-card">{line(150, 16)}<Row gap={2} align="baseline" style={{ minHeight: narrow ? 63 : 54 }}>{line(70, 44)}{line('55%', 14)}</Row></Card>,
+    <Card key="appearance" className="st-card">{line(110, 16)}{desc('90%')}<Stack gap={1}>{line(48, 16)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><Row gap={3} align="center" style={{ minHeight: narrow ? 92 : 58 }}><Stack gap={1} style={{ flex: 1 }}>{line(120, 22)}{desc('90%')}</Stack><SkeletonBlock width={46} height={26} radius="var(--v-radius-pill)" /></Row></Card>,
+    <Card key="hours" className="st-card">{line(130, 16)}{desc('95%')}<Grid minColumnWidth={140} gap={2}><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack></Grid></Card>,
+    <Card key="password" className="st-card">{line(90, 12)}{line('80%', 14)}<Stack gap={2}>{line(120, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /><Grid minColumnWidth={160} gap={2}><Stack gap={1}>{line(140, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(60, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Grid><Row gap={2}><SkeletonBlock width={180} height={44} radius="var(--v-radius-md)" /></Row></Stack></Card>,
+  ];
+  const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
+    : <Card key={i} className="st-card">{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
+  const body = pending ? null : showSkel ? (
+    <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: TAB_CARDS[tab] || 3 }, (_, i) => skeletonCard(i))}</Stack>
+  ) : loadError && !data ? (
+    <Card><ErrorState title={COPY.error.settings.title} description={COPY.error.settings.description} onRetry={retry} retrying={retrying} /></Card>
   ) : tab === 'profile' ? (
     <Stagger className="v-stack st-stack">
       <Card className="st-card">
@@ -255,7 +278,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
               { id: 'type', label: 'Type', render: (r) => (r._kind === 'lead' ? <Pill tone="neutral" label={r.industry || 'Lead'} size="sm" icon={false} variant="outline" /> : <Pill id={r.type} list={SUBMISSION_TYPES} size="sm" variant="outline" />) },
               { id: 'deleted', label: 'Deleted', render: (r) => fmtDateTime(r.deletedAt) },
             ]} rowActions={(r) => <Button variant="secondary" size="md" icon={FlipBackward} onClick={() => restore(r)} className="st-restore">Restore</Button>} />
-        ) : <EmptyState size="sm" icon="Trash01" title="Nothing in the bin" description="Deleted leads and submissions wait here for 30 days." />}
+        ) : <EmptyState size="sm" icon="Trash01" title={COPY.empty['settings.deleted'].title} description={COPY.empty['settings.deleted'].description} />}
       </Card>
       <Card className="st-card">
         <p className="pb-card-h">Import</p>
@@ -327,7 +350,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell st-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Settings" description={showSkel ? undefined : `${profile.name}, ${data?.passwordOverridden ? 'custom password' : 'env password'}, ${leads.length} leads loaded`} />
+        <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${data?.passwordOverridden ? 'custom password' : 'env password'}, ${leads.length} leads loaded`} />
         <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>
         <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
       </ScrollArea>
@@ -345,14 +368,14 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
               { id: 'subtotal', label: 'Subtotal', align: 'end', render: (r) => money(orderSubtotal(r.doc)) },
               { id: 'status', label: 'Status', render: (r) => <Pill id={r.doc.status} list={PRINT_ORDER_STATUSES} size="sm" /> },
               { id: 'result', label: 'Result', render: (r) => (r.skip ? <Pill tone="neutral" label="Skip" size="sm" icon={false} /> : <Pill tone="booked" label="Create" size="sm" icon={false} />) },
-            ]} empty={<p className="dt-muted">No orders found in this browser.</p>} />
+            ]} empty={<EmptyState size="sm" icon="Printer" title={COPY.empty['orders.import.device'].title} description={COPY.empty['orders.import.device'].description} />} />
         </Sheet>
       )}
       {reconcile && (
         <Sheet open onClose={() => setReconcile(null)} title="Reconcile Stripe" description={reconcile.length ? `${reconcile.length} payment${reconcile.length === 1 ? '' : 's'} with no matching client.` : 'Every stored payment is matched.'} tall width={640} className="st-reconcile-sheet">
           <Stack gap={2}>
             {reconcile.length ? reconcile.map(ev => <ListRow key={ev.id} leading={<IconTile icon="CreditCard01" tone="new" size="sm" glow={false} />} title={`${money(ev.amount)} ${ev.description ? `for ${ev.description}` : ev.type}`} subtitle={[ev.customerName, ev.customerEmail, fmtDateTime(ev.at)].filter(Boolean).join(', ')} trailing={<Button variant="secondary" size="md" onClick={() => setLinkEv(ev)} className="st-link-event">Link to client</Button>} chevron={false} className="st-ev-row" />)
-              : <EmptyState size="sm" icon="CheckCircle" title="Nothing to reconcile" description="Every payment the webhook stored matched a client." />}
+              : <EmptyState size="sm" icon="CheckCircle" title={COPY.empty['settings.reconcile'].title} description={COPY.empty['settings.reconcile'].description} />}
           </Stack>
         </Sheet>
       )}

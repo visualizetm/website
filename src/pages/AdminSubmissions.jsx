@@ -4,8 +4,9 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, Stagger, IconTile, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useConfirm,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadPicker from '../components/LeadPicker';
 import LeadForm from '../components/LeadForm';
@@ -28,7 +29,7 @@ export function briefText(s) {
   const head = [`Brief: ${s.business || s.name}`, s.name && s.business ? `Name: ${s.name}` : '', s.email ? `Email: ${s.email}` : '', s.phone ? `Phone: ${s.phone}` : '', s.projectType ? `Project type: ${s.projectType}` : '', s.createdAt ? `Received: ${fmtDateTime(s.createdAt)}` : ''].filter(Boolean);
   return [...head, '', ...fields(s).flatMap(([k, v]) => [k, String(v), ''])].join('\n').trim();
 }
-const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error('Could not copy.'); } };
+const copyText = async (toast, text, what) => { try { await navigator.clipboard.writeText(text); toast.success(`${what} copied.`); } catch { toast.error(COPY.error.copy); } };
 
 export function SubmissionCard({ sub: s, onOpen, selected, compact = false }) {
   return (
@@ -40,7 +41,7 @@ export function SubmissionCard({ sub: s, onOpen, selected, compact = false }) {
 }
 SubmissionCard.Skeleton = function SubmissionCardSkeleton() { return <Card padding={3} aria-busy="true"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="80%" height={12} /><SkeletonBlock width="40%" height={12} /></Card>; };
 
-function SubmissionDetail({ sub: s, leads, onPatch, onDelete, onLinkLead, onPatchLead, onCreateLead, onClose }) {
+function SubmissionDetail({ sub: s, leads, onPatch, onPatchRaw, onDelete, onLinkLead, onPatchLead, onCreateLead, onClose }) {
   const shell = useShell();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -56,11 +57,11 @@ function SubmissionDetail({ sub: s, leads, onPatch, onDelete, onLinkLead, onPatc
     if (!lead.email && s.email && onPatchLead) await onPatchLead(lead._id, { email: s.email });
     toast.success(`Linked to ${lead.business}.`);
   };
-  const del = async () => { if (await confirm({ title: `Delete this submission from ${s.business || s.name}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) { await onDelete([s._id]); onClose?.(); } };
+  const del = async () => { if (await confirm({ title: `Delete this submission from ${s.business || s.name}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) { const ok = await onDelete([s._id]); if (ok === false) toast.error(COPY.error.del); else onClose?.(); } };
   const prefill = { business: s.business || '', askFor: s.name || '', phone: s.phone || '', email: s.email || '', descriptor: s.projectType ? `${s.projectType} brief from the site` : 'From the website form', angle: fields(s).slice(0, 3).map(([k, v]) => `${k}: ${v}`).join('\n') };
   return (
-    <Stack gap={4} className="sb-detail">
-      {confirmDialog}
+    <div className="sb-detail">
+    <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
       <Card className="sb-head">
         <Row gap={3} align="start">
           <Avatar name={s.business || s.name} size="lg" />
@@ -87,11 +88,13 @@ function SubmissionDetail({ sub: s, leads, onPatch, onDelete, onLinkLead, onPatc
       </Card>
       <Card>
         <p className="pb-card-h">{s.type === 'shop-order' ? 'Order' : s.type === 'review' ? 'Review' : 'Answers'}</p>
-        {fields(s).length ? <Stack gap={1}>{fields(s).map(([k, v]) => <ListRow key={k} title={k} subtitle={String(v)} chevron={false} className="sb-field" />)}</Stack> : <p className="dt-muted">No detail fields.</p>}
+        {fields(s).length ? <Stack gap={1}>{fields(s).map(([k, v]) => <ListRow key={k} title={k} subtitle={String(v)} chevron={false} className="sb-field" />)}</Stack> : <EmptyState size="sm" icon="Inbox01" title={COPY.empty['submissions.fields'].title} description={COPY.empty['submissions.fields'].description} />}
       </Card>
-      <Card><p className="pb-card-h">Private notes</p><InlineEdit value={s.notes || ''} onSave={(v) => onPatch(s._id, { notes: v })} multiline placeholder="Only you can see these." label="Private notes" /></Card>
+      <Card><p className="pb-card-h">Private notes</p><InlineEdit value={s.notes || ''} onSave={(v) => (onPatchRaw || onPatch)(s._id, { notes: v })} multiline placeholder="Only you can see these." label="Private notes" /></Card>
+    </Stagger>
+      {confirmDialog}
       {pick && <LeadPicker leads={leads} title="Link to lead" description="The lead gets this email if it has none." onClose={() => setPick(false)} onPick={link} />}
-      {convert && <Sheet open onClose={() => setConvert(false)} title="Convert to lead" description="Prefilled from the submission. The lead is linked back when it is created." tall width={640}><LeadForm creating lead={prefill} onSave={async (f) => { const ok = await onCreateLead(defaultLead(f)); if (ok) { setConvert(false); setPendingLink(f.business); } else toast.error('Could not create the lead.'); }} onCancel={() => setConvert(false)} /></Sheet>}
+      {convert && <Sheet open onClose={() => setConvert(false)} title="Convert to lead" description="Prefilled from the submission. The lead is linked back when it is created." tall width={640}><LeadForm creating lead={prefill} onSave={async (f) => { const ok = await onCreateLead(defaultLead(f)); if (ok) { setConvert(false); setPendingLink(f.business); } else toast.error(COPY.error.create); }} onCancel={() => setConvert(false)} /></Sheet>}
       {brief && (
         <Sheet open onClose={() => setBrief(false)} title={`Brief: ${s.business || s.name}`} description={[s.name, s.projectType, fmtDate(s.createdAt)].filter(Boolean).join(', ')} tall width={640} className="sb-brief-sheet"
           footer={<><Button variant="ghost" onClick={() => setBrief(false)}>Close</Button><Button icon={Copy01} onClick={() => copyText(toast, briefText(s), 'Brief')} className="sb-copy-brief">Copy brief</Button></>}>
@@ -102,17 +105,22 @@ function SubmissionDetail({ sub: s, leads, onPatch, onDelete, onLinkLead, onPatc
           </Stack>
         </Sheet>
       )}
-    </Stack>
+    </div>
   );
 }
 
-export default function AdminSubmissions({ items = [], loading, leads = [], onPatch, onDelete, onLinkLead, onPatchLead, onCreateLead, onRefresh, openId }) {
+export default function AdminSubmissions({ items = [], loading, error, onRetry, leads = [], onPatch, onDelete, onLinkLead, onPatchLead, onCreateLead, onRefresh, openId }) {
+  const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
+  const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [selId, setSelId] = useState(null);
   const [type, setType] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [q, setQ] = useState('');
   const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel;
   useTopBar(null);
   useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
   const live = useMemo(() => items.filter(s => !s.deleted), [items]);
@@ -128,33 +136,37 @@ export default function AdminSubmissions({ items = [], loading, leads = [], onPa
     { id: 'first', label: 'Detail', render: (s) => firstLine(s) },
     { id: 'date', label: 'Received', render: (s) => fmtDateTime(s.createdAt) },
   ];
-  const detail = sel && <SubmissionDetail sub={sel} leads={leads} onPatch={onPatch} onDelete={onDelete} onLinkLead={onLinkLead} onPatchLead={onPatchLead} onCreateLead={onCreateLead} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const pendingOpen = !!openId?.id && loading && !sel;
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={2} />) : sel && <SubmissionDetail sub={sel} leads={leads} onPatch={patch} onPatchRaw={onPatch} onDelete={onDelete} onLinkLead={onLinkLead} onPatchLead={onPatchLead} onCreateLead={onCreateLead} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const panelOpen = !!sel || pendingOpen;
   return (
-    <PageShell className={`aa-main aa-main--wide po-shell sb-shell${sel && desktop ? ' has-panel' : ''}`}>
+    <PageShell className={`aa-main aa-main--wide po-shell sb-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Submissions" description={showSkel ? undefined : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
+          <Section title="Submissions" loading={loading} description={loading ? undefined : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
             <Stack gap={2}>
               <Input className="cl-search" placeholder="Search name, business, email, answers" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search submissions" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
               <Row gap={2} wrap className="sb-chips"><Chip label="All" count={live.length} selected={!type && !unreadOnly} onClick={() => { setType(''); setUnreadOnly(false); }} /><Chip label="Unread" count={unread} icon="Bell01" selected={unreadOnly} onClick={() => setUnreadOnly(v => !v)} />{SUBMISSION_TYPES.map(t => <Chip key={t.id} label={t.label} count={counts[t.id]} icon={t.icon} selected={type === t.id} onClick={() => setType(type === t.id ? '' : t.id)} />)}</Row>
             </Stack>
           </Section>
-          {showSkel ? (
-            desktop ? <Table.Skeleton rows={6} cols={6} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <SubmissionCard.Skeleton key={i} />)}</Stack>
+          {pending ? null : showSkel ? (
+            desktop && !panelOpen ? <Table.Skeleton rows={6} cols={6} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <SubmissionCard.Skeleton key={i} />)}</Stack>
+          ) : error && !items.length ? (
+            <Card><ErrorState title={COPY.error.submissions.title} description={COPY.error.submissions.description} onRetry={retry} retrying={retrying} /></Card>
           ) : !live.length ? (
-            <Card><EmptyState icon="Inbox01" title="No submissions yet" description="Briefs and contact forms from the website land here the moment they are sent." /></Card>
+            <Card><EmptyState icon="Inbox01" title={E('submissions.none').title} description={E('submissions.none').description} action={{ label: E('submissions.none').action, href: 'https://visualizestudio.org/start' }} /></Card>
           ) : !list.length ? (
-            <Card><EmptyState size="sm" icon="SearchMd" title="Nothing in this filter" action={{ label: 'Show all', onClick: () => { setType(''); setUnreadOnly(false); setQ(''); } }} /></Card>
+            <Card><EmptyState size="sm" icon="SearchMd" title={E('submissions.filter').title} description={E('submissions.filter').description} action={{ label: E('submissions.filter').action, onClick: () => { setType(''); setUnreadOnly(false); setQ(''); } }} /></Card>
           ) : desktop && !sel ? (
             <Table aria-label="Submissions" columns={columns} rows={list} rowKey={(s) => String(s._id)} onRowClick={(s) => setSelId(s._id)} rowClassName={(s) => (s.read ? '' : 'is-unread')} storageKey="vz_subs_cols" className="sb-table" />
           ) : (
             <Stagger className="cl-stack">{list.map(s => <SubmissionCard key={s._id} sub={s} onOpen={() => setSelId(s._id)} selected={sel && String(sel._id) === String(s._id)} compact={!!sel && desktop} />)}</Stagger>
           )}
-          {!showSkel && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
+          {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {sel && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {sel && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel.business || sel.name} description={submissionTypeOf(sel.type).label} tall width={520}>{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : undefined} tall width={520}>{detail}</Sheet>}
       <style>{sbStyles}</style>
     </PageShell>
   );

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { COPY } from '../shared/copy';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
@@ -21,7 +22,7 @@ const STEPS = [
 export function ScriptSteps({ lead, onChange }) {
   const s = lead.script || {};
   const steps = onChange ? STEPS : STEPS.filter(([k]) => s[k]);
-  if (!steps.length) return <EmptyState size="sm" icon="Edit02" title="No script yet" description="Add the opener, value, and ask on the lead." />;
+  if (!steps.length) return <EmptyState size="sm" icon="Edit02" title={COPY.empty['leads.detail.script'].title} description={COPY.empty['leads.detail.script'].description} />;
   const set = (k, v) => onChange({ ...s, [k]: v });
   return (
     <ol className="pb-steps">
@@ -49,7 +50,7 @@ export function ScriptSteps({ lead, onChange }) {
 export function Objections({ lead, onChange }) {
   const rows = lead.objections || [];
   const [open, setOpen] = useState(() => new Set());
-  if (!rows.length && !onChange) return <EmptyState size="sm" icon="MessageCircle01" title="No objections listed" description="Return to the ask after every one." />;
+  if (!rows.length && !onChange) return <EmptyState size="sm" icon="MessageCircle01" title={COPY.empty['leads.detail.objections'].title} description={COPY.empty['leads.detail.objections'].description} />;
   const setRow = (i, patch) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <div className="pb-obj">
@@ -83,7 +84,7 @@ export function CloseCards({ lead, onChange }) {
   const c = lead.close || {};
   const all = [['lockIt', 'Lock it', 'booked'], ['ifNo', 'If it is a no', 'danger'], ['noAnswer', 'No answer', 'new']];
   const cards = onChange ? all : all.filter(([k]) => c[k]);
-  if (!cards.length) return <EmptyState size="sm" icon="Check" title="No close lines yet" />;
+  if (!cards.length) return <EmptyState size="sm" icon="Check" title={COPY.empty['leads.detail.close'].title} description={COPY.empty['leads.detail.close'].description} />;
   return (
     <Stack gap={2}>
       {cards.map(([k, title, tone]) => <Card key={k} level={2} padding={3} glow={tone}><p className="pb-card-h">{title}</p>{onChange ? <InlineEdit value={c[k] || ''} onSave={(v) => onChange({ ...c, [k]: v })} multiline placeholder={`Write the ${title.toLowerCase()} line`} label={title} className="pb-say pb-say--edit" /> : <p className="pb-say">{c[k]}</p>}</Card>)}
@@ -95,7 +96,7 @@ export function IntelCards({ lead, onChange, ListEditor }) {
   const i = lead.intel || {};
   const all = [['accomplishments', 'Accomplishments', 'booked'], ['gaps', 'Gaps', 'danger'], ['dropLines', 'Drop these on the call', 'callback']];
   const groups = onChange ? all : all.filter(([k]) => i[k]?.length);
-  if (!groups.length) return <EmptyState size="sm" icon="SearchMd" title="No intel yet" description="The nightly scan fills this in when it finds something." />;
+  if (!groups.length) return <EmptyState size="sm" icon="SearchMd" title={COPY.empty['leads.detail.intel'].title} description={COPY.empty['leads.detail.intel'].description} />;
   return (
     <Grid minColumnWidth={200} gap={2}>
       {groups.map(([k, title, tone]) => (

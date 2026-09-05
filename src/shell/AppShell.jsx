@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMediaQuery } from '../ui';
 import { ShellCtx } from './ShellContext';
 import Sidebar, { sidebarStyles } from './Sidebar';
@@ -14,7 +14,8 @@ import { KEYS, readJSON, writeJSON } from './storage';
 import { apiFetch } from '../shared/api';
 import { buildEvents } from '../lib/events';
 import { useAppearance, setThemeMode, setReduceMotion, THEME_MODES } from './appearance';
-import { useToast } from '../ui';
+import { useToast, useOnline, Icon } from '../ui';
+import { COPY } from '../shared/copy';
 
 /**
  * AppShell: sidebar (desktop), top bar, content, tab bar (mobile), plus the
@@ -34,7 +35,7 @@ import { useToast } from '../ui';
  *  styles          the stylesheet string to inject once
  */
 export default function AppShell({
-  activeNavId, counts, countsLoading, leads, leadsLoading, onRefetchLeads, hasDetail,
+  activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
   onGo, onOpenLead, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], packs = [], styles, children,
 }) {
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
@@ -57,13 +58,14 @@ export default function AppShell({
   // The profile document is the source of truth for the theme and the motion
   // switch; localStorage mirrors it for the pre-paint script. Saving writes both.
   const saveAppearance = useCallback(async (patch) => {
+    const before = { theme: appearance.mode, reduceMotion: appearance.reduce };
     if (patch.theme) setThemeMode(patch.theme);
     if ('reduceMotion' in patch) setReduceMotion(!!patch.reduceMotion);
     setProfile(p => ({ ...(p || {}), ...patch }));
     const r = await apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { profile: patch } } });
-    if (!r.ok) toast.error('Could not save that. It stays on this device only.');
+    if (!r.ok) { if (patch.theme) setThemeMode(before.theme); if ('reduceMotion' in patch) setReduceMotion(before.reduceMotion); setProfile(p => ({ ...(p || {}), ...before })); toast.error(COPY.error.save); }
     return r.ok;
-  }, [toast]);
+  }, [toast, appearance.mode, appearance.reduce]);
   useEffect(() => {
     apiFetch('/api/admin/settings').then(r => {
       if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications);
@@ -79,7 +81,26 @@ export default function AppShell({
     apiFetch(`/api/admin/calendly/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then(r => { if (r.ok && r.data) setCalendly({ configured: !!r.data.configured, events: r.data.events || [] }); });
   }, []);
   const readIds = useMemo(() => new Set(notifDoc.readIds || []), [notifDoc.readIds]);
-  const saveNotif = useCallback((patch) => { setNotifDoc(d => ({ ...d, ...patch })); if (patch.readIds) writeJSON(KEYS.notifRead, patch.readIds); apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { notifications: patch } } }); }, []);
+  const saveNotif = useCallback(async (patch) => {
+    let prev; setNotifDoc(d => { prev = d; return { ...d, ...patch }; });
+    if (patch.readIds) writeJSON(KEYS.notifRead, patch.readIds);
+    const r = await apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { notifications: patch } } });
+    if (!r.ok) { if (prev) { setNotifDoc(prev); if (patch.readIds) writeJSON(KEYS.notifRead, prev.readIds || []); } toast.error(COPY.error.save); }
+    return r.ok;
+  }, [toast]);
+  // Offline (Prompt 14): one banner under the top bar, one toast per refused write.
+  const online = useOnline();
+  const wasOffline = useRef(false);
+  useEffect(() => {
+    if (!online) wasOffline.current = true;
+    else if (wasOffline.current) { wasOffline.current = false; toast.info(COPY.offline.back); }
+  }, [online, toast]);
+  useEffect(() => {
+    let last = 0;
+    const onRefused = () => { const now = Date.now(); if (now - last > 2500) { last = now; toast.error(COPY.offline.toast); } };
+    window.addEventListener('vz:offline-write', onRefused);
+    return () => window.removeEventListener('vz:offline-write', onRefused);
+  }, [toast]);
 
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
@@ -142,11 +163,12 @@ export default function AppShell({
           <TopBar title={title} onBack={topBar?.back || null}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
+          {!online && <div className="sh-offline" role="status"><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></div>}
           <div key={activeNavId} className={`aa-app sh-content lay-view${hasDetail ? ' has-detail' : ''}`}>{children}</div>
           <TabBar activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} onMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />
-        <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} items={notifications} loading={leadsLoading} readIds={readIds}
+        <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} items={notifications} loading={leadsLoading} error={leadsError} onRetry={onRetryLeads} readIds={readIds}
           onOpenItem={(item) => { markRead([item.id]); if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
           onMarkAllRead={() => markRead(notifications.map(n => n.id))} onSnooze={snooze} onDone={(item) => markRead([item.id])} onGoCalls={() => go('calls')} />
         <style>{styles}</style>
@@ -160,5 +182,6 @@ export const shellStyles = `
   .sh-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   @media (min-width: 768px) { .sh-col { --v-gutter-l: var(--v-gutter); --lay-gutter-l: var(--v-gutter); } }
   .sh-content { flex: 1; min-height: 0; min-width: 0; display: flex; }
+  .sh-offline { display: flex; align-items: center; justify-content: center; gap: var(--v-space-2); flex-shrink: 0; min-height: var(--v-space-9); padding: var(--v-space-1) var(--v-gutter-r) var(--v-space-1) var(--v-gutter-l); background: var(--v-status-new-soft); color: var(--v-status-new-text); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); border-bottom: 1px solid color-mix(in srgb, var(--v-status-new-text) 30%, transparent); animation: lay-view-in var(--v-dur-base) var(--v-ease-out) both; }
 ${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
 `;

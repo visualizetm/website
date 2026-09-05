@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { COPY } from '../shared/copy';
 import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
 import LinkBroken01 from '@untitled-ui/icons-react/build/esm/LinkBroken01';
 import { Stack, ListRow, Pill, Button, Collapsible, EmptyState } from '../ui';
@@ -42,7 +43,7 @@ function SubRow({ sub, linked, onLink, onUnlink }) {
 export default function LinkedSubmissions({ lead, submissions, onLinkSubmission }) {
   const linked = useMemo(() => submissions.filter(s => s.linkedLeadId === lead._id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [submissions, lead._id]);
   const suggested = useMemo(() => suggestFor(lead, submissions), [lead, submissions]);
-  if (!linked.length && !suggested.length) return <EmptyState size="sm" icon="Inbox01" title="No site submissions from them yet" description="When one matches their email, phone, or business name it shows up here to link." />;
+  if (!linked.length && !suggested.length) return <EmptyState size="sm" icon="Inbox01" title={COPY.empty['leads.detail.submissions'].title} description={COPY.empty['leads.detail.submissions'].description} />;
   return (
     <Stack gap={2} className="ls-wrap">
       {linked.map(s => <SubRow key={s._id} sub={s} linked onUnlink={() => onLinkSubmission(s._id, '')} />)}

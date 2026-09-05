@@ -111,9 +111,13 @@ export const clientStyles = `
   .cl-cell-biz { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 0; max-width: 200px; font-weight: var(--v-weight-semibold); }
   .po-split { display: flex; flex: 1; min-height: 0; min-width: 0; }
   .po-page { --v-stack-gap: var(--v-space-4); flex: 1; min-width: 0; }
-  .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; }
+  .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; animation: po-panel-in var(--v-dur-base) var(--v-ease-out) both; }
+  @keyframes po-panel-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
   @media (min-width: 1440px) { .po-panel { width: 520px; } }
   .po-panel-scroll { padding: var(--v-space-4); }
+  /* Mark paid (Prompt 14): the schedule row that just got paid pulses in the won tone. */
+  .cw-row-paid .v-td { animation: cw-row-paid calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
+  @keyframes cw-row-paid { 0% { background: var(--v-status-won-soft); } 100% { background: var(--v-surface-1); } }
 
   .clc { display: flex; flex-direction: column; min-width: 0; }
   .clc .lc { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }

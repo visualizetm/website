@@ -3,6 +3,7 @@ import Check from '@untitled-ui/icons-react/build/esm/Check';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import DesignComponents from './AdminDesignComponents';
+import { Reveal, Card, SkeletonBlock, SkeletonText, useDelayedLoading } from '../ui';
 import { contrast, composite } from '../shared/color';
 import {
   CALL_STATUSES, PRIORITIES, STAGES, LEAD_STATUSES,
@@ -59,8 +60,9 @@ function Pill({ label, tone, variant }) {
   return <span className="ds-pill" style={style}>{label}</span>;
 }
 
-export default function AdminDesign({ onBack }) {
+export default function AdminDesign({ onBack, loading = false }) {
   const t = useTokens();
+  const showSkel = useDelayedLoading(loading);
   const [texture, setTexture] = useState(true);
   const [enterKey, setEnterKey] = useState(0);
   const [pressed, setPressed] = useState(false);
@@ -72,10 +74,24 @@ export default function AdminDesign({ onBack }) {
     ['Submission status', LEAD_STATUSES],
   ], []);
 
+  if (loading) {
+    return (
+      <main className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`} aria-busy="true">
+        <div className="lay-content lay-content--wide ds-wrap">
+          {showSkel && <>
+            <div className="ds-hero"><SkeletonBlock width={110} height={12} /><SkeletonBlock width="50%" height={56} /><SkeletonText lines={2} width="60%" /><div className="ds-toolbar">{[150, 170, 140].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</div></div>
+            {[1, 2, 3, 4].map(i => <Card key={i} padding={6}><SkeletonBlock width={200} height={30} /><SkeletonText lines={3} /><SkeletonBlock height={120} radius="var(--v-radius-md)" /></Card>)}
+          </>}
+        </div>
+        <style>{dsStyles}</style>
+      </main>
+    );
+  }
+
   return (
     <main className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
       <div className="lay-content lay-content--wide ds-wrap">
-        <header className="ds-hero">
+        <Reveal as="header" className="ds-hero">
           <p className="ds-kicker">Visualize Dark</p>
           <h1 className="ds-title">Design system</h1>
           <p className="ds-lede">
@@ -89,7 +105,7 @@ export default function AdminDesign({ onBack }) {
             <a className="ds-btn ds-btn--ghost" href="#components">Jump to components</a>
             {onBack && <button type="button" className="ds-btn ds-btn--ghost" onClick={onBack}>Back to settings</button>}
           </div>
-        </header>
+        </Reveal>
 
         {/* ── Layers + text contrast ── */}
         <section className="ds-sec">

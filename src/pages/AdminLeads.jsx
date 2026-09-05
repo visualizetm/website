@@ -11,8 +11,9 @@ import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import {
   PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Input, Select, Chip, SegmentedControl,
-  Pill, Pill as UiPill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast,
+  Pill, Pill as UiPill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadCard, { leadMenuItems } from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
@@ -62,7 +63,7 @@ function FilterRow({ label, options, values, onChange, more }) {
   );
 }
 
-function KanbanColumn({ status, leads, total, collapsed, onToggle, onMore, onStartSession, cardProps, dropping, dragHandlers, stagger }) {
+function KanbanColumn({ status, leads, total, collapsed, onToggle, onMore, onStartSession, cardProps, dropping, dragHandlers, stagger, offset = 0 }) {
   const items = leads.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} {...dragHandlers(l)} />);
   return (
     <section className={`ld-col${collapsed ? ' is-collapsed' : ''}${dropping ? ' is-dropping' : ''}`} data-col={status.id} aria-label={`${status.label}, ${total}`}>
@@ -80,9 +81,9 @@ function KanbanColumn({ status, leads, total, collapsed, onToggle, onMore, onSta
       </header>
       {!collapsed && (
         <div className="ld-col-body">
-          {stagger ? <Stagger className="ld-col-stack">{items}</Stagger> : <div className="ld-col-stack">{items}</div>}
+          {stagger ? <Stagger className="ld-col-stack" cap={4} offset={offset}>{items}</Stagger> : <div className="ld-col-stack">{items}</div>}
           {leads.length < total && <Button variant="ghost" onClick={onMore} full>Show more ({total - leads.length} left)</Button>}
-          {!total && <p className="ld-col-empty">Nothing here.</p>}
+          {!total && <EmptyState size="sm" icon="Users01" title={COPY.empty['leads.column'].title} description={COPY.empty['leads.column'].description} />}
         </div>
       )}
     </section>
@@ -131,11 +132,13 @@ function MergeModal({ group, onClose, onMerge }) {
 }
 
 export default function AdminLeads({
-  leads, submissions, loading, onPatch, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
+  leads, submissions, loading, error, onRetry, onPatch, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
   onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset, filterPreset,
 }) {
   const shell = useShell();
   const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const [q, setQ] = useState('');
   const [filters, setFilters] = useState(EMPTY_FILTERS);
@@ -157,7 +160,8 @@ export default function AdminLeads({
   const dragTimer = useRef(null);
   const [saveOpen, setSaveOpen] = useState(false);
   const [viewName, setViewName] = useState('');
-  const showSkel = useDelayedLoading(loading && !leads.length);
+  const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel; // the first 150ms: the frame, no content, no skeleton
   const mode = view || (desktop ? 'kanban' : 'list');
   const setMode = (m) => { setView(m); writeLS(VIEW_KEY, m); };
 
@@ -187,7 +191,7 @@ export default function AdminLeads({
   useTopBar(creating ? { title: 'New lead', back } : sel ? { title: sel.business, back } : null);
 
   // Writes: AdminApp's onPatch is already optimistic with rollback; this adds the error toast.
-  const patch = async (id, set, fail = 'Could not save. Your change was undone.') => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };
+  const patch = async (id, set, fail = COPY.error.save) => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };
   const bulkPatch = async (ids, set, label) => { const rs = await Promise.all(ids.map(id => onPatch(id, set))); const bad = rs.filter(r => !r).length; if (bad) toast.error(`${bad} of ${ids.length} could not be ${label}. Those were undone.`); else toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} ${label}.`); };
   const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
   const toggleCheck = (id, on) => setChecked(prev => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
@@ -213,17 +217,16 @@ export default function AdminLeads({
     const rows = checkedLeads.length ? checkedLeads : sorted;
     const blob = new Blob([leadsToCsv(rows, cols)], { type: 'text/csv' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `leads-${todayInput()}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast.success(`Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}.`);
   };
   const addToSession = () => { shell.go('calls', { ids: checkedLeads.map(l => l._id) }); };
 
   // Saved views
   const applyView = (v) => { setFilters({ ...EMPTY_FILTERS, ...v.filters }); setQ(v.q || ''); if (v.sort) setSort(v.sort); };
   const activeView = views.find(v => sameFilters({ ...EMPTY_FILTERS, ...v.filters }, filters) && (v.q || '') === q);
-  const saveView = () => { const name = viewName.trim(); if (!name) return; const next = [...views, { id: `v-${Date.now()}`, name, filters, q, sort }]; setViews(next); writeLS(VIEWS_KEY, next); setSaveOpen(false); setViewName(''); toast.success(`Saved view "${name}".`); };
+  const saveView = () => { const name = viewName.trim(); if (!name) return; const next = [...views, { id: `v-${Date.now()}`, name, filters, q, sort }]; setViews(next); writeLS(VIEWS_KEY, next); setSaveOpen(false); setViewName(''); };
   const viewMenu = (v) => [
     { id: 'rename', label: 'Rename', icon: 'Edit02', onSelect: () => { const name = window.prompt('View name', v.name); if (name?.trim()) { const next = views.map(x => x.id === v.id ? { ...x, name: name.trim() } : x); setViews(next); writeLS(VIEWS_KEY, next); } } },
-    { id: 'update', label: 'Update with current filters', icon: 'Check', onSelect: () => { const next = views.map(x => x.id === v.id ? { ...x, filters, q, sort } : x); setViews(next); writeLS(VIEWS_KEY, next); toast.success(`Updated "${v.name}".`); } },
+    { id: 'update', label: 'Update with current filters', icon: 'Check', onSelect: () => { const next = views.map(x => x.id === v.id ? { ...x, filters, q, sort } : x); setViews(next); writeLS(VIEWS_KEY, next); } },
     'divider',
     { id: 'delete', label: 'Delete view', icon: 'Trash01', danger: true, onSelect: () => { const next = views.filter(x => x.id !== v.id); setViews(next); writeLS(VIEWS_KEY, next); } },
   ];
@@ -282,6 +285,18 @@ export default function AdminLeads({
     <Stagger className="ld-stack">{list.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} />)}</Stagger>
   );
 
+  /* ── Deep link while the list resolves: the detail shape, not the list skeleton ── */
+  const pendingOpen = !!openId?.id && loading && !sel && !creating;
+  if (pendingOpen) {
+    return (
+      <>
+        <aside className="aa-panel ld-panel"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
+        <main className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <style>{ldStyles}</style>
+      </>
+    );
+  }
+
   /* ── Detail open: split (desktop) or full screen (mobile) ── */
   if (sel || creating) {
     return (
@@ -299,7 +314,7 @@ export default function AdminLeads({
           {creating ? (
             <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { await onCreate(defaultLead(f)); back(); }} onCancel={back} /></Section></Card></ScrollArea>
           ) : (
-            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { await onDelete(id); back(); }} onLinkSubmission={onLinkSubmission} onClose={back} />
+            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} />
           )}
         </main>
         <style>{ldStyles}</style>
@@ -311,7 +326,7 @@ export default function AdminLeads({
   return (
     <PageShell className="aa-main aa-main--wide ld-shell">
       <ScrollArea wide className="ld-page">
-        <Section title="Leads" description={showSkel ? undefined : summary}
+        <Section title="Leads" loading={loading} description={loading ? undefined : summary}
           action={<Row gap={2} wrap>
             <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />
             <Button variant="secondary" icon={Upload01} onClick={() => setImportOpen(true)}>Import</Button>
@@ -324,16 +339,24 @@ export default function AdminLeads({
           </Row>
         </Section>
 
-        {showSkel ? (
-          <Stack gap={3} aria-busy="true">
-            <Row gap={2}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={90} height={44} radius="var(--v-radius-md)" />)}</Row>
-            <Row gap={2}>{[1, 2, 3, 4, 5].map(i => <SkeletonBlock key={i} width={110} height={44} radius="var(--v-radius-md)" />)}</Row>
+        {pending ? null : showSkel ? (
+          <Stack gap={4} aria-busy="true">
+            {/* The chrome is real while the list loads: saved views and the static filter rows, disabled, with skeleton chips where the counts and facets go. */}
+            <div className="ld-views"><div className="ld-frow-chips">{views.map(v => <Chip key={v.id} label={v.name} disabled />)}<Button variant="ghost" icon="Plus" disabled>Save view</Button></div></div>
+            <div className="ld-filters">
+              <FilterRow label="Status" values={[]} onChange={() => {}} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon }))} />
+              <FilterRow label="Priority" values={[]} onChange={() => {}} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon }))} />
+              <div className="ld-frow"><span className="ld-frow-label">Industry</span><div className="ld-frow-chips">{[1, 2, 3].map(i => <SkeletonBlock key={i} width={120} height={44} radius="var(--v-radius-pill)" />)}</div></div>
+              <FilterRow label="Data" values={[]} onChange={() => {}} options={DATA_CHIPS.map(([id, label]) => ({ id, label }))} />
+            </div>
             {mode === 'kanban' && desktop ? (
               <div className="ld-board">{BOARD_STATUSES.map(s => <section key={s.id} className="ld-col"><header className="ld-col-head"><SkeletonBlock width={80} height={22} radius="var(--v-radius-pill)" /></header><div className="ld-col-body"><div className="ld-col-stack">{[1, 2, 3].map(i => <LeadCard.Skeleton key={i} />)}</div></div></section>)}</div>
             ) : mode === 'kanban' ? (
               <div className="ld-board">{BOARD_STATUSES.slice(0, 2).map(s => <section key={s.id} className="ld-col"><header className="ld-col-head"><SkeletonBlock width={80} height={22} radius="var(--v-radius-pill)" /></header><div className="ld-col-body"><div className="ld-col-stack">{[1, 2, 3].map(i => <LeadCard.Skeleton key={i} />)}</div></div></section>)}</div>
-            ) : desktop ? <Table.Skeleton rows={10} cols={7} /> : <div className="ld-stack">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} />)}</div>}
+            ) : desktop ? <Table.Skeleton rows={10} cols={7} /> : <Stack gap={2}><Stack gap={1}><SkeletonBlock width={40} height={16} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><div className="ld-stack">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} />)}</div></Stack>}
           </Stack>
+        ) : error && !pool.length ? (
+          <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
         ) : (
           <>
             <div className="ld-views">
@@ -367,10 +390,10 @@ export default function AdminLeads({
             </div>
 
             {!pool.length ? (
-              <Card><EmptyState icon="Users01" title="No open leads" description="Add one, import a spreadsheet, or check Booked and Clients. Everyone might just be further down the pipeline." action={{ label: 'Add lead', icon: Plus, onClick: () => { setCreating(true); onMobileOpen?.(); } }} secondary={{ label: 'Import spreadsheet', onClick: () => setImportOpen(true) }} /></Card>
+              <Card><EmptyState icon="Users01" title={E('leads.none').title} description={E('leads.none').description} action={{ label: E('leads.none').action, icon: Plus, onClick: () => { setCreating(true); onMobileOpen?.(); } }} secondary={{ label: E('leads.none').secondary, onClick: () => setImportOpen(true) }} /></Card>
             ) : filters.data.includes('dupes') ? (
               <Stack gap={4}>
-                {!dupes.groups.length && <Card><EmptyState size="sm" icon="Check" title="No duplicates found" description="No two leads share a phone number or a business name in the same industry." /></Card>}
+                {!dupes.groups.length && <Card><EmptyState size="sm" icon="Check" title={E('leads.dupes').title} description={E('leads.dupes').description} action={{ label: E('leads.dupes').action, onClick: clearAll }} /></Card>}
                 {dupes.groups.filter(g => g.leads.some(l => sorted.includes(l))).map(g => (
                   <Card key={g.ids.join('|')} level={1} header={<><span className="ld-dupe-why">{g.reason === 'phone' ? 'Same phone' : 'Same name and industry'}</span><Button variant="secondary" icon="GitMerge" onClick={() => setMergeGroup(g)} disabled={g.leads.length < 2}>Merge</Button></>}>
                     <div className="ld-stack">{g.leads.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} />)}</div>
@@ -378,23 +401,23 @@ export default function AdminLeads({
                 ))}
               </Stack>
             ) : !sorted.length ? (
-              <Card><EmptyState size="sm" icon="SearchMd" title="Nothing matches" description="Loosen a filter or clear the search." action={{ label: 'Clear all', onClick: clearAll }} /></Card>
+              <Card><EmptyState size="sm" icon="SearchMd" title={E('leads.filter').title} description={E('leads.filter').description} action={{ label: E('leads.filter').action, onClick: clearAll }} /></Card>
             ) : mode === 'kanban' ? (
               <div className={`ld-board${drag ? ' is-dragging' : ''}`} role="list" aria-label="Leads by call status">
                 {columns.map((c, i) => {
                   const n = shown[c.status.id] || PAGE;
-                  return <div key={c.status.id} className="ld-col-wrap" {...colDrop(c.status.id)} data-col={c.status.id}>
+                  return <Reveal key={c.status.id} className="ld-col-wrap" style={{ animationDelay: `calc(${i} * var(--v-stagger))` }} {...colDrop(c.status.id)} data-col={c.status.id}>
                     <KanbanColumn status={c.status} leads={c.all.slice(0, n)} total={c.all.length} collapsed={collapsed.has(c.status.id)} dropping={drag?.over === c.status.id}
                       onToggle={() => setCollapsed(p => { const s = new Set(p); s.has(c.status.id) ? s.delete(c.status.id) : s.add(c.status.id); return s; })}
                       onMore={() => setShown(p => ({ ...p, [c.status.id]: n + PAGE }))}
                       onStartSession={() => shell.go('calls', { status: [c.status.id], prio: filters.prio })}
-                      cardProps={cardProps} dragHandlers={dragHandlers} stagger={i < 4} />
-                  </div>;
+                      cardProps={cardProps} dragHandlers={dragHandlers} stagger={i < 4} offset={i + 1} />
+                  </Reveal>;
                 })}
               </div>
             ) : desktop ? (
               <Table aria-label="Leads" columns={tableCols} rows={sorted} selectable selected={checked} onSelect={setChecked} sort={sort} onSort={setSort} density="md" storageKey="vz_leads_cols"
-                onRowClick={(l) => pick(l._id)} rowActions={(l) => <Menu items={leadMenuItems(l, cardActions(l))} label={`Actions for ${l.business}`} />} empty={<EmptyState size="sm" icon="SearchMd" title="Nothing matches" />} />
+                onRowClick={(l) => pick(l._id)} rowActions={(l) => <Menu items={leadMenuItems(l, cardActions(l))} label={`Actions for ${l.business}`} />} empty={<EmptyState size="sm" icon="SearchMd" title={E('leads.filter').title} description={E('leads.filter').description} action={{ label: E('leads.filter').action, onClick: clearAll }} />} />
             ) : (
               <Stack gap={2}>
                 <Select label="Sort" value={sort.id} onChange={(e) => { const s = SORTS.find(x => x.id === e.target.value); setSort({ id: s.id, dir: s.dir }); }} options={SORTS.map(s => ({ id: s.id, label: s.label }))} />
@@ -483,7 +506,6 @@ const ldStyles = `
   .ld-col-body { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .ld-col-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .ld-col-stack > .v-stagger-item { display: contents; }
-  .ld-col-empty { margin: 0; padding: var(--v-space-4); text-align: center; font-size: var(--v-text-sm); color: var(--v-text-3); }
   .ld-board .lc[draggable='true'] { cursor: grab; }
   .ld-board.is-dragging .lc { cursor: grabbing; }
   .ld-ghost { position: fixed; z-index: var(--v-z-command); width: 280px; pointer-events: none; transform: translate(-50%, -30%) rotate(1deg); opacity: 0.92; }

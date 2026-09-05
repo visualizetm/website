@@ -2,8 +2,12 @@
  * knows and records, per state and width:
  *
  *   skeleton  a forced loading state (?loading=1) renders a skeleton in the region
- *   fit       the skeleton's outermost blocks sit where the loaded blocks sit
- *             (paired in reading order, above the fold, within 4px)
+ *   fit       the skeleton's outermost blocks sit where the loaded blocks sit:
+ *             blocks are grouped into rows by top edge; every row above the fold
+ *             must start within 4px of its loaded row (top and left), and blocks
+ *             200px or wider must also match in width. Text line skeletons under
+ *             40px tall are not blocks (loaded text is not measured either), and
+ *             chip widths are data driven, so narrow controls compare position only.
  *   entrance  the loaded state arrives through Stagger, Reveal, or a row entrance
  *   empty     an EmptyState renders when the screen's resource is empty
  *   error     an ErrorState renders when the screen's resource answers 500
@@ -32,6 +36,7 @@ const MOTIONS = process.env.AUDIT_MOTION === 'both' ? ['normal', 'reduce'] : [pr
 const ONLY = process.env.AUDIT_ONLY || '';
 const OUT = process.env.AUDIT_OUT || '';
 const BOOT = process.argv.includes('--boot');
+const BOXES = !!process.env.AUDIT_BOXES; // print the skeleton and loaded block lists per state, for tuning skeletons
 const FIT_PX = 4;
 const VIEW_H = 844;
 
@@ -57,7 +62,7 @@ const SCREENS = [
 
   { id: 'leads-kanban', screen: 'Leads', label: 'list, kanban', path: '/admin/leads', resource: 'leads', minWidth: 1024, prep: (p) => setLS(p, 'vz_leads_view', 'kanban') },
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },
-  { id: 'leads-detail', screen: 'Leads', label: 'lead detail', path: '/admin/leads', open: 'L0', region: '.aa-main.ld-main', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: (p) => click(p.locator('.lc')) },
+  { id: 'leads-detail', screen: 'Leads', label: 'lead detail', path: '/admin/leads', open: 'L0', region: '.aa-main.ld-main', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: (p, w) => click(p.locator(w >= 1024 ? '.v-tr' : '.lc')) },
 
   { id: 'calls-builder', screen: 'Call Console', label: 'builder', path: '/admin/calls', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session') },
   { id: 'calls-queue', screen: 'Call Console', label: 'queue', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('queue')) },
@@ -93,7 +98,7 @@ const SCREENS = [
 
   { id: 'design', screen: 'Design system', label: 'design page', path: '/admin/design', resource: null, noEmpty: true, noError: true },
 
-  { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', act: (p) => click(p.locator('.sh-bell')) },
+  { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   { id: 'more', screen: 'Shell', label: 'More sheet', path: '/admin/leads', region: '.v-sheet', maxWidth: 767, resource: null, static: true, act: (p) => click(p.locator('.sh-tab--more')) },
 ];
 
@@ -106,7 +111,7 @@ async function measure(page, region) {
     const root = document.querySelector(region);
     if (!root) return null;
     const all = [...root.querySelectorAll(BLOCKS)].filter(el => !el.parentElement?.closest(BLOCKS) || !root.contains(el.parentElement.closest(BLOCKS)));
-    const boxes = all.map(el => el.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0 && r.top < VIEW_H && r.bottom > 0)
+    const boxes = all.filter(el => !(el.classList.contains('v-skel') && el.getBoundingClientRect().height < 40)).map(el => el.getBoundingClientRect()).filter(r => r.width > 0 && r.height > 0 && r.top < VIEW_H && r.bottom > 0)
       .map(r => ({ l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }))
       .sort((a, b) => (a.t - b.t) || (a.l - b.l));
     return boxes;
@@ -115,16 +120,21 @@ async function measure(page, region) {
 async function count(page, region, sel) {
   return page.evaluate(([region, sel]) => { const root = document.querySelector(region); return root ? root.querySelectorAll(sel).length : -1; }, [region, sel]);
 }
+const rowsOf = (boxes) => { const rows = []; for (const b of boxes) { const r = rows[rows.length - 1]; if (r && Math.abs(r.t - b.t) <= FIT_PX) r.items.push(b); else rows.push({ t: b.t, l: b.l, items: [b] }); } return rows; };
 function fit(skel, loaded) {
   if (!skel?.length || !loaded?.length) return { ok: false, text: skel ? 'no blocks' : 'no region' };
-  const n = Math.min(skel.length, loaded.length);
+  const a = rowsOf(skel); const b = rowsOf(loaded);
+  const n = Math.min(a.length, b.length);
   let worst = 0; let at = -1;
   for (let i = 0; i < n; i++) {
-    const d = Math.max(Math.abs(skel[i].l - loaded[i].l), Math.abs(skel[i].t - loaded[i].t), Math.abs(skel[i].w - loaded[i].w));
+    let d = Math.max(Math.abs(a[i].t - b[i].t), Math.abs(a[i].l - b[i].l));
+    const wide = (r) => r.items.filter(x => x.w >= 200);
+    const wa = wide(a[i]); const wb = wide(b[i]);
+    for (let j = 0; j < Math.min(wa.length, wb.length); j++) d = Math.max(d, Math.abs(wa[j].w - wb[j].w));
     if (d > worst) { worst = d; at = i; }
   }
   const ok = worst <= FIT_PX;
-  return { ok, text: ok ? `ok (${n} blocks)` : `off ${worst}px at block ${at + 1} of ${n}` + (skel.length !== loaded.length ? `, ${skel.length} vs ${loaded.length}` : '') };
+  return { ok, text: ok ? `ok (${n} rows)` : `off ${worst}px at row ${at + 1} of ${n}` + (a.length !== b.length ? `, ${a.length} vs ${b.length} rows` : '') };
 }
 const url = (s, extra = '') => `${BASE}${s.path}${s.path.includes('?') ? '&' : '?'}${[s.open ? `open=${s.open}` : '', extra].filter(Boolean).join('&')}`.replace(/\?$/, '');
 
@@ -191,7 +201,7 @@ async function runState(ctx, s, width, theme, motion) {
   if (!s.static && s.resource) {
     // C. empty resource
     if (!s.noEmpty && !s.detail) {
-      await mockRoutes(page, { empty: [s.resource, ...(s.resource === 'leads' ? ['calendly', 'projects'] : [])] });
+      await mockRoutes(page, { empty: [s.resource, ...(s.resource === 'leads' ? ['calendly', 'projects'] : []), ...(s.emptyAlso || [])] });
       if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
       await goto(url(s));
       if (s.act) { await page.waitForTimeout(700); await s.act(page, width); }
@@ -246,6 +256,7 @@ async function runStateWithFit(ctx, s, width, theme, motion) {
     if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width); }
     await settle(page, region);
     const loaded = await measure(page, region);
+    if (BOXES) { const fmt = (b) => (b || []).map(x => `${x.l},${x.t} ${x.w}x${x.h}`).join(' | '); console.log(`    boxes ${s.id}@${width} skeleton: ${fmt(skelBlocks)}\n    boxes ${s.id}@${width} loaded:   ${fmt(loaded)}`); }
     const f = fit(skelBlocks, loaded);
     row.fit = skelBlocks ? f.text : 'n/a';
     if (skelBlocks && !f.ok) row.gaps.push('fit');

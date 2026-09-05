@@ -17,7 +17,8 @@ import Pill, { pillStyles } from './Pill';
 import Badge, { badgeStyles } from './Badge';
 import Avatar, { avatarStyles, initialsOf } from './Avatar';
 import EmptyState, { emptyStateStyles } from './EmptyState';
-import ErrorState, { errorStateStyles } from './ErrorState';
+import ErrorState, { errorStateStyles, useRetry } from './ErrorState';
+import useOnline from './useOnline';
 import ListRow, { listRowStyles } from './ListRow';
 import Button, { buttonStyles } from './Button';
 import IconButton, { iconButtonStyles } from './IconButton';
@@ -48,6 +49,8 @@ import Reveal, { revealStyles } from './Reveal';
 import ProgressRing, { progressRingStyles } from './ProgressRing';
 import ProgressBar, { progressBarStyles } from './ProgressBar';
 import Spinner, { spinnerStyles } from './Spinner';
+import RecordSkeleton, { recordSkeletonStyles } from './RecordSkeleton';
+import { durationMs, motionReduced } from './motion';
 import useDelayedLoading from './useDelayedLoading';
 import useOptimisticPatch from './useOptimisticPatch';
 import useMediaQuery, { DESKTOP_QUERY, HOVER_QUERY } from './useMediaQuery';
@@ -64,7 +67,7 @@ export const uiStyles = [
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
-  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
+  staggerStyles, revealStyles, progressRingStyles, progressBarStyles, recordSkeletonStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
 ].join('\n');
 
 export {
@@ -72,7 +75,7 @@ export {
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, ErrorState, ListRow,
   Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
-  SkeletonBlock, SkeletonText, SkeletonCircle, Stagger, Reveal, ProgressRing, ProgressBar, Spinner,
-  useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock,
+  SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, durationMs, motionReduced,
+  useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock, useRetry, useOnline,
   Icon, ICONS, iconFor, entryOf, toneOf, resolveSemantic, TONES,
 };

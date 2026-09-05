@@ -63,6 +63,9 @@ export const cardStyles = `
     background: radial-gradient(circle, color-mix(in srgb, var(--v-card-glow) 28%, transparent) 0%, transparent 70%);
     pointer-events: none; z-index: -1;
   }
+  /* Success moment (Prompt 14): a one shot ring and lift in the won tone, color and scale only. */
+  .v-pulse-won { animation: v-pulse-won calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
+  @keyframes v-pulse-won { 0% { box-shadow: 0 0 0 0 var(--v-status-won-soft); transform: scale(1); } 30% { box-shadow: 0 0 0 6px var(--v-status-won-soft), 0 0 0 1px var(--v-status-won-solid); transform: scale(1.012); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
   .v-card-head, .v-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); min-width: 0; }
   .v-card-foot { padding-top: var(--v-space-3); border-top: 1px solid var(--v-border); }
 `;

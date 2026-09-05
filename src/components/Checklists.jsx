@@ -82,6 +82,8 @@ const ckStyles = `
   .ck-item .v-check { flex: 1; min-width: 0; }
   .ck-item .v-check-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   .ck-check.is-done .v-check-label { color: var(--v-text-3); text-decoration: line-through; }
+  .ck-check.is-done .v-check-box { animation: ck-pop var(--v-dur-base) var(--v-ease-spring) 1; }
+  @keyframes ck-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
   .ck-item-del, .ck-list-del { opacity: 0.5; }
   .ck-item:hover .ck-item-del, .ck-item-del:focus-visible, .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { opacity: 1; }
   .ck-add { min-width: 0; }

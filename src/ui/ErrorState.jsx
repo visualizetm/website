@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import Button from './Button';
@@ -27,6 +27,13 @@ export default function ErrorState({ title = 'Could not load this', description 
       </div>
     </div>
   );
+}
+
+/** useRetry(refetch) -> [retry, retrying]: wraps a refetch so the Try again button shows its spinner until it settles. */
+export function useRetry(refetch) {
+  const [retrying, setRetrying] = useState(false);
+  const retry = useCallback(async () => { if (!refetch) return; setRetrying(true); try { await refetch(); } finally { setRetrying(false); } }, [refetch]);
+  return [retry, retrying];
 }
 
 export const errorStateStyles = `

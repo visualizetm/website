@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { COPY } from '../shared/copy';
 import { Textarea, Row, Spinner } from '../ui';
 import { useToast } from '../ui';
 
@@ -22,7 +23,7 @@ export default function LeadNotes({ lead, onSave, rows = 5, placeholder = 'Notes
     setState('saving');
     const ok = await onSave(lead._id, draft);
     if (ok) { setState('saved'); setTimeout(() => setState(s => (s === 'saved' ? 'idle' : s)), 1500); }
-    else { setDraft(lead[field] || ''); setState('idle'); toast.error('Could not save the notes. Your change was undone.'); }
+    else { setDraft(lead[field] || ''); setState('idle'); toast.error(COPY.error.save); }
   };
   return (
     <div className="ln">

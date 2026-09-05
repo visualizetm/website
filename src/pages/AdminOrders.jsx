@@ -5,8 +5,9 @@ import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, Menu, InlineEdit, Toggle, Checkbox, ListRow, Sheet, Modal, Table, EmptyState, Stagger, IconTile, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useConfirm,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, Menu, InlineEdit, Toggle, Checkbox, ListRow, Sheet, Modal, Table, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, durationMs,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
 import LeadPicker from '../components/LeadPicker';
 import LeadCard from '../components/LeadCard';
@@ -115,8 +116,9 @@ function NewOrderSheet({ leads, onClose, onCreate, preset }) {
 }
 
 /* ── Order detail ──────────────────────────────────────────────── */
-function OrderDetail({ order: o, leads, projects, onPatch, onPatchLead, onCreateProject, onClose }) {
+function OrderDetail({ order: o, leads, projects, onPatch, onPatchRaw, onPatchLead, onCreateProject, onClose }) {
   const toast = useToast();
+  const [paidPulse, setPaidPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const [pick, setPick] = useState(false);
   const [pay, setPay] = useState(false);
@@ -124,8 +126,10 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchLead, onCreate
   const [addItem, setAddItem] = useState(false);
   const c = customerOf(o, leads);
   const project = o.projectId ? projects?.find(p => String(p._id) === String(o.projectId)) : null;
-  const pp = (set) => onPatch(o._id, set);
+  const pp = (set) => onPatch(o._id, set); // toasts on failure
+  const ppRaw = (set) => (onPatchRaw || onPatch)(o._id, set); // for InlineEdit, which toasts itself
   const writeItems = (items) => pp({ items, subtotal: orderSubtotal({ ...o, items }) });
+  const writeItemsRaw = (items) => ppRaw({ items, subtotal: orderSubtotal({ ...o, items }) });
   const setStatus = async (status) => {
     if (status === 'cancelled' && !(await confirm({ title: 'Cancel this order?', body: 'It stays in the list under Cancelled.', danger: true, confirmLabel: 'Cancel order' }))) return;
     const ok = await pp({ status });
@@ -148,15 +152,15 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchLead, onCreate
     if (lead && onPatchLead) {
       ledgerId = uid();
       const ok = await onPatchLead(lead._id, { purchases: [...(lead.purchases || []), { id: ledgerId, label: `Print order: ${itemSummary(o)}`, amount, at, notes: '', ...(o.projectId ? { projectId: o.projectId } : {}) }] });
-      if (!ok) { toast.error('Could not write the ledger.'); return; }
+      if (!ok) { toast.error(COPY.error.save); return; }
     }
     const ok = await pp({ paid: { at, ledgerId, amount } });
-    if (ok) { toast.success(lead ? `${money(amount)} recorded on ${lead.business}.` : `${money(amount)} recorded on the order.`); setPay(false); }
+    if (ok) { toast.success(lead ? `${money(amount)} recorded on ${lead.business}.` : `${money(amount)} recorded on the order.`); setPay(false); setPaidPulse(true); setTimeout(() => setPaidPulse(false), durationMs('--v-dur-slow') * 2 + 50); }
   };
   return (
-    <Stack gap={4} className="po-detail">
-      {confirmDialog}
-      <Card className="po-cust">
+    <div className="po-detail">
+    <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
+      <Card className={`po-cust${paidPulse ? ' v-pulse-won' : ''}`}>
         <Row gap={3} align="start">
           <Avatar name={c.name} size="lg" />
           <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
@@ -196,32 +200,38 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchLead, onCreate
         <Stack gap={1}>
           {(o.items || []).map(i => (
             <div key={i.id} className="po-item">
-              <Row gap={2} align="center"><span className="po-item-qty">{i.qty} x</span><span className="po-item-name lay-truncate">{i.name}</span><span style={{ flex: 1 }} /><InlineEdit value={i.quote || i.priceTotal == null ? '' : String(i.priceTotal)} onSave={(v) => writeItems(o.items.map(x => (x.id === i.id ? { ...x, priceTotal: v.trim() === '' ? null : Number(v) || 0, quote: v.trim() === '' } : x)))} placeholder="Quote" type="number" inputMode="decimal" format={(v) => (v === '' ? 'Quote' : money(v))} label={`${i.name} price`} className="po-item-price" /><IconButton icon={XClose} label="Remove item" variant="ghost" onClick={() => writeItems(o.items.filter(x => x.id !== i.id))} /></Row>
+              <Row gap={2} align="center"><span className="po-item-qty">{i.qty} x</span><span className="po-item-name lay-truncate">{i.name}</span><span style={{ flex: 1 }} /><InlineEdit value={i.quote || i.priceTotal == null ? '' : String(i.priceTotal)} onSave={(v) => writeItemsRaw(o.items.map(x => (x.id === i.id ? { ...x, priceTotal: v.trim() === '' ? null : Number(v) || 0, quote: v.trim() === '' } : x)))} placeholder="Quote" type="number" inputMode="decimal" format={(v) => (v === '' ? 'Quote' : money(v))} label={`${i.name} price`} className="po-item-price" /><IconButton icon={XClose} label="Remove item" variant="ghost" onClick={() => writeItems(o.items.filter(x => x.id !== i.id))} /></Row>
               {(i.label || Object.keys(i.options || {}).length > 0) && <span className="dt-muted po-item-opts">{[i.label, ...Object.entries(i.options || {}).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(', ')}</span>}
-              <span className="po-item-art"><span className="dt-fact-label">Artwork</span><InlineEdit value={i.artworkLink || ''} onSave={(v) => writeItems(o.items.map(x => (x.id === i.id ? { ...x, artworkLink: v } : x)))} placeholder="Paste a link" label={`${i.name} artwork link`} className="cw-deliv-edit" />{i.artworkLink && <IconButton icon="LinkExternal01" label="Open artwork" variant="ghost" onClick={() => window.open(i.artworkLink, '_blank', 'noopener')} />}</span>
+              <span className="po-item-art"><span className="dt-fact-label">Artwork</span><InlineEdit value={i.artworkLink || ''} onSave={(v) => writeItemsRaw(o.items.map(x => (x.id === i.id ? { ...x, artworkLink: v } : x)))} placeholder="Paste a link" label={`${i.name} artwork link`} className="cw-deliv-edit" />{i.artworkLink && <IconButton icon="LinkExternal01" label="Open artwork" variant="ghost" onClick={() => window.open(i.artworkLink, '_blank', 'noopener')} />}</span>
             </div>
           ))}
-          {!(o.items || []).length && <p className="dt-muted">No items yet.</p>}
+          {!(o.items || []).length && <EmptyState size="sm" icon="Package" title={COPY.empty['orders.items'].title} description={COPY.empty['orders.items'].description} action={{ label: COPY.empty['orders.items'].action, icon: Plus, onClick: () => setAddItem(true) }} />}
         </Stack>
       </Card>
       <Card>
         <Toggle label="Rush" description={`${money(RUSH_FEE)} rush line, 3 day turnaround.`} checked={!!o.rush} onChange={toggleRush} className="po-rush" />
         <Grid minColumnWidth={160} gap={2}><Input label="Due" type="date" value={o.dueAt || ''} onChange={(e) => pp({ dueAt: e.target.value })} hint={o.dueAt ? countdownLabel(localDate(o.dueAt)) : undefined} /></Grid>
-        <div className="v-field"><span className="v-field-label">Notes</span><InlineEdit value={o.notes || ''} onSave={(v) => pp({ notes: v })} multiline placeholder="Add a note" label="Order notes" /></div>
+        <div className="v-field"><span className="v-field-label">Notes</span><InlineEdit value={o.notes || ''} onSave={(v) => ppRaw({ notes: v })} multiline placeholder="Add a note" label="Order notes" /></div>
         {o.paid ? <p className="dt-muted">Paid {money(o.paid.amount)} on {fmtDay(o.paid.at)}{o.paid.ledgerId ? ', on the client ledger' : ', on the order only'}.</p> : <Button icon={Check} onClick={() => { setPayForm({ amount: String(orderSubtotal(o)), at: today() }); setPay(true); }} className="po-mark-paid">Mark paid</Button>}
       </Card>
+    </Stagger>
+      {confirmDialog}
       {pick && <LeadPicker leads={leads} title="Link to client" description="Linking writes the client onto the order and can start a print project." onClose={() => setPick(false)} onPick={linkClient} />}
       <Modal open={pay} onClose={() => setPay(false)} title="Mark paid" description={c.lead ? `Goes on ${c.lead.business}'s ledger.` : 'No client linked: recorded on the order only.'}
         footer={<><Button variant="ghost" onClick={() => setPay(false)}>Cancel</Button><Button icon={Check} onClick={savePay}>Record payment</Button></>}>
         <Grid minColumnWidth={140} gap={2}><Input label="Amount" type="number" inputMode="decimal" value={payForm.amount} onChange={(e) => setPayForm(f => ({ ...f, amount: e.target.value }))} data-autofocus /><Input label="Paid on" type="date" value={payForm.at} onChange={(e) => setPayForm(f => ({ ...f, at: e.target.value }))} /></Grid>
       </Modal>
-    </Stack>
+    </div>
   );
 }
 
 /* ── Screen ────────────────────────────────────────────────────── */
-export default function AdminOrders({ orders = [], loading, unimported = 0, leads = [], projects = [], onCreate, onPatch, onRefresh, onImportSubmissions, onPatchLead, onCreateProject, openId, createPreset }) {
+export default function AdminOrders({ orders = [], loading, error, onRetry, unimported = 0, leads = [], projects = [], onCreate, onPatch, onRefresh, onImportSubmissions, onPatchLead, onCreateProject, openId, createPreset }) {
   const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
+  // AdminApp's onPatch is optimistic with rollback; this adds the failure toast for button and menu writes.
+  const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [selId, setSelId] = useState(null);
   const [creating, setCreating] = useState(false);
@@ -229,6 +239,7 @@ export default function AdminOrders({ orders = [], loading, unimported = 0, lead
   const [q, setQ] = useState('');
   const [importing, setImporting] = useState(false);
   const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel;
   const now = Date.now();
   useTopBar(null);
   useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
@@ -242,8 +253,8 @@ export default function AdminOrders({ orders = [], loading, unimported = 0, lead
   const summary = `${live.length} order${live.length === 1 ? '' : 's'}, ${open.length} open, ${counts.rush} rush, ${money(open.reduce((n, o) => n + orderSubtotal(o), 0))} in progress`;
   const chipLabel = (id, label) => label || printOrderStatusOf(id).label;
 
-  const runImport = async () => { setImporting(true); const n = await onImportSubmissions?.(); setImporting(false); if (n == null) toast.error('Import failed.'); else toast.success(`${n} shop order${n === 1 ? '' : 's'} imported.`); };
-  const create = async (doc) => { const item = await onCreate?.(doc); if (item) { toast.success('Order created.'); setCreating(false); setSelId(item._id); } else toast.error('Could not create the order.'); };
+  const runImport = async () => { setImporting(true); const n = await onImportSubmissions?.(); setImporting(false); if (n == null) toast.error('Import failed. Nothing was added.'); else toast.success(`${n} shop order${n === 1 ? '' : 's'} imported.`); };
+  const create = async (doc) => { const item = await onCreate?.(doc); if (item) { toast.success('Order created.'); setCreating(false); setSelId(item._id); } else toast.error(COPY.error.create); };
 
   const columns = [
     { id: 'customer', label: 'Customer', always: true, render: (o) => <span className="cl-cell-biz"><Avatar name={customerName(o, leads)} size="sm" /><span className="lay-truncate">{customerName(o, leads)}</span></span> },
@@ -256,38 +267,42 @@ export default function AdminOrders({ orders = [], loading, unimported = 0, lead
     { id: 'paid', label: 'Paid', width: 90, render: (o) => (o.paid ? <Pill tone="booked" label="Paid" size="sm" icon="Check" /> : <span className="cl-muted-cell">Unpaid</span>) },
   ];
 
-  const detail = sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const pendingOpen = !!openId?.id && loading && !sel; // deep link while the list resolves: the record shape, not the list skeleton
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} />) : sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const panelOpen = !!sel || pendingOpen;
   return (
-    <PageShell className={`aa-main aa-main--wide po-shell${sel && desktop ? ' has-panel' : ''}`}>
+    <PageShell className={`aa-main aa-main--wide po-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Print Orders" description={showSkel ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
+          <Section title="Print Orders" loading={loading} description={loading ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
             <Stack gap={2}>
               <Input className="cl-search" placeholder="Search customer, item, note" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search orders" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
               <Row gap={2} wrap className="po-chips">{ORDER_FILTERS.map(([id, label]) => <Chip key={id} label={chipLabel(id, label)} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
             </Stack>
           </Section>
-          {unimported > 0 && !showSkel && (
+          {unimported > 0 && !loading && (
             <Card level={2} padding={3} className="po-import" glow="progress">
               <Row gap={2} justify="between" align="center" wrap><Row gap={2} align="center"><IconTile icon="Package" tone="progress" size="sm" /><span className="po-import-text">{unimported} shop order{unimported === 1 ? '' : 's'} from submissions {unimported === 1 ? 'is' : 'are'} not in this list yet.</span></Row><Button size="md" icon={Download01} loading={importing} onClick={runImport} className="po-import-btn">Import {unimported} shop order{unimported === 1 ? '' : 's'}</Button></Row>
             </Card>
           )}
-          {showSkel ? (
-            desktop ? <Table.Skeleton rows={5} cols={8} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <OrderCard.Skeleton key={i} />)}</Stack>
+          {pending ? null : showSkel ? (
+            desktop && !panelOpen ? <Table.Skeleton rows={5} cols={8} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <OrderCard.Skeleton key={i} />)}</Stack>
+          ) : error && !orders.length ? (
+            <Card><ErrorState title={COPY.error.orders.title} description={COPY.error.orders.description} onRetry={retry} retrying={retrying} /></Card>
           ) : !live.length ? (
-            <Card><EmptyState icon="Package" title="No print orders yet" description="Shop orders land here on their own. Walk ins and client jobs start with New order." action={{ label: 'New order', icon: Plus, onClick: () => setCreating(true) }} /></Card>
+            <Card><EmptyState icon="Package" title={E('orders.none').title} description={E('orders.none').description} action={{ label: E('orders.none').action, icon: Plus, onClick: () => setCreating(true) }} /></Card>
           ) : !list.length ? (
-            <Card><EmptyState size="sm" icon="SearchMd" title="Nothing in this filter" action={{ label: 'Show all', onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
+            <Card><EmptyState size="sm" icon="SearchMd" title={E('orders.filter').title} description={E('orders.filter').description} action={{ label: E('orders.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
           ) : desktop && !sel ? (
             <Table aria-label="Print orders" columns={columns} rows={list} rowKey={(o) => String(o._id)} onRowClick={(o) => setSelId(o._id)} storageKey="vz_orders_cols" className="po-table" />
           ) : (
             <Stagger className="cl-stack">{list.map(o => <OrderCard key={o._id} order={o} leads={leads} onOpen={() => setSelId(o._id)} selected={sel && String(sel._id) === String(o._id)} compact={!!sel && desktop} />)}</Stagger>
           )}
-          {!showSkel && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
+          {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {sel && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {sel && !desktop && <Sheet open onClose={() => setSelId(null)} title={customerName(sel, leads)} description={itemSummary(sel)} tall width={520} className="po-sheet">{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : undefined} tall width={520} className="po-sheet">{detail}</Sheet>}
       {creating && <NewOrderSheet leads={leads} onClose={() => setCreating(false)} onCreate={create} preset={createPreset?.preset} />}
       <style>{poStyles}</style>
     </PageShell>

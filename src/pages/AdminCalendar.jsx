@@ -4,8 +4,9 @@ import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Chip, Pill, ListRow, IconTile, Menu, Popover, Sheet, Input, Avatar, SegmentedControl, EmptyState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Chip, Pill, ListRow, IconTile, Menu, Popover, Sheet, Input, Avatar, SegmentedControl, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import CallbackPicker from '../components/CallbackPicker';
 import LeadForm from '../components/LeadForm';
@@ -44,9 +45,11 @@ function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
   );
 }
 
-export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRefresh, openId }) {
+export default function AdminCalendar({ leads, loading, error, onRetry, onPatch, onCreate, onRefresh, openId }) {
   const shell = useShell();
   const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [view, setView] = useState(() => readLS(VIEW_KEY, null));
   const mode = view || (desktop ? 'week' : 'day');
@@ -60,7 +63,8 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
   const [linkEv, setLinkEv] = useState(null);
   const [createEv, setCreateEv] = useState(null);
   const [now, setNow] = useState(Date.now());
-  const showSkel = useDelayedLoading(loading && !leads.length);
+  const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel;
   const touch = useRef(null);
   useTopBar(null);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60e3); return () => clearInterval(t); }, []);
@@ -95,26 +99,26 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
     const l = e.lead; if (!l) return;
     const entry = { at: new Date().toISOString(), outcome: 'no-answer', note: 'Marked done from the calendar', meeting: '', email: '' };
     const ok = await onPatch(l._id, { callStatus: 'no-answer', callLog: [...(l.callLog || []), entry], callbackAt: '' });
-    if (ok) toast.success(`Logged no answer for ${l.business}.`); else toast.error('Could not log that.');
+    if (ok) toast.success(`Logged no answer for ${l.business}.`); else toast.error(COPY.error.save);
   };
   const saveCallback = async (iso) => {
     const l = addLead; if (!l) return;
     const ok = await onPatch(l._id, { callbackAt: iso || '', ...(iso ? { callStatus: 'callback' } : {}) });
-    if (ok) { toast.success(iso ? `Callback set for ${l.business}.` : 'Callback cleared.'); setAddSlot(null); setAddLead(null); }
+    if (ok) { toast.success(iso ? `Callback set for ${l.business}.` : 'Callback cleared.'); setAddSlot(null); setAddLead(null); } else toast.error(COPY.error.save);
   };
   const linkTo = async (lead) => {
     const ev = linkEv?.calendly; if (!ev || !lead) return;
     const set = { calendlyEventUri: ev.uri };
     if (!lead.meeting?.date) { const li = toLocalInput(new Date(ev.at)); set.meeting = { date: li.date, time: li.time, type: 'call', location: ev.join || '' }; }
     const ok = await onPatch(lead._id, set);
-    if (ok) { toast.success(`Linked to ${lead.business}.`); setLinkEv(null); setQ(''); }
+    if (ok) { toast.success(`Linked to ${lead.business}.`); setLinkEv(null); setQ(''); } else toast.error(COPY.error.save);
   };
-  const createFromEv = async (values) => { const ok = await onCreate(defaultLead(values)); if (ok) { toast.success(`Added ${values.business}.`); setCreateEv(null); onRefresh?.(); } };
+  const createFromEv = async (values) => { const ok = await onCreate(defaultLead(values)); if (ok) { toast.success(`Added ${values.business}.`); setCreateEv(null); onRefresh?.(); } else toast.error(COPY.error.create); };
   const searchLeads = (query) => leads.filter(l => normalizeStage(l) !== 'lost' && matchesSearch(l, query)).slice(0, 12);
 
   /* Views */
   const dayStrip = (
-    <div className="cal-strip" role="group" aria-label="Week" onTouchStart={(e) => { touch.current = e.touches[0].clientX; }} onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1); }}>
+    <div className="cal-strip v-reveal" role="group" aria-label="Week" onTouchStart={(e) => { touch.current = e.touches[0].clientX; }} onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1); }}>
       {week.map(d => { const has = eventsOn(events, d); const on = sameDay(d, cursor); const isToday = sameDay(d, now); return (
         <button key={+d} type="button" className={`cal-strip-day${on ? ' is-on' : ''}${isToday ? ' is-today' : ''}`} onClick={() => setCursor(d)} aria-pressed={on} aria-label={d.toDateString()}>
           <span className="cal-strip-dow">{DOW[(d.getDay() + 6) % 7]}</span><span className="cal-strip-n">{d.getDate()}</span>
@@ -127,7 +131,7 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
       {dayStrip}
       {overdueAll.length > 0 && <Card level={2} padding={3} glow="danger"><p className="pb-card-h">Overdue callbacks</p><Stack gap={2}>{overdueAll.slice(0, 5).map(e => <EventRow key={e.id} e={e} onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stack></Card>}
       {dayEvents.length ? <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>{dayEvents.map(e => <EventRow key={e.id} e={e} onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stagger>
-        : <Card><EmptyState icon="Calendar" title="Nothing scheduled" description="Book something." action={{ label: 'Start call session', icon: PhoneCall01, onClick: () => shell?.go('calls') }} secondary={{ label: 'Add a callback', onClick: () => { setAddSlot(new Date(cursor.getTime() + 9 * 3600e3)); setAddLead(null); } }} /></Card>}
+        : <Card><EmptyState icon="Calendar" title={E('calendar.day').title} description={E('calendar.day').description} action={{ label: E('calendar.day').action, icon: PhoneCall01, onClick: () => shell?.go('calls') }} secondary={{ label: E('calendar.day').secondary, onClick: () => { setAddSlot(new Date(cursor.getTime() + 9 * 3600e3)); setAddLead(null); } }} /></Card>}
     </Stack>
   );
   const hours = Array.from({ length: END_H - START_H + 1 }, (_, i) => START_H + i);
@@ -145,8 +149,8 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
             <div key={+d} className={`cal-col${sameDay(d, now) ? ' is-today' : ''}`} onClick={(ev) => { if (ev.target !== ev.currentTarget) return; const rect = ev.currentTarget.getBoundingClientRect(); const h = START_H + Math.floor((ev.clientY - rect.top) / HOUR_PX); const slot = new Date(d); slot.setHours(h, 0, 0, 0); setAddSlot(slot); setAddLead(null); }}>
               {hours.map(h => <div key={h} className="cal-line" style={{ top: (h - START_H) * HOUR_PX }} />)}
               {sameDay(d, now) && <div className="cal-now" style={{ top: posOf(now) }} />}
-              {eventsOn(events, d).filter(e => !e.allDay).map(e => (
-                <button key={e.id} type="button" className={`cal-block cal-block--${e.tone}`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(28, posOf(e.end) - posOf(e.at)) }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
+              {eventsOn(events, d).filter(e => !e.allDay).map((e, bi) => (
+                <button key={e.id} type="button" className={`cal-block cal-block--${e.tone} v-reveal`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(28, posOf(e.end) - posOf(e.at)), animationDelay: `calc(${Math.min(bi, 8)} * var(--v-stagger))` }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
                   <span className="cal-block-t">{fmtTime(e.at)}</span><span className="cal-block-title lay-truncate">{e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}</span>
                 </button>
               ))}
@@ -159,13 +163,36 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
   const monthView = (
     <div className="cal-month">
       {DOW.map(d => <div key={d} className="cal-month-dow">{d}</div>)}
-      {monthDays.map(d => { const list = eventsOn(events, d); const other = d.getMonth() !== cursor.getMonth(); return (
-        <button key={+d} type="button" className={`cal-month-day${other ? ' is-other' : ''}${sameDay(d, now) ? ' is-today' : ''}`} onClick={() => { setCursor(d); setMode('day'); }} aria-label={`${d.toDateString()}, ${list.length} events`}>
+      {monthDays.map((d, i) => { const list = eventsOn(events, d); const other = d.getMonth() !== cursor.getMonth(); return (
+        <button key={+d} type="button" className={`cal-month-day v-reveal${other ? ' is-other' : ''}${sameDay(d, now) ? ' is-today' : ''}`} style={{ animationDelay: `calc(${Math.floor(i / 7)} * var(--v-stagger))` }} onClick={() => { setCursor(d); setMode('day'); }} aria-label={`${d.toDateString()}, ${list.length} events`}>
           <span className="cal-month-n">{d.getDate()}</span>
           {list.slice(0, 3).map(e => <span key={e.id} className={`cal-month-pill cal-block--${e.tone}`}>{e.allDay ? e.title : `${fmtTime(e.at)} ${e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}`}</span>)}
           {list.length > 3 && <span className="cal-month-more">+{list.length - 3}</span>}
         </button>); })}
     </div>
+  );
+
+  /* Skeletons shaped like each view (Prompt 14). */
+  const daySkeleton = <Stack gap={2} aria-busy="true">{dayStrip}{[1, 2, 3].map(i => <ListRow.Skeleton key={i} />)}</Stack>;
+  const weekSkeleton = (
+    <div className="cal-week" aria-busy="true">
+      <div className="cal-week-head"><div className="cal-gutter" />{week.map(d => <div key={+d} className="cal-week-day"><SkeletonBlock width={48} height={20} style={{ margin: '6px auto' }} /></div>)}</div>
+      <div className="cal-week-scroll lay-scroll" style={{ padding: 0 }}>
+        <div className="cal-grid" style={{ height: hours.length * HOUR_PX }}>
+          <div className="cal-gutter">{hours.map(h => <div key={h} className="cal-hour" style={{ top: (h - START_H) * HOUR_PX }}><SkeletonBlock width={28} height={10} /></div>)}</div>
+          {week.map((d, i) => <div key={+d} className="cal-col" style={{ cursor: 'default' }}>{hours.map(h => <div key={h} className="cal-line" style={{ top: (h - START_H) * HOUR_PX }} />)}{[0, 1].map(j => <SkeletonBlock key={j} width="auto" height={44} style={{ position: 'absolute', left: 2, right: 2, top: (((i * 3 + j * 6) % 11) + 1) * HOUR_PX + 4 }} />)}</div>)}
+        </div>
+      </div>
+    </div>
+  );
+  const monthSkeleton = (
+    <div className="cal-month" aria-busy="true">
+      {DOW.map(d => <div key={d} className="cal-month-dow">{d}</div>)}
+      {monthDays.map((d, i) => <div key={+d} className="cal-month-day" style={{ cursor: 'default' }}><SkeletonBlock width={16} height={12} />{i % 3 === 0 && <SkeletonBlock height={14} radius={3} />}</div>)}
+    </div>
+  );
+  const nothingAtAll = !loading && !all.length && (
+    <Card><EmptyState size="sm" icon="Calendar" title={E('calendar.range').title} description={E('calendar.range').description} action={{ label: E('calendar.range').action, icon: PhoneCall01, onClick: () => shell?.go('calls') }} /></Card>
   );
 
   const popRef = useRef(null);
@@ -174,7 +201,7 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
   return (
     <PageShell className="aa-main aa-main--wide cal-shell">
       <ScrollArea wide className="cal-page">
-        <Section title={title} description={mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : undefined}
+        <Section title={title} loading={loading} description={loading ? undefined : mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : undefined}
           action={<Row gap={2} wrap>
             <Row gap={1}><IconButton icon={ChevronLeft} label="Previous" variant="secondary" onClick={prev} /><Button variant="secondary" onClick={() => setCursor(startOfDay(new Date()))}>Today</Button><IconButton icon={ChevronRight} label="Next" variant="secondary" onClick={next} /></Row>
             <SegmentedControl size="sm" label="View" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={mode} onChange={setMode} />
@@ -182,7 +209,7 @@ export default function AdminCalendar({ leads, loading, onPatch, onCreate, onRef
           </Row>}>
           <Row gap={2} wrap className="cal-filters">{KINDS.map(k => <Chip key={k} label={KIND_LABEL[k]} count={all.filter(e => e.kind === k).length} selected={kinds.has(k)} onClick={() => setKinds(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })} disabled={k === 'calendly' && calendly.configured === false} />)}{calendly.configured === false && <span className="cal-hint">Calendly is not connected (Settings).</span>}</Row>
         </Section>
-        {showSkel ? <Stack gap={2} aria-busy="true">{dayStrip}{[1, 2, 3].map(i => <ListRow.Skeleton key={i} />)}</Stack> : mode === 'day' ? dayView : mode === 'week' ? weekView : monthView}
+        {pending ? null : showSkel ? (mode === 'day' ? daySkeleton : mode === 'week' ? weekSkeleton : monthSkeleton) : error && !leads.length ? <Card><ErrorState title={COPY.error.calendar.title} description={COPY.error.calendar.description} onRetry={retry} retrying={retrying} /></Card> : mode === 'day' ? dayView : <>{nothingAtAll}{mode === 'week' ? weekView : monthView}</>}
       </ScrollArea>
       <Popover open={!!pop} onClose={() => setPop(null)} anchorRef={popRef} width={300} trap label="Event">
         {pop && <div className="cal-pop"><Stack gap={2}><Row gap={2}><IconTile icon={pop.e.kind === 'callback' ? 'PhoneIncoming01' : 'CalendarCheck01'} tone={pop.e.tone} size="sm" /><Stack gap={0}><strong>{pop.e.title}</strong><span className="cal-hint">{fmtTime(pop.e.at)} to {fmtTime(pop.e.end)}{pop.e.subtitle ? `, ${pop.e.subtitle}` : ''}</span></Stack></Row>

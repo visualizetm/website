@@ -8,7 +8,15 @@
  * function (or nothing); `onError` gets the failure so the screen can show
  * its own loud toast. Returns true on success.
  */
+/** True when the browser says there is no network. Writes are refused up front so nothing half applies. */
+export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
+
 export async function apiFetch(url, { method = 'GET', body, headers } = {}) {
+  if (method !== 'GET' && isOffline()) {
+    // Prompt 14: offline writes are blocked, not queued (see reports/PROMPT-14-REPORT.md section 10).
+    try { window.dispatchEvent(new CustomEvent('vz:offline-write', { detail: { url, method } })); } catch { /* no window */ }
+    return { ok: false, status: 0, data: null, offline: true };
+  }
   try {
     const res = await fetch(url, {
       method,

@@ -8,7 +8,7 @@ import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, useToast, useMediaQuery, EmptyState, IconTile,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, RecordSkeleton, SkeletonBlock, SkeletonCircle, useToast, useMediaQuery, EmptyState, IconTile,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import LeadForm from './LeadForm';
@@ -28,6 +28,8 @@ import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/da
 import { meetingDate } from '../lib/booked';
 import { isNewLead } from '../lib/leads';
 import { downloadIcs } from '../lib/ics';
+import { COPY } from '../shared/copy';
+import { durationMs } from '../ui/motion';
 
 /**
  * LeadDetail: ONE detail for Leads, Booked, and Clients. Stage aware: a lead
@@ -115,15 +117,19 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
   const [packFor, setPackFor] = useState(null); // concept id picking a pack (Prompt 11)
   const [outcomeNote, setOutcomeNote] = useState('');
+  const [wonPulse, setWonPulse] = useState(false); // the profile card pulses in the won tone before the detail closes
+  const [pulseTab, setPulseTab] = useState(null); // 'retainer' after a retainer starts
   const [callMode, setCallModeState] = useState(() => LS(`vz_callmode_${lead._id}`, false));
   const setCallMode = (v) => { setCallModeState(v); try { localStorage.setItem(`vz_callmode_${lead._id}`, JSON.stringify(v)); } catch { /* fine */ } };
   const refs = useRef({});
   useTopBar({ title: lead.business, back: onClose });
   useEffect(() => { setTab('overview'); setCallModeState(LS(`vz_callmode_${lead._id}`, false)); }, [lead._id]);
 
-  const patch = (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set));
-  const save = (key) => async (v) => patch({ [key]: v });
-  const saveSocial = (key) => async (v) => patch({ socials: { ...(lead.socials || {}), [key]: v } });
+  // Two write paths: `patch` toasts on failure (buttons, menus, checkboxes); `patchRaw` is for InlineEdit, which shows its own failure toast.
+  const patchRaw = (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set));
+  const patch = async (set) => { const ok = await patchRaw(set); if (!ok && !readOnly) toast.error(COPY.error.save); return ok; };
+  const save = (key) => async (v) => patchRaw({ [key]: v });
+  const saveSocial = (key) => async (v) => patchRaw({ socials: { ...(lead.socials || {}), [key]: v } });
   const jump = (id) => { setTab(id); refs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); };
 
   /* Meeting */
@@ -147,7 +153,12 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
     const prevStage = lead.stage;
     if (outcome === 'won') {
       const ok = await patch({ stage: 'client', clientSince: at, bookedOutcome: { result: 'won', reason: outcomeNote.trim(), at } });
-      if (ok) { toast.success(`${lead.business} is a client.`, { action: { label: 'Open in Clients', onClick: () => shell?.go('clients') } }); setOutcome(null); onClose?.(); }
+      if (ok) {
+        // Success moment: the profile pulses in the won tone, the Clients badge ticks up in the shell, then the detail closes.
+        setOutcome(null); setWonPulse(true);
+        toast.success(`${lead.business} is a client.`, { action: { label: 'Open in Clients', onClick: () => shell?.go('clients') } });
+        setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60);
+      }
     } else {
       const ok = await patch({ stage: 'lost', bookedOutcome: { result: 'lost', reason: outcomeNote.trim(), at } });
       if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(lead._id, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' } }), { seconds: 6 }); setOutcome(null); onClose?.(); }
@@ -155,7 +166,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   };
 
   const profile = (
-    <Card className="dt-profile">
+    <Card className={`dt-profile${wonPulse ? ' v-pulse-won' : ''}`}>
       <Row gap={3} align="start">
         <Avatar name={lead.business} size="lg" status={stage === 'client' ? 'booked' : undefined} />
         <Stack gap={1} style={{ flex: 1 }}>
@@ -250,7 +261,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
                   <Row gap={2} justify="between"><Toggle size="sm" checked={!!o.recommended} onChange={(v) => setOpt(o.id, { recommended: v })} label="Recommended" disabled={readOnly} />{!readOnly && <IconButton icon={Trash01} label="Remove option" variant="danger" onClick={() => writeOptions(options.filter(x => x.id !== o.id))} />}</Row>
                 </Card>); })}
             </Grid>
-          ) : <EmptyState size="sm" icon="CurrencyDollar" title="No pricing options yet" description="Build up to three from the packages. Anything over $750 shows its payment plan." action={!readOnly ? { label: 'Add option', icon: Plus, onClick: () => writeOptions([{ id: uid(), packageId: PACKAGES[2].id, addonIds: [], retainerId: defaultRetainer(PACKAGES[2].id), recommended: true, note: '' }]) } : undefined} />}
+          ) : <EmptyState size="sm" icon="CurrencyDollar" title={COPY.empty['leads.detail.pricing'].title} description={COPY.empty['leads.detail.pricing'].description} action={!readOnly ? { label: COPY.empty['leads.detail.pricing'].action, icon: Plus, onClick: () => writeOptions([{ id: uid(), packageId: PACKAGES[2].id, addonIds: [], retainerId: defaultRetainer(PACKAGES[2].id), recommended: true, note: '' }]) } : undefined} />}
         </Block>
         <Block title="Concepts" summary={`${conceptsReady} of ${concepts.length} ready`} callMode={callMode} action={!readOnly && <Row gap={1}>{!concepts.length && <Button variant="ghost" onClick={() => patch({ concepts: CONCEPT_PRESETS.map(l => ({ id: uid(), label: l, status: 'planned', link: '' })) })}>Add the usual five</Button>}<Button variant="ghost" icon={Plus} onClick={() => patch({ concepts: [...concepts, { id: uid(), label: 'New concept', status: 'planned', link: '' }] })}>Add</Button></Row>}>
           <Stack gap={2}>
@@ -259,16 +270,16 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
               <Card key={c.id} level={2} padding={3} className="dt-concept">
                 <Row gap={2} wrap>
                   <IconTile icon="Image01" tone={CONCEPT_STATUSES.find(s => s.id === c.status) ? c.status === 'planned' ? 'neutral' : c.status === 'generating' ? 'progress' : c.status === 'ready' ? 'booked' : 'won' : 'neutral'} size="sm" glow={false} />
-                  <InlineEdit value={c.label} onSave={(v) => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, label: v } : x)) })} label="Concept" className="dt-concept-label" />
+                  <InlineEdit value={c.label} onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, label: v } : x)) })} label="Concept" className="dt-concept-label" />
                   <span style={{ flex: 1 }} />
                   <Menu label="Status" trigger={<button type="button" className="dt-pillbtn"><Pill id={c.status} list={CONCEPT_STATUSES} size="sm" /></button>} items={[...CONCEPT_STATUSES.map(s => ({ id: s.id, label: s.label, disabled: s.id === c.status, onSelect: () => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, status: s.id } : x)) }) })), 'divider', { id: 'lib', label: c.packId ? 'Change library pack' : 'From library', icon: 'Image01', onSelect: () => setPackFor(c.id) }, 'divider', { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => patch({ concepts: concepts.filter(x => x.id !== c.id) }) }]} />
                 </Row>
                 {c.packId && <Row gap={1} align="center"><Pill tone="callback" label={(shell?.packs || []).find(pk => String(pk._id) === String(c.packId))?.title || 'Library pack'} size="sm" icon="Image01" variant="outline" className="dt-concept-pack" /><Button variant="ghost" size="md" onClick={() => shell?.go('concepts')}>Open library</Button></Row>}
                 {!readOnly && !c.link && !c.packId && <Button variant="ghost" size="md" icon="Image01" onClick={() => setPackFor(c.id)} className="dt-from-library">From library</Button>}
-                {c.link ? <Button variant="secondary" full href={c.link} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
+                {c.link ? <Button variant="secondary" full href={c.link} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
               </Card>
             ))}
-            {!concepts.length && <p className="dt-muted">Nothing tracked yet.</p>}
+            {!concepts.length && <EmptyState size="sm" icon="Image01" title={COPY.empty['leads.detail.concepts'].title} description={COPY.empty['leads.detail.concepts'].description} action={!readOnly ? { label: COPY.empty['leads.detail.concepts'].action, onClick: () => patch({ concepts: CONCEPT_PRESETS.map(l => ({ id: uid(), label: l, status: 'planned', link: '' })) }) } : undefined} />}
           </Stack>
         </Block>
         <Block title="Prep notes" summary={(lead.prepNotes || '').split('\n')[0] || 'Empty'} callMode={callMode}>
@@ -291,10 +302,10 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
       </Section>
     </section>
   );
-  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} />;
-  const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs} value={tab} onChange={jump} /></div>;
+  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
+  const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
   const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
-  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} readOnly={readOnly} /><ClientBrand lead={lead} patch={patch} readOnly={readOnly} /></> : profile;
+  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /></> : profile;
 
   return (
     <PageShell className="dt">
@@ -332,6 +343,30 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
     </PageShell>
   );
 }
+
+/** LeadDetail.Skeleton: the record shape while a deep link resolves (profile column, subnav, section cards). */
+LeadDetail.Skeleton = function LeadDetailSkeleton() {
+  const desktop = useMediaQuery('(min-width: 1024px)');
+  const profile = (
+    <Card className="dt-profile" aria-busy="true">
+      <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={24} /><SkeletonBlock width="50%" height={14} /></Stack></Row>
+      <Row gap={1} wrap>{[64, 56, 72].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>
+      <Row gap={1} wrap>{[1, 2, 3, 4, 5, 6, 7].map(i => <SkeletonBlock key={i} width={44} height={44} radius="var(--v-radius-md)" />)}</Row>
+      <Row gap={2}><SkeletonBlock width={128} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /></Row>
+      <Stack gap={0} className="dt-facts">{Array.from({ length: 8 }, (_, i) => <div key={i} className="dt-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</Stack>
+    </Card>
+  );
+  const sections = <RecordSkeleton cards={3} tabs header={false} />;
+  return (
+    <PageShell className="dt">
+      <ScrollArea bare className="dt-scroll">
+        <div className="dt-inner">
+          {desktop ? <div className="dt-cols"><div className="dt-left">{profile}</div><div className="dt-right">{sections}</div></div> : <>{profile}{sections}</>}
+        </div>
+      </ScrollArea>
+    </PageShell>
+  );
+};
 
 function RescheduleSheet({ lead, onClose, onSave }) {
   const m = lead.meeting || {};

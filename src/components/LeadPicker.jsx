@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { COPY } from '../shared/copy';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import { Sheet, Input, Stack, ListRow, Avatar, Pill, EmptyState } from '../ui';
 import { STAGES, normalizeStage } from '../shared/semantics';
@@ -30,7 +31,7 @@ export default function LeadPicker({ leads = [], onPick, onClose, title = 'Pick 
         <Input placeholder="Search by business, contact, phone" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads" data-autofocus />
         {list.length ? list.map(l => (
           <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" />} title={l.business} subtitle={[l.askFor, formatPhone(l.phone), l.industry].filter(Boolean).join(', ')} trailing={<Pill id={normalizeStage(l)} list={STAGES} size="sm" variant="outline" />} onClick={() => onPick(l)} className="lp-row" />
-        )) : <EmptyState size="sm" icon="SearchMd" title="No match" description="Try the business name or a phone number." />}
+        )) : <EmptyState size="sm" icon="SearchMd" title={COPY.empty['leads.picker'].title} description={COPY.empty['leads.picker'].description} />}
       </Stack>
     </Sheet>
   );

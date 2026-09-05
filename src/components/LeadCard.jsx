@@ -93,8 +93,8 @@ LeadCard.Skeleton = function LeadCardSkeleton({ compact = false }) {
     <div className="lc lay-card" aria-busy="true">
       <div className="lc-row"><SkeletonCircle size={32} /><SkeletonBlock width="55%" height={14} /><span style={{ flex: 1 }} /><SkeletonBlock width={44} height={22} radius="var(--v-radius-pill)" /></div>
       <div className="lc-row"><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="50%" height={12} /></div>
-      <div className="lc-row"><SkeletonBlock width={110} height={14} /><span style={{ flex: 1 }} /><SkeletonBlock width={74} height={22} radius="var(--v-radius-pill)" /></div>
-      {!compact && <div className="lc-row"><SkeletonBlock width={90} height={11} /></div>}
+      <div className="lc-row"><SkeletonBlock width={110} height={28} /><span style={{ flex: 1 }} /><SkeletonBlock width={74} height={22} radius="var(--v-radius-pill)" /></div>
+      {!compact && <div className="lc-row"><SkeletonBlock width={90} height={18} /></div>}
     </div>
   );
 };

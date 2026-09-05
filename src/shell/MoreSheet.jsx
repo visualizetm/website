@@ -1,12 +1,12 @@
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
-import { Sheet, Icon, Badge, Avatar, Button } from '../ui';
+import { Sheet, Icon, Badge, Avatar, Button, Stagger } from '../ui';
 import { MORE_NAV, NAV_GROUPS } from './nav';
 /** Mobile More sheet: every destination that is not a thumb tab, grouped, plus the account row. */
 export default function MoreSheet({ open, onClose, activeId, counts, onGo, onLogout }) {
   const groups = NAV_GROUPS.map(g => ({ group: g, items: MORE_NAV.filter(n => n.group === g) })).filter(g => g.items.length);
   return (
     <Sheet open={open} onClose={onClose} title="More" label="More sections">
-      <div className="sh-more">
+      <Stagger className="sh-more" cap={4}>
         {groups.map(g => (
           <div key={g.group} className="sh-more-group">
             <p className="sh-side-label">{g.group}</p>
@@ -31,7 +31,7 @@ export default function MoreSheet({ open, onClose, activeId, counts, onGo, onLog
           <span style={{ flex: 1 }} />
           <Button variant="ghost" icon={LogOut01} onClick={() => { onClose(); onLogout(); }}>Sign out</Button>
         </div>
-      </div>
+      </Stagger>
     </Sheet>
   );
 }

@@ -6,6 +6,7 @@ import Checkbox from './Checkbox';
 import IconButton from './IconButton';
 import Popover from './Popover';
 import { SkeletonBlock } from './Skeleton';
+import { durationMs } from './motion';
 /**
  * Table: sticky header, sortable columns, row selection, column chooser,
  * density, sticky first column on horizontal scroll, empty slot.
@@ -37,6 +38,10 @@ export default function Table({
   });
   useEffect(() => { if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify([...hidden])); } catch { /* fine */ } } }, [hidden, storageKey]);
   const [chooserOpen, setChooserOpen] = useState(false);
+  // Row entrance (Prompt 14): the first 8 rows step in --v-stagger apart on
+  // mount, everything after arrives with the eighth; rows added later settle.
+  const [entering, setEntering] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setEntering(false), durationMs('--v-dur-enter') + 8 * durationMs('--v-stagger') + 50); return () => clearTimeout(t); }, []);
   const chooserRef = useRef(null);
   const visible = useMemo(() => columns.filter(c => c.always || !hidden.has(c.id)), [columns, hidden]);
   const keys = rows.map(rowKey);
@@ -84,11 +89,11 @@ export default function Table({
             </tr>
           </thead>
           <tbody>
-            {rows.map(row => {
+            {rows.map((row, ri) => {
               const k = rowKey(row);
               const on = selected?.has(k);
               return (
-                <tr key={k} className={`v-tr${onRowClick ? ' v-tr--click' : ''}${on ? ' is-selected' : ''} ${rowClassName?.(row) || ''}`.trim()}
+                <tr key={k} className={`v-tr${onRowClick ? ' v-tr--click' : ''}${on ? ' is-selected' : ''}${entering ? ' v-tr--enter' : ''} ${rowClassName?.(row) || ''}`.trim()} data-v-enter="" style={entering ? { animationDelay: `calc(${Math.min(ri, 8)} * var(--v-stagger))` } : undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined} tabIndex={onRowClick ? 0 : undefined}
                   onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined} aria-selected={on || undefined}>
                   {selectable && <td className="v-td v-td--check v-td--sticky" onClick={(e) => e.stopPropagation()}><Checkbox checked={!!on} onChange={() => toggleRow(k)} aria-label="Select row" /></td>}
@@ -141,6 +146,7 @@ export const tableStyles = `
   .v-td--sticky { position: sticky; left: 0; z-index: 1; }
   .v-th.v-td--sticky { z-index: 3; }
   .v-tr:last-child .v-td { border-bottom: 0; }
+  .v-tr--enter { animation: v-enter var(--v-dur-enter) var(--v-ease-out) both; }
   .v-tr--click { cursor: pointer; }
   .v-tr--click:hover .v-td { background: var(--v-surface-2); }
   .v-tr:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }

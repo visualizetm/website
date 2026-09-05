@@ -1,3 +1,4 @@
+import { SkeletonBlock } from './Skeleton';
 /**
  * Section: a titled block with consistent spacing.
  * @param {object} props
@@ -5,14 +6,15 @@
  * @param {import('react').ReactNode} [props.description]
  * @param {import('react').ReactNode} [props.action] right-side slot (button, link)
  * @param {number} [props.gap=3] gap between header and body
+ * @param {boolean} [props.loading] keeps the description line as a skeleton so the header never shifts when the summary lands
  */
-export default function Section({ title, description, action, gap = 3, className = '', children, ...rest }) {
+export default function Section({ title, description, action, gap = 3, loading = false, className = '', children, ...rest }) {
   return (
     <section className={`v-section ${className}`.trim()} style={{ gap: `var(--v-space-${gap})` }} {...rest}>
       <header className="v-section-head">
         <div className="v-section-text">
           <h2 className="v-section-title">{title}</h2>
-          {description && <p className="v-section-desc">{description}</p>}
+          {loading ? <p className="v-section-desc"><SkeletonBlock width={180} height={14} style={{ margin: '2px 0' }} /></p> : description && <p className="v-section-desc">{description}</p>}
         </div>
         {action && <div className="v-section-action">{action}</div>}
       </header>

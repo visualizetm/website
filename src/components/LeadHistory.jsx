@@ -1,4 +1,5 @@
 import { ListRow, IconTile, Pill, EmptyState } from '../ui';
+import { COPY } from '../shared/copy';
 import { CALL_STATUSES, CONTACT_TYPES } from '../shared/semantics';
 import {fmtDateTime, toMs } from '../shared/dates';
 
@@ -14,7 +15,7 @@ export default function LeadHistory({ lead, limit }) {
     ...(lead.callLog || []).map(e => ({ kind: 'call', at: e.at, outcome: e.outcome, note: [e.meeting && `Meeting: ${e.meeting}`, e.email && `Email: ${e.email}`, e.note].filter(Boolean).join('. ') })),
     ...(lead.contactLog || []).map(e => ({ kind: 'contact', at: e.at, type: e.type, note: e.note || '' })),
   ].sort((a, b) => toMs(b.at) - toMs(a.at)).slice(0, limit || undefined);
-  if (!rows.length) return <EmptyState size="sm" icon="Phone" title="No calls yet" description="The first outcome you log lands here." />;
+  if (!rows.length) return <EmptyState size="sm" icon="Phone" title={COPY.empty['leads.detail.history'].title} description={COPY.empty['leads.detail.history'].description} />;
   return (
     <div className="lh">
       {rows.map((r, i) => {

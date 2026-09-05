@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, ProgressBar, EmptyState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, ProgressBar, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadCard from '../components/LeadCard';
 import LeadDetail from '../components/LeadDetail';
@@ -45,12 +46,15 @@ function MeetingLine({ lead }) {
   );
 }
 
-export default function AdminBooked({ leads, submissions = [], loading, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
+export default function AdminBooked({ leads, submissions = [], loading, error, onRetry, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
   const shell = useShell();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery('(min-width: 1280px)');
   const [selId, setSelId] = useState(null);
   const [filter, setFilter] = useState('all');
-  const showSkel = useDelayedLoading(loading && !leads.length);
+  const showSkel = useDelayedLoading(loading);
+  const pending = loading && !showSkel;
   const now = Date.now();
   const booked = useMemo(() => leads.filter(l => effectiveStage(l) === 'booked').sort((a, b) => { const da = meetingDate(a); const db = meetingDate(b); if (da && db) return da - db; if (da) return -1; if (db) return 1; return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0); }), [leads]);
   const counts = useMemo(() => Object.fromEntries(FILTERS.map(([id]) => [id, booked.filter(l => passes(l, id, now)).length])), [booked, now]);
@@ -64,6 +68,17 @@ export default function AdminBooked({ leads, submissions = [], loading, onPatch,
   const cards = (compact) => (
     <Stagger className="bk-stack">{list.map(l => <div key={l._id} className="bk-item"><LeadCard lead={l} compact onOpen={() => pick(l._id)} selected={sel?._id === l._id} />{!compact && <MeetingLine lead={l} />}</div>)}</Stagger>
   );
+
+  const pendingOpen = !!openId?.id && loading && !sel;
+  if (pendingOpen) {
+    return (
+      <>
+        <aside className={`aa-panel bk-panel${desktop ? '' : ' bk-panel--rail'}`}><ScrollArea bare className="bk-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
+        <main className="aa-main bk-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <style>{bkStyles}</style>
+      </>
+    );
+  }
 
   if (sel) {
     return (
@@ -82,15 +97,17 @@ export default function AdminBooked({ leads, submissions = [], loading, onPatch,
   return (
     <PageShell className="aa-main aa-main--wide bk-shell">
       <ScrollArea wide className="bk-page">
-        <Section title="Booked" description={showSkel ? undefined : `${booked.length} booked, ${counts.week} this week`}>
+        <Section title="Booked" loading={loading} description={loading ? undefined : `${booked.length} booked, ${counts.week} this week`}>
           <Row gap={2} wrap className="bk-chips">{FILTERS.map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
         </Section>
-        {showSkel ? (
-          <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} padding={0}><LeadCard.Skeleton compact /><div className="bk-line"><SkeletonBlock width={160} height={14} /></div></Card>)}</Stack>
+        {pending ? null : showSkel ? (
+          <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <div key={i} className="bk-item"><LeadCard.Skeleton compact /><div className="bk-line"><Row gap={2}><SkeletonBlock width={64} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={120} height={14} /></Row></div></div>)}</Stack>
+        ) : error && !leads.length ? (
+          <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
         ) : !booked.length ? (
-          <Card><EmptyState icon="CalendarCheck01" title="No booked leads yet" description="Book one from the Call Console. A booked outcome lands it here for meeting prep." action={{ label: 'Open Call Console', icon: PhoneOutgoing01, onClick: () => (shell ? shell.go('calls') : onGo?.('calls')) }} /></Card>
+          <Card><EmptyState icon="CalendarCheck01" title={E('booked.none').title} description={E('booked.none').description} action={{ label: E('booked.none').action, icon: PhoneOutgoing01, onClick: () => (shell ? shell.go('calls') : onGo?.('calls')) }} /></Card>
         ) : !list.length ? (
-          <Card><EmptyState size="sm" icon="SearchMd" title="Nothing in this filter" action={{ label: 'Show all', onClick: () => setFilter('all') }} /></Card>
+          <Card><EmptyState size="sm" icon="SearchMd" title={E('booked.filter').title} description={E('booked.filter').description} action={{ label: E('booked.filter').action, onClick: () => setFilter('all') }} /></Card>
         ) : cards(false)}
       </ScrollArea>
       <style>{bkStyles}</style>

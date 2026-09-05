@@ -3,8 +3,9 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, ProgressBar, Table, Sheet, EmptyState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, ProgressBar, Table, Sheet, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
+import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import ClientCard, { clientLine } from '../components/ClientCard';
 import LeadDetail from '../components/LeadDetail';
@@ -23,11 +24,13 @@ import { isClientLead, isOnRetainer, lifetimeValue, CLIENT_FILTERS, clientPasses
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
 
 export default function AdminClients({
-  leads, submissions = [], loading, projects = [], onCreateProject, onPatchProject, onRefreshProjects,
+  leads, submissions = [], loading, error, onRetry, projects = [], onCreateProject, onPatchProject, onRefreshProjects,
   onPatch, onCreate, onDelete, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
 }) {
   const shell = useShell();
   const toast = useToast();
+  const [retry, retrying] = useRetry(onRetry);
+  const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery('(min-width: 1024px)');
   const wide = useMediaQuery('(min-width: 1280px)');
   const [selId, setSelId] = useState(null);
@@ -35,6 +38,7 @@ export default function AdminClients({
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');
   const showSkel = useDelayedLoading(loading); // projects load after leads, and the counts need both
+  const pending = loading && !showSkel;
   const now = Date.now();
 
   const clients = useMemo(() => leads.filter(isClientLead).sort((a, b) => new Date(b.clientSince || b.bookedOutcome?.at || b.updatedAt || 0) - new Date(a.clientSince || a.bookedOutcome?.at || a.updatedAt || 0)), [leads]);
@@ -54,13 +58,24 @@ export default function AdminClients({
 
   const addClient = async (f) => {
     const ok = await onCreate({ ...defaultLead(f), stage: 'client', clientSince: new Date().toISOString(), clientStatus: 'active' });
-    if (ok) { toast.success(`${f.business} added as a client.`); setCreating(false); } else toast.error('Could not add the client.');
+    if (ok) { toast.success(`${f.business} added as a client.`); setCreating(false); } else toast.error(COPY.error.create);
   };
   const addSheet = creating && (
     <Sheet open onClose={() => setCreating(false)} title="Add client" description="For walk ins that never went through the pipeline." tall width={640}>
       <LeadForm creating onSave={addClient} onCancel={() => setCreating(false)} />
     </Sheet>
   );
+
+  const pendingOpen = !!openId?.id && loading && !sel;
+  if (pendingOpen) {
+    return (
+      <>
+        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`}><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
+        <main className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <style>{clStyles}</style>
+      </>
+    );
+  }
 
   if (sel) {
     return (
@@ -69,7 +84,7 @@ export default function AdminClients({
           <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} compact onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
         </aside>
         <main className="aa-main cl-main">
-          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { await onDelete(id); back(); } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} client={clientProps} />
+          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} client={clientProps} />
         </main>
         {addSheet}
         <style>{clStyles}</style>
@@ -91,25 +106,27 @@ export default function AdminClients({
   return (
     <PageShell className="aa-main aa-main--wide cl-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Clients" description={showSkel ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cl-add">Add client</Button>}>
+        <Section title="Clients" loading={loading} description={loading ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cl-add">Add client</Button>}>
           <Stack gap={2}>
             <Input className="cl-search" placeholder="Search clients" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search clients"
               trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
             <Row gap={2} wrap className="cl-chips">{CLIENT_FILTERS.map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
           </Stack>
         </Section>
-        {showSkel ? (
+        {pending ? null : showSkel ? (
           desktop ? <Table.Skeleton rows={5} cols={7} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <ClientCard.Skeleton key={i} />)}</Stack>
+        ) : error && !leads.length ? (
+          <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
         ) : !clients.length ? (
-          <Card><EmptyState icon="Briefcase01" title="No clients yet" description="Win a booked meeting, or add a walk in with the button above." action={{ label: 'Open Booked', onClick: () => (shell ? shell.go('booked') : onGo?.('booked')) }} /></Card>
+          <Card><EmptyState icon="Briefcase01" title={E('clients.none').title} description={E('clients.none').description} action={{ label: E('clients.none').action, onClick: () => (shell ? shell.go('booked') : onGo?.('booked')) }} /></Card>
         ) : !list.length ? (
-          <Card><EmptyState size="sm" icon="SearchMd" title="Nothing in this filter" action={{ label: 'Show all', onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
+          <Card><EmptyState size="sm" icon="SearchMd" title={E('clients.filter').title} description={E('clients.filter').description} action={{ label: E('clients.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
         ) : desktop ? (
           <Table aria-label="Clients" columns={columns} rows={rows} onRowClick={(r) => pick(r._id)} storageKey="vz_clients_cols" density="md" className="cl-table" />
         ) : (
           <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} />)}</Stagger>
         )}
-        {showSkel ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
+        {loading ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
       </ScrollArea>
       {addSheet}
       <style>{clStyles}</style>
