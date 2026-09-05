@@ -147,6 +147,7 @@ for (const width of WIDTHS) {
       const bad = []; const seen = new Set();
       for (const el of document.querySelectorAll('.sh-content *, .v-sheet *')) {
         if (!el.childNodes.length || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        if (el.classList.contains('v-sr-only')) continue; // visually hidden text for assistive tech is clipped on purpose
         const cs = getComputedStyle(el);
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
         if (el.scrollHeight > el.clientHeight + 4 && cs.overflowY === 'hidden' && cs.textOverflow !== 'ellipsis' && !el.classList.contains('lay-truncate') && el.clientHeight > 0) {

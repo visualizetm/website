@@ -53,9 +53,22 @@ minor 88.
 - The actions column header carries visually hidden text (`.v-sr-only`); every skeleton (Card, ListRow, StatCard, LeadCard, Table, RecordSkeleton, the detail and room skeletons) is `aria-busy` and `aria-hidden`; a scroller whose only child is busy stops scrolling; the client stepper and the contrast tables are focusable regions.
 - ListRow forwards `aria-expanded`, `aria-haspopup`, and `aria-controls` to its open button (axe: aria-allowed-attr).
 
-### Final (build TBD_BUILD, TBD_A11Y_ROWS rows, both themes, 390 and 1280, loaded and loading)
+### Final (build the v3.0.0 release commit, 266 rows, both themes, 390 and 1280, loaded and loading)
 
-TBD_A11Y_TABLE
+| Rule | Impact | Nodes | Rows |
+|---|---|---|---|
+| (none) | | 0 | 0 |
+
+Rows: 266 (35 states, loaded and loading, dark and light, 390 and 1280).
+Violations by impact (nodes): critical 0, serious 0, moderate 0, minor 0.
+`AUDIT_THEME=both AUDIT_SKELETON=1 node scripts/a11y-audit.mjs` exits 0.
+The two findings that survived the first clean-up round (the selected chip
+count at 4.27 on the brand red, and the order detail's stage stepper as an
+unfocusable scroller) were fixed the same day: the count sits on the pressed
+red (5.11) and the stepper is a focusable region like the client's. The
+Lighthouse accessibility category, which runs axe's experimental
+label-content-name-mismatch rule as well, is 100 on all six runs after the
+funnel cards dropped an aria-label that reordered their visible text.
 
 ## 2. Keyboard, screen reader, touch, zoom, and text spacing
 
@@ -63,7 +76,7 @@ TBD_A11Y_TABLE
 (up to 40 stops) and checks that each stop draws a visible ring (the kit's
 `--v-border-focus` outline, on the element or on a card through `:has()`),
 has an accessible name, and sits in the viewport or in the open dialog, then
-exercises the patterns by key. Final run: TBD_KB. Findings fixed on the way:
+exercises the patterns by key. Final run: 63 screen states walked at 390 and 1280, 0 gaps: every stop had a visible ring and a name; Tabs, SegmentedControl, Sheet (trap, Escape, focus return), Menu (Enter, Escape, focus return), Table row Enter, kanban Shift+Arrow, and the command bar all pass. One real bug fell out of it: Escape on a card menu did not return focus, because the focus trap re-armed on every render of the Menu (its onEscape was a new function each time) and reset the restore target to the focused menu item; useFocusTrap now captures the restore target once and reads the handler through a ref, and Popover arms the trap only once its box is placed. Findings fixed on the way:
 the kanban had no keyboard path to change a status (now Shift+ArrowLeft and
 Shift+ArrowRight on a focused card step it one column, and the card menu
 still lists every status); the stretched open button pattern gave every card
@@ -102,7 +115,7 @@ week, and month scrolling sideways on the narrowest widths), calendar event
 blocks (28 tall, the hour is now 88px so a 30 minute block is 44), the
 import buttons and the CSV file input, the client stepper, the collapsed
 block header button, the saved view icon buttons (32 wide), the design
-page's demo Clear button. Final layout audit: TBD_LAYOUT_SUMMARY.
+page's demo Clear button. Final layout audit: 750 checks clean at 320, 390, 430, 768, and 1280 in each of the four combinations (dark and light, Reduce motion off and on), zero overflow and zero targets under 44px.
 
 **Zoom and text spacing.** `AUDIT_ONLY=a11y` in the layout audit reproduces
 200 percent browser zoom (a viewport of half the CSS pixels at twice the
@@ -111,7 +124,7 @@ and applies the WCAG 1.4.12 overrides (line height 1.5, letter spacing
 0.12em, word spacing 0.16em, paragraph spacing 2em) at the normal zoom. Below
 320 CSS pixels (a 390 phone at 200 percent is 195) WCAG allows a wide
 document, so there only clipped or overlapping text fails. Result:
-TBD_ZOOM. Reduce motion is covered by the layout and feel audits in both
+all 12 checks clean (three screens, two widths, zoom and text spacing); the one false positive on the way was the visually hidden Actions header text, which the clip check now exempts. Reduce motion is covered by the layout and feel audits in both
 motion states (section 9).
 
 ## 3. Lighthouse
@@ -138,20 +151,49 @@ Performance 57 to 60 with an 8 second LCP.
 Accessibility below 100 on every screen: color-contrast (the badge and the
 tab bar) and label-content-name-mismatch (the old lead card's aria-label).
 
-### After (build TBD_BUILD, the admin host headers including the CSP applied)
+### After (build the v3.0.0 release commit, the admin host headers including the CSP applied)
 
-TBD_LH_AFTER
+| Screen | Theme | Performance | Accessibility | Best Practices | PWA | FCP | LCP | TBT | CLS | Transfer |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Dashboard | dark | 85 | 100 | 100 | 100 | 1.7 s | 4.0 s | 160 ms | 0.001 | 277 KB |
+| Leads | dark | 84 | 100 | 100 | 100 | 2.2 s | 4.0 s | 110 ms | 0.001 | 276 KB |
+| Call room | dark | 87 | 100 | 100 | 100 | 2.0 s | 3.7 s | 100 ms | 0 | 279 KB |
+| Dashboard | light | 84 | 100 | 100 | 100 | 1.7 s | 4.0 s | 180 ms | 0.001 | 277 KB |
+| Leads | light | 84 | 100 | 100 | 100 | 2.2 s | 4.0 s | 90 ms | 0.001 | 276 KB |
+| Call room | light | 88 | 100 | 100 | 100 | 1.9 s | 3.7 s | 100 ms | 0.002 | 279 KB |
+
+Accessibility, Best Practices, and PWA are 100 on every run. Performance
+sits at 84 to 88, under the 90 target, and here is why. The observed
+(unthrottled) largest paint is the same before and after, 1149 versus
+1110 ms; the simulated score on the mobile preset (slow 4G, four times CPU
+slowdown) is a model of the request chain and the main thread work, and a
+React admin that renders from JSON after the bundle executes has a floor
+around a 3.7 to 4.0 second simulated LCP: HTML, then 110 KB of gzipped
+entry, then the session and list calls, then the render, each hop costing
+the modeled round trip. Three rounds of measurement moved it from 76 to 85:
+the admin shell folded into the entry so the first bundle is one request,
+the session check and the five list GETs start with the entry
+(`warm` in src/shared/api.js) instead of after the shell mounts, the body
+font is `font-display: optional` and only the display weight is preloaded,
+tiny shared icon chunks merged into their importers, and the service worker
+registers after first paint with a five file precache so its install no
+longer competes with the app on a slow link. The one honest baseline caveat:
+the before run served no fonts at all (Google Fonts was blocked in the
+sandbox) while the after run downloads the real ones. First paint improved
+from 2.4 s to 1.7 s because the render blocking font stylesheet is gone.
+Going past 90 would take rendering the Dashboard on the server or shipping
+a smaller framework, both out of scope for this prompt.
 
 ## 4. Bundle and chunks
 
-| | Before (0134191) | After (TBD_BUILD) |
+| | Before (0134191) | After (the v3.0.0 release commit) |
 |---|---|---|
 | Entry JS on the admin | index 1,120.9 KB (302.3 KB gzip): every admin screen and every marketing page in one chunk | index 363.7 KB (101.2 KB gzip: React, the router, the kit, shared logic) plus AdminApp 120.3 KB (36.5 KB gzip: the shell and the Dashboard) |
 | Screen chunks | none | AdminLeads 32.8 KB, AdminCalls 81.1 KB, AdminBooked 7.8 KB, AdminClients 9.9 KB, AdminCalendar 23.2 KB, AdminOrders 22.9 KB, AdminConcepts 17.2 KB, AdminReviews 12.6 KB, AdminSubmissions 14.1 KB, AdminSettings 46.7 KB, AdminDesign 46.4 KB; LeadDetail 70.1 KB shared by Leads, Booked, Clients; LeadImport 14.3 KB; the marketing pages are chunks too (Home 42.3 KB, Navbar 12.7 KB, ...) and never load on the admin host |
 | xlsx | 429.5 KB, lazy on import | 419.5 KB, unchanged, lazy on import |
 | CSS | 10.4 KB | 13.7 KB (the self hosted font faces) |
 | Fonts | Google Fonts, two origins, every subset the CSS listed | ten latin woff2 files in /fonts (Inter 400 to 900 at 83 KB each, Barlow Condensed 500 to 800 at 14 KB each); the admin preloads Barlow Condensed 700 and Inter 700, the marketing site Barlow Condensed 700 and 800 |
-| Cold Dashboard transfer (Lighthouse total byte weight, mobile) | 319 KB | TBD_TRANSFER |
+| Cold Dashboard transfer (Lighthouse total byte weight, mobile) | 319 KB | 277 KB, of which about 55 KB is the Leads and Call Console prefetch that lands on idle and 30 KB the fonts |
 
 Leads and the Call Console are prefetched on idle after the first paint; the
 boot frame is byte for byte the same markup (`src/shell/bootFrame.js`), and
@@ -178,9 +220,9 @@ loaded row (blocks 200px and wider match in width too).
 
 | State | Before (Prompt 14 final) | After |
 |---|---|---|
-| Dashboard at 1280 | off 632px at row 4 of 6 (the Today card drew 3 rows, the fixture has 7) | TBD_FIT_DASH |
-| Lead detail header at 1280 | off 140px at row 3 of 4, 4 vs 7 rows | TBD_FIT_LEAD |
-| Call room header at 1280 | off 761px at row 4 of 11, 13 vs 11 rows | TBD_FIT_ROOM |
+| Dashboard at 1280 | off 632px at row 4 of 6 (the Today card drew 3 rows, the fixture has 7) | ok (6 rows) in all four theme and motion combinations, also ok (3 rows) at 390 |
+| Lead detail header at 1280 | off 140px at row 3 of 4, 4 vs 7 rows | ok (7 rows); the client detail at 1280 is ok (7 rows) too; the booked detail stays off at its last row (7 vs 8 rows: its meeting section is one card more than the lead and client shape) |
+| Call room header at 1280 | off 761px at row 4 of 11, 13 vs 11 rows | off 761px at row 5 of 12: the header now matches the real header's minimum (314px at 1280 for a normal name), but the fixture's first lead carries an 80 character name that wraps to three lines and pushes every row below it; at 390 the same lead gives off 162px at row 2 |
 
 What changed: the Today card's row count follows the last known count, which
 the loaded render writes to `vz_dash_today` and the skeleton reads (a zero
@@ -232,18 +274,55 @@ docs/QA-CHECKLIST.md is the daily walk, 32 steps from opening the app to
 signing back in, each with its expected result. `scripts/regression.mjs`
 runs it against the fixtures at 390 and 1280.
 
-TBD_REGRESSION
+| # | Step | 390 | 1280 |
+|---|---|---|---|
+| 1 to 32 | every step of the daily walk | ok | ok |
 
-Every script on the final build (TBD_BUILD):
+Steps: 64. Failures: 0. Exit 0. Notes the walk records: the greeting names
+Rob, 12 stat cards and the Today card render, the builder starts a five lead
+session, the queue opens on the phone and the room on the desktop, No answer,
+Callback, Wrong number, and Booked each close their sheet and move the
+position, Said no on the last lead ends the session with the undo toast and
+the summary, the booked list holds four, the detail opens, two pricing
+options land, Won converts to a client ("Lead Business 8 is a client"), the
+client's tabs render, a project, a payment ("$75 recorded."), a retainer, and
+a delivery log go through, an order and a pack are created with their
+toasts, "Ask logged." on a review, the calendar and the drawer open (13
+items), Light and Dark and Reduce motion round trip, sign out shows the login
+card, and sign in lands back on the Dashboard in dark.
 
-TBD_SCRIPTS
+Every script on the final build (the v3.0.0 release commit):
+
+| Script | Result |
+|---|---|
+| `npm run build` | clean; vercel.json pinned to the pre-paint script hash |
+| `TZ=America/New_York node scripts/dates-test.mjs` | all date cases pass |
+| `node scripts/hex-count.js` | 139 (limit 145; Prompt 14 was 145) |
+| `node scripts/css-orphans.mjs` | 0 orphans of 881 classes in 135 files |
+| `node scripts/layout-audit.mjs` (dark, normal) | 750 clean, 0 failures |
+| `AUDIT_THEME=light node scripts/layout-audit.mjs` | 750 clean, 0 failures |
+| `AUDIT_MOTION=reduce node scripts/layout-audit.mjs` | 750 clean, 0 failures |
+| `AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs` | 750 clean, 0 failures |
+| `AUDIT_ONLY=a11y AUDIT_WIDTHS=390,1280 node scripts/layout-audit.mjs` | 12 clean (200 percent zoom and text spacing on Dashboard, Leads, call room) |
+| `AUDIT_THEME=both AUDIT_MOTION=both node scripts/feel-audit.mjs` | 280 rows; skeleton, entrance, empty, error, and layout shift clean on every row; 158 fit rows still data driven (section 11), down from 166 |
+| `AUDIT_THEME=both AUDIT_SKELETON=1 node scripts/a11y-audit.mjs` | 266 rows, 0 violations at every impact |
+| `node scripts/keyboard-audit.mjs` | 63 states walked, 0 gaps; every pattern check passes |
+| `node scripts/regression.mjs` | 64 steps, 0 failures |
+| `node scripts/render-profile.mjs` | kanban 400 leads first render script 249 ms (was 529), long tasks 133 and 161 ms (was 227 and 344); filter toggle 69 ms (was 87); a card move by keyboard 30 ms (no keyboard path before); search 65 ms (was 75); month with 60 events first render 95 ms (was 96), next month 16 ms (was 17), filter 5 ms (was 6) |
+| `node scripts/lighthouse.mjs` | section 3 |
+
+The layout audits at motion normal ran on the build two commits before the
+release (the changes since were the focus trap, the dashboard's funnel
+label, the warm requests, the chunk rule, and the worker's registration
+timing, none of which draw anything); the a11y, keyboard, regression, feel,
+zoom, reduced motion, render, and Lighthouse runs are on the release build.
 
 ## 10. Hex count and css orphans
 
 | Check | Prompt 14 | 3.0.0 |
 |---|---|---|
 | `node scripts/hex-count.js` | 145 | 139 |
-| `node scripts/css-orphans.mjs` | 0 orphans of 861 classes | 0 orphans of TBD_CLASSES classes |
+| `node scripts/css-orphans.mjs` | 0 orphans of 861 classes | 0 orphans of 881 classes |
 
 The light chart palette added six literals and the chart label one; they
 were paid for by folding duplicates into references (`--v-border-focus`,
@@ -253,7 +332,15 @@ marketing brand variables.
 
 ## 11. Deferred, with reasons
 
-TBD_DEFERRED
+- Fit rows that follow the data (158 of 252 measured rows, listed with their numbers in the feel audit output): a long name wraps a header, a second card grows with a concepts bar or a long label, the call room and queue with the fixture's 80 character lead, the calendar day list with overdue data, the Settings tabs whose card heights follow the health document, the notifications drawer, the design page. The three states this prompt targeted are done except the call room with that one long name and the booked detail's extra meeting card; the shapes are right for the usual data and the numbers are in the feel audit for anyone who wants to tighten more with `AUDIT_BOXES=1`.
+- Lighthouse Performance above 90 on the mobile preset: needs server rendering of the Dashboard or a smaller framework (section 3). Every other category is 100.
+- Inter, the body face, is `font-display: optional`: a cold first visit on a slow link paints in the system font; every visit after that has Inter from the browser cache and the worker. The trade was a repaint-free first load; the display face still swaps in from its preload.
+- The lantern simulation still charges the entry-then-data chain even with the warm requests; a route-level data preload in the HTML (a script tag with the first lists) would remove one hop but ties the document to the API and the session, so it stays out.
+- axe's experimental rules beyond the WCAG and best-practice tags are not in the gate; Lighthouse runs one of them (label-content-name-mismatch) and it passes.
+- The keyboard walk covers 40 stops per state; screens with more controls than that (the full lead detail, the client detail's deliverables) are walked to their fortieth stop, all of which had rings and names, and the pattern checks cover the interactions beyond that.
+- The a11y audit's contrast rule checks rendered text, not the design page's contrast table numbers; the table still documents the computed values in docs/TOKENS.md.
+- The service worker's offline reading is verified by hand (docs/QA-CHECKLIST.md, the Airplane mode step); the Playwright audits block the worker by design and Lighthouse only scores its presence. Offline writes stay refused, not queued (Prompt 14 decision).
+- Sign out everywhere (a session generation number) remains a known issue from docs/ARCHITECTURE.md; rotating SESSION_SECRET is the runbook's answer.
 
 ## 12. Release
 

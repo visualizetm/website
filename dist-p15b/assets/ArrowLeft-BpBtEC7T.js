@@ -1,1 +1,0 @@
-import{j as r,_ as o}from"./index-B9Tcr1Fm.js";var s=function(t){return r.jsx("svg",o({xmlns:"http://www.w3.org/2000/svg",width:24,height:24,fill:"none",viewBox:"0 0 24 24"},t,{children:r.jsx("path",{stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round",strokeWidth:2,d:"M19 12H5m0 0 7 7m-7-7 7-7"})}))};export{s as A};

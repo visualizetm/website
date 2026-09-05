@@ -108,7 +108,7 @@ TZ=America/New_York node scripts/dates-test.mjs
 OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry
 ```
 
-Every audit context blocks the service worker (Playwright `serviceWorkers: 'block'`); otherwise the worker answers the mocked requests itself. Lighthouse runs against the mock server over real HTTP, so the worker is live there.
+Every audit context blocks the service worker (Playwright `serviceWorkers: 'block'`); otherwise the worker answers the mocked requests itself. Lighthouse runs against the mock server over real HTTP, so the worker is live there. Restart the mock server after every build: it reads vercel.json (the CSP hash) once at start, and a stale hash blocks the pre-paint script.
 
 ## Errors
 

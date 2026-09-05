@@ -18,7 +18,12 @@ export const isOffline = () => typeof navigator !== 'undefined' && navigator.onL
 
 const emit = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch { /* no window */ } };
 
+const warmStore = new Map();
+/** Start a GET now and hand it to the first apiFetch for the same URL (see src/shared/warm.js). */
+export function warm(urls) { for (const url of urls) if (!warmStore.has(url)) warmStore.set(url, apiFetch(url, { silent: true })); }
+
 export async function apiFetch(url, { method = 'GET', body, headers, silent = false } = {}) {
+  if (method === 'GET' && warmStore.has(url)) { const p = warmStore.get(url); warmStore.delete(url); return p; }
   if (method !== 'GET' && isOffline()) {
     // Prompt 14: offline writes are blocked, not queued (see reports/PROMPT-14-REPORT.md section 10).
     emit('vz:offline-write', { url, method });

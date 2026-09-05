@@ -4,6 +4,8 @@
  * Caches (all versioned; anything not in VERSION is deleted on activate):
  *   shell-v*   the navigation shell (index.html), the hashed /assets, /fonts,
  *              the icons and the manifest: cache first, filled as they load
+ *              (the precache is tiny on purpose; the worker registers after
+ *              first paint and never competes with the app's own requests)
  *   api-v*     the last successful GET of call-leads, projects, orders,
  *              concept-packs, and settings: network first, cache when the
  *              network fails, so the admin opens and reads offline
@@ -12,7 +14,7 @@
 const VERSION = 'v3.0.0';
 const SHELL = `shell-${VERSION}`;
 const API = `api-${VERSION}`;
-const PRECACHE = ['/', '/manifest.webmanifest', '/logo.svg', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/badge-96.png', '/fonts/barlow-condensed-700.woff2', '/fonts/inter-400.woff2', '/fonts/inter-700.woff2'];
+const PRECACHE = ['/', '/manifest.webmanifest', '/logo.svg', '/icons/icon-192.png', '/icons/badge-96.png']; // the rest of the shell, the fonts, and the chunks fill in as the app requests them
 const API_CACHED = ['/api/admin/call-leads', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-packs', '/api/admin/settings'];
 
 self.addEventListener('install', (event) => {

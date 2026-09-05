@@ -10,7 +10,7 @@ docs/RUNBOOK.md.
 | Layer | What it is |
 |---|---|
 | Framework | React 18, function components and hooks, no TypeScript |
-| Build | Vite 6 with @vitejs/plugin-react; `__BUILD_SHA__` from VERCEL_GIT_COMMIT_SHA; the boot frame and the CSP hash are injected by two plugins in vite.config.js; one lazy chunk per admin screen and per marketing page, Leads and the Call Console prefetched after first paint, xlsx behind its own import |
+| Build | Vite 6 with @vitejs/plugin-react; `__BUILD_SHA__` from VERCEL_GIT_COMMIT_SHA; the boot frame and the CSP hash are injected by two plugins in vite.config.js; one lazy chunk per admin screen and per marketing page (chunks under 20KB fold into their importer, so the entry carries the shell and the Dashboard), Leads and the Call Console prefetched after first paint, xlsx behind its own import; main.jsx starts the session check and the five list GETs with the entry on the admin host (`warm` in src/shared/api.js) |
 | Routing | react-router-dom 6 for the marketing site; AdminApp switches sections on `location.pathname`; App.jsx branches on host first and loads only that host's chunks |
 | Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules; src/fonts.css declares the self hosted latin subsets in public/fonts (scripts/fetch-fonts.mjs) |
 | State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |

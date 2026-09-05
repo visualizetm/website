@@ -249,7 +249,7 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
   const strip = (
     <div className="db-funnel" role="group" aria-label="Pipeline">
       {funnel.map((f, i) => (
-        <Card key={f.id} level={1} padding={3} interactive glow={f.tone} onClick={f.go} className="db-step" aria-label={`${f.label}: ${f.n}`}>
+        <Card key={f.id} level={1} padding={3} interactive glow={f.tone} onClick={f.go} className="db-step">
           {i > 0 && f.pct && <span className="db-step-pct" title="Conversion from the previous step">{f.pct}</span>}
           <span className="db-step-n">{f.n}</span>
           <span className="db-step-label">{f.label}</span>

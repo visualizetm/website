@@ -28,7 +28,7 @@ for (const f of FAMILIES) {
     const file = `${f.slug}-${weight}.woff2`;
     const buf = Buffer.from(await (await fetch(src, { headers: { 'User-Agent': UA } })).arrayBuffer());
     writeFileSync(`public/fonts/${file}`, buf);
-    css += `@font-face { font-family: '${f.family}'; font-style: normal; font-weight: ${weight}; font-display: swap; src: url('/fonts/${file}') format('woff2'); unicode-range: ${range}; }\n`;
+    css += `@font-face { font-family: '${f.family}'; font-style: normal; font-weight: ${weight}; font-display: ${f.family === 'Inter' ? 'optional' : 'swap'}; src: url('/fonts/${file}') format('woff2'); unicode-range: ${range}; }\n`;
     console.log(`  ${file}  ${(buf.length / 1024).toFixed(1)} KB`);
   }
 }

@@ -362,8 +362,8 @@ LeadDetail.Skeleton = function LeadDetailSkeleton() {
   // The section column at its usual shape: the sticky subnav, the first section label, then the Overview card and four section cards.
   const sections = (
     <Stack gap={2} className="v-recskel" aria-busy="true" aria-hidden="true">
-      <div className="v-tabs v-recskel-tabs">{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>
-      <SkeletonBlock width={120} height={33} />
+      <div className="v-tabs v-recskel-tabs" style={{ minHeight: 49 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>
+      <div className="v-section-head" style={{ marginTop: 8, minHeight: 20 }}><SkeletonBlock width={120} height={16} /></div>
       {[292, 106, 106, 110, 162].map((h, i) => <Card key={i} style={{ height: h, boxSizing: 'border-box', overflow: 'hidden' }}><SkeletonBlock width={120} height={12} /><SkeletonText lines={i === 0 ? 3 : 1} /></Card>)}
     </Stack>
   );

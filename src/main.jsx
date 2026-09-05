@@ -3,6 +3,8 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import ShellCrash from './shell/ShellCrash';
+import { warm } from './shared/api';
+import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 import './fonts.css';
 import './index.css';
 
@@ -131,6 +133,13 @@ function Maintenance({ onUnlock }) {
   );
 }
 
+// Admin data starts downloading with the entry, not after the shell chunk (Prompt 15): the session
+// check always, the five lists and settings when this device was signed in last time (vz_boot).
+if (IS_ADMIN_HOST || (IS_DEV_HOST && window.location.pathname.startsWith('/admin'))) {
+  let hinted = false; try { hinted = localStorage.getItem('vz_boot') === '1'; } catch { /* private mode */ }
+  warm(['/api/admin/session', ...(hinted ? ['/api/admin/call-leads', '/api/admin/submissions', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-packs', '/api/admin/settings'] : [])]);
+}
+
 const maintenanceMode     = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
 const maintenancePassword = import.meta.env.VITE_MAINTENANCE_PASSWORD || 'preview2025';
 
@@ -167,8 +176,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 );
 
 // PWA: the service worker handles web push, notification deep links, and the offline shell (public/sw.js).
+// Registered once the first paint is behind us and the browser is idle (Prompt 15): installing the
+// worker on load made its precache compete with the app's own requests on a slow connection.
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ });
+    const go = () => navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ });
+    if ('requestIdleCallback' in window) window.requestIdleCallback(() => setTimeout(go, 2500), { timeout: 8000 }); else setTimeout(go, 4000);
   });
 }

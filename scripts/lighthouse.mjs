@@ -7,6 +7,7 @@
  *   DIST=dist PORT=4350 node scripts/mock-server.mjs &
  *   LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs
  *   LH_OUT=/tmp/lh node scripts/lighthouse.mjs      # also saves one HTML report per run
+ *   LH_ONLY=dashboard LH_THEME=dark LH_BLOCK_FONTS=1 node scripts/lighthouse.mjs   # one screen, no font downloads (diagnostic)
  */
 import puppeteer from 'puppeteer-core';
 import { startFlow } from 'lighthouse';
@@ -17,6 +18,8 @@ const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linu
 const BASE = process.env.LH_BASE || 'http://127.0.0.1:4350';
 const OUT = process.env.LH_OUT || '';
 const THEMES = process.env.LH_THEME ? [process.env.LH_THEME] : ['dark', 'light'];
+const ONLY = process.env.LH_ONLY || ''; // one target id (dashboard, leads, room)
+const BLOCK_FONTS = !!process.env.LH_BLOCK_FONTS; // diagnostic: measure without the self hosted fonts
 const TARGETS = [
   { id: 'dashboard', label: 'Dashboard', path: '/admin' },
   { id: 'leads', label: 'Leads', path: '/admin/leads', ls: { vz_leads_view: JSON.stringify('list') } },
@@ -26,12 +29,12 @@ if (OUT) mkdirSync(OUT, { recursive: true });
 
 const browser = await puppeteer.launch({ executablePath: EXE, headless: 'new', args: ['--no-sandbox', '--disable-gpu'] });
 const results = [];
-for (const theme of THEMES) for (const t of TARGETS) {
+for (const theme of THEMES) for (const t of TARGETS.filter(t => !ONLY || t.id === ONLY)) {
   const page = await browser.newPage();
   await page.evaluateOnNewDocument((theme, ls) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, theme, t.ls || {});
   const flow = await startFlow(page, {
     name: `${t.label} ${theme}`,
-    config: { extends: 'lighthouse:default', settings: { formFactor: 'mobile', onlyCategories: ['performance', 'accessibility', 'best-practices', 'pwa'], blockedUrlPatterns: ['*fonts.googleapis.com*', '*fonts.gstatic.com*'], skipAudits: ['uses-http2'] } },
+    config: { extends: 'lighthouse:default', settings: { formFactor: 'mobile', onlyCategories: ['performance', 'accessibility', 'best-practices', 'pwa'], blockedUrlPatterns: ['*fonts.googleapis.com*', '*fonts.gstatic.com*', ...(BLOCK_FONTS ? ['*/fonts/*'] : [])], skipAudits: ['uses-http2'] } },
   });
   await flow.navigate(`${BASE}${t.path}`);
   const result = await flow.createFlowResult();
