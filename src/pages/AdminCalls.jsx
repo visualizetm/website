@@ -466,10 +466,10 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     onDataChanged?.();
     setPulse(outcome); setTimeout(() => setPulse(null), durationMs('--v-dur-slow') + 80);
     let removed = false;
-    if (outcome === 'no') { removed = true; removeFromLists(lead._id); fetch(`/api/admin/call-leads?id=${encodeURIComponent(lead._id)}`, { method: 'DELETE' }).catch(() => {}); }
+    if (outcome === 'no') { removed = true; removeFromLists(lead._id); apiFetch(`/api/admin/call-leads?id=${encodeURIComponent(lead._id)}`, { method: 'DELETE' }); }
     const label = OUTCOMES.find(o => o.id === outcome)?.label || outcome;
     toast.undo(`${label}: ${lead.business}`, async () => {
-      if (removed) { await fetch('/api/admin/call-leads', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restore', ids: [lead._id] }) }).catch(() => {}); }
+      if (removed) { await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids: [lead._id] } }); }
       const back = await patch(lead._id, { callStatus: prev.callStatus, callLog: prev.callLog, stage: prev.stage, callbackAt: prev.callbackAt, phoneNote: prev.phoneNote, ...(prev.meeting ? { meeting: prev.meeting } : {}), ...(prev.afterCall ? { afterCall: prev.afterCall } : {}) });
       if (!back) { toast.error('Undo failed. Fix it on the lead.'); return; }
       await load(); onDataChanged?.();

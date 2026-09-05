@@ -52,7 +52,7 @@ function usePush() {
       if (!key) { setState('error'); return; }
       const reg = await navigator.serviceWorker.ready;
       const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-      const res = await fetch('/api/admin/push-subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: subscription.toJSON() }) });
+      const res = await apiFetch('/api/admin/push-subscribe', { method: 'POST', body: { subscription: subscription.toJSON() } });
       setState(res.ok ? 'subscribed' : 'error');
     } catch { setState('error'); }
   }, []);

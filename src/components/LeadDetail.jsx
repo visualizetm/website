@@ -298,7 +298,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const history = (
     <section {...sec('history')}>
       <Section title="History"><Card><LeadHistory lead={lead} /></Card>
-        <Card><p className="pb-card-h">Their site submissions</p><LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission} /></Card>
+        <Card><p className="pb-card-h">Their site submissions</p><LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission ? async (...a) => { const ok = await onLinkSubmission(...a); if (ok === false) toast.error(COPY.error.save); return ok; } : undefined} /></Card>
       </Section>
     </section>
   );

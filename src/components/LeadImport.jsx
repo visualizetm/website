@@ -1,4 +1,5 @@
 import { Sheet } from '../ui';
+import { apiFetch } from '../shared/api';
 import { useState, useCallback } from 'react';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
@@ -84,12 +85,9 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
       for (const [field, idx] of Object.entries(mapping)) if (idx >= 0 && headers[idx]) remember[field] = headers[idx];
       try { localStorage.setItem(REMEMBER_KEY, JSON.stringify(remember)); } catch { /* private mode */ }
 
-      const res = await fetch('/api/admin/leads/import', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: mapped }),
-      });
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
-      setResult(await res.json());
+      const r = await apiFetch('/api/admin/leads/import', { method: 'POST', body: { rows: mapped } });
+      if (!r.ok) throw new Error(r.offline ? 'you are offline' : (r.data?.error || `HTTP ${r.status}`));
+      setResult(r.data);
       setStep('result');
       onImported?.();
     } catch (e) {
