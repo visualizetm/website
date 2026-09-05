@@ -1,6 +1,6 @@
 /* One-off: copy the Visualize database from one MongoDB account to another.
  *
- * Never hardcode connection strings — they come from the environment, so
+ * Never hardcode connection strings, they come from the environment, so
  * nothing sensitive can end up committed:
  *
  *   OLD_MONGODB_URI="mongodb+srv://…/visualize" \
@@ -51,7 +51,7 @@ try {
   const src = oldClient.db(dbNameOf(OLD));
   const dst = newClient.db(dbNameOf(NEW));
   console.log(`\nsource: ${src.databaseName}   target: ${dst.databaseName}`);
-  console.log(DRY ? '\nDRY RUN — nothing will be written.\n' : '\nCopying…\n');
+  console.log(DRY ? '\nDRY RUN, nothing will be written.\n' : '\nCopying…\n');
 
   const summary = [];
   for (const name of COLLECTIONS) {
@@ -97,7 +97,7 @@ try {
       console.log(`  ${ok ? 'OK  ' : 'FAIL'} ${name.padEnd(20)} source ${total} → target ${after}`);
     }
     if (bad) {
-      console.error(`\n${bad} collection(s) short. Re-run — it is safe and will fill the gaps.`);
+      console.error(`\n${bad} collection(s) short. Re-run, it is safe and will fill the gaps.`);
       process.exitCode = 1;
     } else {
       console.log('\nAll collections copied. Now swap MONGODB_URI in Vercel and redeploy.');
@@ -106,7 +106,7 @@ try {
   }
 } catch (err) {
   console.error('\nMigration failed:', err.message);
-  console.error('Nothing is half-written that a re-run will not fix — the copy is idempotent.');
+  console.error('Nothing is half-written that a re-run will not fix, the copy is idempotent.');
   process.exitCode = 1;
 } finally {
   await oldClient.close().catch(() => {});

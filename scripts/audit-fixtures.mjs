@@ -126,7 +126,7 @@ export const leads = Array.from({ length: 14 }, (_, i) => ({
   sourceId: i > 9 ? 'gm:' + i : undefined,
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
-  angle: 'Their reviews carry them but the site is a dead link — show them what they lose. '.repeat(3),
+  angle: 'Their reviews carry them but the site is a dead link, show them what they lose. '.repeat(3),
   notes: i === 1 ? 'WARNING do not mention the old owner ' + UNBROKEN : 'Friendly front desk.',
   socials: { instagram: 'https://instagram.com/x', website: 'https://example.com' },
   beforeYouDial: ['Open socials'], objections: [{ say: 'How much?', respond: 'Concepts first.' }],

@@ -1,4 +1,4 @@
-/* Layout regression audit — walks every admin route at phone/tablet/desktop
+/* Layout regression audit, walks every admin route at phone/tablet/desktop
  * widths and fails if ANY element extends past the viewport or the page can
  * scroll sideways. Run it after touching admin layout:
  *
@@ -635,4 +635,4 @@ if (failures) {
   console.log(`\n${failures} failing view(s). Fix before shipping.`);
   process.exit(1);
 }
-console.log('\nAll routes clean at every width — zero offenders.');
+console.log('\nAll routes clean at every width, zero offenders.');
