@@ -40,11 +40,505 @@ belong to their list. Boot rows check for the frame instead.
 
 ### Baseline (build 9c35b12, before any change)
 
-FEEL_BASELINE
+
+**Boot and login**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| boot, signed in hint | 390 | no | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 390 | no | n/a | no login frame | n/a | n/a | n/a |
+| login form | 390 | n/a | n/a | no | n/a | n/a | 0 |
+| boot, signed in hint | 1280 | no | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 1280 | no | n/a | no login frame | n/a | n/a | n/a |
+| login form | 1280 | n/a | n/a | no | n/a | n/a | 0 |
+
+**Dashboard**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| dashboard | 390 | yes (79) | off 474px at block 7 of 7, 9 vs 7 | yes (1) | yes | no | 0.001 |
+| dashboard | 1280 | yes (81) | off 632px at block 3 of 17, 19 vs 17 | yes (2) | yes | no | 0 |
+
+**Leads**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list, cards or table | 390 | no | n/a | yes (1) | yes | no | 0.011 |
+| lead detail | 390 | no region | n/a | yes (1) | n/a | n/a | 0.011 |
+| list, kanban | 1280 | no | n/a | yes (4) | yes | no | 0 |
+| list, cards or table | 1280 | no | n/a | no | yes | no | 0 |
+| lead detail | 1280 | no region | n/a | no region | n/a | n/a | 0 |
+
+**Call Console**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| builder | 390 | yes (23) | off 295px at block 16 of 19, 23 vs 19 | yes (1) | yes | no | 0.001 |
+| queue | 390 | no | n/a | yes (1) | n/a | n/a | 0.002 |
+| room | 390 | no | n/a | no | n/a | n/a | 0.002 |
+| summary | 390 | no | n/a | no | n/a | n/a | 0.001 |
+| builder | 1280 | yes (23) | off 810px at block 13 of 23, 23 vs 24 | yes (1) | yes | no | 0 |
+| queue | 1280 | no | n/a | yes (1) | n/a | n/a | 0.001 |
+| room | 1280 | no | n/a | yes (1) | n/a | n/a | 0 |
+| summary | 1280 | no | n/a | no | n/a | n/a | 0 |
+
+**Booked**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list | 390 | no | n/a | yes (1) | yes | no | 0.01 |
+| detail | 390 | no region | n/a | yes (1) | n/a | n/a | 0.01 |
+| list | 1280 | no | n/a | yes (1) | yes | no | 0.002 |
+| detail | 1280 | no region | n/a | yes (1) | n/a | n/a | 0.002 |
+
+**Calendar**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| day | 390 | no | n/a | yes (1) | yes | no | 0.001 |
+| week | 390 | no | n/a | no | no | no | 0.001 |
+| month | 390 | no | n/a | no | no | no | 0.001 |
+| day | 1280 | no | n/a | yes (1) | yes | no | 0 |
+| week | 1280 | no | n/a | no | no | no | 0 |
+| month | 1280 | no | n/a | no | no | no | 0 |
+
+**Clients**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list | 390 | yes (44) | off 248px at block 11 of 11, 20 vs 11 | yes (1) | yes | no | 0.007 |
+| client detail | 390 | no region | n/a | yes (1) | n/a | n/a | 0.005 |
+| list | 1280 | yes (42) | ok (10 blocks) | no | yes | no | 0 |
+| client detail | 1280 | no region | n/a | yes (1) | n/a | n/a | 0 |
+
+**Print Orders**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list | 390 | yes (18) | off 62px at block 14 of 14 | yes (1) | yes | no | 0.009 |
+| order detail (panel or sheet) | 390 | no region | n/a | no | n/a | n/a | 0.009 |
+| list | 1280 | yes (48) | ok (12 blocks) | no | yes | no | 0 |
+| order detail (panel or sheet) | 1280 | no region | n/a | no | n/a | n/a | 0 |
+
+**Concepts**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| grid | 390 | yes (12) | off 253px at block 8 of 8 | yes (1) | yes | no | 0.01 |
+| pack detail (panel or sheet) | 390 | no region | n/a | no | n/a | n/a | 0.042 |
+| grid | 1280 | yes (12) | off 190px at block 8 of 8 | yes (1) | yes | no | 0.004 |
+| pack detail (panel or sheet) | 1280 | no region | n/a | no | n/a | n/a | 0.004 |
+
+**Reviews**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list | 390 | yes (12) | off 42px at block 11 of 11 | yes (1) | yes | no | 0.016 |
+| review sheet | 390 | no region | n/a | no | n/a | n/a | 0.016 |
+| list | 1280 | yes (12) | off 22px at block 2 of 11, 11 vs 13 | yes (1) | yes | no | 0.005 |
+| review sheet | 1280 | no region | n/a | no | n/a | n/a | 0.005 |
+
+**Submissions**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| list | 390 | yes (20) | off 78px at block 13 of 13 | yes (1) | yes | no | 0.016 |
+| submission detail (panel or sheet) | 390 | no region | n/a | no | n/a | n/a | 0.016 |
+| list | 1280 | yes (42) | off 22px at block 2 of 10 | no | yes | no | 0.005 |
+| submission detail (panel or sheet) | 1280 | no region | n/a | no | n/a | n/a | 0.005 |
+
+**Settings**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| Profile tab | 390 | yes (12) | off 22px at block 2 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Notifications tab | 390 | yes (12) | off 226px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+| Integrations tab | 390 | yes (12) | off 36px at block 5 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Data tab | 390 | yes (12) | off 266px at block 4 of 4, 5 vs 4 | yes (1) | n/a | no | 0.001 |
+| Automation tab | 390 | yes (12) | off 238px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+| Shortcuts tab | 390 | yes (12) | off 154px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+| Danger zone tab | 390 | yes (12) | off 96px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+| Profile tab | 1280 | yes (12) | off 48px at block 5 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Notifications tab | 1280 | yes (12) | off 178px at block 5 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Integrations tab | 1280 | yes (12) | off 78px at block 5 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Data tab | 1280 | yes (12) | off 248px at block 4 of 4, 5 vs 4 | yes (1) | n/a | no | 0.001 |
+| Automation tab | 1280 | yes (12) | off 34px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+| Shortcuts tab | 1280 | yes (12) | off 54px at block 5 of 5, 5 vs 6 | yes (1) | n/a | no | 0.001 |
+| Danger zone tab | 1280 | yes (12) | off 24px at block 5 of 5 | yes (1) | n/a | no | 0.001 |
+
+**Design system**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| design page | 390 | yes (22) | no blocks | yes (3) | n/a | n/a | 0.001 |
+| design page | 1280 | yes (22) | no blocks | yes (3) | n/a | n/a | 0.05 |
+
+**Shell**
+
+| State | Width | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|
+| notifications drawer | 390 | no | n/a | no | no | no | 0.011 |
+| More sheet | 390 | n/a | n/a | no | n/a | n/a | 0.004 |
+| notifications drawer | 1280 | no | n/a | no | no | no | 0 |
+
+Baseline rows: 70. Gaps: 137 (skeleton 37, entrance 25, error 41, fit 28, empty 6).
+
 
 ### Final (build aed691e, both themes, Reduce motion off and on)
 
-FEEL_FINAL
+
+**Boot and login**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| boot, signed in hint | 390 | dark | normal | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 390 | dark | normal | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 390 | dark | normal | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 1280 | dark | normal | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 1280 | dark | normal | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 1280 | dark | normal | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 390 | dark | reduce | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 390 | dark | reduce | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 390 | dark | reduce | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 1280 | dark | reduce | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 1280 | dark | reduce | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 1280 | dark | reduce | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 390 | light | normal | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 390 | light | normal | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 390 | light | normal | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 1280 | light | normal | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 1280 | light | normal | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 1280 | light | normal | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 390 | light | reduce | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 390 | light | reduce | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 390 | light | reduce | n/a | n/a | yes (1) | n/a | n/a | 0 |
+| boot, signed in hint | 1280 | light | reduce | yes (67 blocks) | n/a | n/a | n/a | n/a | n/a |
+| boot, no hint | 1280 | light | reduce | yes (67 blocks) | n/a | login frame | n/a | n/a | n/a |
+| login form | 1280 | light | reduce | n/a | n/a | yes (1) | n/a | n/a | 0 |
+
+**Dashboard**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| dashboard | 390 | dark | normal | yes (80) | ok (3 rows) | yes (1) | yes | yes | 0.001 |
+| dashboard | 1280 | dark | normal | yes (83) | off 632px at row 4 of 6 | yes (2) | yes | yes | 0 |
+| dashboard | 390 | dark | reduce | yes (80) | ok (3 rows) | yes (1) | yes | yes | 0.001 |
+| dashboard | 1280 | dark | reduce | yes (83) | off 632px at row 4 of 6 | yes (2) | yes | yes | 0 |
+| dashboard | 390 | light | normal | yes (80) | ok (3 rows) | yes (1) | yes | yes | 0.001 |
+| dashboard | 1280 | light | normal | yes (83) | off 632px at row 4 of 6 | yes (2) | yes | yes | 0 |
+| dashboard | 390 | light | reduce | yes (80) | ok (3 rows) | yes (1) | yes | yes | 0.001 |
+| dashboard | 1280 | light | reduce | yes (83) | off 632px at row 4 of 6 | yes (2) | yes | yes | 0 |
+
+**Leads**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list, cards or table | 390 | dark | normal | yes (46) | off 28px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| lead detail | 390 | dark | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.002 |
+| list, kanban | 1280 | dark | normal | yes (129) | ok (8 rows) | yes (9) | yes | yes | 0 |
+| list, cards or table | 1280 | dark | normal | yes (92) | ok (8 rows) | yes (6) | yes | yes | 0 |
+| lead detail | 1280 | dark | normal | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0.001 |
+| list, cards or table | 390 | dark | reduce | yes (46) | off 28px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| lead detail | 390 | dark | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.002 |
+| list, kanban | 1280 | dark | reduce | yes (129) | ok (8 rows) | yes (9) | yes | yes | 0 |
+| list, cards or table | 1280 | dark | reduce | yes (92) | ok (8 rows) | yes (6) | yes | yes | 0 |
+| lead detail | 1280 | dark | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0.001 |
+| list, cards or table | 390 | light | normal | yes (46) | off 28px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| lead detail | 390 | light | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.002 |
+| list, kanban | 1280 | light | normal | yes (129) | ok (8 rows) | yes (9) | yes | yes | 0 |
+| list, cards or table | 1280 | light | normal | yes (92) | ok (8 rows) | yes (6) | yes | yes | 0 |
+| lead detail | 1280 | light | normal | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0.001 |
+| list, cards or table | 390 | light | reduce | yes (46) | off 28px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| lead detail | 390 | light | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.002 |
+| list, kanban | 1280 | light | reduce | yes (129) | ok (8 rows) | yes (9) | yes | yes | 0 |
+| list, cards or table | 1280 | light | reduce | yes (92) | ok (8 rows) | yes (6) | yes | yes | 0 |
+| lead detail | 1280 | light | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0.001 |
+
+**Call Console**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| builder | 390 | dark | normal | yes (25) | off 44px at row 13 of 13 | yes (1) | yes | yes | 0.001 |
+| queue | 390 | dark | normal | yes (37) | off 58px at row 4 of 7 | yes (1) | n/a | n/a | 0.002 |
+| room | 390 | dark | normal | yes (33) | off 148px at row 2 of 5, 6 vs 5 rows | yes (1) | n/a | n/a | 0.002 |
+| summary | 390 | dark | normal | yes (17) | off 44px at row 2 of 2 | yes (1) | n/a | n/a | 0.001 |
+| builder | 1280 | dark | normal | yes (23) | ok (12 rows) | yes (1) | yes | yes | 0 |
+| queue | 1280 | dark | normal | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0.001 |
+| room | 1280 | dark | normal | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0 |
+| summary | 1280 | dark | normal | yes (17) | off 94px at row 2 of 2 | yes (1) | n/a | n/a | 0 |
+| builder | 390 | dark | reduce | yes (25) | off 44px at row 13 of 13 | yes (1) | yes | yes | 0.001 |
+| queue | 390 | dark | reduce | yes (37) | off 58px at row 4 of 7 | yes (1) | n/a | n/a | 0.002 |
+| room | 390 | dark | reduce | yes (33) | off 148px at row 2 of 5, 6 vs 5 rows | yes (1) | n/a | n/a | 0.002 |
+| summary | 390 | dark | reduce | yes (17) | off 44px at row 2 of 2 | yes (1) | n/a | n/a | 0.001 |
+| builder | 1280 | dark | reduce | yes (23) | ok (12 rows) | yes (1) | yes | yes | 0 |
+| queue | 1280 | dark | reduce | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0 |
+| room | 1280 | dark | reduce | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0 |
+| summary | 1280 | dark | reduce | yes (17) | off 94px at row 2 of 2 | yes (1) | n/a | n/a | 0 |
+| builder | 390 | light | normal | yes (25) | off 44px at row 13 of 13 | yes (1) | yes | yes | 0.001 |
+| queue | 390 | light | normal | yes (37) | off 58px at row 4 of 7 | yes (1) | n/a | n/a | 0.002 |
+| room | 390 | light | normal | yes (33) | off 148px at row 2 of 5, 6 vs 5 rows | yes (1) | n/a | n/a | 0.002 |
+| summary | 390 | light | normal | yes (17) | off 44px at row 2 of 2 | yes (1) | n/a | n/a | 0.001 |
+| builder | 1280 | light | normal | yes (23) | ok (12 rows) | yes (1) | yes | yes | 0 |
+| queue | 1280 | light | normal | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0.001 |
+| room | 1280 | light | normal | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0 |
+| summary | 1280 | light | normal | yes (17) | off 94px at row 2 of 2 | yes (1) | n/a | n/a | 0 |
+| builder | 390 | light | reduce | yes (25) | off 44px at row 13 of 13 | yes (1) | yes | yes | 0.001 |
+| queue | 390 | light | reduce | yes (37) | off 58px at row 4 of 7 | yes (1) | n/a | n/a | 0.002 |
+| room | 390 | light | reduce | yes (33) | off 148px at row 2 of 5, 6 vs 5 rows | yes (1) | n/a | n/a | 0.002 |
+| summary | 390 | light | reduce | yes (17) | off 44px at row 2 of 2 | yes (1) | n/a | n/a | 0.001 |
+| builder | 1280 | light | reduce | yes (23) | ok (12 rows) | yes (1) | yes | yes | 0 |
+| queue | 1280 | light | reduce | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0.001 |
+| room | 1280 | light | reduce | yes (70) | off 761px at row 4 of 11, 13 vs 11 rows | yes (2) | n/a | n/a | 0 |
+| summary | 1280 | light | reduce | yes (17) | off 94px at row 2 of 2 | yes (1) | n/a | n/a | 0 |
+
+**Booked**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list | 390 | dark | normal | yes (37) | off 26px at row 7 of 8 | yes (1) | yes | yes | 0.001 |
+| detail | 390 | dark | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | normal | yes (37) | ok (6 rows) | yes (1) | yes | yes | 0 |
+| detail | 1280 | dark | normal | yes (48) | off 140px at row 3 of 4, 4 vs 8 rows | yes (1) | n/a | n/a | 0 |
+| list | 390 | dark | reduce | yes (37) | off 26px at row 7 of 8 | yes (1) | yes | yes | 0.001 |
+| detail | 390 | dark | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | reduce | yes (37) | ok (6 rows) | yes (1) | yes | yes | 0 |
+| detail | 1280 | dark | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 8 rows | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | normal | yes (37) | off 26px at row 7 of 8 | yes (1) | yes | yes | 0.001 |
+| detail | 390 | light | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | normal | yes (37) | ok (6 rows) | yes (1) | yes | yes | 0 |
+| detail | 1280 | light | normal | yes (48) | off 140px at row 3 of 4, 4 vs 8 rows | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | reduce | yes (37) | off 26px at row 7 of 8 | yes (1) | yes | yes | 0.001 |
+| detail | 390 | light | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | reduce | yes (37) | ok (6 rows) | yes (1) | yes | yes | 0 |
+| detail | 1280 | light | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 8 rows | yes (1) | n/a | n/a | 0 |
+
+**Calendar**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| day | 390 | dark | normal | yes (13) | off 148px at row 7 of 7, 7 vs 9 rows | yes (2) | yes | yes | 0.001 |
+| week | 390 | dark | normal | yes (37) | off 22px at row 2 of 4 | yes (6) | yes | yes | 0.001 |
+| month | 390 | dark | normal | yes (57) | off 22px at row 2 of 4 | yes (42) | yes | yes | 0.001 |
+| day | 1280 | dark | normal | yes (13) | off 148px at row 6 of 6, 6 vs 8 rows | yes (2) | yes | yes | 0 |
+| week | 1280 | dark | normal | yes (37) | off 6px at row 2 of 3 | yes (6) | yes | yes | 0.001 |
+| month | 1280 | dark | normal | yes (57) | off 6px at row 2 of 3 | yes (42) | yes | yes | 0.001 |
+| day | 390 | dark | reduce | yes (13) | off 148px at row 7 of 7, 7 vs 9 rows | yes (2) | yes | yes | 0.004 |
+| week | 390 | dark | reduce | yes (37) | off 22px at row 2 of 4 | yes (6) | yes | yes | 0.001 |
+| month | 390 | dark | reduce | yes (57) | off 22px at row 2 of 4 | yes (42) | yes | yes | 0.004 |
+| day | 1280 | dark | reduce | yes (13) | off 148px at row 6 of 6, 6 vs 8 rows | yes (2) | yes | yes | 0.003 |
+| week | 1280 | dark | reduce | yes (37) | off 6px at row 2 of 3 | yes (6) | yes | yes | 0 |
+| month | 1280 | dark | reduce | yes (57) | off 6px at row 2 of 3 | yes (42) | yes | yes | 0 |
+| day | 390 | light | normal | yes (13) | off 148px at row 7 of 7, 7 vs 9 rows | yes (2) | yes | yes | 0.001 |
+| week | 390 | light | normal | yes (37) | off 22px at row 2 of 4 | yes (6) | yes | yes | 0.001 |
+| month | 390 | light | normal | yes (57) | off 22px at row 2 of 4 | yes (42) | yes | yes | 0.001 |
+| day | 1280 | light | normal | yes (13) | off 148px at row 6 of 6, 6 vs 8 rows | yes (2) | yes | yes | 0 |
+| week | 1280 | light | normal | yes (37) | off 6px at row 2 of 3 | yes (6) | yes | yes | 0 |
+| month | 1280 | light | normal | yes (57) | off 6px at row 2 of 3 | yes (42) | yes | yes | 0 |
+| day | 390 | light | reduce | yes (13) | off 148px at row 7 of 7, 7 vs 9 rows | yes (2) | yes | yes | 0.004 |
+| week | 390 | light | reduce | yes (37) | off 22px at row 2 of 4 | yes (6) | yes | yes | 0.001 |
+| month | 390 | light | reduce | yes (57) | off 22px at row 2 of 4 | yes (42) | yes | yes | 0.001 |
+| day | 1280 | light | reduce | yes (13) | off 148px at row 6 of 6, 6 vs 8 rows | yes (2) | yes | yes | 0.003 |
+| week | 1280 | light | reduce | yes (37) | off 6px at row 2 of 3 | yes (6) | yes | yes | 0 |
+| month | 1280 | light | reduce | yes (57) | off 6px at row 2 of 3 | yes (42) | yes | yes | 0 |
+
+**Clients**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list | 390 | dark | normal | yes (45) | off 31px at row 8 of 8, 9 vs 8 rows | yes (1) | yes | yes | 0.001 |
+| client detail | 390 | dark | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | normal | yes (43) | ok (5 rows) | yes (4) | yes | yes | 0 |
+| client detail | 1280 | dark | normal | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0 |
+| list | 390 | dark | reduce | yes (45) | off 31px at row 8 of 8, 9 vs 8 rows | yes (1) | yes | yes | 0.001 |
+| client detail | 390 | dark | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | reduce | yes (43) | ok (5 rows) | yes (4) | yes | yes | 0 |
+| client detail | 1280 | dark | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | normal | yes (45) | off 31px at row 8 of 8, 9 vs 8 rows | yes (1) | yes | yes | 0.005 |
+| client detail | 390 | light | normal | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | normal | yes (43) | ok (5 rows) | yes (4) | yes | yes | 0 |
+| client detail | 1280 | light | normal | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0.001 |
+| list | 390 | light | reduce | yes (45) | off 31px at row 8 of 8, 9 vs 8 rows | yes (1) | yes | yes | 0.001 |
+| client detail | 390 | light | reduce | yes (48) | ok (1 rows) | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | reduce | yes (43) | ok (5 rows) | yes (4) | yes | yes | 0 |
+| client detail | 1280 | light | reduce | yes (48) | off 140px at row 3 of 4, 4 vs 7 rows | yes (1) | n/a | n/a | 0 |
+
+**Print Orders**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list | 390 | dark | normal | yes (19) | off 62px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| order detail (panel or sheet) | 390 | dark | normal | yes (23) | off 128px at row 2 of 3 | yes (1) | n/a | n/a | 0.087 |
+| list | 1280 | dark | normal | yes (49) | ok (5 rows) | yes (3) | yes | yes | 0 |
+| order detail (panel or sheet) | 1280 | dark | normal | yes (21) | off 44px at row 2 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | dark | reduce | yes (19) | off 62px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| order detail (panel or sheet) | 390 | dark | reduce | yes (23) | off 128px at row 2 of 3 | yes (1) | n/a | n/a | 0.087 |
+| list | 1280 | dark | reduce | yes (49) | ok (5 rows) | yes (3) | yes | yes | 0 |
+| order detail (panel or sheet) | 1280 | dark | reduce | yes (21) | off 44px at row 2 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | normal | yes (19) | off 62px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| order detail (panel or sheet) | 390 | light | normal | yes (23) | off 128px at row 2 of 3 | yes (1) | n/a | n/a | 0.087 |
+| list | 1280 | light | normal | yes (49) | ok (5 rows) | yes (3) | yes | yes | 0 |
+| order detail (panel or sheet) | 1280 | light | normal | yes (21) | off 44px at row 2 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | reduce | yes (19) | off 62px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| order detail (panel or sheet) | 390 | light | reduce | yes (23) | off 128px at row 2 of 3 | yes (1) | n/a | n/a | 0.087 |
+| list | 1280 | light | reduce | yes (49) | ok (5 rows) | yes (3) | yes | yes | 0 |
+| order detail (panel or sheet) | 1280 | light | reduce | yes (21) | off 44px at row 2 of 3 | yes (1) | n/a | n/a | 0 |
+
+**Concepts**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| grid | 390 | dark | normal | yes (16) | off 253px at row 7 of 7 | yes (1) | yes | yes | 0.01 |
+| pack detail (panel or sheet) | 390 | dark | normal | yes (22) | off 146px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0.028 |
+| grid | 1280 | dark | normal | yes (16) | ok (5 rows) | yes (1) | yes | yes | 0.004 |
+| pack detail (panel or sheet) | 1280 | dark | normal | yes (21) | off 128px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0 |
+| grid | 390 | dark | reduce | yes (16) | off 253px at row 7 of 7 | yes (1) | yes | yes | 0.01 |
+| pack detail (panel or sheet) | 390 | dark | reduce | yes (22) | off 146px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0.028 |
+| grid | 1280 | dark | reduce | yes (16) | ok (5 rows) | yes (1) | yes | yes | 0.004 |
+| pack detail (panel or sheet) | 1280 | dark | reduce | yes (21) | off 128px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0 |
+| grid | 390 | light | normal | yes (16) | off 253px at row 7 of 7 | yes (1) | yes | yes | 0.01 |
+| pack detail (panel or sheet) | 390 | light | normal | yes (22) | off 146px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0.028 |
+| grid | 1280 | light | normal | yes (16) | ok (5 rows) | yes (1) | yes | yes | 0.004 |
+| pack detail (panel or sheet) | 1280 | light | normal | yes (21) | off 128px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0 |
+| grid | 390 | light | reduce | yes (16) | off 253px at row 7 of 7 | yes (1) | yes | yes | 0.01 |
+| pack detail (panel or sheet) | 390 | light | reduce | yes (22) | off 146px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0.028 |
+| grid | 1280 | light | reduce | yes (16) | ok (5 rows) | yes (1) | yes | yes | 0.004 |
+| pack detail (panel or sheet) | 1280 | light | reduce | yes (21) | off 128px at row 2 of 2, 4 vs 2 rows | yes (1) | n/a | n/a | 0 |
+
+**Reviews**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list | 390 | dark | normal | yes (13) | off 20px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| review sheet | 390 | dark | normal | yes (14) | off 35px at row 3 of 3 | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | normal | yes (13) | ok (5 rows) | yes (1) | yes | yes | 0 |
+| review sheet | 1280 | dark | normal | yes (14) | off 9px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | dark | reduce | yes (13) | off 20px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| review sheet | 390 | dark | reduce | yes (14) | off 35px at row 3 of 3 | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | dark | reduce | yes (13) | ok (5 rows) | yes (1) | yes | yes | 0 |
+| review sheet | 1280 | dark | reduce | yes (14) | off 9px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | normal | yes (13) | off 20px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| review sheet | 390 | light | normal | yes (14) | off 35px at row 3 of 3 | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | normal | yes (13) | ok (5 rows) | yes (1) | yes | yes | 0 |
+| review sheet | 1280 | light | normal | yes (14) | off 9px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | reduce | yes (13) | off 20px at row 9 of 9 | yes (1) | yes | yes | 0.001 |
+| review sheet | 390 | light | reduce | yes (14) | off 35px at row 3 of 3 | yes (1) | n/a | n/a | 0.001 |
+| list | 1280 | light | reduce | yes (13) | ok (5 rows) | yes (1) | yes | yes | 0 |
+| review sheet | 1280 | light | reduce | yes (14) | off 9px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+
+**Submissions**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| list | 390 | dark | normal | yes (21) | off 56px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| submission detail (panel or sheet) | 390 | dark | normal | yes (19) | off 120px at row 2 of 2, 3 vs 2 rows | yes (1) | n/a | n/a | 0.019 |
+| list | 1280 | dark | normal | yes (43) | ok (5 rows) | yes (13) | yes | yes | 0 |
+| submission detail (panel or sheet) | 1280 | dark | normal | yes (17) | off 344px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | dark | reduce | yes (21) | off 56px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| submission detail (panel or sheet) | 390 | dark | reduce | yes (19) | off 120px at row 2 of 2, 3 vs 2 rows | yes (1) | n/a | n/a | 0.019 |
+| list | 1280 | dark | reduce | yes (43) | ok (5 rows) | yes (13) | yes | yes | 0 |
+| submission detail (panel or sheet) | 1280 | dark | reduce | yes (17) | off 344px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | normal | yes (21) | off 56px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| submission detail (panel or sheet) | 390 | light | normal | yes (19) | off 120px at row 2 of 2, 3 vs 2 rows | yes (1) | n/a | n/a | 0.019 |
+| list | 1280 | light | normal | yes (43) | ok (5 rows) | yes (13) | yes | yes | 0 |
+| submission detail (panel or sheet) | 1280 | light | normal | yes (17) | off 344px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+| list | 390 | light | reduce | yes (21) | off 56px at row 10 of 10 | yes (1) | yes | yes | 0.001 |
+| submission detail (panel or sheet) | 390 | light | reduce | yes (19) | off 120px at row 2 of 2, 3 vs 2 rows | yes (1) | n/a | n/a | 0.011 |
+| list | 1280 | light | reduce | yes (43) | ok (5 rows) | yes (13) | yes | yes | 0 |
+| submission detail (panel or sheet) | 1280 | light | reduce | yes (17) | off 344px at row 3 of 3 | yes (1) | n/a | n/a | 0 |
+
+**Settings**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| Profile tab | 390 | dark | normal | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0.001 |
+| Notifications tab | 390 | dark | normal | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Integrations tab | 390 | dark | normal | yes (17) | off 60px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Data tab | 390 | dark | normal | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0.001 |
+| Automation tab | 390 | dark | normal | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Shortcuts tab | 390 | dark | normal | yes (21) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Danger zone tab | 390 | dark | normal | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Profile tab | 1280 | dark | normal | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0 |
+| Notifications tab | 1280 | dark | normal | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0 |
+| Integrations tab | 1280 | dark | normal | yes (17) | off 120px at row 6 of 6 | yes (1) | n/a | yes | 0 |
+| Data tab | 1280 | dark | normal | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0 |
+| Automation tab | 1280 | dark | normal | yes (13) | off 52px at row 5 of 5 | yes (1) | n/a | yes | 0 |
+| Shortcuts tab | 1280 | dark | normal | yes (21) | off 72px at row 5 of 6 | yes (1) | n/a | yes | 0 |
+| Danger zone tab | 1280 | dark | normal | yes (13) | off 6px at row 4 of 5 | yes (1) | n/a | yes | 0 |
+| Profile tab | 390 | dark | reduce | yes (30) | off 22px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Notifications tab | 390 | dark | reduce | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Integrations tab | 390 | dark | reduce | yes (17) | off 60px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Data tab | 390 | dark | reduce | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0.001 |
+| Automation tab | 390 | dark | reduce | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Shortcuts tab | 390 | dark | reduce | yes (21) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Danger zone tab | 390 | dark | reduce | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Profile tab | 1280 | dark | reduce | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0 |
+| Notifications tab | 1280 | dark | reduce | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0 |
+| Integrations tab | 1280 | dark | reduce | yes (17) | off 120px at row 6 of 6 | yes (1) | n/a | yes | 0 |
+| Data tab | 1280 | dark | reduce | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0 |
+| Automation tab | 1280 | dark | reduce | yes (13) | off 52px at row 5 of 5 | yes (1) | n/a | yes | 0 |
+| Shortcuts tab | 1280 | dark | reduce | yes (21) | off 72px at row 5 of 6 | yes (1) | n/a | yes | 0 |
+| Danger zone tab | 1280 | dark | reduce | yes (13) | off 6px at row 4 of 5 | yes (1) | n/a | yes | 0 |
+| Profile tab | 390 | light | normal | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0.001 |
+| Notifications tab | 390 | light | normal | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Integrations tab | 390 | light | normal | yes (17) | off 60px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Data tab | 390 | light | normal | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0.001 |
+| Automation tab | 390 | light | normal | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Shortcuts tab | 390 | light | normal | yes (21) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Danger zone tab | 390 | light | normal | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Profile tab | 1280 | light | normal | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0 |
+| Notifications tab | 1280 | light | normal | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0 |
+| Integrations tab | 1280 | light | normal | yes (17) | off 120px at row 6 of 6 | yes (1) | n/a | yes | 0 |
+| Data tab | 1280 | light | normal | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0 |
+| Automation tab | 1280 | light | normal | yes (13) | off 52px at row 5 of 5 | yes (1) | n/a | yes | 0 |
+| Shortcuts tab | 1280 | light | normal | yes (21) | off 72px at row 5 of 6 | yes (1) | n/a | yes | 0 |
+| Danger zone tab | 1280 | light | normal | yes (13) | off 6px at row 4 of 5 | yes (1) | n/a | yes | 0 |
+| Profile tab | 390 | light | reduce | yes (30) | off 22px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Notifications tab | 390 | light | reduce | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Integrations tab | 390 | light | reduce | yes (17) | off 60px at row 6 of 6 | yes (1) | n/a | yes | 0.001 |
+| Data tab | 390 | light | reduce | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0.001 |
+| Automation tab | 390 | light | reduce | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Shortcuts tab | 390 | light | reduce | yes (21) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Danger zone tab | 390 | light | reduce | yes (13) | ok (5 rows) | yes (1) | n/a | yes | 0.001 |
+| Profile tab | 1280 | light | reduce | yes (30) | ok (6 rows) | yes (1) | n/a | yes | 0 |
+| Notifications tab | 1280 | light | reduce | yes (17) | ok (5 rows) | yes (1) | n/a | yes | 0 |
+| Integrations tab | 1280 | light | reduce | yes (17) | off 120px at row 6 of 6 | yes (1) | n/a | yes | 0 |
+| Data tab | 1280 | light | reduce | yes (17) | ok (4 rows) | yes (5) | n/a | yes | 0 |
+| Automation tab | 1280 | light | reduce | yes (13) | off 52px at row 5 of 5 | yes (1) | n/a | yes | 0 |
+| Shortcuts tab | 1280 | light | reduce | yes (21) | off 72px at row 5 of 6 | yes (1) | n/a | yes | 0 |
+| Danger zone tab | 1280 | light | reduce | yes (13) | off 6px at row 4 of 5 | yes (1) | n/a | yes | 0 |
+
+**Design system**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| design page | 390 | dark | normal | yes (27) | off 121px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0.001 |
+| design page | 1280 | dark | normal | yes (27) | off 17px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0 |
+| design page | 390 | dark | reduce | yes (27) | off 121px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0.001 |
+| design page | 1280 | dark | reduce | yes (27) | off 17px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0 |
+| design page | 390 | light | normal | yes (27) | off 121px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0.001 |
+| design page | 1280 | light | normal | yes (27) | off 17px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0 |
+| design page | 390 | light | reduce | yes (27) | off 121px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0.001 |
+| design page | 1280 | light | reduce | yes (27) | off 17px at row 2 of 2, 3 vs 2 rows | yes (4) | n/a | n/a | 0 |
+
+**Shell**
+
+| State | Width | Theme | Motion | Skeleton | Fit | Entrance | Empty | Error | CLS |
+|---|---|---|---|---|---|---|---|---|---|
+| notifications drawer | 390 | dark | normal | yes (17) | off 148px at row 8 of 8, 8 vs 10 rows | yes (1) | yes | yes | 0.001 |
+| More sheet | 390 | dark | normal | n/a | n/a | yes (1) | n/a | n/a | 0.001 |
+| notifications drawer | 1280 | dark | normal | yes (17) | off 242px at row 8 of 8, 8 vs 12 rows | yes (1) | yes | yes | 0 |
+| notifications drawer | 390 | dark | reduce | yes (17) | off 148px at row 8 of 8, 8 vs 10 rows | yes (1) | yes | yes | 0.001 |
+| More sheet | 390 | dark | reduce | n/a | n/a | yes (1) | n/a | n/a | 0.001 |
+| notifications drawer | 1280 | dark | reduce | yes (17) | off 242px at row 8 of 8, 8 vs 12 rows | yes (1) | yes | yes | 0 |
+| notifications drawer | 390 | light | normal | yes (17) | off 148px at row 8 of 8, 8 vs 10 rows | yes (1) | yes | yes | 0.001 |
+| More sheet | 390 | light | normal | n/a | n/a | yes (1) | n/a | n/a | 0.001 |
+| notifications drawer | 1280 | light | normal | yes (17) | off 242px at row 8 of 8, 8 vs 12 rows | yes (1) | yes | yes | 0 |
+| notifications drawer | 390 | light | reduce | yes (17) | off 148px at row 8 of 8, 8 vs 10 rows | yes (1) | yes | yes | 0.001 |
+| More sheet | 390 | light | reduce | n/a | n/a | yes (1) | n/a | n/a | 0.001 |
+| notifications drawer | 1280 | light | reduce | yes (17) | off 242px at row 8 of 8, 8 vs 12 rows | yes (1) | yes | yes | 0 |
+
+Final rows: 280 (35 states, 390 and 1280, dark and light, Reduce motion off and on). Gaps: 166 (fit 166). Skeleton, entrance, empty, error, and layout shift are clean on every row; the remaining gaps are fit rows where the loaded height follows the data (section 11).
+
 
 ## 2. Files created, changed, deleted
 
@@ -239,7 +733,15 @@ Prompt 13 final tally (filled in commit 11c7363): 750 checks clean at 320,
 Prompt 14, every screen at 320, 390, 430, 768, and 1280 in both themes with
 Reduce motion off and on:
 
-LAYOUT_TABLE
+| Theme | Motion | Build | 320 | 390 | 430 | 768 | 1280 | Total | Failures | Exit |
+|---|---|---|---|---|---|---|---|---|---|---|
+| dark | off | aebaed3 | 146 | 146 | 146 | 156 | 156 | 750 | 0 | 0 |
+| light | off | aebaed3 | 146 | 146 | 146 | 156 | 156 | 750 | 0 | 0 |
+| dark | on | 1a82339 | 146 | 146 | 146 | 156 | 156 | 750 | 0 | 0 |
+| light | on | 1a82339 | 146 | 146 | 146 | 156 | 156 | 750 | 0 | 0 |
+
+Every row clean at every width in both themes with Reduce motion off and on.
+
 
 The first battery ran on aebaed3. Both Reduce motion runs failed the loaded
 Dashboard at 768 and 1280 (and the collapsed sidebar Dashboard): the document
