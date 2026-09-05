@@ -38,11 +38,11 @@ export default function NotificationsDrawer({ open, onClose, items, loading, err
     <Sheet open={open} onClose={onClose} title="Notifications" tall
       description={items.length ? `${unread} unread` : undefined}
       footer={items.length ? <Button variant="ghost" icon={CheckDone01} onClick={onMarkAllRead} disabled={!unread} className="sh-markall">Mark all read</Button> : undefined}>
+      {/* Leads failed to load: the error sits first, with whatever system items still built. */}
+      {error && !showSkel && <ErrorState title={COPY.error.notifications.title} description={COPY.error.notifications.description} onRetry={retry} retrying={retrying} />}
       {showSkel ? (
-        <div className="sh-notif-group" aria-busy="true"><p className="sh-side-label"><span className="v-skel" style={{ width: 64, height: 12 }} /></p><div className="sh-notif-list">{[1, 2, 3, 4].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</div></div>
-      ) : error && !items.length ? (
-        <ErrorState title={COPY.error.notifications.title} description={COPY.error.notifications.description} onRetry={retry} retrying={retrying} />
-      ) : !items.length ? (
+        <div className="sh-notif-groups" aria-busy="true">{[3, 2].map((n, g) => <div key={g} className="sh-notif-group"><p className="sh-side-label"><span className="v-skel" style={{ width: 64, height: 12 }} /></p><div className="sh-notif-list">{Array.from({ length: n }, (_, i) => <ListRow.Skeleton key={i} trailing={false} />)}</div></div>)}</div>
+      ) : error && !items.length ? null : !items.length ? (
         <EmptyState icon={PhoneCall01} title={E.title} description={E.description} action={{ label: E.action, icon: PhoneCall01, onClick: () => { onClose(); onGoCalls(); } }} />
       ) : <Stagger className="sh-notif-groups" cap={5}>{groups.map(g => (
         <div key={g.id} className="sh-notif-group">
