@@ -79,9 +79,12 @@ function fit(skel, loaded) {
 const url = (s, extra = '') => `${BASE}${s.path}${s.path.includes('?') ? '&' : '?'}${[s.open ? `open=${s.open}` : '', extra].filter(Boolean).join('&')}`.replace(/\?$/, '');
 
 async function settle(page, region, ms = 900) {
+  // Screens are lazy chunks (Prompt 15): the region appears once the chunk has rendered, then the skeleton leaves.
+  await page.waitForSelector(region, { timeout: 8000 }).catch(() => {});
   await page.waitForFunction((r) => { const el = document.querySelector(r); return !!el && !el.querySelector('.v-skel'); }, region, { timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(ms);
 }
+const waitRegion = (page, region) => page.waitForSelector(region, { timeout: 6000 }).catch(() => {});
 
 async function runState(ctx, s, width, theme, motion) {
   const region = typeof s.region === 'function' ? s.region(width) : (s.region || '.sh-content');
@@ -114,6 +117,7 @@ async function runState(ctx, s, width, theme, motion) {
     await mockRoutes(page, { delay: 0 });
     if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
     await goto(url(s, 'loading=1'));
+    await waitRegion(page, region);
     await page.waitForTimeout(700);
     if (s.act && !s.open) await s.act(page, width);
     if (s.act && !s.open) await page.waitForTimeout(500);
@@ -128,7 +132,7 @@ async function runState(ctx, s, width, theme, motion) {
   if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
   await page.evaluate(() => { window.__cls = 0; });
   await goto(url(s));
-  if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width); }
+  if (s.act) { await page.waitForSelector('.sh-content .v-card, .sh-content .lc, .sh-content .v-lrow, .sh-content .v-tr, .sh-content .v-empty, .sh-content .v-error', { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width); }
   await settle(page, region);
   const entrance = await count(page, region, ENTRANCE);
   const cls = await page.evaluate(() => Math.round((window.__cls || 0) * 1000) / 1000);
@@ -180,6 +184,7 @@ async function runStateWithFit(ctx, s, width, theme, motion) {
     const goto = (u) => page.goto(u, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
     if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
     await goto(url(s, 'loading=1'));
+    await waitRegion(page, region);
     await page.waitForTimeout(700);
     if (s.act && !s.open) { await s.act(page, width); await page.waitForTimeout(500); }
     skelBlocks = (await count(page, region, '.v-skel')) > 0 ? await measure(page, region) : null;
