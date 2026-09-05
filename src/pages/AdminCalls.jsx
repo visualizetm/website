@@ -550,14 +550,15 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const roomSkeleton = (
     <ScrollArea bare className="cc-room" aria-busy="true">
       <div className="cc-room-inner lay-content">
-        <Card className="cc-head" style={{ minHeight: 300 }}>
-          <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonText lines={2} lineHeight={30} gap={1} width="80%" /><Row gap={1} wrap>{[80, 56, 72, 96].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row>
-          <SkeletonText lines={2} />
-          <SkeletonBlock width="40%" height={16} />
-          <Row gap={2} wrap>{[88, 96, 92].map((w, i) => <SkeletonBlock key={i} width={w} height={36} radius="var(--v-radius-md)" />)}</Row>
+        {/* The header at its real minimum (Prompt 15): one line of name, the pills wrapping like the real four, the descriptor and ask-for lines, two social buttons, the phone button. */}
+        <Card className="cc-head" aria-hidden="true">
+          <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width="60%" height={34} /><Row gap={1} wrap>{[110, 52, 84, 190].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row>
+          <SkeletonBlock width="90%" height={22} />
+          <SkeletonBlock width="40%" height={24} />
+          <Row gap={2} wrap>{[96, 104].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</Row>
           <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
         </Card>
-        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{[1, 2, 3].map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 28 }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
+        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{[1, 2, 3].map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
         <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
       </div>
     </ScrollArea>

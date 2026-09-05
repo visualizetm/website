@@ -172,7 +172,7 @@ export default function AdminDesign({ onBack, loading = false }) {
               <div key={th} className="ds-theme" data-v-theme={th} style={{ background: themes[th]['--v-ground'], color: themes[th]['--v-text'], borderColor: themes[th]['--v-border-strong'] }}>
                 <div className="ds-theme-name">{th === 'dark' ? 'Visualize Dark' : 'Visualize Light'}</div>
                 <div className="ds-theme-layers">{CONTRAST_LAYERS.map(([ln, lv]) => <div key={ln} className="ds-theme-layer" style={{ background: themes[th][lv] }}><span>{ln}</span><code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][lv]}</code></div>)}</div>
-                <div className="ds-table-wrap" tabIndex={0} role="region" aria-label="Contrast table"><table className="ds-table"><thead><tr><th>text</th>{CONTRAST_LAYERS.map(([ln]) => <th key={ln}>{ln}</th>)}</tr></thead><tbody>
+                <div className="ds-table-wrap" tabIndex={0} role="region" aria-label={`Contrast table, ${th}`}><table className="ds-table"><thead><tr><th>text</th>{CONTRAST_LAYERS.map(([ln]) => <th key={ln}>{ln}</th>)}</tr></thead><tbody>
                   {CONTRAST_TEXT.map(([tn, tv]) => (
                     <tr key={tn}><td><span style={{ color: themes[th][tv] }}>{tn}</span> <code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][tv]}</code></td>
                       {CONTRAST_LAYERS.map(([ln, lv]) => { const r = themes[th][tv] && themes[th][lv] ? Number(ratio(themes[th][tv], themes[th][lv])) : null; return <td key={ln} style={{ background: themes[th][lv], color: themes[th][tv] }}>{r == null ? '' : `${r.toFixed(2)} ${grade(r)}`}</td>; })}

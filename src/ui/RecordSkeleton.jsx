@@ -21,14 +21,14 @@ export default function RecordSkeleton({ cards = 3, tabs = false, header = true,
         <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="60%" height={24} /><Row gap={1}><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={12} /></Stack></Row>
         <Row gap={1} wrap>{[1, 2, 3].map(i => <SkeletonBlock key={i} width={104} height={44} radius="var(--v-radius-md)" />)}</Row>
       </Card>}
-      {tabs && <Row gap={2} className="v-recskel-tabs">{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</Row>}
+      {tabs && <div className="v-tabs v-recskel-tabs">{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>}
       {Array.from({ length: cards }, (_, i) => (
-        <Card key={i} style={heights[i] ? { minHeight: heights[i] } : undefined}><SkeletonBlock width={120} height={12} /><SkeletonText lines={i === 0 ? 3 : 2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>
+        <Card key={i} style={heights[i] ? { minHeight: heights[i], boxSizing: 'border-box' } : undefined}><SkeletonBlock width={120} height={12} /><SkeletonText lines={i === 0 ? 3 : 2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>
       ))}
     </Stack>
   );
 }
 export const recordSkeletonStyles = `
   .v-recskel { min-width: 0; }
-  .v-recskel-tabs { padding-bottom: var(--v-space-3); border-bottom: 1px solid var(--v-border); }
+  .v-recskel-tabs { align-items: center; gap: var(--v-space-4); min-height: var(--v-tap); padding: 0 var(--v-space-3); }
 `;

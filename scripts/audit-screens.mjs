@@ -33,7 +33,9 @@ export const SCREENS = [
   { id: 'boot-fresh', screen: 'Boot and login', label: 'boot, no hint', path: '/admin', region: '#root', boot: 'fresh', static: true },
   { id: 'login', screen: 'Boot and login', label: 'login form', path: '/admin', region: '.aa-loginpage', session: false, static: true, resource: null },
 
-  { id: 'dashboard', screen: 'Dashboard', label: 'dashboard', path: '/admin', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session') },
+  // The Today card's skeleton draws the last known row count (vz_dash_today, written by every loaded render), so the prep is a
+  // previous visit: let the dashboard land its data once before the forced loading state reads the key.
+  { id: 'dashboard', screen: 'Dashboard', label: 'dashboard', path: '/admin', resource: 'leads', prep: async (p) => { await rmLS(p, 'vz_call_session'); await p.waitForSelector('.db-today .v-lrow, .db-today .v-empty', { timeout: 4000 }).catch(() => {}); } },
 
   { id: 'leads-kanban', screen: 'Leads', label: 'list, kanban', path: '/admin/leads', resource: 'leads', minWidth: 1024, prep: (p) => setLS(p, 'vz_leads_view', 'kanban') },
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },

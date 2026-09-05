@@ -345,18 +345,28 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
 }
 
 /** LeadDetail.Skeleton: the record shape while a deep link resolves (profile column, subnav, section cards). */
+/* Shaped to the real header's minimum (Prompt 15): the name capped to one 3xl line over the 44px descriptor
+ * field, the pill row at its 44px tap height, the seven action buttons wrapping like the real row, the two
+ * buttons, and the eleven facts. Long names make the real header taller; nothing else moves. */
 LeadDetail.Skeleton = function LeadDetailSkeleton() {
   const desktop = useMediaQuery('(min-width: 1024px)');
   const profile = (
-    <Card className="dt-profile" aria-busy="true">
-      <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={24} /><SkeletonBlock width="50%" height={14} /></Stack></Row>
-      <Row gap={1} wrap>{[64, 56, 72].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>
+    <Card className="dt-profile" aria-busy="true" aria-hidden="true">
+      <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width="70%" height={34} /><SkeletonBlock width="50%" height={44} radius="var(--v-radius-sm)" /></Stack></Row>
+      <Row gap={1} wrap align="center" style={{ minHeight: 'var(--v-tap)' }}>{[64, 56, 72, 88].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>
       <Row gap={1} wrap>{[1, 2, 3, 4, 5, 6, 7].map(i => <SkeletonBlock key={i} width={44} height={44} radius="var(--v-radius-md)" />)}</Row>
       <Row gap={2}><SkeletonBlock width={128} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /></Row>
-      <Stack gap={0} className="dt-facts">{Array.from({ length: 8 }, (_, i) => <div key={i} className="dt-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</Stack>
+      <Stack gap={1} className="dt-facts">{Array.from({ length: 10 }, (_, i) => <div key={i} className="dt-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</Stack>
     </Card>
   );
-  const sections = <RecordSkeleton cards={3} tabs header={false} />;
+  // The section column at its usual shape: the sticky subnav, the first section label, then the Overview card and four section cards.
+  const sections = (
+    <Stack gap={2} className="v-recskel" aria-busy="true" aria-hidden="true">
+      <div className="v-tabs v-recskel-tabs">{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>
+      <SkeletonBlock width={120} height={33} />
+      {[292, 106, 106, 110, 162].map((h, i) => <Card key={i} style={{ height: h, boxSizing: 'border-box', overflow: 'hidden' }}><SkeletonBlock width={120} height={12} /><SkeletonText lines={i === 0 ? 3 : 1} /></Card>)}
+    </Stack>
+  );
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll">

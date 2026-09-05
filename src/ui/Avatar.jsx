@@ -21,7 +21,7 @@ export default function Avatar({ name = '', src, size = 'md', status, className 
   const px = PX[size] || PX.md;
   return (
     <span className={`v-avatar v-avatar--${size} ${className}`.trim()} style={{ width: px, height: px, '--v-avatar-c': `var(--v-chart-${hueIndex(name)})`, ...style }} title={name} {...rest}>
-      {src ? <img src={src} alt={name} /> : <span className="v-avatar-txt" aria-label={name}>{initialsOf(name)}</span>}
+      {src ? <img src={src} alt={name} width={px} height={px} loading="lazy" decoding="async" /> : <span className="v-avatar-txt" aria-label={name}>{initialsOf(name)}</span>}
       {status && <span className="v-avatar-dot" style={{ background: `var(--v-status-${status}-solid)` }} aria-hidden="true" />}
     </span>
   );

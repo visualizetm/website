@@ -45,7 +45,7 @@ const DEFAULT_VIEWS = [
   { id: 'v-hot', name: 'Hot leads', filters: { ...EMPTY_FILTERS, prio: ['hot'] }, q: '', sort: { id: 'added', dir: 'desc' } },
 ];
 const BOARD_STATUSES = CALL_STATUSES; // not-called, callback, no-answer, no (booked leaves the board)
-const PAGE = 60;
+const PAGE = 30; // cards per column and per list page; the next page mounts on Show more (Prompt 15 halved it: 150 cards on a 400 lead board, not 300)
 const DATA_CHIPS = [['phone', 'Has phone'], ['socials', 'Has socials'], ['never', 'Never scanned'], ['dupes', 'Possible duplicates']];
 const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* fine */ } };
@@ -479,7 +479,7 @@ const ldStyles = `
   .ld-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
   .ld-views .ld-frow-chips { align-items: center; }
   .ld-view { display: inline-flex; align-items: center; gap: 2px; }
-  .ld-view .v-ibtn { width: 32px; height: var(--v-tap); }
+  .ld-view .v-ibtn { width: var(--v-tap); height: var(--v-tap); }
   .ld-filters { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .ld-frow { display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; }
   .ld-frow-label { flex-shrink: 0; width: 72px; white-space: nowrap; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }

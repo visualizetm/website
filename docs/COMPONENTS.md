@@ -293,6 +293,10 @@ const showSkeleton = useDelayedLoading(loading);
 if (showSkeleton) return <Grid>{[1,2,3,4].map(i => <StatCard.Skeleton key={i} />)}</Grid>;
 ```
 
+Every `*.Skeleton` and RecordSkeleton carries `aria-busy` and `aria-hidden`
+(Prompt 15): the region announces busy, the shimmer blocks never reach the
+accessibility tree, and a scroller whose only child is busy waits.
+
 ### Stagger
 `cap` (default 8), `offset` (stagger steps to wait, for reading order across
 columns), `as`, `className`, `style`. Wraps each child in a `.v-stagger-item`

@@ -19,7 +19,7 @@ export const tokenStyles = `
     /* Lines */
     --v-border: rgba(255,255,255,0.08);
     --v-border-strong: rgba(255,255,255,0.16);
-    --v-border-focus: #d44c43;
+    --v-border-focus: var(--v-red);
 
     /* Text: text-3 is the muted floor and passes 4.5:1 on every surface */
     --v-text: #fafafa;
@@ -38,13 +38,13 @@ export const tokenStyles = `
     /* Semantic status set: -solid (fills; dark text, the won fill carries white), -soft (tints), -text (on dark).
        Prompt 15: won solid is the pressed red so white passes 4.5:1 on it, danger solid #ef4444 so dark text passes,
        neutral text #a3a3a3 so a neutral pill still passes on a selected (surface-2 plus tint) card. */
-    --v-status-new-solid: #f59e0b;      --v-status-new-soft: rgba(245,158,11,0.14);   --v-status-new-text: #f59e0b;
-    --v-status-progress-solid: #60a5fa; --v-status-progress-soft: rgba(96,165,250,0.14); --v-status-progress-text: #60a5fa;
-    --v-status-callback-solid: #a78bfa; --v-status-callback-soft: rgba(167,139,250,0.14); --v-status-callback-text: #a78bfa;
-    --v-status-booked-solid: #22c55e;   --v-status-booked-soft: rgba(34,197,94,0.14);  --v-status-booked-text: #22c55e;
-    --v-status-won-solid: #c2413a;      --v-status-won-soft: rgba(212,76,67,0.16);    --v-status-won-text: #e66b63;
+    --v-status-new-solid: #f59e0b;      --v-status-new-soft: rgba(245,158,11,0.14);   --v-status-new-text: var(--v-status-new-solid);
+    --v-status-progress-solid: #60a5fa; --v-status-progress-soft: rgba(96,165,250,0.14); --v-status-progress-text: var(--v-status-progress-solid);
+    --v-status-callback-solid: #a78bfa; --v-status-callback-soft: rgba(167,139,250,0.14); --v-status-callback-text: var(--v-status-callback-solid);
+    --v-status-booked-solid: #22c55e;   --v-status-booked-soft: rgba(34,197,94,0.14);  --v-status-booked-text: var(--v-status-booked-solid);
+    --v-status-won-solid: var(--v-red-hover); --v-status-won-soft: rgba(212,76,67,0.16);    --v-status-won-text: var(--v-red-highlight);
     --v-status-danger-solid: #ef4444;   --v-status-danger-soft: rgba(239,68,68,0.14);  --v-status-danger-text: #f87171;
-    --v-status-neutral-solid: #8f8f8f;  --v-status-neutral-soft: rgba(255,255,255,0.07); --v-status-neutral-text: #a3a3a3;
+    --v-status-neutral-solid: var(--v-text-3); --v-status-neutral-soft: rgba(255,255,255,0.07); --v-status-neutral-text: #a3a3a3;
 
     /* Charts: bars pass 3:1 against every layer, --v-chart-text is the label on a bar (4.5:1) */
     --v-chart-1: #d44c43; --v-chart-2: #60a5fa; --v-chart-3: #22c55e;
@@ -185,9 +185,9 @@ export const tokenStyles = `
       linear-gradient(rgba(204,34,34,0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(204,34,34,0.03) 1px, transparent 1px);
     /* Charts (Prompt 15): darker fills so a bar reads 3:1 on the cream layers and a white label passes 4.5:1 on it */
-    --v-chart-1: #c2413a; --v-chart-2: #1d4ed8; --v-chart-3: #15803d;
-    --v-chart-4: #b45309; --v-chart-5: #6d28d9; --v-chart-6: #047857;
-    --v-chart-text: #ffffff;
+    --v-chart-1: var(--v-red-hover); --v-chart-2: #1d4ed8; --v-chart-3: #15803d;
+    --v-chart-4: #b45309; --v-chart-5: var(--v-status-callback-text); --v-chart-6: #047857;
+    --v-chart-text: var(--v-text-on-red);
     /* The sidebar stays Visualize black */
     --v-sidebar-bg: #0a0a0a; --v-sidebar-text: #fafafa; --v-sidebar-text-2: #cccccc; --v-sidebar-text-3: #8f8f8f;
     --v-sidebar-border: rgba(255,255,255,0.08); --v-sidebar-hover: rgba(255,255,255,0.06); --v-sidebar-active-bg: rgba(212,76,67,0.18); --v-sidebar-active: #e66b63;

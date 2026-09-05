@@ -121,22 +121,22 @@ function DashboardSkeleton({ desktop, wide }) {
   // The greeting is text, so its skeleton is text lines (under 40px each): one display-md line between 1024 and 1279, three in the narrow column at 1280 and up.
   const left = (
     <Stack gap={5}>
-      <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 3 : 1} lineHeight={wide ? 38 : 40} gap={1} width={300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
+      <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 3 : 1} lineHeight={wide ? 39 : 39} gap={1} width={300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
-      <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3 || i === 7} />)}</Grid>
+      <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3 || i === 7} trendLines={wide && i < 4 ? 2 : 1} />)}</Grid>
       <Card><SkeletonBlock width={90} height={14} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
     </Stack>
   );
   const right = (
     <Stack gap={5}>
-      <Card><Row gap={4}><SkeletonCircle size={88} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={14} /><SkeletonBlock width="50%" height={12} /></Stack></Row>{todayRows ? <Stack gap={2}>{Array.from({ length: todayRows }, (_, i) => <ListRow.Skeleton key={i} trailing={false} />)}</Stack> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Card>
+      <Card><Stack gap={1} style={{ minHeight: 94 }}><SkeletonBlock width={60} height={16} /><SkeletonBlock width={120} height={18} /><SkeletonBlock width={150} height={44} radius="var(--v-radius-md)" /></Stack><Row gap={4}><SkeletonCircle size={88} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={14} /><SkeletonBlock width="50%" height={12} /></Stack></Row>{todayRows ? <Stack gap={2}>{Array.from({ length: todayRows }, (_, i) => <ListRow.Skeleton key={i} trailing={false} />)}</Stack> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Card>
       <Card><SkeletonBlock width={120} height={14} /><Stack gap={2}>{[1, 2, 3, 4, 5].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</Stack></Card>
     </Stack>
   );
   if (desktop) return <div className="db-layout">{left}{right}</div>;
   return (
     <Stack gap={5}>
-      <div className="db-head"><Stack gap={1}><SkeletonBlock width="80%" height={32} /><SkeletonBlock width="60%" height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /></Row></div>
+      <div className="db-head"><Stack gap={1}><SkeletonText lines={2} lineHeight={32} gap={0} width="80%" /><SkeletonBlock width="60%" height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /></Row></div>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       {right}
       <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3} />)}</Grid>

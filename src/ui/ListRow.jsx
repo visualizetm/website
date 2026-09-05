@@ -13,7 +13,7 @@ import { SkeletonBlock, SkeletonCircle } from './Skeleton';
  * @param {boolean} [props.selected]
  * @param {boolean} [props.chevron=true]
  */
-export default function ListRow({ leading, title, subtitle, meta, trailing, onClick, selected = false, chevron = true, className = '', 'aria-label': ariaLabel, ...rest }) {
+export default function ListRow({ leading, title, subtitle, meta, trailing, onClick, selected = false, chevron = true, className = '', 'aria-label': ariaLabel, 'aria-expanded': ariaExpanded, 'aria-haspopup': ariaHasPopup, 'aria-controls': ariaControls, ...rest }) {
   // A row that opens something keeps one real button stretched over the row (Prompt 15), so a Menu or a
   // Button in `trailing` never nests inside it. Rows with an explicit role (the command bar's options) stay
   // one element: their keyboard handling lives on the input.
@@ -21,8 +21,8 @@ export default function ListRow({ leading, title, subtitle, meta, trailing, onCl
   const Tag = onClick && optionLike ? 'button' : 'div';
   const name = ariaLabel || (typeof title === 'string' ? title : undefined);
   return (
-    <Tag className={`v-lrow lay-card${onClick ? ' v-lrow--btn' : ''}${selected ? ' is-selected' : ''} ${className}`.trim()} type={Tag === 'button' ? 'button' : undefined} onClick={onClick && optionLike ? onClick : undefined} aria-current={selected || undefined} aria-label={optionLike ? ariaLabel : undefined} {...rest}>
-      {onClick && !optionLike && <button type="button" className="v-stretch v-lrow-open" onClick={onClick} aria-label={name}>{name}</button>}
+    <Tag className={`v-lrow lay-card${onClick ? ' v-lrow--btn' : ''}${selected ? ' is-selected' : ''} ${className}`.trim()} type={Tag === 'button' ? 'button' : undefined} onClick={onClick && optionLike ? onClick : undefined} aria-current={selected || undefined} aria-label={optionLike ? ariaLabel : undefined} aria-expanded={optionLike ? ariaExpanded : undefined} {...rest}>
+      {onClick && !optionLike && <button type="button" className="v-stretch v-lrow-open" onClick={onClick} aria-label={name} aria-expanded={ariaExpanded} aria-haspopup={ariaHasPopup} aria-controls={ariaControls}>{name}</button>}
       {leading && <span className="v-lrow-lead v-above">{leading}</span>}
       <span className="v-lrow-main">
         <span className="v-lrow-title lay-truncate">{title}</span>
@@ -42,9 +42,9 @@ ListRow.Skeleton = function ListRowSkeleton({ leading = true, trailing = true, c
   return (
     <div className={`v-lrow lay-card ${className}`.trim()} aria-busy="true" aria-hidden="true">
       {leading && <span className="v-lrow-lead"><SkeletonCircle size={40} /></span>}
-      <span className="v-lrow-main" style={{ gap: 6 }}>
-        <SkeletonBlock width="55%" height={14} />
-        <SkeletonBlock width="35%" height={12} />
+      <span className="v-lrow-main">
+        <SkeletonBlock width="55%" height={16} style={{ margin: '3px 0' }} />
+        <SkeletonBlock width="35%" height={14} style={{ margin: '2px 0' }} />
       </span>
       {trailing && <span className="v-lrow-side"><SkeletonBlock width={64} height={24} radius="var(--v-radius-pill)" /></span>}
     </div>

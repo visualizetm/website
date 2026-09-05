@@ -20,8 +20,8 @@ off, theme Dark.
 | 7 | Tap No answer, then Log | The sheet closes, the room moves to the next lead, the position reads 2 of N. |
 | 8 | Tap Callback, pick a quick time, then Set callback | The sheet closes, the next lead shows, the callback lands on the Calendar and the drawer. |
 | 9 | Tap Wrong number, then Log | The sheet closes and the phone note on that lead reads Wrong number with today's date. |
-| 10 | Tap Said no, then Log | The lead leaves the console with an undo toast for six seconds. |
-| 11 | Tap Booked, set a date and time, then Book it | The header pulses green, the sheet closes, the lead moves to Booked. |
+| 10 | Tap Booked, set a date and time, then Book it | The header pulses green, the sheet closes, the lead moves to Booked. |
+| 11 | On the last lead tap Said no, then Log | The lead leaves the console with an undo toast for six seconds, and the session summary appears. |
 | 12 | Open Booked | The list shows the booked leads with the meeting date; the one you just booked is there. |
 | 13 | Open the booked lead | The detail opens on Overview with the meeting block and the Pricing options block. |
 | 14 | Tap Add option twice in Pricing options | Two option cards appear with a package, a total, and the plan line. |

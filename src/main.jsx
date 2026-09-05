@@ -62,9 +62,9 @@ function Maintenance({ onUnlock }) {
           </svg>
           <svg className="uc-rocket-svg" viewBox="0 0 80 140" xmlns="http://www.w3.org/2000/svg">
             {/* Body */}
-            <path d="M40 8 C28 8 18 30 18 72 L62 72 C62 30 52 8 40 8 Z" fill="#d44c43" />
+            <path d="M40 8 C28 8 18 30 18 72 L62 72 C62 30 52 8 40 8 Z" fill="var(--brand)" />
             {/* Nose cone highlight */}
-            <path d="M40 8 C34 8 28 18 28 32 L52 32 C52 18 46 8 40 8 Z" fill="#e66b63" />
+            <path d="M40 8 C34 8 28 18 28 32 L52 32 C52 18 46 8 40 8 Z" fill="var(--brand-light)" />
             {/* Body shadow */}
             <path d="M52 32 L52 72 C47 70 40 70 40 70 L40 8 C46 8 52 18 52 32 Z" fill="rgba(0,0,0,0.18)" />
             {/* Window */}
@@ -72,9 +72,9 @@ function Maintenance({ onUnlock }) {
             <circle cx="40" cy="52" r="5.5" fill="#1e3d7a" />
             <circle cx="37" cy="49" r="2"   fill="#4a7dd5" opacity="0.65" />
             {/* Left fin */}
-            <path d="M18 72 L4  90 L18 86 Z" fill="#a83a32" />
+            <path d="M18 72 L4  90 L18 86 Z" fill="var(--brand-dark)" />
             {/* Right fin */}
-            <path d="M62 72 L76 90 L62 86 Z" fill="#a83a32" />
+            <path d="M62 72 L76 90 L62 86 Z" fill="var(--brand-dark)" />
             {/* Nozzle */}
             <ellipse cx="40" cy="76" rx="13" ry="5" fill="#7c2b26" />
             {/* Flames */}

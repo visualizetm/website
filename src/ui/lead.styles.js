@@ -73,7 +73,7 @@ export const leadDetailStyles = `
   .dt-list-text { flex: 1; min-width: 0; }
   .dt-block { gap: var(--v-space-2); }
   .dt-block-head { min-height: var(--v-tap); }
-  .dt-block-btn { flex: 1; display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; min-height: var(--v-tap); border: 0; background: transparent; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; padding: 0; }
+  .dt-block-btn { flex: 1 1 var(--v-tap); display: flex; align-items: center; gap: var(--v-space-3); min-width: var(--v-tap); min-height: var(--v-tap); border: 0; background: transparent; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; padding: 0; }
   .dt-block-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
   .dt-block-sum { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
   .dt-when { font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); }
@@ -98,6 +98,9 @@ export const leadDetailStyles = `
  * Prompt 12: the list plus right panel split (po-) used by Print Orders,
  * Concepts, and Submissions lives here so every screen shares it. */
 export const clientStyles = `
+  /* Orders CSV import (Settings, Data): the file input is a 44px target (Prompt 15). */
+  .oi-file { min-height: var(--v-tap); max-width: 100%; padding: var(--v-space-2) 0; color: var(--v-text-2); font-family: var(--v-font-body); font-size: var(--v-text-sm); }
+  .oi-file:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
   /* Shared list page rules (Prompt 13): every list screen uses these. */
   .cl-shell.aa-main, .po-shell.aa-main { display: flex; flex-direction: column; }
   .cl-page { --v-stack-gap: var(--v-space-4); }
@@ -153,7 +156,8 @@ export const clientStyles = `
   .cw-project.is-current { border-color: var(--v-border-strong); }
   .cw-project-head { min-width: 0; }
   .cw-project-name { font-size: var(--v-text-lg); line-height: var(--v-lh-lg); font-weight: var(--v-weight-bold); color: var(--v-text); overflow-wrap: anywhere; }
-  .cw-stepper { display: flex; gap: var(--v-space-1); margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; min-width: 0; }
+  .cw-stepper { display: flex; align-items: center; gap: var(--v-space-1); margin: 0; padding: var(--v-space-2) 0; min-height: var(--v-tap); list-style: none; overflow-x: auto; scrollbar-width: none; min-width: 0; border-radius: var(--v-radius-sm); }
+  .cw-stepper:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .cw-stepper::-webkit-scrollbar { display: none; }
   .cw-step { display: flex; align-items: center; gap: var(--v-space-1); flex: 1 0 auto; min-width: 0; padding: var(--v-space-1) var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.02em; white-space: nowrap; }
   .cw-step-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--v-surface-3); color: var(--v-text-2); font-size: 10px; flex-shrink: 0; }

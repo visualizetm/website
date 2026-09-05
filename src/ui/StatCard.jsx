@@ -35,7 +35,8 @@ export default function StatCard({ icon, tone = 'neutral', value, label, trend, 
 }
 
 /** StatCard.Skeleton: identical box so nothing jumps when the value lands. */
-StatCard.Skeleton = function StatCardSkeleton({ trend = false, className = '' }) {
+/** StatCard.Skeleton: `trendLines` (1 or 2) matches how the trend text wraps at the card's width. */
+StatCard.Skeleton = function StatCardSkeleton({ trend = false, trendLines = 1, className = '' }) {
   return (
     <Card className={`v-stat ${className}`.trim()} aria-busy="true" aria-hidden="true">
       <IconTile.Skeleton />
@@ -43,6 +44,7 @@ StatCard.Skeleton = function StatCardSkeleton({ trend = false, className = '' })
         <SkeletonBlock width={72} height={30} style={{ marginBottom: 4 }} />
         <SkeletonBlock width={96} height={13} />
         {trend && <SkeletonBlock width={80} height={12} style={{ marginTop: 6 }} />}
+        {trend && trendLines > 1 && <SkeletonBlock width={56} height={12} style={{ marginTop: 9 }} />}
       </div>
     </Card>
   );

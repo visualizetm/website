@@ -269,7 +269,7 @@ const liStyles = `
   .li-bad { color: var(--v-status-danger-text); }
 
   .li-actions { display: flex; gap: 10px; justify-content: flex-end; }
-  .li-btn {
+  .li-btn { min-height: var(--v-tap);
     display: inline-flex; align-items: center; gap: 7px;
     padding: 10px 16px; border-radius: 10px; cursor: pointer;
     border: 1px solid var(--v-border-strong); background: var(--v-surface-2);
