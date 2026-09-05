@@ -6,7 +6,7 @@ crossfade, reduced motion switch), 4a42f3d (skeletons, entrances, write
 feedback, empty and error states), afed1b8 (light theme, picker, sidebar
 tokens), 6e456b4 (the last writes through apiFetch), aebaed3 (skeleton
 shapes for the settings tabs and detail sheets), 1a82339 (card glow as a
-background layer), then this report.
+background layer), aed691e (the drawer's error first), then this report.
 
 No new features, no schema changes beyond the two additive profile fields
 (`theme`, `reduceMotion`), no endpoint changes. Every change reads
@@ -42,7 +42,7 @@ belong to their list. Boot rows check for the frame instead.
 
 FEEL_BASELINE
 
-### Final (build aebaed3, both themes, Reduce motion off and on)
+### Final (build aed691e, both themes, Reduce motion off and on)
 
 FEEL_FINAL
 
@@ -268,7 +268,14 @@ with motion off on the same build. The glow change is layout neutral, so the
 
 ## 11. Skipped or deferred
 
-- Fit within 4px is met for every row where the skeleton has a fixed shape. Rows that depend on data remain off in the final table and are listed as such: the Dashboard's Today card at 1280 (its height follows the number of items due), a second card that grows with a long name or a concepts bar (Booked, Concepts, Clients at 390), and the Section description that wraps to two lines at 390 on Clients. Their skeletons match the loaded layout for the usual data; the hostile fixtures are what push them past 4px.
+- Fit within 4px holds for every row whose skeleton has a fixed shape: the boot frame, every list header, the filter and chip rows, the desktop tables (Leads, Clients, Print Orders, Submissions), the Booked and Clients lists at 1280, the Calendar grids at 1280, the Dashboard at 390, the Concepts grid at 1280, and the Settings Profile, Notifications, and Data tabs at both widths. The rows still off in the final table are the ones whose loaded height follows the data, and the hostile fixtures (80 character names, unbroken 88 character strings, seven items due today) are what push them past 4px:
+  - the Dashboard's Today card at 1280 (seven callbacks and meetings due; the skeleton carries three rows) and everything under it;
+  - detail records (lead, booked, client, order, pack, submission, review): the header card grows with long names, wrapped buttons, and pill rows, so the cards below shift;
+  - a second list card that grows with a long name or a concepts bar (Booked, Clients, Concepts, Reviews, Print Orders, Submissions at 390), the Leads list at 390 where a non compact card wraps, and the two line Section summary on Clients at 390;
+  - the call room and queue (a 494px header on the hostile lead), the builder and summary at 390 (chips wrap by label width), the Calendar day list (an overdue card appears only with overdue data), and the week and month grids at 390 (a 22px header row wrap);
+  - the Settings Integrations, Automation, Shortcuts, and Danger zone tabs, whose card heights follow the health document and the shortcut groups;
+  - the notifications drawer (groups follow the data) and the Design page (a static page whose sections carry no fixed height).
+  Their skeletons line up for the usual data; the numbers are in the final table so the next prompt can tighten any it cares about with `AUDIT_BOXES=1`.
 - The offline write queue (see decisions).
 - The theme-color meta tag stays dark; the light canvas is close enough to a neutral status bar that swapping it per theme was not worth another pre-paint branch.
 - Chart palette tokens are unchanged in light; the bars carry the dark label and read fine, but a retuned set is a Prompt 15 item if contrast is measured on the design page bars.
