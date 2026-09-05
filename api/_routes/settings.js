@@ -2,7 +2,6 @@ import { getDb } from '../_lib/mongo.js';
 import { verifyAdminPassword, hashPassword } from '../_lib/auth.js';
 import { sendPush } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
-import { route } from '../_lib/handler.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
@@ -30,7 +29,7 @@ const clampTarget = (v) => {
   return Number.isFinite(n) ? Math.max(1, Math.min(500, n)) : DASHBOARD_DEFAULTS.dailyCallTarget;
 };
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const db = await getDb();
   const settings = db.collection('settings');
 
@@ -142,4 +141,3 @@ async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH');
   return res.status(405).json({ error: 'method not allowed' });
 }
-export default route(handler, { methods: ['GET', 'POST', 'PATCH'], maxBody: 64 * 1024 });

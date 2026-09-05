@@ -1,6 +1,5 @@
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
-import { route } from '../_lib/handler.js';
 
 /* Vercel cron (vercel.json). Hobby plan cron jobs must run once daily, so by
  * default this runs at 13:00 UTC / 9am Eastern and sends one morning digest
@@ -32,7 +31,7 @@ const localDate = (l) => { if (!l.meeting?.date) return null; const d = new Date
 const list = (items, more = 5) => items.slice(0, more).join(', ') + (items.length > more ? `, +${items.length - more} more` : '');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
@@ -125,4 +124,3 @@ async function handler(req, res) {
   await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders': { lastRunAt: now.toISOString(), checked: total, sent: didSend ? 1 : 0 }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0 });
 }
-export default route(handler, { methods: ['GET', 'POST'], admin: false, csrf: false });

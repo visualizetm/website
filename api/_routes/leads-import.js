@@ -1,5 +1,4 @@
-import { getDb } from '../../_lib/mongo.js';
-import { route } from '../../_lib/handler.js';
+import { getDb } from '../_lib/mongo.js';
 
 /* ── Normalizers (self-contained; serverless can't import from src/) ── */
 
@@ -103,7 +102,7 @@ function rowToFields(row) {
   };
 }
 
-async function handler(req, res) {
+export async function handler(req, res) {
 
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
   if (!rows) return res.status(400).json({ error: 'rows array required' });
@@ -165,4 +164,3 @@ async function handler(req, res) {
 
   return res.status(200).json({ ok: true, created, updated, skipped });
 }
-export default route(handler, { methods: ['POST'], maxBody: 2 * 1024 * 1024 });

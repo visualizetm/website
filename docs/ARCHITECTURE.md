@@ -15,10 +15,10 @@ docs/RUNBOOK.md.
 | Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules; src/fonts.css declares the self hosted latin subsets in public/fonts (scripts/fetch-fonts.mjs) |
 | State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |
 | Data | apiFetch (src/shared/api.js) to same-origin /api/* Vercel functions with the X-Requested-With header, cookie auth; the service worker keeps the last successful GET of the five main lists for offline reading |
-| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js); every function is wrapped by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, CSRF header, one try/catch) |
+| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js); every handler is wrapped by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, CSRF header, one try/catch). The Hobby plan's 12 function cap folds all 17 admin routes into one dynamic function (api/admin/[[...route]].js dispatching on req.query.route) and both crons into one more (api/cron/[job].js); the route logic itself lives in api/_routes/<name>.js, one file per endpoint, same as before |
 | Auth | One admin password (scrypt hash in settings.auth, else ADMIN_PASSWORD, constant time compare), HMAC signed 30 day cookie with sliding renewal, login rate limited per IP (api/_lib/auth.js) |
 | Push | web-push with VAPID keys; public/sw.js handles push, deep links, and the versioned offline caches (shell, fonts, icons, the last list GETs) |
-| Crons | Vercel cron: /api/cron/reminders every 15 minutes, /api/cron/daily at 06:00 UTC, both behind CRON_SECRET |
+| Crons | Vercel cron: /api/cron/reminders once a day (13:00 UTC, a morning digest; the Hobby plan only allows a daily schedule), /api/cron/daily at 06:00 UTC, both behind CRON_SECRET, both served by one function (api/cron/[job].js) |
 | Integrations | Calendly (read), Stripe (read plus a signed webhook with a claim before side effects), Web3Forms (email backup) |
 | Errors | ErrorBoundary per screen region (PageShell) and per section (AdminApp), ShellCrash at the top; client errors, rejections, refused writes, and 500s post to /api/admin/log (settings `client-log`, 500 entries); Settings, Automation shows the last 20 |
 | Headers | vercel.json: nosniff, DENY framing, Referrer-Policy, Permissions-Policy everywhere; Content-Security-Policy and no-store on the admin host; immutable caching for /assets and /fonts |
@@ -26,13 +26,17 @@ docs/RUNBOOK.md.
 ## Directory map
 
 ```
-api/                       Vercel functions
+api/                       Vercel functions (5 total: the Hobby plan caps a deployment at 12)
   _lib/                    auth, handler (route wrapper), mongo, notify (push + email), orders (shop order parser), stripe
   _semantics.js            id lists mirrored from src/shared/semantics.js (functions cannot import src/)
-  admin/                   admin guarded endpoints (route() with admin: true on every handler; log.js is the client error log)
-  cron/                    reminders.js, daily.js
-  stripe/webhook.js        signed Stripe webhook
-  submissions.js, push-key.js   public endpoints
+  _routes/                 one file per endpoint's logic (call-leads.js, settings.js, log.js, the two cron jobs, etc.), a plain
+                           exported `handler(req, res)`; not deployed as routes itself (Vercel excludes underscore-prefixed
+                           paths under api/), dispatched into by the two files below
+  admin/[[...route]].js    every /api/admin/* endpoint (17 routes) in one function; req.query.route picks the _routes/ file,
+                           each still wrapped in route() with its own method list, admin guard, CSRF, and body cap
+  cron/[job].js            both Vercel crons in one function; req.query.job is 'reminders' or 'daily', URLs unchanged
+  stripe/webhook.js        signed Stripe webhook (its own file: needs the raw body and its own config)
+  submissions.js, push-key.js   public endpoints (their own files)
 docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, QA-CHECKLIST.md, RELEASE-NOTES-3.0.md, MIGRATION-MAP.md
 public/                    logo, wordmark, PWA icons, manifest, sw.js, fonts/ (latin woff2 subsets)
 reports/                   one build report per prompt
@@ -94,11 +98,11 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/push-key | GET | AdminSettings |
 | /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx, Prints.jsx |
 | /api/stripe/webhook | POST (Stripe signature) | Stripe |
-| /api/cron/reminders, /api/cron/daily | GET (CRON_SECRET) | Vercel cron |
+| /api/cron/reminders (once a day, morning digest), /api/cron/daily | GET (CRON_SECRET) | Vercel cron |
 
 ## Collections and sanitize shapes
 
-- call_leads: the lead, booked, and client record. Core fields business, industry, descriptor, phone, phoneNote, email, area, askFor, bestWindow, priority, callStatus, stage, angle, beforeYouDial[], script{}, objections[], close{}, afterCall{}, intel{}, socials{}, callLog[], contactLog[], notes, prepNotes, checklists[], meeting{date,time,type,location}, callbackAt, calendlyEventUri, concepts[]{id,label,status,link,packId}, gamePlan[], servicesPlanned[], pricingOptions[], conceptsTracker, purchases[]{id,label,amount,at,notes,projectId,source,stripeEventId}, bookedOutcome, clientSince, clientStatus, links{website,drive,clickup,instagram}, brand{primary,colors[],fontDisplay,fontBody,logoLink,notes}, retainer{projectId,planId,amount,status,startedAt,billDay,nextBillAt,cancelAt,stripeSubscriptionId,stripeCancelledAt}, reviews{nfcCard,nfcGivenAt,googleLink,baseline,latest,asks[]}, enrichment (written by the nightly job), sourceId, mergedInto, deleted, deletedAt, createdAt, updatedAt. Whitelist: api/admin/call-leads.js sanitize().
+- call_leads: the lead, booked, and client record. Core fields business, industry, descriptor, phone, phoneNote, email, area, askFor, bestWindow, priority, callStatus, stage, angle, beforeYouDial[], script{}, objections[], close{}, afterCall{}, intel{}, socials{}, callLog[], contactLog[], notes, prepNotes, checklists[], meeting{date,time,type,location}, callbackAt, calendlyEventUri, concepts[]{id,label,status,link,packId}, gamePlan[], servicesPlanned[], pricingOptions[], conceptsTracker, purchases[]{id,label,amount,at,notes,projectId,source,stripeEventId}, bookedOutcome, clientSince, clientStatus, links{website,drive,clickup,instagram}, brand{primary,colors[],fontDisplay,fontBody,logoLink,notes}, retainer{projectId,planId,amount,status,startedAt,billDay,nextBillAt,cancelAt,stripeSubscriptionId,stripeCancelledAt}, reviews{nfcCard,nfcGivenAt,googleLink,baseline,latest,asks[]}, enrichment (written by the nightly job), sourceId, mergedInto, deleted, deletedAt, createdAt, updatedAt. Whitelist: api/_routes/call-leads.js sanitize().
 - submissions: type, projectType, name, business, email, phone, fields{}, status, read, notes, socials, linkedLeadId, deleted, deletedAt, createdAt.
 - projects: leadId, name, kind, packageId, custom, stage, stages[], total, schedule[]{id,amount,dueAt,status,ledgerId,label,paidAt,extra}, revisions{max,used,log[]}, plan{months,monthly,stripeCancelled,stripeSubscriptionId,stripeCancelledAt}, links{drive,clickup}, deliverables[], delivery{}, releasedAt, monthly[], retainer{planId,billDay,startedAt}, archived, createdAt, updatedAt.
 - orders: source, status, leadId, projectId, submissionId, customer{name,email,phone}, items[]{id,productId,name,label,qty,options,artworkLink,priceTotal,quote}, subtotal, rush, dueAt, notes, paid{at,ledgerId,amount}, packaging{}, importKey, archived, createdAt, updatedAt.

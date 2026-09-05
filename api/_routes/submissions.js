@@ -1,7 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { LEAD_STATUS_IDS, ORDER_STATUS_IDS } from '../_semantics.js';
-import { route } from '../_lib/handler.js';
 
 // Lead pipeline + shop-order pipeline share one status field; the UI shows the
 // set that matches the record's type.
@@ -40,7 +39,7 @@ const toIds = (v) => {
   return arr.map(s => String(s).trim()).filter(Boolean).map(s => new ObjectId(s));
 };
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('submissions');
 
@@ -142,4 +141,3 @@ async function handler(req, res) {
   res.setHeader('Allow', 'GET, PATCH, DELETE');
   return res.status(405).json({ error: 'method not allowed' });
 }
-export default route(handler, { methods: ['GET', 'PATCH', 'DELETE'] });

@@ -1,5 +1,4 @@
 import { getDb } from '../_lib/mongo.js';
-import { route } from '../_lib/handler.js';
 
 /* Client error log (Prompt 15). No third party service: the admin posts
  * render errors and refused writes here, the settings 'client-log' document
@@ -13,7 +12,7 @@ const str = (v, max) => String(v ?? '').slice(0, max);
 const KINDS = new Set(['error', 'boundary', 'rejection', 'refused', 'api']);
 const MAX = 500;
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const db = await getDb();
   const settings = db.collection('settings');
   if (req.method === 'GET') {
@@ -31,4 +30,3 @@ async function handler(req, res) {
   await settings.updateOne({ _id: 'client-log' }, { $set: { items: [], updatedAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true });
 }
-export default route(handler, { methods: ['GET', 'POST', 'DELETE'], maxBody: 16 * 1024 });

@@ -1,4 +1,3 @@
-import { route } from '../../_lib/handler.js';
 
 // GET /api/admin/calendly/events?from=ISO&to=ISO  (Prompt 9)
 // Reads the connected user's scheduled events through the Calendly API using
@@ -13,7 +12,7 @@ const phoneOf = (inv) => {
   return q?.answer || inv?.text_reminder_number || '';
 };
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const token = process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT;
   if (!token) return res.status(200).json({ configured: false, events: [] });
   const from = new Date(req.query?.from || Date.now() - 7 * 864e5);
@@ -42,4 +41,3 @@ async function handler(req, res) {
     return res.status(502).json({ configured: true, error: 'Calendly request failed', events: [] });
   }
 }
-export default route(handler, { methods: ['GET'] });

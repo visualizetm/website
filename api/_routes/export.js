@@ -1,11 +1,10 @@
 import { getDb } from '../_lib/mongo.js';
-import { route } from '../_lib/handler.js';
 
 // RFC 4180 escaping: always quote, double internal quotes. Handles commas,
 // quotes, and line breaks inside answers.
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-async function handler(req, res) {
+export async function handler(req, res) {
 
   const { type = 'submissions', format = 'csv', status, q, days } = req.query || {};
   const db = await getDb();
@@ -74,4 +73,3 @@ async function handler(req, res) {
   res.setHeader('Content-Disposition', `attachment; filename="${base}.csv"`);
   return res.status(200).send(csv);
 }
-export default route(handler, { methods: ['GET'] });

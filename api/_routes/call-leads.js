@@ -7,7 +7,6 @@ import {
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
   RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
 } from '../_semantics.js';
-import { route } from '../_lib/handler.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 
@@ -235,7 +234,7 @@ function sanitize(b) {
   };
 }
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('call_leads');
 
@@ -330,4 +329,3 @@ async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH, DELETE');
   return res.status(405).json({ error: 'method not allowed' });
 }
-export default route(handler, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 1024 * 1024 });

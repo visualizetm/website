@@ -1,7 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, SCHEDULE_STATUS_IDS } from '../_semantics.js';
-import { route } from '../_lib/handler.js';
 
 /* Projects (Prompt 10): one client (a call_leads doc with stage 'client') has
  * many projects over time. Money lives on the lead's purchases[] ledger; a
@@ -58,7 +57,7 @@ function sanitize(b) {
 }
 const compact = (o) => { for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k]; return o; };
 
-async function handler(req, res) {
+export async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('projects');
 
@@ -95,4 +94,3 @@ async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH');
   return res.status(405).json({ error: 'method not allowed' });
 }
-export default route(handler, { methods: ['GET', 'POST', 'PATCH'] });

@@ -70,9 +70,9 @@ dedupes on one key per day, so a manual rerun the same day sends nothing.
 
 If the account moves to the Pro plan, near-real-time reminders (a push the
 moment a callback or meeting is due) can come back with two changes: set
-`FIFTEEN_MINUTE_MODE = true` at the top of api/cron/reminders.js, and change
-the reminders schedule in vercel.json back to every 15 minutes. The file
-keeps the old per-event logic behind that flag for exactly this.
+`FIFTEEN_MINUTE_MODE = true` at the top of api/_routes/cron-reminders.js, and
+change the reminders schedule in vercel.json back to every 15 minutes. The
+file keeps the old per-event logic behind that flag for exactly this.
 
 ## Take a backup
 
@@ -84,7 +84,14 @@ into Atlas from that file.
 ## Security
 
 What the API enforces (Prompt 15 review; every route goes through
-`route()` in api/_lib/handler.js):
+`route()` in api/_lib/handler.js). The Hobby plan's 12 serverless function
+cap means the 17 `/api/admin/*` endpoints and the 2 crons are no longer one
+file each: they dispatch out of api/admin/[[...route]].js and
+api/cron/[job].js, with each endpoint's actual logic (and its own
+`route()` call, so nothing about its guard, method list, or body cap
+changed) in api/_routes/<name>.js. `/api/submissions`, `/api/push-key`, and
+`/api/stripe/webhook` keep their own files since the webhook needs the raw
+body and its own config:
 
 - Every non public route sits behind the admin cookie. Public: /api/submissions (POST), /api/push-key, /api/admin/session, /api/admin/login, /api/admin/logout. The Stripe webhook and both crons verify their own secret instead.
 - Method allow lists per route (405 with Allow), a body size cap per route (413; 512KB default, 1MB call-leads and the webhook, 2MB the spreadsheet import, small caps on login, settings, push, reconcile).
