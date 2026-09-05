@@ -42,6 +42,14 @@ const BASE = IS_ADMIN_HOST ? '' : '/admin';
 
 /* ── Login (kit build, Prompt 13) ─────────────────────────────── */
 
+function loginErrorMessage(status) {
+  if (status === 401) return 'Wrong password';
+  if (status === 429) return 'Too many tries. Wait 15 minutes.';
+  if (status === 403) return 'Session check failed. Refresh and try again.';
+  if (status >= 500 || status === 0) return 'Server error, check Vercel logs.';
+  return 'Sign in failed. Try again.';
+}
+
 function Login({ onAuthed }) {
   const [pw, setPw] = useState('');
   const [err, setErr] = useState(false);
@@ -51,9 +59,9 @@ function Login({ onAuthed }) {
     setBusy(true); setErr(false);
     try {
       const r = await apiFetch('/api/admin/login', { method: 'POST', body: { password: pw } });
-      if (!r.ok) { setErr(r.status === 429 ? (r.data?.error || 'Too many attempts. Try again in 15 minutes.') : true); return; }
+      if (!r.ok) { setErr(loginErrorMessage(r.status)); return; }
       onAuthed();
-    } catch { setErr(true); }
+    } catch { setErr('Server error, check Vercel logs.'); }
     finally { setBusy(false); }
   };
   return (
@@ -65,7 +73,7 @@ function Login({ onAuthed }) {
             <h1 className="aa-login-title">Admin</h1>
             <p className="aa-login-sub">Owner access only</p>
           </Stack>
-          <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err ? (typeof err === 'string' ? err : 'Incorrect password') : undefined} className="aa-login-input" />
+          <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err || undefined} className="aa-login-input" />
           <Button type="submit" size="lg" full loading={busy} disabled={!pw}>Sign in</Button>
         </Card>
       </Reveal>

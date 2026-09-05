@@ -23,12 +23,22 @@ import { handler as submissions } from '../_routes/submissions.js';
  * their own function (api/_routes/, prefixed with an underscore, is never
  * deployed as a route by itself: https://vercel.com/docs/functions#exclude-files).
  *
- * The optional catch-all filename ([[...route]].js) matches /api/admin
- * itself (route = []) and every nested path (/api/admin/leads/import ->
- * route = ['leads', 'import']); req.query.route carries the matched
- * segments as an array (or is undefined at the bare path), and every other
- * query string parameter (?id=..., ?days=...) still lands on req.query
- * exactly as it did when each route was its own file, so nothing downstream
+ * The filename is [...route].js, a REQUIRED catch-all, on purpose: an
+ * earlier version of this file used the optional catch-all convention,
+ * [[...route]].js, which is a Next.js App/Pages Router convention and is
+ * NOT part of Vercel's framework-agnostic file-system routing for plain
+ * Serverless Functions (the kind a Vite project like this one deploys). On
+ * this project that name deployed but never matched a single /api/admin/*
+ * request, so every admin call (starting with login) 404'd. The generic
+ * convention Vercel documents for Functions is [param].js and
+ * [...param].js only. Nothing under /api/admin/ is ever called with zero
+ * path segments, so the required catch-all matches every real route with
+ * nothing lost.
+ *
+ * req.query.route carries the matched segments as an array
+ * (/api/admin/leads/import -> ['leads', 'import']), and every other query
+ * string parameter (?id=..., ?days=...) still lands on req.query exactly as
+ * it did when each route was its own file, so nothing downstream
  * (src/shared/api.js, every fetch URL) needs to change.
  *
  * Each entry below is wrapped in route() exactly as it was in its own file

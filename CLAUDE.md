@@ -40,7 +40,7 @@ against `scripts/mock-server.mjs`, `node scripts/feel-audit.mjs --boot`.
 
 ## Shape of the repo
 
-api/ (5 Vercel functions total, the Hobby plan's cap; api/admin/[[...route]].js
+api/ (5 Vercel functions total, the Hobby plan's cap; api/admin/[...route].js
 and api/cron/[job].js dispatch to api/_routes/<name>.js, one file per route's
 logic, each still wrapped in route(); _lib for auth, mongo, handler, notify,
 stripe, orders), src/ui (the kit), src/shell (AppShell, nav, command

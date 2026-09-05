@@ -86,7 +86,7 @@ into Atlas from that file.
 What the API enforces (Prompt 15 review; every route goes through
 `route()` in api/_lib/handler.js). The Hobby plan's 12 serverless function
 cap means the 17 `/api/admin/*` endpoints and the 2 crons are no longer one
-file each: they dispatch out of api/admin/[[...route]].js and
+file each: they dispatch out of api/admin/[...route].js and
 api/cron/[job].js, with each endpoint's actual logic (and its own
 `route()` call, so nothing about its guard, method list, or body cap
 changed) in api/_routes/<name>.js. `/api/submissions`, `/api/push-key`, and
