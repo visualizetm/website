@@ -113,7 +113,16 @@ Prompt 11 tally: the studio-only pass on the Prompt 11 build (390 and 1280, 73 c
 
 New checks this prompt: submissions list with each of the six chips (Unread, Brief, Contact, Review, Shop order, Other), submissions skeleton, submission detail for a brief, the brief view, link to lead Sheet, convert to lead Sheet, submission detail for the long-name shop order, every Settings tab, the Reconcile Sheet and its link to client picker, the lead import Sheet, the orders CSV import Sheet, the device import preview, settings skeleton, Recently deleted through the nav path, and the collapsed sidebar on Settings and Submissions. Fixtures: two Stripe events (one matched, one unmatched with long names), a health document with a stale scraper (50 hours) and a fresh enrichment scan, submissions of five types (start, contact, review, shop-order, other), and two deleted submissions and two deleted leads for the Recently deleted Table.
 
-AUDIT_TABLE
+Full five-width run on the final Prompt 12 build (dist, port 4360), exit 0:
+
+| Width | Checks | Failures |
+|---|---|---|
+| 320px | 145 | 0 |
+| 390px | 145 | 0 |
+| 430px | 145 | 0 |
+| 768px | 155 | 0 |
+| 1280px | 155 | 0 |
+| Total | 745 | 0 |
 
 ## 10. Decisions
 

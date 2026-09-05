@@ -114,13 +114,30 @@ What remains is the marketing site (Home, Services, Work, CaseStudy, Contact, St
 
 ## 9. Layout audit
 
-Prompt 12 tally: PROMPT12_TABLE
+Prompt 12 tally: 745 checks clean, 0 failures (320, 390, 430 at 145 each; 768 and 1280 at 155 each), exit 0. The full table is in reports/PROMPT-12-REPORT.md section 9.
 
 Per part (build, dates-test, layout audit after each commit):
-PART_TABLE
+| Part | Build | Widths | Checks | Failures | Exit |
+|---|---|---|---|---|---|
+| 1 (kit rebuilds) | 7fe33b5 | 390 (Clients block) and 1280 (everything) | 287 | 0 | 0 |
+| 2 (retire screens) | c8b13af | 390 | 146 | 0 | 0 |
+| 3 (dead code) | c5f9f1e | 390 | 146 | 0 | 0 |
+| 4 (styles) | 7074561 | 390 | 146 | 0 | 0 |
+| 5 (docs) | 3226283 | covered by the final run below | | | |
+
+Part 1's first 390 pass found two overflows (checklist labels, linked submission row side) that were fixed before its commit; the 287 checks above are the re-run on the fixed build. Parts 2 and 4 include the shop checkout end-to-end step (Audit Shopper appeared in Print Orders).
 
 Final full run on the final build (3226283), every screen at 320, 390, 430, 768, 1280, including the shop checkout step that must produce a Print Order:
-FINAL_TABLE
+| Width | Checks | Failures |
+|---|---|---|
+| 320px | 146 | 0 |
+| 390px | 146 | 0 |
+| 430px | 146 | 0 |
+| 768px | 156 | 0 |
+| 1280px | 156 | 0 |
+| Total | 750 | 0 |
+
+Exit 0. dates-test: 16 of 16 (TZ=America/New_York).
 
 ## 10. Left in place and why
 
