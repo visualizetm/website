@@ -23,6 +23,7 @@ export const scrollAreaStyles = `
   .lay-scroll {
     flex: 1 1 auto; min-height: 0; min-width: 0;
     overflow-y: auto; overflow-x: clip;
+    scroll-behavior: smooth;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     padding: var(--v-gutter) var(--v-gutter-r)
@@ -36,6 +37,10 @@ export const scrollAreaStyles = `
     display: flex; flex-direction: column; gap: var(--v-stack-gap, var(--v-space-5));
   }
   .lay-content--wide { max-width: var(--v-content-w-wide); }
+  /* While a region is only skeleton (aria-busy) there is nothing to scroll to; the scroller waits (Prompt 15). */
+  .lay-scroll[aria-busy='true'], .lay-scroll:has(> [aria-busy='true']:only-child), .lay-scroll:has(> .lay-content > [aria-busy='true']:only-child) { overflow-y: hidden; }
+  @media (prefers-reduced-motion: reduce) { .lay-scroll { scroll-behavior: auto; } }
+  [data-v-motion='reduce'] .lay-scroll { scroll-behavior: auto; }
 
   /* Card / list-row contract: never wider than the parent, children can
      shrink, titles truncate one line. */

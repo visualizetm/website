@@ -14,7 +14,7 @@
   --dot-min: #febc2e;
   --dot-max: #28c840;
 
-  /* Neutrals — dark brand system */
+  /* Neutrals, dark brand system */
   --bg: #0a0a0a;
   --bg-deep: #080808;
   --bg-elevated: #111111;
@@ -52,7 +52,7 @@
   --radius: 8px;
   --radius-lg: 12px;
 
-  /* Glass — dark */
+  /* Glass, dark */
   --glass-bg: rgba(255, 255, 255, 0.04);
   --glass-bg-strong: rgba(255, 255, 255, 0.07);
   --glass-bg-brand: rgba(212, 76, 67, 0.12);
@@ -76,7 +76,7 @@
   --duration: 0.3s;
 }
 
-/* Light theme — user toggle or OS preference (set pre-paint in index.html) */
+/* Light theme, user toggle or OS preference (set pre-paint in index.html) */
 :root[data-theme='light'] {
   --bg: #ffffff;
   --bg-deep: #f7f7f7;
@@ -170,7 +170,7 @@ button {
   cursor: pointer;
 }
 
-/* Prevent iOS input zoom — keep 16px minimum */
+/* Prevent iOS input zoom, keep 16px minimum */
 @media (max-width: 768px) {
   input, textarea, select {
     font-size: 16px !important;
@@ -364,7 +364,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Brand utilities (2.0) ─────────────────────────────────────────── */
 
-/* Display headers — heavy condensed, all caps. Never script/italic. */
+/* Display headers, heavy condensed, all caps. Never script/italic. */
 .display {
   font-family: var(--font-display);
   font-weight: 700;
@@ -373,7 +373,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 0.95;
 }
 
-/* Wordmark — always "Visualize." with the red period */
+/* Wordmark, always "Visualize." with the red period */
 .wordmark {
   font-family: var(--font-body);
   font-weight: 800;
@@ -406,7 +406,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text);
 }
 
-/* Signature texture — very faint red grid overlay */
+/* Signature texture, very faint red grid overlay */
 .grid-texture { position: relative; }
 .grid-texture::before {
   content: '';

@@ -1,19 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Wordmark from '../components/Wordmark';
-import AdminCalls from './AdminCalls';
-import AdminBooked from './AdminBooked';
-import AdminLeads from './AdminLeads';
-import AdminClients from './AdminClients';
-import AdminDesign from './AdminDesign';
 import AdminDashboard from './AdminDashboard';
-import AdminCalendar from './AdminCalendar';
-import AdminOrders from './AdminOrders';
-import AdminConcepts from './AdminConcepts';
-import AdminReviews from './AdminReviews';
-import AdminSettings from './AdminSettings';
-import AdminSubmissions from './AdminSubmissions';
-import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal } from '../ui';
+import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal, ErrorBoundary } from '../ui';
+import { wireClientLog } from '../shared/log';
+
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { navForPath, navById, sectionOf } from '../shell/nav';
 import '../shell/install';
@@ -23,6 +14,27 @@ import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
+
+/* Code split by screen (Prompt 15): the entry chunk is the shell plus the
+ * Dashboard; every other screen is its own chunk, loaded on first visit.
+ * Leads and the Call Console are prefetched after first paint since they are
+ * the next taps. The xlsx chunk stays behind its own dynamic import. */
+const loaders = {
+  leads: () => import('./AdminLeads'), calls: () => import('./AdminCalls'), booked: () => import('./AdminBooked'), clients: () => import('./AdminClients'),
+  calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
+  submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'),
+};
+const AdminLeads = lazy(loaders.leads);
+const AdminCalls = lazy(loaders.calls);
+const AdminBooked = lazy(loaders.booked);
+const AdminClients = lazy(loaders.clients);
+const AdminCalendar = lazy(loaders.calendar);
+const AdminOrders = lazy(loaders.orders);
+const AdminConcepts = lazy(loaders.concepts);
+const AdminReviews = lazy(loaders.reviews);
+const AdminSubmissions = lazy(loaders.submissions);
+const AdminSettings = lazy(loaders.settings);
+const AdminDesign = lazy(loaders.design);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -38,14 +50,14 @@ function Login({ onAuthed }) {
     e.preventDefault();
     setBusy(true); setErr(false);
     try {
-      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
-      if (!res.ok) throw new Error();
+      const r = await apiFetch('/api/admin/login', { method: 'POST', body: { password: pw } });
+      if (!r.ok) { setErr(r.status === 429 ? (r.data?.error || 'Too many attempts. Try again in 15 minutes.') : true); return; }
       onAuthed();
     } catch { setErr(true); }
     finally { setBusy(false); }
   };
   return (
-    <div className="lay-root aa-loginpage">
+    <main className="lay-root aa-loginpage" aria-label="Sign in">
       <Reveal as="form" onSubmit={submit} className={`aa-login${err ? ' is-shaking' : ''}`}>
         <Card className="aa-login-card">
           <Stack gap={2} align="center">
@@ -53,12 +65,12 @@ function Login({ onAuthed }) {
             <h1 className="aa-login-title">Admin</h1>
             <p className="aa-login-sub">Owner access only</p>
           </Stack>
-          <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err ? 'Incorrect password' : undefined} className="aa-login-input" />
+          <Input type="password" value={pw} onChange={(e) => { setPw(e.target.value); setErr(false); }} placeholder="Password" autoFocus autoComplete="current-password" aria-label="Password" error={err ? (typeof err === 'string' ? err : 'Incorrect password') : undefined} className="aa-login-input" />
           <Button type="submit" size="lg" full loading={busy} disabled={!pw}>Sign in</Button>
         </Card>
       </Reveal>
       <style>{uiStyles + aaStyles}</style>
-    </div>
+    </main>
   );
 }
 
@@ -227,10 +239,17 @@ export default function AdminApp() {
 
   useEffect(() => {
     applyAppearance();
-    fetch('/api/admin/session').then(r => r.json())
-      .then(d => { setAuthed(!!d.authed); setBootHint(!!d.authed); })
-      .catch(() => setAuthed(false));
+    wireClientLog();
+    apiFetch('/api/admin/session', { silent: true })
+      .then(r => { const on = !!(r.ok && r.data?.authed); setAuthed(on); setBootHint(on); });
   }, []);
+  // Prefetch the next taps once the shell has painted (Prompt 15).
+  useEffect(() => {
+    if (!authed) return undefined;
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 1500));
+    const id = idle(() => { loaders.leads(); loaders.calls(); });
+    return () => (window.cancelIdleCallback || clearTimeout)(id);
+  }, [authed]);
   // ?open=<id> deep links a record on the current screen (push links and the feel audit use it).
   useEffect(() => {
     if (!authed) return;
@@ -310,9 +329,9 @@ export default function AdminApp() {
     const id = new URLSearchParams(window.location.search).get('submission');
     if (!id) return;
     deepLinked.current = true;
-    fetch(`/api/admin/submissions?id=${encodeURIComponent(id)}`)
-      .then(r => r.json())
-      .then(d => {
+    apiFetch(`/api/admin/submissions?id=${encodeURIComponent(id)}`)
+      .then(r => {
+        const d = r.data || {};
         if (!d.submission) return;
         if (d.submission.type === 'shop-order') { navigate(`${BASE}/orders`); setOpenReq({ section: 'orders', submissionId: String(d.submission._id), n: Date.now() }); }
         else if (d.submission.type === 'review') navigate(`${BASE}/reviews`);
@@ -364,7 +383,9 @@ export default function AdminApp() {
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
       leadsError={errors.leads} onRetryLeads={loadCallLeads} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
-      {/* Section content */}
+      {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
+      <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
+      <Suspense fallback={null}>
       {section === 'dashboard' && (
         <AdminDashboard leads={V.leads} projects={V.projects} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onOpenSubmission={(it) => go('submissions', it._id)} onOpenOrder={openOrder} />
       )}
@@ -429,7 +450,8 @@ export default function AdminApp() {
       {section === 'settings' && (
         <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />
       )}
-
+      </Suspense>
+      </ErrorBoundary>
     </AppShell>
     </ToastProvider>
   );

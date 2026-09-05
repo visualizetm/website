@@ -28,7 +28,7 @@ export function ClientCard({ client }) {
 }
 
 export default function Work() {
-  useEffect(() => { document.title = 'Work — Visualize'; }, []);
+  useEffect(() => { document.title = 'Work, Visualize'; }, []);
 
   return (
     <>
@@ -37,7 +37,7 @@ export default function Work() {
           <p className="wk-eyebrow">Client Showcase</p>
           <h1 className="wk-title display">Work</h1>
           <p className="section-subtitle">
-            Real businesses, built end to end — brand, web, and print under one roof.
+            Real businesses, built end to end, brand, web, and print under one roof.
           </p>
         </div>
       </section>

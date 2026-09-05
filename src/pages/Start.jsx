@@ -38,7 +38,7 @@ const SERVICE_OPTS = [
   { v: 'Google Business Setup',        icon: MarkerPin01,  desc: 'Claimed, optimized, ready to rank locally' },
   { v: 'Business Cards',               icon: CreditCard02, desc: 'Design and/or printing' },
   { v: 'Custom Stickers / Vinyl',      icon: Scissors01,   desc: 'Die-cut stickers, window vinyl, handle stickers' },
-  { v: 'Not sure — I need advice',     icon: Lightbulb01,  desc: 'Help me figure out where to start' },
+  { v: 'Not sure, I need advice',     icon: Lightbulb01,  desc: 'Help me figure out where to start' },
 ];
 
 const PROJECT_TYPES = [
@@ -192,7 +192,7 @@ export default function Start() {
   const [submitting, setSub] = useState(false);
   const headingRef           = useRef(null);
 
-  useEffect(() => { document.title = 'Start a Project — Visualize'; }, []);
+  useEffect(() => { document.title = 'Start a Project, Visualize'; }, []);
 
   // Move keyboard focus to the new step's heading when it appears.
   useEffect(() => {
@@ -245,24 +245,24 @@ export default function Start() {
       'Time in Business': f.timeInBusiness,
       'Services Needed': f.servicesNeeded.join(', '),
       'Why Now': f.whyNow,
-      'Website Pages': f.pagesNeeded.length ? f.pagesNeeded.join(', ') : '—',
+      'Website Pages': f.pagesNeeded.length ? f.pagesNeeded.join(', ') : ', ',
       'Brand Feel': f.brandFeel.join(', '),
-      'Color Preferences': f.colorPrefs || '—',
+      'Color Preferences': f.colorPrefs || 'n/a',
       'Brands Admired': f.brandsAdmired,
       'Ideal Customer': f.idealCustomer,
-      'Competitors': f.competitors || '—',
+      'Competitors': f.competitors || 'n/a',
       'Current Assets': f.assetsHave.join(', '),
-      'Existing Links': f.existingLinks || '—',
+      'Existing Links': f.existingLinks || 'n/a',
       'Photos Ready': f.photosReady,
-      'Phone': f.phone || '—',
+      'Phone': f.phone || 'n/a',
       'Best Contact': f.bestContact,
       'Timeline': f.timeline,
       'Budget': f.budget,
-      'Additional Info': f.additionalInfo || '—',
+      'Additional Info': f.additionalInfo || 'n/a',
     };
 
     try {
-      // Primary: site backend — stores the lead and notifies Rob (push + email).
+      // Primary: site backend, stores the lead and notifies Rob (push + email).
       const res = await fetch('/api/submissions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -286,7 +286,7 @@ export default function Start() {
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({
             access_key: WEB3FORMS_KEY,
-            subject: `New ${f.projectType} Project Brief — ${f.fullName} / ${f.businessName}`,
+            subject: `New ${f.projectType} Project Brief, ${f.fullName} / ${f.businessName}`,
             from_name: f.fullName,
             email: f.email,
             ...answers,
@@ -339,9 +339,9 @@ export default function Start() {
             <h1 className="st-success-title display">We got it.</h1>
             <p className="st-success-body">Here's exactly what happens next:</p>
             <ol className="st-success-steps">
-              <li><strong>Within 24 hours</strong> — Rob reads your brief and replies to {f.email} to schedule your kickoff call.</li>
-              <li><strong>Kickoff call</strong> — 20–30 minutes to align on scope, timeline, and your quote.</li>
-              <li><strong>Build begins</strong> — a clear timeline and one point of contact the whole way.</li>
+              <li><strong>Within 24 hours</strong>, Rob reads your brief and replies to {f.email} to schedule your kickoff call.</li>
+              <li><strong>Kickoff call</strong>, 20–30 minutes to align on scope, timeline, and your quote.</li>
+              <li><strong>Build begins</strong>, a clear timeline and one point of contact the whole way.</li>
             </ol>
             <p className="st-success-sub">Nothing else is needed from you right now.</p>
             <Link to="/" className="btn btn-secondary st-success-btn">Back to Home</Link>
@@ -446,7 +446,7 @@ export default function Start() {
                   value={f.whyNow} onChange={e => set('whyNow', e.target.value)} />
               </Field>
               <Field label="If you need a website, what pages do you think you need?"
-                desc="Optional — check all that apply. Skip if no website needed." id="f-pagesNeeded">
+                desc="Optional, check all that apply. Skip if no website needed." id="f-pagesNeeded">
                 <Checks value={f.pagesNeeded} onChange={v => set('pagesNeeded', v)} layout="grid"
                   opts={['Home / Landing Page','About / Our Story','Services / Menu','Portfolio / Gallery',
                     'Contact / Book Now','Online Store','Booking / Scheduling','Blog','Not sure']
@@ -468,7 +468,7 @@ export default function Start() {
               <Field label="Color preferences? Anything you absolutely don't want?"
                 desc="No need for hex codes. Just tell us what you're drawn to." id="f-colorPrefs">
                 <textarea className="st-textarea" rows={3}
-                  placeholder="e.g. I like dark colors — black, navy. No bright or neon."
+                  placeholder="e.g. I like dark colors, black, navy. No bright or neon."
                   value={f.colorPrefs} onChange={e => set('colorPrefs', e.target.value)} />
               </Field>
               <Field label="Name 1–3 brands whose look you admire and what you like about them." required
@@ -508,11 +508,11 @@ export default function Start() {
                     { v: 'Written content',              label: 'Written content',              desc: 'Service descriptions, about us, pricing' },
                     { v: 'A domain name',                label: 'A domain name',                desc: 'Even with no site on it' },
                     { v: 'Google Business profile',      label: 'Google Business profile',      desc: 'Claimed' },
-                    { v: 'None — starting from zero',    label: 'None — starting from zero' },
+                    { v: 'None, starting from zero',    label: 'None, starting from zero' },
                   ]} />
               </Field>
               <Field label="Drop any relevant links"
-                desc="Website, Instagram, Facebook, Google listing — anything that shows what your business looks like right now."
+                desc="Website, Instagram, Facebook, Google listing, anything that shows what your business looks like right now."
                 id="f-existingLinks">
                 <textarea className="st-textarea" rows={3}
                   placeholder="e.g. Instagram: @sopesdetailing"
@@ -521,10 +521,10 @@ export default function Start() {
               <Field label="Do you have photos ready to use?" required id="f-photosReady" error={errors.photosReady}>
                 <Radio name="photosReady" value={f.photosReady} onChange={v => set('photosReady', v)}
                   opts={[
-                    { v: 'Yes — high quality photos ready to go',           label: 'Yes — high quality photos ready to go' },
-                    { v: 'Kind of — some but inconsistent or phone photos', label: 'Kind of — some but inconsistent or phone photos' },
-                    { v: "No — I'll need to gather or take photos",         label: "No — I'll need to gather or take photos during the project" },
-                    { v: 'No — stock photos or illustrations preferred',    label: "No — I'd prefer stock photos or illustrations" },
+                    { v: 'Yes, high quality photos ready to go',           label: 'Yes, high quality photos ready to go' },
+                    { v: 'Kind of, some but inconsistent or phone photos', label: 'Kind of, some but inconsistent or phone photos' },
+                    { v: "No, I'll need to gather or take photos",         label: "No, I'll need to gather or take photos during the project" },
+                    { v: 'No, stock photos or illustrations preferred',    label: "No, I'd prefer stock photos or illustrations" },
                   ]} />
               </Field>
             </div>
@@ -554,10 +554,10 @@ export default function Start() {
               <Field label="When do you need this completed?" required id="f-timeline" error={errors.timeline}>
                 <Radio name="timeline" value={f.timeline} onChange={v => set('timeline', v)}
                   opts={[
-                    { v: 'ASAP — within 1 week',        label: 'ASAP — within 1 week',        note: 'Rush fees may apply' },
+                    { v: 'ASAP, within 1 week',        label: 'ASAP, within 1 week',        note: 'Rush fees may apply' },
                     { v: 'Within 2–3 weeks',            label: 'Within 2–3 weeks' },
                     { v: 'Within 1 month',              label: 'Within 1 month' },
-                    { v: '1–3 months — planning ahead', label: '1–3 months — planning ahead' },
+                    { v: '1–3 months, planning ahead', label: '1–3 months, planning ahead' },
                     { v: 'I have a specific date',      label: 'I have a specific date',      note: 'Add details below' },
                     { v: 'No rush',                     label: 'No rush' },
                   ]} />
@@ -570,7 +570,7 @@ export default function Start() {
                     { v: '$600–$1,000',   label: '$600–$1,000',   note: 'Full brand or full website' },
                     { v: '$1,000–$2,000', label: '$1,000–$2,000', note: 'Brand + website together' },
                     { v: '$2,000+',       label: '$2,000+',       note: 'Full package with everything' },
-                    { v: 'Not sure — need to see costs first', label: 'Not sure — I need to see what things cost first' },
+                    { v: 'Not sure, need to see costs first', label: 'Not sure, I need to see what things cost first' },
                   ]} />
               </Field>
               <Field label="Anything else we should know?"

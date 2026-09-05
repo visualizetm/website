@@ -1,5 +1,5 @@
 import { getDb } from '../../_lib/mongo.js';
-import { requireAdmin } from '../../_lib/auth.js';
+import { route } from '../../_lib/handler.js';
 
 /* ── Normalizers (self-contained; serverless can't import from src/) ── */
 
@@ -29,7 +29,7 @@ function normStatus(v) {
     no: 'no', denied: 'no', dead: 'no', no_answer: 'no-answer', noanswer: 'no-answer', voicemail: 'no-answer' };
   return M[s] || 'not-called';
 }
-// Mirror of src/lib/phone.js last10() — serverless can't import from src/.
+// Mirror of src/lib/phone.js last10(), serverless can't import from src/.
 // Last 10 digits, dropping a leading US country code, so "+1 302 345 0738"
 // matches "(302) 345-0738" regardless of stored format.
 const digits = (v) => {
@@ -47,7 +47,7 @@ function buildSkeleton(f) {
     beforeYouDial: [
       'Open their socials / site on your phone',
       'Know cold: what they do, where, and one specific detail to mention',
-      'Listening for: what they care about growing — that becomes the pitch',
+      'Listening for: what they care about growing, that becomes the pitch',
     ],
     script: {
       confirm: `Hey, is this ${who.replace(/^ask for /i, '')}?`,
@@ -68,8 +68,8 @@ function buildSkeleton(f) {
       { say: 'Not spending right now', respond: "Not asking you to. The call's free and the concepts are free. You'd just know what's possible when the timing is right." },
     ],
     close: {
-      lockIt: "Cool, [day] at [time]. What's the best email to send the calendar invite to? — Confirm the day and time back before hanging up.",
-      ifNo: "All good, appreciate you taking the call. Mind if I send the concepts over anyway? — Get the email even on a no. Follow up in 30 days.",
+      lockIt: "Cool, [day] at [time]. What's the best email to send the calendar invite to?, Confirm the day and time back before hanging up.",
+      ifNo: "All good, appreciate you taking the call. Mind if I send the concepts over anyway?, Get the email even on a no. Follow up in 30 days.",
       noAnswer: 'No voicemail on attempt 1. Call back at a different time of day.',
     },
     afterCall: { meeting: '', email: f.email || '', whatTheySaid: '', nextAction: '' },
@@ -103,12 +103,7 @@ function rowToFields(row) {
   };
 }
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'method not allowed' });
-  }
+async function handler(req, res) {
 
   const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
   if (!rows) return res.status(400).json({ error: 'rows array required' });
@@ -142,7 +137,7 @@ export default async function handler(req, res) {
     const match = findMatch(f);
 
     if (match && match.deleted) {
-      skipped.push({ business: f.business, reason: 'previously deleted — left alone' });
+      skipped.push({ business: f.business, reason: 'previously deleted, left alone' });
       continue;
     }
 
@@ -170,3 +165,4 @@ export default async function handler(req, res) {
 
   return res.status(200).json({ ok: true, created, updated, skipped });
 }
+export default route(handler, { methods: ['POST'], maxBody: 2 * 1024 * 1024 });

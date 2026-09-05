@@ -1,18 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
 import Wordmark from './components/Wordmark';
-import Home from './pages/Home';
-import Services from './pages/Services';
-import Work from './pages/Work';
-import CaseStudy from './pages/CaseStudy';
-import Contact from './pages/Contact';
-import LeadPartner from './pages/LeadPartner';
-import Prints from './pages/Prints';
-import AdminApp from './pages/AdminApp';
-import Start from './pages/Start';
+import BootFrame from './shell/BootFrame';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
+
+/* Code split by host (Prompt 15): the admin host never downloads the
+ * marketing pages and the marketing site never downloads the admin. Each
+ * page is its own chunk; the shell components load with the first page. */
+const Navbar = lazy(() => import('./components/Navbar'));
+const Footer = lazy(() => import('./components/Footer'));
+const Home = lazy(() => import('./pages/Home'));
+const Services = lazy(() => import('./pages/Services'));
+const Work = lazy(() => import('./pages/Work'));
+const CaseStudy = lazy(() => import('./pages/CaseStudy'));
+const Contact = lazy(() => import('./pages/Contact'));
+const LeadPartner = lazy(() => import('./pages/LeadPartner'));
+const Prints = lazy(() => import('./pages/Prints'));
+const Start = lazy(() => import('./pages/Start'));
+const AdminApp = lazy(() => import('./pages/AdminApp'));
 
 function LoadingScreen({ done }) {
   return (
@@ -95,7 +100,8 @@ export default function App() {
   if (IS_ADMIN_HOST) {
     // The old print dashboard lived at /prints; Print Orders replaced it (Prompt 13).
     if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <Navigate to="/orders" replace />;
-    return <AdminApp />;
+    // The same boot frame the parser painted (index.html) stays up while the admin chunk loads, then AdminApp renders it again until the session answers.
+    return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
 
   // On the public domain the admin is not served (vercel.json also blocks it
@@ -103,16 +109,16 @@ export default function App() {
   if (location.pathname.startsWith('/admin')) {
     if (!IS_DEV_HOST) return <Navigate to="/" replace />;
     if (location.pathname === '/admin/prints') return <Navigate to="/admin/orders" replace />;
-    return <AdminApp />;
+    return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
 
   // Routes outside the normal navbar/footer layout
-  if (location.pathname === '/prints') return <Prints />;
+  if (location.pathname === '/prints') return <Suspense fallback={<LoadingScreen done={false} />}><Prints /></Suspense>;
   // The client portal and intake form were retired (Prompt 13); old links land on Contact with a notice.
   if (location.pathname === '/portal' || location.pathname.startsWith('/intake')) return <Navigate to="/contact?from=portal" replace />;
 
   return (
-    <>
+    <Suspense fallback={<LoadingScreen done={false} />}>
       <LoadingScreen done={!loading} />
       <Navbar />
       <main className="page-shell page-fade" key={location.pathname}>
@@ -131,6 +137,6 @@ export default function App() {
         </Routes>
       </main>
       <Footer />
-    </>
+    </Suspense>
   );
 }

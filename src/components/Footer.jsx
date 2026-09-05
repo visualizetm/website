@@ -3,7 +3,7 @@ import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Wordmark from './Wordmark';
 
-// Untitled UI's free line set has no social brand marks — this glyph matches
+// Untitled UI's free line set has no social brand marks, this glyph matches
 // its 24-grid, stroke-2, currentColor conventions so it reads as one system.
 function InstagramGlyph({ size = 16 }) {
   return (

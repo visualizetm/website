@@ -18,6 +18,7 @@ import Badge, { badgeStyles } from './Badge';
 import Avatar, { avatarStyles, initialsOf } from './Avatar';
 import EmptyState, { emptyStateStyles } from './EmptyState';
 import ErrorState, { errorStateStyles, useRetry } from './ErrorState';
+import ErrorBoundary, { errorBoundaryStyles } from './ErrorBoundary';
 import useOnline from './useOnline';
 import ListRow, { listRowStyles } from './ListRow';
 import Button, { buttonStyles } from './Button';
@@ -63,7 +64,7 @@ export const uiStyles = [
   tokenStyles, pageShellStyles, scrollAreaStyles, stickyFooterBarStyles,
   stackStyles, rowStyles, gridStyles, sectionStyles, dividerStyles,
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
-  emptyStateStyles, errorStateStyles, listRowStyles,
+  emptyStateStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
   spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
@@ -72,7 +73,7 @@ export const uiStyles = [
 
 export {
   PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider,
-  Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, ErrorState, ListRow,
+  Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, ErrorState, ErrorBoundary, ListRow,
   Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
   SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, durationMs, motionReduced,

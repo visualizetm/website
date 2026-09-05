@@ -108,7 +108,7 @@ export default function AdminDesign({ onBack, loading = false }) {
 
   if (loading) {
     return (
-      <main className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`} aria-busy="true">
+      <div className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`} aria-busy="true">
         <div className="lay-content lay-content--wide ds-wrap">
           {showSkel && <>
             <div className="ds-hero"><SkeletonBlock width={110} height={12} /><SkeletonBlock width="50%" height={56} /><SkeletonText lines={2} width="60%" /><div className="ds-toolbar">{[150, 170, 140].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</div></div>
@@ -116,12 +116,12 @@ export default function AdminDesign({ onBack, loading = false }) {
           </>}
         </div>
         <style>{dsStyles}</style>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
+    <div className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
       <div className="lay-content lay-content--wide ds-wrap">
         <Reveal as="header" className="ds-hero">
           <p className="ds-kicker">Visualize Dark</p>
@@ -172,7 +172,7 @@ export default function AdminDesign({ onBack, loading = false }) {
               <div key={th} className="ds-theme" data-v-theme={th} style={{ background: themes[th]['--v-ground'], color: themes[th]['--v-text'], borderColor: themes[th]['--v-border-strong'] }}>
                 <div className="ds-theme-name">{th === 'dark' ? 'Visualize Dark' : 'Visualize Light'}</div>
                 <div className="ds-theme-layers">{CONTRAST_LAYERS.map(([ln, lv]) => <div key={ln} className="ds-theme-layer" style={{ background: themes[th][lv] }}><span>{ln}</span><code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][lv]}</code></div>)}</div>
-                <div className="ds-table-wrap"><table className="ds-table"><thead><tr><th>text</th>{CONTRAST_LAYERS.map(([ln]) => <th key={ln}>{ln}</th>)}</tr></thead><tbody>
+                <div className="ds-table-wrap" tabIndex={0} role="region" aria-label="Contrast table"><table className="ds-table"><thead><tr><th>text</th>{CONTRAST_LAYERS.map(([ln]) => <th key={ln}>{ln}</th>)}</tr></thead><tbody>
                   {CONTRAST_TEXT.map(([tn, tv]) => (
                     <tr key={tn}><td><span style={{ color: themes[th][tv] }}>{tn}</span> <code style={{ color: themes[th]['--v-text-3'] }}>{themes[th][tv]}</code></td>
                       {CONTRAST_LAYERS.map(([ln, lv]) => { const r = themes[th][tv] && themes[th][lv] ? Number(ratio(themes[th][tv], themes[th][lv])) : null; return <td key={ln} style={{ background: themes[th][lv], color: themes[th][tv] }}>{r == null ? '' : `${r.toFixed(2)} ${grade(r)}`}</td>; })}
@@ -308,7 +308,7 @@ export default function AdminDesign({ onBack, loading = false }) {
         <DesignComponents />
       </div>
       <style>{dsStyles}</style>
-    </main>
+    </div>
   );
 }
 
@@ -374,7 +374,7 @@ const dsStyles = `
   .ds-group-row { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
   .ds-bars { display: flex; align-items: flex-end; gap: var(--v-space-2); height: 140px; }
   .ds-bar { flex: 1; border-radius: var(--v-radius-sm) var(--v-radius-sm) 0 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: var(--v-space-1); }
-  .ds-bar span { font-size: 10px; color: var(--v-text-inverse); font-weight: var(--v-weight-bold); }
+  .ds-bar span { font-size: 10px; color: var(--v-chart-text); font-weight: var(--v-weight-bold); }
   .ds-type { display: flex; flex-direction: column; gap: var(--v-space-4); }
   .ds-type-row { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; overflow-wrap: anywhere; }
   .ds-spaces { display: flex; flex-direction: column; gap: var(--v-space-1); }

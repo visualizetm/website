@@ -43,46 +43,7 @@ const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == 
 const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* fine */ } };
 
 /** The stored shape of a new lead from the form (default script content included). */
-export function defaultLead(f) {
-  const who = f.askFor?.trim() || 'the owner';
-  return {
-    ...f,
-    callStatus: 'not-called',
-    angle: f.angle || '',
-    beforeYouDial: [
-      'Open their socials / site on your phone',
-      'Know cold: what they do, where, and one specific detail to mention',
-      'Listening for: what they care about growing. That becomes the pitch',
-    ],
-    script: {
-      confirm: `Hey, is this ${who.replace(/^ask for /i, '')}?`,
-      intro: "Hey, I'm Rob. I do branding and websites for local businesses here in Delaware. I know you're probably busy so I'll be quick.",
-      homework: `I came across ${f.business} and did my homework before calling. That's actually why I'm reaching out.`,
-      question: 'Quick question before I take up more of your time. Who’s handling your website and branding right now?',
-      likelyAnswers: [
-        { say: 'We just use social media', respond: 'Right, and it works for regulars. But when someone new hears about you and Googles you, a site is what catches them.' },
-        { say: 'Somebody set it up a while ago', respond: 'Nice, it got you this far. I’d be bringing it up to where the business actually is now.' },
-        { say: 'Nobody, word of mouth', respond: 'Word of mouth is your best asset. A site just catches the people who hear about you but need to see you before they call.' },
-      ],
-      hook: `So here's how I work. I build concepts before I ever talk numbers. I'd mock up what ${f.business} could look like, a logo, a simple site, and just show you. Free, no strings.`,
-      ask: '15 minutes this week? Morning before 8, or evening after 5?',
-    },
-    objections: [
-      { say: 'How much is this?', respond: 'Depends what you actually need. Let me show you the concepts first, then we talk about what makes sense.' },
-      { say: "We're doing fine", respond: "Then it's not about more customers, it's about better ones. A real brand wins the higher-ticket work." },
-      { say: 'How old are you?', respond: "20. Which means you're talking to the person actually doing the work, and you're not paying agency overhead." },
-      { say: 'Not spending right now', respond: "Not asking you to. The call's free and the concepts are free. You'd just know what's possible when the timing is right." },
-    ],
-    close: {
-      lockIt: "Cool, [day] at [time]. What's the best email to send the calendar invite to? Confirm the day and time back before hanging up.",
-      ifNo: "All good, appreciate you taking the call. Mind if I send the concepts over anyway? Costs you nothing, and if it's ever the right time you'll already know exactly what I'd do.. Get the email even on a no. Follow up in 30 days.",
-      noAnswer: 'No voicemail on attempt 1. Call back at a different time of day.',
-    },
-    afterCall: { meeting: '', email: '', whatTheySaid: '', nextAction: '' },
-    intel: { accomplishments: [], gaps: [], dropLines: [] },
-    socials: normalizeSocials(f.socials),
-  };
-}
+export { defaultLead } from '../lib/defaultLead';
 
 const fmtClock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
@@ -330,7 +291,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
 
   useEffect(() => {
     if (embedded) { setAuthed(true); return; }
-    fetch('/api/admin/session').then(r => r.json()).then(d => { if (d.authed) setAuthed(true); else window.location.replace(ADMIN_HOME); }).catch(() => window.location.replace(ADMIN_HOME));
+    apiFetch('/api/admin/session').then(r => { if (r.ok && r.data?.authed) setAuthed(true); else window.location.replace(ADMIN_HOME); });
   }, [embedded]);
   const load = useCallback(async () => {
     const r = await apiFetch('/api/admin/call-leads');
@@ -652,9 +613,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} />)}
       {(mode === 'queue' || mode === 'room') && session && (desktop ? (
         <div className="cc-desk">
-          <aside className="cc-desk-left"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>
+          <aside className="cc-desk-left" aria-label="Queue"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>
           <PageShell className="cc-desk-center">{roomCenter}{bar}</PageShell>
-          <aside className="cc-desk-right">
+          <aside className="cc-desk-right" aria-label="Notes and history">
             {current && <ScrollArea bare className="cc-desk-scroll"><Stack gap={4}><Section title="Notes"><LeadNotes lead={current} onSave={saveNotes} /></Section><Section title="History"><LeadHistory lead={current} /></Section></Stack></ScrollArea>}
           </aside>
         </div>

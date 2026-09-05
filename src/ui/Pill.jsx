@@ -19,7 +19,7 @@ export default function Pill({ id, list, label, tone, icon, variant = 'soft', si
   const showIcon = icon !== false && !dot && r.icon;
   return (
     <span className={`v-pill v-pill--${variant} v-pill--${size} ${className}`.trim()}
-      style={{ '--v-pill-solid': `var(--v-status-${r.tone}-solid)`, '--v-pill-soft': `var(--v-status-${r.tone}-soft)`, '--v-pill-text': `var(--v-status-${r.tone}-text)`, ...style }} {...rest}>
+      style={{ '--v-pill-solid': `var(--v-status-${r.tone}-solid)`, '--v-pill-soft': `var(--v-status-${r.tone}-soft)`, '--v-pill-text': `var(--v-status-${r.tone}-text)`, '--v-pill-on-solid': r.tone === 'won' ? 'var(--v-text-on-red)' : 'var(--v-text-inverse)', ...style }} {...rest}>
       {dot && <span className="v-pill-dot" />}
       {showIcon && <Icon icon={r.icon} size={size === 'sm' ? 11 : 13} />}
       <span className="v-pill-label">{children ?? r.label}</span>
@@ -37,9 +37,9 @@ export const pillStyles = `
   }
   .v-pill--sm { height: 22px; padding: 0 var(--v-space-2); }
   .v-pill--soft { background: var(--v-pill-soft); color: var(--v-pill-text); border-color: color-mix(in srgb, var(--v-pill-text) 30%, transparent); }
-  .v-pill--solid { background: var(--v-pill-solid); color: var(--v-text-inverse); }
+  .v-pill--solid { background: var(--v-pill-solid); color: var(--v-pill-on-solid); }
   .v-pill--outline { background: transparent; color: var(--v-pill-text); border-color: var(--v-border-strong); }
   .v-pill-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--v-pill-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--v-pill-text) 22%, transparent); }
-  .v-pill--solid .v-pill-dot { background: var(--v-text-inverse); box-shadow: none; }
+  .v-pill--solid .v-pill-dot { background: var(--v-pill-on-solid); box-shadow: none; }
   .v-pill-label { overflow: hidden; text-overflow: ellipsis; }
 `;

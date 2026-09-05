@@ -60,21 +60,21 @@ export default function Sheet({ open, onClose, title, description, footer, width
   return createPortal(
     <div className={`v-sheet-back${closing ? ' is-closing' : ''}`} onClick={close}>
       <div ref={boxRef} className={`v-sheet ${desktop ? 'v-sheet--side' : 'v-sheet--bottom'}${tall ? ' v-sheet--tall' : ''}${closing ? ' is-closing' : ''} ${className}`.trim()}
-        role="dialog" aria-modal="true" aria-label={title ? undefined : label} aria-labelledby={title ? 'v-sheet-title' : undefined} tabIndex={-1}
+        role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Details')} aria-labelledby={typeof title === 'string' && title ? 'v-sheet-title' : undefined} tabIndex={-1}
         style={{ width: desktop ? (typeof width === 'number' ? `${width}px` : width) : undefined, transform: dragY ? `translateY(${dragY}px)` : undefined, transition: dragY ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}>
         {!desktop && <div className="v-sheet-handle" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}><span /></div>}
         {(title || description) && (
-          <header className="v-sheet-head" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+          <div className="v-sheet-head" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
             <div className="v-sheet-text">
-              {title && <h2 id="v-sheet-title" className="v-sheet-title">{title}</h2>}
+              {title && (typeof title === 'string' ? <h2 id="v-sheet-title" className="v-sheet-title">{title}</h2> : <div className="v-sheet-title" aria-hidden="true">{title}</div>)}
               {description && <p className="v-sheet-desc">{description}</p>}
             </div>
             <button type="button" className="v-sheet-x" onClick={close} aria-label="Close"><XClose width={18} height={18} /></button>
-          </header>
+          </div>
         )}
         <div className="v-sheet-body">{children}</div>
-        {footer && <footer className="v-sheet-foot">{footer}</footer>}
+        {footer && <div className="v-sheet-foot">{footer}</div>}
       </div>
     </div>,
     root,

@@ -149,6 +149,22 @@ export const items = Array.from({ length: 13 }, (_, i) => ({
 export const json = (data) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(data) });
 
 const wait = (ms) => new Promise(r => setTimeout(r, ms));
+export const CALENDLY_EVENTS = [
+  { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
+  { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
+];
+export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, passwordOverridden: false };
+/** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
+export const PAYLOADS = {
+  submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),
+  settings: () => SETTINGS_DOC,
+  stripe: () => ({ configured: true, items: stripeEvents.filter(e => !e.matchedLeadId), events: stripeEvents, ok: true }),
+  calendly: () => ({ configured: true, events: CALENDLY_EVENTS }),
+  leads: () => ({ items: leads }),
+  orders: () => ({ items: orders, unimported: 2 }),
+  packs: () => ({ items: packs }),
+  projects: () => ({ items: projects }),
+};
 export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, projects: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
@@ -165,19 +181,15 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill(json(empty.has(name) && EMPTY[name] ? EMPTY[name] : data));
   };
   await page.route('**/api/admin/session', r => (session === 'hang' ? new Promise(() => {}) : r.fulfill(json({ authed: !!session }))));
-  await page.route('**/api/admin/submissions**', r => respond(r, 'submissions', {
-    items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }],
-  }));
-  await page.route('**/api/admin/settings**', r => respond(r, 'settings', { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, passwordOverridden: false }));
-  await page.route('**/api/admin/stripe/**', r => respond(r, 'stripe', { configured: true, items: stripeEvents.filter(e => !e.matchedLeadId), events: stripeEvents, ok: true }));
-  await page.route('**/api/admin/calendly/events**', r => respond(r, 'calendly', { configured: true, events: [
-  { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
-  { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
-  ] }));
-  await page.route('**/api/admin/call-leads**', r => (r.request().method() === 'GET' ? respond(r, 'leads', { items: leads }) : r.fulfill(json({ ok: true, item: { ...leads[0], _id: 'LNEW' } }))));
-  await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', { items: orders, unimported: 2 }) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
-  await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? respond(r, 'packs', { items: packs }) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
-  await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', { items: projects }) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
+  await page.route('**/api/admin/submissions**', r => respond(r, 'submissions', PAYLOADS.submissions()));
+  await page.route('**/api/admin/settings**', r => (r.request().method() === 'GET' ? respond(r, 'settings', PAYLOADS.settings()) : r.fulfill(json({ ok: true }))));
+  await page.route('**/api/admin/stripe/**', r => respond(r, 'stripe', PAYLOADS.stripe()));
+  await page.route('**/api/admin/calendly/events**', r => respond(r, 'calendly', PAYLOADS.calendly()));
+  await page.route('**/api/admin/log', r => r.fulfill(json({ ok: true, items: [] })));
+  await page.route('**/api/admin/call-leads**', r => (r.request().method() === 'GET' ? respond(r, 'leads', PAYLOADS.leads()) : r.fulfill(json({ ok: true, item: { ...leads[0], _id: 'LNEW' } }))));
+  await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', PAYLOADS.orders()) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
+  await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? respond(r, 'packs', PAYLOADS.packs()) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
+  await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
   // Google Fonts never resolves inside the audit sandbox; answer with an empty stylesheet
   // (after `fontsDelay` ms) so first paint measurements are not bound to a 12 second timeout.

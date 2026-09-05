@@ -63,7 +63,7 @@ export const buttonStyles = `
   .v-btn--ghost:hover:not(:disabled) { background: var(--v-surface-2); color: var(--v-text); }
 
   .v-btn--danger { background: var(--v-status-danger-soft); color: var(--v-status-danger-text); border-color: color-mix(in srgb, var(--v-status-danger-text) 35%, transparent); }
-  .v-btn--danger:hover:not(:disabled) { background: var(--v-status-danger-solid); color: var(--v-text-on-red); border-color: var(--v-status-danger-solid); }
+  .v-btn--danger:hover:not(:disabled) { background: var(--v-status-danger-solid); color: var(--v-text-inverse); border-color: var(--v-status-danger-solid); }
 
   .v-btn--icon { width: var(--v-control-h); padding: 0; background: transparent; color: var(--v-text-2); border-color: var(--v-border); }
   .v-btn--icon.v-btn--lg { width: var(--v-tap-lg); }

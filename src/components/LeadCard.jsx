@@ -18,7 +18,8 @@ import { deleteBlockReason } from '../lib/booked';
  * @param {boolean} [props.selectable] show the checkbox (always on mobile select mode, hover on desktop)
  * @param {boolean} [props.checked]
  * @param {Function} [props.onCheck] (next: boolean)
- * @param {{ onPriority?: (id) => void, onStatus?: (id) => void, onDelete?: () => void, onOpenSocials?: () => void }} [props.actions] menu handlers; omit for no menu
+ * @param {{ onPriority?: (id) => void, onStatus?: (id) => void, onStatusStep?: (dir: 1|-1) => void, onDelete?: () => void, onOpenSocials?: () => void }} [props.actions] menu handlers; omit for no menu.
+ *   onStatusStep moves the lead one column left or right (Shift+ArrowLeft, Shift+ArrowRight on the focused card): the keyboard path for the kanban.
  * @param {boolean} [props.dragging] visual lift while dragged
  * @param {boolean} [props.compact] hide row 4
  */
@@ -45,11 +46,11 @@ export default function LeadCard({ lead, onOpen, selected = false, selectable = 
   const scan = scanAgeDays(lead);
   const items = leadMenuItems(lead, actions);
   return (
-    <div className={`lc lay-card${selected ? ' is-selected' : ''}${selectable ? ' is-selectable' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''} ${className}`.trim()}
-      role={onOpen ? 'button' : undefined} tabIndex={onOpen ? 0 : undefined}
-      onClick={onOpen ? () => onOpen(lead) : undefined} onKeyDown={onOpen ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(lead); } } : undefined}
-      aria-label={onOpen ? `Open ${lead.business}` : undefined} {...rest}>
-      {onCheck && <span className="lc-check" onClick={(e) => e.stopPropagation()}><Checkbox checked={checked} onChange={onCheck} aria-label={`Select ${lead.business}`} /></span>}
+    <div className={`lc lay-card${selected ? ' is-selected' : ''}${selectable ? ' is-selectable' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''}${onOpen ? ' lc--open' : ''} ${className}`.trim()} {...rest}>
+      {/* One real control opens the card (Prompt 15): stretched over the surface, so the menu, checkbox, and phone link never nest inside a button. */}
+      {onOpen && <button type="button" className="v-stretch lc-open" onClick={() => onOpen(lead)} aria-label={`Open ${lead.business}`}
+        onKeyDown={actions?.onStatusStep ? (e) => { if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); actions.onStatusStep(e.key === 'ArrowRight' ? 1 : -1); } } : undefined}>{`Open ${lead.business}`}</button>}
+      {onCheck && <span className="lc-check v-above"><Checkbox checked={checked} onChange={onCheck} aria-label={`Select ${lead.business}`} /></span>}
       <div className="lc-row lc-row1">
         <Avatar name={lead.business} size="sm" />
         <span className="lc-name lay-truncate">{lead.business}</span>
@@ -62,12 +63,11 @@ export default function LeadCard({ lead, onOpen, selected = false, selectable = 
       </div>
       <div className="lc-row lc-row3">
         {lead.phone
-          ? <a className="lc-phone" href={telHref(lead.phone)} onClick={(e) => e.stopPropagation()} aria-label={`Call ${formatPhone(lead.phone)}`}>{formatPhone(lead.phone)}</a>
+          ? <a className="lc-phone v-above" href={telHref(lead.phone)} aria-label={`Call ${formatPhone(lead.phone)}`}>{formatPhone(lead.phone)}</a>
           : <span className="lc-phone lc-phone--none">No phone</span>}
-        <span className="lc-socials" aria-label="Socials">
-          {SOCIALS.map(([k, I, label]) => lead.socials?.[k]
-            ? <a key={k} className="lc-social" href={lead.socials[k]} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} aria-label={label}><I width={13} height={13} /></a>
-            : <span key={k} className="lc-social lc-social--off" aria-hidden="true"><I width={13} height={13} /></span>)}
+        {/* Which socials exist, as indicators: the card menu opens them and the detail has full size buttons (Prompt 15 dropped the 22px link targets). */}
+        <span className="lc-socials" role="img" aria-label={`Socials: ${SOCIALS.filter(([k]) => lead.socials?.[k]).map(([, , l]) => l).join(', ') || 'none'}`}>
+          {SOCIALS.map(([k, I]) => <span key={k} className={`lc-social${lead.socials?.[k] ? '' : ' lc-social--off'}`} aria-hidden="true"><I width={13} height={13} /></span>)}
         </span>
         <span style={{ flex: 1 }} />
         <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />
@@ -78,22 +78,22 @@ export default function LeadCard({ lead, onOpen, selected = false, selectable = 
           {lead.callStatus === 'callback' && <span className="lc-next">Next: call back{lc?.note ? `, ${lc.note}` : ''}</span>}
           {scan != null && (
             <Tooltip label={`Scanned ${fmtDate(lead.enrichment.lastScanAt)}, ${lead.enrichment.scanCount || 1} scan${(lead.enrichment.scanCount || 1) === 1 ? '' : 's'}`}>
-              <span className={`lc-scan${scan <= 7 ? ' is-fresh' : ' is-stale'}`} tabIndex={0} aria-label={`Scanned ${relativeTime(lead.enrichment.lastScanAt)}`} />
+              <span className={`lc-scan${scan <= 7 ? ' is-fresh' : ' is-stale'}`} role="img" aria-label={`Scanned ${relativeTime(lead.enrichment.lastScanAt)}`} />
             </Tooltip>
           )}
         </div>
       )}
-      {items.length > 0 && <span className="lc-menu" onClick={(e) => e.stopPropagation()}><Menu items={items} label={`Actions for ${lead.business}`} /></span>}
+      {items.length > 0 && <span className="lc-menu v-above"><Menu items={items} label={`Actions for ${lead.business}`} /></span>}
     </div>
   );
 }
 
 LeadCard.Skeleton = function LeadCardSkeleton({ compact = false }) {
   return (
-    <div className="lc lay-card" aria-busy="true">
+    <div className="lc lay-card" aria-busy="true" aria-hidden="true">
       <div className="lc-row"><SkeletonCircle size={32} /><SkeletonBlock width="55%" height={14} /><span style={{ flex: 1 }} /><SkeletonBlock width={44} height={22} radius="var(--v-radius-pill)" /></div>
       <div className="lc-row"><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="50%" height={12} /></div>
-      <div className="lc-row"><SkeletonBlock width={110} height={28} /><span style={{ flex: 1 }} /><SkeletonBlock width={74} height={22} radius="var(--v-radius-pill)" /></div>
+      <div className="lc-row"><SkeletonBlock width={110} height={44} /><span style={{ flex: 1 }} /><SkeletonBlock width={74} height={22} radius="var(--v-radius-pill)" /></div>
       {!compact && <div className="lc-row"><SkeletonBlock width={90} height={18} /></div>}
     </div>
   );

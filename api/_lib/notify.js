@@ -26,7 +26,7 @@ export async function sendPush(db, { title, body, url }) {
   }));
 }
 
-// Email backup — always on, delivered to contact@visualizeclients.com
+// Email backup, always on, delivered to contact@visualizeclients.com
 // via the Web3Forms key registered to that address.
 export async function sendEmail({ subject, fromName, replyTo, fields }) {
   const key = process.env.WEB3FORMS_NOTIFY_KEY;

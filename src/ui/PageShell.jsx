@@ -1,12 +1,16 @@
 /**
  * PageShell: the full-height flex column every admin page renders inside.
- * Hosts one ScrollArea and any StickyFooterBar as in-flow siblings.
+ * Hosts one ScrollArea and any StickyFooterBar as in-flow siblings. Its
+ * children render inside an ErrorBoundary (Prompt 15), so a render error in
+ * one screen region shows the kit ErrorState there and leaves the shell alive.
  * @param {object} props
  * @param {string} [props.className]
+ * @param {string} [props.label] names the region in the boundary's message
  * @param {import('react').ReactNode} props.children
  */
-export default function PageShell({ className = '', children, ...rest }) {
-  return <div className={`lay-shell ${className}`.trim()} {...rest}>{children}</div>;
+import ErrorBoundary from './ErrorBoundary';
+export default function PageShell({ className = '', label, children, ...rest }) {
+  return <div className={`lay-shell ${className}`.trim()} {...rest}><ErrorBoundary label={label || 'this screen'}>{children}</ErrorBoundary></div>;
 }
 
 export const pageShellStyles = `

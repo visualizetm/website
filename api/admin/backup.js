@@ -1,14 +1,12 @@
 import { getDb } from '../_lib/mongo.js';
-import { requireAdmin } from '../_lib/auth.js';
+import { route } from '../_lib/handler.js';
 
 /* GET /api/admin/backup: every collection as one JSON download named
  * visualize-backup-YYYY-MM-DD.json. push_subscriptions and raw Stripe payloads
  * are left out. Restore is out of scope (the file is for safekeeping). */
 const COLLECTIONS = ['call_leads', 'submissions', 'projects', 'orders', 'concept_packs', 'settings', 'stripe_events'];
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
-  if (req.method !== 'GET') { res.setHeader('Allow', 'GET'); return res.status(405).json({ error: 'method not allowed' }); }
+async function handler(req, res) {
   const db = await getDb();
   const out = { app: 'visualize-admin', version: 1, createdAt: new Date().toISOString(), collections: {} };
   for (const name of COLLECTIONS) {
@@ -21,3 +19,4 @@ export default async function handler(req, res) {
   res.setHeader('Content-Disposition', `attachment; filename="visualize-backup-${stamp}.json"`);
   return res.status(200).send(JSON.stringify(out));
 }
+export default route(handler, { methods: ['GET'] });

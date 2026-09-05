@@ -92,7 +92,7 @@ const catalogCategories = [
       {
         name: 'Bulk Custom Products',
         description:
-          'You want custom products with your brand on them. I handle everything — finding the manufacturer, designing the product, getting you samples, and managing the entire order. You get one quote and one point of contact.',
+          'You want custom products with your brand on them. I handle everything, finding the manufacturer, designing the product, getting you samples, and managing the entire order. You get one quote and one point of contact.',
         note: 'Popular: custom keychains, product packaging, apparel, and branded accessories.',
         includes: [
           'Manufacturer sourcing',
@@ -377,7 +377,7 @@ export default function ServicesPage() {
       <section className="sv-breakdown" id="catalog">
         <div className="wrap">
           <h2 className="sv-heading">Service Breakdown</h2>
-          <p className="sv-heading-sub">Everything I offer. Expand any card for full deliverables and details. All projects are estimated by quote — book a meeting to get yours.</p>
+          <p className="sv-heading-sub">Everything I offer. Expand any card for full deliverables and details. All projects are estimated by quote, book a meeting to get yours.</p>
           {catalogCategories.map((cat) => (
             <div key={cat.id} className="svc-category" id={cat.id}>
               <h3 className="svc-category-title">{cat.title}</h3>

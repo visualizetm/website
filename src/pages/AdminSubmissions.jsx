@@ -10,7 +10,7 @@ import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadPicker from '../components/LeadPicker';
 import LeadForm from '../components/LeadForm';
-import { defaultLead } from './AdminCalls';
+import { defaultLead } from '../lib/defaultLead';
 import { SUBMISSION_TYPES, LEAD_STATUSES, submissionTypeOf } from '../shared/semantics';
 import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
 import { formatPhone, telHref } from '../shared/phone';
@@ -129,7 +129,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
   const list = useMemo(() => live.filter(s => (!type || (s.type || 'other') === type) && (!unreadOnly || !s.read) && matchesSubmission(s, q)).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)), [live, type, unreadOnly, q]);
   const sel = selId ? live.find(s => String(s._id) === String(selId)) : null;
   const columns = [
-    { id: 'from', label: 'From', always: true, render: (s) => <span className="cl-cell-biz"><Avatar name={s.business || s.name} size="sm" /><span className="lay-truncate">{s.business || s.name}</span>{!s.read && <span className="sb-dot" aria-label="Unread" />}</span> },
+    { id: 'from', label: 'From', always: true, render: (s) => <span className="cl-cell-biz"><Avatar name={s.business || s.name} size="sm" /><span className="lay-truncate">{s.business || s.name}</span>{!s.read && <span className="sb-dot" role="img" aria-label="Unread" />}</span> },
     { id: 'name', label: 'Name', render: (s) => s.name },
     { id: 'type', label: 'Type', width: 120, render: (s) => <Pill id={s.type} list={SUBMISSION_TYPES} size="sm" variant="outline" /> },
     { id: 'status', label: 'Status', width: 120, render: (s) => <Pill id={s.status} list={LEAD_STATUSES} size="sm" /> },
@@ -164,7 +164,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
           )}
           {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel" aria-label="Submission"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
       {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : <SkeletonBlock width={120} height={14} />} tall width={520}>{detail}</Sheet>}
       <style>{sbStyles}</style>

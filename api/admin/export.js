@@ -1,16 +1,11 @@
 import { getDb } from '../_lib/mongo.js';
-import { requireAdmin } from '../_lib/auth.js';
+import { route } from '../_lib/handler.js';
 
 // RFC 4180 escaping: always quote, double internal quotes. Handles commas,
 // quotes, and line breaks inside answers.
 const csvCell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
-    return res.status(405).json({ error: 'method not allowed' });
-  }
+async function handler(req, res) {
 
   const { type = 'submissions', format = 'csv', status, q, days } = req.query || {};
   const db = await getDb();
@@ -79,3 +74,4 @@ export default async function handler(req, res) {
   res.setHeader('Content-Disposition', `attachment; filename="${base}.csv"`);
   return res.status(200).send(csv);
 }
+export default route(handler, { methods: ['GET'] });

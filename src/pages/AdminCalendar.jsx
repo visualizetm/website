@@ -13,7 +13,7 @@ import LeadForm from '../components/LeadForm';
 import { buildEvents, eventsOn, sameDay, KIND_LABEL } from '../lib/events';
 import { normalizeStage } from '../shared/semantics';
 import { matchesSearch } from '../lib/leads';
-import { defaultLead } from './AdminCalls';
+import { defaultLead } from '../lib/defaultLead';
 import { formatPhone } from '../shared/phone';
 import { toLocalInput } from '../lib/calls';
 
@@ -137,16 +137,16 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const hours = Array.from({ length: END_H - START_H + 1 }, (_, i) => START_H + i);
   const posOf = (t) => { const d = new Date(t); return ((d.getHours() + d.getMinutes() / 60) - START_H) * HOUR_PX; };
   const weekView = (
-    <div className="cal-week">
-      <div className="cal-week-head">
-        <div className="cal-gutter" />
-        {week.map(d => <div key={+d} className={`cal-week-day${sameDay(d, now) ? ' is-today' : ''}`}><button type="button" className="cal-week-daybtn" onClick={() => { setCursor(d); setMode('day'); }}>{DOW[(d.getDay() + 6) % 7]} <strong>{d.getDate()}</strong></button><div className="cal-allday">{eventsOn(events, d).filter(e => e.allDay).map(e => <Pill key={e.id} tone={e.tone} label={e.title} size="sm" icon={false} className="cal-allday-pill" />)}</div></div>)}
+    <div className="cal-week" role="grid" aria-label={`Week of ${week[0].toLocaleDateString([], { month: 'long', day: 'numeric' })}`}>
+      <div className="cal-week-head" role="row">
+        <div className="cal-gutter" role="columnheader"><span className="v-sr-only">Time</span></div>
+        {week.map(d => <div key={+d} role="columnheader" className={`cal-week-day${sameDay(d, now) ? ' is-today' : ''}`}><button type="button" className="cal-week-daybtn" onClick={() => { setCursor(d); setMode('day'); }} aria-label={d.toDateString()}>{DOW[(d.getDay() + 6) % 7]} <strong>{d.getDate()}</strong></button><div className="cal-allday">{eventsOn(events, d).filter(e => e.allDay).map(e => <Pill key={e.id} tone={e.tone} label={e.title} size="sm" icon={false} className="cal-allday-pill" />)}</div></div>)}
       </div>
       <ScrollArea bare className="cal-week-scroll">
-        <div className="cal-grid" style={{ height: hours.length * HOUR_PX }}>
-          <div className="cal-gutter">{hours.map(h => <div key={h} className="cal-hour" style={{ top: (h - START_H) * HOUR_PX }}>{new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' })}</div>)}</div>
+        <div className="cal-grid" style={{ height: hours.length * HOUR_PX }} role="row">
+          <div className="cal-gutter" role="rowheader" aria-label="Hours">{hours.map(h => <div key={h} className="cal-hour" style={{ top: (h - START_H) * HOUR_PX }}>{new Date(2000, 0, 1, h).toLocaleTimeString([], { hour: 'numeric' })}</div>)}</div>
           {week.map(d => (
-            <div key={+d} className={`cal-col${sameDay(d, now) ? ' is-today' : ''}`} onClick={(ev) => { if (ev.target !== ev.currentTarget) return; const rect = ev.currentTarget.getBoundingClientRect(); const h = START_H + Math.floor((ev.clientY - rect.top) / HOUR_PX); const slot = new Date(d); slot.setHours(h, 0, 0, 0); setAddSlot(slot); setAddLead(null); }}>
+            <div key={+d} role="gridcell" aria-label={d.toDateString()} className={`cal-col${sameDay(d, now) ? ' is-today' : ''}`} onClick={(ev) => { if (ev.target !== ev.currentTarget) return; const rect = ev.currentTarget.getBoundingClientRect(); const h = START_H + Math.floor((ev.clientY - rect.top) / HOUR_PX); const slot = new Date(d); slot.setHours(h, 0, 0, 0); setAddSlot(slot); setAddLead(null); }}>
               {hours.map(h => <div key={h} className="cal-line" style={{ top: (h - START_H) * HOUR_PX }} />)}
               {sameDay(d, now) && <div className="cal-now" style={{ top: posOf(now) }} />}
               {eventsOn(events, d).filter(e => !e.allDay).map((e, bi) => (
@@ -160,15 +160,22 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
       </ScrollArea>
     </div>
   );
+  /* The month is a grid (Prompt 15): weekday column headers, one row per week, each day a gridcell holding its button. */
   const monthView = (
-    <div className="cal-month">
-      {DOW.map(d => <div key={d} className="cal-month-dow">{d}</div>)}
-      {monthDays.map((d, i) => { const list = eventsOn(events, d); const other = d.getMonth() !== cursor.getMonth(); return (
-        <button key={+d} type="button" className={`cal-month-day v-reveal${other ? ' is-other' : ''}${sameDay(d, now) ? ' is-today' : ''}`} style={{ animationDelay: `calc(${Math.floor(i / 7)} * var(--v-stagger))` }} onClick={() => { setCursor(d); setMode('day'); }} aria-label={`${d.toDateString()}, ${list.length} events`}>
-          <span className="cal-month-n">{d.getDate()}</span>
-          {list.slice(0, 3).map(e => <span key={e.id} className={`cal-month-pill cal-block--${e.tone}`}>{e.allDay ? e.title : `${fmtTime(e.at)} ${e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}`}</span>)}
-          {list.length > 3 && <span className="cal-month-more">+{list.length - 3}</span>}
-        </button>); })}
+    <div className="cal-month" role="grid" aria-label={`${cursor.toLocaleDateString([], { month: 'long', year: 'numeric' })}, by week`}>
+      <div role="row" className="cal-month-row">{DOW.map(d => <div key={d} role="columnheader" className="cal-month-dow">{d}</div>)}</div>
+      {Array.from({ length: 6 }, (_, w) => (
+        <div key={w} role="row" className="cal-month-row">
+          {monthDays.slice(w * 7, w * 7 + 7).map((d, di) => { const i = w * 7 + di; const list = eventsOn(events, d); const other = d.getMonth() !== cursor.getMonth(); return (
+            <div key={+d} role="gridcell" className="cal-month-cell">
+              <button type="button" className={`cal-month-day v-reveal${other ? ' is-other' : ''}${sameDay(d, now) ? ' is-today' : ''}`} style={{ animationDelay: `calc(${Math.floor(i / 7)} * var(--v-stagger))` }} onClick={() => { setCursor(d); setMode('day'); }} aria-label={`${d.toDateString()}, ${list.length} event${list.length === 1 ? '' : 's'}`} aria-current={sameDay(d, now) ? 'date' : undefined}>
+                <span className="cal-month-n">{d.getDate()}</span>
+                {list.slice(0, 3).map(e => <span key={e.id} className={`cal-month-pill cal-block--${e.tone}`}>{e.allDay ? e.title : `${fmtTime(e.at)} ${e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}`}</span>)}
+                {list.length > 3 && <span className="cal-month-more">+{list.length - 3}</span>}
+              </button>
+            </div>); })}
+        </div>
+      ))}
     </div>
   );
 
@@ -186,9 +193,9 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
     </div>
   );
   const monthSkeleton = (
-    <div className="cal-month" aria-busy="true">
-      {DOW.map(d => <div key={d} className="cal-month-dow">{d}</div>)}
-      {monthDays.map((d, i) => <div key={+d} className="cal-month-day" style={{ cursor: 'default' }}><SkeletonBlock width={16} height={12} />{i % 3 === 0 && <SkeletonBlock height={14} radius={3} />}</div>)}
+    <div className="cal-month" aria-busy="true" aria-hidden="true">
+      <div className="cal-month-row">{DOW.map(d => <div key={d} className="cal-month-dow">{d}</div>)}</div>
+      {Array.from({ length: 6 }, (_, w) => <div key={w} className="cal-month-row">{monthDays.slice(w * 7, w * 7 + 7).map((d, di) => <div key={+d} className="cal-month-cell"><div className="cal-month-day" style={{ cursor: 'default' }}><SkeletonBlock width={16} height={12} />{(w * 7 + di) % 3 === 0 && <SkeletonBlock height={14} radius={3} />}</div></div>)}</div>)}
     </div>
   );
   const nothingAtAll = !loading && !all.length && (
@@ -254,7 +261,8 @@ const calStyles = `
   .cal-week-head { display: grid; grid-template-columns: 56px repeat(7, minmax(0, 1fr)); border-bottom: 1px solid var(--v-border); }
   .cal-week-day { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-1); min-width: 0; border-left: 1px solid var(--v-border); }
   .cal-week-day.is-today .cal-week-daybtn { color: var(--v-red-highlight); }
-  .cal-week-daybtn { border: 0; background: transparent; color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-xs); text-transform: uppercase; letter-spacing: var(--v-ls-xs); min-height: 32px; }
+  .cal-week-daybtn { border: 0; background: transparent; color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-xs); text-transform: uppercase; letter-spacing: var(--v-ls-xs); min-height: var(--v-tap); border-radius: var(--v-radius-sm); }
+  .cal-week-daybtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
   .cal-week-daybtn strong { color: var(--v-text); font-size: var(--v-text-md); }
   .cal-allday { display: flex; flex-direction: column; gap: 2px; min-height: 4px; }
   .cal-allday-pill { max-width: 100%; }
@@ -276,8 +284,9 @@ const calStyles = `
   .cal-block-title { font-size: var(--v-text-xs); font-weight: var(--v-weight-semibold); }
   /* Month */
   .cal-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+  .cal-month-row, .cal-month-cell { display: contents; }
   .cal-month-dow { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); text-align: center; padding: var(--v-space-1) 0; }
-  .cal-month-day { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 84px; padding: var(--v-space-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-sm); background: var(--v-surface-1); color: var(--v-text); cursor: pointer; font-family: var(--v-font-body); text-align: left; min-width: 0; overflow: hidden; }
+  .cal-month-day { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 84px; width: 100%; padding: var(--v-space-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-sm); background: var(--v-surface-1); color: var(--v-text); cursor: pointer; font-family: var(--v-font-body); text-align: left; min-width: 0; overflow: hidden; }
   .cal-month-day.is-other { opacity: 0.45; }
   .cal-month-day.is-today .cal-month-n { color: var(--v-red-highlight); }
   .cal-month-day:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 1px; }

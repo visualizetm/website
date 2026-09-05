@@ -25,7 +25,7 @@ const PRODUCTS = [
   {
     id: 'logo-sticker', cat: 'stickers', popular: true,
     name: 'Logo Die-Cut Sticker',
-    desc: 'Your logo precision-cut to shape. Glossy, waterproof, and made for indoor use — keep out of direct sunlight.',
+    desc: 'Your logo precision-cut to shape. Glossy, waterproof, and made for indoor use, keep out of direct sunlight.',
     pricing: { mode: 'sticker' },
     fields: ['qty', 'size', 'artwork'],
   },
@@ -46,8 +46,8 @@ const PRODUCTS = [
   {
     id: 'ig-vinyl', cat: 'vinyl', badge: '$15 flat',
     name: 'Instagram Handle Vinyl',
-    desc: 'Your @handle on your car — includes 2, one for each side. Single color, clean and sharp.',
-    pricing: { mode: 'flat', amount: 15, note: 'Includes 2 — one for each side of your car' },
+    desc: 'Your @handle on your car, includes 2, one for each side. Single color, clean and sharp.',
+    pricing: { mode: 'flat', amount: 15, note: 'Includes 2, one for each side of your car' },
     fields: ['text', 'vinylColor', 'vinylSize'],
   },
   {
@@ -60,7 +60,7 @@ const PRODUCTS = [
   {
     id: 'logo-vinyl', cat: 'vinyl',
     name: 'Logo Vinyl Decal',
-    desc: 'Your logo as a single-color vinyl decal. Die-cut silhouette — minimal and sharp.',
+    desc: 'Your logo as a single-color vinyl decal. Die-cut silhouette, minimal and sharp.',
     pricing: { mode: 'quote' },
     fields: ['artwork', 'vinylColor', 'vinylSize'],
   },
@@ -93,7 +93,7 @@ function priceLabelForCard(product) {
   return 'By quote';
 }
 
-// Returns { mode, qty, unit, total, display } — display is null until enough is chosen
+// Returns { mode, qty, unit, total, display }, display is null until enough is chosen
 function computePrice(product, vals) {
   const p = product.pricing;
   if (!p || p.mode === 'quote') return { mode: 'quote', total: null, display: 'By quote' };
@@ -129,7 +129,7 @@ const VINYL_COLORS   = [
   { label: 'Gold',   hex: '#c9a12a' },
   { label: 'Blue',   hex: '#2563eb' },
   { label: 'Silver', hex: '#a1a1aa' },
-  { label: 'Other — specify in notes', hex: null },
+  { label: 'Other, specify in notes', hex: null },
 ];
 
 /* ─── Mini helpers ───────────────────────────────────────────────── */
@@ -296,7 +296,7 @@ function CustomizeModal({ product, onClose, onAdd }) {
             <div className={`ps-mfield${errors.size ? ' is-err' : ''}`}>
               <label className="ps-mlabel">Size {errors.size && <span className="ps-merr">{errors.size}</span>}</label>
               <SizeGrid value={vals.size} onChange={v => set('size', v)} />
-              <p className="ps-mhint">Glossy finish · Waterproof · Indoor use — keep out of direct sunlight.</p>
+              <p className="ps-mhint">Glossy finish · Waterproof · Indoor use, keep out of direct sunlight.</p>
             </div>
           )}
 
@@ -331,7 +331,7 @@ function CustomizeModal({ product, onClose, onAdd }) {
                 onChange={e => { set('text', e.target.value); if (errors.text) setErrors(p => ({ ...p, text: '' })); }}
               />
               {product.id === 'ig-vinyl' && (
-                <p className="ps-mhint">Printed twice — once for each side of your car. White text only.</p>
+                <p className="ps-mhint">Printed twice, once for each side of your car. White text only.</p>
               )}
             </div>
           )}
@@ -341,7 +341,7 @@ function CustomizeModal({ product, onClose, onAdd }) {
             <div className={`ps-mfield${errors.vinylColor ? ' is-err' : ''}`}>
               <label className="ps-mlabel">Vinyl Color {errors.vinylColor && <span className="ps-merr">{errors.vinylColor}</span>}</label>
               <ColorRow value={vals.vinylColor} onChange={v => { set('vinylColor', v); if (errors.vinylColor) setErrors(p => ({ ...p, vinylColor: '' })); }} />
-              {vals.vinylColor === 'Other — specify in notes' && (
+              {vals.vinylColor === 'Other, specify in notes' && (
                 <p className="ps-mhint">Add your color in the notes field below.</p>
               )}
             </div>
@@ -454,20 +454,20 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
 
       const fd = new FormData();
       fd.append('access_key', ACCESS_KEY);
-      fd.append('subject', `New Shop Order — ${form.name}`);
+      fd.append('subject', `New Shop Order, ${form.name}`);
       fd.append('from_name', form.name);
       fd.append('email', form.email);
-      fd.append('Phone', form.phone || '—');
+      fd.append('Phone', form.phone || 'n/a');
       fd.append('Order Items', cart.length.toString());
       fd.append('Estimated Subtotal', `${fmtMoney(subtotal)}${hasQuote ? ' + quote items' : ''}`);
       cart.forEach((item, i) => {
         const priceStr = item.priceMode === 'quote' || item.priceTotal == null ? 'Quote' : fmtMoney(item.priceTotal);
-        fd.append(`Item ${i + 1}`, `${item.productName} — ${item.label} — ${priceStr}`);
+        fd.append(`Item ${i + 1}`, `${item.productName}, ${item.label}, ${priceStr}`);
         if (item.vals.notes) fd.append(`Item ${i + 1} Notes`, item.vals.notes);
-        if (item.vals.artworkFile) fd.append(`Artwork — ${item.productName}`, item.vals.artworkFile);
+        if (item.vals.artworkFile) fd.append(`Artwork, ${item.productName}`, item.vals.artworkFile);
       });
 
-      fd.append('Payment', 'No deposit — collected when production begins');
+      fd.append('Payment', 'No deposit, collected when production begins');
       if (ACCESS_KEY) await fetch('https://api.web3forms.com/submit', { method: 'POST', body: fd });
 
       // The order is filed in the admin through /api/submissions; Print Orders reads it from there (Prompt 13).
@@ -481,7 +481,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
             email: form.email.trim(),
             phone: form.phone.trim(),
             fields: {
-              'Items': cart.map(i => `${i.productName} — ${i.label} — ${i.priceMode === 'quote' || i.priceTotal == null ? 'Quote' : fmtMoney(i.priceTotal)}`).join(' | '),
+              'Items': cart.map(i => `${i.productName}, ${i.label}, ${i.priceMode === 'quote' || i.priceTotal == null ? 'Quote' : fmtMoney(i.priceTotal)}`).join(' | '),
               'Estimated Subtotal': `${fmtMoney(subtotal)}${hasQuote ? ' + quote items' : ''}`,
               'Payment': 'Collected when production begins',
             },
@@ -549,7 +549,7 @@ function CartDrawer({ cart, onRemove, onClose, onCheckoutDone }) {
                       </div>
                     );
                   })()}
-                  <p className="ps-drawer-note">Quote items are priced after review. No payment is due today — payment is collected when production begins.</p>
+                  <p className="ps-drawer-note">Quote items are priced after review. No payment is due today, payment is collected when production begins.</p>
                   <button type="button" className="ps-btn-primary" style={{ width: '100%' }} onClick={() => setStep('checkout')}>
                     Continue to Checkout <ArrowRight width={16} height={16} />
                   </button>
@@ -703,7 +703,7 @@ export default function Prints() {
         <div className="ps-hero-inner">
           <p className="ps-hero-eyebrow">Custom Print Services</p>
           <h1 className="ps-hero-title">Your brand,<br />on everything.</h1>
-          <p className="ps-hero-sub">Stickers, vinyl, and print — designed and produced for your business. Select a product, customize it, and we'll handle the rest.</p>
+          <p className="ps-hero-sub">Stickers, vinyl, and print, designed and produced for your business. Select a product, customize it, and we'll handle the rest.</p>
         </div>
         <div className="ps-hero-visual" aria-hidden="true">
           {[...Array(6)].map((_, i) => <div key={i} className="ps-hero-dot" style={{ '--i': i }} />)}
@@ -728,7 +728,7 @@ export default function Prints() {
 
       {/* Footer note */}
       <footer className="ps-foot">
-        <p>No payment is due at checkout — payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a></p>
+        <p>No payment is due at checkout, payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a></p>
       </footer>
 
       {/* Customize modal */}

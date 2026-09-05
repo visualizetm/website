@@ -13,7 +13,7 @@ function PrintsSection() {
       <div className="wrap">
         <div className="prints-section-header">
           <p className="prints-section-eyebrow">Custom Prints</p>
-          <h2 className="prints-section-title">Stickers & Vinyl — Designed and Produced In-House</h2>
+          <h2 className="prints-section-title">Stickers & Vinyl, Designed and Produced In-House</h2>
           <p className="prints-section-sub">
             I produce custom stickers and vinyl prints for branding, packaging, vehicles, and more.
             Select your product below to configure your order and get a quote.
@@ -42,7 +42,7 @@ function PrintsSection() {
             <ul className="prints-card-features">
               <li>Die-cut to any shape</li>
               <li>Glossy finish</li>
-              <li>Waterproof — indoor use</li>
+              <li>Waterproof, indoor use</li>
               <li>From $0.75 per sticker</li>
             </ul>
             <div className="prints-card-cta">

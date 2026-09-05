@@ -29,7 +29,7 @@ import { effectiveStage, checklistProgress, deleteBlockReason } from '../lib/boo
 import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, callStatusOf, industryKey, displayIndustry } from '../shared/semantics';
 import { fmtDateTime, fmtDate, relativeTime, todayInput } from '../shared/dates';
 import { telHref } from '../shared/phone';
-import { defaultLead } from './AdminCalls';
+import { defaultLead } from '../lib/defaultLead';
 
 // Status/priority/outcome maps: src/shared/semantics.js (one source of truth).
 const CALL_STATUSES = SEM_CALL_STATUSES.filter(x => x.id !== 'booked');
@@ -193,7 +193,9 @@ export default function AdminLeads({
   // Writes: AdminApp's onPatch is already optimistic with rollback; this adds the error toast.
   const patch = async (id, set, fail = COPY.error.save) => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };
   const bulkPatch = async (ids, set, label) => { const rs = await Promise.all(ids.map(id => onPatch(id, set))); const bad = rs.filter(r => !r).length; if (bad) toast.error(`${bad} of ${ids.length} could not be ${label}. Those were undone.`); else toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} ${label}.`); };
-  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
+  // onStatusStep is the keyboard path on the kanban (Shift+ArrowLeft, Shift+ArrowRight on a focused card): one column over.
+  const stepStatus = (l, dir) => { const ids = BOARD_STATUSES.map(s => s.id); const i = ids.indexOf(l.callStatus || 'not-called'); const next = ids[i + dir]; if (next) { patch(l._id, { callStatus: next }); toast.info(`${l.business} moved to ${BOARD_STATUSES.find(s => s.id === next)?.label || next}.`); } };
+  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onStatusStep: (dir) => stepStatus(l, dir), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
   const toggleCheck = (id, on) => setChecked(prev => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
   const cardProps = (l) => ({ onOpen: () => pick(l._id), selected: sel?._id === l._id, selectable: selectMode || checked.size > 0, checked: checked.has(l._id), onCheck: (v) => toggleCheck(l._id, v), actions: cardActions(l) });
 
@@ -290,8 +292,8 @@ export default function AdminLeads({
   if (pendingOpen) {
     return (
       <>
-        <aside className="aa-panel ld-panel"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
-        <main className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <aside className="aa-panel ld-panel" aria-label="Leads"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
+        <div className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton />}</div>
         <style>{ldStyles}</style>
       </>
     );
@@ -301,7 +303,7 @@ export default function AdminLeads({
   if (sel || creating) {
     return (
       <>
-        <aside className="aa-panel ld-panel">
+        <aside className="aa-panel ld-panel" aria-label="Leads">
           <ScrollArea bare className="ld-panel-scroll">
             <Stack gap={2}>
               <Input placeholder="Search leads" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads" />
@@ -310,13 +312,13 @@ export default function AdminLeads({
             </Stack>
           </ScrollArea>
         </aside>
-        <main className="aa-main ld-main">
+        <div className="aa-main ld-main">
           {creating ? (
             <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { const ok = await onCreate(defaultLead(f)); if (ok) back(); else toast.error(COPY.error.create); }} onCancel={back} /></Section></Card></ScrollArea>
           ) : (
             <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} />
           )}
-        </main>
+        </div>
         <style>{ldStyles}</style>
       </>
     );
@@ -342,11 +344,11 @@ export default function AdminLeads({
         {pending ? null : showSkel ? (
           <Stack gap={4} aria-busy="true">
             {/* The chrome is real while the list loads: saved views and the static filter rows, disabled, with skeleton chips where the counts and facets go. */}
-            <div className="ld-views"><div className="ld-frow-chips">{views.map(v => <Chip key={v.id} label={v.name} disabled />)}<Button variant="ghost" icon="Plus" disabled>Save view</Button></div></div>
+            <div className="ld-views"><div className="ld-frow-chips" style={{ overflow: 'hidden' }}>{views.map(v => <Chip key={v.id} label={v.name} disabled />)}<Button variant="ghost" icon="Plus" disabled>Save view</Button></div></div>
             <div className="ld-filters">
               <FilterRow label="Status" values={[]} onChange={() => {}} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon }))} />
               <FilterRow label="Priority" values={[]} onChange={() => {}} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon }))} />
-              <div className="ld-frow"><span className="ld-frow-label">Industry</span><div className="ld-frow-chips">{[1, 2, 3].map(i => <SkeletonBlock key={i} width={120} height={44} radius="var(--v-radius-pill)" />)}</div></div>
+              <div className="ld-frow"><span className="ld-frow-label">Industry</span><div className="ld-frow-chips" style={{ overflow: 'hidden' }}>{[1, 2, 3].map(i => <SkeletonBlock key={i} width={120} height={44} radius="var(--v-radius-pill)" />)}</div></div>
               <FilterRow label="Data" values={[]} onChange={() => {}} options={DATA_CHIPS.map(([id, label]) => ({ id, label }))} />
             </div>
             {mode === 'kanban' && desktop ? (
@@ -403,7 +405,7 @@ export default function AdminLeads({
             ) : !sorted.length ? (
               <Card><EmptyState size="sm" icon="SearchMd" title={E('leads.filter').title} description={E('leads.filter').description} action={{ label: E('leads.filter').action, onClick: clearAll }} /></Card>
             ) : mode === 'kanban' ? (
-              <div className={`ld-board${drag ? ' is-dragging' : ''}`} role="list" aria-label="Leads by call status">
+              <div className={`ld-board${drag ? ' is-dragging' : ''}`} role="group" aria-label="Leads by call status">
                 {columns.map((c, i) => {
                   const n = shown[c.status.id] || PAGE;
                   return <Reveal key={c.status.id} className="ld-col-wrap" style={{ animationDelay: `calc(${i} * var(--v-stagger))` }} {...colDrop(c.status.id)} data-col={c.status.id}>

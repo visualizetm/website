@@ -88,7 +88,7 @@ function Stepper({ project }) {
   const stages = project.stages?.length ? project.stages : stagesFor(project.kind);
   const cur = stages.indexOf(project.stage);
   return (
-    <ol className="cw-stepper" aria-label="Stages">
+    <ol className="cw-stepper" aria-label="Stages" tabIndex={0}>
       {stages.map((s, i) => <li key={s} className={`cw-step${i < cur ? ' is-done' : ''}${i === cur ? ' is-current' : ''}`}><span className="cw-step-dot" aria-hidden="true">{i < cur ? <Check width={10} height={10} /> : i + 1}</span><span className="cw-step-label">{projectStageOf(s).label}</span></li>)}
     </ol>
   );

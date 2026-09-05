@@ -1,4 +1,4 @@
-// EXAMPLE CLIENT — duplicate this file to add a real client (see README.md).
+// EXAMPLE CLIENT, duplicate this file to add a real client (see README.md).
 // Every image path is optional: anything you omit renders as a labeled
 // placeholder slot, so a case study can go live before all assets exist.
 export default {
@@ -7,7 +7,7 @@ export default {
   type: 'Coffee Cart',
   blurb: 'Full brand identity, website, and print suite for a mobile espresso bar.',
   year: '2026',
-  // cover: '/clients/example-client/cover.png',  // card image — omitted → monogram placeholder
+  // cover: '/clients/example-client/cover.png',  // card image, omitted → monogram placeholder
 
   sections: {
     brand: {
@@ -31,7 +31,7 @@ export default {
       url: 'https://example.com',
       screenshots: [],
       notes:
-        'Single-page site focused on the daily location schedule and pre-orders. Built mobile-first — most customers find the cart from Instagram on their phone.',
+        'Single-page site focused on the daily location schedule and pre-orders. Built mobile-first, most customers find the cart from Instagram on their phone.',
     },
 
     cards: {

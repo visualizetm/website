@@ -72,7 +72,7 @@ export default function Navbar() {
             </ul>
           </nav>
 
-          {/* Theme switch — visible at all widths */}
+          {/* Theme switch, visible at all widths */}
           <ThemeToggle />
 
           {/* Desktop action buttons */}

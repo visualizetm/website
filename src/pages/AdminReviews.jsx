@@ -27,13 +27,14 @@ export function ReviewCard({ lead, projects, onOpen, selected }) {
   const la = lastAsk(lead);
   const due = reviewAskDue(lead, projects);
   return (
-    <Card as="div" padding={3} interactive onClick={onOpen} selected={selected} className="rv-card" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }} aria-label={`Open reviews for ${lead.business}`}>
+    <Card as="div" padding={3} interactive selected={selected} className="rv-card">
+      <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open reviews for ${lead.business}`}>{`Open reviews for ${lead.business}`}</button>
       <Row gap={2} align="center"><Avatar name={lead.business} size="sm" /><span className="rv-card-name lay-truncate">{lead.business}</span>{r.nfcCard && <Pill tone="callback" label="NFC" size="sm" icon="CreditCard01" />}{due && <Pill tone="new" label="Ask due" size="sm" icon="Bell01" />}</Row>
       <Row gap={2} wrap align="center" className="rv-counts">
         {r.latest ? <><span className="rv-num">{r.latest.count} review{r.latest.count === 1 ? '' : 's'}, {Number(r.latest.rating).toFixed(1)}</span>{d && (d.count || d.rating) ? <Pill tone={d.count < 0 || d.rating < 0 ? 'danger' : 'booked'} label={`${d.count >= 0 ? '+' : ''}${d.count}, ${d.rating >= 0 ? '+' : ''}${d.rating.toFixed(1)} since ${fmtDate(r.baseline.at)}`} size="sm" icon={false} /> : r.baseline ? <span className="dt-muted">Baseline {r.baseline.count} at {Number(r.baseline.rating).toFixed(1)}</span> : null}</> : <span className="dt-muted">No counts yet</span>}
       </Row>
       <span className="dt-muted rv-last">{la ? `Last ask ${relativeTime(la.at)} by ${channelLabel(la.channel).toLowerCase()}, ${la.result}` : 'Never asked'}</span>
-      {r.googleLink ? <Button variant="secondary" size="md" full icon="Star01" iconEnd="LinkExternal01" href={r.googleLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="rv-glink">Open Google reviews</Button> : <span className="dt-muted">No Google link</span>}
+      {r.googleLink ? <Button variant="secondary" size="md" full icon="Star01" iconEnd="LinkExternal01" href={r.googleLink} target="_blank" rel="noopener noreferrer" className="v-above" onClick={(e) => e.stopPropagation()} className="rv-glink">Open Google reviews</Button> : <span className="dt-muted">No Google link</span>}
     </Card>
   );
 }
@@ -164,6 +165,8 @@ const rvStyles = `
   .rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--v-space-3); min-width: 0; }
   .rv-grid > .v-stagger-item { display: contents; }
   .rv-card { gap: var(--v-space-2); text-align: left; align-items: stretch; }
+  .rv-card:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .rv-card .v-stretch:focus-visible { outline: 0; }
   .rv-card-name { flex: 1; min-width: 0; font-weight: var(--v-weight-bold); color: var(--v-text); }
   .rv-num { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
   .rv-form-row .v-lrow-sub { white-space: normal; }

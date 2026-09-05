@@ -14,7 +14,7 @@ export function parseItemsString(str) {
   for (const raw of String(str || '').split('|')) {
     const part = raw.trim();
     if (!part) continue;
-    const bits = part.split(/\s+(?:—|–|-)\s+/).map(x => x.trim());
+    const bits = part.split(/\s+(?:\u2014|\u2013|-)\s+/).map(x => x.trim());
     const name = bits[0] || part;
     const label = bits.length > 2 ? bits.slice(1, -1).join(', ') : (bits[1] || '');
     const priceText = bits.length > 1 ? bits[bits.length - 1] : '';

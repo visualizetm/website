@@ -36,7 +36,7 @@ export default function Card({
 /** Card.Skeleton: same box, shimmer inside. */
 Card.Skeleton = function CardSkeleton({ level = 1, padding = 4, lines = 3, height, className = '' }) {
   return (
-    <div className={`v-card lay-card v-card--l${level} ${className}`.trim()} style={{ padding: `var(--v-space-${padding})`, minHeight: height }} aria-busy="true">
+    <div className={`v-card lay-card v-card--l${level} ${className}`.trim()} style={{ padding: `var(--v-space-${padding})`, minHeight: height }} aria-busy="true" aria-hidden="true">
       {lines > 0 ? <SkeletonText lines={lines} /> : <SkeletonBlock height={height ? height - 32 : 40} />}
     </div>
   );
@@ -66,5 +66,11 @@ export const cardStyles = `
   .v-pulse-won { animation: v-pulse-won calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
   @keyframes v-pulse-won { 0% { box-shadow: 0 0 0 0 var(--v-status-won-soft); transform: scale(1); } 30% { box-shadow: 0 0 0 6px var(--v-status-won-soft), 0 0 0 1px var(--v-status-won-solid); transform: scale(1.012); } 100% { box-shadow: 0 0 0 0 transparent; transform: scale(1); } }
   .v-card-head, .v-card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); min-width: 0; }
+  /* Stretched open control (Prompt 15): a card or row that opens a record keeps ONE real button, absolutely
+     positioned over the whole surface, so nothing interactive nests inside a button and the other controls
+     (menu, checkbox, links) sit above it with .v-above. The parent must be position: relative. */
+  .v-stretch { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; color: transparent; font-size: 0; cursor: pointer; z-index: 0; -webkit-tap-highlight-color: transparent; }
+  .v-stretch:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .v-above { position: relative; z-index: 1; }
   .v-card-foot { padding-top: var(--v-space-3); border-top: 1px solid var(--v-border); }
 `;

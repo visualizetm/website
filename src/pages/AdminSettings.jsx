@@ -48,7 +48,7 @@ function usePush() {
     try {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { setState('denied'); return; }
-      const { key } = await (await fetch('/api/push-key')).json();
+      const key = (await apiFetch('/api/push-key')).data?.key;
       if (!key) { setState('error'); return; }
       const reg = await navigator.serviceWorker.ready;
       const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
@@ -57,6 +57,35 @@ function usePush() {
     } catch { setState('error'); }
   }, []);
   return { state, enable };
+}
+
+/* Client error log (Prompt 15): the last 20 entries the admin posted to
+ * /api/admin/log (render errors, refused writes, failed calls), newest first. */
+function ClientLogCard() {
+  const toast = useToast();
+  const [items, setItems] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => { const r = await apiFetch('/api/admin/log?limit=20'); setItems(r.ok ? r.data?.items || [] : []); }, []);
+  useEffect(() => { load(); }, [load]);
+  const clear = async () => {
+    setBusy(true);
+    const r = await apiFetch('/api/admin/log', { method: 'DELETE' });
+    setBusy(false);
+    if (r.ok) { setItems([]); toast.success('Error log cleared.'); } else toast.error('Could not clear the log.');
+  };
+  const KIND = { error: 'danger', boundary: 'danger', rejection: 'danger', refused: 'new', api: 'callback' };
+  return (
+    <Card className="st-card st-log">
+      <Row gap={2} justify="between" align="center" wrap>
+        <p className="pb-card-h" style={{ margin: 0 }}>Errors on this app</p>
+        <Button variant="secondary" size="md" icon={Trash01} onClick={clear} loading={busy} disabled={!items?.length} className="st-log-clear">Clear</Button>
+      </Row>
+      <p className="dt-muted">The last 20 of up to 500 entries the admin saved on its own: a screen that broke, a write refused offline, or a call that failed. Nothing leaves this database.</p>
+      {items === null ? <Stack gap={2}>{[1, 2, 3].map(i => <ListRow.Skeleton key={i} leading={false} />)}</Stack>
+        : items.length ? <Stack gap={1}>{items.map((it, i) => <div key={i} className="st-log-row"><Row gap={2} align="center" wrap><Pill tone={KIND[it.kind] || 'neutral'} label={it.kind} size="sm" icon={false} /><span className="dt-muted">{fmtDateTime(it.at)}</span>{it.url && <span className="dt-muted lay-truncate">{it.url}</span>}</Row><p className="st-log-msg">{it.message}</p></div>)}</Stack>
+        : <p className="dt-muted">No errors saved. That is the goal.</p>}
+    </Card>
+  );
 }
 
 function PasswordCard() {
@@ -327,6 +356,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         </Card>
       ))}
       <Card className="st-card"><p className="pb-card-h">Nightly jobs outside this app</p><p className="dt-muted">The enrichment scan and the scraper write straight into call_leads from their own schedule. Their last run shows under Integrations, and the drawer warns when either is quiet for 36 hours.</p></Card>
+      <ClientLogCard />
     </Stagger>
   ) : tab === 'shortcuts' ? (
     <Stagger className="v-stack st-stack">
@@ -396,6 +426,9 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 }
 
 const stStyles = `
+  .st-log-row { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); min-width: 0; }
+  .st-log-row:last-child { border-bottom: 0; }
+  .st-log-msg { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text); overflow-wrap: anywhere; }
   .st-tabs { position: sticky; top: calc(-1 * var(--v-space-4)); z-index: var(--v-z-sticky); background: var(--v-ground); padding-top: var(--v-space-1); }
   .st-stack { gap: var(--v-space-3); }
   .st-card { gap: var(--v-space-3); }

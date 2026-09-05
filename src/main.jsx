@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import ShellCrash from './shell/ShellCrash';
+import './fonts.css';
 import './index.css';
 
 // Deterministic star field, stable across renders, no Math.random
@@ -150,9 +152,11 @@ function Root() {
   }
 
   return (
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ShellCrash>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ShellCrash>
   );
 }
 
@@ -162,7 +166,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
-// PWA: service worker handles web push + notification deep links.
+// PWA: the service worker handles web push, notification deep links, and the offline shell (public/sw.js).
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => { /* non-fatal */ });

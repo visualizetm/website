@@ -21,8 +21,8 @@ export default function Badge({ count, max = 99, dot = false, tone = 'won', inli
   const text = dot ? '' : count > max ? `${max}+` : String(count);
   const badge = show ? (
     <span className={`v-badge${dot ? ' v-badge--dot' : ''}${inline || !children ? ' v-badge--inline' : ''}${tick ? ' is-tick' : ''} ${className}`.trim()}
-      style={{ '--v-badge-bg': `var(--v-status-${tone}-solid)`, '--v-badge-fg': tone === 'won' || tone === 'danger' ? 'var(--v-text-on-red)' : 'var(--v-text-inverse)' }}
-      aria-label={dot ? 'Has updates' : `${count} new`} {...rest}>{text}</span>
+      style={{ '--v-badge-bg': `var(--v-status-${tone}-solid)`, '--v-badge-fg': tone === 'won' ? 'var(--v-text-on-red)' : 'var(--v-text-inverse)' }}
+      role="img" aria-label={dot ? 'Has updates' : `${count} new`} {...rest}>{text}</span>
   ) : null;
   if (!children) return badge;
   return <span className="v-badge-anchor">{children}{badge}</span>;

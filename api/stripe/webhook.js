@@ -1,5 +1,6 @@
 import { getDb } from '../_lib/mongo.js';
 import { verifyStripeSignature, ingestEvent, ALL_TYPES } from '../_lib/stripe.js';
+import { route } from '../_lib/handler.js';
 
 /* POST /api/stripe/webhook (Prompt 12). Verifies STRIPE_WEBHOOK_SECRET against
  * the raw body, stores every handled event once (unique on id), matches a
@@ -16,8 +17,7 @@ const readRaw = (req) => new Promise((resolve, reject) => {
   req.on('error', reject);
 });
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ error: 'method not allowed' }); }
+async function handler(req, res) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) return res.status(503).json({ error: 'STRIPE_WEBHOOK_SECRET is not set' });
   const raw = await readRaw(req);
@@ -31,3 +31,4 @@ export default async function handler(req, res) {
   await db.collection('settings').updateOne({ _id: 'health' }, { $set: { 'stripe.lastWebhookAt': new Date(), updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true, duplicate: !!duplicate, matched: !!row?.matchedLeadId });
 }
+export default route(handler, { methods: ['POST'], admin: false, csrf: false, maxBody: 1024 * 1024 });

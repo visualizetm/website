@@ -15,7 +15,7 @@ export default function Process() {
     <section className="process section section-elevated">
       <div className="wrap">
         <h2 className="section-title reveal">How It Works</h2>
-        <p className="section-subtitle reveal">The client journey, start to finish — no surprises.</p>
+        <p className="section-subtitle reveal">The client journey, start to finish, no surprises.</p>
         <div className="process-timeline stagger">
           {steps.map((step, i) => {
             const Icon = step.icon;

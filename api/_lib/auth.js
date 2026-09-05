@@ -47,6 +47,48 @@ export function requireAdmin(req, res) {
   return false;
 }
 
+/* Sliding renewal (Prompt 15): a valid cookie older than RENEW_AFTER_DAYS is
+ * reissued for a fresh 30 days on any authed request, so a device in daily
+ * use never gets signed out; one left alone expires 30 days after its last visit. */
+const SESSION_DAYS = 30;
+const RENEW_AFTER_DAYS = 1;
+export function renewSession(req, res) {
+  const token = getCookie(req, COOKIE);
+  if (!checkToken(token)) return false;
+  const exp = Number(token.split('.')[0]);
+  const ageDays = SESSION_DAYS - (exp - Date.now()) / 86400000;
+  if (ageDays < RENEW_AFTER_DAYS) return false;
+  res.setHeader('Set-Cookie', sessionCookie(makeToken(SESSION_DAYS), SESSION_DAYS));
+  return true;
+}
+
+/* Login rate limit (Prompt 15): 10 failed attempts per IP per 15 minutes,
+ * kept on the settings 'login-limit' document so every serverless instance
+ * shares one count (an in memory map would reset on each cold start and
+ * differ per instance, so it is only the fallback when the database is
+ * unreachable). Successful sign in clears the IP's count. */
+const LIMIT = 10;
+const WINDOW_MS = 15 * 60e3;
+const memory = globalThis._vzLoginLimit || (globalThis._vzLoginLimit = new Map());
+const ipKey = (ip) => String(ip || 'unknown').replace(/[.$]/g, '_').slice(0, 64);
+export async function loginAttemptsLeft(db, ip) {
+  const key = ipKey(ip); const since = Date.now() - WINDOW_MS;
+  let hits = memory.get(key) || [];
+  try { const doc = await db.collection('settings').findOne({ _id: 'login-limit' }, { projection: { [`hits.${key}`]: 1 } }); hits = doc?.hits?.[key] || hits; } catch { /* memory fallback */ }
+  return Math.max(0, LIMIT - hits.filter(t => t > since).length);
+}
+export async function recordLoginFailure(db, ip) {
+  const key = ipKey(ip); const now = Date.now(); const since = now - WINDOW_MS;
+  const hits = [...(memory.get(key) || []).filter(t => t > since), now].slice(-LIMIT);
+  memory.set(key, hits);
+  try { await db.collection('settings').updateOne({ _id: 'login-limit' }, { $set: { [`hits.${key}`]: hits, updatedAt: new Date() } }, { upsert: true }); } catch { /* memory only */ }
+}
+export async function clearLoginFailures(db, ip) {
+  const key = ipKey(ip);
+  memory.delete(key);
+  try { await db.collection('settings').updateOne({ _id: 'login-limit' }, { $unset: { [`hits.${key}`]: '' } }); } catch { /* fine */ }
+}
+
 /* ── Password verification ─────────────────────────────────────────
    A password changed from the admin Settings screen is stored as a salted
    scrypt hash in Mongo and takes precedence over the ADMIN_PASSWORD env var.

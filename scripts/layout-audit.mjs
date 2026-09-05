@@ -27,6 +27,37 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 // the element itself must still fit the viewport).
 const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap'];
 
+/* Touch targets (Prompt 15): every interactive element is at least 44 by 44.
+ * Text links inside running prose are the one exemption (WCAG 2.5.8 inline
+ * exception); everything else, including the smallest icon buttons, must
+ * measure up. TARGET_MIN can be lowered for a diagnostic run. */
+const TARGET_MIN = Number(process.env.AUDIT_TARGET_MIN || 44);
+const TARGET_SEL = 'a[href], button, input:not([type="hidden"]), select, textarea, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], [tabindex]:not([tabindex="-1"])';
+async function collectSmallTargets(page) {
+  return page.evaluate(([sel, min]) => {
+    const bad = []; const seen = new Set();
+    const inProse = (el) => !!el.closest('p, li, td, .dt-muted, .v-toast-desc, .v-empty-desc, .v-error-desc');
+    for (const el of document.querySelectorAll(sel)) {
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || el.closest('[aria-hidden="true"]')) continue;
+      if (el.matches('a') && inProse(el)) continue;
+      // The stretched open control is the whole card or row; its parent is the target.
+      const box = el.classList.contains('v-stretch') ? el.parentElement : el;
+      const r = box.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      // A hidden native input inside a kit control (checkbox, toggle) is measured by its visible wrapper.
+      const hit = el.matches('input[type="checkbox"]') ? el.closest('.v-check, .v-toggle') || el : box;
+      const hr = hit.getBoundingClientRect();
+      if (hr.width + 0.5 >= min && hr.height + 0.5 >= min) continue;
+      const key = (el.className && typeof el.className === 'string' ? el.className.split(' ')[0] : el.tagName) + ':' + Math.round(hr.width) + 'x' + Math.round(hr.height);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      bad.push({ tag: el.tagName.toLowerCase(), cls: String(el.className).slice(0, 60), w: Math.round(hr.width), h: Math.round(hr.height), text: (el.getAttribute('aria-label') || el.textContent || '').trim().slice(0, 30) });
+    }
+    return bad.slice(0, 12);
+  }, [TARGET_SEL, TARGET_MIN]);
+}
+
 async function collectOffenders(page) {
   return page.evaluate((hscrollOk) => {
     const vw = document.documentElement.clientWidth;
@@ -73,11 +104,13 @@ for (const width of WIDTHS) {
     await page.waitForTimeout(650);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/${width}-${label.replace(/[^a-z0-9]+/gi, '_')}.png` }).catch(() => {});
     const res = await collectOffenders(page);
+    const small = await collectSmallTargets(page);
     const hscroll = res.scrollW > res.vw + 1;
-    if (hscroll || res.offenders.length) {
+    if (hscroll || res.offenders.length || small.length) {
       failures++;
-      console.log(`  FAIL [${width}px] ${label} — scrollW=${res.scrollW} vw=${res.vw}`);
+      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
+      for (const t of small) console.log(`        target <${t.tag} class="${t.cls}"> ${t.w}x${t.h} "${t.text}"`);
     } else {
       console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);
     }
@@ -93,7 +126,66 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', or 'dashboard' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', or 'a11y' reruns just that block
+  if (only === 'a11y') {
+    /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the
+     * Dashboard, Leads, and the call room. Browser zoom at 200 percent is a
+     * viewport of half the CSS pixels at twice the device scale, which is
+     * exactly what a second context with those settings reproduces; the
+     * same overflow and target checks run there. Below 320 CSS pixels
+     * (a 390 phone at 200 percent is 195) WCAG allows horizontal scrolling
+     * (1.4.10 reflow), so at that width only clipped or overlapping content
+     * fails, not a wide document. */
+    const ROOM = { ids: ['L0', 'L1', 'L3', 'L4', 'L6', 'L7'], idx: 0, stats: {}, logged: {}, startedAt: Date.now(), size: 6, mode: 'room' };
+    const targets = [['dashboard', '/admin', () => localStorage.removeItem('vz_call_session')], ['leads', '/admin/leads', () => localStorage.setItem('vz_leads_view', JSON.stringify('list'))], ['call room', '/admin/calls', (s) => localStorage.setItem('vz_call_session', JSON.stringify(s))]];
+    const zctx = await browser.newContext({ viewport: { width: Math.round(width / 2), height: 422 }, deviceScaleFactor: 2, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference' });
+    const zpage = await zctx.newPage();
+    await zpage.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
+    await mockRoutes(zpage);
+    const clipped = async (pg) => pg.evaluate(() => {
+      // Text that is cut off by an ancestor with overflow hidden and no ellipsis, or two text nodes drawn on top of each other.
+      const bad = []; const seen = new Set();
+      for (const el of document.querySelectorAll('.sh-content *, .v-sheet *')) {
+        if (!el.childNodes.length || ![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) continue;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        if (el.scrollHeight > el.clientHeight + 4 && cs.overflowY === 'hidden' && cs.textOverflow !== 'ellipsis' && !el.classList.contains('lay-truncate') && el.clientHeight > 0) {
+          const key = el.className && typeof el.className === 'string' ? el.className.split(' ')[0] : el.tagName;
+          if (!seen.has(key)) { seen.add(key); bad.push({ tag: el.tagName.toLowerCase(), cls: String(el.className).slice(0, 50), text: el.textContent.trim().slice(0, 30) }); }
+        }
+      }
+      return bad.slice(0, 10);
+    });
+    for (const [name, path, prep] of targets) {
+      await zpage.goto(BASE + '/admin', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await zpage.evaluate(prep, ROOM).catch(() => {});
+      await zpage.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await zpage.waitForTimeout(900);
+      const res = await collectOffenders(zpage);
+      const clip = await clipped(zpage);
+      const vw = res.vw;
+      const wide = vw >= 320 && res.scrollW > vw + 1;
+      const off = vw >= 320 ? res.offenders : [];
+      if (wide || off.length || clip.length) { failures++; console.log(`  FAIL [${width}px at 200% zoom = ${vw}px] ${name}${wide ? `, scrollW=${res.scrollW}` : ''}`); for (const o of off) console.log(`        <${o.tag} class="${o.cls}"> right=${o.rect.right}`); for (const c of clip) console.log(`        clipped <${c.tag} class="${c.cls}"> "${c.text}"`); }
+      else console.log(`  ok   [${width}px at 200% zoom = ${vw}px] ${name}`);
+    }
+    await zctx.close();
+    // Text spacing overrides (WCAG 1.4.12) at the normal zoom.
+    const SPACING = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important; } p { margin-bottom: 2em !important; }';
+    for (const [name, path, prep] of targets) {
+      await goto('/admin');
+      await page.evaluate(prep, ROOM).catch(() => {});
+      await goto(path);
+      await page.addStyleTag({ content: SPACING }).catch(() => {});
+      await page.waitForTimeout(900);
+      const res = await collectOffenders(page);
+      const clip = await clipped(page);
+      const hscroll = res.scrollW > res.vw + 1;
+      if (hscroll || res.offenders.length || clip.length) { failures++; console.log(`  FAIL [${width}px text spacing] ${name}${hscroll ? `, scrollW=${res.scrollW}` : ''}`); for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> right=${o.rect.right} w=${o.rect.w}`); for (const c of clip) console.log(`        clipped <${c.tag} class="${c.cls}"> "${c.text}"`); }
+      else console.log(`  ok   [${width}px text spacing] ${name}`);
+    }
+    await ctx.close(); continue;
+  }
   if (only === 'dashboard') {
     await goto('/admin');
     await page.evaluate(() => localStorage.removeItem('vz_call_session'));

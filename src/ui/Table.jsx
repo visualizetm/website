@@ -74,6 +74,7 @@ export default function Table({
               })}
               {(rowActions || columnChooser) && (
                 <th className="v-th v-th--actions">
+                  <span className="v-sr-only">Actions</span>
                   {columnChooser && (
                     <span ref={chooserRef}>
                       <IconButton icon={Columns03} label="Choose columns" size="md" onClick={() => setChooserOpen(o => !o)} aria-expanded={chooserOpen} tooltip={false} />
@@ -113,9 +114,9 @@ export default function Table({
 /** Table.Skeleton: same header shape, `rows` shimmer rows. */
 Table.Skeleton = function TableSkeleton({ rows = 8, cols = 6, density = 'md', selectable = true }) {
   return (
-    <div className="v-table-wrap" aria-busy="true">
+    <div className="v-table-wrap" aria-busy="true" aria-hidden="true">
       <div className="v-table-scroll">
-        <table className={`v-table v-table--${density}`}>
+        <table className={`v-table v-table--${density}`} role="presentation">
           <thead><tr>{selectable && <th className="v-th v-th--check"><SkeletonBlock width={22} height={22} /></th>}{Array.from({ length: cols }, (_, i) => <th key={i} className="v-th"><SkeletonBlock width={i === 0 ? 120 : 70} height={12} /></th>)}</tr></thead>
           <tbody>{Array.from({ length: rows }, (_, r) => (
             <tr key={r} className="v-tr">{selectable && <td className="v-td v-td--check"><SkeletonBlock width={22} height={22} /></td>}{Array.from({ length: cols }, (_, i) => <td key={i} className="v-td"><SkeletonBlock width={i === 0 ? '80%' : '60%'} height={14} /></td>)}</tr>

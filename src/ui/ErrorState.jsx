@@ -10,8 +10,9 @@ import Button from './Button';
  * @param {Function} [props.onRetry]
  * @param {string} [props.details] technical detail behind a disclosure
  * @param {boolean} [props.retrying]
+ * @param {string} [props.retryLabel='Try again']
  */
-export default function ErrorState({ title = 'Could not load this', description = 'Check the connection and try again.', onRetry, details, retrying = false, className = '', ...rest }) {
+export default function ErrorState({ title = 'Could not load this', description = 'Check the connection and try again.', onRetry, retryLabel = 'Try again', details, retrying = false, className = '', ...rest }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`v-error ${className}`.trim()} role="alert" {...rest}>
@@ -20,7 +21,7 @@ export default function ErrorState({ title = 'Could not load this', description 
         <p className="v-error-title">{title}</p>
         {description && <p className="v-error-desc">{description}</p>}
         <div className="v-error-actions">
-          {onRetry && <Button variant="secondary" size="md" icon={RefreshCw01} loading={retrying} onClick={onRetry}>Try again</Button>}
+          {onRetry && <Button variant="secondary" size="md" icon={RefreshCw01} loading={retrying} onClick={onRetry}>{retryLabel}</Button>}
           {details && <Button variant="ghost" size="md" onClick={() => setOpen(o => !o)} aria-expanded={open}>{open ? 'Hide details' : 'Show details'}</Button>}
         </div>
         {details && open && <pre className="v-error-details">{details}</pre>}

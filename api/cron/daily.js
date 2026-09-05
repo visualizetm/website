@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
+import { route } from '../_lib/handler.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
@@ -14,7 +15,7 @@ const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(
 const addMonths = (dateStr, n, dayOfMonth) => { const [y, m, d] = String(dateStr).split('-').map(Number); const want = dayOfMonth || d; const last = new Date(y, m - 1 + n + 1, 0).getDate(); return dayKey(new Date(y, m - 1 + n, Math.min(want, last))); };
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
@@ -78,3 +79,4 @@ export default async function handler(req, res) {
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true, rolled, cancelled, extended, health });
 }
+export default route(handler, { methods: ['GET', 'POST'], admin: false, csrf: false });

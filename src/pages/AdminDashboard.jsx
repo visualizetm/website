@@ -192,18 +192,18 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
   // Loading: nothing for the first 150ms (useDelayedLoading), then the skeleton; never the empty numbers.
   if (loading) {
     return (
-      <main className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true">
+      <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true">
         <div className="lay-content lay-content--wide">{showSkel && <DashboardSkeleton desktop={desktop} wide={wide} />}</div>
         <style>{dbStyles}</style>
-      </main>
+      </div>
     );
   }
   if (error && !(leads || []).length) {
     return (
-      <main className="aa-main aa-main--wide lay-scroll db-page">
+      <div className="aa-main aa-main--wide lay-scroll db-page">
         <div className="lay-content lay-content--wide"><Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card></div>
         <style>{dbStyles}</style>
-      </main>
+      </div>
     );
   }
 
@@ -310,7 +310,7 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
   );
 
   return (
-    <main className="aa-main aa-main--wide lay-scroll db-page">
+    <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
         {desktop ? (
           <div className="db-layout">
@@ -322,7 +322,7 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
         )}
       </div>
       <style>{dbStyles}</style>
-    </main>
+    </div>
   );
 }
 

@@ -73,7 +73,7 @@ function ToastItem({ t, onDismiss }) {
     return () => clearTimeout(timer.current);
   }, [t.id, t.duration, paused, onDismiss]);
   return (
-    <div className={`v-toast v-toast--${t.variant}${t.leaving ? ' is-leaving' : ''}`} role={t.variant === 'error' ? 'alert' : 'status'}
+    <div className={`v-toast v-toast--${t.variant}${t.leaving ? ' is-leaving' : ''}`}
       style={{ '--v-toast-c': `var(--v-status-${TONE[t.variant] || 'neutral'}-text)`, '--v-toast-dur': `${t.duration || 0}ms` }}
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
       <I width={18} height={18} className="v-toast-icon" aria-hidden="true" />
@@ -93,9 +93,11 @@ function ToastItem({ t, onDismiss }) {
 /** ToastHost: rendered by ToastProvider. Exported for the design page only. */
 export function ToastHost({ items, onDismiss }) {
   const root = portalRoot();
-  if (!root || !items.length) return null;
+  if (!root) return null;
+  // The region stays mounted even when empty (Prompt 15): a live region that appears with its first
+  // message is not announced reliably, one that exists and changes is.
   return createPortal(
-    <div className="v-toasts" aria-live="polite">
+    <div className="v-toasts" role="status" aria-live="polite" aria-relevant="additions">
       {items.map(t => <ToastItem key={t.id} t={t} onDismiss={onDismiss} />)}
     </div>,
     root,
@@ -105,6 +107,7 @@ export default ToastProvider;
 
 export const toastStyles = `
   .v-toasts { position: fixed; left: var(--v-gutter-l); right: var(--v-gutter-r); bottom: calc(var(--v-safe-bottom) + var(--v-space-3)); z-index: var(--v-z-toast); display: flex; flex-direction: column; align-items: center; gap: var(--v-space-2); pointer-events: none; }
+  .v-toasts:empty { display: none; }
   @media (min-width: 768px) { .v-toasts { left: auto; right: var(--v-space-6); bottom: var(--v-space-6); align-items: flex-end; } }
   .v-toast {
     position: relative; overflow: hidden; pointer-events: auto;

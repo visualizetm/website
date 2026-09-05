@@ -1,5 +1,6 @@
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
+import { route } from '../_lib/handler.js';
 
 // Vercel cron, every 15 minutes (vercel.json). Protected by CRON_SECRET:
 // Vercel sends Authorization: Bearer <CRON_SECRET>; a manual call may send
@@ -8,7 +9,7 @@ import { sendPush } from '../_lib/notify.js';
 // settings 'notifications' document).
 const localDate = (l) => { if (!l.meeting?.date) return null; const d = new Date(`${l.meeting.date}T${l.meeting.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
@@ -57,3 +58,4 @@ export default async function handler(req, res) {
   await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders': { lastRunAt: new Date().toISOString(), checked: due.length, sent: fresh.length }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length });
 }
+export default route(handler, { methods: ['GET', 'POST'], admin: false, csrf: false });

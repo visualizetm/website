@@ -14,7 +14,7 @@ export default function ShowcasePreview() {
           <div>
             <h2 className="section-title">My Work</h2>
             <p className="section-subtitle">
-              Real businesses built end to end — brand, web, and print under one roof.
+              Real businesses built end to end, brand, web, and print under one roof.
             </p>
           </div>
           <Link to="/work" className="btn btn-secondary showcase-view-all">

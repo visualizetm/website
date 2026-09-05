@@ -125,26 +125,32 @@ export async function applyPayment(db, row, lead) {
   return { ledgerId, marked };
 }
 
-/** Store (once) and try to match one event. Returns the stored row. */
+/** Store (once) and try to match one event. Returns the stored row.
+ * Idempotency (Prompt 15): the row is inserted first as a claim under the
+ * unique index on id, before any ledger write. A retry that lands while the
+ * first delivery is still running hits the duplicate key and returns
+ * duplicate: true with no side effects; applyPayment also refuses a second
+ * ledger entry for the same event id. */
 export async function ingestEvent(db, ev) {
   const col = db.collection('stripe_events');
   try { await col.createIndex({ id: 1 }, { unique: true }); } catch { /* exists */ }
-  const row = { ...normalizeEvent(ev), matchedLeadId: '', ledgerId: '', receivedAt: new Date() };
-  const existing = await col.findOne({ id: row.id });
-  if (existing) return { row: existing, duplicate: true };
+  const row = { ...normalizeEvent(ev), matchedLeadId: '', ledgerId: '', receivedAt: new Date(), processedAt: null };
+  try { await col.insertOne(row); } catch (e) { if (e?.code === 11000) return { row: await col.findOne({ id: row.id }), duplicate: true }; throw e; }
+  const set = {};
   if (PAYMENT_TYPES.includes(row.type)) {
     const lead = await matchClient(db, { email: row.customerEmail, phone: row.customerPhone, name: row.customerName });
-    if (lead) { const r = await applyPayment(db, row, lead); row.matchedLeadId = String(lead._id); row.ledgerId = r.ledgerId; }
+    if (lead) { const r = await applyPayment(db, row, lead); row.matchedLeadId = set.matchedLeadId = String(lead._id); row.ledgerId = set.ledgerId = r.ledgerId; }
   }
   if (row.type === 'customer.subscription.deleted' && row.subscriptionId) {
     const leads = db.collection('call_leads');
     const lead = await leads.findOne({ 'retainer.stripeSubscriptionId': row.subscriptionId });
-    if (lead) { await leads.updateOne({ _id: lead._id }, { $set: { 'retainer.status': 'cancelled', 'retainer.nextBillAt': '', 'retainer.stripeCancelledAt': row.at, updatedAt: new Date() } }); row.matchedLeadId = String(lead._id); }
+    if (lead) { await leads.updateOne({ _id: lead._id }, { $set: { 'retainer.status': 'cancelled', 'retainer.nextBillAt': '', 'retainer.stripeCancelledAt': row.at, updatedAt: new Date() } }); row.matchedLeadId = set.matchedLeadId = String(lead._id); }
     const projects = db.collection('projects');
     const p = await projects.findOne({ 'plan.stripeSubscriptionId': row.subscriptionId });
-    if (p) { await projects.updateOne({ _id: p._id }, { $set: { 'plan.stripeCancelled': true, 'plan.stripeCancelledAt': row.at, updatedAt: new Date() } }); if (!row.matchedLeadId) row.matchedLeadId = String(p.leadId); }
+    if (p) { await projects.updateOne({ _id: p._id }, { $set: { 'plan.stripeCancelled': true, 'plan.stripeCancelledAt': row.at, updatedAt: new Date() } }); if (!row.matchedLeadId) row.matchedLeadId = set.matchedLeadId = String(p.leadId); }
   }
-  try { await col.insertOne(row); } catch (e) { if (e?.code === 11000) return { row: await col.findOne({ id: row.id }), duplicate: true }; throw e; }
+  row.processedAt = set.processedAt = new Date();
+  await col.updateOne({ id: row.id }, { $set: set });
   return { row, duplicate: false };
 }
 

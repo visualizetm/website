@@ -16,7 +16,7 @@ import { SkeletonBlock, SkeletonCircle, SkeletonText } from './Skeleton';
  */
 export default function RecordSkeleton({ cards = 3, tabs = false, header = true, headerHeight, heights = [], className = '' }) {
   return (
-    <Stack gap={4} className={`v-recskel ${className}`.trim()} aria-busy="true">
+    <Stack gap={4} className={`v-recskel ${className}`.trim()} aria-busy="true" aria-hidden="true">
       {header && <Card style={headerHeight ? { minHeight: headerHeight } : undefined}>
         <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="60%" height={24} /><Row gap={1}><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={12} /></Stack></Row>
         <Row gap={1} wrap>{[1, 2, 3].map(i => <SkeletonBlock key={i} width={104} height={44} radius="var(--v-radius-md)" />)}</Row>

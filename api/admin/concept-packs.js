@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
-import { requireAdmin } from '../_lib/auth.js';
 import { CONCEPT_KIND_IDS } from '../_semantics.js';
+import { route } from '../_lib/handler.js';
 
 /* Concept packs (Prompt 11): the library of prompts and images Rob copies into
  * ChatGPT before a meeting.
@@ -42,8 +42,7 @@ const SEED = {
   images: [], notes: 'Edit these three stubs. Swap the brackets for the lead, then copy the prompt.', usedFor: [], archived: false,
 };
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
+async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('concept_packs');
 
@@ -82,3 +81,4 @@ export default async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH');
   return res.status(405).json({ error: 'method not allowed' });
 }
+export default route(handler, { methods: ['GET', 'POST', 'PATCH'] });

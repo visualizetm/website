@@ -40,7 +40,7 @@ export default function CaseStudy() {
   const client = getClient(slug);
 
   useEffect(() => {
-    if (client) document.title = `${client.name} — Work — Visualize`;
+    if (client) document.title = `${client.name}, Work, Visualize`;
   }, [client]);
 
   if (!client) return <Navigate to="/work" replace />;

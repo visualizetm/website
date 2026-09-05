@@ -201,7 +201,7 @@ export default function AdminConcepts({ packs = [], loading, error, onRetry, lea
           )}
           {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel" aria-label="Concept pack"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
       {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? sel.title : <SkeletonBlock width={140} height={22} />} tall width={520}>{detail}</Sheet>}
       {creating && <Sheet open onClose={() => setCreating(false)} title="New pack" width={460} footer={<><Button variant="ghost" onClick={() => setCreating(false)}>Cancel</Button><Button loading={busy} disabled={!draft.title.trim()} icon={Check} onClick={create}>Create</Button></>}>

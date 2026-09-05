@@ -10,7 +10,7 @@ import { useTopBar, useShell } from '../shell/ShellContext';
 import ClientCard, { clientLine } from '../components/ClientCard';
 import LeadDetail from '../components/LeadDetail';
 import LeadForm from '../components/LeadForm';
-import { defaultLead } from './AdminCalls';
+import { defaultLead } from '../lib/defaultLead';
 import { PROJECT_STAGES } from '../shared/semantics';
 import { money } from '../shared/format';
 import { fmtDate } from '../shared/dates';
@@ -70,8 +70,8 @@ export default function AdminClients({
   if (pendingOpen) {
     return (
       <>
-        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`}><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
-        <main className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients"><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
+        <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton />}</div>
         <style>{clStyles}</style>
       </>
     );
@@ -80,12 +80,12 @@ export default function AdminClients({
   if (sel) {
     return (
       <>
-        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`}>
+        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients">
           <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} compact onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
         </aside>
-        <main className="aa-main cl-main">
+        <div className="aa-main cl-main">
           <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} client={clientProps} />
-        </main>
+        </div>
         {addSheet}
         <style>{clStyles}</style>
       </>

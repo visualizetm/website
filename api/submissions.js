@@ -1,14 +1,11 @@
 import { getDb } from './_lib/mongo.js';
 import { sendPush, sendEmail } from './_lib/notify.js';
 import { orderFromSubmission } from './_lib/orders.js';
+import { route } from './_lib/handler.js';
 
 // Public endpoint: receives every form submission on the site
 // (/start briefs, shop orders, and any future inquiry forms).
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'method not allowed' });
-  }
+async function handler(req, res) {
 
   const b = req.body || {};
   const name = String(b.name || '').trim().slice(0, 200);
@@ -49,33 +46,34 @@ export default async function handler(req, res) {
   const kind = doc.type === 'shop-order' ? 'Shop order' : doc.type === 'review' ? 'Review' : `${doc.projectType || 'Project'} inquiry`;
   const who = doc.business || doc.name;
 
-  // Notifications are best-effort — never fail the client's submit over them.
+  // Notifications are best-effort, never fail the client's submit over them.
   // Owner preferences (Settings → Notifications) can switch either channel off.
   let prefs = {};
   try { prefs = await db.collection('settings').findOne({ _id: 'prefs' }) || {}; } catch { /* default on */ }
   try {
     await Promise.allSettled([
       prefs.pushEnabled === false ? Promise.resolve() : sendPush(await getDb(), {
-        title: `New ${kind} — ${who}`,
+        title: `New ${kind}: ${who}`,
         body: `${doc.name} · ${doc.email}`,
         url: `https://admin.visualizeclients.com/?submission=${id}`,
       }),
       prefs.emailEnabled === false ? Promise.resolve() : sendEmail({
-        subject: `New ${kind} — ${who}`,
+        subject: `New ${kind}: ${who}`,
         fromName: doc.name,
         replyTo: doc.email,
         fields: {
           Name: doc.name,
-          Business: doc.business || '—',
+          Business: doc.business || 'n/a',
           Email: doc.email,
-          Phone: doc.phone || '—',
+          Phone: doc.phone || 'n/a',
           Type: doc.type,
           ...doc.fields,
           'Open in Admin': `https://admin.visualizeclients.com/?submission=${id}`,
         },
       }),
     ]);
-  } catch { /* stored — that's what matters */ }
+  } catch { /* stored, that's what matters */ }
 
   return res.status(200).json({ ok: true, id });
 }
+export default route(handler, { methods: ['POST'], admin: false, csrf: false, maxBody: 256 * 1024 });

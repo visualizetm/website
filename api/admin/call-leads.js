@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
-import { requireAdmin } from '../_lib/auth.js';
 
 import {
   CONCEPT_STATUS_IDS,
@@ -8,6 +7,7 @@ import {
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
   RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
 } from '../_semantics.js';
+import { route } from '../_lib/handler.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 
@@ -49,7 +49,7 @@ const strArr = (v, max = 30) => Array.isArray(v) ? v.slice(0, max).map(x => str(
 const qaArr = (v, max = 12) => Array.isArray(v)
   ? v.slice(0, max).map(x => ({ say: str(x?.say, 300), respond: str(x?.respond, 800) }))
   : [];
-// Call-session history — additive field. Each entry: when, what happened, and
+// Call-session history, additive field. Each entry: when, what happened, and
 // any note / booking details captured at log time.
 const logArr = (v, max = 200) => Array.isArray(v)
   ? v.slice(-max).map(x => ({
@@ -61,8 +61,7 @@ const logArr = (v, max = 200) => Array.isArray(v)
     }))
   : [];
 
-// Normalize an incoming lead object to the stored shape (defense in depth —
-// the endpoint is admin-only, but bad shapes would break the notepad render).
+// Normalize an incoming lead object to the stored shape (defense in depth, // the endpoint is admin-only, but bad shapes would break the notepad render).
 function sanitize(b) {
   const s = b.script || {};
   const c = b.close || {};
@@ -115,7 +114,7 @@ function sanitize(b) {
     },
     socials: normalizeSocials(b.socials),
     callLog: logArr(b.callLog),
-    // ── Booked-pipeline fields (all additive — older leads simply lack them) ──
+    // ── Booked-pipeline fields (all additive, older leads simply lack them) ──
     stage: STAGES.includes(b.stage) ? b.stage : undefined,
     meeting: b.meeting && typeof b.meeting === 'object' ? {
       date: str(b.meeting.date, 10),
@@ -162,7 +161,7 @@ function sanitize(b) {
       driveUrl: str(b.conceptsTracker.driveUrl, 400),
     } : undefined,
     prepNotes: b.prepNotes !== undefined ? str(b.prepNotes, 3000) : undefined,
-    // Named task lists ("checklists") — additive. ≤10 lists × ≤50 items.
+    // Named task lists ("checklists"), additive. ≤10 lists × ≤50 items.
     checklists: Array.isArray(b.checklists)
       ? b.checklists.slice(0, 10).map(l => ({
           name: str(l?.name, 80),
@@ -177,7 +176,7 @@ function sanitize(b) {
     mergedInto: b.mergedInto !== undefined ? str(b.mergedInto, 64) : undefined,
     // Prompt 9: the Calendly scheduled event this lead was linked to (additive).
     calendlyEventUri: b.calendlyEventUri !== undefined ? str(b.calendlyEventUri, 200) : undefined,
-    // What the client paid for — a purchases ledger. Additive.
+    // What the client paid for, a purchases ledger. Additive.
     purchases: Array.isArray(b.purchases)
       ? b.purchases.slice(0, 200).map(p => ({
           label: str(p?.label, 160),
@@ -236,8 +235,7 @@ function sanitize(b) {
   };
 }
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
+async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('call_leads');
 
@@ -287,7 +285,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    // Restore from Recently deleted — clears the tombstone so the lead is
+    // Restore from Recently deleted, clears the tombstone so the lead is
     // visible everywhere again (and import matching treats it as live).
     if (req.body?.action === 'restore') {
       const ids = (Array.isArray(req.body.ids) ? req.body.ids : [])
@@ -332,3 +330,4 @@ export default async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH, DELETE');
   return res.status(405).json({ error: 'method not allowed' });
 }
+export default route(handler, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 1024 * 1024 });

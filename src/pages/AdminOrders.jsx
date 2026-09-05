@@ -300,7 +300,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
           )}
           {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
-        {panelOpen && desktop && <aside className="po-panel"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
+        {panelOpen && desktop && <aside className="po-panel" aria-label="Order"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
       {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : <SkeletonBlock width={200} height={14} />} tall width={520} className="po-sheet">{detail}</Sheet>}
       {creating && <NewOrderSheet leads={leads} onClose={() => setCreating(false)} onCreate={create} preset={createPreset?.preset} />}

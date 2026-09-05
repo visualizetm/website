@@ -3,16 +3,19 @@
 export const leadCardStyles = `
   .lc { position: relative; display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-3); padding-right: calc(var(--v-space-3) + var(--v-tap)); background: var(--v-surface-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-md); color: var(--v-text); cursor: pointer; transition: border-color var(--v-dur-fast) var(--v-ease-out), transform var(--v-dur-fast) var(--v-ease-out), box-shadow var(--v-dur-fast) var(--v-ease-out); }
   .lc:hover { border-color: var(--v-border-strong); }
-  .lc:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .lc:has(> .lc-open:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .lc-open:focus-visible { outline: 0; }
+  .lc:not(.lc--open) { cursor: default; }
   .lc.is-selected { border-color: var(--v-red); background: var(--v-surface-2); }
   .lc.is-checked { border-color: var(--v-red); box-shadow: 0 0 0 1px var(--v-red); }
   .lc.is-dragging { transform: scale(1.02) rotate(0.5deg); box-shadow: var(--v-shadow-3); opacity: 0.9; z-index: 2; }
   .lc-row { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; }
-  .lc-row3 { flex-wrap: wrap; row-gap: var(--v-space-1); }
+  .lc-row3 { flex-wrap: wrap; row-gap: var(--v-space-1); min-height: var(--v-tap); }
   .lc-name { flex: 1; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
   .lc-new { height: 20px; padding: 0 var(--v-space-2); }
   .lc-desc { flex: 1; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
-  .lc-phone { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-2); text-decoration: none; font-variant-numeric: tabular-nums; min-height: 28px; display: inline-flex; align-items: center; white-space: nowrap; }
+  .lc-phone { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-2); text-decoration: none; font-variant-numeric: tabular-nums; min-height: var(--v-tap); min-width: var(--v-tap); display: inline-flex; align-items: center; white-space: nowrap; border-radius: var(--v-radius-sm); }
+  .lc-phone:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .lc-phone:hover { color: var(--v-red-highlight); }
   .lc-phone--none { color: var(--v-text-3); font-weight: var(--v-weight-regular); }
   .lc-socials { display: inline-flex; gap: 2px; }

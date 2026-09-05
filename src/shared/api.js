@@ -1,32 +1,42 @@
 /* Same-origin admin API helpers.
  *
  * apiFetch: fetch + JSON with a uniform { ok, status, data } result so call
- * sites never repeat the headers/JSON/ok dance.
+ * sites never repeat the headers/JSON/ok dance. Every request carries
+ * X-Requested-With: visualize (Prompt 15): the admin routes refuse any
+ * non GET request without it, which is the CSRF guard (a cross site form or
+ * script cannot set that header without a CORS preflight the API rejects).
  *
  * patchWithRollback: the optimistic PATCH pattern every admin screen uses:
  * apply locally first, send, and undo on failure. `apply` returns the undo
  * function (or nothing); `onError` gets the failure so the screen can show
  * its own loud toast. Returns true on success.
  */
+export const CSRF_HEADER = { 'X-Requested-With': 'visualize' };
+
 /** True when the browser says there is no network. Writes are refused up front so nothing half applies. */
 export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
 
-export async function apiFetch(url, { method = 'GET', body, headers } = {}) {
+const emit = (name, detail) => { try { window.dispatchEvent(new CustomEvent(name, { detail })); } catch { /* no window */ } };
+
+export async function apiFetch(url, { method = 'GET', body, headers, silent = false } = {}) {
   if (method !== 'GET' && isOffline()) {
     // Prompt 14: offline writes are blocked, not queued (see reports/PROMPT-14-REPORT.md section 10).
-    try { window.dispatchEvent(new CustomEvent('vz:offline-write', { detail: { url, method } })); } catch { /* no window */ }
+    emit('vz:offline-write', { url, method });
     return { ok: false, status: 0, data: null, offline: true };
   }
   try {
     const res = await fetch(url, {
       method,
-      headers: body !== undefined ? { 'Content-Type': 'application/json', ...(headers || {}) } : headers,
+      headers: { ...CSRF_HEADER, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers || {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     let data = null;
     try { data = await res.json(); } catch { /* empty or non-JSON body */ }
+    // A server error (not a 4xx the screen expects, like 401 or 404) is worth a log entry.
+    if (!silent && res.status >= 500) emit('vz:api-failed', { url, method, status: res.status, error: data?.error });
     return { ok: res.ok, status: res.status, data };
   } catch (err) {
+    if (!silent) emit('vz:api-failed', { url, method, status: 0, error: err?.message });
     return { ok: false, status: 0, data: null, error: err };
   }
 }

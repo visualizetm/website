@@ -13,17 +13,23 @@ import { SkeletonBlock, SkeletonCircle } from './Skeleton';
  * @param {boolean} [props.selected]
  * @param {boolean} [props.chevron=true]
  */
-export default function ListRow({ leading, title, subtitle, meta, trailing, onClick, selected = false, chevron = true, className = '', ...rest }) {
-  const Tag = onClick ? 'button' : 'div';
+export default function ListRow({ leading, title, subtitle, meta, trailing, onClick, selected = false, chevron = true, className = '', 'aria-label': ariaLabel, ...rest }) {
+  // A row that opens something keeps one real button stretched over the row (Prompt 15), so a Menu or a
+  // Button in `trailing` never nests inside it. Rows with an explicit role (the command bar's options) stay
+  // one element: their keyboard handling lives on the input.
+  const optionLike = !!rest.role;
+  const Tag = onClick && optionLike ? 'button' : 'div';
+  const name = ariaLabel || (typeof title === 'string' ? title : undefined);
   return (
-    <Tag className={`v-lrow lay-card${onClick ? ' v-lrow--btn' : ''}${selected ? ' is-selected' : ''} ${className}`.trim()} type={onClick ? 'button' : undefined} onClick={onClick} aria-current={selected || undefined} {...rest}>
-      {leading && <span className="v-lrow-lead">{leading}</span>}
+    <Tag className={`v-lrow lay-card${onClick ? ' v-lrow--btn' : ''}${selected ? ' is-selected' : ''} ${className}`.trim()} type={Tag === 'button' ? 'button' : undefined} onClick={onClick && optionLike ? onClick : undefined} aria-current={selected || undefined} aria-label={optionLike ? ariaLabel : undefined} {...rest}>
+      {onClick && !optionLike && <button type="button" className="v-stretch v-lrow-open" onClick={onClick} aria-label={name}>{name}</button>}
+      {leading && <span className="v-lrow-lead v-above">{leading}</span>}
       <span className="v-lrow-main">
         <span className="v-lrow-title lay-truncate">{title}</span>
         {subtitle && <span className="v-lrow-sub lay-truncate">{subtitle}</span>}
       </span>
       {(meta || trailing) && (
-        <span className="v-lrow-side">
+        <span className="v-lrow-side v-above">
           {meta && <span className="v-lrow-meta">{meta}</span>}
           {trailing}
         </span>
@@ -34,7 +40,7 @@ export default function ListRow({ leading, title, subtitle, meta, trailing, onCl
 }
 ListRow.Skeleton = function ListRowSkeleton({ leading = true, trailing = true, className = '' }) {
   return (
-    <div className={`v-lrow lay-card ${className}`.trim()} aria-busy="true">
+    <div className={`v-lrow lay-card ${className}`.trim()} aria-busy="true" aria-hidden="true">
       {leading && <span className="v-lrow-lead"><SkeletonCircle size={40} /></span>}
       <span className="v-lrow-main" style={{ gap: 6 }}>
         <SkeletonBlock width="55%" height={14} />
@@ -53,9 +59,11 @@ export const listRowStyles = `
     color: var(--v-text); text-align: left; font: inherit;
     transition: border-color var(--v-dur-fast) var(--v-ease-out), background var(--v-dur-fast) var(--v-ease-out);
   }
-  .v-lrow--btn { cursor: pointer; }
+  .v-lrow--btn { cursor: pointer; position: relative; }
   .v-lrow--btn:hover { border-color: var(--v-border-strong); background: var(--v-surface-2); }
-  .v-lrow--btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .v-lrow--btn:focus-visible, .v-lrow--btn:has(> .v-lrow-open:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .v-lrow-open:focus-visible { outline: 0; }
+  .v-lrow-lead:empty { display: none; }
   .v-lrow.is-selected { border-color: var(--v-red); background: var(--v-surface-2); }
   .v-lrow-lead { flex-shrink: 0; display: inline-flex; }
   .v-lrow-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }

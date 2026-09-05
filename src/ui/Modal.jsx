@@ -39,19 +39,19 @@ export default function Modal({ open, onClose, title, description, footer, size 
   return createPortal(
     <div className={`v-modal-back lay-overlay${closing ? ' is-closing' : ''}`} onClick={close}>
       <div ref={boxRef} className={`v-modal v-modal--${size}${danger ? ' v-modal--danger' : ''}${closing ? ' is-closing' : ''} ${className}`.trim()}
-        role="dialog" aria-modal="true" aria-label={title ? undefined : label} aria-labelledby={title ? 'v-modal-title' : undefined} tabIndex={-1}
+        role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Dialog')} aria-labelledby={typeof title === 'string' && title ? 'v-modal-title' : undefined} tabIndex={-1}
         onClick={(e) => e.stopPropagation()}>
         {(title || closeButton) && (
-          <header className="v-modal-head">
+          <div className="v-modal-head">
             <div className="v-modal-text">
               {title && <h2 id="v-modal-title" className="v-modal-title">{title}</h2>}
               {description && <p className="v-modal-desc">{description}</p>}
             </div>
             {closeButton && <button type="button" className="v-modal-x" onClick={close} aria-label="Close"><XClose width={18} height={18} /></button>}
-          </header>
+          </div>
         )}
         {children && <div className="v-modal-body">{children}</div>}
-        {footer && <footer className="v-modal-foot">{footer}</footer>}
+        {footer && <div className="v-modal-foot">{footer}</div>}
       </div>
     </div>,
     root,

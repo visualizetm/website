@@ -37,7 +37,7 @@ export default function StatCard({ icon, tone = 'neutral', value, label, trend, 
 /** StatCard.Skeleton: identical box so nothing jumps when the value lands. */
 StatCard.Skeleton = function StatCardSkeleton({ trend = false, className = '' }) {
   return (
-    <Card className={`v-stat ${className}`.trim()} aria-busy="true">
+    <Card className={`v-stat ${className}`.trim()} aria-busy="true" aria-hidden="true">
       <IconTile.Skeleton />
       <div className="v-stat-body">
         <SkeletonBlock width={72} height={30} style={{ marginBottom: 4 }} />

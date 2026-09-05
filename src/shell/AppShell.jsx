@@ -163,8 +163,9 @@ export default function AppShell({
           <TopBar title={title} onBack={topBar?.back || null}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
-          {!online && <div className="sh-offline" role="status"><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></div>}
-          <div key={activeNavId} className={`aa-app sh-content lay-view${hasDetail ? ' has-detail' : ''}`}>{children}</div>
+          {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}
+          <div className={`sh-offline${online ? ' is-hidden' : ''}`} role="status" aria-live="polite">{!online && <><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></>}</div>
+          <main key={activeNavId} className={`aa-app sh-content lay-view${hasDetail ? ' has-detail' : ''}`} aria-label={title || undefined}>{children}</main>
           <TabBar activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} onMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />
@@ -182,6 +183,7 @@ export const shellStyles = `
   .sh-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   @media (min-width: 768px) { .sh-col { --v-gutter-l: var(--v-gutter); --lay-gutter-l: var(--v-gutter); } }
   .sh-content { flex: 1; min-height: 0; min-width: 0; display: flex; }
+  .sh-offline.is-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; min-height: 0; }
   .sh-offline { display: flex; align-items: center; justify-content: center; gap: var(--v-space-2); flex-shrink: 0; min-height: var(--v-space-9); padding: var(--v-space-1) var(--v-gutter-r) var(--v-space-1) var(--v-gutter-l); background: var(--v-status-new-soft); color: var(--v-status-new-text); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); border-bottom: 1px solid color-mix(in srgb, var(--v-status-new-text) 30%, transparent); animation: lay-view-in var(--v-dur-base) var(--v-ease-out) both; }
 ${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
 `;

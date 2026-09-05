@@ -3,10 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <script>
-    // Pre-paint (Prompt 14): the theme for both halves, the admin's motion
-    // switch, and which boot frame to show, all read from localStorage before
-    // the first paint. Marketing: a saved choice wins, otherwise the OS.
-    // Admin: dark unless Rob picked light or system in Settings.
+    // Pre-paint (Prompt 14, self hosted fonts in Prompt 15): the theme for both
+    // halves, the admin's motion switch, and which boot frame to show, all read
+    // from localStorage before the first paint. Marketing: a saved choice wins,
+    // otherwise the OS. Admin: dark unless Rob picked light or system in Settings.
+    // The two display weights each host paints first are preloaded here; the
+    // rest of the latin subsets arrive through src/fonts.css. This script's
+    // hash is pinned in the admin Content-Security-Policy (vercel.json); the
+    // build fails if the two drift (vite.config.js).
     (function () {
       var de = document.documentElement, ls = {}, osLight = false;
       try { ls.theme = localStorage.getItem('vz_theme'); ls.motion = localStorage.getItem('vz_motion'); ls.boot = localStorage.getItem('vz_boot'); ls.side = localStorage.getItem('vz_shell_collapsed'); } catch (e) {}
@@ -20,10 +24,11 @@
         de.dataset.vzBoot = ls.boot === '1' ? 'shell' : 'login';
         if (ls.side === 'true') de.dataset.vzSide = 'rail';
       }
-      // Google Fonts stays render blocking on the marketing site (no swap on
-      // the hero); the admin paints its frame first and lets the fonts arrive behind it.
-      var href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@500;600;700;800&display=swap';
-      document.currentScript.insertAdjacentHTML('afterend', '<link href="' + href + '" rel="stylesheet"' + (admin ? ' media="print" onload="this.media=\'all\'"' : '') + '>');
+      var fonts = admin ? ['barlow-condensed-700', 'inter-700'] : ['barlow-condensed-700', 'barlow-condensed-800'];
+      for (var i = 0; i < fonts.length; i++) {
+        var l = document.createElement('link'); l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous'; l.href = '/fonts/' + fonts[i] + '.woff2';
+        document.head.appendChild(l);
+      }
     })();
   </script>
   <!-- vz-boot-css -->
@@ -36,8 +41,6 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-title" content="Visualize." />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 </head>
 <body>
   <div id="root"><!-- vz-boot --></div>

@@ -73,8 +73,8 @@ export default function AdminBooked({ leads, submissions = [], loading, error, o
   if (pendingOpen) {
     return (
       <>
-        <aside className={`aa-panel bk-panel${desktop ? '' : ' bk-panel--rail'}`}><ScrollArea bare className="bk-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
-        <main className="aa-main bk-main">{showSkel && <LeadDetail.Skeleton />}</main>
+        <aside className={`aa-panel bk-panel${desktop ? '' : ' bk-panel--rail'}`} aria-label="Booked leads"><ScrollArea bare className="bk-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
+        <div className="aa-main bk-main">{showSkel && <LeadDetail.Skeleton />}</div>
         <style>{bkStyles}</style>
       </>
     );
@@ -83,12 +83,12 @@ export default function AdminBooked({ leads, submissions = [], loading, error, o
   if (sel) {
     return (
       <>
-        <aside className={`aa-panel bk-panel${desktop ? '' : ' bk-panel--rail'}`}>
+        <aside className={`aa-panel bk-panel${desktop ? '' : ' bk-panel--rail'}`} aria-label="Booked leads">
           <ScrollArea bare className="bk-panel-scroll"><Stack gap={2}><p className="bk-muted">{list.length} booked</p>{cards(true)}</Stack></ScrollArea>
         </aside>
-        <main className="aa-main bk-main">
+        <div className="aa-main bk-main">
           <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} />
-        </main>
+        </div>
         <style>{bkStyles}</style>
       </>
     );

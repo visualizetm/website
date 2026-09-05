@@ -45,7 +45,7 @@ export const tabBarStyles = `
   }
   .sh-tab:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; border-radius: var(--v-radius-md); }
   .sh-tab-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 26px; border-radius: var(--v-radius-pill); transition: background var(--v-dur-fast) var(--v-ease-out); }
-  .sh-tab.is-active { color: var(--v-red); }
+  .sh-tab.is-active { color: var(--v-red-highlight); }
   .sh-tab.is-active .sh-tab-icon { background: var(--v-red-soft); }
   .sh-tab-label { font-size: 10px; line-height: 12px; font-weight: var(--v-weight-bold); letter-spacing: 0.02em; }
   .sh-tab .v-badge { top: -4px; right: 2px; box-shadow: 0 0 0 2px var(--v-surface-1); }

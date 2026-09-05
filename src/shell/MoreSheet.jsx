@@ -52,4 +52,6 @@ export const moreSheetStyles = `
   .sh-more-icon { position: relative; display: inline-flex; }
   .sh-more-label { line-height: 1.2; }
   .sh-more-user { display: flex; align-items: center; gap: var(--v-space-3); padding-top: var(--v-space-4); border-top: 1px solid var(--v-border); }
+  .sh-more-user .sh-side-user-text strong { color: var(--v-text); }
+  .sh-more-user .sh-side-user-text span { color: var(--v-text-3); }
 `;

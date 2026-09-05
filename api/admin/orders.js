@@ -1,8 +1,8 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
-import { requireAdmin } from '../_lib/auth.js';
 import { orderFromSubmission } from '../_lib/orders.js';
 import { PRINT_ORDER_STATUS_IDS, ORDER_SOURCE_IDS } from '../_semantics.js';
+import { route } from '../_lib/handler.js';
 
 /* Print orders (Prompt 11).
  *   GET   /api/admin/orders?status=<id>        { items, unimported }
@@ -51,8 +51,7 @@ async function unimportedSubmissions(db, col) {
   return subs.filter(s => !have.has(String(s._id)));
 }
 
-export default async function handler(req, res) {
-  if (!requireAdmin(req, res)) return;
+async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('orders');
 
@@ -96,3 +95,4 @@ export default async function handler(req, res) {
   res.setHeader('Allow', 'GET, POST, PATCH');
   return res.status(405).json({ error: 'method not allowed' });
 }
+export default route(handler, { methods: ['GET', 'POST', 'PATCH'] });

@@ -35,18 +35,21 @@ export const tokenStyles = `
     --v-red-soft: rgba(212,76,67,0.14);
     --v-red-glow: 0 8px 28px rgba(212,76,67,0.32);
 
-    /* Semantic status set: -solid (fills; dark text), -soft (tints), -text (on dark) */
+    /* Semantic status set: -solid (fills; dark text, the won fill carries white), -soft (tints), -text (on dark).
+       Prompt 15: won solid is the pressed red so white passes 4.5:1 on it, danger solid #ef4444 so dark text passes,
+       neutral text #a3a3a3 so a neutral pill still passes on a selected (surface-2 plus tint) card. */
     --v-status-new-solid: #f59e0b;      --v-status-new-soft: rgba(245,158,11,0.14);   --v-status-new-text: #f59e0b;
     --v-status-progress-solid: #60a5fa; --v-status-progress-soft: rgba(96,165,250,0.14); --v-status-progress-text: #60a5fa;
     --v-status-callback-solid: #a78bfa; --v-status-callback-soft: rgba(167,139,250,0.14); --v-status-callback-text: #a78bfa;
     --v-status-booked-solid: #22c55e;   --v-status-booked-soft: rgba(34,197,94,0.14);  --v-status-booked-text: #22c55e;
-    --v-status-won-solid: #d44c43;      --v-status-won-soft: rgba(212,76,67,0.16);    --v-status-won-text: #e66b63;
-    --v-status-danger-solid: #dc2626;   --v-status-danger-soft: rgba(239,68,68,0.14);  --v-status-danger-text: #f87171;
-    --v-status-neutral-solid: #8f8f8f;  --v-status-neutral-soft: rgba(255,255,255,0.07); --v-status-neutral-text: #8f8f8f;
+    --v-status-won-solid: #c2413a;      --v-status-won-soft: rgba(212,76,67,0.16);    --v-status-won-text: #e66b63;
+    --v-status-danger-solid: #ef4444;   --v-status-danger-soft: rgba(239,68,68,0.14);  --v-status-danger-text: #f87171;
+    --v-status-neutral-solid: #8f8f8f;  --v-status-neutral-soft: rgba(255,255,255,0.07); --v-status-neutral-text: #a3a3a3;
 
-    /* Charts */
+    /* Charts: bars pass 3:1 against every layer, --v-chart-text is the label on a bar (4.5:1) */
     --v-chart-1: #d44c43; --v-chart-2: #60a5fa; --v-chart-3: #22c55e;
     --v-chart-4: #f59e0b; --v-chart-5: #a78bfa; --v-chart-6: #34d399;
+    --v-chart-text: var(--v-text-inverse);
 
     /* Typography */
     --v-font-display: 'Barlow Condensed', 'Inter', -apple-system, sans-serif;
@@ -97,7 +100,7 @@ export const tokenStyles = `
        reads its own tokens. In dark they alias the shell's; the light block
        pins them to the dark values. */
     --v-sidebar-bg: var(--v-bar); --v-sidebar-text: var(--v-text); --v-sidebar-text-2: var(--v-text-2); --v-sidebar-text-3: var(--v-text-3);
-    --v-sidebar-border: var(--v-border); --v-sidebar-hover: var(--v-surface-2); --v-sidebar-active-bg: var(--v-red-soft); --v-sidebar-active: var(--v-red);
+    --v-sidebar-border: var(--v-border); --v-sidebar-hover: var(--v-surface-2); --v-sidebar-active-bg: var(--v-red-soft); --v-sidebar-active: var(--v-red-highlight);
 
     /* Z index */
     --v-z-base: 0; --v-z-sticky: 10; --v-z-tabbar: 50; --v-z-sheet: 60;
@@ -135,6 +138,8 @@ export const tokenStyles = `
     overflow-x: clip;
     font-family: var(--v-font-body);
   }
+  /* Visually hidden text for assistive tech (Prompt 15) */
+  .v-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
   /* Reduced motion (Prompt 14): the OS setting and the in-app switch
      (data-v-motion='reduce' on .lay-root, mirrored on <html> for portals and
      the boot frame) both zero every duration. Components that animate with
@@ -179,6 +184,10 @@ export const tokenStyles = `
     --v-grid-texture:
       linear-gradient(rgba(204,34,34,0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(204,34,34,0.03) 1px, transparent 1px);
+    /* Charts (Prompt 15): darker fills so a bar reads 3:1 on the cream layers and a white label passes 4.5:1 on it */
+    --v-chart-1: #c2413a; --v-chart-2: #1d4ed8; --v-chart-3: #15803d;
+    --v-chart-4: #b45309; --v-chart-5: #6d28d9; --v-chart-6: #047857;
+    --v-chart-text: #ffffff;
     /* The sidebar stays Visualize black */
     --v-sidebar-bg: #0a0a0a; --v-sidebar-text: #fafafa; --v-sidebar-text-2: #cccccc; --v-sidebar-text-3: #8f8f8f;
     --v-sidebar-border: rgba(255,255,255,0.08); --v-sidebar-hover: rgba(255,255,255,0.06); --v-sidebar-active-bg: rgba(212,76,67,0.18); --v-sidebar-active: #e66b63;
