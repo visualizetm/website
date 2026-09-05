@@ -4,7 +4,8 @@ Branch `claude/enable-maintenance-page-oDW2r`, fast-forwarded to `main`. Commits
 order: e53855d (feel audit and shared fixtures), 2ca54e2 (boot frame, page
 crossfade, reduced motion switch), 4a42f3d (skeletons, entrances, write
 feedback, empty and error states), afed1b8 (light theme, picker, sidebar
-tokens), 6e456b4 (the last writes through apiFetch), then this report.
+tokens), 6e456b4 (the last writes through apiFetch), aebaed3 (skeleton
+shapes for the settings tabs and detail sheets), then this report.
 
 No new features, no schema changes beyond the two additive profile fields
 (`theme`, `reduceMotion`), no endpoint changes. Every change reads
@@ -40,7 +41,7 @@ belong to their list. Boot rows check for the frame instead.
 
 FEEL_BASELINE
 
-### Final (build afed1b8, both themes, Reduce motion off and on)
+### Final (build aebaed3, both themes, Reduce motion off and on)
 
 FEEL_FINAL
 
@@ -103,12 +104,12 @@ Measured with `node scripts/feel-audit.mjs --boot` (Chromium, CDP throttle
 |---|---|---|---|---|---|
 | baseline 9c35b12 | throttled | never | 1816ms | never (blank ground until session) | 1733ms |
 | baseline 9c35b12 | unthrottled | never | 172ms | never | 82ms |
-| final | throttled | 179ms | 420ms | 1911ms | 1835ms |
-| final | unthrottled | 24ms | 112ms | 234ms | 158ms |
+| final aebaed3 | throttled | 178ms | 392ms | 2014ms | 1895ms |
+| final aebaed3 | unthrottled | 16ms | 60ms | 142ms | 87ms |
 
 Before, first paint waited for the render blocking fonts stylesheet and the
 admin showed blank ground until the session answered. Now the frame is in the
-DOM at 179ms and painted at 420ms on the throttled profile (the remaining
+DOM at 178ms and painted at 392ms on the throttled profile (the remaining
 gap is the bundle download), and the React shell lands on the same geometry
 when the session answers. Inside the sandbox the fonts request never
 resolves, so the audit answers it with an empty stylesheet.
