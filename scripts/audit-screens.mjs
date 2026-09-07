@@ -79,12 +79,11 @@ export const SCREENS = [
 
   // Site Prompt 5: the rebuilt Services page, static (no CRM data).
   { id: 'mkt-services', screen: 'Services (marketing)', label: 'full', path: '/services', session: false, static: true, marketing: true },
-  // Site Prompt 5, Part 2: Contact, Start, and Prints restyled to match; the
+  // Site Prompt 5, Part 2: Contact and Start restyled to match; the
   // shop and checkout flow itself is still covered by layout-audit's own
   // AUDIT_ONLY=settings "shop checkout end to end" walk, not here.
   { id: 'mkt-contact', screen: 'Contact (marketing)', label: 'full', path: '/contact', session: false, static: true, marketing: true },
   { id: 'mkt-start', screen: 'Start (marketing)', label: 'intro', path: '/start', session: false, static: true, marketing: true },
-  { id: 'mkt-prints', screen: 'Prints (marketing)', label: 'shop', path: '/prints', session: false, static: true, marketing: true },
   // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
   // the React root, not a route, so unlike every other marketing: true
   // entry above it only renders against a build made with that env var

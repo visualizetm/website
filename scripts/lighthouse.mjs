@@ -37,7 +37,6 @@ const TARGETS = [
   // Site Prompt 5: the remaining marketing pages this prompt aligned.
   { id: 'services', label: 'Services', path: '/services' },
   { id: 'contact', label: 'Contact', path: '/contact' },
-  { id: 'prints', label: 'Prints', path: '/prints' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
 

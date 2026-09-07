@@ -16,7 +16,7 @@ const DIST = resolve('dist');
 const SITE = 'https://visualizestudio.org';
 const TIMEOUT_MS = 8000;
 
-const STATIC_ROUTES = ['/', '/services', '/clients', '/contact', '/start', '/prints'];
+const STATIC_ROUTES = ['/', '/services', '/clients', '/contact', '/start'];
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 
 async function fetchPublishedSlugs() {

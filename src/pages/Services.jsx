@@ -1,4 +1,6 @@
 import Check from '@untitled-ui/icons-react/build/esm/Check';
+import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
+import { Link } from 'react-router-dom';
 import { Reveal, Stagger, SectionNumber } from '../marketing/motion';
 import { PACKAGES, RETAINERS, ADDONS, REVISION_ROUNDS, EXTRA_ROUND, SINGLE_CAP, money, planLine } from '../shared/pricing';
 import { useHead } from '../marketing/useHead';
@@ -71,6 +73,13 @@ export default function Services() {
   return (
     <>
       <Reveal as="header" className="svc-head">
+        {/* Site Prompt 6, Part 3: this page is still here for anyone who
+            has the link, but nothing in the header or footer points at it
+            any more, so it needs its own way back. */}
+        <Link to="/" className="svc-back">
+          <ArrowLeft width={15} height={15} />
+          Back to home
+        </Link>
         <h1 className="svc-head-title display">Services</h1>
         <p className="svc-head-sub">Brand, website, print, and ongoing help after launch. Simple pricing, book a call for the exact quote.</p>
       </Reveal>
@@ -144,6 +153,13 @@ export default function Services() {
 
       <style>{`
         .svc-head { padding: var(--space-20) 0 var(--space-8); text-align: center; }
+        .svc-back {
+          display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
+          margin-bottom: var(--space-4);
+          font-size: 0.875rem; font-weight: 600; color: var(--text-muted);
+          transition: color 0.2s;
+        }
+        .svc-back:hover { color: var(--text); }
         .svc-head-title { font-size: clamp(2.2rem, 5vw, 3.2rem); color: var(--text); margin-bottom: var(--space-4); }
         .svc-head-sub { font-size: 1.0625rem; color: var(--text-secondary); max-width: 46ch; margin: 0 auto; }
 

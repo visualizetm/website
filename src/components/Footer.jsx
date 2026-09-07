@@ -3,6 +3,7 @@ import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Wordmark from './Wordmark';
 import { Reveal, Stagger } from '../marketing/motion';
+import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '../marketing/links';
 
 // Untitled UI's free line set has no social brand marks, this glyph matches
 // its 24-grid, stroke-2, currentColor conventions so it reads as one system.
@@ -26,46 +27,40 @@ export default function Footer() {
               <Wordmark size={22} />
             </Link>
             <p className="footer-tagline">Brand Development and Website Design</p>
-            <div className="footer-contact">
-              <a href="mailto:contact@visualizeclients.com" className="footer-contact-item">
-                <Mail01 width={14} height={14} />
-                contact@visualizeclients.com
-              </a>
-            </div>
           </Reveal>
 
+          {/* Site Prompt 6, Part 3: one Navigation column matching the
+              header's three links. The Products column went with the print
+              shop, and Services is no longer linked from anywhere. */}
           <Stagger as="div" itemAs="div" className="footer-cols">
             <div className="footer-col">
               <p className="footer-col-label">Navigation</p>
               <nav className="footer-col-links" aria-label="Navigation">
                 <Link to="/">Home</Link>
-                <Link to="/services">Services</Link>
                 <Link to="/clients">Clients</Link>
-                <Link to="/book">Contact</Link>
-              </nav>
-            </div>
-            <div className="footer-col">
-              <p className="footer-col-label">Products</p>
-              <nav className="footer-col-links" aria-label="Products">
-                <a href="/prints" target="_blank" rel="noopener noreferrer">Custom Prints</a>
+                <Link to="/contact">Contact</Link>
               </nav>
             </div>
           </Stagger>
 
           <Reveal as="div" className="footer-cta-col" delay={120}>
             <p className="footer-cta-label">Ready to start?</p>
-            <a href="/book" className="footer-cta-btn">
-              Book a Meeting
+            <a href={CALENDLY_URL} className="footer-cta-btn" target="_blank" rel="noreferrer">
+              Book a free call
               <ArrowRight width={14} height={14} />
             </a>
             <a
-              href="https://www.instagram.com/visualizetm/"
+              href={INSTAGRAM_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="footer-social"
             >
               <InstagramGlyph size={16} />
-              @visualizetm
+              {INSTAGRAM_HANDLE}
+            </a>
+            <a href={`mailto:${CONTACT_EMAIL}`} className="footer-social">
+              <Mail01 width={16} height={16} />
+              {CONTACT_EMAIL}
             </a>
           </Reveal>
         </div>
@@ -96,14 +91,6 @@ export default function Footer() {
           margin-bottom: var(--space-3);
         }
         .footer-tagline { font-size: 0.875rem; color: var(--text-muted); margin-bottom: var(--space-4); }
-        .footer-contact { display: flex; flex-direction: column; gap: var(--space-2); }
-        .footer-contact-item {
-          display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
-          font-size: 0.8125rem; color: var(--text-secondary);
-          transition: color 0.2s;
-        }
-        .footer-contact-item:hover { color: var(--text); }
-
         .footer-cols { display: flex; gap: var(--space-10); }
         @media (max-width: 600px) { .footer-cols { gap: var(--space-8); } }
         .footer-col-label {

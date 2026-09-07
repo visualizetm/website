@@ -12,7 +12,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, extname, basename } from 'node:path';
 
 const ALL = process.argv.includes('--all');
-const MARKETING = new Set(['Home.jsx', 'Services.jsx', 'Work.jsx', 'CaseStudy.jsx', 'Contact.jsx', 'Start.jsx', 'LeadPartner.jsx', 'Prints.jsx', 'Hero.jsx', 'Services.jsx', 'Process.jsx', 'Trust.jsx', 'Testimonials.jsx', 'CTA.jsx', 'ShowcasePreview.jsx', 'Navbar.jsx', 'Footer.jsx', 'ThemeToggle.jsx', 'Wordmark.jsx', 'App.jsx', 'main.jsx']);
+const MARKETING = new Set(['Home.jsx', 'Services.jsx', 'Work.jsx', 'CaseStudy.jsx', 'Contact.jsx', 'Start.jsx', 'LeadPartner.jsx', 'Hero.jsx', 'Services.jsx', 'Process.jsx', 'Trust.jsx', 'Testimonials.jsx', 'CTA.jsx', 'ShowcasePreview.jsx', 'Navbar.jsx', 'Footer.jsx', 'ThemeToggle.jsx', 'Wordmark.jsx', 'App.jsx', 'main.jsx']);
 const EXCLUDE_PREFIX = ['uc-', 'reveal', 'stagger', 'is-visible', 'page-', 'section', 'wrap', 'btn', 'display', 'glass-panel', 'text-secondary', 'theme-toggle', 'wordmark', 'animate-in', 'app-loader'];
 
 const files = [];

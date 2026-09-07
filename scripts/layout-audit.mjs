@@ -11,7 +11,6 @@
  * with PW_CHROME=/path/to/chrome.
  */
 import { chromium } from 'playwright-core';
-import { orderFromSubmission } from '../api/_lib/orders.js';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
@@ -29,7 +28,7 @@ const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-boa
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
-const CLIP_OK = ['.prints-card-glow'];
+const CLIP_OK = [];
 
 /* Touch targets (Prompt 15): every interactive element is at least 44 by 44.
  * Text links inside running prose are the one exemption (WCAG 2.5.8 inline
@@ -238,7 +237,7 @@ for (const width of WIDTHS) {
 
   if (!only || only === 'marketing') {
     // Site Prompt 1: the public marketing pages, overflow and 44px targets
-    // at every width. /prints is covered by the shop checkout flow below.
+    // at every width. (The print shop was removed in Site Prompt 6.)
     await goto('/');
     await check('marketing: Home');
     await goto('/services');
@@ -288,36 +287,6 @@ for (const width of WIDTHS) {
   }
 
   if (!only || only === 'settings') {
-  // Shop checkout end to end (Prompt 13): the public shop posts a shop-order submission,
-  // the same server builder turns it into an order, and Print Orders shows it.
-  const shopOrders = [];
-  await page.route('**/api/submissions', async (r) => {
-    if (r.request().method() !== 'POST') return r.continue();
-    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch {}
-    const created = orderFromSubmission({ ...body, _id: 'subShop' + shopOrders.length, createdAt: new Date() });
-    shopOrders.push({ ...created, _id: 'OSHOP' + shopOrders.length });
-    return r.fulfill(json({ ok: true, id: 'subShop' + shopOrders.length }));
-  });
-  await page.route('https://api.web3forms.com/**', r => r.fulfill(json({ success: true })));
-  await goto('/prints');
-  await page.getByRole('button', { name: /Customize/ }).nth(3).waitFor({ timeout: 10000 }).catch(() => {}); // the shop is a lazy chunk (Prompt 15)
-  await page.getByRole('button', { name: /Customize/ }).nth(3).click({ timeout: 4000 }).catch(() => {});
-  await page.locator('.ps-minput').first().fill('@visualize').catch(() => {});
-  await page.locator('.ps-color-row button').first().click({ timeout: 2000 }).catch(() => {});
-  const grids = page.locator('.ps-opt-grid');
-  for (let i = 0; i < await grids.count(); i++) await grids.nth(i).locator('.ps-opt').first().click({ timeout: 2000 }).catch(() => {});
-  await page.getByRole('button', { name: /Add to Cart/ }).first().click({ timeout: 3000 }).catch(() => {});
-  await page.getByRole('button', { name: /Continue to Checkout/ }).first().click({ timeout: 3000 }).catch(() => {});
-  await page.locator('.ps-minput').nth(0).fill('Audit Shopper').catch(() => {});
-  await page.locator('.ps-minput').nth(1).fill('shopper@example.com').catch(() => {});
-  await page.locator('.ps-minput').nth(2).fill('(302) 555-0199').catch(() => {});
-  await page.getByRole('button', { name: /Place Order|Submit Order|Order/ }).last().click({ timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(800);
-  await page.unroute('**/api/admin/orders**');
-  await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? r.fulfill(json({ items: [...shopOrders, ...orders], unimported: 0 })) : r.fulfill(json({ ok: true }))));
-  await goto('/admin/orders');
-  await checkText('shop checkout became a print order', shopOrders.length ? 'Audit Shopper' : 'NO ORDER WAS POSTED');
-
   // Settings and Submissions (Prompt 12).
   await goto('/admin/submissions');
   await check('submissions list');

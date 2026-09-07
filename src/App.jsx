@@ -15,7 +15,6 @@ const Clients = lazy(() => import('./pages/Clients'));
 const CaseStudy = lazy(() => import('./pages/CaseStudy'));
 const Contact = lazy(() => import('./pages/Contact'));
 const LeadPartner = lazy(() => import('./pages/LeadPartner'));
-const Prints = lazy(() => import('./pages/Prints'));
 const Start = lazy(() => import('./pages/Start'));
 /* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
  * in the marketing branch below, so the admin's entry never carries the
@@ -111,8 +110,11 @@ export default function App() {
     return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
 
-  // Routes outside the normal navbar/footer layout
-  if (location.pathname === '/prints') return <Suspense fallback={<LoadingScreen done={false} />}><Prints /></Suspense>;
+  // Routes outside the normal navbar/footer layout.
+  // The print shop was retired (Site Prompt 6, Part 3); vercel.json 301s
+  // /prints and /prints/* to /, this is the client-side fallback for a
+  // link followed inside an already-loaded session.
+  if (location.pathname === '/prints' || location.pathname.startsWith('/prints/')) return <Navigate to="/" replace />;
   // The client portal and intake form were retired (Prompt 13); old links land on Contact with a notice.
   if (location.pathname === '/portal' || location.pathname.startsWith('/intake')) return <Navigate to="/contact?from=portal" replace />;
 
@@ -134,7 +136,6 @@ export default function App() {
           <Route path="/book"        element={<Contact />} />
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
-          <Route path="/prints"       element={<Prints />} />
           <Route path="/start"       element={<Start />} />
         </Routes>
       </main>

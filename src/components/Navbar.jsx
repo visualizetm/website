@@ -5,12 +5,11 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Home01 from '@untitled-ui/icons-react/build/esm/Home01';
-import Briefcase01 from '@untitled-ui/icons-react/build/esm/Briefcase01';
 import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
-import ShoppingBag01 from '@untitled-ui/icons-react/build/esm/ShoppingBag01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Wordmark from './Wordmark';
 import ThemeToggle from './ThemeToggle';
+import { CALENDLY_URL, CONTACT_EMAIL } from '../marketing/links';
 
 export default function Navbar() {
   const [open, setOpen]         = useState(false);
@@ -25,12 +24,13 @@ export default function Navbar() {
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
+  /* Site Prompt 6, Part 3: three links and one button. Services came off
+   * the header (the page is still reachable at /services for anyone who
+   * has the link) and the print shop is gone entirely. */
   const links = [
-    { to: '/',         label: 'Home',     icon: Home01 },
-    { to: '/services', label: 'Services', icon: Briefcase01 },
-    { to: '/clients',   label: 'Clients',  icon: Image01 },
-    { to: '/prints',   label: 'Shop',     icon: ShoppingBag01, newTab: true },
-    { to: '/book',     label: 'Contact',  icon: Phone },
+    { to: '/',        label: 'Home',    icon: Home01 },
+    { to: '/clients', label: 'Clients', icon: Image01 },
+    { to: '/contact', label: 'Contact', icon: Phone },
   ];
 
   const isActive = (to) =>
@@ -48,25 +48,14 @@ export default function Navbar() {
           {/* Desktop nav links */}
           <nav className="navbar-nav" aria-label="Main navigation">
             <ul>
-              {links.map(({ to, label, newTab }) => (
+              {links.map(({ to, label }) => (
                 <li key={to}>
-                  {newTab ? (
-                    <a
-                      href={to}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="navbar-link"
-                    >
-                      {label}
-                    </a>
-                  ) : (
-                    <Link
-                      to={to}
-                      className={`navbar-link ${isActive(to) ? 'navbar-link--active' : ''}`}
-                    >
-                      {label}
-                    </Link>
-                  )}
+                  <Link
+                    to={to}
+                    className={`navbar-link ${isActive(to) ? 'navbar-link--active' : ''}`}
+                  >
+                    {label}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -77,9 +66,9 @@ export default function Navbar() {
 
           {/* Desktop action buttons */}
           <div className="navbar-actions">
-            <a href="/book" className="btn btn-primary navbar-cta">
+            <a href={CALENDLY_URL} className="btn btn-primary navbar-cta" target="_blank" rel="noreferrer">
               <Calendar width={15} height={15} />
-              Book a Consultation
+              Book a free call
             </a>
           </div>
 
@@ -126,7 +115,7 @@ export default function Navbar() {
         </div>
 
         <ul className="navbar-drawer-links">
-          {links.map(({ to, label, icon: IconEl, newTab }) => {
+          {links.map(({ to, label, icon: IconEl }) => {
             const inner = (
               <>
                 <span className="navbar-drawer-link-left">
@@ -140,42 +129,32 @@ export default function Navbar() {
             );
             return (
               <li key={to}>
-                {newTab ? (
-                  <a
-                    href={to}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="navbar-drawer-link"
-                    onClick={() => setOpen(false)}
-                  >
-                    {inner}
-                  </a>
-                ) : (
-                  <Link
-                    to={to}
-                    className={`navbar-drawer-link ${isActive(to) ? 'navbar-drawer-link--active' : ''}`}
-                    onClick={() => setOpen(false)}
-                  >
-                    {inner}
-                  </Link>
-                )}
+                <Link
+                  to={to}
+                  className={`navbar-drawer-link ${isActive(to) ? 'navbar-drawer-link--active' : ''}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {inner}
+                </Link>
               </li>
             );
           })}
         </ul>
 
         <a
-          href="/book"
+          href={CALENDLY_URL}
           className="btn btn-primary navbar-drawer-cta"
+          target="_blank"
+          rel="noreferrer"
           onClick={() => setOpen(false)}
         >
           <Calendar width={16} height={16} />
-          Book a Consultation
+          Book a free call
         </a>
 
         <p className="navbar-drawer-contact">
           Email{' '}
-          <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a>
+          <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         </p>
       </nav>
 

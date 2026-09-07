@@ -22,23 +22,75 @@
       "source": "/work",
       "destination": "/clients",
       "permanent": true
+    },
+    {
+      "source": "/prints",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/prints/:path*",
+      "destination": "/",
+      "permanent": true
     }
   ],
   "rewrites": [
-    { "source": "/api/admin/call-leads", "destination": "/api/admin/index?r=call-leads" },
-    { "source": "/api/admin/leads/import", "destination": "/api/admin/index?r=leads-import" },
-    { "source": "/api/admin/submissions", "destination": "/api/admin/index?r=submissions" },
-    { "source": "/api/admin/projects", "destination": "/api/admin/index?r=projects" },
-    { "source": "/api/admin/orders", "destination": "/api/admin/index?r=orders" },
-    { "source": "/api/admin/concept-packs", "destination": "/api/admin/index?r=concept-packs" },
-    { "source": "/api/admin/settings", "destination": "/api/admin/index?r=settings" },
-    { "source": "/api/admin/calendly/events", "destination": "/api/admin/index?r=calendly-events" },
-    { "source": "/api/admin/stripe/events", "destination": "/api/admin/index?r=stripe-events" },
-    { "source": "/api/admin/stripe/reconcile", "destination": "/api/admin/index?r=stripe-reconcile" },
-    { "source": "/api/admin/backup", "destination": "/api/admin/index?r=backup" },
-    { "source": "/api/admin/export", "destination": "/api/admin/index?r=export" },
-    { "source": "/api/admin/push-subscribe", "destination": "/api/admin/index?r=push-subscribe" },
-    { "source": "/api/admin/log", "destination": "/api/admin/index?r=log" },
+    {
+      "source": "/api/admin/call-leads",
+      "destination": "/api/admin/index?r=call-leads"
+    },
+    {
+      "source": "/api/admin/leads/import",
+      "destination": "/api/admin/index?r=leads-import"
+    },
+    {
+      "source": "/api/admin/submissions",
+      "destination": "/api/admin/index?r=submissions"
+    },
+    {
+      "source": "/api/admin/projects",
+      "destination": "/api/admin/index?r=projects"
+    },
+    {
+      "source": "/api/admin/orders",
+      "destination": "/api/admin/index?r=orders"
+    },
+    {
+      "source": "/api/admin/concept-packs",
+      "destination": "/api/admin/index?r=concept-packs"
+    },
+    {
+      "source": "/api/admin/settings",
+      "destination": "/api/admin/index?r=settings"
+    },
+    {
+      "source": "/api/admin/calendly/events",
+      "destination": "/api/admin/index?r=calendly-events"
+    },
+    {
+      "source": "/api/admin/stripe/events",
+      "destination": "/api/admin/index?r=stripe-events"
+    },
+    {
+      "source": "/api/admin/stripe/reconcile",
+      "destination": "/api/admin/index?r=stripe-reconcile"
+    },
+    {
+      "source": "/api/admin/backup",
+      "destination": "/api/admin/index?r=backup"
+    },
+    {
+      "source": "/api/admin/export",
+      "destination": "/api/admin/index?r=export"
+    },
+    {
+      "source": "/api/admin/push-subscribe",
+      "destination": "/api/admin/index?r=push-subscribe"
+    },
+    {
+      "source": "/api/admin/log",
+      "destination": "/api/admin/index?r=log"
+    },
     {
       "source": "/(.*)",
       "destination": "/index.html"
