@@ -1,0 +1,59 @@
+// Curtain: the next section arrives over the one before it, rounded at the
+// top, while the section it covers scales back a little and dims.
+//
+// Two halves. The curtain itself is pulled up by a negative margin and
+// pushed back down by translateY(var(--curtain-p)), so at progress 0 it sits
+// exactly where normal flow put it and at progress 1 it has slid a sixth of
+// a viewport over its predecessor. The predecessor is found at runtime
+// (previousElementSibling) and written to directly from the scroll frame:
+// transform and opacity only, both composited, no layout property touched.
+//
+// With no engine the negative margin is not applied, the shadow and radius
+// still read as an edge, and the previous section is never written to.
+import { useRef } from 'react';
+import { cx } from './shared';
+import { useScrollEngine, useScrollProgress } from './useScroll';
+
+const PREV_SCALE = 0.05;   // how far back the covered section falls
+const PREV_FADE = 0.4;     // how far it dims
+
+export function Curtain({
+  as: Tag = 'section',
+  className = '',
+  style,
+  children,
+  ...rest
+}) {
+  const ref = useRef(null);
+  const prev = useRef(null);
+  const state = useScrollEngine();
+  const active = state !== 'off';
+
+  useScrollProgress(ref, {
+    start: 'top bottom',
+    end: 'top center',
+    cssVar: '--curtain-p',
+    onUpdate: (p, el) => {
+      if (!prev.current) {
+        const sibling = el.previousElementSibling;
+        if (!sibling) return;
+        prev.current = sibling;
+        sibling.style.transformOrigin = 'center top';
+        sibling.style.willChange = 'transform, opacity';
+      }
+      prev.current.style.transform = `scale(${1 - PREV_SCALE * p})`;
+      prev.current.style.opacity = `${1 - PREV_FADE * p}`;
+    },
+  });
+
+  return (
+    <Tag
+      ref={ref}
+      className={cx('m-curtain', active && 'm-curtain--active', className)}
+      style={style}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+}

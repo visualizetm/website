@@ -91,6 +91,10 @@
   --m-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --m-rise: 16px;
   --m-stagger: 60ms;
+  /* Curtain's top edge (Site Prompt 6): a shadow cast upward onto the
+     section it is covering. Tokens rather than a literal in the rule, and
+     rgba rather than hex, so the hex count is unaffected. */
+  --m-curtain-shadow: 0 -24px 60px rgba(0, 0, 0, 0.55);
 
   /* Maintenance screen (src/main.jsx): "the brand black ground," fixed
      regardless of the site's own light/dark toggle, so declared once here
@@ -135,6 +139,7 @@
 
   color-scheme: light;
   --brand-text: var(--brand-dark);
+  --m-curtain-shadow: 0 -24px 60px rgba(0, 0, 0, 0.12);
 }
 
 *, *::before, *::after {
@@ -514,6 +519,137 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes m-marquee-scroll {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
+}
+
+/* ── Scroll-driven set (Site Prompt 6, src/marketing/scroll.js) ───────
+   gsap + ScrollTrigger scrub these; Lenis smooths the scroll that drives
+   them. Every animated property here is transform or opacity, nothing
+   that triggers layout. Each helper's base rule IS its "no engine" state
+   (reduced motion, the admin host, a failed dynamic import), and the
+   modifier class the helper adds once the engine is live is what turns
+   the motion on, so content is never left hidden behind a script that
+   did not arrive. See docs/MARKETING-MOTION.md. */
+
+/* Pin: a sticky panel held for --pin-h extra viewports while --pin-p runs
+   0 to 1 on .m-pin-inner. Without the engine the wrapper keeps its natural
+   height and nothing sticks. */
+.m-pin {
+  position: relative;
+}
+.m-pin--active {
+  height: calc((var(--pin-h, 1.5) + 1) * 100vh);
+}
+.m-pin--active .m-pin-inner {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Curtain: pulled up by a negative margin and pushed back down by
+   --curtain-p, so progress 0 is exactly where normal flow put it. */
+.m-curtain {
+  position: relative;
+  z-index: 2;
+  background: var(--bg);
+}
+.m-curtain--active {
+  margin-top: -16vh;
+  transform: translate3d(0, calc((1 - var(--curtain-p, 0)) * 16vh), 0);
+  border-top-left-radius: 32px;
+  border-top-right-radius: 32px;
+  box-shadow: var(--m-curtain-shadow);
+  will-change: transform;
+}
+
+/* ScaleIn: one-shot settle on first viewport entry, safe on any page. */
+.m-scalein {
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
+}
+.m-scalein--in {
+  opacity: 1;
+  transform: none;
+}
+
+/* WordReveal: one clipping span per word so a word rises out from behind
+   its own line. The padding/margin pair keeps descenders (g, y, p) from
+   being clipped by that overflow; both are static, never animated. */
+.m-words .m-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+.m-words .m-word-i {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+.m-words:not(.m-words--static) .m-word-i {
+  opacity: 0;
+  transform: translateY(110%);
+}
+
+/* TrackScroll: a column by default, which is also what touch, reduced
+   motion and a failed import get. Only with the engine live, a fine
+   pointer and room to do it does the row go sideways, and only then is
+   the viewport allowed to clip. */
+.m-track {
+  position: relative;
+}
+.m-track-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+@media (min-width: 861px) and (pointer: fine) {
+  .m-track--h .m-track-viewport {
+    overflow: hidden;
+  }
+  .m-track--h .m-track-row {
+    flex-direction: row;
+    align-items: stretch;
+    will-change: transform;
+  }
+}
+/* Gentle page-level snapping while a track is mounted on a touch device
+   (proximity, never mandatory, so it only helps when you are already
+   close and never traps the scroll). Added to <html> by TrackScroll. */
+html.m-snap-y {
+  scroll-snap-type: y proximity;
+}
+html.m-snap-y .m-track-row > * {
+  scroll-snap-align: center;
+}
+
+/* Tone: a section's ground crossfades to --tone-to as it comes up the
+   page. Crossfading two filled layers is compositor work; animating
+   background-color is not. Without the engine the layer sits at full
+   opacity, so the section still shows its settled tone. */
+.m-tone {
+  position: relative;
+  background: var(--tone-from, var(--bg));
+}
+.m-tone-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--tone-to, var(--bg-elevated));
+  opacity: var(--tone-p, 0);
+  pointer-events: none;
+}
+.m-tone--static .m-tone-layer {
+  opacity: 1;
+}
+.m-tone > :not(.m-tone-layer) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Maintenance screen (VITE_MAINTENANCE_MODE) ───────────────────────

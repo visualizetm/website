@@ -9,6 +9,7 @@ import HowItWorks from '../components/HowItWorks';
 import CTA from '../components/CTA';
 import { fetchShowcase } from '../marketing/showcase';
 import { useHead } from '../marketing/useHead';
+import { useScrollRefresh } from '../marketing/motion';
 
 const EMPTY = { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } };
 
@@ -32,6 +33,10 @@ export default function Home() {
       .catch(() => { if (alive) setData(EMPTY); });
     return () => { alive = false; };
   }, []);
+
+  // Pinned and scrubbed sections measured the pre-data page; re-measure
+  // once the CRM's own sections have their content (Site Prompt 6).
+  useScrollRefresh(data);
 
   const landing = data?.landing || EMPTY.landing;
   const clients = data?.clients || [];

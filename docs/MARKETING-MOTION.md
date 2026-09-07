@@ -253,3 +253,209 @@ import { Marquee } from '../marketing/motion';
   {logos.map(l => <img key={l.id} src={l.src} alt={l.name} height={24} />)}
 </Marquee>
 ```
+
+---
+
+# THE SCROLL ENGINE (Site Prompt 6)
+
+Everything above is CSS transitions driven by `IntersectionObserver`, with
+no library behind it. Everything below is scrubbed: the animation's
+position is a function of the scroll offset, so scrolling back up plays it
+backwards. That needs a real scroll engine, and this is where it lives.
+
+## What loads, and when
+
+`src/marketing/scroll.js` is the only module that touches gsap or Lenis,
+and it does so through `import()` so both land in chunks of their own
+(`gsap`, `lenis`, pinned by `manualChunks` in `vite.config.js`). Three
+gates decide what is fetched at all:
+
+| Condition | gsap + ScrollTrigger | Lenis |
+|---|---|---|
+| Admin host (`IS_ADMIN_HOST`) | no | no |
+| `prefers-reduced-motion: reduce` | no | no |
+| Touch / coarse pointer | yes | **no** |
+| Marketing host, fine pointer, motion allowed | yes | yes |
+
+Scroll-driven animation is fine on a phone; hijacking a phone's native
+scrolling is not, so Lenis is desktop-only. The admin never fetches either
+chunk: `scrollEngineAllowed()` returns false before any `import()` runs.
+Only the loader itself, about a kilobyte, is in the shared entry.
+
+| Export | Does |
+|---|---|
+| `scrollEngineAllowed()` | Synchronous yes/no on the three gates above. Helpers call it during their first render so they never paint a hidden frame they will not animate out of. |
+| `loadScrollEngine()` | Resolves to `{ gsap, ScrollTrigger, lenis }`, or `null` when not allowed or the import failed. Loads once per session; every caller shares one promise. |
+| `getScrollEngine()` | The engine if already loaded, else `null`. Never starts a load. |
+| `refreshScrollTriggers()` | Re-measures every pinned and scrubbed trigger. |
+| `destroyScrollEngine()` | Kills every trigger and stops Lenis. |
+
+`src/marketing/ScrollRoot.jsx` mounts the engine. It renders nothing, sits
+in the marketing branch of `src/App.jsx` only, and on every route change
+sends the page back to the top (Lenis owns the scroll position once it is
+running, so `window.scrollTo` alone is not enough) and then refreshes every
+trigger against the page that just mounted.
+
+## Failure is a design state, not an edge case
+
+Every helper below has three states, and its text is legible in all three:
+
+- **off** - reduced motion, the admin host, or a failed `import()`. The
+  helper's base CSS class *is* this state: the final, resting look. Nothing
+  is hidden behind a script that may never arrive.
+- **loading** - the few frames between mount and gsap resolving. The
+  helper holds its starting pose.
+- **on** - handed to a scrubbed ScrollTrigger.
+
+Reduced motion is decided synchronously on the first render, so a
+reduced-motion viewer never sees a motion frame at all. What they get is
+the composed final state plus the plain `Reveal` fades from the light set.
+
+## Heavy set versus light set
+
+**Heavy set: `Pin`, `Curtain`, `WordReveal`, `TrackScroll`. Home only.**
+These take over the scroll: they hold a section still, slide one section
+over another, or move a row sideways while the page goes down. That is
+right for a landing page a visitor is browsing and wrong for a page they
+came to read, where taking the scroll away from them is an obstacle.
+
+**Light set: `Reveal`, `Stagger`, `Parallax`, `Counter`, `SectionNumber`,
+`Marquee`, `ScaleIn`, plus at most one `Tone` shift per page.** Nothing
+pinned, nothing that changes how far a scroll travels. Safe on every page.
+
+| Page | Set |
+|---|---|
+| Home (`/`) | Heavy. Pinned hero, Curtain entrances, WordReveal headings, the business-type TrackScroll, two Tone shifts. |
+| Clients (`/clients`) | Light. `Reveal`, `Stagger`, `ScaleIn` on covers, one `Tone`. |
+| Client detail (`/clients/:slug`) | Light. |
+| Contact (`/contact`, `/book`) | Light. One `WordReveal` heading is the single exception, it does not touch the scroll. |
+| Start (`/start`) | Light. |
+| Services (`/services`) | Light. |
+| Lead partner (`/lead-partner`) | Light. |
+
+Lenis stays on everywhere on the marketing host. It is the feel of the
+scroll itself, not an effect, and turning it off between pages would be
+more noticeable than leaving it on.
+
+## API
+
+### `useScrollEngine()`
+
+Returns `'off' | 'loading' | 'on'`. Use it to pick the class that decides
+which of the three states above a helper renders.
+
+### `useScrollProgress(ref, options)`
+
+Scrubs 0 to 1 while `ref`'s element crosses the viewport, writing the value
+to a CSS custom property every scroll frame. CSS reads that property inside
+`transform` and `opacity`, so scrubbing costs no React renders at all.
+
+| Option | Default | Does |
+|---|---|---|
+| `start` | `'top bottom'` | ScrollTrigger start position. |
+| `end` | `'bottom top'` | ScrollTrigger end position. |
+| `cssVar` | `'--sp'` | The property written each frame. |
+| `varTarget` | the trigger | A different ref to write the property on. |
+| `onUpdate` | - | `(progress, element)` for the rare case JS has to react. |
+
+Returns a ref whose `.current` is the latest progress, for reads outside
+render. With no engine the property is never written, so whatever fallback
+the stylesheet gives it is what the viewer sees.
+
+```jsx
+const ref = useRef(null);
+useScrollProgress(ref, { cssVar: '--fade-p', end: 'center center' });
+<section ref={ref} style={{ opacity: 'var(--fade-p, 1)' }} />
+```
+
+### `useScrollRefresh(dep)`
+
+Re-measures every trigger one frame after `dep` changes. Home passes its
+showcase payload: a pin that measured the page before the CRM sections had
+any content in them would hold for the wrong distance once they did.
+
+### `Pin`
+
+Holds a section still for `height` extra viewport heights while its
+children animate against `--pin-p` (0 to 1 across the hold), which is set
+on the inner panel. The hold is `position: sticky`, not a JS transform, so
+it never jitters and never fights the browser's own scrolling.
+
+| Prop | Default | Does |
+|---|---|---|
+| `height` | `1.5` | Extra viewport heights to hold for. |
+| `innerClassName` | `''` | Extra class on the sticky panel. |
+| `onProgress` | - | `(p)` each frame, if JS needs it. |
+
+Without the engine the wrapper keeps its natural height and nothing sticks,
+so write the children so that `--pin-p: 0` is a state a viewer can be left
+in. Heavy set, Home only.
+
+```jsx
+<Pin height={1.5}>
+  <h1 style={{ opacity: 'calc(1 - var(--pin-p, 0) * 2)' }}>Headline</h1>
+</Pin>
+```
+
+### `Curtain`
+
+The section arrives over the one before it, rounded at the top, while the
+section it covers scales back a little and dims. Finds its predecessor at
+runtime (`previousElementSibling`) and writes `transform` and `opacity` to
+it directly from the scroll frame, both composited, no layout property
+touched. Takes no props beyond `as`, `className` and `style`. Heavy set.
+
+### `ScaleIn`
+
+An image or card settles from slightly oversized and transparent into place,
+once, on first viewport entry. The one new helper that is not scrubbed: it
+is a CSS transition on the same `IntersectionObserver` `Reveal` uses, which
+is why it is safe on every page. Props match `Reveal` (`delay`,
+`threshold`, `rootMargin`, `as`, `className`). Light set.
+
+### `WordReveal`
+
+A headline whose words rise into place one after another as it crosses the
+viewport, scrubbed. Pass a plain string as the only child.
+
+| Prop | Default | Does |
+|---|---|---|
+| `as` | `'h2'` | The heading tag. |
+| `start` | `'top 85%'` | Where the reveal begins. |
+| `end` | `'top 45%'` | Where it finishes. |
+
+Each word gets one clipping span so it rises out from behind its own line,
+with descenders protected by a static padding/margin pair. The spaces
+between words stay real text nodes, so the heading still reads, copies and
+is announced as one sentence. Heavy set, with Contact's heading the one
+documented exception (it does not take over the scroll).
+
+### `TrackScroll`
+
+A row of cards that moves sideways while the page scrolls down, the section
+pinned until the row runs out. Desktop and a fine pointer only, above
+860px: ScrollTrigger pins the section and translates the row by exactly the
+distance it overflows, recomputed on every refresh
+(`invalidateOnRefresh`) so a resize, a font swap or a late fetch never
+leaves the last card unreachable.
+
+Everywhere else, and with no engine, it is a plain vertical stack of the
+same cards in the same order. On touch the page snaps gently to them
+(`scroll-snap-type: y proximity`, never `mandatory`, added to `<html>` only
+while a track is mounted), so a card tends to settle centred without ever
+trapping the scroll. Heavy set.
+
+### `Tone`
+
+A section changes ground colour as it comes up the page, so a long page
+does not read as one flat surface. Implemented as the opacity of one filled
+layer over the section's own background: crossfading two layers is
+compositor work, animating `background-color` is not.
+
+| Prop | Default | Does |
+|---|---|---|
+| `from` | `'var(--bg)'` | The section's own ground. |
+| `to` | `'var(--bg-elevated)'` | What it settles to. |
+
+Without the engine the layer sits at full opacity, so the section still
+shows its settled tone. Light set, at most one per page.

@@ -17,6 +17,10 @@ const Contact = lazy(() => import('./pages/Contact'));
 const LeadPartner = lazy(() => import('./pages/LeadPartner'));
 const Prints = lazy(() => import('./pages/Prints'));
 const Start = lazy(() => import('./pages/Start'));
+/* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
+ * in the marketing branch below, so the admin's entry never carries the
+ * loader or the gsap/lenis chunk URLs behind it. */
+const ScrollRoot = lazy(() => import('./marketing/ScrollRoot'));
 const AdminApp = lazy(() => import('./pages/AdminApp'));
 
 /* /work/:slug moved to /clients/:slug (Site Prompt 3); this keeps the old
@@ -89,6 +93,7 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
+
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
@@ -114,6 +119,7 @@ export default function App() {
   return (
     <Suspense fallback={<LoadingScreen done={false} />}>
       <LoadingScreen done={!loading} />
+      <ScrollRoot />
       <Navbar />
       <main className="page-shell page-fade" key={location.pathname}>
         <Routes location={location}>

@@ -67,7 +67,21 @@ export default defineConfig({
     // becoming 1KB chunks of their own, each a request in the critical chain, and the shell chunk itself
     // now folds into the entry, so the admin's first bundle is the entry plus the Dashboard in one request.
     // Screens stay lazy; the marketing pages stay lazy.
-    rollupOptions: { output: { experimentalMinChunkSize: 20000 } },
+    rollupOptions: {
+      output: {
+        experimentalMinChunkSize: 20000,
+        /* gsap and lenis stay in chunks of their own (Site Prompt 6).
+         * Without this, experimentalMinChunkSize above folded the small
+         * loader that decides whether to load them (src/marketing/scroll.js)
+         * into the lenis chunk, which would have downloaded Lenis on touch
+         * devices, exactly where the loader's own rule says not to. */
+        manualChunks(id) {
+          if (id.includes('node_modules/gsap')) return 'gsap';
+          if (id.includes('node_modules/lenis')) return 'lenis';
+          return undefined;
+        },
+      },
+    },
   },
   define: {
     // Vercel injects VERCEL_GIT_COMMIT_SHA at build time — surfaced in the
