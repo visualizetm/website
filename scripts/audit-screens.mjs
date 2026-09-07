@@ -55,6 +55,8 @@ export const SCREENS = [
 
   { id: 'clients-list', screen: 'Clients', label: 'list', path: '/admin/clients', resource: 'leads' },
   { id: 'clients-detail', screen: 'Clients', label: 'client detail', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
+  // Site Prompt 2: the Showcase tab, published client with all four sections.
+  { id: 'clients-showcase', screen: 'Clients', label: 'showcase tab (published, all sections)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, noFit: true, act: async (p, w) => { await openRow(p, w, 'Lead Business 11', 'Open Lead Business 11'); await tab(p, 'Showcase'); } },
 
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
@@ -74,6 +76,9 @@ export const SCREENS = [
   })),
 
   { id: 'design', screen: 'Design system', label: 'design page', path: '/admin/design', resource: null, noEmpty: true, noError: true },
+
+  // Site Prompt 2 (Part 3): the Landing screen (logo strip, featured work, testimonials, stats).
+  { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
 
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   { id: 'more', screen: 'Shell', label: 'More sheet', path: '/admin/leads', region: '.v-sheet', maxWidth: 767, resource: null, static: true, act: (p) => click(p.locator('.sh-tab--more')) },

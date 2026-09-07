@@ -203,8 +203,12 @@ async function runStateWithFit(ctx, s, width, theme, motion) {
     const loaded = await measure(page, region);
     if (BOXES) { const fmt = (b) => (b || []).map(x => `${x.l},${x.t} ${x.w}x${x.h}`).join(' | '); console.log(`    boxes ${s.id}@${width} skeleton: ${fmt(skelBlocks)}\n    boxes ${s.id}@${width} loaded:   ${fmt(loaded)}`); }
     const f = fit(skelBlocks, loaded);
-    row.fit = skelBlocks ? f.text : 'n/a';
-    if (skelBlocks && !f.ok) row.gaps.push('fit');
+    // noFit: the loaded state scrolls into a tab/section past what the
+    // generic list/detail skeleton (rendered before any such navigation is
+    // possible) can represent, so a position mismatch there is expected,
+    // not a real gap.
+    row.fit = skelBlocks ? (s.noFit ? 'n/a (scrolled state)' : f.text) : 'n/a';
+    if (skelBlocks && !f.ok && !s.noFit) row.gaps.push('fit');
     await page.close();
   }
   return row;

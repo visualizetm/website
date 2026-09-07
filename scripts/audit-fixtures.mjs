@@ -54,13 +54,54 @@ export const PIPE_EXTRA = {
           { id: 'lg4', label: 'Launch Plan: Month 4 of 6', amount: 200, at: monthsAgo(1, 5), notes: '', projectId: 'P11' },
           { label: LONG, amount: 40, at: '2027-01-05', notes: UNBROKEN.slice(0, 50) },
         ],
-        contactLog: [{ type: 'meeting', at: '2027-02-03', note: UNBROKEN }] },
+        contactLog: [{ type: 'meeting', at: '2027-02-03', note: UNBROKEN }],
+        // Site Prompt 2/3 fixture: the "all four sections" published showcase client.
+        showcase: {
+          published: true, slug: 'full-showcase-co', displayName: LONG, type: 'Auto Detailing',
+          blurb: 'Mobile detailing that never misses a spot, booked end to end online.', cover: 'https://picsum.photos/seed/full11/1600/1000', year: '2026',
+          brand: { enabled: true, logo: { light: 'https://picsum.photos/seed/logo11l/400/400', dark: 'https://picsum.photos/seed/logo11d/400/400' },
+            images: [{ link: 'https://picsum.photos/seed/brand11a/1600/900', caption: 'Fleet wrap' }, { link: 'https://picsum.photos/seed/brand11b/1600/900', caption: '' }], notes: 'Full brand refresh, ' + UNBROKEN.slice(0, 30) },
+          website: { enabled: true, url: 'https://example.com/full-showcase', screenshots: [{ link: 'https://picsum.photos/seed/web11/1600/900', caption: 'Booking page' }], notes: '' },
+          cards: { enabled: true, front: 'https://picsum.photos/seed/card11f/1050/600', back: 'https://picsum.photos/seed/card11b/1050/600', notes: '' },
+          print: { enabled: true, items: [{ label: 'Door hanger', image: 'https://picsum.photos/seed/print11/1600/1000', caption: 'Neighborhood drop' }, { label: 'Yard sign', image: '', caption: 'No image yet' }], notes: '' },
+          featured: { landing: true, logoStrip: true, work: true, order: 0 },
+          updatedAt: NOW_ISO,
+        } },
   12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
-        reviews: { nfcCard: true, nfcGivenAt: daysFrom(-20), googleLink: 'https://g.page/r/' + UNBROKEN, baseline: { count: 12, rating: 4.3, at: daysFrom(-30) }, latest: { count: 19, rating: 4.6, at: daysFrom(-2) }, asks: [{ at: new Date(Date.now() - 5 * 864e5).toISOString(), channel: 'nfc', result: 'asked', note: 'Handed the card ' + UNBROKEN.slice(0, 30) }, { at: NOW_ISO, channel: 'text', result: 'left', note: '' }] },
+        reviews: { nfcCard: true, nfcGivenAt: daysFrom(-20), googleLink: 'https://g.page/r/' + UNBROKEN, baseline: { count: 12, rating: 4.3, at: daysFrom(-30) }, latest: { count: 19, rating: 4.6, at: daysFrom(-2) }, asks: [{ at: new Date(Date.now() - 5 * 864e5).toISOString(), channel: 'nfc', result: 'asked', note: 'Handed the card ' + UNBROKEN.slice(0, 30) }, { at: NOW_ISO, channel: 'text', result: 'left', note: '' }],
+          // Site Prompt 2/3 fixture: 2 published testimonials (one also featured) and 1 draft, split across two clients.
+          testimonials: [
+            { id: 'ts1', quote: 'Rob turned our whole brand around in three weeks.', author: 'Dana K.', role: 'Owner', rating: 5, source: 'nfc', published: true, featured: true, order: 0, at: daysFrom(-10) },
+            { id: 'ts2', quote: 'Draft quote waiting on approval.', author: '', role: '', rating: null, source: 'text', published: false, featured: false, order: 1, at: daysFrom(-2) },
+          ] },
         retainer: { projectId: 'P12', planId: 'content-kit', amount: 250, status: 'active', startedAt: monthsAgo(2, 12), billDay: 12, nextBillAt: daysFrom(3), cancelAt: '' },
-        purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }] },
+        purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }],
+        // Site Prompt 2/3 fixture: the "brand only" published showcase client, every other section off/empty.
+        showcase: {
+          published: true, slug: 'brand-only-co', displayName: 'Lead Business 12', type: '', blurb: 'Only the brand section is set up so far.', cover: '', year: '',
+          brand: { enabled: true, logo: { light: '', dark: 'https://picsum.photos/seed/logo12d/400/400' }, images: [], notes: '' },
+          website: { enabled: false, url: '', screenshots: [], notes: '' },
+          cards: { enabled: false, front: '', back: '', notes: '' },
+          print: { enabled: false, items: [], notes: '' },
+          featured: { landing: false, logoStrip: true, work: false, order: 1 },
+          updatedAt: NOW_ISO,
+        } },
   13: { stage: 'client', callStatus: 'booked', clientSince: '2026-11-01T10:00:00Z', clientStatus: 'delivered',
-        purchases: [{ id: 'lg13', label: 'Brand Starter: Full payment', amount: 350, at: '2026-11-02', notes: '', projectId: 'P13' }] },
+        purchases: [{ id: 'lg13', label: 'Brand Starter: Full payment', amount: 350, at: '2026-11-02', notes: '', projectId: 'P13' }],
+        reviews: {
+          // The second published testimonial (not featured), on a third client.
+          testimonials: [{ id: 'ts3', quote: 'Quick, professional, exactly what we asked for.', author: 'Marco T.', role: 'Manager', rating: 4, source: 'email', published: true, featured: false, order: 0, at: daysFrom(-30) }],
+        },
+        // Site Prompt 2/3 fixture: the draft (never published) showcase client.
+        showcase: {
+          published: false, slug: '', displayName: 'Lead Business 13', type: 'Auto Detailing', blurb: 'Not ready to go live yet.', cover: '', year: '',
+          brand: { enabled: true, logo: { light: '', dark: '' }, images: [], notes: '' },
+          website: { enabled: false, url: '', screenshots: [], notes: '' },
+          cards: { enabled: false, front: '', back: '', notes: '' },
+          print: { enabled: false, items: [], notes: '' },
+          featured: { landing: false, logoStrip: false, work: false, order: 0 },
+          updatedAt: NOW_ISO,
+        } },
 };
 export const projects = [
   { _id: 'P10', leadId: 'L10', name: 'Web Essentials', kind: 'web', packageId: 'web-essentials', stage: 'design', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 500,
@@ -157,7 +198,9 @@ export const CALENDLY_EVENTS = [
   { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
   { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
 ];
-export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, passwordOverridden: false };
+// Site Prompt 2 (Part 3): the landing settings document, same shape api/_routes/settings.js's landingShape() returns.
+export const LANDING_DOC = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: { years: 3 } } };
+export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
 /** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
 export const PAYLOADS = {
   submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),

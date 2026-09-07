@@ -126,7 +126,7 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', or 'a11y' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', or 'a11y' reruns just that block
   if (only === 'a11y') {
     /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the
      * Dashboard, Leads, and the call room. Browser zoom at 200 percent is a
@@ -210,6 +210,23 @@ for (const width of WIDTHS) {
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await page.locator('.dc-open-modal').first().click({ timeout: 4000 }).catch(() => {});
     await check('design: Modal open');
+    await ctx.close(); continue;
+  }
+
+  if (only === 'landing') {
+    // Site Prompt 2 (Part 3): logo strip, featured work, testimonials, stats.
+    await goto('/admin/landing');
+    await check('landing: full');
+    await goto('/admin/landing?loading=1');
+    await check('landing: skeleton');
+    await goto('/admin/landing');
+    await page.locator('.ld-stat-toggle .v-toggle, .ld-stat-toggle input[type="checkbox"]').first().click({ timeout: 3000 }).catch(() => {});
+    await check('landing: a stat toggled off');
+    if (width >= 768) {
+      await page.locator('.v-menu-trig').first().click({ timeout: 3000 }).catch(() => {});
+      await check('landing: row actions menu open');
+      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    }
     await ctx.close(); continue;
   }
 
@@ -340,6 +357,9 @@ for (const width of WIDTHS) {
 
   await goto('/admin/orders');
   await check('orders list');
+
+  await goto('/admin/landing');
+  await check('landing screen');
 
   await goto('/admin/design');
   await check('design system (tokens + components)');
@@ -476,10 +496,14 @@ for (const width of WIDTHS) {
   await check('clients skeleton');
   await openClient('Lead Business 11');
   await check('client detail (overview, plan client)');
-  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Notes', 'History']) {
+  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Showcase', 'Notes', 'History']) {
     await clientTab(t);
     await check(`client detail (${t.toLowerCase()})`);
   }
+  // Site Prompt 2: the Showcase tab, all four sections populated (Lead Business 11).
+  await clientTab('Showcase');
+  await page.locator('.sc-imgfield img, .sc-thumb').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await check('showcase tab (published, all four sections)');
   await clientTab('Projects');
   await page.locator('.cw-new-project').first().click({ timeout: 3000 }).catch(() => {});
   await check('new project sheet');
@@ -506,11 +530,16 @@ for (const width of WIDTHS) {
   await check('deliverables (released, toggle enabled)');
   await clientTab('Projects');
   await check('delivered project (send delivery checklist)');
+  await clientTab('Showcase');
+  await check('showcase tab (draft, never published)');
   await openClient('Lead Business 12');
   await clientTab('Retainer');
   await check('retainer (content kit months)');
   await page.locator('.cw-log-delivery').first().click({ timeout: 3000 }).catch(() => {});
   await check('log delivery modal');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await clientTab('Showcase');
+  await check('showcase tab (published, brand only)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await openClient('Lead Business 10');
   await check('client detail (hostile long name, single project)');

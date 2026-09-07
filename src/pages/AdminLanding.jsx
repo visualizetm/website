@@ -346,10 +346,26 @@ export default function AdminLanding({ leads = [], projects = [], loading, error
   return (
     <PageShell className="aa-main aa-main--wide ld-shell">
       <ScrollArea wide className="ld-page">
-        <Section title="Landing" loading={loading} description={loading ? undefined : summary} />
+        {/* No Section `loading` skeleton here: its injected placeholder line
+            sits at a different position than a plain description paragraph,
+            which shifts every row below it out of alignment with the real
+            layout. A plain non-breaking space keeps the header's height
+            steady without that extra element. */}
+        <Section title="Landing" description={loading ? ' ' : summary} />
         {pending ? null : showSkel ? (
-          <Stack gap={3} aria-busy="true">
-            {[1, 2, 3].map(i => <Card key={i} padding={3}><SkeletonBlock width="40%" height={16} /><SkeletonBlock height={56} radius="var(--v-radius-md)" /><SkeletonBlock height={56} radius="var(--v-radius-md)" /></Card>)}
+          // Shaped like the four real sections below (Section + row skeletons at
+          // the same heights as ListRow/Card), so the fit check sees no jump.
+          <Stack gap={6} aria-busy="true" className="ld-sections">
+            <Section title="Logo strip" description=" "><Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack></Section>
+            <Section title="Featured work" description=" ">
+              {/* A fixed spacer matching the real fallback note's footprint, tuned
+                  against a direct measurement rather than guessed, so the row
+                  below lands at the same position in both states. */}
+              <div style={{ height: 36 }} aria-hidden="true" />
+              <Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack>
+            </Section>
+            <Section title="Testimonials" description=" "><Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack></Section>
+            <Section title="Stats" description=" "><Stack gap={2}>{[1, 2, 3, 4].map(i => <Card key={i} padding={3}><Row gap={4} wrap><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 220px' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 180px' }} /></Row></Card>)}</Stack></Section>
           </Stack>
         ) : error && !leads.length ? (
           <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>

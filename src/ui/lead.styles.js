@@ -214,7 +214,7 @@ export const clientStyles = `
   .sc-thumb-warn { margin: 0; font-size: var(--v-text-xs); color: var(--v-status-danger-text); }
   .sc-objrow { display: flex; flex-direction: row; align-items: flex-start; gap: var(--v-space-2); min-width: 0; }
   .sc-objrow[draggable="true"] { cursor: grab; }
-  .sc-url { color: var(--v-status-progress-text); text-decoration: none; }
+  .sc-url { display: inline-flex; align-items: center; min-height: var(--v-tap); color: var(--v-status-progress-text); text-decoration: none; }
   .sc-url:hover { text-decoration: underline; }
   .sc-chip { display: inline-block; width: 22px; height: 22px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); flex-shrink: 0; }
   .sc-testi-quote { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text); overflow-wrap: anywhere; }
