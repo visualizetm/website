@@ -89,20 +89,6 @@ export default function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // Global scroll-reveal
-  useEffect(() => {
-    const selector = '.reveal, .reveal-left, .reveal-right, .reveal-scale, .stagger';
-    const obs = new IntersectionObserver(
-      (entries) => entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('is-visible'); obs.unobserve(e.target); } }),
-      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
-    );
-    const attach = () => document.querySelectorAll(selector).forEach(el => obs.observe(el));
-    attach();
-    // Re-observe after route change gives new elements time to mount
-    const tid = setTimeout(attach, 100);
-    return () => { obs.disconnect(); clearTimeout(tid); };
-  }, [location.pathname]);
-
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
