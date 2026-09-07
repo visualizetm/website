@@ -29,19 +29,15 @@ is operable by keyboard alone, no mouse.
 
 | Area | Expect |
 |---|---|
-| Navbar, desktop | Tab reaches the logo, every nav link, the theme toggle, and Book a Consultation, in order; focus is always visible. |
+| Navbar, desktop | Tab reaches the logo, the three nav links (Home, Clients, Contact), the theme toggle, and Book a free call, in order; focus is always visible. |
 | Navbar, mobile drawer | The hamburger is reachable and opens the drawer with Enter; while closed, the drawer's own links are not in the Tab order (they used to be, off-screen but still focusable, fixed in Site Prompt 5, Part 4); once open, Tab reaches the close button and every drawer link, and Escape or the close button closes it. |
 | Home, logo strip | Each logo is a real link, reachable and activatable by keyboard, same as any other link on the page. |
 | Home, testimonial carousel | On mobile widths the dot row is reachable by Tab, each dot activatable with Enter or Space, scrolling the matching card into view. |
-| Contact form | Tab order reaches every link and the Calendly embed in document order; the embed itself is a third-party iframe and keeps its own internal tab behavior. |
+| Home, business type track | Tab reaches all six cards' Book a free call links in order, and each one brings its card into view: on a desktop the row is held still and moved sideways by scroll position, so focus has to move the page to the point where that card is on screen (Site Prompt 6). |
+| Contact, three cards | Tab reaches Book a free call, the Email card's address link, the Copy button, and DM on Instagram, in that order; Copy announces itself through a live region and does not follow the mailto. |
 | Start form | Begin Form is reachable and activatable with Enter; every step's fields are reachable in visual order; Continue and Back both work from the keyboard. |
-| Prints checkout | Every product's Customize button is reachable and opens its modal with Enter; the modal's own fields are reachable; the close button dismisses it with Enter. |
 
 Result (last run, scripted through Playwright's keyboard API rather than a
-human pass): every row above passes. One gap noted, not fixed: the Prints
-customize modal does not trap focus, Tab can move from the modal back to
-page content behind the overlay instead of cycling within it. This
-predates Site Prompt 5 (that prompt only restyled Prints, per its own
-explicit instruction to keep the shop and checkout working exactly as is)
-and a proper focus trap is more than a restyle; left for a prompt that
-touches Prints' own interaction logic.
+human pass): every row above passes. The print shop row was removed with
+the shop itself in Site Prompt 6, and with it the one open gap this
+checklist carried (its customize modal never trapped focus).

@@ -133,7 +133,7 @@ steps after `vite build`:
   stays on the page.
 - `node scripts/build-sitemap.mjs`: dist/sitemap.xml, the same fetch (and
   the same fail-soft rule) plus the static routes (/, /services, /clients,
-  /contact, /start, /prints). public/robots.txt (a plain static file, it
+  /contact, /start). public/robots.txt (a plain static file, it
   never changes) points at it.
 
 Both fail soft: a network error, a non-200, or bad JSON leaves zero
@@ -174,7 +174,7 @@ node scripts/regression.mjs                    # docs/QA-CHECKLIST.md as a Playw
 node scripts/site-regression.mjs               # docs/SITE-QA-CHECKLIST.md as a Playwright walk against the marketing site
 node scripts/render-profile.mjs                # kanban with 400 leads, month with 60 events
 DIST=dist PORT=4350 node scripts/mock-server.mjs &   # fixture backed server for Lighthouse (MOCK_HOST=admin adds the CSP, MOCK_SHOWCASE_EMPTY=1 serves an empty showcase)
-LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, Clients, Home, Contact, Prints, both themes
+LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, Clients, Home, Contact, Services, both themes
 LH_BASE=http://127.0.0.1:4350 LH_FORM=desktop node scripts/lighthouse.mjs   # the 1280-equivalent desktop preset
 node scripts/fetch-fonts.mjs                   # refresh the self hosted latin font subsets
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)

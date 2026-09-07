@@ -77,7 +77,10 @@ export default function BusinessTypes() {
       </TrackScroll>
 
       <style>{`
-        .bt { overflow: hidden; }
+        /* No overflow on this section: TrackScroll holds itself still with
+           position: sticky, and sticky stops working inside any ancestor
+           that clips. The row's own clipping happens on .m-track-viewport,
+           one level in. */
         .bt-head { margin-bottom: var(--space-10); }
         .bt-intro {
           margin-top: var(--space-4); max-width: 52ch;

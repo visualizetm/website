@@ -83,7 +83,7 @@ src/
 | /design | Design system reference | pages/AdminDesign.jsx |
 | /landing | Landing: the public Home page's logo strip, featured work, testimonials, and stats, curated (Site Prompt 2, refined in Site Prompt 5) | pages/AdminLanding.jsx |
 
-Navigation is one list in src/shell/nav.js. Redirects: /prints and /admin/prints on the admin host go to /orders; /portal and /intake/* on the public host go to /contact?from=portal (the retired portal notice); /work and /work/:slug redirect permanently to /clients and /clients/:slug (Site Prompt 3). The public site is /, /services, /clients, /clients/:slug, /contact, /book, /lead-partner, /start, /prints (the shop), and the maintenance screen when VITE_MAINTENANCE_MODE is true.
+Navigation is one list in src/shell/nav.js. Redirects: /prints and /admin/prints on the admin host go to /orders; /portal and /intake/* on the public host go to /contact?from=portal (the retired portal notice); /work and /work/:slug redirect permanently to /clients and /clients/:slug (Site Prompt 3); /prints and /prints/* redirect permanently to / (Site Prompt 6 removed the print shop; hand-entered print orders in the admin are unaffected). The public site is /, /services (reachable but unlinked), /clients, /clients/:slug, /contact, /book, /lead-partner, /start, and the maintenance screen when VITE_MAINTENANCE_MODE is true. The header links Home, Clients and Contact plus one Book a free call button straight to Calendly.
 
 ## Components
 
@@ -112,7 +112,7 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/admin/log | GET ?limit, POST { kind, message, stack, url, at }, DELETE | src/shared/log.js, AdminSettings |
 | /api/push-key | GET | AdminSettings |
 | /api/showcase | GET, and GET ?slug=x (public, no auth, same-origin only: no CORS header). Published clients only, an exact field whitelist (never phone, email, pricing, purchases, notes); brand.palette and brand.typography are computed at serve time from the lead's own brand block, never duplicated | src/marketing/showcase.jsx (fetchShowcase, fetchClient), src/pages/Clients.jsx, src/pages/CaseStudy.jsx, Home's sections, scripts/prerender-clients.mjs, scripts/build-sitemap.mjs |
-| /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx, Prints.jsx |
+| /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx (the shop that used to post shop-order submissions was removed in Site Prompt 6; the endpoint and the parser stay for old submissions and for orders entered by hand) |
 | /api/stripe/webhook | POST (Stripe signature) | Stripe |
 | /api/cron/reminders (once a day, morning digest), /api/cron/daily | GET (CRON_SECRET) | Vercel cron |
 
@@ -166,6 +166,5 @@ docs/RUNBOOK.md, "Prerender."
 - The Call Console keeps its own copy of the leads list and pings the shell on changes; two tabs can briefly disagree.
 - Reads keep the last list and show an ErrorState with Retry when a fetch fails; writes roll back and toast.
 - Offline writes are refused, not queued (Prompt 14 decision); the service worker serves the last GET of each list for reading.
-- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total, and CLAUDE.md's standing rule is that it only ever goes down (119 at 3.1.0, down from 145 at 3.0.0, most of the drop from Site Prompt 4's landing page rebuild removing more hardcoded decorative color literals than the new sections added, and Site Prompt 5's Prints.jsx token remapping).
-- The Prints checkout's customize modal does not trap focus (Tab can move from it to page content behind the overlay); found by Site Prompt 5's keyboard walk, not fixed there since it is more than the "restyle only" scope that prompt set for Prints.
+- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total, and CLAUDE.md's standing rule is that it only ever goes down (90 after Site Prompt 6, down from 119 at 3.1.0 and 145 at 3.0.0: the maintenance screen rebuild took out the starfield's literals, and deleting the print shop took the last eighteen with it).
 - No new vercel.json rewrite routes /clients/:slug to its prerendered static file; Vercel's documented routing order checks the output directory for a real file before the rewrites array, so it already wins once scripts/prerender-clients.mjs has written it, and there is no declarative "if the file exists" rewrite condition to express the non-prerendered fallback safely. See docs/RUNBOOK.md, "Prerender."

@@ -8,6 +8,10 @@
  * the checklist is fetchShowcase()'s in-memory cache TTL for a tab that
  * was already open, not a delay a first visit ever waits through.
  *
+ * Site Prompt 6 added the last three steps: the simplified header and
+ * footer, the removed print shop, and the rebuilt Contact page. Step 6
+ * also flipped on Home, which now has to show no price at all.
+ *
  *   npx vite build && npx vite preview --port 4330 &
  *   node scripts/site-regression.mjs
  */
@@ -117,7 +121,7 @@ await step('5. Unpublish: disappears from /clients', async () => {
   if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
 });
 
-await step('6. A price in pricing.js reads live on Services and Home', async () => {
+await step('6. A price in pricing.js reads live on Services, and Home shows no price at all', async () => {
   const brandStarter = PACKAGES.find(p => p.id === 'brand-starter');
   const stickers = ADDONS.find(a => a.id === 'stickers');
   await mockAndGoto(page, '/services');
@@ -125,9 +129,45 @@ await step('6. A price in pricing.js reads live on Services and Home', async () 
   if (svcBrand.trim() !== money(brandStarter.price)) throw new Error(`Services shows ${svcBrand.trim()}, pricing.js has ${money(brandStarter.price)}`);
   const svcSticker = await page.locator('.pk-card').filter({ has: page.locator('.pk-card-name', { hasText: /^Stickers$/ }) }).locator('.pk-card-price').textContent();
   if (svcSticker.trim() !== money(stickers.price)) throw new Error(`Services shows ${svcSticker.trim()}, pricing.js has ${money(stickers.price)}`);
+  // Site Prompt 6: Home is built around what Rob does for each kind of
+  // business and says nothing about what it costs, so the check here is
+  // the opposite of the one on Services: no money anywhere on the page.
   await mockAndGoto(page, '/');
-  const homeBrand = await page.locator('.svc-from').first().textContent();
-  if (!homeBrand.includes(money(brandStarter.price))) throw new Error(`Home shows ${homeBrand}, pricing.js has ${money(brandStarter.price)}`);
+  const homeText = await page.locator('body').innerText();
+  const priced = homeText.match(/\$\s?\d/);
+  if (priced) throw new Error(`Home shows a price (${priced[0]})`);
+});
+
+await step('7. Header and footer: three links and one free call, no Services or Shop', async () => {
+  await mockAndGoto(page, '/');
+  const nav = await page.locator('.navbar-link').allInnerTexts();
+  if (nav.join(',') !== 'Home,Clients,Contact') throw new Error(`header links are ${nav.join(', ')}`);
+  const cta = await page.locator('.navbar-cta').innerText();
+  if (!/Book a free call/.test(cta)) throw new Error(`header button reads ${cta}`);
+  const ctaHref = await page.locator('.navbar-cta').getAttribute('href');
+  if (!/calendly\.com/.test(ctaHref || '')) throw new Error(`header button points at ${ctaHref}`);
+  const footer = await page.locator('.footer-col-links a').allInnerTexts();
+  if (footer.join(',') !== 'Home,Clients,Contact') throw new Error(`footer links are ${footer.join(', ')}`);
+  const strays = await page.locator('a[href="/prints"], a[href="/services"]').count();
+  if (strays) throw new Error(`${strays} link(s) still point at the shop or Services`);
+});
+
+await step('8. The shop is gone: /prints lands on Home', async () => {
+  await mockAndGoto(page, '/prints');
+  const path = new URL(page.url()).pathname;
+  if (path !== '/') throw new Error(`/prints landed on ${path}`);
+  return 'redirected to /';
+});
+
+await step('9. Contact: three cards, no form and no Calendly embed', async () => {
+  await mockAndGoto(page, '/contact');
+  const cards = await page.locator('.ct-card').count();
+  if (cards !== 3) throw new Error(`found ${cards} cards, expected 3`);
+  const call = await page.locator('.ct-card--primary').getAttribute('href');
+  if (!/calendly\.com/.test(call || '')) throw new Error(`the primary card points at ${call}`);
+  if (await page.locator('form').count()) throw new Error('a form is still on the page');
+  if (await page.locator('.calendly-inline-widget').count()) throw new Error('the Calendly embed is still on the page');
+  if (!await page.locator('.ct-copy').count()) throw new Error('the email Copy button is missing');
 });
 
 await browser.close();

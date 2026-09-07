@@ -630,6 +630,11 @@ h1, h2, h3, h4, h5, h6 {
 .m-track--h .m-track-viewport {
   width: 100%;
   overflow: hidden;
+  /* clip, not just hidden: hidden leaves a scroll container the browser
+     can scroll programmatically when focus lands on a card that is off to
+     the right, which would slide the row out of step with --track-p.
+     TrackScroll moves the page instead (see its focusin handler). */
+  overflow: clip;
 }
 .m-track--h .m-track-row {
   flex-direction: row;

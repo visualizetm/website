@@ -61,7 +61,31 @@ export function TrackScroll({
         section.style.height = `${window.innerHeight + distance}px`;
       };
 
+      /* Tab moves focus through the cards in DOM order, but their position
+       * on screen is a function of how far the page has scrolled, so the
+       * browser's own "scroll the focused element into view" cannot reach a
+       * card that is still off to the right. This puts the page exactly
+       * where that card is visible. Without it the row is keyboard
+       * reachable but not keyboard visible, which is worse than either. */
+      const onFocusIn = (e) => {
+        const card = e.target.closest?.('.m-track-row > *');
+        if (!card) return;
+        const distance = Math.max(0, row.scrollWidth - inner.clientWidth);
+        if (!distance) return;
+        const needed = Math.min(distance, Math.max(0, card.offsetLeft + card.offsetWidth - inner.clientWidth + 24));
+        /* Layout offsets, not getBoundingClientRect: Home wraps this
+         * section in a Curtain, whose transform moves the rect by up to a
+         * sixth of a viewport depending on where the page currently is.
+         * offsetTop ignores transforms, so it gives the settled position
+         * the page will actually be in once it arrives. */
+        let top = needed;
+        for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
+        if (eng.lenis) eng.lenis.scrollTo(top, { immediate: true });
+        else window.scrollTo({ top, behavior: 'auto' });
+      };
+
       section.classList.add('m-track--h');
+      row.addEventListener('focusin', onFocusIn);
       measure();
 
       const trigger = eng.ScrollTrigger.create({
@@ -76,6 +100,7 @@ export function TrackScroll({
 
       return () => {
         trigger.kill();
+        row.removeEventListener('focusin', onFocusIn);
         section.classList.remove('m-track--h');
         section.style.height = '';
         section.style.removeProperty('--track-d');

@@ -11,7 +11,7 @@ is in reports/PROMPT-NN-REPORT.md and reports/SITE-NN-REPORT.md.
 
 ## Standing rules
 
-- Tokens only. Every CSS value in src/ui, src/shell, src/pages/Admin*, and src/components reads `var(--v-...)` from src/ui/tokens.js. No raw hex outside the token block; `node scripts/hex-count.js` must stay at 119 or lower and only ever go down.
+- Tokens only. Every CSS value in src/ui, src/shell, src/pages/Admin*, and src/components reads `var(--v-...)` from src/ui/tokens.js. No raw hex outside the token block; `node scripts/hex-count.js` must stay at 90 or lower and only ever go down.
 - The marketing site is its own token set: src/index.css's `:root` (not `--v-*`), read by src/marketing/motion, src/marketing/showcase.jsx, and every marketing page. Brand-colored TEXT reads `--brand-text` (resolves to `--brand-light` on the dark theme, `--brand-dark` on the light theme), never `--brand` directly, which falls short of 4.5:1 in every context measured so far. Theme-aware assets (a logo, an image variant) use `src/marketing/useTheme.js`; every page's title, description, and og:image go through `src/marketing/useHead.js`.
 - The marketing site is driven by the CRM, not typed in. `/api/showcase` (public, published clients only, an exact field whitelist) is its only connection: `src/marketing/showcase.jsx`'s `fetchShowcase()`/`fetchClient()` (60s cache) feed the Clients list and detail pages and every CRM-fed section of Home; what shows there, in what order, is set on a client's Showcase tab and the admin's Landing screen (Studio, /landing), never hardcoded on the site. Every new marketing page or state gets a `marketing: true` entry in scripts/audit-screens.mjs so it stays covered by a11y-audit.mjs.
 - Build from the kit. Screens import from `'../ui'` only; no new one off components when a kit piece fits, no hand rolled scroll containers (PageShell, ScrollArea, StickyFooterBar).
@@ -35,7 +35,7 @@ AUDIT_THEME=both AUDIT_MOTION=both node scripts/feel-audit.mjs
 AUDIT_THEME=both node scripts/a11y-audit.mjs
 node scripts/regression.mjs
 node scripts/site-regression.mjs                # docs/SITE-QA-CHECKLIST.md's CRM-to-site walk
-node scripts/hex-count.js                       # 119 or lower
+node scripts/hex-count.js                       # 90 or lower
 node scripts/css-orphans.mjs                    # 0
 TZ=America/New_York node scripts/dates-test.mjs
 ```
@@ -61,8 +61,9 @@ src/shell (AppShell, nav, command bar, drawer, boot frame, appearance,
 ShellCrash), src/pages (one file per admin screen, lazy chunks; the
 marketing pages are lazy too), src/components (lead and client record
 pieces, and the marketing shell: Navbar, Footer, Wordmark, ThemeToggle, and
-Home's own sections), src/marketing (showcase.jsx, motion/, useHead.js,
-useTheme.js, the public site's own layer), src/lib (pure logic), src/shared
+Home's own sections), src/marketing (showcase.jsx, motion/, scroll.js and
+ScrollRoot.jsx (the gsap + lenis scroll engine, marketing host only),
+links.js, useHead.js, useTheme.js, the public site's own layer), src/lib (pure logic), src/shared
 (semantics, pricing, dates, api, copy, log), scripts/ (the audits, plus
 prerender-clients.mjs and build-sitemap.mjs, chained into `npm run build`),
 docs/, reports/.

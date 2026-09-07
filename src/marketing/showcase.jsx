@@ -72,9 +72,11 @@ export function ClientCard({ client, parallax = false }) {
 
   return (
     <Link to={`/clients/${client.slug}`} className="wk-card">
-      <ScaleIn as="div" className="wk-card-media">
-        {parallax ? <Parallax as="div" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
-      </ScaleIn>
+      <div className="wk-card-media">
+        <ScaleIn as="div" className="wk-card-scale">
+          {parallax ? <Parallax as="div" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
+        </ScaleIn>
+      </div>
       <div className="wk-card-body">
         <div className="wk-card-top">
           <h2 className="wk-card-name">{client.displayName}</h2>
