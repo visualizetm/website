@@ -104,11 +104,15 @@ if (IS_ADMIN_HOST || (IS_DEV_HOST && window.location.pathname.startsWith('/admin
 const maintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
 
 function Root() {
-  // Maintenance mode is a full app override on the public host only; the
-  // admin host and every api/ route are untouched (App.jsx branches on
-  // IS_ADMIN_HOST before this ever renders, and no api/ function reads
-  // this variable at all).
-  if (maintenanceMode) {
+  // Maintenance mode is a full app override, but only on the public host:
+  // this build serves both admin.visualizeclients.com and
+  // visualizestudio.org from the same bundle (App.jsx tells them apart at
+  // runtime via IS_ADMIN_HOST, window.location.hostname), so the same
+  // build-time VITE_MAINTENANCE_MODE=true would otherwise show this
+  // screen on the admin host too, App.jsx's own host branch never gets a
+  // chance to run if Root() returns before reaching it. No api/ function
+  // reads this variable at all, so the API itself was never affected.
+  if (maintenanceMode && !IS_ADMIN_HOST) {
     return <Maintenance />;
   }
 
