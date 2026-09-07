@@ -39,6 +39,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Visualize: a solo brand development and website design studio. I create logos, brand identity, websites, print design, and digital business setup for local businesses." />
   <title>Visualize: Brand & Website Design Studio</title>
+  <!-- The static default a crawler or link preview sees on any route this
+       build does not prerender (see docs/RUNBOOK.md, "Prerender"); every
+       page's own useHead() call (src/marketing/useHead.js) overwrites these
+       after the SPA's JS runs. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Visualize: Brand & Website Design Studio" />
+  <meta property="og:description" content="Visualize: a solo brand development and website design studio. I create logos, brand identity, websites, print design, and digital business setup for local businesses." />
+  <meta property="og:image" content="https://visualizestudio.org/og-default.png" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="icon" type="image/svg+xml" href="/logo.svg" />
   <meta name="theme-color" content="#080808" />
   <link rel="manifest" href="/manifest.webmanifest" />

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchShowcase, ClientCard, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger } from '../marketing/motion';
+import { useHead } from '../marketing/useHead';
 
 export { ClientCard } from '../marketing/showcase';
 
@@ -19,7 +20,10 @@ function CardSkeleton() {
 
 export default function Clients() {
   const [state, setState] = useState({ status: 'loading', clients: [], testimonials: [] });
-  useEffect(() => { document.title = 'Clients, Visualize'; }, []);
+  useHead({
+    title: 'Clients | Visualize.',
+    description: 'Real businesses, built end to end, brand, web, and print under one roof.',
+  });
 
   const load = useCallback(async () => {
     setState(s => ({ ...s, status: 'loading' }));

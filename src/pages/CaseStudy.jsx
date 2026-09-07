@@ -11,6 +11,7 @@ import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import { fetchShowcase, fetchClient, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax } from '../marketing/motion';
 import { useTheme } from '../marketing/useTheme';
+import { useHead } from '../marketing/useHead';
 
 // Labeled placeholder for any image slot the client's showcase leaves empty.
 function Slot({ label, ratio = '16 / 10', children }) {
@@ -42,27 +43,6 @@ function SectionHead({ icon: IconEl, title }) {
  * No prerender step exists in this build (see reports/SITE-03-REPORT.md,
  * "SEO approach"), so these land after the JS runs, not in the initial HTML
  * a crawler or a link-preview fetch sees; that gap is Site Prompt 5's to close. */
-function useClientHead(client) {
-  useEffect(() => {
-    if (!client) return undefined;
-    const prevTitle = document.title;
-    document.title = `${client.displayName} | Visualize.`;
-    const setMeta = (name, attr, value) => {
-      let el = document.head.querySelector(`meta[${attr}="${name}"]`);
-      const created = !el;
-      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
-      el.setAttribute('content', value);
-      return created ? el : null;
-    };
-    const created = [
-      setMeta('description', 'name', client.blurb || ''),
-      setMeta('og:image', 'property', client.cover || ''),
-      setMeta('og:title', 'property', `${client.displayName} | Visualize.`),
-    ].filter(Boolean);
-    return () => { document.title = prevTitle; created.forEach(el => el.remove()); };
-  }, [client]);
-}
-
 const hasBrand = (b) => !!(b?.logo?.light || b?.logo?.dark || b?.palette?.length || b?.typography?.length || b?.images?.length || b?.notes);
 const hasWebsite = (w) => !!(w?.url || w?.screenshots?.length || w?.notes);
 const hasCards = (c) => !!(c?.front || c?.back || c?.notes);
@@ -90,7 +70,12 @@ export default function CaseStudy() {
   }, [slug]);
   useEffect(() => { load(); }, [load]);
 
-  useClientHead(state.status === 'ready' ? state.client : null);
+  const readyClient = state.status === 'ready' ? state.client : null;
+  useHead(readyClient ? {
+    title: `${readyClient.displayName} | Visualize.`,
+    description: readyClient.blurb || '',
+    ogImage: readyClient.cover || undefined,
+  } : {});
 
   if (state.status === 'loading') {
     return (

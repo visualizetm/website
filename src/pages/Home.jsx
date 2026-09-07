@@ -8,6 +8,7 @@ import HomeTestimonials from '../components/HomeTestimonials';
 import HowItWorks from '../components/HowItWorks';
 import CTA from '../components/CTA';
 import { fetchShowcase } from '../marketing/showcase';
+import { useHead } from '../marketing/useHead';
 
 const EMPTY = { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } };
 
@@ -18,6 +19,10 @@ const EMPTY = { clients: [], landing: { logoStrip: [], work: [], testimonials: [
  * empty CRM, since every section already has a clean hidden-when-empty
  * state, there is no separate error UI to build for the landing page. */
 export default function Home() {
+  useHead({
+    title: 'Visualize. | Branding and websites for local businesses',
+    description: 'Solo studio in Delaware. Brand, website, print, all in one place.',
+  });
   const [data, setData] = useState(null);
 
   useEffect(() => {

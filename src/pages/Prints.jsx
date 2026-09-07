@@ -10,6 +10,7 @@ import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Footer from '../components/Footer';
+import { useHead } from '../marketing/useHead';
 
 const ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_KEY || '';
 
@@ -647,6 +648,10 @@ function ProductCard({ product, onCustomize }) {
 /* ─── Main component ─────────────────────────────────────────────── */
 
 export default function Prints() {
+  useHead({
+    title: 'Print Shop | Visualize.',
+    description: 'Stickers, vinyl, and print, designed and produced for your business.',
+  });
   const [cat, setCat]         = useState('all');
   // The cart survives a refresh (sessionStorage), not a device: Print Orders in the admin is the record (Prompt 13).
   const [cart, setCart]       = useState(() => { try { return JSON.parse(sessionStorage.getItem('vz_cart') || '[]'); } catch { return []; } });

@@ -112,10 +112,55 @@ functions against the Hobby plan's cap of 12.
 
 Findings from the Prompt 15 review that still hold: the webhook stores the event before the ledger write; every handler has a method check; api/submissions and push-subscribe have a body cap; the CSP is set; no handler throws an unhandled error into Vercel's default 500 page. The login rate limit, the CSRF header, and the sliding cookie renewal from that review were removed in the auth rebuild on purpose (the dispatcher they rode on answered 405 to every login in production); the trade is documented above.
 
+## Prerender
+
+The marketing host serves the same static dist/index.html for every route
+(vercel.json's catch-all rewrite), so a crawler or a link preview fetch on
+/clients/:slug only ever saw the site-wide default title, description, and
+og:image, never that client's own, since src/marketing/useHead.js only
+applies those after the SPA's JS runs. `npm run build` now chains two more
+steps after `vite build`:
+
+- `node scripts/prerender-clients.mjs`: fetches the production
+  `/api/showcase` (override with `PRERENDER_SHOWCASE_URL` for a local run,
+  the mock server or `vercel dev`), and writes one
+  `dist/clients/<slug>/index.html` per published client, dist/index.html's
+  own template with that client's title, description, and og:image swapped
+  in, every script and stylesheet tag untouched so the exact same app
+  bundle boots from it. Once client-side JS takes over, CaseStudy.jsx's own
+  `useHead()` call immediately re-fetches and re-applies the live values,
+  so a stale prerendered snapshot self-corrects for anyone who lands and
+  stays on the page.
+- `node scripts/build-sitemap.mjs`: dist/sitemap.xml, the same fetch (and
+  the same fail-soft rule) plus the static routes (/, /services, /clients,
+  /contact, /start, /prints). public/robots.txt (a plain static file, it
+  never changes) points at it.
+
+Both fail soft: a network error, a non-200, or bad JSON leaves zero
+prerendered client pages and a sitemap with just the static routes, rather
+than failing the build (this sandbox cannot reach production at all,
+confirmed by running the real `npm run build` here, so its own build
+always takes this path; PRERENDER_SHOWCASE_URL pointed at the mock server
+was how the client-page and sitemap generation were verified instead).
+
+No new vercel.json rewrite routes `/clients/:slug` to its prerendered file:
+Vercel's documented routing order checks the output directory for a real
+file matching the request path before it ever consults the rewrites array,
+so `/clients/full-showcase-co` already resolves to
+`dist/clients/full-showcase-co/index.html` once that file exists, the same
+way any static host resolves a directory path to its index.html. A slug
+with no prerendered file (not yet published, or fetched with an older
+snapshot before it was) falls through the same catch-all every other route
+already does, and the SPA fetches it live from there. vercel.json does gain
+one header rule: `/clients/(.*)` gets `Cache-Control: public, max-age=0,
+must-revalidate`, since these prerendered files are only ever as fresh as
+the last build and should never be cached as if immutable, unlike /assets
+and /fonts.
+
 ## Scripts
 
 ```
-npm run build                                  # Vite build to dist/ (also pins the CSP hash in vercel.json)
+npm run build                                  # Vite build to dist/ (also pins the CSP hash in vercel.json, prerenders published clients, writes the sitemap)
 npx vite preview --port 4330                   # serve dist/ for the audits
 node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs, 44px targets
 AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs   # also clients, studio, design, dashboard
@@ -126,14 +171,18 @@ AUDIT_THEME=both AUDIT_MOTION=both AUDIT_OUT=/tmp/feel.json node scripts/feel-au
 node scripts/feel-audit.mjs --boot             # time to first shell paint on a throttled network
 AUDIT_THEME=both node scripts/a11y-audit.mjs   # axe-core on every screen, both themes, 390 and 1280
 node scripts/regression.mjs                    # docs/QA-CHECKLIST.md as a Playwright walk, 390 and 1280
+node scripts/site-regression.mjs               # docs/SITE-QA-CHECKLIST.md as a Playwright walk against the marketing site
 node scripts/render-profile.mjs                # kanban with 400 leads, month with 60 events
-DIST=dist PORT=4350 node scripts/mock-server.mjs &   # fixture backed server for Lighthouse (MOCK_HOST=admin adds the CSP)
-LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, both themes
+DIST=dist PORT=4350 node scripts/mock-server.mjs &   # fixture backed server for Lighthouse (MOCK_HOST=admin adds the CSP, MOCK_SHOWCASE_EMPTY=1 serves an empty showcase)
+LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, Clients, Home, Contact, Prints, both themes
+LH_BASE=http://127.0.0.1:4350 LH_FORM=desktop node scripts/lighthouse.mjs   # the 1280-equivalent desktop preset
 node scripts/fetch-fonts.mjs                   # refresh the self hosted latin font subsets
-node scripts/hex-count.js                      # raw hex literals in src and api (145 or lower)
+node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)
 node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
 OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry
+PRERENDER_SHOWCASE_URL=http://127.0.0.1:4350/api/showcase node scripts/prerender-clients.mjs   # test against the mock server instead of production
+PRERENDER_SHOWCASE_URL=http://127.0.0.1:4350/api/showcase node scripts/build-sitemap.mjs
 ```
 
 Every audit context blocks the service worker (Playwright `serviceWorkers: 'block'`); otherwise the worker answers the mocked requests itself. Lighthouse runs against the mock server over real HTTP, so the worker is live there. Restart the mock server after every build: it reads vercel.json (the CSP hash) once at start, and a stale hash blocks the pre-paint script.
