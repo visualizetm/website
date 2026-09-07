@@ -85,6 +85,12 @@ export const SCREENS = [
   { id: 'mkt-contact', screen: 'Contact (marketing)', label: 'full', path: '/contact', session: false, static: true, marketing: true },
   { id: 'mkt-start', screen: 'Start (marketing)', label: 'intro', path: '/start', session: false, static: true, marketing: true },
   { id: 'mkt-prints', screen: 'Prints (marketing)', label: 'shop', path: '/prints', session: false, static: true, marketing: true },
+  // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
+  // the React root, not a route, so unlike every other marketing: true
+  // entry above it only renders against a build made with that env var
+  // set, not the shared dist/ this repo's audits normally share; see
+  // reports/MAINTENANCE-PAGE-REPORT.md for how it was verified.
+  { id: 'mkt-maintenance', screen: 'Maintenance (marketing)', label: 'full', path: '/', session: false, static: true, marketing: true },
 
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },

@@ -29,7 +29,7 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 | STRIPE_SECRET_KEY | Stripe read endpoints (events, reconcile listing) | Integrations shows Not connected |
 | STRIPE_WEBHOOK_SECRET | The signed webhook that writes payments to the ledger | Webhook answers 503 so Stripe retries; Integrations shows Webhook secret missing |
 | ADMIN_URL | Deep links in push notifications (default https://admin.visualizeclients.com) | Links use the default host |
-| VITE_MAINTENANCE_MODE, VITE_MAINTENANCE_PASSWORD | The public maintenance screen and its unlock | Site serves normally |
+| VITE_MAINTENANCE_MODE | The public maintenance screen (a full app override on the public host only, the admin host and every api/ route are unaffected). No password or unlock exists any more; preview the real site through a Vercel preview deployment, or turn this flag off | Site serves normally |
 | VITE_WEB3FORMS_KEY | Web3Forms fallback on the public forms (public by design) | Forms still post to /api/submissions |
 | VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET | An Upload button beside every showcase image field (Site Prompt 2), browser to Cloudinary direct, no server involved | Every image field is a plain pasted link only; the button does not render |
 
