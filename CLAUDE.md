@@ -12,7 +12,7 @@ docs/QA-CHECKLIST.md (the daily walk). History is in reports/PROMPT-NN-REPORT.md
 - Build from the kit. Screens import from `'../ui'` only; no new one off components when a kit piece fits, no hand rolled scroll containers (PageShell, ScrollArea, StickyFooterBar).
 - Additive schema. Never rename or drop a field; new fields are optional and older documents simply lack them.
 - `$set` only. Every write is `updateOne({ _id }, { $set: allowed })` (plus `$push` with `$slice` for capped lists). sanitize() in each route is the schema: a field the whitelist does not know is not written.
-- Every route uses `route()` from api/_lib/handler.js (admin guard, method allow list, body cap, CSRF header, one try/catch). Secrets come from environment variables only; never write a token to the repo or the database.
+- Every dispatched route uses `route()` from api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); the three auth endpoints (api/admin/login.js, logout.js, session.js) are plain handlers with their own method check. Auth is the signed `vz_admin` cookie alone: no CSRF header, no rate limit, no database lookup. The admin password is the constant in api/_lib/config.js (an ADMIN_PASSWORD env var overrides it); every other secret still comes from environment variables only, and nothing but config.js may hold a password.
 - No em dashes anywhere: copy, comments, docs, reports.
 - Skeletons ship with features. A new screen or region lands with its skeleton, its empty state (src/shared/copy.js), its error state with Retry, and its entrance; the feel audit checks all four.
 - Motion reads `--v-dur-*` and `--v-ease-*` only, and JS timers read `durationMs()`; everything collapses under Reduce motion.
@@ -40,10 +40,12 @@ against `scripts/mock-server.mjs`, `node scripts/feel-audit.mjs --boot`.
 
 ## Shape of the repo
 
-api/ (5 Vercel functions total, the Hobby plan's cap; api/admin/[...route].js
-and api/cron/[job].js dispatch to api/_routes/<name>.js, one file per route's
-logic, each still wrapped in route(); _lib for auth, mongo, handler, notify,
-stripe, orders), src/ui (the kit), src/shell (AppShell, nav, command
+api/ (8 Vercel functions, under the Hobby plan's cap of 12: api/admin/login.js,
+logout.js, and session.js stand alone; api/admin/index.js dispatches every
+other admin endpoint on ?r=<name>, put there by one vercel.json rewrite per
+URL, to api/_routes/<name>.js, one file per route's logic, each still wrapped
+in route(); api/cron/[job].js dispatches both crons; _lib for auth, config,
+mongo, handler, notify, stripe, orders), src/ui (the kit), src/shell (AppShell, nav, command
 bar, drawer, boot frame, appearance, ShellCrash), src/pages (one file per
 admin screen, lazy chunks; the marketing pages are lazy too), src/components
 (lead and client record pieces), src/lib (pure logic), src/shared (semantics,

@@ -14,9 +14,9 @@ docs/RUNBOOK.md.
 | Routing | react-router-dom 6 for the marketing site; AdminApp switches sections on `location.pathname`; App.jsx branches on host first and loads only that host's chunks |
 | Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules; src/fonts.css declares the self hosted latin subsets in public/fonts (scripts/fetch-fonts.mjs) |
 | State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |
-| Data | apiFetch (src/shared/api.js) to same-origin /api/* Vercel functions with the X-Requested-With header, cookie auth; the service worker keeps the last successful GET of the five main lists for offline reading |
-| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js); every handler is wrapped by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, CSRF header, one try/catch). The Hobby plan's 12 function cap folds all 17 admin routes into one dynamic function (api/admin/[...route].js dispatching on req.query.route) and both crons into one more (api/cron/[job].js); the route logic itself lives in api/_routes/<name>.js, one file per endpoint, same as before |
-| Auth | One admin password (scrypt hash in settings.auth, else ADMIN_PASSWORD, constant time compare), HMAC signed 30 day cookie with sliding renewal, login rate limited per IP (api/_lib/auth.js) |
+| Data | apiFetch (src/shared/api.js) to same-origin /api/* Vercel functions, cookie auth, no custom header; the service worker keeps the last successful GET of the five main lists for offline reading |
+| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js). The Hobby plan's 12 function cap: login, logout, and session are three standalone functions (api/admin/login.js, logout.js, session.js, each with its own method check); every other admin endpoint is one function, api/admin/index.js, reached through one vercel.json rewrite per URL (`/api/admin/call-leads` becomes `/api/admin/index?r=call-leads`) and wrapped there by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); both crons dispatch out of api/cron/[job].js; the route logic itself lives in api/_routes/<name>.js, one file per endpoint. 8 functions total |
+| Auth | One admin password, the ADMIN_PASSWORD constant in api/_lib/config.js (an ADMIN_PASSWORD env var overrides it), constant time compare; a signed 30 day `vz_admin` cookie (`${expiresAt}.${hmac}`, SESSION_SECRET or the config.js fallback) verified with no database lookup, no renewal, no rate limit, no CSRF header (api/_lib/auth.js) |
 | Push | web-push with VAPID keys; public/sw.js handles push, deep links, and the versioned offline caches (shell, fonts, icons, the last list GETs) |
 | Crons | Vercel cron: /api/cron/reminders once a day (13:00 UTC, a morning digest; the Hobby plan only allows a daily schedule), /api/cron/daily at 06:00 UTC, both behind CRON_SECRET, both served by one function (api/cron/[job].js) |
 | Integrations | Calendly (read), Stripe (read plus a signed webhook with a claim before side effects), Web3Forms (email backup) |
@@ -26,14 +26,19 @@ docs/RUNBOOK.md.
 ## Directory map
 
 ```
-api/                       Vercel functions (5 total: the Hobby plan caps a deployment at 12)
-  _lib/                    auth, handler (route wrapper), mongo, notify (push + email), orders (shop order parser), stripe
+api/                       Vercel functions (8 total: the Hobby plan caps a deployment at 12)
+  _lib/                    auth (signed cookie), config (the admin password and session constants), handler (route wrapper),
+                           mongo, notify (push + email), orders (shop order parser), stripe
   _semantics.js            id lists mirrored from src/shared/semantics.js (functions cannot import src/)
   _routes/                 one file per endpoint's logic (call-leads.js, settings.js, log.js, the two cron jobs, etc.), a plain
                            exported `handler(req, res)`; not deployed as routes itself (Vercel excludes underscore-prefixed
-                           paths under api/), dispatched into by the two files below
-  admin/[...route].js      every /api/admin/* endpoint (17 routes) in one function; req.query.route picks the _routes/ file,
-                           each still wrapped in route() with its own method list, admin guard, CSRF, and body cap
+                           paths under api/), dispatched into by admin/index.js and cron/[job].js
+  admin/login.js           POST, its own function: password from _lib/config.js, sets the vz_admin cookie
+  admin/logout.js          POST, its own function: clears the cookie
+  admin/session.js         GET, its own function: 200 when the cookie verifies, else 401
+  admin/index.js           every other /api/admin/* endpoint (14 routes) in one function; ?r=<name> (from one vercel.json
+                           rewrite per URL) picks the _routes/ file, each still wrapped in route() with its own method list,
+                           admin guard, and body cap
   cron/[job].js            both Vercel crons in one function; req.query.job is 'reminders' or 'daily', URLs unchanged
   stripe/webhook.js        signed Stripe webhook (its own file: needs the raw body and its own config)
   submissions.js, push-key.js   public endpoints (their own files)
