@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchShowcase, ClientCard, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
-import { Reveal, Stagger } from '../marketing/motion';
+import { Reveal, Stagger, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 
 export { ClientCard } from '../marketing/showcase';
@@ -72,15 +72,18 @@ export default function Clients() {
         </div>
       </section>
 
+      {/* The page's one Tone shift (Site Prompt 6, Part 5): the reviews
+          lift off the page ground as they come up, so the list does not
+          run into them on one flat surface. */}
       {state.status === 'ready' && state.testimonials.length > 0 && (
-        <section className="wk-reviews section">
+        <Tone as="section" className="wk-reviews section" from="var(--bg)" to="var(--bg-elevated)">
           <div className="wrap">
             <Reveal as="h2" className="section-title wk-reviews-title">What clients say</Reveal>
             <Stagger className="wk-reviews-grid">
               {state.testimonials.map((t, i) => <TestimonialCard key={t.id || i} testimonial={t} />)}
             </Stagger>
           </div>
-        </section>
+        </Tone>
       )}
 
       <style>{workStyles}</style>

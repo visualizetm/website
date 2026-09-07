@@ -9,7 +9,7 @@ import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import { fetchShowcase, fetchClient, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
-import { Reveal, Stagger, Parallax } from '../marketing/motion';
+import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
 import { useTheme } from '../marketing/useTheme';
 import { useHead } from '../marketing/useHead';
 
@@ -135,7 +135,9 @@ export default function CaseStudy() {
 
         {client.cover && (
           <div className="cs-cover">
-            <Parallax className="cs-cover-inner"><img src={client.cover} alt={`${client.displayName} cover`} loading="lazy" /></Parallax>
+            <ScaleIn as="div" className="cs-cover-scale">
+              <Parallax className="cs-cover-inner"><img src={client.cover} alt={`${client.displayName} cover`} loading="lazy" /></Parallax>
+            </ScaleIn>
           </div>
         )}
 
@@ -234,9 +236,9 @@ export default function CaseStudy() {
             </Reveal>
           )}
 
-          {/* Testimonial(s) */}
+          {/* Testimonial(s), and the page's one Tone shift (Site Prompt 6, Part 5) */}
           {testimonials?.length > 0 && (
-            <Reveal as="section" className="cs-section cs-testimonials">
+            <Tone as="section" className="cs-section cs-testimonials" from="var(--bg)" to="var(--bg-elevated)">
               <SectionHead icon={Star01} title="What they said" />
               {testimonials.length === 1 ? (
                 <TestimonialCard testimonial={testimonials[0]} />
@@ -245,7 +247,7 @@ export default function CaseStudy() {
                   {testimonials.map((t, i) => <TestimonialCard key={i} testimonial={{ ...t, business: null }} />)}
                 </Stagger>
               )}
-            </Reveal>
+            </Tone>
           )}
 
           {/* Start your own */}
@@ -314,6 +316,7 @@ const csStyles = `
   .cs-social:hover { color: var(--text); border-color: var(--border-light); }
 
   .cs-cover { background: var(--bg-deep); border-bottom: 1px solid var(--border); overflow: hidden; }
+  .cs-cover-scale { display: block; }
   .cs-cover-inner { aspect-ratio: 21 / 9; max-height: 520px; }
   .cs-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 

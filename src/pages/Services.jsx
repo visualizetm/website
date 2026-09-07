@@ -1,9 +1,10 @@
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import { Link } from 'react-router-dom';
-import { Reveal, Stagger, SectionNumber } from '../marketing/motion';
+import { Reveal, Stagger, SectionNumber, Tone } from '../marketing/motion';
 import { PACKAGES, RETAINERS, ADDONS, REVISION_ROUNDS, EXTRA_ROUND, SINGLE_CAP, money, planLine } from '../shared/pricing';
 import { useHead } from '../marketing/useHead';
+import { CALENDLY_URL } from '../marketing/links';
 
 /* Site Prompt 5, Part 1: rebuilt on Home's numbered section pattern, every
  * price read live from src/shared/pricing.js, nothing retyped. The old
@@ -144,12 +145,14 @@ export default function Services() {
         </ul>
       </Reveal>
 
-      <Reveal as="section" className="svc-cta section">
+      {/* The page's one Tone shift (Site Prompt 6, Part 5), and the same
+          free call every other page ends on. */}
+      <Tone as="section" className="svc-cta section" from="var(--bg)" to="var(--bg-elevated)">
         <div className="wrap svc-cta-inner">
           <h2 className="svc-cta-title display">Ready to start?</h2>
-          <a href="/book" className="btn btn-primary">Book a Meeting</a>
+          <a href={CALENDLY_URL} className="btn btn-primary" target="_blank" rel="noreferrer">Book a free call</a>
         </div>
-      </Reveal>
+      </Tone>
 
       <style>{`
         .svc-head { padding: var(--space-20) 0 var(--space-8); text-align: center; }

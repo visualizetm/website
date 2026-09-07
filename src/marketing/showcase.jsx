@@ -10,7 +10,7 @@
  */
 import { Link } from 'react-router-dom';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
-import { Parallax } from './motion';
+import { Parallax, ScaleIn } from './motion';
 
 const CACHE_MS = 60000;
 let listCache = null; // { at, data: { clients, landing } }
@@ -57,9 +57,10 @@ export function capImageWidth(url, width = 1600) {
 }
 
 /** The list/preview card: displayName, type, blurb, cover with a monogram
- * fallback. `parallax` (Home's Recent clients, Site Prompt 6) drifts the
- * cover inside its own frame as the card crosses the viewport; the list
- * page leaves it off, since a grid of drifting covers reads as noise. */
+ * fallback. The cover settles in with ScaleIn wherever the card is used
+ * (the light set, Site Prompt 6, Part 5); `parallax` adds Home's Recent
+ * clients drift on top, which the list page leaves off, since a grid of
+ * drifting covers reads as noise. */
 export function ClientCard({ client, parallax = false }) {
   const media = client.cover ? (
     <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
@@ -71,9 +72,9 @@ export function ClientCard({ client, parallax = false }) {
 
   return (
     <Link to={`/clients/${client.slug}`} className="wk-card">
-      <div className="wk-card-media">
+      <ScaleIn as="div" className="wk-card-media">
         {parallax ? <Parallax as="div" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
-      </div>
+      </ScaleIn>
       <div className="wk-card-body">
         <div className="wk-card-top">
           <h2 className="wk-card-name">{client.displayName}</h2>
