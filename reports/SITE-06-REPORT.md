@@ -390,6 +390,8 @@ visible, which is worse than either.
 | `b3d9c08` | Part 4: Contact is three cards and nothing else |
 | `02218f5` | Part 5: the light set on every other page |
 | `67b4a24` | Part 6: verification, the four fixes above, and the docs |
-| `0a5a1f9` | This report |
 
-All seven pushed to `origin/main`.
+
+This report sits in the commit on top of `67b4a24` (naming its own hash
+inside itself is a loop, so it does not try). Everything is pushed to
+`origin/main`.
