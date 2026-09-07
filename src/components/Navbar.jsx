@@ -103,10 +103,15 @@ export default function Navbar() {
         aria-hidden="true"
       />
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer: off-screen (transform) when closed, not display:none,
+          so its links stayed in the Tab order even while invisible, a real
+          keyboard-order bug this prompt's own keyboard walk found (Site
+          Prompt 5, Part 4). inert removes it from both focus and the
+          accessibility tree while closed. */}
       <nav
         className={`navbar-drawer ${open ? 'is-open' : ''}`}
         aria-label="Mobile navigation"
+        inert={open ? undefined : ''}
       >
         <div className="navbar-drawer-header">
           <Wordmark size={20} />

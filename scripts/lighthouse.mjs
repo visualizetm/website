@@ -34,6 +34,10 @@ const TARGETS = [
   // Site Prompt 4: the landing page, and (via MOCK_SHOWCASE_EMPTY on the mock
   // server) its empty-CRM state.
   { id: 'home', label: 'Home', path: '/' },
+  // Site Prompt 5: the remaining marketing pages this prompt aligned.
+  { id: 'services', label: 'Services', path: '/services' },
+  { id: 'contact', label: 'Contact', path: '/contact' },
+  { id: 'prints', label: 'Prints', path: '/prints' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
 
