@@ -1,4 +1,4 @@
-# VISUALIZE ADMIN, ARCHITECTURE (as of 3.0.0, Prompt 15, 2026-09-05)
+# VISUALIZE ADMIN, ARCHITECTURE (as of 3.1.0, Site Prompt 5, 2026-09-07)
 
 The admin CRM at admin.visualizeclients.com and the marketing site at
 visualizestudio.org share one Vite build. This file describes the app as it
@@ -15,7 +15,7 @@ docs/RUNBOOK.md.
 | Styling | CSS-in-JSX per file on `--v-` tokens (src/ui/tokens.js), one `uiStyles` string injected by the shell; src/index.css holds only marketing and maintenance rules; src/fonts.css declares the self hosted latin subsets in public/fonts (scripts/fetch-fonts.mjs) |
 | State | useState and useMemo per screen; AdminApp lifts the shared lists (leads, submissions, projects, orders, packs) and passes optimistic patch helpers down |
 | Data | apiFetch (src/shared/api.js) to same-origin /api/* Vercel functions, cookie auth, no custom header; the service worker keeps the last successful GET of the five main lists for offline reading |
-| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js). The Hobby plan's 12 function cap: login, logout, and session are three standalone functions (api/admin/login.js, logout.js, session.js, each with its own method check); every other admin endpoint is one function, api/admin/index.js, reached through one vercel.json rewrite per URL (`/api/admin/call-leads` becomes `/api/admin/index?r=call-leads`) and wrapped there by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); both crons dispatch out of api/cron/[job].js; the route logic itself lives in api/_routes/<name>.js, one file per endpoint. 8 functions total |
+| Backend | Vercel serverless (ESM), MongoDB Atlas through the mongodb driver, one cached client per warm instance (api/_lib/mongo.js). The Hobby plan's 12 function cap: login, logout, and session are three standalone functions (api/admin/login.js, logout.js, session.js, each with its own method check); every other admin endpoint is one function, api/admin/index.js, reached through one vercel.json rewrite per URL (`/api/admin/call-leads` becomes `/api/admin/index?r=call-leads`) and wrapped there by `route()` in api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); both crons dispatch out of api/cron/[job].js; the route logic itself lives in api/_routes/<name>.js, one file per endpoint; api/showcase.js (Site Prompt 2) is its own standalone public function, the same shape as submissions.js and push-key.js. 9 functions total |
 | Auth | One admin password, the ADMIN_PASSWORD constant in api/_lib/config.js (an ADMIN_PASSWORD env var overrides it), constant time compare; a signed 30 day `vz_admin` cookie (`${expiresAt}.${hmac}`, SESSION_SECRET or the config.js fallback) verified with no database lookup, no renewal, no rate limit, no CSRF header (api/_lib/auth.js) |
 | Push | web-push with VAPID keys; public/sw.js handles push, deep links, and the versioned offline caches (shell, fonts, icons, the last list GETs) |
 | Crons | Vercel cron: /api/cron/reminders once a day (13:00 UTC, a morning digest; the Hobby plan only allows a daily schedule), /api/cron/daily at 06:00 UTC, both behind CRON_SECRET, both served by one function (api/cron/[job].js) |
@@ -26,7 +26,7 @@ docs/RUNBOOK.md.
 ## Directory map
 
 ```
-api/                       Vercel functions (8 total: the Hobby plan caps a deployment at 12)
+api/                       Vercel functions (9 total: the Hobby plan caps a deployment at 12)
   _lib/                    auth (signed cookie), config (the admin password and session constants), handler (route wrapper),
                            mongo, notify (push + email), orders (shop order parser), stripe
   _semantics.js            id lists mirrored from src/shared/semantics.js (functions cannot import src/)
@@ -41,7 +41,8 @@ api/                       Vercel functions (8 total: the Hobby plan caps a depl
                            admin guard, and body cap
   cron/[job].js            both Vercel crons in one function; req.query.job is 'reminders' or 'daily', URLs unchanged
   stripe/webhook.js        signed Stripe webhook (its own file: needs the raw body and its own config)
-  submissions.js, push-key.js   public endpoints (their own files)
+  submissions.js, push-key.js, showcase.js   public endpoints (their own files); showcase.js is the marketing site's
+                           only connection to the CRM, published clients only, an exact field whitelist
 docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, QA-CHECKLIST.md, RELEASE-NOTES-3.0.md, MIGRATION-MAP.md
 public/                    logo, wordmark, PWA icons, manifest, sw.js, fonts/ (latin woff2 subsets)
 reports/                   one build report per prompt
@@ -53,7 +54,15 @@ src/
   components/              shared lead and client components, LeadPicker, imports
   lib/                     pure logic: leads, calls, defaultLead, booked, projects, orders, reviews, events, exports, ics, socials, spreadsheet
   shared/                  semantics (enums), pricing (catalog), dates, phone, format, api (apiFetch with the CSRF header), copy (every empty and error string), log (the client error log), color
-  data/                    the showcase client data for the marketing site, a bundled lead import
+  data/                    a bundled lead import (call-leads-import.json); the showcase client data
+                           that used to live here was deleted in Site Prompt 3, the marketing site
+                           reads live client data from /api/showcase instead, nothing is bundled
+  marketing/               the public site's own layer: showcase.jsx (fetchShowcase/fetchClient
+                           against /api/showcase, 60s in-memory cache, ClientCard/TestimonialCard,
+                           capImageWidth), motion/ (Reveal, Stagger, Parallax, Counter,
+                           SectionNumber, Marquee, docs/MARKETING-MOTION.md), useHead.js (the one
+                           per-page title/description/og:image helper), useTheme.js (the one
+                           light/dark read)
 ```
 
 ## Screens (all inside AdminApp, served on the admin host at root paths)
@@ -72,12 +81,13 @@ src/
 | /submissions | Submissions | pages/AdminSubmissions.jsx |
 | /settings | Settings (Profile, Notifications, Integrations, Data, Automation, Shortcuts, Danger zone); /settings/deleted opens Data | pages/AdminSettings.jsx |
 | /design | Design system reference | pages/AdminDesign.jsx |
+| /landing | Landing: the public Home page's logo strip, featured work, testimonials, and stats, curated (Site Prompt 2, refined in Site Prompt 5) | pages/AdminLanding.jsx |
 
-Navigation is one list in src/shell/nav.js. Redirects: /prints and /admin/prints on the admin host go to /orders; /portal and /intake/* on the public host go to /contact?from=portal (the retired portal notice). The public site keeps /, /services, /work, /work/:slug, /contact, /book, /lead-partner, /start, /prints (the shop), and the maintenance screen when VITE_MAINTENANCE_MODE is true.
+Navigation is one list in src/shell/nav.js. Redirects: /prints and /admin/prints on the admin host go to /orders; /portal and /intake/* on the public host go to /contact?from=portal (the retired portal notice); /work and /work/:slug redirect permanently to /clients and /clients/:slug (Site Prompt 3). The public site is /, /services, /clients, /clients/:slug, /contact, /book, /lead-partner, /start, /prints (the shop), and the maintenance screen when VITE_MAINTENANCE_MODE is true.
 
 ## Components
 
-The kit (src/ui) is documented in docs/COMPONENTS.md. Shared record components: LeadCard, LeadDetail (lead, booked, and client modes), LeadForm, LeadHistory, LeadNotes, LeadPlaybook, Checklists, LinkedSubmissions, SocialLinks (SocialFields), CallbackPicker, LeadImport, OrdersImport, LeadPicker, ClientCard, ClientWorkspace. Marketing components stay under src/components as well (Navbar, Footer, Hero, Services, Process, Trust, Testimonials, CTA, ShowcasePreview, Wordmark, ThemeToggle).
+The kit (src/ui) is documented in docs/COMPONENTS.md. Shared record components: LeadCard, LeadDetail (lead, booked, and client modes), LeadForm, LeadHistory, LeadNotes, LeadPlaybook, Checklists, LinkedSubmissions, SocialLinks (SocialFields), CallbackPicker, LeadImport, OrdersImport, LeadPicker, ClientCard (the admin's own, in components/), ClientWorkspace. Marketing components stay under src/components as well: Navbar, Footer, Wordmark, ThemeToggle, and Home's own sections (Hero, Trust the logo strip, ServicesSections, RecentClients, StatsRow, HomeTestimonials, HowItWorks, CTA), all rebuilt in Site Prompt 4 on src/marketing/motion; the public Clients page (src/pages/Clients.jsx) and client detail (src/pages/CaseStudy.jsx) read src/marketing/showcase.jsx's ClientCard and TestimonialCard instead of keeping their own copies. Process.jsx, Testimonials.jsx, the old grid Services.jsx, and ShowcasePreview.jsx were removed in Site Prompt 4 and 5 (grep confirms zero importers before each deletion); src/marketing/showcase.jsx's LogoItem, built in Site Prompt 3, was retired the same way in Site Prompt 5 once Trust.jsx turned out to need theme-aware logo selection LogoItem never did.
 
 ## Endpoints
 
@@ -101,6 +111,7 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/admin/login, logout, session | POST (rate limited), POST, GET (renews the cookie) | AdminApp, AdminCalls |
 | /api/admin/log | GET ?limit, POST { kind, message, stack, url, at }, DELETE | src/shared/log.js, AdminSettings |
 | /api/push-key | GET | AdminSettings |
+| /api/showcase | GET, and GET ?slug=x (public, no auth, same-origin only: no CORS header). Published clients only, an exact field whitelist (never phone, email, pricing, purchases, notes); brand.palette and brand.typography are computed at serve time from the lead's own brand block, never duplicated | src/marketing/showcase.jsx (fetchShowcase, fetchClient), src/pages/Clients.jsx, src/pages/CaseStudy.jsx, Home's sections, scripts/prerender-clients.mjs, scripts/build-sitemap.mjs |
 | /api/submissions | POST (public: start, contact, review, shop-order; shop orders also create an orders document) | Start.jsx, Prints.jsx |
 | /api/stripe/webhook | POST (Stripe signature) | Stripe |
 | /api/cron/reminders (once a day, morning digest), /api/cron/daily | GET (CRON_SECRET) | Vercel cron |
@@ -138,8 +149,16 @@ localStorage (admin, per device): vz_theme, vz_motion, vz_boot, vz_call_session,
 All in docs/RUNBOOK.md with their flags. The walking audits (layout, feel,
 a11y, regression, render-profile) share scripts/audit-fixtures.mjs (the
 hostile data and the route mocks) and scripts/audit-screens.mjs (the screen
-and state table); Lighthouse runs against scripts/mock-server.mjs over real
-HTTP. hex-count, css-orphans, and dates-test are the static checks.
+and state table, including every marketing page's own `marketing: true`
+entries, added in Site Prompts 3-5); Lighthouse runs against
+scripts/mock-server.mjs over real HTTP. hex-count, css-orphans, and
+dates-test are the static checks. scripts/site-regression.mjs
+(Site Prompt 5) is docs/SITE-QA-CHECKLIST.md's CRM-to-site walk, its own
+mocked /api/showcase mutated in place between steps rather than sharing
+audit-fixtures.mjs's admin-shaped fixtures. scripts/prerender-clients.mjs
+and scripts/build-sitemap.mjs (Site Prompt 5) run as part of `npm run
+build` itself, after `vite build`, not as separate audits; see
+docs/RUNBOOK.md, "Prerender."
 
 ## Known issues
 
@@ -147,4 +166,6 @@ HTTP. hex-count, css-orphans, and dates-test are the static checks.
 - The Call Console keeps its own copy of the leads list and pings the shell on changes; two tabs can briefly disagree.
 - Reads keep the last list and show an ErrorState with Retry when a fetch fails; writes roll back and toast.
 - Offline writes are refused, not queued (Prompt 14 decision); the service worker serves the last GET of each list for reading.
-- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total (145 at 3.0.0).
+- The marketing site still carries raw hex in its own pages and index.css; the hex count script tracks the total, and CLAUDE.md's standing rule is that it only ever goes down (119 at 3.1.0, down from 145 at 3.0.0, most of the drop from Site Prompt 4's landing page rebuild removing more hardcoded decorative color literals than the new sections added, and Site Prompt 5's Prints.jsx token remapping).
+- The Prints checkout's customize modal does not trap focus (Tab can move from it to page content behind the overlay); found by Site Prompt 5's keyboard walk, not fixed there since it is more than the "restyle only" scope that prompt set for Prints.
+- No new vercel.json rewrite routes /clients/:slug to its prerendered static file; Vercel's documented routing order checks the output directory for a real file before the rewrites array, so it already wins once scripts/prerender-clients.mjs has written it, and there is no declarative "if the file exists" rewrite condition to express the non-prerendered fallback safely. See docs/RUNBOOK.md, "Prerender."
