@@ -77,6 +77,9 @@ export const SCREENS = [
   { id: 'mkt-home', screen: 'Home (marketing)', label: 'full', path: '/', session: false, static: true, marketing: true },
   { id: 'mkt-home-empty', screen: 'Home (marketing)', label: 'empty landing', path: '/', session: false, static: true, marketing: true, emptyResource: 'showcase' },
 
+  // Site Prompt 5: the rebuilt Services page, static (no CRM data).
+  { id: 'mkt-services', screen: 'Services (marketing)', label: 'full', path: '/services', session: false, static: true, marketing: true },
+
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 
