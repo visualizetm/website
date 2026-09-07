@@ -77,6 +77,12 @@
   /* Transitions */
   --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --duration: 0.3s;
+
+  /* Marketing motion primitives (src/marketing/motion, docs/MARKETING-MOTION.md) */
+  --m-dur: 600ms;
+  --m-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --m-rise: 16px;
+  --m-stagger: 60ms;
 }
 
 /* Light theme, user toggle or OS preference (set pre-paint in index.html) */
@@ -407,6 +413,83 @@ h1, h2, h3, h4, h5, h6 {
 .theme-toggle:hover {
   background: var(--hover-strong);
   color: var(--text);
+}
+
+/* ── Marketing motion primitives (src/marketing/motion) ───────────────
+   One shared stylesheet for every instance, same convention as .wordmark
+   and .theme-toggle above (a component that renders many times does not
+   carry its own <style> tag per instance). See docs/MARKETING-MOTION.md. */
+
+/* Reveal / Stagger: fade in and rise --m-rise on first viewport entry, once. */
+.m-reveal {
+  opacity: 0;
+  transform: translateY(var(--m-rise));
+  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
+}
+.m-reveal--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Counter: steady digit width while the number ticks up. */
+.m-counter {
+  font-variant-numeric: tabular-nums;
+}
+
+/* SectionNumber: a zero-padded numeral next to a thin hairline rule. */
+.m-section-number {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.m-section-number-value {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.m-section-number-rule {
+  width: 32px;
+  height: 1px;
+  background: var(--border-light);
+}
+.m-section-number-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Marquee: seamless horizontal loop, paused on hover, static under reduced motion. */
+.m-marquee {
+  overflow: hidden;
+  width: 100%;
+}
+.m-marquee--static {
+  overflow-x: auto;
+}
+.m-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: m-marquee-scroll var(--m-marquee-duration, 30s) linear infinite;
+}
+.m-marquee:not(.m-marquee--no-hover-pause):hover .m-marquee-track {
+  animation-play-state: paused;
+}
+.m-marquee-track--static {
+  display: flex;
+  animation: none;
+}
+.m-marquee-group {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+@keyframes m-marquee-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
 }
 
 /* ── Under Construction Page ────────────────────────────────────────── */

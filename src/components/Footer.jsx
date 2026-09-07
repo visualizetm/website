@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import Wordmark from './Wordmark';
+import { Reveal, Stagger } from '../marketing/motion';
 
 // Untitled UI's free line set has no social brand marks, this glyph matches
 // its 24-grid, stroke-2, currentColor conventions so it reads as one system.
@@ -20,26 +21,26 @@ export default function Footer() {
     <footer className="footer">
       <div className="wrap footer-inner">
         <div className="footer-top">
-          <div className="footer-brand">
+          <Reveal as="div" className="footer-brand">
             <Link to="/" className="footer-logo">
               <Wordmark size={22} />
             </Link>
-            <p className="footer-tagline">Brand Development & Website Design</p>
+            <p className="footer-tagline">Brand Development and Website Design</p>
             <div className="footer-contact">
               <a href="mailto:contact@visualizeclients.com" className="footer-contact-item">
                 <Mail01 width={14} height={14} />
                 contact@visualizeclients.com
               </a>
             </div>
-          </div>
+          </Reveal>
 
-          <div className="footer-cols">
+          <Stagger as="div" itemAs="div" className="footer-cols">
             <div className="footer-col">
               <p className="footer-col-label">Navigation</p>
               <nav className="footer-col-links">
                 <Link to="/">Home</Link>
                 <Link to="/services">Services</Link>
-                <Link to="/work">Work</Link>
+                <Link to="/work">Clients</Link>
                 <Link to="/book">Contact</Link>
               </nav>
             </div>
@@ -49,9 +50,9 @@ export default function Footer() {
                 <a href="/prints" target="_blank" rel="noopener noreferrer">Custom Prints</a>
               </nav>
             </div>
-          </div>
+          </Stagger>
 
-          <div className="footer-cta-col">
+          <Reveal as="div" className="footer-cta-col" delay={120}>
             <p className="footer-cta-label">Ready to start?</p>
             <a href="/book" className="footer-cta-btn">
               Book a Meeting
@@ -66,7 +67,7 @@ export default function Footer() {
               <InstagramGlyph size={16} />
               @visualizetm
             </a>
-          </div>
+          </Reveal>
         </div>
 
         <div className="footer-bottom">
