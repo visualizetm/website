@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, packs, projects } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, packs, projects, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -48,6 +48,12 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/orders')) return m === 'GET' ? get('orders') : json(res, { ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } });
   if (p.startsWith('/api/admin/concept-packs')) return m === 'GET' ? get('packs') : json(res, { ok: true, item: { ...packs[0], _id: 'KNEW' } });
   if (p.startsWith('/api/admin/projects')) return m === 'GET' ? get('projects') : json(res, { ok: true, item: { ...projects[0], _id: 'PNEW' } });
+  if (p === '/api/showcase') {
+    const slug = url.searchParams.get('slug');
+    if (!slug) return json(res, SHOWCASE_PAYLOAD);
+    const client = SHOWCASE_CLIENTS.find(c => c.slug === slug);
+    return client ? json(res, client) : json(res, { error: 'not found' }, 404);
+  }
   if (p === '/api/submissions') return json(res, { ok: true, id: 'subMock' });
   return json(res, { error: 'not mocked' }, 404);
 }

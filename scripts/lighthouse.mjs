@@ -24,6 +24,9 @@ const TARGETS = [
   { id: 'dashboard', label: 'Dashboard', path: '/admin' },
   { id: 'leads', label: 'Leads', path: '/admin/leads', ls: { vz_leads_view: JSON.stringify('list') } },
   { id: 'room', label: 'Call room', path: '/admin/calls', ls: { vz_call_session: JSON.stringify(SESSION('room')) } },
+  // Site Prompt 3: the public /clients page and one detail, driven by /api/showcase.
+  { id: 'clients', label: 'Clients (marketing)', path: '/clients' },
+  { id: 'clients-detail', label: 'Clients detail (marketing)', path: '/clients/full-showcase-co' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
 
