@@ -92,7 +92,7 @@ export const workStyles = `
   }
   .wk-eyebrow {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.18em;
-    text-transform: uppercase; color: var(--brand);
+    text-transform: uppercase; color: var(--brand-text);
     margin-bottom: var(--space-4);
   }
   .wk-title {

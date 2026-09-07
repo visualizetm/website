@@ -229,7 +229,7 @@ export default function Navbar() {
         /* Burger */
         .navbar-burger {
           display: none; align-items: center; justify-content: center;
-          width: 36px; height: 36px;
+          width: 44px; height: 44px;
           background: var(--glass-bg); border: 1px solid var(--border);
           border-radius: 50%; cursor: pointer; flex-shrink: 0;
           color: var(--text-secondary);
@@ -308,7 +308,7 @@ export default function Navbar() {
           text-align: center; font-size: 0.8125rem; color: var(--text-muted);
           margin-top: auto; padding-top: var(--space-4);
         }
-        .navbar-drawer-contact a { color: var(--brand); font-weight: 600; }
+        .navbar-drawer-contact a { color: var(--brand-text); font-weight: 600; }
 
         /* ── Responsive ───────────────────────────── */
         @media (max-width: 900px) {

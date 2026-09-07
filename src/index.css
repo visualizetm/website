@@ -74,6 +74,14 @@
   --glass-blur: 14px;
   --glass-blur-strong: 24px;
 
+  /* Brand-colored text specifically (an eyebrow, a link): --brand itself
+     reads fine against the dark theme's backgrounds, but at 4.27:1 on white
+     it fails WCAG's 4.5:1 text minimum, so text uses this instead of
+     --brand directly. Same value as --brand on the dark theme; the light
+     theme override below points it at the darker --brand-dark instead
+     (Site Prompt 4, Part 3). */
+  --brand-text: var(--brand);
+
   /* Transitions */
   --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --duration: 0.3s;
@@ -97,7 +105,11 @@
 
   --text: #1b1b1c;
   --text-secondary: #4a4a4b;
-  --text-muted: #8a8a8a;
+  /* #8a8a8a (the dark theme's value) reads at 3.2-3.5:1 on this theme's
+     backgrounds, below the 4.5:1 WCAG text minimum; darkened here until
+     both the drawer contact line and the footer copyright line pass
+     against both white and --bg-deep (Site Prompt 4, Part 3). */
+  --text-muted: #6b6b6b;
   --text-faint: #b0b0b0;
 
   --glass-bg: rgba(255, 255, 255, 0.7);
@@ -112,6 +124,7 @@
   --shadow-chrome-strong: 0 8px 40px rgba(0, 0, 0, 0.13);
 
   color-scheme: light;
+  --brand-text: var(--brand-dark);
 }
 
 *, *::before, *::after {

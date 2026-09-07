@@ -37,7 +37,7 @@ export default function Footer() {
           <Stagger as="div" itemAs="div" className="footer-cols">
             <div className="footer-col">
               <p className="footer-col-label">Navigation</p>
-              <nav className="footer-col-links">
+              <nav className="footer-col-links" aria-label="Navigation">
                 <Link to="/">Home</Link>
                 <Link to="/services">Services</Link>
                 <Link to="/clients">Clients</Link>
@@ -46,7 +46,7 @@ export default function Footer() {
             </div>
             <div className="footer-col">
               <p className="footer-col-label">Products</p>
-              <nav className="footer-col-links">
+              <nav className="footer-col-links" aria-label="Products">
                 <a href="/prints" target="_blank" rel="noopener noreferrer">Custom Prints</a>
               </nav>
             </div>
