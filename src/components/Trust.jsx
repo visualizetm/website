@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Reveal, Marquee } from '../marketing/motion';
+import { Marquee, Tone } from '../marketing/motion';
 import { useTheme } from '../marketing/useTheme';
 import { capImageWidth } from '../marketing/showcase';
 
-/* Site Prompt 4, Part 1.2: the logo strip. clients is the full published
+/* Site Prompt 4, Part 1.2, restaged by Site Prompt 6, Part 2.2: the logo
+ * strip, unchanged in data, now sitting on Home's first Tone shift so the
+ * page lifts off the brand black here instead of meeting a hard edge. clients is the full published
  * list (from the same one fetchShowcase() call Home makes), filtered here
  * to featured.logoStrip and ordered by featured.order, so each entry keeps
  * its client.brand.logo.light/dark pair for a theme-correct pick, the
@@ -17,7 +19,7 @@ export default function Trust({ clients }) {
   if (!strip.length) return null;
 
   return (
-    <Reveal as="section" className="trust">
+    <Tone as="section" className="trust" from="var(--bg)" to="var(--bg-elevated)">
       <p className="trust-label">Trusted by local businesses</p>
       <Marquee duration={36}>
         {strip.map((c) => {
@@ -52,6 +54,6 @@ export default function Trust({ clients }) {
         .trust-logo img { max-height: 100%; max-width: 140px; object-fit: contain; }
         .trust-logo-fallback { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
       `}</style>
-    </Reveal>
+    </Tone>
   );
 }

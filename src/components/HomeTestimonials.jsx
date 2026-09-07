@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Reveal, Stagger } from '../marketing/motion';
+import { Stagger, WordReveal } from '../marketing/motion';
 import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.6: landing.testimonials (already published, featured,
@@ -35,7 +35,7 @@ export default function HomeTestimonials({ testimonials }) {
   return (
     <section className="ht section">
       <div className="wrap">
-        <Reveal as="h2" className="section-title">What clients say</Reveal>
+        <WordReveal as="h2" className="section-title">What clients say</WordReveal>
         <div className="ht-track" ref={trackRef}>
           {items.map(t => (
             <div key={`${t.slug}-${t.author}`} className="ht-slide">

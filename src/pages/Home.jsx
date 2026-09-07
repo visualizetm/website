@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import Hero from '../components/Hero';
 import Trust from '../components/Trust';
-import ServicesSections from '../components/ServicesSections';
+import BusinessTypes from '../components/BusinessTypes';
+import Platforms from '../components/Platforms';
 import RecentClients from '../components/RecentClients';
-import StatsRow from '../components/StatsRow';
 import HomeTestimonials from '../components/HomeTestimonials';
 import HowItWorks from '../components/HowItWorks';
 import CTA from '../components/CTA';
 import { fetchShowcase } from '../marketing/showcase';
 import { useHead } from '../marketing/useHead';
-import { useScrollRefresh } from '../marketing/motion';
+import { Curtain, useScrollRefresh } from '../marketing/motion';
 
 const EMPTY = { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } };
 
@@ -18,7 +18,16 @@ const EMPTY = { clients: [], landing: { logoStrip: [], work: [], testimonials: [
  * way; each CRM section stays hidden (its own empty check) until data
  * lands, then Reveals. A fetch failure is treated the same as a genuinely
  * empty CRM, since every section already has a clean hidden-when-empty
- * state, there is no separate error UI to build for the landing page. */
+ * state, there is no separate error UI to build for the landing page.
+ *
+ * Site Prompt 6 rebuilt the page around what Rob does for each kind of
+ * local business, and gave it the heavy motion set: the hero pins, two
+ * sections arrive as Curtains over the one before them, two shift Tone.
+ * The two Curtains are rendered here rather than inside their sections
+ * because a Curtain animates whatever element precedes it, so it has to
+ * know its neighbours. The second one is skipped entirely when the CRM has
+ * no published work, since an empty rounded panel sliding up over the page
+ * is worse than no transition at all. */
 export default function Home() {
   useHead({
     title: 'Visualize. | Branding and websites for local businesses',
@@ -40,18 +49,35 @@ export default function Home() {
 
   const landing = data?.landing || EMPTY.landing;
   const clients = data?.clients || [];
-  const work0 = landing.work?.[0];
+  const work = landing.work || [];
+  const work0 = work[0];
 
   return (
     <>
       <Hero cover={work0 ? { src: work0.cover, alt: `${work0.displayName} project` } : null} />
-      <Trust clients={clients} />
-      <ServicesSections clients={clients} heroCover={work0?.cover} />
-      <RecentClients work={landing.work} />
-      <StatsRow stats={landing.stats} />
+
+      <Curtain className="home-panel">
+        <Trust clients={clients} />
+        <BusinessTypes />
+      </Curtain>
+
+      <Platforms />
+
+      {work.length > 0 && (
+        <Curtain className="home-panel">
+          <RecentClients work={work} />
+        </Curtain>
+      )}
+
       <HomeTestimonials testimonials={landing.testimonials} />
       <HowItWorks />
       <CTA />
+
+      <style>{`
+        /* Both Curtains cover the section above them, so they carry the
+           page ground themselves rather than letting it show through. */
+        .home-panel { background: var(--bg); }
+      `}</style>
     </>
   );
 }

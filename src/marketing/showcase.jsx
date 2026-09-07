@@ -10,6 +10,7 @@
  */
 import { Link } from 'react-router-dom';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
+import { Parallax } from './motion';
 
 const CACHE_MS = 60000;
 let listCache = null; // { at, data: { clients, landing } }
@@ -55,18 +56,23 @@ export function capImageWidth(url, width = 1600) {
   return `${url.slice(0, cut)}w_${width},c_limit/${url.slice(cut)}`;
 }
 
-/** The list/preview card: displayName, type, blurb, cover with a monogram fallback. Identical markup to the old hardcoded version. */
-export function ClientCard({ client }) {
+/** The list/preview card: displayName, type, blurb, cover with a monogram
+ * fallback. `parallax` (Home's Recent clients, Site Prompt 6) drifts the
+ * cover inside its own frame as the card crosses the viewport; the list
+ * page leaves it off, since a grid of drifting covers reads as noise. */
+export function ClientCard({ client, parallax = false }) {
+  const media = client.cover ? (
+    <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
+  ) : (
+    <div className="wk-card-mono" aria-hidden="true">
+      <span className="display">{(client.displayName || '?').charAt(0)}</span>
+    </div>
+  );
+
   return (
     <Link to={`/clients/${client.slug}`} className="wk-card">
       <div className="wk-card-media">
-        {client.cover ? (
-          <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
-        ) : (
-          <div className="wk-card-mono" aria-hidden="true">
-            <span className="display">{(client.displayName || '?').charAt(0)}</span>
-          </div>
-        )}
+        {parallax ? <Parallax as="div" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
       </div>
       <div className="wk-card-body">
         <div className="wk-card-top">

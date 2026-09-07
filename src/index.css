@@ -566,15 +566,21 @@ h1, h2, h3, h4, h5, h6 {
   will-change: transform;
 }
 
-/* ScaleIn: one-shot settle on first viewport entry, safe on any page. */
+/* ScaleIn: one-shot settle on first viewport entry, safe on any page.
+   filter is the one animated property in this block that is neither a
+   transform nor opacity; it is still compositor work, never layout, and
+   the un-blur is what makes a cover read as coming into focus rather
+   than merely growing. Kept small (4px) and used only on covers. */
 .m-scalein {
   opacity: 0;
-  transform: scale(1.06);
-  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
+  transform: scale(1.08);
+  filter: blur(4px);
+  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease), filter var(--m-dur) var(--m-ease);
 }
 .m-scalein--in {
   opacity: 1;
   transform: none;
+  filter: blur(0);
 }
 
 /* WordReveal: one clipping span per word so a word rises out from behind
@@ -591,15 +597,20 @@ h1, h2, h3, h4, h5, h6 {
   display: inline-block;
   will-change: transform, opacity;
 }
+/* The waiting state is opacity alone, deliberately: gsap reads an
+   existing CSS transform into its own transform state and then animates
+   on top of it, so a translateY here would stay baked into every word
+   after the reveal finished. The rise is the tween's job. */
 .m-words:not(.m-words--static) .m-word-i {
   opacity: 0;
-  transform: translateY(110%);
 }
 
 /* TrackScroll: a column by default, which is also what touch, reduced
-   motion and a failed import get. Only with the engine live, a fine
-   pointer and room to do it does the row go sideways, and only then is
-   the viewport allowed to clip. */
+   motion and a failed import get. The .m-track--h class is added by the
+   helper itself, and only when the engine is live, the pointer is fine
+   and the breakpoint agrees; the wrapper's height and --track-d are
+   measured there too. Sticky rather than a fixed pin, so the track still
+   works inside a Curtain (whose transform would otherwise capture it). */
 .m-track {
   position: relative;
 }
@@ -608,15 +619,23 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   gap: var(--space-6);
 }
-@media (min-width: 861px) and (pointer: fine) {
-  .m-track--h .m-track-viewport {
-    overflow: hidden;
-  }
-  .m-track--h .m-track-row {
-    flex-direction: row;
-    align-items: stretch;
-    will-change: transform;
-  }
+.m-track--h .m-track-inner {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  display: flex;
+  align-items: center;
+}
+.m-track--h .m-track-viewport {
+  width: 100%;
+  overflow: hidden;
+}
+.m-track--h .m-track-row {
+  flex-direction: row;
+  align-items: stretch;
+  transform: translate3d(calc(var(--track-p, 0) * var(--track-d, 0px) * -1), 0, 0);
+  will-change: transform;
 }
 /* Gentle page-level snapping while a track is mounted on a touch device
    (proximity, never mandatory, so it only helps when you are already

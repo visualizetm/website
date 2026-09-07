@@ -14,7 +14,7 @@ import { useRef } from 'react';
 import { cx } from './shared';
 import { useScrollEngine, useScrollProgress } from './useScroll';
 
-const PREV_SCALE = 0.05;   // how far back the covered section falls
+const PREV_SCALE = 0.04;   // the covered section settles at 0.96
 const PREV_FADE = 0.4;     // how far it dims
 
 export function Curtain({

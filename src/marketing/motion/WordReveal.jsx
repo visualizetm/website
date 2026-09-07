@@ -37,17 +37,18 @@ export function WordReveal({
     const targets = ref.current.querySelectorAll('.m-word-i');
     if (!targets.length) return undefined;
 
-    const tween = eng.gsap.fromTo(
-      targets,
-      { yPercent: 110, opacity: 0 },
-      {
-        yPercent: 0,
-        opacity: 1,
-        ease: 'none',
-        stagger: 0.25,
-        scrollTrigger: { trigger: ref.current, start, end, scrub: true },
-      },
-    );
+    /* A heading that is already on screen when the page loads has no
+     * scroll left between its start and end positions, so a scrubbed
+     * reveal would sit at progress 0 forever and the heading would never
+     * appear. Those play once on their own clock instead; only headings
+     * still below the fold are handed to the scroll. */
+    const aboveFold = ref.current.getBoundingClientRect().top < window.innerHeight * 0.6;
+    const from = { yPercent: 110, opacity: 0 };
+    const to = aboveFold
+      ? { yPercent: 0, opacity: 1, ease: 'power3.out', duration: 0.7, stagger: 0.06 }
+      : { yPercent: 0, opacity: 1, ease: 'none', stagger: 0.25, scrollTrigger: { trigger: ref.current, start, end, scrub: true } };
+
+    const tween = eng.gsap.fromTo(targets, from, to);
 
     return () => { tween.scrollTrigger?.kill(); tween.kill(); };
   }, [state, start, end, words.length]);

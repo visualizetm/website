@@ -1,6 +1,6 @@
 // ScaleIn: an image or card settles into place, once, as it enters the
-// viewport. It starts a touch oversized and transparent and settles back to
-// its true size. The only one of the new helpers that is not
+// viewport. It starts oversized, transparent and soft, and settles back to
+// its true size, opaque and sharp. The only one of the new helpers that is not
 // scroll-scrubbed: it is a one-shot CSS transition on the same
 // IntersectionObserver Reveal uses, which is why it is safe on every page,
 // not just Home.

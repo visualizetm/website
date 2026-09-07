@@ -133,8 +133,13 @@ export const workStyles = `
     .wk-card, .wk-card:hover { transform: none; transition: border-color 0.25s; }
   }
 
-  .wk-card-media { aspect-ratio: 16 / 10; background: var(--surface); }
+  .wk-card-media { aspect-ratio: 16 / 10; background: var(--surface); overflow: hidden; }
   .wk-card-media img { width: 100%; height: 100%; object-fit: cover; }
+  /* ClientCard's optional parallax cover (Home's Recent clients): the
+     drift needs room to move inside the frame, so the shifting layer is
+     taller than the frame that clips it. */
+  .wk-card-shift { width: 100%; height: 112%; margin-top: -6%; }
+  .wk-card-shift img { width: 100%; height: 100%; object-fit: cover; }
   .wk-card-mono {
     width: 100%; height: 100%;
     display: flex; align-items: center; justify-content: center;
