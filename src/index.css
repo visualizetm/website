@@ -91,6 +91,16 @@
   --m-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --m-rise: 16px;
   --m-stagger: 60ms;
+
+  /* Maintenance screen (src/main.jsx): "the brand black ground," fixed
+     regardless of the site's own light/dark toggle, so declared once here
+     and never overridden under :root[data-theme='light'] below, unlike
+     --bg-deep/--text/--text-secondary, which are (the same reasoning as
+     Prints.jsx's own fixed-dark palette, Site Prompt 5, Part 2). Same
+     literal values as this theme's own --bg-deep/--text/--text-secondary. */
+  --uc-bg: #080808;
+  --uc-text: #fafafa;
+  --uc-text-secondary: #cccccc;
 }
 
 /* Light theme, user toggle or OS preference (set pre-paint in index.html) */
@@ -534,8 +544,8 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-deep);
-  color: var(--text);
+  background: var(--uc-bg);
+  color: var(--uc-text);
   overflow: hidden;
   font-family: var(--font-body);
   padding: var(--space-6);
@@ -580,7 +590,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: clamp(1.9rem, 6vw, 2.75rem);
   letter-spacing: -0.01em;
   line-height: 1;
-  color: var(--text);
+  color: var(--uc-text);
   margin-bottom: var(--space-8);
   opacity: 0;
   transform: translateY(var(--m-rise));
@@ -593,7 +603,7 @@ h1, h2, h3, h4, h5, h6 {
   align-items: baseline;
   min-height: 1.6em;
   font-size: 1.0625rem;
-  color: var(--text-secondary);
+  color: var(--uc-text-secondary);
   white-space: pre-wrap;
   word-break: break-word;
 }

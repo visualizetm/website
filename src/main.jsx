@@ -64,7 +64,6 @@ function useTypedLine(reduced) {
 function Maintenance() {
   const reduced = useMotionPreference();
   const line = useTypedLine(reduced);
-  const headingRef = useRef(null);
 
   useEffect(() => {
     const prevTitle = document.title;
