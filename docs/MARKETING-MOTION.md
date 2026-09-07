@@ -433,11 +433,23 @@ documented exception (it does not take over the scroll).
 ### `TrackScroll`
 
 A row of cards that moves sideways while the page scrolls down, the section
-pinned until the row runs out. Desktop and a fine pointer only, above
-860px: ScrollTrigger pins the section and translates the row by exactly the
-distance it overflows, recomputed on every refresh
-(`invalidateOnRefresh`) so a resize, a font swap or a late fetch never
-leaves the last card unreachable.
+held still until the row runs out. Desktop and a fine pointer only, above
+860px. The hold is `position: sticky` and the row moves on a CSS transform
+reading `--track-p`, not ScrollTrigger's own `pin: true`: pinning is
+`position: fixed`, and Home puts this section inside a `Curtain`, whose
+transform becomes the containing block for fixed positioning and drags a
+pinned track out of the viewport. The wrapper's height is one viewport plus
+exactly the distance the row overflows, measured on every refresh, so a
+resize, a font swap or a late fetch never leaves the last card unreachable.
+
+Two things follow from that, both of which bit during Site Prompt 6. No
+ancestor of the track may clip (`overflow` anything but visible), because
+sticky silently stops working inside one. And focus has to move the page
+itself: Tab reaches the cards in DOM order, but where a card sits on screen
+is a function of scroll, so the browser's own scroll-into-view cannot reach
+one still off to the right. The helper listens for `focusin` and scrolls to
+the point where the focused card is visible, measured from layout offsets
+rather than the rect, since the Curtain's transform moves the rect.
 
 Everywhere else, and with no engine, it is a plain vertical stack of the
 same cards in the same order. On touch the page snaps gently to them
