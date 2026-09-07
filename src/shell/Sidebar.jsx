@@ -65,7 +65,7 @@ export const sidebarStyles = `
   .sh-side {
     display: none; flex-direction: column; flex-shrink: 0;
     width: var(--v-sidebar-w); height: 100%; min-height: 0;
-    background: var(--v-sidebar-bg); background-image: var(--v-grid-texture); background-size: var(--v-grid-texture-size);
+    background: var(--v-sidebar-bg);
     border-right: 1px solid var(--v-sidebar-border); color: var(--v-sidebar-text);
     padding: var(--v-space-3) var(--v-space-2) calc(var(--v-space-3) + var(--v-inset-bottom)) max(var(--v-space-2), env(safe-area-inset-left));
     transition: width var(--v-dur-base) var(--v-ease-out);

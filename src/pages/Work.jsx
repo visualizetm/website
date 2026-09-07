@@ -10,7 +10,7 @@ export function ClientCard({ client }) {
         {client.cover ? (
           <img src={client.cover} alt={`${client.name} brand`} loading="lazy" />
         ) : (
-          <div className="wk-card-mono grid-texture" aria-hidden="true">
+          <div className="wk-card-mono" aria-hidden="true">
             <span className="display">{client.name.charAt(0)}</span>
           </div>
         )}
@@ -32,7 +32,7 @@ export default function Work() {
 
   return (
     <>
-      <section className="wk-hero grid-texture">
+      <section className="wk-hero">
         <div className="wrap">
           <p className="wk-eyebrow">Client Showcase</p>
           <h1 className="wk-title display">Work</h1>

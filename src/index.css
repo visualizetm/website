@@ -28,6 +28,9 @@
   --text-muted: #8a8a8a;
   --text-faint: #555555;
 
+  /* Status */
+  --success: #22c55e;
+
   /* Type */
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Barlow Condensed', 'Inter', sans-serif;
@@ -405,20 +408,6 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--hover-strong);
   color: var(--text);
 }
-
-/* Signature texture, very faint red grid overlay */
-.grid-texture { position: relative; }
-.grid-texture::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(204, 34, 34, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(204, 34, 34, 0.045) 1px, transparent 1px);
-  background-size: 48px 48px;
-  pointer-events: none;
-}
-.grid-texture > * { position: relative; }
 
 /* ── Under Construction Page ────────────────────────────────────────── */
 @keyframes ucTwinkle {

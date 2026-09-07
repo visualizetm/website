@@ -213,6 +213,24 @@ for (const width of WIDTHS) {
     await ctx.close(); continue;
   }
 
+  if (!only || only === 'marketing') {
+    // Site Prompt 1: the public marketing pages, overflow and 44px targets
+    // at every width. /prints is covered by the shop checkout flow below.
+    await goto('/');
+    await check('marketing: Home');
+    await goto('/services');
+    await check('marketing: Services');
+    await goto('/work');
+    await check('marketing: Work (list)');
+    await goto('/work/example-client');
+    await check('marketing: Work (case study)');
+    await goto('/contact');
+    await check('marketing: Contact');
+    await goto('/start');
+    await check('marketing: Start');
+    if (only === 'marketing') { await ctx.close(); continue; }
+  }
+
   if (!only || only === 'settings') {
   // Shop checkout end to end (Prompt 13): the public shop posts a shop-order submission,
   // the same server builder turns it into an order, and Print Orders shows it.

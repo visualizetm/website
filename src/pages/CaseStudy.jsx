@@ -51,7 +51,7 @@ export default function CaseStudy() {
     <>
       <article className="cs-page">
         {/* Header */}
-        <header className="cs-hero grid-texture">
+        <header className="cs-hero">
           <div className="wrap">
             <Link to="/work" className="cs-back">
               <ArrowLeft width={15} height={15} />
@@ -162,7 +162,7 @@ export default function CaseStudy() {
           )}
 
           {/* Start your own */}
-          <section className="cs-cta grid-texture">
+          <section className="cs-cta">
             <h2 className="cs-cta-title display">Start your own</h2>
             <p className="cs-cta-sub">Same process, your business. Tell me what we're building.</p>
             <Link to="/start" className="btn btn-primary cs-cta-btn">

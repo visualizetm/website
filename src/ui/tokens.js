@@ -106,12 +106,6 @@ export const tokenStyles = `
     --v-z-base: 0; --v-z-sticky: 10; --v-z-tabbar: 50; --v-z-sheet: 60;
     --v-z-modal: 70; --v-z-toast: 90; --v-z-command: 100;
 
-    /* Texture: the faint red grid, applied intentionally */
-    --v-grid-texture:
-      linear-gradient(rgba(204,34,34,0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(204,34,34,0.045) 1px, transparent 1px);
-    --v-grid-texture-size: 44px 44px;
-
     /* Layout measurements (Prompt 3): gutters floored by the notch, raw insets, content widths */
     --v-gutter-l: max(var(--v-gutter), env(safe-area-inset-left));
     --v-gutter-r: max(var(--v-gutter), env(safe-area-inset-right));
@@ -180,10 +174,6 @@ export const tokenStyles = `
     /* Shadows: more spread, warm */
     --v-shadow-2: 0 6px 20px rgba(26,22,19,0.12), 0 0 0 1px var(--v-border);
     --v-shadow-3: 0 16px 48px rgba(26,22,19,0.18), 0 0 0 1px var(--v-border-strong);
-    /* Texture toned down */
-    --v-grid-texture:
-      linear-gradient(rgba(204,34,34,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(204,34,34,0.03) 1px, transparent 1px);
     /* Charts (Prompt 15): darker fills so a bar reads 3:1 on the cream layers and a white label passes 4.5:1 on it */
     --v-chart-1: var(--v-red-hover); --v-chart-2: #1d4ed8; --v-chart-3: #15803d;
     --v-chart-4: #b45309; --v-chart-5: var(--v-status-callback-text); --v-chart-6: #047857;

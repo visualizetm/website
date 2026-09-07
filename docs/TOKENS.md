@@ -126,7 +126,6 @@ dark values in light.
 | status text: new / progress / callback / booked / won / danger | `#8a3d0c` / `#1a44c2` / `#6d28d9` / `#166534` / `#9e2f28` / `#a91b1b` |
 | status solid: danger / neutral | `#f87171` / `#a3a3a3` (the other solids keep their dark values) |
 | `--v-shadow-2` / `-3` | `0 6px 20px rgba(26,22,19,0.12)` / `0 16px 48px rgba(26,22,19,0.18)`, each with the hairline ring |
-| `--v-grid-texture` | the same grid at 0.03 alpha |
 
 Light contrast table (WCAG 2.x, computed):
 
@@ -191,8 +190,6 @@ Weights: `--v-weight-regular` 400, `-medium` 500, `-semibold` 600, `-bold` 700.
   `durationMs()` in src/ui/motion.js, so nothing hardcodes a duration.
 - `--v-z-base` 0, `-sticky` 10, `-tabbar` 50, `-sheet` 60, `-modal` 70,
   `-toast` 90, `-command` 100.
-- `--v-grid-texture` (+ `--v-grid-texture-size` 44px): the faint red grid,
-  applied only where intended (`background-image: var(--v-grid-texture)`).
 
 ## Aliases kept for existing screens (migrated screen by screen, Prompts 4-12)
 

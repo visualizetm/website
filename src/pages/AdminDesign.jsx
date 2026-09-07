@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Check from '@untitled-ui/icons-react/build/esm/Check';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import DesignComponents from './AdminDesignComponents';
@@ -95,7 +94,6 @@ export default function AdminDesign({ onBack, loading = false }) {
   const t = useTokens();
   const themes = useThemeTokens();
   const showSkel = useDelayedLoading(loading);
-  const [texture, setTexture] = useState(true);
   const [enterKey, setEnterKey] = useState(0);
   const [pressed, setPressed] = useState(false);
   const v = (n) => hexOf(t[`--v-${n}`]);
@@ -108,7 +106,7 @@ export default function AdminDesign({ onBack, loading = false }) {
 
   if (loading) {
     return (
-      <div className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`} aria-busy="true">
+      <div className={"aa-main aa-main--wide lay-scroll ds-page"} aria-busy="true">
         <div className="lay-content lay-content--wide ds-wrap">
           {showSkel && <>
             <div className="ds-hero"><SkeletonBlock width={110} height={12} /><SkeletonBlock width="50%" height={56} /><SkeletonText lines={2} width="60%" /><div className="ds-toolbar">{[150, 170, 140].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</div></div>
@@ -121,7 +119,7 @@ export default function AdminDesign({ onBack, loading = false }) {
   }
 
   return (
-    <div className={`aa-main aa-main--wide lay-scroll ds-page${texture ? ' ds-page--texture' : ''}`}>
+    <div className={"aa-main aa-main--wide lay-scroll ds-page"}>
       <div className="lay-content lay-content--wide ds-wrap">
         <Reveal as="header" className="ds-hero">
           <p className="ds-kicker">Visualize Dark</p>
@@ -131,9 +129,6 @@ export default function AdminDesign({ onBack, loading = false }) {
             What you see here is exactly what every screen will be assembled from.
           </p>
           <div className="ds-toolbar">
-            <button type="button" className="ds-btn" onClick={() => setTexture(x => !x)}>
-              <Check width={14} height={14} style={{ opacity: texture ? 1 : 0.25 }} /> Grid texture {texture ? 'on' : 'off'}
-            </button>
             <a className="ds-btn ds-btn--ghost" href="#components">Jump to components</a>
             {onBack && <button type="button" className="ds-btn ds-btn--ghost" onClick={onBack}>Back to settings</button>}
           </div>
@@ -193,8 +188,8 @@ export default function AdminDesign({ onBack, loading = false }) {
             ))}
           </div>
           <div className="ds-row">
-            <button type="button" className="ds-primary">Primary action <span className="ds-sub">white on red {v('red') ? ratio('#ffffff', v('red')) : ''}</span></button>
-            <button type="button" className="ds-primary ds-primary--hover">Hover <span className="ds-sub">{v('red-hover') ? ratio('#ffffff', v('red-hover')) : ''}</span></button>
+            <button type="button" className="ds-primary">Primary action <span className="ds-sub">white on red {v('red') ? ratio(v('text-on-red'), v('red')) : ''}</span></button>
+            <button type="button" className="ds-primary ds-primary--hover">Hover <span className="ds-sub">{v('red-hover') ? ratio(v('text-on-red'), v('red-hover')) : ''}</span></button>
             <span className="ds-redtext">Red as text uses --v-red-highlight <code>{v('red-highlight')}</code> {v('red-highlight') && v('surface-1') ? `(${ratio(v('red-highlight'), v('surface-1'))} on surface-1)` : ''}</span>
           </div>
         </section>
@@ -314,7 +309,6 @@ export default function AdminDesign({ onBack, loading = false }) {
 
 const dsStyles = `
   .ds-page { color: var(--v-text); font-family: var(--v-font-body); }
-  .ds-page--texture { background-image: var(--v-grid-texture); background-size: var(--v-grid-texture-size); }
   .ds-wrap { --v-stack-gap: var(--v-space-8); }
   .ds-hero { display: flex; flex-direction: column; gap: var(--v-space-3); padding-top: var(--v-space-2); }
   .ds-kicker { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-red-highlight); }

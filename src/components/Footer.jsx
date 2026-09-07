@@ -71,7 +71,6 @@ export default function Footer() {
 
         <div className="footer-bottom">
           <p className="footer-copy">&copy; {new Date().getFullYear()} Visualize. All rights reserved.</p>
-          <p className="footer-build">{typeof __BUILD_SHA__ !== 'undefined' ? __BUILD_SHA__ : 'dev'}</p>
         </div>
       </div>
       <style>{`
@@ -140,10 +139,6 @@ export default function Footer() {
           flex-wrap: wrap;
         }
         .footer-copy { font-size: 0.8125rem; color: var(--text-muted); }
-        .footer-build {
-          font-size: 0.6875rem; color: var(--text-faint);
-          font-family: monospace; letter-spacing: 0.04em;
-        }
       `}</style>
     </footer>
   );

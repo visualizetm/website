@@ -307,7 +307,7 @@ export default function Start() {
   if (stage === 'intro') {
     return (
       <div className="st-shell">
-        <section className="st-intro grid-texture">
+        <section className="st-intro">
           <div className="st-intro-inner">
             <Wordmark size={18} className="st-intro-mark" />
             <h1 className="st-intro-title display">Let's build<br />something<br /><span className="st-intro-red">you're proud of.</span></h1>
@@ -737,7 +737,7 @@ const startStyles = `
     width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
     border: 2px solid var(--border-light); background: transparent;
     display: inline-flex; align-items: center; justify-content: center;
-    color: #fff; transition: all 0.18s;
+    color: var(--text); transition: all 0.18s;
   }
   .st-icard.is-sel .st-icard-mark { background: var(--brand); border-color: var(--brand); }
 
@@ -796,7 +796,7 @@ const startStyles = `
     width: 20px; height: 20px; border-radius: 5px;
     border: 2px solid var(--border-light); flex-shrink: 0; margin-top: 1px;
     display: inline-flex; align-items: center; justify-content: center;
-    color: #fff; transition: background 0.18s, border-color 0.18s;
+    color: var(--text); transition: background 0.18s, border-color 0.18s;
   }
   .st-check.is-sel .st-check-box { background: var(--brand); border-color: var(--brand); }
   .st-check-body { display: flex; flex-direction: column; gap: 2px; flex: 1; }
@@ -825,7 +825,7 @@ const startStyles = `
   .st-next:disabled { opacity: 0.6; cursor: not-allowed; }
   .st-spinner {
     width: 18px; height: 18px; border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.35); border-top-color: #fff;
+    border: 2px solid rgba(255,255,255,0.35); border-top-color: var(--text);
     animation: stSpin 0.65s linear infinite; display: inline-block;
   }
   @keyframes stSpin { to { transform: rotate(360deg); } }
@@ -839,7 +839,7 @@ const startStyles = `
     display: flex; flex-direction: column; align-items: center;
     max-width: 520px; text-align: center;
   }
-  .st-success-icon { color: #22c55e; margin-bottom: var(--space-5); display: inline-flex; }
+  .st-success-icon { color: var(--success); margin-bottom: var(--space-5); display: inline-flex; }
   .st-success-title { font-size: clamp(2.6rem, 7vw, 4rem); color: var(--text); margin-bottom: var(--space-3); }
   .st-success-body { font-size: 1.0625rem; color: var(--text-secondary); margin-bottom: var(--space-5); }
   .st-success-steps {
