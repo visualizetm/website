@@ -53,7 +53,7 @@ export function ClientCard({ client }) {
       </div>
       <div className="wk-card-body">
         <div className="wk-card-top">
-          <h3 className="wk-card-name">{client.displayName}</h3>
+          <h2 className="wk-card-name">{client.displayName}</h2>
           <span className="wk-card-arrow"><ArrowUpRight width={16} height={16} /></span>
         </div>
         {client.type && <span className="wk-card-tag">{client.type}</span>}

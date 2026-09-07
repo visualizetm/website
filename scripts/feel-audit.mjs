@@ -265,6 +265,7 @@ for (const theme of THEMES) for (const motion of MOTIONS) for (const width of WI
   const ctx = await browser.newContext({ viewport: { width, height: VIEW_H }, hasTouch: width < 500, reducedMotion: motion === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
+    if (s.marketing) continue; // its own layout-audit.mjs walk covers it (see audit-screens.mjs)
     if (s.minWidth && width < s.minWidth) continue;
     if (s.maxWidth && width > s.maxWidth) continue;
     const row = await runStateWithFit(ctx, s, width, theme, motion);

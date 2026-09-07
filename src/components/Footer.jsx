@@ -92,13 +92,13 @@ export default function Footer() {
         @media (max-width: 600px) { .footer-top { grid-template-columns: 1fr; gap: var(--space-8); } }
 
         .footer-logo {
-          display: inline-flex; align-items: center;
+          display: inline-flex; align-items: center; min-height: 44px;
           margin-bottom: var(--space-3);
         }
         .footer-tagline { font-size: 0.875rem; color: var(--text-muted); margin-bottom: var(--space-4); }
         .footer-contact { display: flex; flex-direction: column; gap: var(--space-2); }
         .footer-contact-item {
-          display: inline-flex; align-items: center; gap: 7px;
+          display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
           font-size: 0.8125rem; color: var(--text-secondary);
           transition: color 0.2s;
         }
@@ -114,6 +114,7 @@ export default function Footer() {
           display: flex; flex-direction: column; gap: var(--space-3);
         }
         .footer-col-links a {
+          display: inline-flex; align-items: center; min-height: 44px;
           font-size: 0.9rem; color: var(--text-secondary); transition: color 0.2s;
         }
         .footer-col-links a:hover { color: var(--text); }
@@ -124,13 +125,13 @@ export default function Footer() {
           text-transform: uppercase; color: var(--text-muted);
         }
         .footer-cta-btn {
-          display: inline-flex; align-items: center; gap: 7px;
+          display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
           font-size: 0.9rem; font-weight: 700; color: var(--brand);
           transition: gap 0.2s;
         }
         .footer-cta-btn:hover { gap: 10px; }
         .footer-social {
-          display: inline-flex; align-items: center; gap: 7px;
+          display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
           font-size: 0.875rem; color: var(--text-secondary); transition: color 0.2s;
         }
         .footer-social:hover { color: var(--text); }

@@ -204,7 +204,7 @@ export default function Navbar() {
         }
 
         /* Logo */
-        .navbar-logo { display: flex; align-items: center; flex-shrink: 0; }
+        .navbar-logo { display: flex; align-items: center; flex-shrink: 0; min-height: 44px; }
 
         /* Desktop nav */
         .navbar-nav { flex: 1; }
@@ -222,7 +222,7 @@ export default function Navbar() {
 
         .navbar-cta {
           flex-shrink: 0; font-size: 0.8125rem;
-          padding: 7px 14px; white-space: nowrap;
+          padding: 0 14px; white-space: nowrap; min-height: 44px;
           display: inline-flex; align-items: center; gap: 6px;
         }
 
@@ -268,7 +268,7 @@ export default function Navbar() {
           border-bottom: 1px solid var(--border);
         }
         .navbar-drawer-close {
-          width: 32px; height: 32px; border-radius: 50%;
+          width: 44px; height: 44px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           background: var(--glass-bg); border: 1px solid var(--border);
           color: var(--text-secondary); cursor: pointer;

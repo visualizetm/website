@@ -14,6 +14,12 @@
  *   detail    a detail state: empty and error belong to its list
  *   static    no forced loading state
  *   boot      'authed' or 'fresh': the boot frame rows
+ *   session   set false for a public marketing page (no admin auth mock needed)
+ *   emptyResource  a11y-audit only: mocks this resource's empty payload (see audit-fixtures.mjs EMPTY)
+ *   marketing a public marketing page: a11y-audit runs it, feel-audit skips it
+ *             (its skeleton/fit/entrance machinery is built around the admin
+ *             shell's .sh-content region and .v-skel convention, not this
+ *             site's own .wk-skel/.cs-skel; layout-audit covers it separately)
  */
 export const SESSION = (mode) => ({ ids: ['L0', 'L1', 'L3', 'L4', 'L6', 'L7'], idx: 0, stats: {}, logged: {}, startedAt: Date.now(), size: 6, mode });
 export const setLS = (page, k, v) => page.evaluate(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [k, v]).catch(() => {});
@@ -57,6 +63,14 @@ export const SCREENS = [
   { id: 'clients-detail', screen: 'Clients', label: 'client detail', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
   // Site Prompt 2: the Showcase tab, published client with all four sections.
   { id: 'clients-showcase', screen: 'Clients', label: 'showcase tab (published, all sections)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, noFit: true, act: async (p, w) => { await openRow(p, w, 'Lead Business 11', 'Open Lead Business 11'); await tab(p, 'Showcase'); } },
+
+  // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
+  // false since these are marketing pages, not admin (no auth mock needed).
+  { id: 'mkt-clients-list', screen: 'Clients (marketing)', label: 'list', path: '/clients', session: false, static: true, marketing: true },
+  { id: 'mkt-clients-full', screen: 'Clients (marketing)', label: 'detail, full showcase', path: '/clients/full-showcase-co', session: false, static: true, marketing: true },
+  { id: 'mkt-clients-brand', screen: 'Clients (marketing)', label: 'detail, brand only', path: '/clients/brand-only-co', session: false, static: true, marketing: true },
+  { id: 'mkt-clients-empty', screen: 'Clients (marketing)', label: 'empty state', path: '/clients', session: false, static: true, marketing: true, emptyResource: 'showcase' },
+  { id: 'mkt-clients-error', screen: 'Clients (marketing)', label: 'error state (unknown slug)', path: '/clients/does-not-exist', session: false, static: true, marketing: true },
 
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },

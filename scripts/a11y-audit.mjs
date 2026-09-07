@@ -48,7 +48,7 @@ async function state(ctx, s, width, theme, skeleton) {
     await page.addInitScript((hint) => { try { if (hint === 'authed') localStorage.setItem('vz_boot', '1'); else localStorage.removeItem('vz_boot'); } catch {} }, s.boot);
     await goto(url(s)); await page.waitForTimeout(400);
   } else {
-    await mockRoutes(page, { session: s.session === false ? false : true });
+    await mockRoutes(page, { session: s.session === false ? false : true, empty: s.emptyResource ? [s.emptyResource] : undefined });
     if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
     await goto(url(s, skeleton ? 'loading=1' : ''));
     if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); if (!(skeleton && s.open)) await s.act(page, width); }

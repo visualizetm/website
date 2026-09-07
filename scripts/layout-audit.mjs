@@ -26,6 +26,10 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
 const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month'];
+// Decorative elements meant to spill past their own edge and be clipped by
+// an overflow:hidden parent (a glow, a background flourish): a real position
+// past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
+const CLIP_OK = ['.prints-card-glow'];
 
 /* Touch targets (Prompt 15): every interactive element is at least 44 by 44.
  * Text links inside running prose are the one exemption (WCAG 2.5.8 inline
@@ -36,7 +40,7 @@ const TARGET_SEL = 'a[href], button, input:not([type="hidden"]), select, textare
 async function collectSmallTargets(page) {
   return page.evaluate(([sel, min]) => {
     const bad = []; const seen = new Set();
-    const inProse = (el) => !!el.closest('p, li, td, .dt-muted, .v-toast-desc, .v-empty-desc, .v-error-desc');
+    const inProse = (el) => !!el.closest('p, li, td, figcaption, .dt-muted, .v-toast-desc, .v-empty-desc, .v-error-desc');
     for (const el of document.querySelectorAll(sel)) {
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden' || el.closest('[aria-hidden="true"]')) continue;
@@ -59,7 +63,7 @@ async function collectSmallTargets(page) {
 }
 
 async function collectOffenders(page) {
-  return page.evaluate((hscrollOk) => {
+  return page.evaluate(([hscrollOk, clipOk]) => {
     const vw = document.documentElement.clientWidth;
     const bad = [];
     const seen = new Set();
@@ -70,6 +74,8 @@ async function collectOffenders(page) {
       if (r.width === 0 && r.height === 0) continue;
       // inside an intended horizontal scroller?
       if (hscrollOk.some(sel => el.closest(sel) && !el.matches(sel))) continue;
+      // decoration meant to spill past its own edge, clipped by an overflow:hidden parent?
+      if (clipOk.some(sel => el.matches(sel))) continue;
       const overRight = r.right > vw + 1;
       const overLeft = r.left < -1 && r.right > 0;
       if ((overRight && r.left < vw) || overLeft) {
@@ -88,7 +94,7 @@ async function collectOffenders(page) {
       scrollW: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth),
       offenders: bad.slice(0, 12),
     };
-  }, HSCROLL_OK);
+  }, [HSCROLL_OK, CLIP_OK]);
 }
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -100,11 +106,11 @@ for (const width of WIDTHS) {
   await page.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
   await mockRoutes(page);
 
-  const check = async (label) => {
-    await page.waitForTimeout(650);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/${width}-${label.replace(/[^a-z0-9]+/gi, '_')}.png` }).catch(() => {});
-    const res = await collectOffenders(page);
-    const small = await collectSmallTargets(page);
+  const check = async (label, targetPage = page) => {
+    await targetPage.waitForTimeout(650);
+    if (SHOTS) await targetPage.screenshot({ path: `${SHOTS}/${width}-${label.replace(/[^a-z0-9]+/gi, '_')}.png` }).catch(() => {});
+    const res = await collectOffenders(targetPage);
+    const small = await collectSmallTargets(targetPage);
     const hscroll = res.scrollW > res.vw + 1;
     if (hscroll || res.offenders.length || small.length) {
       failures++;
@@ -237,10 +243,33 @@ for (const width of WIDTHS) {
     await check('marketing: Home');
     await goto('/services');
     await check('marketing: Services');
+    // Site Prompt 3: Clients (renamed from Work), driven by /api/showcase.
+    await goto('/clients');
+    await check('marketing: Clients (list)');
+    await goto('/clients/full-showcase-co');
+    await check('marketing: Clients (detail, full showcase)');
+    await goto('/clients/brand-only-co');
+    await check('marketing: Clients (detail, brand only)');
+    await goto('/clients/does-not-exist');
+    await check('marketing: Clients (error state, unknown slug)');
+    // /work and /work/:slug: the client-side Navigate fallback (vercel.json
+    // does the real 301 for a direct server hit, not reachable from vite preview).
     await goto('/work');
-    await check('marketing: Work (list)');
-    await goto('/work/example-client');
-    await check('marketing: Work (case study)');
+    await page.waitForURL('**/clients', { timeout: 4000 }).catch(() => {});
+    if (new URL(page.url()).pathname !== '/clients') throw new Error(`/work did not redirect to /clients (landed on ${page.url()})`);
+    await goto('/work/full-showcase-co');
+    await page.waitForURL('**/clients/full-showcase-co', { timeout: 4000 }).catch(() => {});
+    if (new URL(page.url()).pathname !== '/clients/full-showcase-co') throw new Error(`/work/:slug did not redirect to /clients/:slug (landed on ${page.url()})`);
+    // Empty state ("New work is being added...") needs its own mocked /api/showcase,
+    // so it runs on a separate page in this same context.
+    {
+      const emptyPage = await ctx.newPage();
+      await emptyPage.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
+      await mockRoutes(emptyPage, { empty: ['showcase'] });
+      await emptyPage.goto(`${BASE}/clients`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await check('marketing: Clients (empty state)', emptyPage);
+      await emptyPage.close();
+    }
     await goto('/contact');
     await check('marketing: Contact');
     await goto('/start');
