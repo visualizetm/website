@@ -1,5 +1,4 @@
 import { getDb } from '../_lib/mongo.js';
-import { verifyAdminPassword, hashPassword } from '../_lib/auth.js';
 import { sendPush } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
 
@@ -34,10 +33,7 @@ export async function handler(req, res) {
   const settings = db.collection('settings');
 
   if (req.method === 'GET') {
-    const [prefs, auth] = await Promise.all([
-      settings.findOne({ _id: 'prefs' }),
-      settings.findOne({ _id: 'auth' }),
-    ]);
+    const prefs = await settings.findOne({ _id: 'prefs' });
     // Dashboard document, created lazily on first read (Prompt 5).
     const dash = await settings.findOneAndUpdate(
       { _id: 'dashboard' },
@@ -60,7 +56,6 @@ export async function handler(req, res) {
         pushEnabled: prefs?.pushEnabled !== false,
         emailEnabled: prefs?.emailEnabled !== false,
       },
-      passwordOverridden: !!auth?.hash,
       dashboard: {
         dailyCallTarget: clampTarget(dashDoc.dailyCallTarget),
         dashboardLayout: dashDoc.dashboardLayout && typeof dashDoc.dashboardLayout === 'object' ? dashDoc.dashboardLayout : null,
@@ -101,20 +96,6 @@ export async function handler(req, res) {
 
   if (req.method === 'POST') {
     const b = req.body || {};
-
-    if (b.action === 'password') {
-      const ok = await verifyAdminPassword(db, b.current);
-      if (!ok) return res.status(401).json({ error: 'Current password is wrong' });
-      const next = String(b.next || '');
-      if (next.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' });
-      const { salt, hash } = hashPassword(next);
-      await settings.updateOne(
-        { _id: 'auth' },
-        { $set: { salt, hash, changedAt: new Date() } },
-        { upsert: true },
-      );
-      return res.status(200).json({ ok: true });
-    }
 
     if (b.action === 'prefs') {
       await settings.updateOne(

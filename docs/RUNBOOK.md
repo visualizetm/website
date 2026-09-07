@@ -20,8 +20,8 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 | Variable | Unlocks | Without it |
 |---|---|---|
 | MONGODB_URI | Every api/ route | Every endpoint throws; nothing loads |
-| SESSION_SECRET | Signed admin cookie | Nobody can sign in (tokens never verify) |
-| ADMIN_PASSWORD | Sign in until a password is set from Settings Profile | Sign in fails until settings.auth holds a hash |
+| SESSION_SECRET | Signs the admin cookie | The fallback constant in api/_lib/config.js signs it instead; sign in still works |
+| ADMIN_PASSWORD | Overrides the admin password | The ADMIN_PASSWORD constant in api/_lib/config.js is the password |
 | VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY | Web push (device enable, reminders, test push) | Push is off; Settings shows push unsupported |
 | WEB3FORMS_NOTIFY_KEY | Email backup of new submissions | No emails; submissions still store |
 | CALENDLY_TOKEN (or CALENDLY_PAT) | Calendly events on the Calendar and in the drawer | Calendar Calendly chip disabled; Integrations shows Not connected |
@@ -34,14 +34,16 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 
 ## Rotate SESSION_SECRET (sign everyone out)
 
-1. Vercel, Settings, Environment Variables: set a new random SESSION_SECRET (32 or more characters).
+1. Vercel, Settings, Environment Variables: set a new random SESSION_SECRET (32 or more characters). If the variable is not set, the cookie is signed with SESSION_SECRET_FALLBACK in api/_lib/config.js; changing that constant and redeploying has the same effect.
 2. Redeploy. Every existing cookie stops verifying; every device signs in again with the same password.
 
 ## Change the admin password
 
-Settings, Profile, Password. The hash lands in settings.auth and takes
-precedence over ADMIN_PASSWORD. If it is lost, delete the settings.auth
-document in Atlas and ADMIN_PASSWORD works again.
+The password is the ADMIN_PASSWORD constant in api/_lib/config.js (the repo
+is private; that file is the single source of truth). An ADMIN_PASSWORD
+environment variable in Vercel overrides it when set. Change one of the two
+and redeploy; nothing in the database holds a password, and the Settings
+screen no longer changes it.
 
 ## Register the Stripe webhook
 
@@ -83,28 +85,31 @@ into Atlas from that file.
 
 ## Security
 
-What the API enforces (Prompt 15 review; every route goes through
-`route()` in api/_lib/handler.js). The Hobby plan's 12 serverless function
-cap means the 17 `/api/admin/*` endpoints and the 2 crons are no longer one
-file each: they dispatch out of api/admin/[...route].js and
-api/cron/[job].js, with each endpoint's actual logic (and its own
-`route()` call, so nothing about its guard, method list, or body cap
-changed) in api/_routes/<name>.js. `/api/submissions`, `/api/push-key`, and
-`/api/stripe/webhook` keep their own files since the webhook needs the raw
-body and its own config:
+What the API enforces after the auth rebuild. Auth is three standalone
+functions with their own method check and no shared wrapper:
+api/admin/login.js, api/admin/logout.js, api/admin/session.js. Every other
+`/api/admin/*` endpoint is one function, api/admin/index.js, reached through
+one vercel.json rewrite per URL (`/api/admin/call-leads` becomes
+`/api/admin/index?r=call-leads`, so no client URL changed); index.js wraps
+each endpoint's logic from api/_routes/<name>.js in `route()`
+(api/_lib/handler.js: method allow list, admin guard, body cap, one
+try/catch). Both crons dispatch out of api/cron/[job].js.
+`/api/submissions`, `/api/push-key`, and `/api/stripe/webhook` keep their
+own files since the webhook needs the raw body and its own config. That is 8
+functions against the Hobby plan's cap of 12.
 
 - Every non public route sits behind the admin cookie. Public: /api/submissions (POST), /api/push-key, /api/admin/session, /api/admin/login, /api/admin/logout. The Stripe webhook and both crons verify their own secret instead.
-- Method allow lists per route (405 with Allow), a body size cap per route (413; 512KB default, 1MB call-leads and the webhook, 2MB the spreadsheet import, small caps on login, settings, push, reconcile).
-- CSRF: every POST, PATCH, and DELETE on an admin route (login and logout included) needs `X-Requested-With: visualize`. apiFetch in src/shared/api.js sends it on every request; a cross site form or a plain script cannot. The webhook, the crons, and the public submissions route are exempt.
-- Session cookie: HttpOnly, Secure, SameSite=Lax, 30 days, HMAC signed with SESSION_SECRET, compared in constant time. Sliding renewal: any authed request on a cookie older than a day reissues it for 30 days, so a device in daily use never expires and one left alone does 30 days after its last visit.
-- Login: 10 failed attempts per IP per 15 minutes, counted on the settings `login-limit` document so every serverless instance shares one count (an in memory map is only the fallback while the database is unreachable; it resets per instance and per cold start, which is why it is not the primary store). Success clears the IP. The password compare is constant time on both the scrypt path and the ADMIN_PASSWORD path.
+- Method allow lists per route (405 with Allow), a body size cap per route (413; 512KB default, 1MB call-leads and the webhook, 2MB the spreadsheet import, small caps on settings, push, reconcile).
+- Password: the ADMIN_PASSWORD constant in api/_lib/config.js, or the ADMIN_PASSWORD environment variable when set. Nothing else reads a password; the compare is constant time. There is no login rate limit.
+- Session cookie: `vz_admin`, HttpOnly, Secure, SameSite=Lax, 30 days, `${expiresAt}.${hmac}` signed with SESSION_SECRET (or the fallback constant in config.js), compared in constant time. No database lookup and no renewal: a session ends 30 days after sign in.
+- No CSRF header. SameSite=Lax on the cookie is the only cross site guard; apiFetch sends plain JSON with no custom header.
 - Input: every write goes through the route's sanitize() whitelist and `$set` only; ids are cast with ObjectId (a bad id is a 400, never a query operator); search strings are escaped before they become a regular expression; nothing from the request reaches a Mongo operator name.
 - Output: no route returns a secret, a stack, or an env var. Errors answer `{ error: 'message' }`; a thrown error answers 500 `server error` with the stack in the Vercel function log only.
 - Stripe webhook: raw body, signature verified with 300 seconds of replay tolerance, and the event row is inserted under the unique `id` index before any ledger write, so a retry that lands mid processing is a duplicate with no side effects (applyPayment also refuses a second ledger entry for the same event id).
 - Headers (vercel.json): X-Content-Type-Options nosniff, X-Frame-Options DENY, Referrer-Policy strict-origin-when-cross-origin, Permissions-Policy (camera, microphone, geolocation, payment, usb off) on every host. The admin host also gets a Content-Security-Policy: self only for scripts (plus the sha256 of the one inline pre-paint script, which the build pins into vercel.json), styles self and inline (the kit's CSS-in-JSX and the boot frame need it), fonts self (self hosted latin subsets in /fonts), images self plus data and https (concept pack thumbnails), connect self, frame-ancestors none. The marketing host has no CSP header and is unaffected.
 - The client error log (/api/admin/log) is admin guarded, capped at 500 entries, and stores messages, not payloads.
 
-Findings from the review that were fixed: no rate limit on login; no CSRF header (SameSite=Lax alone let a same site navigation POST through); cookies never renewed (a daily user was signed out every 30 days); the webhook stored the event after the ledger write; four handlers had no method check; api/submissions and push-subscribe had no body cap; no CSP; two handlers could throw an unhandled error into Vercel's default 500 page.
+Findings from the Prompt 15 review that still hold: the webhook stores the event before the ledger write; every handler has a method check; api/submissions and push-subscribe have a body cap; the CSP is set; no handler throws an unhandled error into Vercel's default 500 page. The login rate limit, the CSRF header, and the sliding cookie renewal from that review were removed in the auth rebuild on purpose (the dispatcher they rode on answered 405 to every login in production); the trade is documented above.
 
 ## Scripts
 
@@ -149,7 +154,8 @@ stack; the client only ever sees `{ error: 'server error' }`.
 - Push never arrives: Settings, Notifications, This device must say push is on; VAPID keys must be set; iPhone needs the app installed to the Home Screen.
 - Calendar has no Calendly events: CALENDLY_TOKEN missing or expired; the Calendly card says which.
 - Payments do not appear on a client: Settings, Integrations, Stripe, Reconcile; unmatched events wait there. Matching is by email, then phone, then business name.
-- Signed out after a deploy or every write answers 403: the cookie is fine, the request is missing the X-Requested-With header. Hard reload the admin so the current bundle's apiFetch is in use.
-- Too many attempts on sign in: 10 wrong passwords from one IP in 15 minutes; wait 15 minutes, or delete the settings `login-limit` document in Atlas.
+- Sign in says Wrong password: the password is the ADMIN_PASSWORD constant in api/_lib/config.js unless an ADMIN_PASSWORD environment variable is set in Vercel, in which case the variable wins (check it for stray whitespace).
+- Sign in says Server error 404 or 405: the deployment is not serving api/admin/login.js as its own function; check the Functions tab of the deployment lists admin/login, admin/logout, admin/session, and admin/index.
+- Every list answers 401 right after sign in: the cookie did not verify. SESSION_SECRET changed between the sign in and the request (a deploy that rotated it), or the browser dropped a Secure cookie on a plain http origin.
 - The admin is blank after a change to index.html's pre-paint script: the CSP hash moved. `npm run build` rewrites it in vercel.json; commit that file with the change.
 - A screen shows Something broke: reload it; the message is under Settings, Automation, Errors on this app, and in the browser console.

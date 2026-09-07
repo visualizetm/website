@@ -42,27 +42,24 @@ const BASE = IS_ADMIN_HOST ? '' : '/admin';
 
 /* ── Login (kit build, Prompt 13) ─────────────────────────────── */
 
-function loginErrorMessage(status) {
-  if (status === 401) return 'Wrong password';
-  if (status === 429) return 'Too many tries. Wait 15 minutes.';
-  if (status === 403) return 'Session check failed. Refresh and try again.';
-  if (status >= 500 || status === 0) return 'Server error, check Vercel logs.';
-  return `Sign in failed (HTTP ${status}). Check Vercel logs.`;
-}
-
-function Login({ onAuthed }) {
+/* Auth rebuild: a plain JSON POST to /api/admin/login. 200 reloads the shell
+ * (the boot session check then sees the cookie), 401 is the wrong password,
+ * anything else shows its status. */
+function Login() {
   const [pw, setPw] = useState('');
-  const [err, setErr] = useState(false);
+  const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
-    setBusy(true); setErr(false);
+    setBusy(true); setErr('');
+    let status = 0;
     try {
-      const r = await apiFetch('/api/admin/login', { method: 'POST', body: { password: pw } });
-      if (!r.ok) { setErr(loginErrorMessage(r.status)); return; }
-      onAuthed();
-    } catch { setErr('Server error, check Vercel logs.'); }
-    finally { setBusy(false); }
+      const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+      status = res.status;
+    } catch { status = 0; }
+    if (status === 200) { window.location.reload(); return; }
+    setBusy(false);
+    setErr(status === 401 ? 'Wrong password' : `Server error ${status || '(network)'}`);
   };
   return (
     <main className="lay-root aa-loginpage" aria-label="Sign in">
@@ -378,7 +375,7 @@ export default function AdminApp() {
 
   // While the session check is in flight the parser's boot frame stays up (index.html) and React renders the same frame over it.
   if (authed === null) return <BootFrame />;
-  if (!authed) return <Login onAuthed={() => { setBootHint(true); setAuthed(true); }} />;
+  if (!authed) return <Login />;
 
   const hasDetail = (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });

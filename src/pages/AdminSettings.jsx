@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Key01 from '@untitled-ui/icons-react/build/esm/Key01';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
@@ -88,29 +87,12 @@ function ClientLogCard() {
   );
 }
 
+/* Auth rebuild: the password is set in the code, not from here. */
 function PasswordCard() {
-  const toast = useToast();
-  const [f, setF] = useState({ current: '', next: '', confirm: '' });
-  const [busy, setBusy] = useState(false);
-  const submit = async (e) => {
-    e.preventDefault();
-    if (f.next !== f.confirm) { toast.error('New passwords do not match.'); return; }
-    setBusy(true);
-    const r = await post({ action: 'password', current: f.current, next: f.next });
-    setBusy(false);
-    if (r.ok) { setF({ current: '', next: '', confirm: '' }); toast.success('Password changed. It takes effect on your next sign in.'); } else toast.error(r.data?.error || 'Could not change the password.');
-  };
   return (
     <Card className="st-card">
       <p className="pb-card-h">Password</p>
-      <p className="dt-muted">One password for the whole admin. Current sessions stay valid.</p>
-      <form onSubmit={submit} className="st-form">
-        <Stack gap={2}>
-          <Input label="Current password" type="password" value={f.current} onChange={(e) => setF(p => ({ ...p, current: e.target.value }))} autoComplete="current-password" required />
-          <Grid minColumnWidth={160} gap={2}><Input label="New password (8 or more)" type="password" value={f.next} onChange={(e) => setF(p => ({ ...p, next: e.target.value }))} autoComplete="new-password" required minLength={8} /><Input label="Confirm" type="password" value={f.confirm} onChange={(e) => setF(p => ({ ...p, confirm: e.target.value }))} autoComplete="new-password" required /></Grid>
-          <Row gap={2}><Button type="submit" icon={Key01} loading={busy} disabled={!f.current || f.next.length < 8}>Change password</Button></Row>
-        </Stack>
-      </form>
+      <p className="dt-muted">One password for the whole admin. It lives in api/_lib/config.js (an ADMIN_PASSWORD variable in Vercel overrides it); change it there and redeploy. Sessions are a signed cookie that lasts 30 days.</p>
     </Card>
   );
 }
@@ -201,7 +183,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     <Card key="target" className="st-card">{line(150, 16)}<Row gap={2} align="baseline" style={{ minHeight: narrow ? 63 : 54 }}>{line(70, 44)}{line('55%', 14)}</Row></Card>,
     <Card key="appearance" className="st-card">{line(110, 16)}{desc('90%')}<Stack gap={1}>{line(48, 16)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><Row gap={3} align="center" style={{ minHeight: narrow ? 92 : 58 }}><Stack gap={1} style={{ flex: 1 }}>{line(120, 22)}{desc('90%')}</Stack><SkeletonBlock width={46} height={26} radius="var(--v-radius-pill)" /></Row></Card>,
     <Card key="hours" className="st-card">{line(130, 16)}{desc('95%')}<Grid minColumnWidth={140} gap={2}><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(40, 16)}<SkeletonBlock height={56} radius="var(--v-radius-md)" /></Stack></Grid></Card>,
-    <Card key="password" className="st-card">{line(90, 12)}{line('80%', 14)}<Stack gap={2}>{line(120, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /><Grid minColumnWidth={160} gap={2}><Stack gap={1}>{line(140, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><Stack gap={1}>{line(60, 10)}<SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Grid><Row gap={2}><SkeletonBlock width={180} height={44} radius="var(--v-radius-md)" /></Row></Stack></Card>,
+    <Card key="password" className="st-card">{line(90, 12)}{desc('95%')}</Card>,
   ];
   // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
   const TAB_HEIGHTS = {
@@ -391,7 +373,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell st-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${data?.passwordOverridden ? 'custom password' : 'env password'}, ${leads.length} leads loaded`} />
+        <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
         <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>
         <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
       </ScrollArea>

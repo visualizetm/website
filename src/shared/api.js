@@ -1,17 +1,14 @@
 /* Same-origin admin API helpers.
  *
  * apiFetch: fetch + JSON with a uniform { ok, status, data } result so call
- * sites never repeat the headers/JSON/ok dance. Every request carries
- * X-Requested-With: visualize (Prompt 15): the admin routes refuse any
- * non GET request without it, which is the CSRF guard (a cross site form or
- * script cannot set that header without a CORS preflight the API rejects).
+ * sites never repeat the headers/JSON/ok dance. Auth is the signed vz_admin
+ * cookie alone (auth rebuild): no request header is required.
  *
  * patchWithRollback: the optimistic PATCH pattern every admin screen uses:
  * apply locally first, send, and undo on failure. `apply` returns the undo
  * function (or nothing); `onError` gets the failure so the screen can show
  * its own loud toast. Returns true on success.
  */
-export const CSRF_HEADER = { 'X-Requested-With': 'visualize' };
 
 /** True when the browser says there is no network. Writes are refused up front so nothing half applies. */
 export const isOffline = () => typeof navigator !== 'undefined' && navigator.onLine === false;
@@ -32,7 +29,7 @@ export async function apiFetch(url, { method = 'GET', body, headers, silent = fa
   try {
     const res = await fetch(url, {
       method,
-      headers: { ...CSRF_HEADER, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers || {}) },
+      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers || {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     let data = null;
