@@ -1,9 +1,15 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Reveal } from '../marketing/motion';
+import { useHead } from '../marketing/useHead';
 
 export default function Contact() {
   const location = useLocation();
   const fromPortal = new URLSearchParams(location.search).get('from') === 'portal';
+  useHead({
+    title: 'Contact | Visualize.',
+    description: 'Book a meeting to talk about your business, your goals, and what you need. No pitch, no pressure.',
+  });
   useEffect(() => {
     if (window.location.hash === '#book') {
       document.getElementById('book')?.scrollIntoView({ behavior: 'smooth' });
@@ -22,7 +28,7 @@ export default function Contact() {
     <>
       <section className="contact-hero section" id="book">
         <div className="contact-hero-bg" aria-hidden="true" />
-        <div className="wrap contact-hero-wrap">
+        <Reveal as="div" className="wrap contact-hero-wrap">
           {fromPortal && (
             <p className="contact-notice" role="status">The client portal has moved. Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a> and we will send your files.</p>
           )}
@@ -46,22 +52,22 @@ export default function Contact() {
             </p>
           </div>
           <p className="contact-cta-copy">Choose a time that works for you. I look forward to talking.</p>
-        </div>
+        </Reveal>
       </section>
       <section className="contact-main section">
         <div className="contact-main-bg" aria-hidden="true" />
-        <div className="wrap contact-wrap">
+        <Reveal as="div" className="wrap contact-wrap">
           <h2 className="contact-embed-title">Pick a time</h2>
           <div className="calendly-outer">
             <div className="calendly-panel">
               <div
                 className="calendly-inline-widget"
                 data-url="https://calendly.com/contactvisualize/studio-meeting?hide_gdpr_banner=1"
-                style={{ minWidth: '320px', height: '700px' }}
+                style={{ minWidth: 0, width: '100%', height: '700px' }}
               />
             </div>
           </div>
-        </div>
+        </Reveal>
       </section>
       <style>{`
         .contact-hero {
@@ -169,6 +175,7 @@ export default function Contact() {
           overflow: hidden;
           border-radius: var(--radius-lg);
           height: 700px;
+          min-width: 0;
           touch-action: pan-y;
         }
         .calendly-panel {
@@ -179,6 +186,7 @@ export default function Contact() {
           border-radius: var(--radius-lg);
           overflow: hidden;
           height: 700px;
+          min-width: 0;
         }
         .calendly-panel .calendly-inline-widget {
           border-radius: var(--radius-lg);

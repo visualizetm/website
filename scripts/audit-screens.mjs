@@ -79,6 +79,12 @@ export const SCREENS = [
 
   // Site Prompt 5: the rebuilt Services page, static (no CRM data).
   { id: 'mkt-services', screen: 'Services (marketing)', label: 'full', path: '/services', session: false, static: true, marketing: true },
+  // Site Prompt 5, Part 2: Contact, Start, and Prints restyled to match; the
+  // shop and checkout flow itself is still covered by layout-audit's own
+  // AUDIT_ONLY=settings "shop checkout end to end" walk, not here.
+  { id: 'mkt-contact', screen: 'Contact (marketing)', label: 'full', path: '/contact', session: false, static: true, marketing: true },
+  { id: 'mkt-start', screen: 'Start (marketing)', label: 'intro', path: '/start', session: false, static: true, marketing: true },
+  { id: 'mkt-prints', screen: 'Prints (marketing)', label: 'shop', path: '/prints', session: false, static: true, marketing: true },
 
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },

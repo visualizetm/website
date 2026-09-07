@@ -2,8 +2,11 @@
  * fetchShowcase() and fetchClient(slug) read /api/showcase (Site Prompt 2),
  * each cached in memory for 60 seconds so navigating between the list and a
  * few detail pages in one visit does not refetch every time. Reusable on
- * Home (Site Prompt 4) alongside ClientCard, TestimonialCard, and LogoItem,
- * exported below.
+ * Home (Site Prompt 4) alongside ClientCard and TestimonialCard, exported
+ * below. (LogoItem, also built here in Site Prompt 3, was retired in Site
+ * Prompt 5, Part 2: Home's logo strip, Trust.jsx, needed a theme-aware
+ * light/dark logo pick LogoItem never did, so it built its own markup
+ * instead and LogoItem stayed unused through two prompts.)
  */
 import { Link } from 'react-router-dom';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
@@ -97,30 +100,14 @@ export function TestimonialCard({ testimonial }) {
   );
 }
 
-/** One logo strip item (Site Prompt 4, Home): a client's logo with a text fallback, linking to their page. */
-export function LogoItem({ client }) {
-  return (
-    <Link to={`/clients/${client.slug}`} className="li-item" aria-label={client.displayName}>
-      {client.logo ? <img src={client.logo} alt="" loading="lazy" className="li-logo" /> : <span className="li-fallback">{client.displayName}</span>}
-    </Link>
-  );
-}
-
 export const testimonialCardStyles = `
   .tc-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
   .tc-stars { display: flex; gap: 2px; }
   .tc-star { color: var(--border-light); font-size: 0.9rem; }
-  .tc-star.is-on { color: var(--brand); }
+  .tc-star.is-on { color: var(--brand-text); }
   .tc-quote { margin: 0; font-size: 1.0625rem; line-height: 1.6; color: var(--text); }
   .tc-attr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; font-size: 0.875rem; color: var(--text-secondary); }
   .tc-name { font-weight: 700; color: var(--text); }
   .tc-business { color: var(--brand-text); text-decoration: none; }
   .tc-business:hover { text-decoration: underline; }
-`;
-
-export const logoItemStyles = `
-  .li-item { display: flex; align-items: center; justify-content: center; height: 56px; padding: 0 var(--space-4); opacity: 0.7; transition: opacity 0.2s; filter: grayscale(1); }
-  .li-item:hover { opacity: 1; filter: grayscale(0); }
-  .li-logo { max-height: 100%; max-width: 140px; object-fit: contain; }
-  .li-fallback { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
 `;

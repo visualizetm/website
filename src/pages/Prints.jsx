@@ -9,6 +9,7 @@ import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
+import Footer from '../components/Footer';
 
 const ACCESS_KEY = import.meta.env.VITE_WEB3FORMS_KEY || '';
 
@@ -630,7 +631,7 @@ function ProductCard({ product, onCustomize }) {
       {product.badge && !product.popular && <span className="ps-card-badge ps-card-badge--price">{product.badge}</span>}
       <div className="ps-card-icon">{ICONS[product.id]}</div>
       <div className="ps-card-body">
-        <h3 className="ps-card-name">{product.name}</h3>
+        <h2 className="ps-card-name">{product.name}</h2>
         <p className="ps-card-desc">{product.desc}</p>
       </div>
       <div className="ps-card-foot">
@@ -698,38 +699,45 @@ export default function Prints() {
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="ps-hero">
-        <div className="ps-hero-inner">
-          <p className="ps-hero-eyebrow">Custom Print Services</p>
-          <h1 className="ps-hero-title">Your brand,<br />on everything.</h1>
-          <p className="ps-hero-sub">Stickers, vinyl, and print, designed and produced for your business. Select a product, customize it, and we'll handle the rest.</p>
-        </div>
-        <div className="ps-hero-visual" aria-hidden="true">
-          {[...Array(6)].map((_, i) => <div key={i} className="ps-hero-dot" style={{ '--i': i }} />)}
-        </div>
-      </section>
+      {/* Everything between the header and the footer is the page's one main
+          landmark (Site Prompt 5, Part 2: the hero and the checkout note
+          sat outside any landmark before). */}
+      <main>
+        {/* Hero */}
+        <section className="ps-hero">
+          <div className="ps-hero-inner">
+            <p className="ps-hero-eyebrow">Custom Print Services</p>
+            <h1 className="ps-hero-title">Your brand,<br />on everything.</h1>
+            <p className="ps-hero-sub">Stickers, vinyl, and print, designed and produced for your business. Select a product, customize it, and we'll handle the rest.</p>
+          </div>
+          <div className="ps-hero-visual" aria-hidden="true">
+            {[...Array(6)].map((_, i) => <div key={i} className="ps-hero-dot" style={{ '--i': i }} />)}
+          </div>
+        </section>
 
-      {/* Category tabs */}
-      <div className="ps-cat-bar">
-        {CATS.map(c => (
-          <Chip key={c.id} label={c.label} selected={cat === c.id} onClick={() => setCat(c.id)} />
-        ))}
-      </div>
-
-      {/* Product grid */}
-      <main className="ps-grid-wrap">
-        <div className="ps-grid">
-          {visible.map(p => (
-            <ProductCard key={p.id} product={p} onCustomize={prod => setModal(prod)} />
+        {/* Category tabs */}
+        <div className="ps-cat-bar">
+          {CATS.map(c => (
+            <Chip key={c.id} label={c.label} selected={cat === c.id} onClick={() => setCat(c.id)} />
           ))}
         </div>
+
+        {/* Product grid */}
+        <div className="ps-grid-wrap">
+          <div className="ps-grid">
+            {visible.map(p => (
+              <ProductCard key={p.id} product={p} onCustomize={prod => setModal(prod)} />
+            ))}
+          </div>
+        </div>
+
+        {/* Checkout note */}
+        <p className="ps-foot">
+          No payment is due at checkout, payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a>
+        </p>
       </main>
 
-      {/* Footer note */}
-      <footer className="ps-foot">
-        <p>No payment is due at checkout, payment is collected when production begins. Final pricing confirmed after review.<br />Questions? Email <a href="mailto:contact@visualizeclients.com">contact@visualizeclients.com</a></p>
-      </footer>
+      <Footer />
 
       {/* Customize modal */}
       {modal && (
@@ -760,6 +768,16 @@ export default function Prints() {
 const psStyles = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* Site Prompt 5, Part 2: restyled to match, without touching any shop or
+     checkout logic and, just as importantly, without changing what this
+     page looks like. This shop stays a fixed-dark experience regardless of
+     the site's own light/dark toggle (it always has been), so only the
+     brand colors below borrow the real tokens, since --brand, --brand-
+     light, --brand-dark, --success, and --glass-bg-brand are declared once
+     in :root and never overridden for the light theme, unlike --bg, --text,
+     and --border, which are; pointing this page's neutrals at those would
+     have made it start switching with the site's theme, a real behavior
+     change, not a restyle. The neutrals stay their own fixed values. */
   .ps-page {
     min-height: 100vh;
     --ps-bg:      #0d0d0f;
@@ -770,11 +788,15 @@ const psStyles = `
     --ps-text:    #f2f2f3;
     --ps-sub:     #9a9aab;
     --ps-muted:   #5e5e6e;
-    --ps-brand:   #d44c43;
+    --ps-brand:   var(--brand);
+    --ps-brand-text: var(--brand-light);
+    /* White text on solid --ps-brand is 4.27:1, under the 4.5:1 minimum;
+       these buttons use this darker shade as their background instead. */
+    --ps-brand-strong: var(--brand-dark);
     --ps-white:   #fff;
-    --ps-ok:      #22c55e;
+    --ps-ok:      var(--success);
     --ps-gold:    #c9a12a;
-    --ps-brand-dim: rgba(212,76,67,0.12);
+    --ps-brand-dim: var(--glass-bg-brand);
     font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
     color: var(--ps-text);
   }
@@ -806,7 +828,7 @@ const psStyles = `
   .ps-cart-count {
     position: absolute; top: -7px; right: -7px;
     width: 20px; height: 20px; border-radius: 50%;
-    background: var(--ps-brand); color: var(--ps-white);
+    background: var(--ps-brand-strong); color: var(--ps-white);
     font-size: 0.65rem; font-weight: 800;
     display: flex; align-items: center; justify-content: center;
   }
@@ -819,7 +841,7 @@ const psStyles = `
   .ps-hero-inner { max-width: 520px; }
   .ps-hero-eyebrow {
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.18em;
-    text-transform: uppercase; color: var(--ps-brand); margin-bottom: 16px;
+    text-transform: uppercase; color: var(--ps-brand-text); margin-bottom: 16px;
   }
   .ps-hero-title {
     font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 900;
@@ -854,7 +876,7 @@ const psStyles = `
     transition: all 0.18s;
   }
   .ps-chip:hover { border-color: rgba(212,76,67,0.4); color: var(--ps-text); }
-  .ps-chip.is-sel { background: var(--ps-brand); border-color: var(--ps-brand); color: var(--ps-white); }
+  .ps-chip.is-sel { background: var(--ps-brand-strong); border-color: var(--ps-brand-strong); color: var(--ps-white); }
 
   /* ── Product grid ────────────────────── */
   .ps-grid-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px 48px; }
@@ -880,7 +902,7 @@ const psStyles = `
     padding: 3px 9px; border-radius: 999px;
     display: flex; align-items: center; gap: 4px;
   }
-  .ps-card-badge--pop { background: rgba(212,76,67,0.18); color: var(--ps-brand); border: 1px solid rgba(212,76,67,0.3); }
+  .ps-card-badge--pop { background: rgba(212,76,67,0.18); color: var(--ps-brand-text); border: 1px solid rgba(212,76,67,0.3); }
   .ps-card-badge--price { background: rgba(201,161,42,0.15); color: var(--ps-gold); border: 1px solid rgba(201,161,42,0.3); }
   .ps-card-icon {
     width: 52px; height: 52px; color: var(--ps-brand);
@@ -897,7 +919,7 @@ const psStyles = `
   .ps-card-btn {
     display: flex; align-items: center; gap: 5px;
     padding: 8px 18px; border-radius: 999px;
-    background: var(--ps-brand); color: var(--ps-white);
+    background: var(--ps-brand-strong); color: var(--ps-white);
     border: none; font-size: 0.84rem; font-weight: 700;
     cursor: pointer; font-family: inherit;
     transition: opacity 0.18s, transform 0.15s;
@@ -926,7 +948,7 @@ const psStyles = `
     display: flex; align-items: flex-start; justify-content: space-between;
     padding: 22px 24px 18px; border-bottom: 1px solid var(--ps-border); flex-shrink: 0;
   }
-  .ps-modal-eyebrow { font-size: 0.75rem; font-weight: 700; color: var(--ps-brand); margin-bottom: 4px; letter-spacing: 0.04em; }
+  .ps-modal-eyebrow { font-size: 0.75rem; font-weight: 700; color: var(--ps-brand-text); margin-bottom: 4px; letter-spacing: 0.04em; }
   .ps-modal-title { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.025em; color: var(--ps-text); }
   .ps-modal-close {
     width: 34px; height: 34px; border-radius: 50%;
@@ -950,7 +972,7 @@ const psStyles = `
   .ps-mfield.is-err .ps-minput,
   .ps-mfield.is-err .ps-swatch { outline: 1px solid var(--ps-brand); }
   .ps-mlabel { font-size: 0.875rem; font-weight: 700; color: var(--ps-text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .ps-merr { font-size: 0.75rem; font-weight: 600; color: var(--ps-brand); }
+  .ps-merr { font-size: 0.75rem; font-weight: 600; color: var(--ps-brand-text); }
   .ps-mhint { font-size: 0.78rem; color: var(--ps-muted); line-height: 1.55; }
   .ps-minput, .ps-mtextarea {
     width: 100%; padding: 11px 14px; border-radius: 10px;
@@ -1040,7 +1062,7 @@ const psStyles = `
   .ps-btn-primary {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     padding: 14px 24px; border-radius: 12px;
-    background: var(--ps-brand); color: var(--ps-white);
+    background: var(--ps-brand-strong); color: var(--ps-white);
     border: none; font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em;
     cursor: pointer; font-family: inherit;
     box-shadow: 0 4px 20px rgba(212,76,67,0.3);
@@ -1069,7 +1091,7 @@ const psStyles = `
     animation: spin 0.6s linear infinite;
   }
   @keyframes spin { to{transform:rotate(360deg)} }
-  .ps-foot { padding: 32px 24px 48px; text-align: center; color: var(--ps-muted); font-size: 0.8rem; line-height: 1.7; }
+  .ps-foot { padding: 32px 24px 48px; text-align: center; color: var(--ps-sub); font-size: 0.8rem; line-height: 1.7; }
   .ps-foot a { color: var(--ps-sub); text-decoration: underline; }
   @media(max-width:480px) {
     .ps-header-center { display: none; }

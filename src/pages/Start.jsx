@@ -14,6 +14,8 @@ import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
 import Lightbulb01 from '@untitled-ui/icons-react/build/esm/Lightbulb01';
 import LayersTwo01 from '@untitled-ui/icons-react/build/esm/LayersTwo01';
 import Wordmark from '../components/Wordmark';
+import { Reveal } from '../marketing/motion';
+import { useHead } from '../marketing/useHead';
 
 const WEB3FORMS_KEY = import.meta.env.VITE_WEB3FORMS_KEY || '';
 
@@ -192,7 +194,10 @@ export default function Start() {
   const [submitting, setSub] = useState(false);
   const headingRef           = useRef(null);
 
-  useEffect(() => { document.title = 'Start a Project, Visualize'; }, []);
+  useHead({
+    title: 'Start a Project | Visualize.',
+    description: 'Tell us about your business and what you need. Six short steps, about 10 minutes.',
+  });
 
   // Move keyboard focus to the new step's heading when it appears.
   useEffect(() => {
@@ -386,7 +391,7 @@ export default function Start() {
           )}
 
           {step.id === 'business' && (
-            <div className="st-fields">
+            <Reveal as="div" className="st-fields">
               <div className="st-row2">
                 <Field label="Full Name" required id="f-fullName" error={errors.fullName}>
                   <input className="st-input" type="text" placeholder="e.g. Carlos Mendez"
@@ -429,11 +434,11 @@ export default function Start() {
                     { v: '3+ years',          label: '3+ years' },
                   ]} />
               </Field>
-            </div>
+            </Reveal>
           )}
 
           {step.id === 'scope' && (
-            <div className="st-fields">
+            <Reveal as="div" className="st-fields">
               <Field label="What do you need?" required desc="Select all that apply."
                 id="f-servicesNeeded" error={errors.servicesNeeded}>
                 <IconCards multi value={f.servicesNeeded} onChange={v => set('servicesNeeded', v)} opts={SERVICE_OPTS} />
@@ -452,11 +457,11 @@ export default function Start() {
                     'Contact / Book Now','Online Store','Booking / Scheduling','Blog','Not sure']
                     .map(v => ({ v, label: v }))} />
               </Field>
-            </div>
+            </Reveal>
           )}
 
           {step.id === 'direction' && (
-            <div className="st-fields">
+            <Reveal as="div" className="st-fields">
               <Field label="How do you want people to feel when they see your brand?" required
                 desc="Pick up to 5." id="f-brandFeel" error={errors.brandFeel}>
                 <Checks value={f.brandFeel} onChange={v => set('brandFeel', v)} layout="pills" max={5}
@@ -491,11 +496,11 @@ export default function Start() {
                   placeholder="e.g. DetailPros and CleanRide in Wilmington. They both require you to come to them. I go to the customer."
                   value={f.competitors} onChange={e => set('competitors', e.target.value)} />
               </Field>
-            </div>
+            </Reveal>
           )}
 
           {step.id === 'assets' && (
-            <div className="st-fields">
+            <Reveal as="div" className="st-fields">
               <Field label="What do you currently have?" required desc="Check everything that applies."
                 id="f-assetsHave" error={errors.assetsHave}>
                 <Checks value={f.assetsHave} onChange={v => set('assetsHave', v)} layout="stack"
@@ -527,11 +532,11 @@ export default function Start() {
                     { v: 'No, stock photos or illustrations preferred',    label: "No, I'd prefer stock photos or illustrations" },
                   ]} />
               </Field>
-            </div>
+            </Reveal>
           )}
 
           {step.id === 'contact' && (
-            <div className="st-fields">
+            <Reveal as="div" className="st-fields">
               <div className="st-row2">
                 <Field label="Email Address" required id="f-email" error={errors.email}>
                   <input className="st-input" type="email" placeholder="e.g. carlos@sopesdetailing.com"
@@ -580,7 +585,7 @@ export default function Start() {
                   placeholder="e.g. I have a big event coming up in 6 weeks."
                   value={f.additionalInfo} onChange={e => set('additionalInfo', e.target.value)} />
               </Field>
-            </div>
+            </Reveal>
           )}
 
           {errors._submit && <p className="st-err-msg st-submit-err" role="alert">{errors._submit}</p>}
