@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
@@ -7,9 +7,11 @@ import Palette from '@untitled-ui/icons-react/build/esm/Palette';
 import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
 import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
-import { getClient } from '../data/clients';
+import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
+import { fetchShowcase, fetchClient, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import { Reveal, Stagger, Parallax } from '../marketing/motion';
 
-// Labeled placeholder for any image slot a client data file leaves empty.
+// Labeled placeholder for any image slot the client's showcase leaves empty.
 function Slot({ label, ratio = '16 / 10', children }) {
   return (
     <div className="cs-slot" style={{ aspectRatio: ratio }}>
@@ -35,17 +37,104 @@ function SectionHead({ icon: IconEl, title }) {
   );
 }
 
+/* The current theme, live: same source and update pattern as ThemeToggle,
+ * so brand.logo picks the light or dark variant to match what is on screen. */
+function useTheme() {
+  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark');
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const onChange = () => setTheme(document.documentElement.dataset.theme || (mq.matches ? 'light' : 'dark'));
+    mq.addEventListener('change', onChange);
+    const obs = new MutationObserver(onChange);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => { mq.removeEventListener('change', onChange); obs.disconnect(); };
+  }, []);
+  return theme;
+}
+
+/* Sets document.title, the meta description, and og:image for this client.
+ * No prerender step exists in this build (see reports/SITE-03-REPORT.md,
+ * "SEO approach"), so these land after the JS runs, not in the initial HTML
+ * a crawler or a link-preview fetch sees; that gap is Site Prompt 5's to close. */
+function useClientHead(client) {
+  useEffect(() => {
+    if (!client) return undefined;
+    const prevTitle = document.title;
+    document.title = `${client.displayName} | Visualize.`;
+    const setMeta = (name, attr, value) => {
+      let el = document.head.querySelector(`meta[${attr}="${name}"]`);
+      const created = !el;
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el); }
+      el.setAttribute('content', value);
+      return created ? el : null;
+    };
+    const created = [
+      setMeta('description', 'name', client.blurb || ''),
+      setMeta('og:image', 'property', client.cover || ''),
+      setMeta('og:title', 'property', `${client.displayName} | Visualize.`),
+    ].filter(Boolean);
+    return () => { document.title = prevTitle; created.forEach(el => el.remove()); };
+  }, [client]);
+}
+
+const hasBrand = (b) => !!(b?.logo?.light || b?.logo?.dark || b?.palette?.length || b?.typography?.length || b?.images?.length || b?.notes);
+const hasWebsite = (w) => !!(w?.url || w?.screenshots?.length || w?.notes);
+const hasCards = (c) => !!(c?.front || c?.back || c?.notes);
+const hasPrint = (p) => !!(p?.items?.length || p?.notes);
+
+// Untitled UI's free icon set has no brand marks (Instagram, Facebook), so
+// every social link uses the same generic external-link glyph; the platform
+// name still reads via aria-label and the link text itself is the URL host.
+
 export default function CaseStudy() {
   const { slug } = useParams();
-  const client = getClient(slug);
+  const theme = useTheme();
+  const [state, setState] = useState({ status: 'loading', client: null, neighbors: null });
 
-  useEffect(() => {
-    if (client) document.title = `${client.name}, Work, Visualize`;
-  }, [client]);
+  const load = useCallback(async () => {
+    setState(s => ({ ...s, status: 'loading' }));
+    try {
+      const [client, { clients }] = await Promise.all([fetchClient(slug), fetchShowcase()]);
+      const i = clients.findIndex(c => c.slug === slug);
+      const neighbors = i === -1 ? null : { prev: clients[(i - 1 + clients.length) % clients.length], next: clients[(i + 1) % clients.length] };
+      setState({ status: 'ready', client, neighbors: clients.length > 1 ? neighbors : null });
+    } catch {
+      setState({ status: 'error', client: null, neighbors: null });
+    }
+  }, [slug]);
+  useEffect(() => { load(); }, [load]);
 
-  if (!client) return <Navigate to="/clients" replace />;
+  useClientHead(state.status === 'ready' ? state.client : null);
 
-  const { brand, website, cards, print } = client.sections || {};
+  if (state.status === 'loading') {
+    return (
+      <div className="cs-loading" aria-busy="true">
+        <div className="wrap"><div className="cs-skel" style={{ width: '40%', height: 48 }} /><div className="cs-skel" style={{ width: '70%', height: 20, marginTop: 16 }} /></div>
+        <style>{csStyles}</style>
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="cs-loading">
+        <div className="wrap">
+          <p className="wk-state-title">Could not load this client.</p>
+          <button type="button" className="btn btn-secondary" onClick={load}>Retry</button>
+        </div>
+        <style>{csStyles}</style>
+      </div>
+    );
+  }
+  const client = state.client;
+  if (!client || !client.slug) return <Navigate to="/clients" replace />;
+
+  const { brand, website, cards, print, testimonials, socials, neighbors } = { ...client, neighbors: state.neighbors };
+  const showBrand = brand?.enabled && hasBrand(brand);
+  const showWebsite = website?.enabled && hasWebsite(website);
+  const showCards = cards?.enabled && hasCards(cards);
+  const showPrint = print?.enabled && hasPrint(print);
+  const logoSrc = theme === 'light' ? (brand?.logo?.light || brand?.logo?.dark) : (brand?.logo?.dark || brand?.logo?.light);
+  const socialEntries = Object.entries(socials || {}).filter(([, url]) => url);
 
   return (
     <>
@@ -58,26 +147,39 @@ export default function CaseStudy() {
               All work
             </Link>
             <div className="cs-hero-meta">
-              <span className="wk-card-tag">{client.type}</span>
+              {client.type && <span className="wk-card-tag">{client.type}</span>}
               {client.year && <span className="cs-year">{client.year}</span>}
             </div>
-            <h1 className="cs-title display">{client.name}</h1>
-            <p className="section-subtitle">{client.blurb}</p>
+            <Reveal as="h1" className="cs-title display">{client.displayName}</Reveal>
+            <Reveal as="p" delay={60} className="section-subtitle">{client.blurb}</Reveal>
+            {socialEntries.length > 0 && (
+              <div className="cs-socials">
+                {socialEntries.map(([key, url]) => (
+                  <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="cs-social" aria-label={key}><ArrowUpRight width={16} height={16} /></a>
+                ))}
+              </div>
+            )}
           </div>
         </header>
 
+        {client.cover && (
+          <div className="cs-cover">
+            <Parallax className="cs-cover-inner"><img src={client.cover} alt={`${client.displayName} cover`} loading="lazy" /></Parallax>
+          </div>
+        )}
+
         <div className="wrap cs-body">
           {/* Brand Identity */}
-          {brand && (
-            <section className="cs-section">
+          {showBrand && (
+            <Reveal as="section" className="cs-section">
               <SectionHead icon={Palette} title="Brand Identity" />
               <div className="cs-brand-grid">
-                <Media src={brand.logo} alt={`${client.name} logo`} label="Logo" ratio="4 / 3" />
+                <Media src={logoSrc} alt={`${client.displayName} logo`} label="Logo" ratio="4 / 3" />
                 <div className="cs-brand-side">
                   {brand.palette?.length > 0 && (
                     <div className="cs-palette">
-                      {brand.palette.map((c) => (
-                        <div key={c.hex} className="cs-swatch">
+                      {brand.palette.map((c, i) => (
+                        <div key={c.hex + i} className="cs-swatch">
                           <span className="cs-swatch-chip" style={{ background: c.hex }} />
                           <span className="cs-swatch-name">{c.name}</span>
                           <span className="cs-swatch-hex">{c.hex}</span>
@@ -87,8 +189,8 @@ export default function CaseStudy() {
                   )}
                   {brand.typography?.length > 0 && (
                     <div className="cs-type-list">
-                      {brand.typography.map((t) => (
-                        <div key={t.family} className="cs-type-row">
+                      {brand.typography.map((t, i) => (
+                        <div key={t.family + i} className="cs-type-row">
                           <span className="cs-type-family">{t.family}</span>
                           <span className="cs-type-role">{t.role}</span>
                         </div>
@@ -99,24 +201,24 @@ export default function CaseStudy() {
               </div>
               {brand.images?.length > 0 && (
                 <div className="cs-media-grid">
-                  {brand.images.map((src) => (
-                    <Media key={src} src={src} alt={`${client.name} brand`} label="Brand" />
+                  {brand.images.map((img, i) => (
+                    <Media key={img.link + i} src={img.link} alt={img.caption || `${client.displayName} brand`} label="Brand" />
                   ))}
                 </div>
               )}
               {brand.notes && <p className="cs-notes">{brand.notes}</p>}
-            </section>
+            </Reveal>
           )}
 
           {/* Website */}
-          {website && (
-            <section className="cs-section">
+          {showWebsite && (
+            <Reveal as="section" className="cs-section">
               <SectionHead icon={Globe01} title="Website" />
               <div className="cs-browser">
                 <div className="cs-browser-bar"><span /><span /><span /></div>
                 {website.screenshots?.length > 0 ? (
-                  website.screenshots.map((src) => (
-                    <img key={src} src={src} alt={`${client.name} website`} loading="lazy" className="cs-browser-shot" />
+                  website.screenshots.map((s, i) => (
+                    <img key={s.link + i} src={s.link} alt={s.caption || `${client.displayName} website`} loading="lazy" className="cs-browser-shot" />
                   ))
                 ) : (
                   <Slot label="Website screenshot" ratio="16 / 9" />
@@ -130,54 +232,88 @@ export default function CaseStudy() {
                   </a>
                 )}
               </div>
-            </section>
+            </Reveal>
           )}
 
           {/* Business Cards */}
-          {cards && (
-            <section className="cs-section">
+          {showCards && (
+            <Reveal as="section" className="cs-section">
               <SectionHead icon={CreditCard02} title="Business Cards" />
               <div className="cs-cards-grid">
-                <Media src={cards.front} alt={`${client.name} card front`} label="Card front" ratio="7 / 4" />
-                <Media src={cards.back} alt={`${client.name} card back`} label="Card back" ratio="7 / 4" />
+                <Media src={cards.front} alt={`${client.displayName} card front`} label="Card front" ratio="7 / 4" />
+                <Media src={cards.back} alt={`${client.displayName} card back`} label="Card back" ratio="7 / 4" />
               </div>
               {cards.notes && <p className="cs-notes">{cards.notes}</p>}
-            </section>
+            </Reveal>
           )}
 
           {/* Print & Product */}
-          {print && (
-            <section className="cs-section">
+          {showPrint && (
+            <Reveal as="section" className="cs-section">
               <SectionHead icon={Package} title="Print & Product" />
               <div className="cs-media-grid">
-                {(print.items || []).map((item) => (
-                  <figure key={item.label} className="cs-print-item">
+                {(print.items || []).map((item, i) => (
+                  <figure key={item.label + i} className="cs-print-item">
                     <Media src={item.image} alt={item.label} label={item.label} />
                     <figcaption className="cs-print-caption">{item.label}</figcaption>
                   </figure>
                 ))}
               </div>
               {print.notes && <p className="cs-notes">{print.notes}</p>}
-            </section>
+            </Reveal>
+          )}
+
+          {/* Testimonial(s) */}
+          {testimonials?.length > 0 && (
+            <Reveal as="section" className="cs-section cs-testimonials">
+              <SectionHead icon={Star01} title="What they said" />
+              {testimonials.length === 1 ? (
+                <TestimonialCard testimonial={testimonials[0]} />
+              ) : (
+                <Stagger className="cs-testimonials-grid">
+                  {testimonials.map((t, i) => <TestimonialCard key={i} testimonial={{ ...t, business: null }} />)}
+                </Stagger>
+              )}
+            </Reveal>
           )}
 
           {/* Start your own */}
-          <section className="cs-cta">
+          <Reveal as="section" className="cs-cta">
             <h2 className="cs-cta-title display">Start your own</h2>
             <p className="cs-cta-sub">Same process, your business. Tell me what we're building.</p>
             <Link to="/start" className="btn btn-primary cs-cta-btn">
               Start a Project <ArrowRight width={16} height={16} />
             </Link>
-          </section>
+          </Reveal>
+
+          {/* Previous / next */}
+          {neighbors && (
+            <nav className="cs-neighbors" aria-label="Other clients">
+              <Link to={`/clients/${neighbors.prev.slug}`} className="cs-neighbor cs-neighbor--prev">
+                <ArrowLeft width={16} height={16} />
+                <span><span className="cs-neighbor-label">Previous</span>{neighbors.prev.displayName}</span>
+              </Link>
+              <Link to={`/clients/${neighbors.next.slug}`} className="cs-neighbor cs-neighbor--next">
+                <span><span className="cs-neighbor-label">Next</span>{neighbors.next.displayName}</span>
+                <ArrowRight width={16} height={16} />
+              </Link>
+            </nav>
+          )}
         </div>
       </article>
 
-      <style>{csStyles}</style>
+      <style>{csStyles + testimonialCardStyles}</style>
     </>
   );
 }
 
 const csStyles = `
+  .cs-loading { min-height: 60vh; display: flex; align-items: center; padding: var(--space-16) 0; }
+  .cs-skel { background: var(--bg-elevated); border-radius: 8px; position: relative; overflow: hidden; }
+  .cs-skel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%); background-size: 240% 100%; animation: csShimmer 1.4s linear infinite; }
+  @keyframes csShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+  @media (prefers-reduced-motion: reduce) { .cs-skel::after { animation: none; } }
+
   .cs-hero {
     padding: var(--space-16) 0 var(--space-12);
     border-bottom: 1px solid var(--border);
@@ -187,6 +323,7 @@ const csStyles = `
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 0.84rem; font-weight: 600; color: var(--text-muted);
     margin-bottom: var(--space-8); transition: color 0.2s;
+    min-height: 44px;
   }
   .cs-back:hover { color: var(--text); }
   .cs-hero-meta { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
@@ -196,6 +333,18 @@ const csStyles = `
     color: var(--text);
     margin-bottom: var(--space-4);
   }
+  .cs-socials { display: flex; gap: var(--space-2); margin-top: var(--space-5); }
+  .cs-social {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; border-radius: 999px;
+    background: var(--glass-bg); border: 1px solid var(--border);
+    color: var(--text-secondary); transition: color 0.2s, border-color 0.2s;
+  }
+  .cs-social:hover { color: var(--text); border-color: var(--border-light); }
+
+  .cs-cover { background: var(--bg-deep); border-bottom: 1px solid var(--border); overflow: hidden; }
+  .cs-cover-inner { aspect-ratio: 21 / 9; max-height: 520px; }
+  .cs-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
   .cs-body { display: flex; flex-direction: column; gap: var(--space-20); padding: var(--space-16) var(--space-6) var(--space-20); }
 
@@ -280,6 +429,9 @@ const csStyles = `
   }
   .cs-sec-foot .cs-notes { margin-top: 0; }
 
+  .cs-testimonials-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+  @media (max-width: 760px) { .cs-testimonials-grid { grid-template-columns: 1fr; } }
+
   .cs-cta {
     text-align: center; padding: var(--space-16) var(--space-6);
     background: var(--bg-elevated); border: 1px solid var(--border);
@@ -288,4 +440,13 @@ const csStyles = `
   .cs-cta-title { font-size: clamp(2.2rem, 6vw, 3.6rem); color: var(--text); margin-bottom: var(--space-3); }
   .cs-cta-sub { color: var(--text-secondary); margin-bottom: var(--space-6); }
   .cs-cta-btn { display: inline-flex; align-items: center; gap: 8px; padding: var(--space-3) var(--space-8); }
+
+  .cs-neighbors { display: flex; justify-content: space-between; gap: var(--space-4); border-top: 1px solid var(--border); padding-top: var(--space-8); }
+  .cs-neighbor {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    font-size: 0.9rem; font-weight: 700; color: var(--text); min-height: 44px;
+    max-width: 45%;
+  }
+  .cs-neighbor--next { text-align: right; flex-direction: row-reverse; margin-left: auto; }
+  .cs-neighbor-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); }
 `;

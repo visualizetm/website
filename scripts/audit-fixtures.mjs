@@ -198,6 +198,39 @@ export const CALENDLY_EVENTS = [
   { uri: 'https://api.calendly.com/scheduled_events/abc', at: new Date(Date.now() + 3 * 3600e3).toISOString(), end: new Date(Date.now() + 3.5 * 3600e3).toISOString(), name: 'Unmatched Person ' + UNBROKEN.slice(0, 30), email: 'nobody@example.com', phone: '', eventType: 'Intro call', join: 'https://example.com/join' },
   { uri: 'https://api.calendly.com/scheduled_events/def', at: new Date(Date.now() + 26 * 3600e3).toISOString(), end: new Date(Date.now() + 26.5 * 3600e3).toISOString(), name: 'Lead Business 3', email: '', phone: '(302) 555-0113', eventType: 'Intro call', join: '' },
 ];
+// Site Prompt 3 (Part 7): the public /api/showcase mock, derived from the
+// same `leads` fixtures the admin Showcase tab/Landing screen audits use, so
+// one set of fixtures (2 published clients, 1 draft, 3 testimonials) covers
+// both the admin and the public pages. Mirrors api/showcase.js's own shape,
+// simplified (no live-vs-override stat branching needed for a UI walk).
+function publicClientOf(lead) {
+  const sh = lead.showcase || {};
+  const paletteOf = (b) => [b?.primary && { name: 'Primary', hex: b.primary }, ...((b?.colors || []).map((hex, i) => hex && { name: `Accent ${i + 1}`, hex }))].filter(Boolean);
+  const typographyOf = (b) => [b?.fontDisplay && { family: b.fontDisplay, role: 'Display' }, b?.fontBody && { family: b.fontBody, role: 'Body' }].filter(Boolean);
+  return {
+    slug: sh.slug || '', displayName: sh.displayName || lead.business, type: sh.type || lead.industry || '', blurb: sh.blurb || '', cover: sh.cover || '', year: sh.year || '',
+    brand: { enabled: sh.brand?.enabled !== false, logo: sh.brand?.logo || { light: '', dark: '' }, palette: paletteOf(lead.brand), typography: typographyOf(lead.brand), images: sh.brand?.images || [], notes: sh.brand?.notes || '' },
+    website: { enabled: sh.website?.enabled !== false, url: sh.website?.url || lead.links?.website || '', screenshots: sh.website?.screenshots || [], notes: sh.website?.notes || '' },
+    cards: { enabled: sh.cards?.enabled !== false, front: sh.cards?.front || '', back: sh.cards?.back || '', notes: sh.cards?.notes || '' },
+    print: { enabled: sh.print?.enabled !== false, items: sh.print?.items || [], notes: sh.print?.notes || '' },
+    featured: sh.featured || { landing: false, logoStrip: false, work: false, order: 0 },
+    testimonials: (lead.reviews?.testimonials || []).filter(t => t.published).map(t => ({ quote: t.quote, author: t.author, role: t.role, rating: t.rating, source: t.source })),
+    socials: { instagram: lead.socials?.instagram || null, facebook: lead.socials?.facebook || null, website: lead.socials?.website || null },
+  };
+}
+export const SHOWCASE_PUBLISHED = leads.filter(l => l.showcase?.published);
+export const SHOWCASE_CLIENTS = SHOWCASE_PUBLISHED.map(publicClientOf).sort((a, b) => (a.featured.order || 0) - (b.featured.order || 0));
+export const SHOWCASE_TESTIMONIALS = SHOWCASE_CLIENTS.flatMap(c => c.testimonials.map(t => ({ ...t, business: c.displayName, slug: c.slug })));
+export const SHOWCASE_PAYLOAD = {
+  clients: SHOWCASE_CLIENTS,
+  landing: {
+    logoStrip: SHOWCASE_CLIENTS.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo.dark || c.brand.logo.light || '' })),
+    work: SHOWCASE_CLIENTS.filter(c => c.featured.work).map(c => ({ slug: c.slug, displayName: c.displayName, type: c.type, blurb: c.blurb, cover: c.cover })),
+    testimonials: SHOWCASE_TESTIMONIALS.filter((t, i) => i < 6),
+    stats: { clientsServed: 4, projectsDelivered: 3, averageRating: 4.5, years: 3 },
+  },
+};
+
 // Site Prompt 2 (Part 3): the landing settings document, same shape api/_routes/settings.js's landingShape() returns.
 export const LANDING_DOC = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: { years: 3 } } };
 export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
@@ -238,6 +271,18 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? respond(r, 'packs', PAYLOADS.packs()) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
+  // Site Prompt 3: the public showcase endpoint the marketing Clients page reads.
+  await page.route('**/api/showcase**', (r) => {
+    const u = new URL(r.request().url());
+    const slug = u.searchParams.get('slug');
+    if (empty.has('showcase')) return r.fulfill(json(slug ? {} : { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } }));
+    if (failing.has('showcase')) return r.fulfill(fail());
+    if (slug) {
+      const client = SHOWCASE_CLIENTS.find(c => c.slug === slug);
+      return client ? r.fulfill(json(client)) : r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    }
+    return r.fulfill(json(SHOWCASE_PAYLOAD));
+  });
   // Google Fonts never resolves inside the audit sandbox; answer with an empty stylesheet
   // (after `fontsDelay` ms) so first paint measurements are not bound to a 12 second timeout.
   await page.route('https://fonts.googleapis.com/**', async (r) => { if (opts.fontsDelay) await wait(opts.fontsDelay); return r.fulfill({ status: 200, contentType: 'text/css', body: '' }); });

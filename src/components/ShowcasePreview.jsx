@@ -1,16 +1,28 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
-import { clients } from '../data/clients';
-import { ClientCard, workStyles } from '../pages/Clients';
+import { fetchShowcase, ClientCard } from '../marketing/showcase';
+import { workStyles } from '../pages/Clients';
+import { Reveal, Stagger } from '../marketing/motion';
 
 export default function ShowcasePreview() {
-  const featured = clients.slice(0, 3);
+  const [clients, setClients] = useState(null); // null while loading, [] once resolved (even on error, so Home never blocks on this section)
+
+  useEffect(() => {
+    let alive = true;
+    fetchShowcase()
+      .then(({ clients: c }) => { if (alive) setClients(c.slice(0, 3)); })
+      .catch(() => { if (alive) setClients([]); });
+    return () => { alive = false; };
+  }, []);
+
+  if (!clients || !clients.length) return null;
 
   return (
     <section className="showcase-preview section section-dark">
       <div className="showcase-preview-bg" aria-hidden="true" />
       <div className="wrap">
-        <div className="showcase-preview-head reveal">
+        <Reveal as="div" className="showcase-preview-head">
           <div>
             <h2 className="section-title">My Work</h2>
             <p className="section-subtitle">
@@ -21,10 +33,10 @@ export default function ShowcasePreview() {
             View All Work
             <ArrowRight width={15} height={15} className="showcase-arrow" />
           </Link>
-        </div>
-        <div className="showcase-preview-grid stagger">
-          {featured.map((c) => <ClientCard key={c.slug} client={c} />)}
-        </div>
+        </Reveal>
+        <Stagger className="showcase-preview-grid">
+          {clients.map((c) => <ClientCard key={c.slug} client={c} />)}
+        </Stagger>
       </div>
       <style>{workStyles}</style>
       <style>{`

@@ -1,34 +1,38 @@
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
-import { clients } from '../data/clients';
+import { useEffect, useState, useCallback } from 'react';
+import { fetchShowcase, ClientCard, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import { Reveal, Stagger } from '../marketing/motion';
 
-export function ClientCard({ client }) {
+export { ClientCard } from '../marketing/showcase';
+
+function CardSkeleton() {
   return (
-    <Link to={`/clients/${client.slug}`} className="wk-card">
-      <div className="wk-card-media">
-        {client.cover ? (
-          <img src={client.cover} alt={`${client.name} brand`} loading="lazy" />
-        ) : (
-          <div className="wk-card-mono" aria-hidden="true">
-            <span className="display">{client.name.charAt(0)}</span>
-          </div>
-        )}
-      </div>
+    <div className="wk-card wk-card--skel" aria-hidden="true">
+      <div className="wk-card-media wk-skel" />
       <div className="wk-card-body">
-        <div className="wk-card-top">
-          <h3 className="wk-card-name">{client.name}</h3>
-          <span className="wk-card-arrow"><ArrowUpRight width={16} height={16} /></span>
-        </div>
-        <span className="wk-card-tag">{client.type}</span>
-        <p className="wk-card-blurb">{client.blurb}</p>
+        <div className="wk-skel wk-skel-line" style={{ width: '60%', height: 20 }} />
+        <div className="wk-skel wk-skel-line" style={{ width: '35%', height: 14 }} />
+        <div className="wk-skel wk-skel-line" style={{ width: '90%', height: 14 }} />
       </div>
-    </Link>
+    </div>
   );
 }
 
 export default function Clients() {
+  const [state, setState] = useState({ status: 'loading', clients: [], testimonials: [] });
   useEffect(() => { document.title = 'Clients, Visualize'; }, []);
+
+  const load = useCallback(async () => {
+    setState(s => ({ ...s, status: 'loading' }));
+    try {
+      const { clients } = await fetchShowcase();
+      const testimonials = [];
+      for (const c of clients) for (const t of c.testimonials) testimonials.push({ ...t, business: c.displayName, slug: c.slug });
+      setState({ status: 'ready', clients, testimonials });
+    } catch {
+      setState(s => ({ ...s, status: 'error' }));
+    }
+  }, []);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <>
@@ -44,11 +48,36 @@ export default function Clients() {
 
       <section className="wk-grid-section section">
         <div className="wrap">
-          <div className="wk-grid">
-            {clients.map((c) => <ClientCard key={c.slug} client={c} />)}
-          </div>
+          {state.status === 'loading' ? (
+            <div className="wk-grid">{[1, 2, 3, 4, 5, 6].map(i => <CardSkeleton key={i} />)}</div>
+          ) : state.status === 'error' ? (
+            <div className="wk-state">
+              <p className="wk-state-title">Could not load the client showcase.</p>
+              <p className="wk-state-body">Something went wrong reaching the server.</p>
+              <button type="button" className="btn btn-secondary" onClick={load}>Retry</button>
+            </div>
+          ) : !state.clients.length ? (
+            <div className="wk-state">
+              <p className="wk-state-title">New work is being added. Check back soon.</p>
+            </div>
+          ) : (
+            <Stagger className="wk-grid">
+              {state.clients.map((c) => <ClientCard key={c.slug} client={c} />)}
+            </Stagger>
+          )}
         </div>
       </section>
+
+      {state.status === 'ready' && state.testimonials.length > 0 && (
+        <section className="wk-reviews section">
+          <div className="wrap">
+            <Reveal as="h2" className="section-title wk-reviews-title">What clients say</Reveal>
+            <Stagger className="wk-reviews-grid">
+              {state.testimonials.map((t, i) => <TestimonialCard key={t.id || i} testimonial={t} />)}
+            </Stagger>
+          </div>
+        </section>
+      )}
 
       <style>{workStyles}</style>
     </>
@@ -78,6 +107,10 @@ export const workStyles = `
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--space-5);
   }
+
+  .wk-state { padding: var(--space-16) 0; text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+  .wk-state-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0; }
+  .wk-state-body { color: var(--text-secondary); margin: 0; }
 
   .wk-card {
     display: flex; flex-direction: column;
@@ -124,4 +157,20 @@ export const workStyles = `
     padding: 3px 10px; border-radius: 999px;
   }
   .wk-card-blurb { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
-`;
+
+  .wk-card--skel { pointer-events: none; }
+  .wk-skel { background: var(--bg-elevated); position: relative; overflow: hidden; border-radius: 6px; }
+  .wk-skel::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%);
+    background-size: 240% 100%; animation: wkShimmer 1.4s linear infinite;
+  }
+  .wk-skel-line { margin-top: var(--space-1); }
+  @keyframes wkShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+  @media (prefers-reduced-motion: reduce) { .wk-skel::after { animation: none; } }
+
+  .wk-reviews { background: var(--bg-deep); border-top: 1px solid var(--border); }
+  .wk-reviews-title { margin-bottom: var(--space-8); }
+  .wk-reviews-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+  @media (max-width: 760px) { .wk-reviews-grid { grid-template-columns: 1fr; } }
+` + testimonialCardStyles;
