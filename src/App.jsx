@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import Wordmark from './components/Wordmark';
 import BootFrame from './shell/BootFrame';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
@@ -11,13 +11,21 @@ const Navbar = lazy(() => import('./components/Navbar'));
 const Footer = lazy(() => import('./components/Footer'));
 const Home = lazy(() => import('./pages/Home'));
 const Services = lazy(() => import('./pages/Services'));
-const Work = lazy(() => import('./pages/Work'));
+const Clients = lazy(() => import('./pages/Clients'));
 const CaseStudy = lazy(() => import('./pages/CaseStudy'));
 const Contact = lazy(() => import('./pages/Contact'));
 const LeadPartner = lazy(() => import('./pages/LeadPartner'));
 const Prints = lazy(() => import('./pages/Prints'));
 const Start = lazy(() => import('./pages/Start'));
 const AdminApp = lazy(() => import('./pages/AdminApp'));
+
+/* /work/:slug moved to /clients/:slug (Site Prompt 3); this keeps the old
+ * deep link's slug alive as a client-side fallback, vercel.json does the
+ * real 301 for anyone hitting the server directly. */
+function RedirectWorkSlug() {
+  const { slug } = useParams();
+  return <Navigate to={`/clients/${slug}`} replace />;
+}
 
 function LoadingScreen({ done }) {
   return (
@@ -125,9 +133,11 @@ export default function App() {
         <Routes location={location}>
           <Route path="/"            element={<Home />} />
           <Route path="/services"    element={<Services />} />
-          <Route path="/work"        element={<Work />} />
-          <Route path="/work/:slug"  element={<CaseStudy />} />
-          <Route path="/showcase"    element={<Navigate to="/work" replace />} />
+          <Route path="/clients"        element={<Clients />} />
+          <Route path="/clients/:slug"  element={<CaseStudy />} />
+          <Route path="/work"        element={<Navigate to="/clients" replace />} />
+          <Route path="/work/:slug"  element={<RedirectWorkSlug />} />
+          <Route path="/showcase"    element={<Navigate to="/clients" replace />} />
           <Route path="/contact"     element={<Contact />} />
           <Route path="/book"        element={<Contact />} />
           <Route path="/lead-partner" element={<LeadPartner />} />

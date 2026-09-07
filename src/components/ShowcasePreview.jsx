@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import { clients } from '../data/clients';
-import { ClientCard, workStyles } from '../pages/Work';
+import { ClientCard, workStyles } from '../pages/Clients';
 
 export default function ShowcasePreview() {
   const featured = clients.slice(0, 3);
@@ -17,7 +17,7 @@ export default function ShowcasePreview() {
               Real businesses built end to end, brand, web, and print under one roof.
             </p>
           </div>
-          <Link to="/work" className="btn btn-secondary showcase-view-all">
+          <Link to="/clients" className="btn btn-secondary showcase-view-all">
             View All Work
             <ArrowRight width={15} height={15} className="showcase-arrow" />
           </Link>

@@ -81,7 +81,7 @@ export default function Hero() {
               Start a Project
               <ArrowRight width={16} height={16} />
             </Link>
-            <Link to="/work" className="btn btn-secondary hero-btn-secondary">
+            <Link to="/clients" className="btn btn-secondary hero-btn-secondary">
               <Image01 width={17} height={17} />
               View My Work
               <ArrowRight width={15} height={15} className="hero-btn-arrow" />

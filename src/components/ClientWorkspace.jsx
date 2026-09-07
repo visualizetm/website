@@ -661,7 +661,7 @@ function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children 
 
 function PublishCard({ sh, write, writeRaw, readOnly }) {
   const toast = useToast();
-  const url = sh.slug ? `https://visualizestudio.org/work/${sh.slug}` : '';
+  const url = sh.slug ? `https://visualizestudio.org/clients/${sh.slug}` : '';
   const setPublished = (v) => {
     // First publish with no slug yet: mirror the server's own slugify() so the
     // URL shown here matches what will be stored (barring a rare collision,
@@ -687,7 +687,7 @@ function PublishCard({ sh, write, writeRaw, readOnly }) {
         )}
       </div>
       <Row gap={2} wrap>
-        <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`/api/showcase?slug=${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
+        <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
       </Row>
     </Card>
   );

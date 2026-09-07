@@ -28,7 +28,7 @@ export default function Navbar() {
   const links = [
     { to: '/',         label: 'Home',     icon: Home01 },
     { to: '/services', label: 'Services', icon: Briefcase01 },
-    { to: '/work',     label: 'Work',     icon: Image01 },
+    { to: '/clients',   label: 'Clients',  icon: Image01 },
     { to: '/prints',   label: 'Shop',     icon: ShoppingBag01, newTab: true },
     { to: '/book',     label: 'Contact',  icon: Phone },
   ];

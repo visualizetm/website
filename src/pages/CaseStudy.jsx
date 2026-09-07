@@ -43,7 +43,7 @@ export default function CaseStudy() {
     if (client) document.title = `${client.name}, Work, Visualize`;
   }, [client]);
 
-  if (!client) return <Navigate to="/work" replace />;
+  if (!client) return <Navigate to="/clients" replace />;
 
   const { brand, website, cards, print } = client.sections || {};
 
@@ -53,7 +53,7 @@ export default function CaseStudy() {
         {/* Header */}
         <header className="cs-hero">
           <div className="wrap">
-            <Link to="/work" className="cs-back">
+            <Link to="/clients" className="cs-back">
               <ArrowLeft width={15} height={15} />
               All work
             </Link>

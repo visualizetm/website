@@ -5,7 +5,7 @@ import { clients } from '../data/clients';
 
 export function ClientCard({ client }) {
   return (
-    <Link to={`/work/${client.slug}`} className="wk-card">
+    <Link to={`/clients/${client.slug}`} className="wk-card">
       <div className="wk-card-media">
         {client.cover ? (
           <img src={client.cover} alt={`${client.name} brand`} loading="lazy" />
@@ -27,15 +27,15 @@ export function ClientCard({ client }) {
   );
 }
 
-export default function Work() {
-  useEffect(() => { document.title = 'Work, Visualize'; }, []);
+export default function Clients() {
+  useEffect(() => { document.title = 'Clients, Visualize'; }, []);
 
   return (
     <>
       <section className="wk-hero">
         <div className="wrap">
           <p className="wk-eyebrow">Client Showcase</p>
-          <h1 className="wk-title display">Work</h1>
+          <h1 className="wk-title display">Clients</h1>
           <p className="section-subtitle">
             Real businesses, built end to end, brand, web, and print under one roof.
           </p>

@@ -12,6 +12,16 @@
       ],
       "destination": "/",
       "permanent": false
+    },
+    {
+      "source": "/work/:slug",
+      "destination": "/clients/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/work",
+      "destination": "/clients",
+      "permanent": true
     }
   ],
   "rewrites": [
