@@ -298,9 +298,11 @@ screens and deliberately skips every `marketing: true` row, so it covers
 exactly the half of the app this prompt did not touch. Two runs were
 started, one across both themes and both motion settings and one plain,
 and neither got through its screen list inside this session's practical
-run time; the rows it did reach were the usual pass rows plus the
-pre-existing "GAP fit" skeleton-fit rows on Call Console and Booked,
-which predate this prompt and are tracked separately. The admin's own
+run time; the rows it did reach were pass rows plus
+"GAP fit" rows, every one of them the skeleton-fit category (a skeleton
+whose row count does not match the loaded screen's), never an entrance,
+empty or error gap. Those are the admin's own pre-existing gaps, tracked
+separately since the prompt that introduced the check. The admin's own
 64-step `regression.mjs` did run to completion on this exact build, 0
 failures, which is the stronger check that nothing here reached the CRM.
 
