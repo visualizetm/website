@@ -10,6 +10,7 @@ import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import { fetchShowcase, fetchClient, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax } from '../marketing/motion';
+import { useTheme } from '../marketing/useTheme';
 
 // Labeled placeholder for any image slot the client's showcase leaves empty.
 function Slot({ label, ratio = '16 / 10', children }) {
@@ -35,21 +36,6 @@ function SectionHead({ icon: IconEl, title }) {
       <h2 className="cs-sec-title display">{title}</h2>
     </div>
   );
-}
-
-/* The current theme, live: same source and update pattern as ThemeToggle,
- * so brand.logo picks the light or dark variant to match what is on screen. */
-function useTheme() {
-  const [theme, setTheme] = useState(() => document.documentElement.dataset.theme || 'dark');
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const onChange = () => setTheme(document.documentElement.dataset.theme || (mq.matches ? 'light' : 'dark'));
-    mq.addEventListener('change', onChange);
-    const obs = new MutationObserver(onChange);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => { mq.removeEventListener('change', onChange); obs.disconnect(); };
-  }, []);
-  return theme;
 }
 
 /* Sets document.title, the meta description, and og:image for this client.

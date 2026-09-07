@@ -38,6 +38,20 @@ export async function fetchClient(slug, { force = false } = {}) {
 /** Clears both caches; call after an admin action if a fresher read matters (not required for normal browsing). */
 export function clearShowcaseCache() { listCache = null; clientCache.clear(); }
 
+/* Site Prompt 4, Part 4: caps a showcase image request at 1600 wide. A
+ * Cloudinary URL gets the width transform inserted after /upload/; any
+ * other URL (a fixture, a Drive link) is returned unchanged, since there is
+ * no transform endpoint to append it to. */
+export function capImageWidth(url, width = 1600) {
+  if (!url) return url;
+  const marker = '/image/upload/';
+  const i = url.indexOf(marker);
+  if (i === -1 || !url.includes('res.cloudinary.com')) return url;
+  const cut = i + marker.length;
+  if (/^[a-z]_[^/]*\d+\/?/i.test(url.slice(cut))) return url; // already transformed
+  return `${url.slice(0, cut)}w_${width},c_limit/${url.slice(cut)}`;
+}
+
 /** The list/preview card: displayName, type, blurb, cover with a monogram fallback. Identical markup to the old hardcoded version. */
 export function ClientCard({ client }) {
   return (

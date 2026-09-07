@@ -1,64 +1,57 @@
-export default function Trust() {
-  const placeholders = ['Client', 'Client', 'Client', 'Client', 'Client'];
+import { Link } from 'react-router-dom';
+import { Reveal, Marquee } from '../marketing/motion';
+import { useTheme } from '../marketing/useTheme';
+import { capImageWidth } from '../marketing/showcase';
+
+/* Site Prompt 4, Part 1.2: the logo strip. clients is the full published
+ * list (from the same one fetchShowcase() call Home makes), filtered here
+ * to featured.logoStrip and ordered by featured.order, so each entry keeps
+ * its client.brand.logo.light/dark pair for a theme-correct pick, the
+ * endpoint's own landing.logoStrip only carries one pre-resolved logo. */
+export default function Trust({ clients }) {
+  const theme = useTheme();
+  const strip = (clients || [])
+    .filter(c => c.featured?.logoStrip)
+    .sort((a, b) => (a.featured?.order || 0) - (b.featured?.order || 0));
+
+  if (!strip.length) return null;
 
   return (
-    <section className="trust section section-elevated">
-      <div className="trust-bg" aria-hidden="true" />
-      <div className="wrap">
-        <p className="trust-label">Trusted by local businesses</p>
-        <div className="trust-logos">
-          {placeholders.map((name, i) => (
-            <div key={i} className="trust-logo" title={name}>
-              <span>{name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+    <Reveal as="section" className="trust">
+      <p className="trust-label">Trusted by local businesses</p>
+      <Marquee duration={36}>
+        {strip.map((c) => {
+          const logo = theme === 'light'
+            ? (c.brand?.logo?.light || c.brand?.logo?.dark)
+            : (c.brand?.logo?.dark || c.brand?.logo?.light);
+          return (
+            <Link key={c.slug} to={`/clients/${c.slug}`} className="trust-logo" aria-label={c.displayName}>
+              {logo ? (
+                <img src={capImageWidth(logo)} alt="" loading="lazy" width={140} height={56} />
+              ) : (
+                <span className="trust-logo-fallback">{c.displayName}</span>
+              )}
+            </Link>
+          );
+        })}
+      </Marquee>
       <style>{`
-        .trust {
-          position: relative;
-          padding-top: var(--space-12);
-          padding-bottom: var(--space-12);
-        }
-        .trust-bg {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(ellipse 60% 40% at 50% 100%, rgba(212, 76, 67, 0.04) 0%, transparent 50%);
-          pointer-events: none;
-        }
-        .trust .wrap { position: relative; z-index: 1; }
+        .trust { padding: var(--space-10) 0; }
         .trust-label {
-          font-size: 0.8125rem;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          color: var(--text-muted);
-          text-align: center;
-          margin-bottom: var(--space-6);
-        }
-        .trust-logos {
-          display: flex;
-          flex-wrap: wrap;
-          justify-content: center;
-          align-items: center;
-          gap: var(--space-10);
+          font-size: 0.8125rem; font-weight: 600; text-transform: uppercase;
+          letter-spacing: 0.1em; color: var(--text-muted);
+          text-align: center; margin-bottom: var(--space-6);
         }
         .trust-logo {
-          width: 120px;
-          height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: var(--glass-bg);
-          backdrop-filter: blur(var(--glass-blur));
-          -webkit-backdrop-filter: blur(var(--glass-blur));
-          border: 1px solid var(--glass-border);
-          border-radius: var(--radius);
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text-muted);
+          display: flex; align-items: center; justify-content: center;
+          height: 56px; padding: 0 var(--space-6);
+          filter: grayscale(1); opacity: 0.65;
+          transition: opacity 0.2s, filter 0.2s;
         }
+        .trust-logo:hover { filter: grayscale(0); opacity: 1; }
+        .trust-logo img { max-height: 100%; max-width: 140px; object-fit: contain; }
+        .trust-logo-fallback { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
       `}</style>
-    </section>
+    </Reveal>
   );
 }
