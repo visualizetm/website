@@ -25,7 +25,7 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
 // the element itself must still fit the viewport).
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee'];
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
@@ -269,6 +269,16 @@ for (const width of WIDTHS) {
       await emptyPage.goto(`${BASE}/clients`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
       await check('marketing: Clients (empty state)', emptyPage);
       await emptyPage.close();
+    }
+    // Site Prompt 4: Home with an empty landing object, every client-fed
+    // section hidden, the hero still shows its default image.
+    {
+      const emptyHome = await ctx.newPage();
+      await emptyHome.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
+      await mockRoutes(emptyHome, { empty: ['showcase'] });
+      await emptyHome.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await check('marketing: Home (empty landing)', emptyHome);
+      await emptyHome.close();
     }
     await goto('/contact');
     await check('marketing: Contact');

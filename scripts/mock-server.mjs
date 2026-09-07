@@ -16,6 +16,9 @@ import { PAYLOADS, leads, orders, packs, projects, SHOWCASE_CLIENTS, SHOWCASE_PA
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
 const DELAY = Number(process.env.MOCK_DELAY || 0);
+// Site Prompt 4, Part 5: forces /api/showcase to answer as if no client has
+// ever published, for the "empty landing" Lighthouse and layout pass on Home.
+const SHOWCASE_EMPTY = !!process.env.MOCK_SHOWCASE_EMPTY;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff', '.txt': 'text/plain; charset=utf-8', '.map': 'application/json' };
 
 /* Production (Vercel) compresses text and serves /assets immutable; the server does the same so
@@ -49,6 +52,7 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/concept-packs')) return m === 'GET' ? get('packs') : json(res, { ok: true, item: { ...packs[0], _id: 'KNEW' } });
   if (p.startsWith('/api/admin/projects')) return m === 'GET' ? get('projects') : json(res, { ok: true, item: { ...projects[0], _id: 'PNEW' } });
   if (p === '/api/showcase') {
+    if (SHOWCASE_EMPTY) return json(res, { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } });
     const slug = url.searchParams.get('slug');
     if (!slug) return json(res, SHOWCASE_PAYLOAD);
     const client = SHOWCASE_CLIENTS.find(c => c.slug === slug);

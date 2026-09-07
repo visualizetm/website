@@ -114,7 +114,7 @@ export const testimonialCardStyles = `
   .tc-quote { margin: 0; font-size: 1.0625rem; line-height: 1.6; color: var(--text); }
   .tc-attr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; font-size: 0.875rem; color: var(--text-secondary); }
   .tc-name { font-weight: 700; color: var(--text); }
-  .tc-business { color: var(--brand); text-decoration: none; }
+  .tc-business { color: var(--brand-text); text-decoration: none; }
   .tc-business:hover { text-decoration: underline; }
 `;
 

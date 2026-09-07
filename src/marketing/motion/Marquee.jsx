@@ -2,7 +2,7 @@
 // future logo strip). Pauses on hover by default (CSS animation-play-state,
 // no JS timers to fight). Under prefers-reduced-motion it is static: the
 // content renders once, in a manually-scrollable row, no animation.
-import { Children } from 'react';
+import { Children, cloneElement } from 'react';
 import { cx, useMotionPreference } from './shared';
 
 export function Marquee({
@@ -41,7 +41,13 @@ export function Marquee({
             translateX(-50%) then lands precisely one group-width over, the
             seam invisible. A track-level gap would break that symmetry. */}
         <div className="m-marquee-group" style={{ gap: `${gap}px`, paddingRight: `${gap}px` }}>{items}</div>
-        <div className="m-marquee-group" style={{ gap: `${gap}px`, paddingRight: `${gap}px` }} aria-hidden="true">{items}</div>
+        {/* The seamless-loop duplicate: aria-hidden alone does not remove its
+            interactive children (a Link, say) from the tab order, so each is
+            also cloned with tabIndex={-1}; a non-interactive child (an img)
+            just ignores the extra prop. */}
+        <div className="m-marquee-group" style={{ gap: `${gap}px`, paddingRight: `${gap}px` }} aria-hidden="true">
+          {items.map((item, i) => cloneElement(item, { key: `dup-${i}`, tabIndex: -1 }))}
+        </div>
       </div>
     </div>
   );

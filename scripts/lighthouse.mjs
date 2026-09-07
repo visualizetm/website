@@ -13,6 +13,7 @@ import puppeteer from 'puppeteer-core';
 import { startFlow } from 'lighthouse';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { SESSION } from './audit-screens.mjs';
+import desktopConfig from 'lighthouse/core/config/desktop-config.js';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.LH_BASE || 'http://127.0.0.1:4350';
@@ -20,6 +21,9 @@ const OUT = process.env.LH_OUT || '';
 const THEMES = process.env.LH_THEME ? [process.env.LH_THEME] : ['dark', 'light'];
 const ONLY = process.env.LH_ONLY || ''; // one target id (dashboard, leads, room)
 const BLOCK_FONTS = !!process.env.LH_BLOCK_FONTS; // diagnostic: measure without the self hosted fonts
+// Site Prompt 4, Part 5: 'mobile' (the default, 390-equivalent preset) or
+// 'desktop' (1280-equivalent, lighthouse's own desktop-config.js settings).
+const FORM = process.env.LH_FORM === 'desktop' ? 'desktop' : 'mobile';
 const TARGETS = [
   { id: 'dashboard', label: 'Dashboard', path: '/admin' },
   { id: 'leads', label: 'Leads', path: '/admin/leads', ls: { vz_leads_view: JSON.stringify('list') } },
@@ -27,8 +31,15 @@ const TARGETS = [
   // Site Prompt 3: the public /clients page and one detail, driven by /api/showcase.
   { id: 'clients', label: 'Clients (marketing)', path: '/clients' },
   { id: 'clients-detail', label: 'Clients detail (marketing)', path: '/clients/full-showcase-co' },
+  // Site Prompt 4: the landing page, and (via MOCK_SHOWCASE_EMPTY on the mock
+  // server) its empty-CRM state.
+  { id: 'home', label: 'Home', path: '/' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
+
+const formSettings = FORM === 'desktop'
+  ? { formFactor: 'desktop', throttling: desktopConfig.settings.throttling, screenEmulation: desktopConfig.settings.screenEmulation, emulatedUserAgent: desktopConfig.settings.emulatedUserAgent }
+  : { formFactor: 'mobile' };
 
 const browser = await puppeteer.launch({ executablePath: EXE, headless: 'new', args: ['--no-sandbox', '--disable-gpu'] });
 const results = [];
@@ -37,7 +48,7 @@ for (const theme of THEMES) for (const t of TARGETS.filter(t => !ONLY || t.id ==
   await page.evaluateOnNewDocument((theme, ls) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); for (const [k, v] of Object.entries(ls)) localStorage.setItem(k, v); } catch {} }, theme, t.ls || {});
   const flow = await startFlow(page, {
     name: `${t.label} ${theme}`,
-    config: { extends: 'lighthouse:default', settings: { formFactor: 'mobile', onlyCategories: ['performance', 'accessibility', 'best-practices', 'pwa'], blockedUrlPatterns: ['*fonts.googleapis.com*', '*fonts.gstatic.com*', ...(BLOCK_FONTS ? ['*/fonts/*'] : [])], skipAudits: ['uses-http2'] } },
+    config: { extends: 'lighthouse:default', settings: { ...formSettings, onlyCategories: ['performance', 'accessibility', 'best-practices', 'pwa'], blockedUrlPatterns: ['*fonts.googleapis.com*', '*fonts.gstatic.com*', ...(BLOCK_FONTS ? ['*/fonts/*'] : [])], skipAudits: ['uses-http2'] } },
   });
   await flow.navigate(`${BASE}${t.path}`);
   const result = await flow.createFlowResult();

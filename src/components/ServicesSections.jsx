@@ -112,7 +112,7 @@ export default function ServicesSections({ clients, heroCover }) {
         .svc-from { font-size: 0.9375rem; font-weight: 700; color: var(--text); margin-top: var(--space-2); }
         .svc-link {
           display: inline-flex; align-items: center; min-height: 44px;
-          font-size: 0.9375rem; font-weight: 700; color: var(--brand);
+          font-size: 0.9375rem; font-weight: 700; color: var(--brand-text);
         }
 
         .svc-image {

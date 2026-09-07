@@ -74,13 +74,13 @@
   --glass-blur: 14px;
   --glass-blur-strong: 24px;
 
-  /* Brand-colored text specifically (an eyebrow, a link): --brand itself
-     reads fine against the dark theme's backgrounds, but at 4.27:1 on white
-     it fails WCAG's 4.5:1 text minimum, so text uses this instead of
-     --brand directly. Same value as --brand on the dark theme; the light
-     theme override below points it at the darker --brand-dark instead
-     (Site Prompt 4, Part 3). */
-  --brand-text: var(--brand);
+  /* Brand-colored text specifically (an eyebrow, a link, a card's business
+     name): --brand itself is 4.27:1 on white and 4.38:1 on --bg-card,
+     both under WCAG's 4.5:1 text minimum, so text uses this instead of
+     --brand directly. --brand-light on the dark theme (5.9:1+ against
+     both the page and card backgrounds); the light theme override below
+     points it at the darker --brand-dark instead (Site Prompt 4, Part 3). */
+  --brand-text: var(--brand-light);
 
   /* Transitions */
   --ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);

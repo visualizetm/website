@@ -72,6 +72,11 @@ export const SCREENS = [
   { id: 'mkt-clients-empty', screen: 'Clients (marketing)', label: 'empty state', path: '/clients', session: false, static: true, marketing: true, emptyResource: 'showcase' },
   { id: 'mkt-clients-error', screen: 'Clients (marketing)', label: 'error state (unknown slug)', path: '/clients/does-not-exist', session: false, static: true, marketing: true },
 
+  // Site Prompt 4: the landing page, one fetchShowcase() call feeding every
+  // client-fed section; the empty state hides those, hero and how-it-works stay.
+  { id: 'mkt-home', screen: 'Home (marketing)', label: 'full', path: '/', session: false, static: true, marketing: true },
+  { id: 'mkt-home-empty', screen: 'Home (marketing)', label: 'empty landing', path: '/', session: false, static: true, marketing: true, emptyResource: 'showcase' },
+
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 

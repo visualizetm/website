@@ -126,7 +126,7 @@ export default function Footer() {
         }
         .footer-cta-btn {
           display: inline-flex; align-items: center; gap: 7px; min-height: 44px;
-          font-size: 0.9rem; font-weight: 700; color: var(--brand);
+          font-size: 0.9rem; font-weight: 700; color: var(--brand-text);
           transition: gap 0.2s;
         }
         .footer-cta-btn:hover { gap: 10px; }
