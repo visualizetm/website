@@ -58,7 +58,7 @@ export function ClientCard({ client }) {
     <Link to={`/clients/${client.slug}`} className="wk-card">
       <div className="wk-card-media">
         {client.cover ? (
-          <img src={client.cover} alt={`${client.displayName} brand`} loading="lazy" />
+          <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
         ) : (
           <div className="wk-card-mono" aria-hidden="true">
             <span className="display">{(client.displayName || '?').charAt(0)}</span>
