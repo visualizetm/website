@@ -6,6 +6,7 @@ import {
   CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
   RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
+  TESTIMONIAL_SOURCE_IDS,
 } from '../_semantics.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
@@ -44,6 +45,75 @@ function normalizeSocials(obj) {
 export { normalizeSocials };
 
 const str = (v, max = 400) => String(v ?? '').slice(0, max);
+
+// Site Prompt 2: a-z0-9 and single hyphens, no leading/trailing hyphen.
+function slugify(v) {
+  return String(v ?? '').toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+}
+const imgLink = (v) => str(v, 500);
+function showcaseImageList(v, max) {
+  return Array.isArray(v) ? v.slice(0, max).map(x => ({ link: imgLink(x?.link), caption: str(x?.caption, 200) })) : [];
+}
+// Site Prompt 2: the public showcase, additive on call_leads. All sub-fields
+// get a concrete value (full replacement, same convention as brand above);
+// published/slug uniqueness is enforced by the PATCH handler below, not here.
+function sanitizeShowcase(sh) {
+  const brand = sh.brand && typeof sh.brand === 'object' ? sh.brand : {};
+  const website = sh.website && typeof sh.website === 'object' ? sh.website : {};
+  const cards = sh.cards && typeof sh.cards === 'object' ? sh.cards : {};
+  const print = sh.print && typeof sh.print === 'object' ? sh.print : {};
+  const featured = sh.featured && typeof sh.featured === 'object' ? sh.featured : {};
+  return {
+    published: !!sh.published,
+    slug: slugify(sh.slug),
+    displayName: str(sh.displayName, 200),
+    type: str(sh.type, 80),
+    blurb: str(sh.blurb, 200),
+    cover: imgLink(sh.cover),
+    year: str(sh.year, 10),
+    brand: {
+      enabled: brand.enabled !== false,
+      logo: { light: imgLink(brand.logo?.light), dark: imgLink(brand.logo?.dark) },
+      images: showcaseImageList(brand.images, 12),
+      notes: str(brand.notes, 600),
+    },
+    website: {
+      enabled: website.enabled !== false,
+      url: str(website.url, 400),
+      screenshots: showcaseImageList(website.screenshots, 8),
+      notes: str(website.notes, 600),
+    },
+    cards: {
+      enabled: cards.enabled !== false,
+      front: imgLink(cards.front), back: imgLink(cards.back),
+      notes: str(cards.notes, 600),
+    },
+    print: {
+      enabled: print.enabled !== false,
+      items: Array.isArray(print.items) ? print.items.slice(0, 12).map(x => ({ label: str(x?.label, 120), image: imgLink(x?.image), caption: str(x?.caption, 200) })) : [],
+      notes: str(print.notes, 600),
+    },
+    featured: {
+      landing: !!featured.landing, logoStrip: !!featured.logoStrip, work: !!featured.work,
+      order: Number.isFinite(Number(featured.order)) ? Math.round(Number(featured.order)) : 0,
+    },
+  };
+}
+function sanitizeTestimonial(t) {
+  return {
+    id: str(t?.id, 40) || String(Math.random()).slice(2, 10),
+    quote: str(t?.quote, 400),
+    author: str(t?.author, 120),
+    role: str(t?.role, 120),
+    rating: t?.rating === null || t?.rating === undefined ? null : Math.max(1, Math.min(5, Math.round(Number(t.rating)) || 1)),
+    source: TESTIMONIAL_SOURCE_IDS.includes(t?.source) ? t.source : 'text',
+    published: !!t?.published,
+    featured: !!t?.featured,
+    order: Number.isFinite(Number(t?.order)) ? Math.round(Number(t.order)) : 0,
+    at: str(t?.at, 40),
+  };
+}
 const strArr = (v, max = 30) => Array.isArray(v) ? v.slice(0, max).map(x => str(x, 600)) : [];
 const qaArr = (v, max = 12) => Array.isArray(v)
   ? v.slice(0, max).map(x => ({ say: str(x?.say, 300), respond: str(x?.respond, 800) }))
@@ -200,6 +270,10 @@ function sanitize(b) {
       fontDisplay: str(b.brand.fontDisplay, 120), fontBody: str(b.brand.fontBody, 120),
       logoLink: str(b.brand.logoLink, 400), notes: str(b.brand.notes, 600),
     } : undefined,
+    // Site Prompt 2 additive: the public showcase. published/slug are only
+    // ever changed through the PATCH handler's own logic below (slug
+    // generation, uniqueness), never trusted verbatim from the client here.
+    showcase: b.showcase && typeof b.showcase === 'object' ? sanitizeShowcase(b.showcase) : undefined,
     retainer: b.retainer && typeof b.retainer === 'object' ? {
       projectId: str(b.retainer.projectId, 64), planId: str(b.retainer.planId, 40),
       amount: Number.isFinite(Number(b.retainer.amount)) ? Math.max(0, Math.min(100000, Number(b.retainer.amount))) : 0,
@@ -217,6 +291,9 @@ function sanitize(b) {
       baseline: b.reviews.baseline && typeof b.reviews.baseline === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.baseline.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.baseline.rating) || 0)), at: str(b.reviews.baseline.at, 40) } : null,
       latest: b.reviews.latest && typeof b.reviews.latest === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.latest.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.latest.rating) || 0)), at: str(b.reviews.latest.at, 40) } : null,
       asks: Array.isArray(b.reviews.asks) ? b.reviews.asks.slice(-200).map(a => ({ at: str(a?.at, 40), channel: REVIEW_CHANNEL_IDS.includes(a?.channel) ? a.channel : 'text', result: REVIEW_RESULT_IDS.includes(a?.result) ? a.result : 'asked', note: str(a?.note, 400) })) : [],
+      // Site Prompt 2 additive: showcase testimonials, from an ask, a website
+      // review submission, or entered by hand.
+      testimonials: Array.isArray(b.reviews.testimonials) ? b.reviews.testimonials.slice(0, 100).map(sanitizeTestimonial) : [],
     } : undefined,
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
@@ -305,6 +382,32 @@ export async function handler(req, res) {
     }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();
+
+    // Site Prompt 2: slug generation (first publish) and uniqueness among
+    // OTHER published clients. showcase is a full-replacement object (same
+    // convention as brand), so the caller always spreads the current
+    // lead.showcase forward; this only needs to resolve slug itself.
+    if (allowed.showcase) {
+      const oid = new ObjectId(String(id));
+      const existingLead = await col.findOne({ _id: oid }, { projection: { business: 1, showcase: 1 } });
+      const hadSlug = existingLead?.showcase?.slug || '';
+      let slug = allowed.showcase.slug;
+      if (!slug && allowed.showcase.published) slug = slugify(allowed.showcase.displayName || existingLead?.business || '');
+      if (!slug && hadSlug) slug = hadSlug; // never silently wipe an existing slug
+      if (slug) {
+        let candidate = slug; let n = 2;
+        for (;;) {
+          const clash = await col.findOne({ _id: { $ne: oid }, 'showcase.published': true, 'showcase.slug': candidate }, { projection: { _id: 1 } });
+          if (!clash) break;
+          if (allowed.showcase.slug && candidate === allowed.showcase.slug) return res.status(409).json({ error: 'That URL is already in use by another published client.' });
+          candidate = `${slug}-${n++}`;
+        }
+        allowed.showcase.slug = candidate;
+      }
+      allowed.showcase.updatedAt = new Date();
+      return res.status(200).json((await col.updateOne({ _id: oid }, { $set: allowed })) && { ok: true, slug: allowed.showcase.slug });
+    }
+
     await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: allowed });
     return res.status(200).json({ ok: true });
   }

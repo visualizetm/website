@@ -24,3 +24,5 @@ export const REVIEW_CHANNEL_IDS = ['nfc', 'text', 'email', 'in-person'];
 export const REVIEW_RESULT_IDS = ['asked', 'left', 'declined'];
 // Prompt 12: submission types accepted by api/submissions.js.
 export const SUBMISSION_TYPE_IDS = ['start', 'contact', 'review', 'shop-order', 'other'];
+// Site Prompt 2: where a showcase testimonial's text came from.
+export const TESTIMONIAL_SOURCE_IDS = ['nfc', 'text', 'email', 'in-person', 'website', 'google'];

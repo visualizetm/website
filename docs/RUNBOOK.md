@@ -31,6 +31,7 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 | ADMIN_URL | Deep links in push notifications (default https://admin.visualizeclients.com) | Links use the default host |
 | VITE_MAINTENANCE_MODE, VITE_MAINTENANCE_PASSWORD | The public maintenance screen and its unlock | Site serves normally |
 | VITE_WEB3FORMS_KEY | Web3Forms fallback on the public forms (public by design) | Forms still post to /api/submissions |
+| VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET | An Upload button beside every showcase image field (Site Prompt 2), browser to Cloudinary direct, no server involved | Every image field is a plain pasted link only; the button does not render |
 
 ## Rotate SESSION_SECRET (sign everyone out)
 

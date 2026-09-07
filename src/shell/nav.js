@@ -21,6 +21,7 @@ export const NAV = [
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: null },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews' },
+  { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null },
   { id: 'submissions', label: 'Submissions',      icon: 'Inbox01',         path: '/submissions', group: 'System',  badge: 'submissions' },
   { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null },
   { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null },

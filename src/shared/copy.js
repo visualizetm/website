@@ -64,6 +64,10 @@ export const COPY = {
     'reviews.none': { title: 'No clients yet', description: 'Reviews track per client. Win a booked meeting or add a client first.', action: 'Open Clients' },
     'reviews.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
     'reviews.forms': { title: 'Nothing from the website review form yet', description: 'When the site posts a review submission, it lands here to link.' },
+    /* Landing */
+    'landing.logostrip': { title: 'No logos on the strip', description: 'Turn on "Show in logo strip" on a client\'s Showcase tab and it lands here to order.' },
+    'landing.work': { title: 'No featured work yet', description: 'Turn on "Feature in work" on a client\'s Showcase tab and it lands here to order. Nothing featured shows the newest published clients instead.' },
+    'landing.testimonials': { title: 'No featured testimonials yet', description: 'Publish and feature a testimonial on a client\'s Showcase tab and it lands here to order.' },
     /* Submissions */
     'submissions.none': { title: 'No submissions yet', description: 'Briefs and contact forms from the website land here the moment they are sent.', action: 'Open the site form' },
     'submissions.filter': { title: 'No submissions in this filter', description: 'Every submission is under All.', action: 'Show all' },

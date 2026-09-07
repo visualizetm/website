@@ -197,6 +197,19 @@ export const REVIEW_RESULTS = [
 ];
 export const REVIEW_RESULT_IDS = REVIEW_RESULTS.map(r => r.id);
 
+/* ── Showcase testimonial sources (Site Prompt 2) ─────────────────
+   Where a testimonial's text came from, distinct from REVIEW_CHANNELS
+   (which is how a review ASK went out). */
+export const TESTIMONIAL_SOURCES = [
+  { id: 'nfc',       label: 'NFC card',  icon: 'CreditCard01',    order: 0 },
+  { id: 'text',      label: 'Text',      icon: 'MessageCircle01', order: 1 },
+  { id: 'email',     label: 'Email',     icon: 'Mail01',          order: 2 },
+  { id: 'in-person', label: 'In person', icon: 'User01',          order: 3 },
+  { id: 'website',   label: 'Website',   icon: 'Globe01',         order: 4 },
+  { id: 'google',    label: 'Google',    icon: 'Star01',          order: 5 },
+];
+export const TESTIMONIAL_SOURCE_IDS = TESTIMONIAL_SOURCES.map(s => s.id);
+
 /* ── Submission types (Prompt 12) ──────────────────────────────── */
 export const SUBMISSION_TYPES = [
   { id: 'start',      label: 'Brief',     icon: 'Inbox01',   order: 0, ...tone('progress') },

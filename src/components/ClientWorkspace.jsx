@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
@@ -6,12 +6,13 @@ import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import {
-  Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, ProgressBar, EmptyState, IconTile, Table, useToast, useConfirm, useMediaQuery,
+  Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, EmptyState, IconTile, Table, Icon, useToast, useConfirm, useMediaQuery,
 } from '../ui';
-import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, projectStageOf } from '../shared/semantics';
+import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, projectStageOf, industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
 import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
+import { cloudinaryEnabled, uploadToCloudinary } from '../lib/cloudinary';
 import {
   uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
   planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject,
@@ -21,6 +22,7 @@ import {
 /* Client workspace (Prompt 10): the blocks LeadDetail renders in client mode.
  *   ClientLinks, ClientBrand           profile column cards
  *   ClientSections                     Projects, Payments, Retainer, Deliverables sections
+ *   ShowcaseSection                    Site Prompt 2 Part 2: the public showcase editor
  * Every rule lives in src/lib/projects.js; this file only renders and writes. */
 
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
@@ -512,5 +514,509 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
         <Input label="Note (optional)" value={logForm.note} onChange={(e) => setLogForm(f => ({ ...f, note: e.target.value }))} placeholder="Three story graphics and the monthly plan" />
       </Modal>
     </>
+  );
+}
+
+/* ── Showcase (Site Prompt 2, Part 2) ────────────────────────────────
+ * The public showcase editor: Publish, Card fields, four toggleable
+ * sections (Brand identity, Website, Business cards, Print and product),
+ * Landing page placement, and Testimonials. `showcase` and `reviews` are
+ * both full-replacement objects server-side (see api/_routes/call-leads.js
+ * sanitizeShowcase/sanitizeTestimonial), so every write here spreads the
+ * current merged object forward and overrides only the one leaf that
+ * changed, exactly like ClientBrand above. */
+
+const DEFAULT_SHOWCASE = {
+  published: false, slug: '', displayName: '', type: '', blurb: '', cover: '', year: '',
+  brand: { enabled: true, logo: { light: '', dark: '' }, images: [], notes: '' },
+  website: { enabled: true, url: '', screenshots: [], notes: '' },
+  cards: { enabled: true, front: '', back: '', notes: '' },
+  print: { enabled: true, items: [], notes: '' },
+  featured: { landing: false, logoStrip: false, work: false, order: 0 },
+};
+const DEFAULT_REVIEWS = { nfcCard: false, nfcGivenAt: '', googleLink: '', baseline: null, latest: null, asks: [], testimonials: [] };
+/* Mirrors api/_routes/call-leads.js's slugify(): a-z0-9 and single hyphens,
+ * no leading/trailing hyphen. Client-side only so the Publish toggle can
+ * show a sane URL immediately; the server is the real source of truth and
+ * auto-suffixes on a rare collision. */
+const clientSlugify = (v) => String(v ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+/* A value shown as plain text in read-only mode, an InlineEdit otherwise.
+ * Centralizes the ternary every other read-only field in this file repeats. */
+function EditableText({ value, onSave, placeholder, label, multiline, readOnly, className }) {
+  return readOnly
+    ? <span className={`dt-fact-ro${multiline ? '' : ' lay-truncate'}`}>{value || placeholder}</span>
+    : <InlineEdit value={value || ''} onSave={onSave} placeholder={placeholder} label={label} multiline={multiline} className={className} />;
+}
+
+/* An image URL field: InlineEdit (or read-only text) plus a live thumbnail
+ * that falls back to a warning on a broken link, plus an optional Upload
+ * button when Cloudinary is configured (Site Prompt 2, Part 5). Uploading
+ * calls the same onSave the manual link uses, so the full-replacement
+ * write rule still applies. */
+function ImageField({ value, label, placeholder, onSave, readOnly }) {
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [broken, setBroken] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  useEffect(() => { setBroken(false); }, [value]);
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    const url = await uploadToCloudinary(file);
+    setUploading(false);
+    if (url) await onSave(url); else toast.error('Could not upload that image.');
+  };
+  return (
+    <div className="sc-imgfield">
+      <Row gap={1} align="center">
+        <EditableText value={value} onSave={onSave} placeholder={placeholder} label={label} readOnly={readOnly} className="sc-imgfield-edit" />
+        {!readOnly && cloudinaryEnabled && (
+          <>
+            <IconButton icon="Upload01" label={uploading ? `Uploading ${label}` : `Upload ${label}`} variant="ghost" disabled={uploading} onClick={() => fileRef.current?.click()} />
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} aria-hidden="true" tabIndex={-1} />
+          </>
+        )}
+      </Row>
+      {value ? (broken
+        ? <p className="sc-thumb-warn">Image not reachable.</p>
+        : <img src={value} alt="" className="sc-thumb" width={64} height={64} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+      ) : null}
+    </div>
+  );
+}
+
+/* Star rating: a static 1-5 display when `onChange` is omitted, an
+ * interactive 1-5 picker (tap the same star again to clear it) otherwise. */
+function StarRating({ value, onChange, size = 16 }) {
+  if (!onChange && !value) return <span className="dt-muted">No rating</span>;
+  if (!onChange) {
+    return (
+      <span className="sc-stars" aria-label={`${value} of 5 stars`}>
+        {[1, 2, 3, 4, 5].map(n => <Icon key={n} icon="Star01" size={size} className={n <= value ? 'sc-star-on' : 'sc-star-off'} />)}
+      </span>
+    );
+  }
+  return (
+    <span className="sc-stars" role="group" aria-label="Rating">
+      {[1, 2, 3, 4, 5].map(n => (
+        <button key={n} type="button" className={`sc-star${n <= (value || 0) ? ' is-on' : ''}`} onClick={() => onChange(n === value ? null : n)} aria-label={`${n} star${n === 1 ? '' : 's'}`} aria-pressed={n <= (value || 0)}>
+          <Icon icon="Star01" size={size} />
+        </button>
+      ))}
+    </span>
+  );
+}
+
+/* A list of object rows with add, edit (via renderRow), remove, and reorder
+ * (drag on desktop, a Menu's Move up/down on mobile) - the ListEditor
+ * pattern above, generalized to rows that are objects instead of strings. */
+function ObjectListEditor({ items, onReorder, onRemove, onAdd, canAdd, addLabel = 'Add', readOnly, renderRow }) {
+  const drag = useRef(null);
+  const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
+  const move = (i, d) => { const j = i + d; if (j < 0 || j >= items.length) return; const n = [...items]; [n[i], n[j]] = [n[j], n[i]]; onReorder(n); };
+  return (
+    <Stack gap={2}>
+      {items.map((it, i) => (
+        <Card key={i} level={2} padding={3} className="sc-objrow" draggable={!readOnly && desktop}
+          onDragStart={() => { drag.current = i; }} onDragOver={(e) => e.preventDefault()}
+          onDrop={() => { if (drag.current == null || drag.current === i) return; const n = [...items]; const [x] = n.splice(drag.current, 1); n.splice(i, 0, x); drag.current = null; onReorder(n); }}>
+          <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>{renderRow(it, i)}</Stack>
+          {!readOnly && (
+            <Menu label={`Row ${i + 1} actions`} items={[
+              { id: 'up', label: 'Move up', icon: 'ChevronLeft', disabled: i === 0, onSelect: () => move(i, -1) },
+              { id: 'down', label: 'Move down', icon: 'ChevronDown', disabled: i === items.length - 1, onSelect: () => move(i, 1) },
+              'divider',
+              { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => onRemove(i) },
+            ]} />
+          )}
+        </Card>
+      ))}
+      {canAdd && <Button variant="ghost" icon={Plus} onClick={onAdd}>{addLabel}</Button>}
+    </Stack>
+  );
+}
+
+/* A card that collapses to a one-line summary, with an `enabled` Toggle in
+ * its header that stays visible either way (the Deliverables/Playbook
+ * `Block` pattern in LeadDetail.jsx, reusing its dt-block* classes; kept
+ * local here to avoid a circular import between the two files). */
+function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Card className="dt-block">
+      <Row gap={2} align="center" className="dt-block-head">
+        <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+          <span className="pb-card-h" style={{ margin: 0 }}>{title}</span>
+          {!open && <span className="dt-block-sum lay-truncate">{summary}</span>}
+        </button>
+        <Toggle size="sm" checked={enabled} onChange={onEnabled} label="Enabled" disabled={readOnly} />
+      </Row>
+      <Collapsible open={open}>{children}</Collapsible>
+    </Card>
+  );
+}
+
+function PublishCard({ sh, write, writeRaw, readOnly }) {
+  const toast = useToast();
+  const url = sh.slug ? `https://visualizestudio.org/work/${sh.slug}` : '';
+  const setPublished = (v) => {
+    // First publish with no slug yet: mirror the server's own slugify() so the
+    // URL shown here matches what will be stored (barring a rare collision,
+    // which the server resolves by auto-suffixing, see the PATCH handler).
+    if (v && !sh.slug) return write({ published: v, slug: clientSlugify(sh.displayName) || clientSlugify(sh.type) || uid() });
+    return write({ published: v });
+  };
+  return (
+    <Card className="sc-publish">
+      <Row gap={2} align="center" justify="between" wrap>
+        <p className="pb-card-h" style={{ margin: 0 }}>Publish</p>
+        <Pill tone={sh.published ? 'booked' : 'neutral'} label={sh.published ? 'Published' : 'Draft'} size="sm" variant={sh.published ? 'solid' : 'soft'} icon={false} />
+      </Row>
+      <Toggle checked={sh.published} onChange={setPublished} label="Published" description="Live on the public showcase once a slug is set." disabled={readOnly} />
+      <div className="v-field">
+        <span className="v-field-label">Public URL slug</span>
+        <EditableText value={sh.slug} onSave={(v) => writeRaw({ slug: v })} placeholder="Auto-generated on publish" label="Slug" readOnly={readOnly} className="sc-slug-edit" />
+        {url && (
+          <Row gap={1} align="center" wrap>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate">{url}</a>
+            <IconButton icon="Copy01" label="Copy showcase URL" variant="ghost" onClick={() => copyText(toast, url, 'Showcase URL')} />
+          </Row>
+        )}
+      </div>
+      <Row gap={2} wrap>
+        <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`/api/showcase?slug=${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
+      </Row>
+    </Card>
+  );
+}
+
+function CardFieldsCard({ sh, writeRaw, lead, readOnly }) {
+  return (
+    <Card className="sc-fields">
+      <p className="pb-card-h">Card fields</p>
+      <Stack gap={2}>
+        <div className="cw-brand-row"><span className="dt-fact-label">Display name</span><EditableText value={sh.displayName} onSave={(v) => writeRaw({ displayName: v.slice(0, 200) })} placeholder={lead.business} label="Display name" readOnly={readOnly} className="dt-fact-edit" /></div>
+        <div className="cw-brand-row"><span className="dt-fact-label">Type</span><EditableText value={sh.type} onSave={(v) => writeRaw({ type: v.slice(0, 80) })} placeholder={industryKey(lead.industry) || 'Industry'} label="Type" readOnly={readOnly} className="dt-fact-edit" /></div>
+        <div className="v-field">
+          <span className="v-field-label">Blurb</span>
+          <EditableText value={sh.blurb} onSave={(v) => writeRaw({ blurb: v.slice(0, 200) })} multiline placeholder="One line about the work" label="Blurb" readOnly={readOnly} />
+          <span className="dt-muted">{(sh.blurb || '').length}/200</span>
+        </div>
+        <div className="v-field"><span className="v-field-label">Cover image</span><ImageField value={sh.cover} label="Cover image" placeholder="Cover image URL" onSave={(v) => writeRaw({ cover: v })} readOnly={readOnly} /></div>
+        <div className="cw-brand-row"><span className="dt-fact-label">Year</span><EditableText value={sh.year} onSave={(v) => writeRaw({ year: v.slice(0, 10) })} placeholder="2026" label="Year" readOnly={readOnly} className="dt-fact-edit" /></div>
+      </Stack>
+    </Card>
+  );
+}
+
+function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
+  const b = sh.brand;
+  const images = b.images || [];
+  const summary = !b.enabled ? 'Off' : ([images.length ? `${images.length} image${images.length === 1 ? '' : 's'}` : '', b.notes ? 'notes' : ''].filter(Boolean).join(', ') || 'Not set up yet');
+  const brandProfile = { primary: '', colors: [], fontDisplay: '', fontBody: '', ...(lead.brand || {}) };
+  const chips = [brandProfile.primary, ...(brandProfile.colors || [])].filter(Boolean);
+  return (
+    <ShowcaseBlock title="Brand identity" enabled={b.enabled} onEnabled={(v) => write({ brand: { ...b, enabled: v } })} summary={summary} readOnly={readOnly}>
+      <Stack gap={3}>
+        <Grid minColumnWidth={180} gap={2}>
+          <div className="v-field"><span className="v-field-label">Logo, light background</span><ImageField value={b.logo.light} label="Logo, light background" placeholder="Logo URL for a light background" onSave={(v) => writeRaw({ brand: { ...b, logo: { ...b.logo, light: v } } })} readOnly={readOnly} /></div>
+          <div className="v-field"><span className="v-field-label">Logo, dark background</span><ImageField value={b.logo.dark} label="Logo, dark background" placeholder="Logo URL for a dark background" onSave={(v) => writeRaw({ brand: { ...b, logo: { ...b.logo, dark: v } } })} readOnly={readOnly} /></div>
+        </Grid>
+        <div className="v-field">
+          <span className="v-field-label">Gallery images ({images.length} of 12)</span>
+          <ObjectListEditor items={images} readOnly={readOnly} canAdd={!readOnly && images.length < 12} addLabel="Add image"
+            onReorder={(next) => write({ brand: { ...b, images: next } })}
+            onRemove={(i) => write({ brand: { ...b, images: images.filter((_, j) => j !== i) } })}
+            onAdd={() => write({ brand: { ...b, images: [...images, { link: '', caption: '' }] } })}
+            renderRow={(it, i) => (<>
+              <ImageField value={it.link} label={`Image ${i + 1} link`} placeholder="Image URL" onSave={(v) => writeRaw({ brand: { ...b, images: images.map((x, j) => (j === i ? { ...x, link: v } : x)) } })} readOnly={readOnly} />
+              <EditableText value={it.caption} onSave={(v) => writeRaw({ brand: { ...b, images: images.map((x, j) => (j === i ? { ...x, caption: v } : x)) } })} placeholder="Caption (optional)" label={`Image ${i + 1} caption`} readOnly={readOnly} />
+            </>)} />
+        </div>
+        <div className="v-field"><span className="v-field-label">Notes</span><EditableText value={b.notes} onSave={(v) => writeRaw({ brand: { ...b, notes: v.slice(0, 600) } })} multiline placeholder="Notes for the showcase page" label="Brand notes" readOnly={readOnly} /></div>
+        <Card level={2} padding={3}>
+          <Row gap={2} justify="between" align="center" wrap><span className="dt-fact-label">Palette and type (from Overview)</span><Button variant="ghost" size="md" onClick={() => jump('overview')}>Edit in Overview</Button></Row>
+          <Row gap={1} wrap align="center">{chips.length ? chips.map((c, i) => <span key={i} className="sc-chip" style={isHex(c) ? { background: c } : undefined} title={c} />) : <span className="dt-muted">No colors set</span>}</Row>
+          <span className="dt-muted">{[brandProfile.fontDisplay, brandProfile.fontBody].filter(Boolean).join(' / ') || 'No fonts set'}</span>
+        </Card>
+      </Stack>
+    </ShowcaseBlock>
+  );
+}
+
+function WebsiteBlock({ sh, write, writeRaw, lead, readOnly }) {
+  const w = sh.website;
+  const shots = w.screenshots || [];
+  const summary = !w.enabled ? 'Off' : ([shots.length ? `${shots.length} screenshot${shots.length === 1 ? '' : 's'}` : '', w.notes ? 'notes' : ''].filter(Boolean).join(', ') || 'Not set up yet');
+  return (
+    <ShowcaseBlock title="Website" enabled={w.enabled} onEnabled={(v) => write({ website: { ...w, enabled: v } })} summary={summary} readOnly={readOnly}>
+      <Stack gap={3}>
+        <div className="cw-brand-row"><span className="dt-fact-label">URL</span><EditableText value={w.url} onSave={(v) => writeRaw({ website: { ...w, url: v.slice(0, 400) } })} placeholder={lead.links?.website || 'https://...'} label="Website URL" readOnly={readOnly} className="dt-fact-edit" /></div>
+        <div className="v-field">
+          <span className="v-field-label">Screenshots ({shots.length} of 8)</span>
+          <ObjectListEditor items={shots} readOnly={readOnly} canAdd={!readOnly && shots.length < 8} addLabel="Add screenshot"
+            onReorder={(next) => write({ website: { ...w, screenshots: next } })}
+            onRemove={(i) => write({ website: { ...w, screenshots: shots.filter((_, j) => j !== i) } })}
+            onAdd={() => write({ website: { ...w, screenshots: [...shots, { link: '', caption: '' }] } })}
+            renderRow={(it, i) => (<>
+              <ImageField value={it.link} label={`Screenshot ${i + 1} link`} placeholder="Screenshot URL" onSave={(v) => writeRaw({ website: { ...w, screenshots: shots.map((x, j) => (j === i ? { ...x, link: v } : x)) } })} readOnly={readOnly} />
+              <EditableText value={it.caption} onSave={(v) => writeRaw({ website: { ...w, screenshots: shots.map((x, j) => (j === i ? { ...x, caption: v } : x)) } })} placeholder="Caption (optional)" label={`Screenshot ${i + 1} caption`} readOnly={readOnly} />
+            </>)} />
+        </div>
+        <div className="v-field"><span className="v-field-label">Notes</span><EditableText value={w.notes} onSave={(v) => writeRaw({ website: { ...w, notes: v.slice(0, 600) } })} multiline placeholder="Notes for the showcase page" label="Website notes" readOnly={readOnly} /></div>
+      </Stack>
+    </ShowcaseBlock>
+  );
+}
+
+function CardsBlock({ sh, write, writeRaw, readOnly }) {
+  const c = sh.cards;
+  const summary = !c.enabled ? 'Off' : ([c.front && 'front', c.back && 'back', c.notes && 'notes'].filter(Boolean).join(', ') || 'Not set up yet');
+  return (
+    <ShowcaseBlock title="Business cards" enabled={c.enabled} onEnabled={(v) => write({ cards: { ...c, enabled: v } })} summary={summary} readOnly={readOnly}>
+      <Stack gap={3}>
+        <Grid minColumnWidth={180} gap={2}>
+          <div className="v-field"><span className="v-field-label">Front</span><ImageField value={c.front} label="Card front" placeholder="Front image URL" onSave={(v) => writeRaw({ cards: { ...c, front: v } })} readOnly={readOnly} /></div>
+          <div className="v-field"><span className="v-field-label">Back</span><ImageField value={c.back} label="Card back" placeholder="Back image URL" onSave={(v) => writeRaw({ cards: { ...c, back: v } })} readOnly={readOnly} /></div>
+        </Grid>
+        <div className="v-field"><span className="v-field-label">Notes</span><EditableText value={c.notes} onSave={(v) => writeRaw({ cards: { ...c, notes: v.slice(0, 600) } })} multiline placeholder="Notes for the showcase page" label="Cards notes" readOnly={readOnly} /></div>
+      </Stack>
+    </ShowcaseBlock>
+  );
+}
+
+function PrintBlock({ sh, write, writeRaw, readOnly }) {
+  const p = sh.print;
+  const items = p.items || [];
+  const summary = !p.enabled ? 'Off' : ([items.length ? `${items.length} item${items.length === 1 ? '' : 's'}` : '', p.notes && 'notes'].filter(Boolean).join(', ') || 'Not set up yet');
+  return (
+    <ShowcaseBlock title="Print and product" enabled={p.enabled} onEnabled={(v) => write({ print: { ...p, enabled: v } })} summary={summary} readOnly={readOnly}>
+      <Stack gap={3}>
+        <div className="v-field">
+          <span className="v-field-label">Items ({items.length} of 12)</span>
+          <ObjectListEditor items={items} readOnly={readOnly} canAdd={!readOnly && items.length < 12} addLabel="Add item"
+            onReorder={(next) => write({ print: { ...p, items: next } })}
+            onRemove={(i) => write({ print: { ...p, items: items.filter((_, j) => j !== i) } })}
+            onAdd={() => write({ print: { ...p, items: [...items, { label: '', image: '', caption: '' }] } })}
+            renderRow={(it, i) => (<>
+              <EditableText value={it.label} onSave={(v) => writeRaw({ print: { ...p, items: items.map((x, j) => (j === i ? { ...x, label: v } : x)) } })} placeholder="Label, e.g. Sticker sheet" label={`Item ${i + 1} label`} readOnly={readOnly} />
+              <ImageField value={it.image} label={`Item ${i + 1} image`} placeholder="Image URL" onSave={(v) => writeRaw({ print: { ...p, items: items.map((x, j) => (j === i ? { ...x, image: v } : x)) } })} readOnly={readOnly} />
+              <EditableText value={it.caption} onSave={(v) => writeRaw({ print: { ...p, items: items.map((x, j) => (j === i ? { ...x, caption: v } : x)) } })} placeholder="Caption (optional)" label={`Item ${i + 1} caption`} readOnly={readOnly} />
+            </>)} />
+        </div>
+        <div className="v-field"><span className="v-field-label">Notes</span><EditableText value={p.notes} onSave={(v) => writeRaw({ print: { ...p, notes: v.slice(0, 600) } })} multiline placeholder="Notes for the showcase page" label="Print notes" readOnly={readOnly} /></div>
+      </Stack>
+    </ShowcaseBlock>
+  );
+}
+
+/* A number field that commits on blur rather than every keystroke. */
+function OrderField({ label, value, onSave, readOnly, hint }) {
+  const [v, setV] = useState(String(value ?? 0));
+  useEffect(() => { setV(String(value ?? 0)); }, [value]);
+  return <Input label={label} type="number" inputMode="numeric" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { const n = Math.round(Number(v)) || 0; if (n !== value) onSave(n); }} disabled={readOnly} hint={hint} />;
+}
+
+function LandingCard({ sh, write, readOnly }) {
+  const f = sh.featured;
+  const setF = (next) => write({ featured: { ...f, ...next } });
+  return (
+    <Card className="sc-landing">
+      <p className="pb-card-h">Landing page</p>
+      <Stack gap={0}>
+        <Toggle checked={f.landing} onChange={(v) => setF({ landing: v })} label="Feature on landing page" disabled={readOnly} />
+        <Toggle checked={f.logoStrip} onChange={(v) => setF({ logoStrip: v })} label="Show logo in the logo strip" disabled={readOnly} />
+        <Toggle checked={f.work} onChange={(v) => setF({ work: v })} label="Feature in the work row" disabled={readOnly} />
+      </Stack>
+      <OrderField label="Display order" value={f.order} onSave={(n) => setF({ order: n })} readOnly={readOnly} hint="Lower numbers show first." />
+    </Card>
+  );
+}
+
+/* Add from asks (Site Prompt 2): review-channel ids (nfc/text/email/in-person)
+ * map 1:1 onto testimonial-source ids for those four, so an ask's channel
+ * carries straight over; website/google have no matching ask channel. */
+function AskPicker({ asks, onPick, onClose }) {
+  return (
+    <Sheet open onClose={onClose} title="Add from asks" description="Review asks logged as left." width={460}>
+      {asks.length ? (
+        <Stack gap={1}>{asks.map((a, i) => (
+          <ListRow key={i} title={fmtDate(a.at) || 'Unknown date'} subtitle={[REVIEW_CHANNELS.find(c => c.id === a.channel)?.label, a.note].filter(Boolean).join(', ') || 'No note'} onClick={() => onPick(a)} />
+        ))}</Stack>
+      ) : <EmptyState size="sm" icon="Star01" title="No asks marked left" description="Log an ask and mark it Left on the Reviews screen first." />}
+    </Sheet>
+  );
+}
+
+/* Add from website reviews (Site Prompt 2): a 'review' submission only ever
+ * carries fields.rating and fields.text (api/submissions.js) - no separate
+ * author, so the submission's name pre-fills the quote's author and the
+ * admin fills in the rest. Matches by business name sort first, not filter,
+ * since a review might arrive under a slightly different business spelling. */
+function SubmissionReviewPicker({ subs, onPick, onClose }) {
+  return (
+    <Sheet open onClose={onClose} title="Add from website reviews" description="Review-type submissions from the site." width={460}>
+      {subs.length ? (
+        <Stack gap={1}>{subs.map(s => (
+          <ListRow key={s._id} title={s.business || s.name} subtitle={[s.fields?.rating ? `${s.fields.rating} stars` : '', s.fields?.text ? String(s.fields.text).slice(0, 80) : ''].filter(Boolean).join(', ') || 'No review text'} meta={fmtDate(s.createdAt)} onClick={() => onPick(s)} />
+        ))}</Stack>
+      ) : <EmptyState size="sm" icon="Inbox01" title="No review submissions" description="Website review-form submissions will show up here." />}
+    </Sheet>
+  );
+}
+
+function TestimonialSheet({ testimonial, onClose, onSave, onDelete, busy }) {
+  const [draft, setDraft] = useState(testimonial);
+  const set = (next) => setDraft(d => ({ ...d, ...next }));
+  return (
+    <Sheet open onClose={onClose} title={onDelete ? 'Edit testimonial' : 'Add testimonial'} tall width={520}
+      footer={
+        <Row gap={2} justify="between" style={{ width: '100%' }}>
+          <span>{onDelete && <Button variant="danger" onClick={onDelete} disabled={busy}>Remove</Button>}</span>
+          <Row gap={2}><Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button loading={busy} onClick={() => onSave(draft)}>Save</Button></Row>
+        </Row>
+      }>
+      <Stack gap={3}>
+        <div>
+          <Textarea label="Quote" rows={4} value={draft.quote} onChange={(e) => set({ quote: e.target.value.slice(0, 400) })} data-autofocus />
+          <span className="dt-muted">{(draft.quote || '').length}/400</span>
+        </div>
+        <Grid minColumnWidth={160} gap={2}>
+          <Input label="Author" value={draft.author} onChange={(e) => set({ author: e.target.value.slice(0, 120) })} />
+          <Input label="Role" value={draft.role} onChange={(e) => set({ role: e.target.value.slice(0, 120) })} placeholder="Owner" />
+        </Grid>
+        <div className="v-field"><span className="v-field-label">Rating</span><StarRating value={draft.rating} onChange={(v) => set({ rating: v })} size={22} /></div>
+        <Select label="Source" value={draft.source} onChange={(e) => set({ source: e.target.value })} options={TESTIMONIAL_SOURCES.map(s => ({ id: s.id, label: s.label }))} />
+        <Grid minColumnWidth={140} gap={2}>
+          <Toggle checked={!!draft.published} onChange={(v) => set({ published: v })} label="Published" />
+          <Toggle checked={!!draft.featured} onChange={(v) => set({ featured: v })} label="Featured" />
+        </Grid>
+        <Grid minColumnWidth={140} gap={2}>
+          <Input label="Order" type="number" inputMode="numeric" value={draft.order} onChange={(e) => set({ order: Number(e.target.value) || 0 })} />
+          <Input label="Date" type="date" value={(draft.at || '').slice(0, 10)} onChange={(e) => set({ at: e.target.value })} />
+        </Grid>
+      </Stack>
+    </Sheet>
+  );
+}
+
+function TestimonialsCard({ lead, testimonials, writeTestimonials, submissions, readOnly }) {
+  const toast = useToast();
+  const [editing, setEditing] = useState(null);
+  const [askPicker, setAskPicker] = useState(false);
+  const [subPicker, setSubPicker] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const blank = () => ({ id: uid(), quote: '', author: '', role: '', rating: null, source: 'text', published: false, featured: false, order: testimonials.length, at: today() });
+  const save = async (draft) => {
+    setBusy(true);
+    const exists = testimonials.some(x => x.id === draft.id);
+    const next = exists ? testimonials.map(x => (x.id === draft.id ? draft : x)) : [...testimonials, draft];
+    const ok = await writeTestimonials(next);
+    setBusy(false);
+    if (ok) { setEditing(null); toast.success('Testimonial saved.'); }
+  };
+  const remove = (id) => { writeTestimonials(testimonials.filter(x => x.id !== id)); setEditing(null); };
+  const toggle = (id, next) => writeTestimonials(testimonials.map(x => (x.id === id ? { ...x, ...next } : x)));
+  const asksLeft = (lead.reviews?.asks || []).filter(a => a.result === 'left');
+  const reviewSubs = useMemo(() => {
+    const bizMatch = (s) => (String(s.business || '').trim().toLowerCase() === String(lead.business || '').trim().toLowerCase() ? 0 : 1);
+    return submissions.filter(s => s.type === 'review' && !s.deleted).sort((a, b) => bizMatch(a) - bizMatch(b) || new Date(b.createdAt) - new Date(a.createdAt));
+  }, [submissions, lead.business]);
+  const sorted = useMemo(() => [...testimonials].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [testimonials]);
+  return (
+    <Card className="sc-testimonials">
+      <Row gap={2} justify="between" align="center" wrap>
+        <p className="pb-card-h" style={{ margin: 0 }}>Testimonials</p>
+        {!readOnly && (
+          <Row gap={1} wrap>
+            <Button variant="ghost" size="md" icon={Plus} onClick={() => setEditing(blank())}>Add by hand</Button>
+            <Button variant="ghost" size="md" onClick={() => setAskPicker(true)}>Add from asks</Button>
+            <Button variant="ghost" size="md" onClick={() => setSubPicker(true)}>Add from website reviews</Button>
+          </Row>
+        )}
+      </Row>
+      {sorted.length ? (
+        <Stack gap={2}>
+          {sorted.map(t => (
+            <Card key={t.id} level={2} padding={3} className="sc-testi-row">
+              {!readOnly && <button type="button" className="v-stretch" onClick={() => setEditing(t)} aria-label={`Edit testimonial${t.author ? ` from ${t.author}` : ''}`} />}
+              <Row gap={2} align="start" wrap className="v-above">
+                <Stack gap={1} style={{ flex: 1, minWidth: 200 }}>
+                  <p className="sc-testi-quote lay-truncate">{t.quote || 'No quote yet'}</p>
+                  <Row gap={2} wrap align="center">
+                    <span className="sc-testi-author">{t.author || 'Unnamed'}{t.role ? `, ${t.role}` : ''}</span>
+                    <StarRating value={t.rating} />
+                    <Pill id={t.source} list={TESTIMONIAL_SOURCES} size="sm" variant="outline" />
+                    <span className="dt-muted">#{t.order ?? 0}</span>
+                  </Row>
+                </Stack>
+                <Row gap={2} wrap align="center">
+                  <Toggle size="sm" checked={!!t.published} onChange={(v) => toggle(t.id, { published: v })} label="Published" disabled={readOnly} />
+                  <Toggle size="sm" checked={!!t.featured} onChange={(v) => toggle(t.id, { featured: v })} label="Featured" disabled={readOnly} />
+                </Row>
+              </Row>
+            </Card>
+          ))}
+        </Stack>
+      ) : <p className="dt-muted">No testimonials yet.</p>}
+      {editing && (
+        <TestimonialSheet testimonial={editing} busy={busy} onClose={() => setEditing(null)} onSave={save}
+          onDelete={testimonials.some(x => x.id === editing.id) ? () => remove(editing.id) : undefined} />
+      )}
+      {askPicker && (
+        <AskPicker asks={asksLeft} onClose={() => setAskPicker(false)}
+          onPick={(a) => { setAskPicker(false); setEditing({ ...blank(), source: TESTIMONIAL_SOURCE_IDS.includes(a.channel) ? a.channel : 'text', at: (a.at || today()).slice(0, 10) }); }} />
+      )}
+      {subPicker && (
+        <SubmissionReviewPicker subs={reviewSubs} onClose={() => setSubPicker(false)}
+          onPick={(s) => { setSubPicker(false); setEditing({ ...blank(), quote: String(s.fields?.text || '').slice(0, 400), author: s.name || '', rating: s.fields?.rating ? Math.max(1, Math.min(5, Math.round(Number(s.fields.rating)))) : null, source: 'website', at: (s.createdAt ? new Date(s.createdAt).toISOString() : today()).slice(0, 10) }); }} />
+      )}
+    </Card>
+  );
+}
+
+/**
+ * ShowcaseSection (Site Prompt 2, Part 2): the public showcase editor,
+ * rendered as LeadDetail's Showcase tab in client mode only.
+ * @param {object} props
+ * @param {object} props.lead
+ * @param {Function} props.patch (set) => Promise<boolean> toasts on failure
+ * @param {Function} props.patchRaw (set) => Promise<boolean> for InlineEdit, which toasts itself
+ * @param {Array} [props.submissions] every submission, filtered here to type 'review'
+ * @param {Function} props.sec (id) => section props from LeadDetail
+ * @param {Function} props.jump (tabId) => void, used by the Brand identity mirror's "Edit in Overview"
+ */
+export function ShowcaseSection({ lead, patch, patchRaw, submissions = [], sec, jump, readOnly }) {
+  const sh = useMemo(() => ({
+    ...DEFAULT_SHOWCASE, ...(lead.showcase || {}),
+    brand: { ...DEFAULT_SHOWCASE.brand, ...(lead.showcase?.brand || {}), logo: { ...DEFAULT_SHOWCASE.brand.logo, ...(lead.showcase?.brand?.logo || {}) } },
+    website: { ...DEFAULT_SHOWCASE.website, ...(lead.showcase?.website || {}) },
+    cards: { ...DEFAULT_SHOWCASE.cards, ...(lead.showcase?.cards || {}) },
+    print: { ...DEFAULT_SHOWCASE.print, ...(lead.showcase?.print || {}) },
+    featured: { ...DEFAULT_SHOWCASE.featured, ...(lead.showcase?.featured || {}) },
+  }), [lead.showcase]);
+  // `write` (patch-based, toasts on failure) for toggles, add/remove/reorder;
+  // `writeRaw` (patchRaw-based) for InlineEdit fields, which show their own toast.
+  const write = (next) => patch({ showcase: { ...sh, ...next } });
+  const writeRaw = (next) => (patchRaw || patch)({ showcase: { ...sh, ...next } });
+  const reviews = { ...DEFAULT_REVIEWS, ...(lead.reviews || {}) };
+  const testimonials = reviews.testimonials || [];
+  const writeTestimonials = (next) => patch({ reviews: { ...reviews, testimonials: next } });
+  return (
+    <section {...sec('showcase')}>
+      <Section title="Showcase" description="What shows on the public work page.">
+        <PublishCard sh={sh} write={write} writeRaw={writeRaw} readOnly={readOnly} />
+        <CardFieldsCard sh={sh} writeRaw={writeRaw} lead={lead} readOnly={readOnly} />
+        <BrandBlock sh={sh} write={write} writeRaw={writeRaw} lead={lead} readOnly={readOnly} jump={jump} />
+        <WebsiteBlock sh={sh} write={write} writeRaw={writeRaw} lead={lead} readOnly={readOnly} />
+        <CardsBlock sh={sh} write={write} writeRaw={writeRaw} readOnly={readOnly} />
+        <PrintBlock sh={sh} write={write} writeRaw={writeRaw} readOnly={readOnly} />
+        <LandingCard sh={sh} write={write} readOnly={readOnly} />
+        <TestimonialsCard lead={lead} testimonials={testimonials} writeTestimonials={writeTestimonials} submissions={submissions} readOnly={readOnly} />
+      </Section>
+    </section>
   );
 }

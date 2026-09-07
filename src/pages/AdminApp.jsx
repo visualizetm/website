@@ -22,7 +22,7 @@ import { apiFetch } from '../shared/api';
 const loaders = {
   leads: () => import('./AdminLeads'), calls: () => import('./AdminCalls'), booked: () => import('./AdminBooked'), clients: () => import('./AdminClients'),
   calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
-  submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'),
+  submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -35,6 +35,7 @@ const AdminReviews = lazy(loaders.reviews);
 const AdminSubmissions = lazy(loaders.submissions);
 const AdminSettings = lazy(loaders.settings);
 const AdminDesign = lazy(loaders.design);
+const AdminLanding = lazy(loaders.landing);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -205,6 +206,7 @@ export default function AdminApp() {
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
+    if (p.startsWith('/landing')) return 'landing';
     if (p.startsWith('/settings')) return 'settings';
     if (p.startsWith('/design')) return 'design';
     return 'dashboard';
@@ -427,6 +429,9 @@ export default function AdminApp() {
       )}
       {section === 'reviews' && (
         <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
+      )}
+      {section === 'landing' && (
+        <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
       )}
       {section === 'calls' && (
         <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} /></div>

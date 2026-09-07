@@ -28,6 +28,24 @@ const clampTarget = (v) => {
   return Number.isFinite(n) ? Math.max(1, Math.min(500, n)) : DASHBOARD_DEFAULTS.dailyCallTarget;
 };
 
+// Site Prompt 2 (Part 3): the landing settings document. Stats toggles default
+// on; overrides are empty (the public endpoint falls back to the live
+// computed value whenever a key is missing or not a finite number).
+const STAT_KEYS = ['clientsServed', 'projectsDelivered', 'averageRating', 'years'];
+const LANDING_DEFAULTS = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: {} } };
+const landingShape = (d = {}) => ({
+  stats: {
+    toggles: STAT_KEYS.reduce((o, k) => { o[k] = d.stats?.toggles?.[k] !== false; return o; }, {}),
+    // A missing, null, or empty override means "use the live value" (matches
+    // api/showcase.js's computeStats, which only trusts a finite number).
+    overrides: STAT_KEYS.reduce((o, k) => {
+      const v = d.stats?.overrides?.[k];
+      if (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) o[k] = Number(v);
+      return o;
+    }, {}),
+  },
+});
+
 export async function handler(req, res) {
   const db = await getDb();
   const settings = db.collection('settings');
@@ -42,6 +60,13 @@ export async function handler(req, res) {
     );
     const dashDoc = dash?.value || dash || {};
     const [notif, profile, health] = await Promise.all([settings.findOne({ _id: 'notifications' }), settings.findOne({ _id: 'profile' }), settings.findOne({ _id: 'health' })]);
+    // Landing document, created lazily on first read (Site Prompt 2, Part 3), same as dashboard.
+    const landingRes = await settings.findOneAndUpdate(
+      { _id: 'landing' },
+      { $setOnInsert: { ...LANDING_DEFAULTS, createdAt: new Date() } },
+      { upsert: true, returnDocument: 'after' },
+    );
+    const landingDoc = landingRes?.value || landingRes || {};
     let stripe = { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
     try { stripe = await stripeHealth(db); } catch { /* the card shows not connected */ }
     return res.status(200).json({
@@ -60,6 +85,7 @@ export async function handler(req, res) {
         dailyCallTarget: clampTarget(dashDoc.dailyCallTarget),
         dashboardLayout: dashDoc.dashboardLayout && typeof dashDoc.dashboardLayout === 'object' ? dashDoc.dashboardLayout : null,
       },
+      landing: landingShape(landingDoc),
     });
   }
 
@@ -88,6 +114,20 @@ export async function handler(req, res) {
       await settings.updateOne({ _id: 'notifications' }, { $set: { ...upd, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
       const doc = await settings.findOne({ _id: 'notifications' });
       return res.status(200).json({ ok: true, notifications: notifShape(doc || {}) });
+    }
+    // Site Prompt 2 (Part 3): PATCH { set: { landing: { stats: { toggles?, overrides? } } } }.
+    // Merge into the current document so sending one key never clears the rest;
+    // an override sent as null/''/undefined clears back to the live value.
+    if (set.landing && typeof set.landing === 'object') {
+      const cur = (await settings.findOne({ _id: 'landing' })) || {};
+      const next = landingShape({
+        stats: {
+          toggles: { ...(cur.stats?.toggles || {}), ...(set.landing.stats?.toggles || {}) },
+          overrides: { ...(cur.stats?.overrides || {}), ...(set.landing.stats?.overrides || {}) },
+        },
+      });
+      await settings.updateOne({ _id: 'landing' }, { $set: { ...next, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+      return res.status(200).json({ ok: true, landing: next });
     }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     await settings.updateOne({ _id: 'dashboard' }, { $set: { ...allowed, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
