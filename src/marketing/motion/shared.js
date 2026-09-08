@@ -36,6 +36,17 @@ export function isCoarsePointer() {
   return window.matchMedia(TOUCH_QUERY).matches;
 }
 
+/* Touch capability, asked of the device rather than of its pointer (Site
+ * Prompt 8, check 5). A phone or tablet paired with a mouse, and some
+ * Android browsers on their own, answer the pointer query as if they were
+ * a desktop: (pointer: fine) matches, isCoarsePointer() is false, and
+ * anything gated on that alone runs on a touchscreen. This is the second
+ * half of that gate, and it does not lie. */
+export function isTouchDevice() {
+  if (typeof window === 'undefined') return false;
+  return 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
+}
+
 // Subscribes to a media query's changes, tolerating the older addListener
 // API some engines still expose. Returns an unsubscribe function.
 function subscribeMediaQuery(query, onChange) {
@@ -65,6 +76,20 @@ export function useCoarsePointer() {
   const [coarse, setCoarse] = useState(isCoarsePointer);
   useEffect(() => subscribeMediaQuery(TOUCH_QUERY, setCoarse), []);
   return coarse;
+}
+
+/** Any media query, live-updated, with its first value computed
+ * synchronously so nothing renders the wrong branch for a frame. */
+export function useMediaQuery(query) {
+  const read = () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    ? window.matchMedia(query).matches
+    : false);
+  const [matches, setMatches] = useState(read);
+  useEffect(() => {
+    setMatches(read());
+    return subscribeMediaQuery(query, setMatches);
+  }, [query]);
+  return matches;
 }
 
 /** The IntersectionObserver-once pattern shared by Reveal and Counter: a

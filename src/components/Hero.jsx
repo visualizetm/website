@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pin, WordReveal, useScrollEngine } from '../marketing/motion';
+import { Pin, WordReveal, useScrollEngine, useMediaQuery } from '../marketing/motion';
 import { getScrollEngine } from '../marketing/scroll';
 import { capImageWidth } from '../marketing/showcase';
 import { CALENDLY_URL } from '../marketing/links';
 
 const DEFAULT_COVER = '/hero-default.svg';
+/* Site Prompt 8, check 3: a phone gets a shorter deck and a shorter hold.
+ * Eight covers at 0.8 viewports each is over six screens of scrolling
+ * before the page moves on, which does not read as a deck, it reads as
+ * stuck. Four covers at 0.5 is two screens; the rest are still there, in
+ * the row underneath. */
 const MAX_CARDS = 8;
-// Viewports of hold per card. Enough scroll for one card to leave and the
-// next to arrive without the flip feeling either abrupt or laborious.
+const MAX_CARDS_PHONE = 4;
 const VH_PER_CARD = 0.8;
+const VH_PER_CARD_PHONE = 0.5;
+const PHONE_QUERY = '(max-width: 767px)';
 
 /* Site Prompt 7, Part 1: the hero is a deck of every showcased cover, and
  * scrolling flips through it.
@@ -40,7 +46,10 @@ export default function Hero({ items }) {
   // vanishes underneath the reader (which is where Home's layout shift on
   // a phone came from).
   const loading = items == null;
-  const deck = (items || []).filter(i => i?.cover).slice(0, MAX_CARDS);
+  const phone = useMediaQuery(PHONE_QUERY);
+  const all = (items || []).filter(i => i?.cover).slice(0, MAX_CARDS);
+  const deck = all.slice(0, phone ? MAX_CARDS_PHONE : MAX_CARDS);
+  const rest = all.slice(deck.length);
   const state = useScrollEngine();
   const stacked = state === 'on' && deck.length > 1;
   const first = deck[0];
@@ -77,10 +86,10 @@ export default function Hero({ items }) {
             <HeroCard item={first} index={0} count={1} priority />
           </div>
         </div>
-        {!loading && deck.length > 1 && (
+        {!loading && all.length > 1 && (
           <ul className="hero-row" aria-label="More client work">
-            {deck.slice(1).map((item, i) => (
-              <li key={item.slug || i}><HeroCard item={item} index={i + 1} count={deck.length} small /></li>
+            {all.slice(1).map((item, i) => (
+              <li key={item.slug || i}><HeroCard item={item} index={i + 1} count={all.length} small /></li>
             ))}
           </ul>
         )}
@@ -89,12 +98,12 @@ export default function Hero({ items }) {
     );
   }
 
-  return <HeroStack deck={deck} copy={copy} />;
+  return <HeroStack deck={deck} rest={rest} copy={copy} vhPerCard={phone ? VH_PER_CARD_PHONE : VH_PER_CARD} />;
 }
 
 /* The pinned deck. Separated so the hooks it needs (the active dot, the
  * jump-to-card handler) only exist when there is a deck to run them on. */
-function HeroStack({ deck, copy }) {
+function HeroStack({ deck, rest, copy, vhPerCard }) {
   const rootRef = useRef(null);
   const [active, setActive] = useState(0);
   const count = deck.length;
@@ -113,16 +122,16 @@ function HeroStack({ deck, copy }) {
   const goTo = (i) => {
     const section = rootRef.current?.closest('.m-pin');
     if (!section) return;
-    let top = i * VH_PER_CARD * window.innerHeight;
+    let top = i * vhPerCard * window.innerHeight;
     for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
     const eng = getScrollEngine();
     if (eng?.lenis) eng.lenis.scrollTo(top);
     else window.scrollTo({ top, behavior: 'smooth' });
   };
 
-  return (
+  const pinned = (
     <Pin
-      height={count * VH_PER_CARD}
+      height={count * vhPerCard}
       className="hero hero--stacked"
       innerClassName="hero-inner"
       onProgress={onProgress}
@@ -150,6 +159,23 @@ function HeroStack({ deck, copy }) {
       </div>
       <style>{heroStyles}</style>
     </Pin>
+  );
+
+  /* The row of covers the phone's shorter deck could not hold sits after
+   * the pinned section, not inside it: everything inside a Pin lives in
+   * the sticky panel and would be clipped by it. The wrapper keeps the
+   * two together so the Curtain that follows still scales and dims one
+   * element, which is the whole hero block. */
+  if (!rest?.length) return pinned;
+  return (
+    <div className="hero-block">
+      {pinned}
+      <ul className="hero-row" aria-label="More client work">
+        {rest.map((item, i) => (
+          <li key={item.slug || i}><HeroCard item={item} index={i} count={rest.length} small /></li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -275,6 +301,7 @@ const heroStyles = `
   .hero-card-type { font-size: 0.8125rem; color: var(--uc-text-secondary); }
 
   /* Fallback row: the rest of the covers, smaller, scrollable sideways. */
+  .hero-block { position: relative; }
   .hero-row {
     display: flex; gap: var(--space-4); list-style: none;
     margin-top: var(--space-6); padding: 0 var(--space-4) var(--space-2);
