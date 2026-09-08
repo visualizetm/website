@@ -804,9 +804,16 @@ const scStyles = `
      of this scroller": ScrollArea folds it into both padding-bottom and
      scroll-padding-bottom. Setting padding-bottom here instead lost to
      .lay-scroll's own padding shorthand, so the last card sat under the
-     save bar and, on a phone, under the tab bar too. The shell already
-     reserves the tab bar itself; this is the save bar's own height. */
-  .sc-scroll { --v-scroll-extra: 104px; }
+     save bar and, on a phone, under the tab bar too.
+     What has to be reserved is the save bar plus the gap under it. The tab
+     bar and the home indicator inset are NOT added here because the shell
+     already keeps the scroller above both: measured at 390 by 844, the
+     scroller's own bottom edge is the tab bar's top edge, so adding the tab
+     bar again would leave 92px of dead space under the last card. The bar
+     is two rows tall on a phone and one on a desktop, hence the two
+     values. */
+  .sc-scroll { --sc-savebar-h: 72px; --v-scroll-extra: calc(var(--sc-savebar-h) + var(--v-space-4)); }
+  @media (max-width: 900px) { .sc-scroll { --sc-savebar-h: 104px; } }
   .sc-topbar {
     position: sticky; top: 0; z-index: 5;
     padding: var(--v-space-3) 0;
@@ -838,8 +845,14 @@ const scStyles = `
   .sc-thumb-logo { height: 72px; width: 160px; background: none; }
   .sc-thumb-round { width: 96px; border-radius: 50%; }
 
+  /* Fixed, and deliberately a child of PageShell rather than of the
+     ScrollArea, so nothing with overflow or a transform is between it and
+     the viewport: its corners and shadow draw in full. Below the tab bar in
+     the stack (the tab bar always wins) and above page content. */
   .sc-savebar {
-    position: fixed; right: var(--v-space-4); bottom: var(--v-space-4); z-index: 40;
+    position: fixed; right: var(--v-space-4);
+    bottom: calc(var(--v-inset-bottom) + var(--v-space-4));
+    z-index: calc(var(--v-z-tabbar) - 1);
     padding: var(--v-space-3) var(--v-space-4);
     background: var(--v-surface-2); border: 1px solid var(--v-border-2);
     border-radius: var(--v-radius-lg); box-shadow: var(--v-shadow-lg);
@@ -850,7 +863,15 @@ const scStyles = `
   .sc-savebar.is-open { transform: none; opacity: 1; pointer-events: auto; }
   .sc-savebar-msg { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1); }
   @media (max-width: 900px) {
-    .sc-savebar { left: var(--v-space-3); right: var(--v-space-3); bottom: calc(var(--v-tabbar-h, 64px) + var(--v-space-3)); }
+    .sc-savebar { left: var(--v-space-3); right: var(--v-space-3); }
     .sc-savebar > .v-row { justify-content: space-between; }
+  }
+  /* The tab bar exists below 768px only, and it is --v-tabbar-h TALL PLUS
+     the home indicator inset (TabBar.jsx sets exactly that height). The old
+     rule lifted the save bar by the tab bar height alone, so on any phone
+     with an inset the bar sat that many pixels inside the tab bar and the
+     Save button was cut in half. Mirror the tab bar's own expression. */
+  @media (max-width: 767.98px) {
+    .sc-savebar { bottom: calc(var(--v-tabbar-h) + var(--v-inset-bottom) + var(--v-space-3)); }
   }
 `;
