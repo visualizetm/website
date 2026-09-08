@@ -655,16 +655,6 @@ h1, h2, h3, h4, h5, h6 {
   transform: translate3d(calc(var(--track-p, 0) * var(--track-d, 0px) * -1), 0, 0);
   will-change: transform;
 }
-/* Gentle page-level snapping while a track is mounted on a touch device
-   (proximity, never mandatory, so it only helps when you are already
-   close and never traps the scroll). Added to <html> by TrackScroll. */
-html.m-snap-y {
-  scroll-snap-type: y proximity;
-}
-html.m-snap-y .m-track-row > * {
-  scroll-snap-align: center;
-}
-
 /* Tone: a section's ground crossfades to --tone-to as it comes up the
    page. Crossfading two filled layers is compositor work; animating
    background-color is not. Without the engine the layer sits at full

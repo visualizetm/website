@@ -15,17 +15,20 @@
 // set, never animated.
 //
 // Touch and reduced motion get a vertical stack instead: same cards, same
-// order, no sideways motion and nothing held. On touch the page itself
-// snaps gently (proximity, never mandatory) so a card tends to settle
-// centred rather than half cut off; the class is added to <html> only while
-// a track is mounted on a coarse pointer, and removed after.
+// order, no sideways motion and nothing held.
+//
+// Site Prompt 8, check 4: that stack used to put scroll-snap-type on
+// <html> while it was mounted, so the whole page snapped on a phone. Even
+// at proximity that fights a flick: the page decides where the reader
+// meant to stop. Snapping now happens only inside a scroller that owns
+// its own axis (the testimonial carousel, the hero's overflow row), never
+// on the document.
 import { useEffect, useRef } from 'react';
 import { getScrollEngine, scrubValue } from '../scroll';
-import { cx, useCoarsePointer } from './shared';
+import { cx } from './shared';
 import { useScrollEngine } from './useScroll';
 
 const DESKTOP_QUERY = '(min-width: 861px) and (pointer: fine)';
-const SNAP_CLASS = 'm-snap-y';
 
 export function TrackScroll({
   as: Tag = 'section',
@@ -38,7 +41,6 @@ export function TrackScroll({
   const innerRef = useRef(null);
   const rowRef = useRef(null);
   const state = useScrollEngine();
-  const coarse = useCoarsePointer();
 
   useEffect(() => {
     if (state !== 'on' || !ref.current) return undefined;
@@ -110,13 +112,6 @@ export function TrackScroll({
 
     return () => mm.revert();
   }, [state]);
-
-  useEffect(() => {
-    if (!coarse || typeof document === 'undefined') return undefined;
-    const root = document.documentElement;
-    root.classList.add(SNAP_CLASS);
-    return () => root.classList.remove(SNAP_CLASS);
-  }, [coarse]);
 
   return (
     <Tag ref={ref} className={cx('m-track', className)} {...rest}>
