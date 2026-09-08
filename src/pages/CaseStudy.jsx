@@ -262,12 +262,17 @@ export default function CaseStudy() {
               {instagram.posts?.length > 0 && (
                 <Stagger className="cs-ig-grid">
                   {instagram.posts.map((post, i) => (
+                    /* The image is decorative (alt="") and the caption is
+                       optional, so without this a post with no caption was
+                       a link in the tab order with no accessible name at
+                       all, which axe rightly calls serious. */
                     <a
                       key={(post.link || '') + i}
                       className="cs-ig-post"
                       href={post.link || instagram.url || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
+                      aria-label={post.caption || `Instagram post ${i + 1}${instagram.handle ? ` from @${instagram.handle}` : ''}`}
                     >
                       <span className="img-fit img-fit--1x1">
                         <img src={capImageWidth(post.image || instagram.profileImage, IMG_W.instagramPost)} alt="" loading="lazy" width={800} height={800} />
