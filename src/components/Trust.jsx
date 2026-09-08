@@ -1,17 +1,15 @@
 import { Link } from 'react-router-dom';
 import { Marquee, Tone } from '../marketing/motion';
-import { useTheme } from '../marketing/useTheme';
 import { capImageWidth } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.2, restaged by Site Prompt 6, Part 2.2: the logo
  * strip, unchanged in data, now sitting on Home's first Tone shift so the
- * page lifts off the brand black here instead of meeting a hard edge. clients is the full published
+ * page lifts off the brand black here instead of meeting a hard edge.
+ * Site Prompt 7, Part 5: the endpoint serves one logo string now that the
+ * site is dark only, so there is no theme-correct pick left to make. clients is the full published
  * list (from the same one fetchShowcase() call Home makes), filtered here
- * to featured.logoStrip and ordered by featured.order, so each entry keeps
- * its client.brand.logo.light/dark pair for a theme-correct pick, the
- * endpoint's own landing.logoStrip only carries one pre-resolved logo. */
+ * to featured.logoStrip and ordered by featured.order. */
 export default function Trust({ clients }) {
-  const theme = useTheme();
   const strip = (clients || [])
     .filter(c => c.featured?.logoStrip)
     .sort((a, b) => (a.featured?.order || 0) - (b.featured?.order || 0));
@@ -23,13 +21,13 @@ export default function Trust({ clients }) {
       <p className="trust-label">Trusted by local businesses</p>
       <Marquee duration={36}>
         {strip.map((c) => {
-          const logo = theme === 'light'
-            ? (c.brand?.logo?.light || c.brand?.logo?.dark)
-            : (c.brand?.logo?.dark || c.brand?.logo?.light);
+          const logo = c.brand?.logo || '';
           return (
             <Link key={c.slug} to={`/clients/${c.slug}`} className="trust-logo" aria-label={c.displayName}>
               {logo ? (
-                <img src={capImageWidth(logo)} alt="" loading="lazy" width={140} height={56} />
+                <span className="img-fit img-fit--contain trust-logo-box">
+                  <img src={capImageWidth(logo)} alt="" loading="lazy" width={140} height={56} />
+                </span>
               ) : (
                 <span className="trust-logo-fallback">{c.displayName}</span>
               )}
@@ -51,7 +49,7 @@ export default function Trust({ clients }) {
           transition: opacity 0.2s, filter 0.2s;
         }
         .trust-logo:hover { filter: grayscale(0); opacity: 1; }
-        .trust-logo img { max-height: 100%; max-width: 140px; object-fit: contain; }
+        .trust-logo-box { width: 140px; height: 56px; }
         .trust-logo-fallback { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
       `}</style>
     </Tone>

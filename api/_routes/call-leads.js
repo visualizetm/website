@@ -64,6 +64,7 @@ function sanitizeShowcase(sh) {
   const cards = sh.cards && typeof sh.cards === 'object' ? sh.cards : {};
   const print = sh.print && typeof sh.print === 'object' ? sh.print : {};
   const featured = sh.featured && typeof sh.featured === 'object' ? sh.featured : {};
+  const instagram = sh.instagram && typeof sh.instagram === 'object' ? sh.instagram : {};
   return {
     published: !!sh.published,
     slug: slugify(sh.slug),
@@ -72,6 +73,11 @@ function sanitizeShowcase(sh) {
     blurb: str(sh.blurb, 200),
     cover: imgLink(sh.cover),
     year: str(sh.year, 10),
+    /* Site Prompt 7, Part 5: one logo, not a light/dark pair. brand.logo
+     * below still accepts the old shape for one release so existing
+     * records keep serving; the editor writes this field and blanks that
+     * pair, which is what makes the new value win at read time. */
+    logoUrl: imgLink(sh.logoUrl),
     brand: {
       enabled: brand.enabled !== false,
       logo: { light: imgLink(brand.logo?.light), dark: imgLink(brand.logo?.dark) },
@@ -93,6 +99,21 @@ function sanitizeShowcase(sh) {
       enabled: print.enabled !== false,
       items: Array.isArray(print.items) ? print.items.slice(0, 12).map(x => ({ label: str(x?.label, 120), image: imgLink(x?.image), caption: str(x?.caption, 200) })) : [],
       notes: str(print.notes, 600),
+    },
+    /* Site Prompt 7, Part 2: additive. A client can showcase the account
+     * that is often the only thing their customers ever look at. The
+     * handle is stored without the @, the url defaults from the lead's own
+     * socials.instagram when blank, and posts are capped at nine so the
+     * public grid is always one clean 3 by 3. */
+    instagram: {
+      enabled: !!instagram.enabled,
+      handle: str(instagram.handle, 60).replace(/^@+/, ''),
+      url: str(instagram.url, 400),
+      profileImage: imgLink(instagram.profileImage),
+      posts: Array.isArray(instagram.posts)
+        ? instagram.posts.slice(0, 9).map(x => ({ link: str(x?.link, 400), image: imgLink(x?.image), caption: str(x?.caption, 200) }))
+        : [],
+      notes: str(instagram.notes, 600),
     },
     featured: {
       landing: !!featured.landing, logoStrip: !!featured.logoStrip, work: !!featured.work,

@@ -8,9 +8,9 @@ import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
 import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
-import { fetchShowcase, fetchClient, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
+import { fetchShowcase, fetchClient, capImageWidth, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
-import { useTheme } from '../marketing/useTheme';
 import { useHead } from '../marketing/useHead';
 
 // Labeled placeholder for any image slot the client's showcase leaves empty.
@@ -43,10 +43,13 @@ function SectionHead({ icon: IconEl, title }) {
  * No prerender step exists in this build (see reports/SITE-03-REPORT.md,
  * "SEO approach"), so these land after the JS runs, not in the initial HTML
  * a crawler or a link-preview fetch sees; that gap is Site Prompt 5's to close. */
-const hasBrand = (b) => !!(b?.logo?.light || b?.logo?.dark || b?.palette?.length || b?.typography?.length || b?.images?.length || b?.notes);
+const hasBrand = (b) => !!(b?.logo || b?.palette?.length || b?.typography?.length || b?.images?.length || b?.notes);
 const hasWebsite = (w) => !!(w?.url || w?.screenshots?.length || w?.notes);
 const hasCards = (c) => !!(c?.front || c?.back || c?.notes);
 const hasPrint = (p) => !!(p?.items?.length || p?.notes);
+// Site Prompt 7, Part 2: shown only when the client turned it on and there
+// is something to look at. A handle on its own is a link, not a section.
+const hasInstagram = (ig) => !!(ig?.enabled && (ig.posts?.length || ig.profileImage));
 
 // Untitled UI's free icon set has no brand marks (Instagram, Facebook), so
 // every social link uses the same generic external-link glyph; the platform
@@ -54,7 +57,6 @@ const hasPrint = (p) => !!(p?.items?.length || p?.notes);
 
 export default function CaseStudy() {
   const { slug } = useParams();
-  const theme = useTheme();
   const [state, setState] = useState({ status: 'loading', client: null, neighbors: null });
 
   const load = useCallback(async () => {
@@ -104,7 +106,9 @@ export default function CaseStudy() {
   const showWebsite = website?.enabled && hasWebsite(website);
   const showCards = cards?.enabled && hasCards(cards);
   const showPrint = print?.enabled && hasPrint(print);
-  const logoSrc = theme === 'light' ? (brand?.logo?.light || brand?.logo?.dark) : (brand?.logo?.dark || brand?.logo?.light);
+  const instagram = client.instagram;
+  const showInstagram = hasInstagram(instagram);
+  const logoSrc = brand?.logo || '';
   const socialEntries = Object.entries(socials || {}).filter(([, url]) => url);
 
   return (
@@ -205,6 +209,44 @@ export default function CaseStudy() {
                   </a>
                 )}
               </div>
+            </Reveal>
+          )}
+
+          {/* Instagram (Site Prompt 7, Part 2) */}
+          {showInstagram && (
+            <Reveal as="section" className="cs-section">
+              <SectionHead icon={Camera01} title="Instagram" />
+              <div className="cs-ig-head">
+                {instagram.profileImage && (
+                  <span className="img-fit img-fit--1x1 img-fit--circle cs-ig-avatar">
+                    <img src={capImageWidth(instagram.profileImage, 400)} alt="" loading="lazy" width={160} height={160} />
+                  </span>
+                )}
+                {instagram.handle && (
+                  instagram.url
+                    ? <a className="cs-ig-handle" href={instagram.url} target="_blank" rel="noopener noreferrer">@{instagram.handle}</a>
+                    : <span className="cs-ig-handle">@{instagram.handle}</span>
+                )}
+              </div>
+              {instagram.posts?.length > 0 && (
+                <Stagger className="cs-ig-grid">
+                  {instagram.posts.map((post, i) => (
+                    <a
+                      key={(post.link || '') + i}
+                      className="cs-ig-post"
+                      href={post.link || instagram.url || '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span className="img-fit img-fit--1x1">
+                        <img src={capImageWidth(post.image || instagram.profileImage, 800)} alt="" loading="lazy" width={800} height={800} />
+                      </span>
+                      {post.caption && <span className="cs-ig-caption">{post.caption}</span>}
+                    </a>
+                  ))}
+                </Stagger>
+              )}
+              {instagram.notes && <p className="cs-notes">{instagram.notes}</p>}
             </Reveal>
           )}
 
@@ -396,6 +438,33 @@ const csStyles = `
   }
   .cs-print-item { display: flex; flex-direction: column; gap: var(--space-2); }
   .cs-print-caption { font-size: 0.8125rem; color: var(--text-secondary); }
+
+  /* Instagram (Site Prompt 7, Part 2): a circle, a handle, and a 3 by 3
+     of square boxes. The captions are hover-only extra, never the only
+     place a post's context lives, since a touch viewer never sees them. */
+  .cs-ig-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-6); }
+  .cs-ig-avatar { width: 72px; height: 72px; flex: 0 0 72px; }
+  .img-fit--circle { border-radius: 50%; }
+  .cs-ig-handle {
+    display: inline-flex; align-items: center; min-height: 44px;
+    font-size: clamp(1.25rem, 3vw, 1.75rem); font-weight: 700;
+    color: var(--brand-text);
+  }
+  a.cs-ig-handle:hover { text-decoration: underline; }
+  .cs-ig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
+  .cs-ig-post {
+    position: relative; display: block;
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .cs-ig-caption {
+    position: absolute; inset: auto 0 0 0;
+    padding: var(--space-6) var(--space-3) var(--space-3);
+    background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.72) 100%);
+    font-size: 0.8125rem; color: var(--uc-text);
+    opacity: 0; transition: opacity var(--m-dur) var(--m-ease);
+  }
+  .cs-ig-post:hover .cs-ig-caption,
+  .cs-ig-post:focus-visible .cs-ig-caption { opacity: 1; }
 
   .cs-notes {
     margin-top: var(--space-5); max-width: 620px;

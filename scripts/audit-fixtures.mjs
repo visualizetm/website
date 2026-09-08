@@ -244,8 +244,16 @@ function publicClientOf(lead) {
   const typographyOf = (b) => [b?.fontDisplay && { family: b.fontDisplay, role: 'Display' }, b?.fontBody && { family: b.fontBody, role: 'Body' }].filter(Boolean);
   return {
     slug: sh.slug || '', displayName: sh.displayName || lead.business, type: sh.type || lead.industry || '', blurb: sh.blurb || '', cover: sh.cover || '', year: sh.year || '',
-    brand: { enabled: sh.brand?.enabled !== false, logo: sh.brand?.logo || { light: '', dark: '' }, palette: paletteOf(lead.brand), typography: typographyOf(lead.brand), images: sh.brand?.images || [], notes: sh.brand?.notes || '' },
+    // Site Prompt 7: one logo string (dark, then light, then the single
+    // field the editor writes), and the instagram block, both mirroring
+    // api/showcase.js's own shape.
+    brand: { enabled: sh.brand?.enabled !== false, logo: sh.brand?.logo?.dark || sh.brand?.logo?.light || sh.logoUrl || '', palette: paletteOf(lead.brand), typography: typographyOf(lead.brand), images: sh.brand?.images || [], notes: sh.brand?.notes || '' },
     website: { enabled: sh.website?.enabled !== false, url: sh.website?.url || lead.links?.website || '', screenshots: sh.website?.screenshots || [], notes: sh.website?.notes || '' },
+    instagram: {
+      enabled: !!sh.instagram?.enabled, handle: (sh.instagram?.handle || '').replace(/^@+/, ''),
+      url: sh.instagram?.url || lead.socials?.instagram || '', profileImage: sh.instagram?.profileImage || '',
+      posts: (sh.instagram?.posts || []).slice(0, 9), notes: sh.instagram?.notes || '',
+    },
     cards: { enabled: sh.cards?.enabled !== false, front: sh.cards?.front || '', back: sh.cards?.back || '', notes: sh.cards?.notes || '' },
     print: { enabled: sh.print?.enabled !== false, items: sh.print?.items || [], notes: sh.print?.notes || '' },
     featured: sh.featured || { landing: false, logoStrip: false, work: false, order: 0 },
@@ -259,7 +267,7 @@ export const SHOWCASE_TESTIMONIALS = SHOWCASE_CLIENTS.flatMap(c => c.testimonial
 export const SHOWCASE_PAYLOAD = {
   clients: SHOWCASE_CLIENTS,
   landing: {
-    logoStrip: SHOWCASE_CLIENTS.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo.dark || c.brand.logo.light || '' })),
+    logoStrip: SHOWCASE_CLIENTS.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo || '' })),
     work: SHOWCASE_CLIENTS.filter(c => c.featured.work).map(c => ({ slug: c.slug, displayName: c.displayName, type: c.type, blurb: c.blurb, cover: c.cover })),
     testimonials: SHOWCASE_TESTIMONIALS.filter((t, i) => i < 6),
     stats: { clientsServed: 4, projectsDelivered: 3, averageRating: 4.5, years: 3 },

@@ -57,7 +57,12 @@ function publicClient(lead) {
     year: sh.year || '',
     brand: {
       enabled: sh.brand?.enabled !== false,
-      logo: { light: sh.brand?.logo?.light || '', dark: sh.brand?.logo?.dark || '' },
+      /* Site Prompt 7, Part 5: one logo string, not a light/dark pair, now
+       * that the public site is dark only. Records written before the
+       * editor changed still carry the pair, so they migrate at read: dark
+       * first, then light, then the single field the editor writes (which
+       * blanks the pair, so it wins for anything saved since). */
+      logo: sh.brand?.logo?.dark || sh.brand?.logo?.light || sh.logoUrl || '',
       palette: paletteOf(lead.brand),
       typography: typographyOf(lead.brand),
       images: Array.isArray(sh.brand?.images) ? sh.brand.images : [],
@@ -68,6 +73,16 @@ function publicClient(lead) {
       url: sh.website?.url || lead.links?.website || '',
       screenshots: Array.isArray(sh.website?.screenshots) ? sh.website.screenshots : [],
       notes: sh.website?.notes || '',
+    },
+    // Site Prompt 7, Part 2. Hidden by the page unless enabled and there is
+    // something to show; the url falls back to the lead's own socials entry.
+    instagram: {
+      enabled: !!sh.instagram?.enabled,
+      handle: (sh.instagram?.handle || '').replace(/^@+/, ''),
+      url: sh.instagram?.url || lead.socials?.instagram || '',
+      profileImage: sh.instagram?.profileImage || '',
+      posts: Array.isArray(sh.instagram?.posts) ? sh.instagram.posts.slice(0, 9) : [],
+      notes: sh.instagram?.notes || '',
     },
     cards: {
       enabled: sh.cards?.enabled !== false,
@@ -132,7 +147,7 @@ async function buildLanding(db, published) {
   const logoStrip = published
     .filter(l => l.showcase?.featured?.logoStrip)
     .sort((a, b) => (Number(a.showcase?.featured?.order) || 0) - (Number(b.showcase?.featured?.order) || 0))
-    .map(l => ({ slug: l.showcase.slug, displayName: l.showcase.displayName || l.business, logo: l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || '' }));
+    .map(l => ({ slug: l.showcase.slug, displayName: l.showcase.displayName || l.business, logo: l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || l.showcase?.logoUrl || '' }));
 
   const work = published
     .filter(l => l.showcase?.featured?.work)

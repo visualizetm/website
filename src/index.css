@@ -548,6 +548,10 @@ h1, h2, h3, h4, h5, h6 {
   object-fit: cover;
 }
 .img-fit--16x9 { aspect-ratio: 16 / 9; }
+.img-fit--1x1 { aspect-ratio: 1 / 1; }
+/* Logos: the box is a fixed size, the mark sits inside it uncropped. */
+.img-fit--contain { background: none; }
+.img-fit--contain > img { object-fit: contain; }
 
 /* ── Scroll-driven set (Site Prompt 6, src/marketing/scroll.js) ───────
    gsap + ScrollTrigger scrub these; Lenis smooths the scroll that drives

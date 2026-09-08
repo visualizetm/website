@@ -38,6 +38,9 @@ const fullClient = {
   showcase: {
     published: true, slug: 'full-client', displayName: 'Full Client Co', type: 'Coffee Shop', blurb: 'A full showcase example.', cover: 'https://img.example/full-cover.jpg', year: '2026',
     brand: { enabled: true, logo: { light: 'https://img.example/full-logo-light.png', dark: 'https://img.example/full-logo-dark.png' }, images: [{ link: 'https://img.example/full-1.jpg', caption: 'Signage' }], notes: 'showcase brand notes' },
+    // Site Prompt 7: ten posts and an @-prefixed handle, to prove the cap and the strip.
+    instagram: { enabled: true, handle: '@fullclient', url: '', profileImage: 'https://img.example/full-avatar.jpg',
+      posts: Array.from({ length: 10 }, (_, i) => ({ link: `https://instagram.example/p/${i}`, image: `https://img.example/ig-${i}.jpg`, caption: '' })), notes: '' },
     website: { enabled: true, url: 'https://fullclient.example', screenshots: [{ link: 'https://img.example/full-shot.jpg', caption: 'Homepage' }], notes: '' },
     cards: { enabled: true, front: 'https://img.example/full-card-front.jpg', back: 'https://img.example/full-card-back.jpg', notes: '' },
     print: { enabled: true, items: [{ label: 'Menu', image: 'https://img.example/full-menu.jpg', caption: '' }], notes: '' },
@@ -172,7 +175,7 @@ async function callShowcase(query = {}) {
 let fails = 0;
 const ok = (c, m, extra = '') => { console.log((c ? 'ok   ' : 'FAIL ') + m + (extra ? `  ${extra}` : '')); if (!c) fails++; };
 
-const WHITELIST = ['slug', 'displayName', 'type', 'blurb', 'cover', 'year', 'brand', 'website', 'cards', 'print', 'featured', 'testimonials', 'socials'].sort();
+const WHITELIST = ['slug', 'displayName', 'type', 'blurb', 'cover', 'year', 'brand', 'website', 'instagram', 'cards', 'print', 'featured', 'testimonials', 'socials'].sort();
 // Key names to check are absent entirely (showcase.*.notes is a real,
 // intentionally public whitelisted field, so "notes" itself is checked by
 // value below, not by key).
@@ -199,6 +202,13 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   ok(full.brand.typography.some(t => t.family === 'Barlow Condensed' && t.role === 'Display'), 'brand.typography computed live from lead.brand');
   ok(full.testimonials.length === 1 && full.testimonials[0].quote === 'Great work.', 'only the PUBLISHED testimonial is returned, the draft one is excluded');
   ok(Object.keys(full.socials).sort().join(',') === 'facebook,instagram,website', 'socials whitelist is exactly instagram, facebook, website (tiktok excluded)');
+  // Site Prompt 7, Part 5: one logo string, migrated at read from the old pair.
+  ok(typeof full.brand.logo === 'string', `brand.logo is a single string, not a light/dark pair (got ${typeof full.brand.logo})`);
+  ok(full.brand.logo === 'https://img.example/full-logo-dark.png', 'brand.logo prefers the stored dark logo for a record written before the change');
+  // Site Prompt 7, Part 2: the instagram block, and its own whitelist.
+  ok(Object.keys(full.instagram).sort().join(',') === 'enabled,handle,notes,posts,profileImage,url', `instagram whitelist is exactly enabled, handle, url, profileImage, posts, notes (got ${Object.keys(full.instagram).sort().join(',')})`);
+  ok(full.instagram.enabled === true && full.instagram.handle === 'fullclient', `instagram is served with the @ stripped from the handle (got ${JSON.stringify(full.instagram.handle)})`);
+  ok(full.instagram.posts.length === 9, `instagram posts are capped at nine (got ${full.instagram.posts.length})`);
 
   ok(!!res._json.landing, 'response has a landing object');
   ok(res._json.landing.logoStrip.some(c => c.slug === 'full-client'), 'logoStrip includes the client with featured.logoStrip true');
