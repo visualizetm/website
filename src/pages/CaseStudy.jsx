@@ -9,7 +9,7 @@ import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
-import { fetchShowcase, fetchClient, capImageWidth, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import { fetchShowcase, fetchClient, capImageWidth, IMG_W, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 
@@ -25,10 +25,10 @@ function Slot({ fit = 'img-fit--16x10', className = '', children, label }) {
   );
 }
 
-function Media({ src, alt, label, fit, className, width = 1600, height = 1000 }) {
+function Media({ src, alt, label, fit, className, width = 1600, height = 1000, w = IMG_W.gallery }) {
   return (
     <Slot fit={fit} label={label} className={className}>
-      {src ? <img src={capImageWidth(src)} alt={alt} loading="lazy" width={width} height={height} /> : null}
+      {src ? <img src={capImageWidth(src, w)} alt={alt} loading="lazy" width={width} height={height} /> : null}
     </Slot>
   );
 }
@@ -144,7 +144,7 @@ export default function CaseStudy() {
           <div className="cs-cover">
             <ScaleIn as="div" className="cs-cover-scale">
               <Parallax className="img-fit cs-cover-inner">
-                <img src={capImageWidth(client.cover)} alt={`${client.displayName} cover`} loading="lazy" width={2100} height={900} />
+                <img src={capImageWidth(client.cover, IMG_W.heroCover)} alt={`${client.displayName} cover`} loading="lazy" width={2100} height={900} />
               </Parallax>
             </ScaleIn>
           </div>
@@ -156,7 +156,7 @@ export default function CaseStudy() {
             <Reveal as="section" className="cs-section">
               <SectionHead icon={Palette} title="Brand Identity" />
               <div className="cs-brand-grid">
-                <Media src={logoSrc} alt={`${client.displayName} logo`} label="Logo" fit="img-fit--16x10 img-fit--contain" width={800} height={500} />
+                <Media src={logoSrc} alt={`${client.displayName} logo`} label="Logo" fit="img-fit--16x10 img-fit--contain" width={800} height={500} w={IMG_W.logo} />
                 <div className="cs-brand-side">
                   {brand.palette?.length > 0 && (
                     <div className="cs-palette">
@@ -200,7 +200,7 @@ export default function CaseStudy() {
                 <div className="cs-browser-bar"><span /><span /><span /></div>
                 {website.screenshots?.length > 0 ? (
                   website.screenshots.map((s, i) => (
-                    <Media key={s.link + i} src={s.link} alt={s.caption || `${client.displayName} website`} label="Website screenshot" className="cs-browser-shot" />
+                    <Media key={s.link + i} src={s.link} alt={s.caption || `${client.displayName} website`} label="Website screenshot" className="cs-browser-shot" w={IMG_W.screenshot} />
                   ))
                 ) : (
                   <Slot label="Website screenshot" />
@@ -224,7 +224,7 @@ export default function CaseStudy() {
               <div className="cs-ig-head">
                 {instagram.profileImage && (
                   <span className="img-fit img-fit--1x1 img-fit--circle cs-ig-avatar">
-                    <img src={capImageWidth(instagram.profileImage, 400)} alt="" loading="lazy" width={160} height={160} />
+                    <img src={capImageWidth(instagram.profileImage, IMG_W.avatar)} alt="" loading="lazy" width={160} height={160} />
                   </span>
                 )}
                 {instagram.handle && (
@@ -244,7 +244,7 @@ export default function CaseStudy() {
                       rel="noopener noreferrer"
                     >
                       <span className="img-fit img-fit--1x1">
-                        <img src={capImageWidth(post.image || instagram.profileImage, 800)} alt="" loading="lazy" width={800} height={800} />
+                        <img src={capImageWidth(post.image || instagram.profileImage, IMG_W.instagramPost)} alt="" loading="lazy" width={800} height={800} />
                       </span>
                       {post.caption && <span className="cs-ig-caption">{post.caption}</span>}
                     </a>
@@ -260,8 +260,8 @@ export default function CaseStudy() {
             <Reveal as="section" className="cs-section">
               <SectionHead icon={CreditCard02} title="Business Cards" />
               <div className="cs-cards-grid">
-                <Media src={cards.front} alt={`${client.displayName} card front`} label="Card front" fit="img-fit--7x4" width={1050} height={600} />
-                <Media src={cards.back} alt={`${client.displayName} card back`} label="Card back" fit="img-fit--7x4" width={1050} height={600} />
+                <Media src={cards.front} alt={`${client.displayName} card front`} label="Card front" fit="img-fit--7x4" width={1050} height={600} w={IMG_W.card} />
+                <Media src={cards.back} alt={`${client.displayName} card back`} label="Card back" fit="img-fit--7x4" width={1050} height={600} w={IMG_W.card} />
               </div>
               {cards.notes && <p className="cs-notes">{cards.notes}</p>}
             </Reveal>
@@ -274,7 +274,7 @@ export default function CaseStudy() {
               <div className="cs-media-grid">
                 {(print.items || []).map((item, i) => (
                   <figure key={item.label + i} className="cs-print-item">
-                    <Media src={item.image} alt={item.label} label={item.label} fit="img-fit--1x1" width={1000} height={1000} />
+                    <Media src={item.image} alt={item.label} label={item.label} fit="img-fit--1x1" width={1000} height={1000} w={IMG_W.print} />
                     <figcaption className="cs-print-caption">{item.label}</figcaption>
                   </figure>
                 ))}

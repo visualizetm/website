@@ -12,7 +12,6 @@ import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, pr
 import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
-import { cloudinaryEnabled, uploadToCloudinary } from '../lib/cloudinary';
 import {
   uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
   planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject,

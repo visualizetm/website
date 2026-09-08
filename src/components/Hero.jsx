@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Pin, WordReveal, useScrollEngine, useMediaQuery } from '../marketing/motion';
 import { getScrollEngine } from '../marketing/scroll';
-import { capImageWidth } from '../marketing/showcase';
+import { capImageWidth, IMG_W } from '../marketing/showcase';
 import { CALENDLY_URL } from '../marketing/links';
 
 const DEFAULT_COVER = '/hero-default.svg';
@@ -59,7 +59,7 @@ export default function Hero({ items }) {
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'image';
-    link.href = capImageWidth(first.cover);
+    link.href = capImageWidth(first.cover, IMG_W.heroCover);
     document.head.appendChild(link);
     return () => { document.head.removeChild(link); };
   }, [first?.cover]);
@@ -180,7 +180,7 @@ function HeroStack({ deck, rest, copy, vhPerCard }) {
 }
 
 function HeroCard({ item, index, count, priority = false, small = false, last = false }) {
-  const src = item?.cover ? capImageWidth(item.cover) : DEFAULT_COVER;
+  const src = item?.cover ? capImageWidth(item.cover, small ? IMG_W.cardCover : IMG_W.heroCover) : DEFAULT_COVER;
   const name = item?.displayName || '';
   const inner = (
     <>

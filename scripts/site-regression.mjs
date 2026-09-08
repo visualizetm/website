@@ -14,6 +14,14 @@
  *
  *   npx vite build && npx vite preview --port 4330 &
  *   node scripts/site-regression.mjs
+ *
+ * Step 11 walks the Cloudinary upload flow in the Showcase editor, with
+ * Cloudinary itself mocked. The Upload buttons only render when the build
+ * carried VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET, so
+ * that step reports "skipped" against a build without them:
+ *
+ *   VITE_CLOUDINARY_CLOUD_NAME=visualize-test \
+ *   VITE_CLOUDINARY_UPLOAD_PRESET=visualize npx vite build
  */
 import { chromium } from 'playwright-core';
 import { PACKAGES, ADDONS, money } from '../src/shared/pricing.js';
@@ -72,7 +80,11 @@ async function mockAndGoto(page, path) {
 }
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
-const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce' });
+/* serviceWorkers: 'block', the same as every other audit context: once the
+ * app's worker takes control it answers /api/* itself and page.route() no
+ * longer sees those requests, which made later admin steps read the SPA
+ * fallback HTML instead of a fixture. */
+const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, reducedMotion: 'reduce', serviceWorkers: 'block' });
 const page = await ctx.newPage();
 
 const rows = [];
@@ -236,6 +248,63 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   const inDeck = await page.locator('.hero-card', { hasText: 'Site Check Co' }).count();
   if (!inDeck) throw new Error('the published cover is not in the hero deck');
   return 'one PATCH, then live on /clients and in the hero deck';
+});
+
+/* The upload prompt: the Cloudinary flow end to end, with Cloudinary
+ * itself mocked. Pick a file, see the button go busy, see the returned
+ * secure_url land in the field, see the preview appear, and confirm the
+ * request carried the preset and no secret. */
+await step('11. Showcase editor: upload an image, see it land in the field', async () => {
+  const UPLOADED = 'https://res.cloudinary.com/visualize-test/image/upload/v1712345678/showcase/regression.png';
+  let sent = null;
+  const adminLead = {
+    _id: 'SITECHECK', business: 'Site Check Co', stage: 'client', callStatus: 'booked', clientStatus: 'active',
+    industry: 'Testing', socials: {}, links: {}, reviews: { testimonials: [] },
+    showcase: { ...client(), published: true, cover: '' },
+  };
+  await page.unroute('**/api/showcase**').catch(() => {});
+  await mockRoutes(page, {});
+  // Only this step's handler answers for leads: unroute first so the
+  // fixture list registered by mockRoutes cannot win the match.
+  await page.unroute('**/api/admin/call-leads**').catch(() => {});
+  await page.route('**/api/admin/call-leads**', (r) => (r.request().method() === 'PATCH'
+    ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) })
+    : r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [adminLead] }) })));
+  await page.route('https://api.cloudinary.com/**', async (r) => {
+    sent = { url: r.request().url(), body: r.request().postData() || '' };
+    await new Promise(res => setTimeout(res, 600));
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ secure_url: UPLOADED }) });
+  });
+  await page.route('https://res.cloudinary.com/**', r => r.fulfill({
+    status: 200, contentType: 'image/svg+xml',
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="10"><rect width="16" height="10" fill="#345"/></svg>',
+  }));
+
+  await page.goto(`${BASE}/admin/clients/SITECHECK/showcase`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(2200);
+
+  const field = page.locator('.sc-fields .sc-imgfield').first();
+  await field.waitFor({ state: 'visible', timeout: 8000 });
+  if (!await field.locator('button', { hasText: 'Upload' }).count()) {
+    return 'skipped: this build carries no VITE_CLOUDINARY_* config, so no Upload button renders';
+  }
+
+  await field.locator('input[type=file]').setInputFiles({ name: 'cover.png', mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+  await page.waitForTimeout(250);
+  const busy = await field.locator('button').first().getAttribute('aria-busy');
+  if (busy !== 'true') throw new Error('the Upload button did not enter its loading state');
+
+  await page.waitForTimeout(1400);
+  if (!sent) throw new Error('nothing was posted to Cloudinary');
+  if (!/\/v1_1\/[^/]+\/image\/upload$/.test(sent.url)) throw new Error(`posted to ${sent.url}`);
+  if (!/upload_preset/.test(sent.body)) throw new Error('the request did not carry upload_preset');
+  if (/api_key|api_secret|signature/i.test(sent.body)) throw new Error('the request carried a key or secret');
+
+  const link = (await field.locator('.sc-imgfield-edit').innerText()).trim();
+  if (link !== UPLOADED) throw new Error(`the field holds "${link.slice(0, 60)}", not the returned secure_url`);
+  const preview = await field.locator('.sc-thumb img').getAttribute('src').catch(() => null);
+  if (preview !== UPLOADED) throw new Error(`the preview shows "${preview}"`);
+  return 'busy state, one POST with the preset and no secret, URL and preview in place';
 });
 
 await browser.close();

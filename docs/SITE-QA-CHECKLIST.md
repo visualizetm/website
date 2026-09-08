@@ -19,8 +19,15 @@ published to the showcase.
 | 4 | Log a testimonial for the client, mark it published and featured | Reload Home and /clients: the testimonial appears in both places, quote, author, and the business name linking back to the client. |
 | 5 | Toggle Published off | Reload /clients: the client's card is gone. |
 | 6 | In src/shared/pricing.js, change a package's price | Reload /services and Home: the new price shows on both, read live, never retyped. |
+| 7 | Open the site header and footer at a phone width and a desktop width | Three links and one Book a free call, nothing else: no Services entry and no Shop. |
+| 8 | Visit /prints | It lands on Home. The shop is gone from the public site; hand-entered print orders in the CRM are untouched. |
+| 9 | Open /contact | Three cards (book, email, Instagram), no form and no embedded Calendly. |
+| 10 | Open the client's Showcase editor (/clients/:id/showcase), change a field, use Discard, change it again, Save, then Publish | Nothing writes until Save (one PATCH per save), Discard restores the saved state, and the published cover then shows on /clients and in Home's hero deck. |
+| 11 | In the Showcase editor, use Upload on an image field and pick a file | The button goes busy, the returned Cloudinary URL lands in the field, and the preview appears in the box the public page will use. Needs the VITE_CLOUDINARY_* pair in the build; without it there is no Upload button and the paste path is the only path. |
 
-`scripts/site-regression.mjs` result (last run): 6/6 steps pass.
+`scripts/site-regression.mjs` result (last run): 11/11 steps pass. Step 11
+reports "skipped" against a build with no VITE_CLOUDINARY_* configuration,
+since no Upload button renders there.
 
 ## Keyboard walk
 

@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Marquee, Tone } from '../marketing/motion';
-import { capImageWidth } from '../marketing/showcase';
+import { capImageWidth, IMG_W } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.2, restaged by Site Prompt 6, Part 2.2: the logo
  * strip, unchanged in data, now sitting on Home's first Tone shift so the
@@ -26,7 +26,7 @@ export default function Trust({ clients }) {
             <Link key={c.slug} to={`/clients/${c.slug}`} className="trust-logo" aria-label={c.displayName}>
               {logo ? (
                 <span className="img-fit img-fit--contain trust-logo-box">
-                  <img src={capImageWidth(logo)} alt="" loading="lazy" width={140} height={56} />
+                  <img src={capImageWidth(logo, IMG_W.logo)} alt="" loading="lazy" width={140} height={56} />
                 </span>
               ) : (
                 <span className="trust-logo-fallback">{c.displayName}</span>

@@ -6,7 +6,7 @@ import {
 import { COPY } from '../shared/copy';
 import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
 import { fmtDate } from '../shared/dates';
-import { cloudinaryEnabled, uploadToCloudinary } from '../lib/cloudinary';
+import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { uid, today, isHex } from '../lib/projects';
 
 /* The Showcase editor (Site Prompt 7, Part 3), its own admin page at
@@ -56,46 +56,138 @@ function EditableText({ value, onSave, placeholder, label, multiline, readOnly, 
     : <InlineEdit value={value || ''} onSave={onSave} placeholder={placeholder} label={label} multiline={multiline} className={className} />;
 }
 
-/* An image URL field: InlineEdit (or read-only text) plus a live thumbnail
- * that falls back to a warning on a broken link, plus an optional Upload
- * button when Cloudinary is configured (Site Prompt 2, Part 5). Uploading
- * calls the same onSave the manual link uses, so the full-replacement
- * write rule still applies. */
+/* An image URL field: the link itself (InlineEdit, or plain text when read
+ * only), an Upload button when Cloudinary is configured, and a live preview
+ * in the exact box the public page will use, so a tall or panoramic upload
+ * shows its crop here rather than at publish.
+ *
+ * Pasting a link always works and is never hidden behind the upload path;
+ * the button is the shortcut, not the requirement. Uploading calls the same
+ * onSave the manual link uses, so the full-replacement write rule still
+ * applies and the draft/save model is untouched.
+ *
+ * The preview box is also a drop target on a desktop. */
 function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10' }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [broken, setBroken] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dropping, setDropping] = useState(false);
   useEffect(() => { setBroken(false); }, [value]);
-  const onFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+
+  const send = async (file) => {
     if (!file) return;
     setUploading(true);
-    const url = await uploadToCloudinary(file);
+    const res = await uploadToCloudinary(file);
     setUploading(false);
-    if (url) await onSave(url); else toast.error('Could not upload that image.');
+    if (res.url) { await onSave(res.url); toast.success('Image uploaded.'); }
+    else toast.error(res.error);
   };
+
+  const onPick = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    await send(file);
+  };
+
+  const dropProps = (!readOnly && cloudinaryEnabled && !uploading) ? {
+    onDragOver: (e) => { e.preventDefault(); setDropping(true); },
+    onDragLeave: () => setDropping(false),
+    onDrop: async (e) => { e.preventDefault(); setDropping(false); await send(e.dataTransfer?.files?.[0]); },
+  } : {};
+
   return (
     <div className="sc-imgfield">
-      <Row gap={1} align="center">
-        <EditableText value={value} onSave={onSave} placeholder={placeholder} label={label} readOnly={readOnly} className="sc-imgfield-edit" />
+      <Row gap={2} align="center" wrap>
+        <EditableText value={value} onSave={onSave} placeholder={placeholder} label={label} readOnly={readOnly || uploading} className="sc-imgfield-edit" />
         {!readOnly && cloudinaryEnabled && (
           <>
-            <IconButton icon="Upload01" label={uploading ? `Uploading ${label}` : `Upload ${label}`} variant="ghost" disabled={uploading} onClick={() => fileRef.current?.click()} />
-            <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={onFile} aria-hidden="true" tabIndex={-1} />
+            <Button variant="secondary" size="md" icon="Upload01" loading={uploading} disabled={uploading}
+              onClick={() => fileRef.current?.click()} aria-label={uploading ? `Uploading ${label}` : `Upload ${label}`}>
+              Upload
+            </Button>
+            {uploading && <span className="sc-upload-progress" role="status" aria-live="polite">Uploading</span>}
+            {/* No capture attribute: with one, a phone opens the camera and
+                nothing else. Without it, iOS and Android both offer the
+                photo library, Files, and the camera. */}
+            <input ref={fileRef} type="file" accept={ACCEPT_ATTR} style={{ display: 'none' }}
+              onChange={onPick} aria-hidden="true" tabIndex={-1} />
           </>
         )}
       </Row>
-      {/* The preview is the same box the public page will use, so a tall
-          or panoramic upload shows its crop here rather than at publish. */}
-      {value ? (broken
-        ? <p className="sc-thumb-warn">Image not reachable.</p>
-        : <span className={`img-fit ${ratio} sc-thumb`}>
-            <img src={value} alt="" width={320} height={200} loading="lazy" decoding="async" onError={() => setBroken(true)} />
-          </span>
-      ) : null}
+
+      <div className={`sc-drop${dropping ? ' is-over' : ''}`} {...dropProps}>
+        {value ? (broken
+          ? <p className="sc-thumb-warn">Image not reachable.</p>
+          : <span className={`img-fit ${ratio} sc-thumb`}>
+              <img src={value} alt="" width={320} height={200} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+            </span>
+        ) : (!readOnly && cloudinaryEnabled ? <p className="sc-drop-hint">Drop an image here, or paste a link above.</p> : null)}
+        {dropping && <span className="sc-drop-over">Drop to upload</span>}
+      </div>
+
+      {!readOnly && value && <p className="sc-imgfield-note">Clearing this field removes the link from the record. The file stays in Cloudinary.</p>}
     </div>
+  );
+}
+
+/* Site Prompt "upload flow", check 4: the same upload, for a list.
+ *
+ * Takes several files at once, sends them one after another (Cloudinary's
+ * unsigned endpoint is per-file, and a burst of parallel POSTs from a phone
+ * is how you get half of them dropped), and reports progress as it goes.
+ * Every file that succeeds is appended, whatever happened to the others;
+ * the failures are named in one toast at the end rather than swallowed.
+ * Stops at the list's own cap and says so. */
+function UploadMany({ label, count, cap, onUploaded, readOnly }) {
+  const toast = useToast();
+  const fileRef = useRef(null);
+  const [progress, setProgress] = useState(null); // { at, of }
+  if (readOnly || !cloudinaryEnabled) return null;
+  const room = Math.max(0, cap - count);
+
+  const onPick = async (e) => {
+    const files = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!files.length) return;
+    let list = files;
+    if (files.length > room) {
+      list = files.slice(0, room);
+      toast.error(`Room for ${room} more (the limit is ${cap}). Uploading the first ${room}.`);
+    }
+    const urls = [];
+    const failed = [];
+    for (let i = 0; i < list.length; i++) {
+      setProgress({ at: i + 1, of: list.length });
+      const res = await uploadToCloudinary(list[i]); // eslint-disable-line no-await-in-loop
+      if (res.url) urls.push(res.url); else failed.push(res.error);
+    }
+    setProgress(null);
+    if (urls.length) await onUploaded(urls);
+    if (failed.length) toast.error(failed.length === 1 ? failed[0] : `${failed.length} of ${list.length} did not upload. ${failed[0]}`);
+    else if (urls.length) toast.success(urls.length === 1 ? 'Image uploaded.' : `${urls.length} images uploaded.`);
+  };
+
+  return (
+    <Row gap={2} align="center" wrap>
+      <Button variant="secondary" size="md" icon="Upload01" loading={!!progress}
+        disabled={!!progress || room === 0}
+        onClick={() => (room === 0 ? toast.error(`That is the limit of ${cap}.`) : fileRef.current?.click())}
+        aria-label={`Upload ${label}`}>
+        Upload {label}
+      </Button>
+      {/* The kit's loading Button swaps its label for a spinner, so the
+          count lives beside it rather than inside it. aria-live so a screen
+          reader hears each file land instead of watching a spinner. */}
+      {progress && (
+        <span className="sc-upload-progress" role="status" aria-live="polite">
+          Uploading {progress.at} of {progress.of}
+        </span>
+      )}
+      {room === 0 && <span className="dt-muted">Limit of {cap} reached.</span>}
+      <input ref={fileRef} type="file" multiple accept={ACCEPT_ATTR} style={{ display: 'none' }}
+        onChange={onPick} aria-hidden="true" tabIndex={-1} />
+    </Row>
   );
 }
 
@@ -243,6 +335,8 @@ function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
         </div>
         <div className="v-field">
           <span className="v-field-label">Gallery images ({images.length} of 12)</span>
+          <UploadMany label="gallery images" count={images.length} cap={12} readOnly={readOnly}
+            onUploaded={(urls) => write({ brand: { ...b, images: [...images, ...urls.map(link => ({ link, caption: '' }))] } })} />
           <ObjectListEditor items={images} readOnly={readOnly} canAdd={!readOnly && images.length < 12} addLabel="Add image"
             onReorder={(next) => write({ brand: { ...b, images: next } })}
             onRemove={(i) => write({ brand: { ...b, images: images.filter((_, j) => j !== i) } })}
@@ -273,6 +367,8 @@ function WebsiteBlock({ sh, write, writeRaw, lead, readOnly }) {
         <div className="cw-brand-row"><span className="dt-fact-label">URL</span><EditableText value={w.url} onSave={(v) => writeRaw({ website: { ...w, url: v.slice(0, 400) } })} placeholder={lead.links?.website || 'https://...'} label="Website URL" readOnly={readOnly} className="dt-fact-edit" /></div>
         <div className="v-field">
           <span className="v-field-label">Screenshots ({shots.length} of 8)</span>
+          <UploadMany label="screenshots" count={shots.length} cap={8} readOnly={readOnly}
+            onUploaded={(urls) => write({ website: { ...w, screenshots: [...shots, ...urls.map(link => ({ link, caption: '' }))] } })} />
           <ObjectListEditor items={shots} readOnly={readOnly} canAdd={!readOnly && shots.length < 8} addLabel="Add screenshot"
             onReorder={(next) => write({ website: { ...w, screenshots: next } })}
             onRemove={(i) => write({ website: { ...w, screenshots: shots.filter((_, j) => j !== i) } })}
@@ -308,6 +404,8 @@ function InstagramBlock({ sh, write, writeRaw, lead, readOnly }) {
         <div className="v-field"><span className="v-field-label">Profile image</span><ImageField value={ig.profileImage} label="Profile image" placeholder="Profile image URL" ratio="img-fit--1x1 sc-thumb-round" onSave={(v) => setIgRaw({ profileImage: v })} readOnly={readOnly} /></div>
         <div className="v-field">
           <span className="v-field-label">Posts ({posts.length} of 9)</span>
+          <UploadMany label="posts" count={posts.length} cap={9} readOnly={readOnly}
+            onUploaded={(urls) => setIg({ posts: [...posts, ...urls.map(image => ({ link: '', image, caption: '' }))] })} />
           <ObjectListEditor items={posts} readOnly={readOnly} canAdd={!readOnly && posts.length < 9} addLabel="Add post"
             onReorder={(next) => setIg({ posts: next })}
             onRemove={(i) => setIg({ posts: posts.filter((_, j) => j !== i) })}
@@ -349,6 +447,8 @@ function PrintBlock({ sh, write, writeRaw, readOnly }) {
       <Stack gap={3}>
         <div className="v-field">
           <span className="v-field-label">Items ({items.length} of 12)</span>
+          <UploadMany label="print items" count={items.length} cap={12} readOnly={readOnly}
+            onUploaded={(urls) => write({ print: { ...p, items: [...items, ...urls.map(image => ({ label: '', image, caption: '' }))] } })} />
           <ObjectListEditor items={items} readOnly={readOnly} canAdd={!readOnly && items.length < 12} addLabel="Add item"
             onReorder={(next) => write({ print: { ...p, items: next } })}
             onRemove={(i) => write({ print: { ...p, items: items.filter((_, j) => j !== i) } })}
@@ -703,6 +803,20 @@ const scStyles = `
      public site, so its ground is re-pointed here. */
   .lay-root .img-fit { background: var(--v-surface-3); border-radius: var(--v-radius-md); }
   .sc-thumb { width: 200px; max-width: 100%; border: 1px solid var(--v-border); }
+  .sc-imgfield-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .sc-upload-progress { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-2); }
+  /* The preview doubles as a drop target on a desktop. It keeps its own
+     dashed outline only while there is nothing in it, so a field with an
+     image does not grow a second border around the thumbnail. */
+  .sc-drop { position: relative; margin-top: var(--v-space-2); border-radius: var(--v-radius-md); }
+  .sc-drop:not(:has(.sc-thumb)) { border: 1px dashed var(--v-border); padding: var(--v-space-3); }
+  .sc-drop.is-over { outline: 2px solid var(--v-border-focus); outline-offset: 2px; background: var(--v-surface-3); }
+  .sc-drop-hint { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .sc-drop-over {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    border-radius: var(--v-radius-md); background: var(--v-surface-2);
+    font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1);
+  }
   .sc-thumb-logo { height: 72px; width: 160px; background: none; }
   .sc-thumb-round { width: 96px; border-radius: 50%; }
 

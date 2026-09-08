@@ -31,7 +31,7 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 | ADMIN_URL | Deep links in push notifications (default https://admin.visualizeclients.com) | Links use the default host |
 | VITE_MAINTENANCE_MODE | The public maintenance screen (a full app override on the public host only, the admin host and every api/ route are unaffected). No password or unlock exists any more; preview the real site through a Vercel preview deployment, or turn this flag off | Site serves normally |
 | VITE_WEB3FORMS_KEY | Web3Forms fallback on the public forms (public by design) | Forms still post to /api/submissions |
-| VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET | An Upload button beside every showcase image field (Site Prompt 2), browser to Cloudinary direct, no server involved | Every image field is a plain pasted link only; the button does not render |
+| VITE_CLOUDINARY_CLOUD_NAME, VITE_CLOUDINARY_UPLOAD_PRESET | Upload buttons on every image field in the Showcase editor, single and multi-file, browser to Cloudinary direct, no server and no API secret involved. The preset is `visualize`, unsigned, folder `showcase` (docs/IMAGES.md) | Every image field is a plain pasted link only; the buttons do not render |
 
 ## Rotate SESSION_SECRET (sign everyone out)
 

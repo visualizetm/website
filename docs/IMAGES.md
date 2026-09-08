@@ -48,23 +48,98 @@ Every field accepts any image format a browser can render; the sizes above
 are a target for sharpness on a large screen without an oversized file, not
 a hard requirement enforced anywhere in code.
 
-## Optional: upload from the browser
+## Uploading from the browser (Cloudinary)
 
-When both `CLOUDINARY_CLOUD_NAME` and `CLOUDINARY_UPLOAD_PRESET` are present
-in the client environment (as `VITE_CLOUDINARY_CLOUD_NAME` and
-`VITE_CLOUDINARY_UPLOAD_PRESET`, since only `VITE_`-prefixed variables reach
-the browser bundle), an Upload button appears beside every image field in
-the Showcase tab. Clicking it opens the browser's file picker, uploads the
-chosen file directly to Cloudinary's unsigned upload endpoint using the
-preset (no server round trip, no new Vercel function), and fills the
-field's link with the returned secure URL once the upload finishes. Without
-both variables set, the button does not render at all; every image field
-still works exactly as a plain pasted link either way.
+The Showcase editor uploads straight from the browser to Cloudinary. There
+is no server round trip and no new Vercel function: the page POSTs the file
+to Cloudinary's unsigned upload endpoint and writes the returned
+`secure_url` into the field.
 
-Set the two variables in Vercel, Project Settings, Environment Variables,
-then redeploy:
+### The two variables
 
-| Variable | Unlocks | Without it |
+Set both in Vercel, Project Settings, Environment Variables, then redeploy.
+They must carry the `VITE_` prefix: Vite only exposes `VITE_*` to the
+browser bundle, so an unprefixed name is `undefined` at runtime and every
+Upload button silently never appears.
+
+| Variable | Value | Without it |
 |---|---|---|
-| VITE_CLOUDINARY_CLOUD_NAME | The Upload button beside every showcase image field | The button does not render; paste a link instead |
-| VITE_CLOUDINARY_UPLOAD_PRESET | Same as above (both are required together) | Same as above |
+| `VITE_CLOUDINARY_CLOUD_NAME` | The cloud name from the Cloudinary dashboard | No Upload button anywhere; paste a link instead |
+| `VITE_CLOUDINARY_UPLOAD_PRESET` | `visualize` | Same (both are required together) |
+
+Nothing else is needed, and nothing else should be added. There is no API
+key and no API secret in the client, by design: an unsigned preset is the
+entire credential and it can only create.
+
+### The account setup these expect
+
+| Setting | Value |
+|---|---|
+| Preset name | `visualize` |
+| Signing mode | Unsigned |
+| Asset folder | `showcase` |
+| Allowed formats | jpg, jpeg, png, webp, svg |
+| Max file size | 10MB |
+| Incoming transformation | `c_limit,w_2000` |
+
+The incoming transformation caps what is *stored*: a 6000px phone photo
+lands as 2000px wide, so the original in the media library is already a
+sensible size. The site then asks for a smaller version again per context
+(see "Widths per context" below); the two work together, they are not
+alternatives.
+
+The editor enforces the same formats and the same 10MB limit in the browser
+before anything is sent, so an oversized or wrong-format file is refused
+immediately with a message rather than after a slow upload.
+
+### What the editor does
+
+Every image field has an Upload button beside its link, and the link itself
+always works: pasting a URL is never hidden behind the upload path. The
+file picker offers JPEG, PNG, WebP and SVG, with no `capture` attribute, so
+a phone offers the photo library, Files, and the camera rather than forcing
+the camera. While a file is uploading the button shows its progress and the
+link field is disabled; on success the URL lands in the field and the
+preview appears immediately. On a desktop the preview box is also a drop
+target.
+
+Every failure is a toast, never a silence: too large, wrong format, network
+failure, and, when Cloudinary itself refuses, its own message passed
+through unchanged (which is how you find out a preset name is wrong).
+
+The five list fields (brand gallery, website screenshots, Instagram posts,
+print items) take several files at once. They upload in sequence, showing
+"Uploading 3 of 7", append one list entry per file that worked, keep those
+even if others failed, name the failures at the end, and stop at the list's
+own cap with a message.
+
+### Deleting
+
+Clearing an image field removes the link from the record only. The file
+stays in Cloudinary: an unsigned preset can create but cannot delete, and
+giving the browser a credential that could delete would be a much worse
+trade than leaving an unused file in the media library. Delete unwanted
+assets in the Cloudinary dashboard. The editor says this under every filled
+field.
+
+### Widths per context
+
+`capImageWidth()` (`src/marketing/showcase.jsx`) inserts a `c_limit,w_<n>`
+segment straight after `/image/upload/`, so the public site requests a
+sized version rather than the original. `c_limit` only ever scales down, so
+a small original is never blown up. A URL that already carries a transform
+is left alone, and a non-Cloudinary URL passes through untouched.
+
+| Context | Width |
+|---|---|
+| Hero deck covers, client detail cover | 1600 |
+| Client cards in the list and the hero's overflow row | 800 |
+| Brand gallery, website screenshots, print items | 1600 |
+| Business cards | 1200 |
+| Instagram posts | 600 |
+| Logos, Instagram profile image | 400 |
+
+`scripts/cloudinary-test.mjs` asserts all of this without an account: the
+endpoint and FormData shape, that no key or secret is ever sent, that
+`secure_url` is what comes back, that Cloudinary's error message survives,
+that validation happens before the request, and every width above.

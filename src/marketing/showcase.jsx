@@ -42,11 +42,29 @@ export async function fetchClient(slug, { force = false } = {}) {
 /** Clears both caches; call after an admin action if a fresher read matters (not required for normal browsing). */
 export function clearShowcaseCache() { listCache = null; clientCache.clear(); }
 
-/* Site Prompt 4, Part 4: caps a showcase image request at 1600 wide. A
- * Cloudinary URL gets the width transform inserted after /upload/; any
+/* The width each context actually needs (the upload prompt, check 5). A
+ * client's cover is one file; the hero deck wants it at 1600 and a card in
+ * the list wants it at 800, and asking for the same 1600 in both is a
+ * megabyte of phone data to draw a thumbnail. Named rather than passed as
+ * bare numbers so a call site says what it is, not what it measured to. */
+export const IMG_W = {
+  heroCover: 1600,
+  cardCover: 800,
+  gallery: 1600,
+  screenshot: 1600,
+  card: 1200,
+  print: 1600,
+  instagramPost: 600,
+  avatar: 400,
+  logo: 400,
+};
+
+/* Site Prompt 4, Part 4: caps a showcase image request at `width`. A
+ * Cloudinary URL gets the transform inserted after /image/upload/; any
  * other URL (a fixture, a Drive link) is returned unchanged, since there is
- * no transform endpoint to append it to. */
-export function capImageWidth(url, width = 1600) {
+ * no transform endpoint to append it to. c_limit only ever scales down, so
+ * a small original is never blown up. */
+export function capImageWidth(url, width = IMG_W.gallery) {
   // Defensive: a record written before a shape change (brand.logo was an
   // object until Site Prompt 7) must degrade to a broken image, never take
   // the whole page down with a TypeError.
@@ -56,7 +74,7 @@ export function capImageWidth(url, width = 1600) {
   if (i === -1 || !url.includes('res.cloudinary.com')) return url;
   const cut = i + marker.length;
   if (/^[a-z]_[^/]*\d+\/?/i.test(url.slice(cut))) return url; // already transformed
-  return `${url.slice(0, cut)}w_${width},c_limit/${url.slice(cut)}`;
+  return `${url.slice(0, cut)}c_limit,w_${width}/${url.slice(cut)}`;
 }
 
 /** The list/preview card: displayName, type, blurb, cover with a monogram
@@ -66,7 +84,7 @@ export function capImageWidth(url, width = 1600) {
  * drifting covers reads as noise. */
 export function ClientCard({ client, parallax = false }) {
   const media = client.cover ? (
-    <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
+    <img src={capImageWidth(client.cover, IMG_W.cardCover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
   ) : (
     <span className="wk-card-mono" aria-hidden="true">
       <span className="display">{(client.displayName || '?').charAt(0)}</span>
