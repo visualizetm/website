@@ -688,9 +688,32 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
 
-  // A save (or an edit made elsewhere while this page sat open) re-seeds the
-  // draft, but only when there is nothing unsaved to lose.
-  useEffect(() => { setDraft(d => (same(d, saved) ? d : (dirtyRef.current ? d : saved))); }, [saved]);
+  /* A save, or an edit made elsewhere while this page sat open, re-seeds the
+   * draft; a change the person made here is never thrown away.
+   *
+   * "Never thrown away" cannot be decided by `dirty`, which is only ever
+   * "the draft differs from the record". A deep link to this URL mounts
+   * before the client list has loaded: the draft seeds from a null lead, so
+   * it is the blank default, and the moment the real record arrives the
+   * draft differs from it. Reading that as unsaved work meant the editor sat
+   * on the blank default forever, showing Draft with an empty slug and an
+   * open save bar for a client that is actually published, and one press of
+   * Save would have written those blanks over the real showcase.
+   *
+   * What actually distinguishes the two is whether the draft still matches
+   * the record it was seeded from. Compare against the PREVIOUS saved value,
+   * not the new one, and re-seed when they match. A different client id
+   * always re-seeds: that is a different record, not an edit. */
+  const seededFrom = useRef(saved);
+  const seededId = useRef(lead?._id);
+  useEffect(() => {
+    if (seededFrom.current === saved && seededId.current === lead?._id) return;
+    const prev = seededFrom.current;
+    const sameLead = seededId.current === lead?._id;
+    seededFrom.current = saved;
+    seededId.current = lead?._id;
+    setDraft(d => (!sameLead || same(d, prev) ? saved : d));
+  }, [saved, lead]);
 
   const sh = draft.showcase;
   const write = useCallback((next) => { setDraft(d => ({ ...d, showcase: { ...d.showcase, ...next } })); return Promise.resolve(true); }, []);

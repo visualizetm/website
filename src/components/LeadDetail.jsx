@@ -107,6 +107,11 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const desktop = useMediaQuery('(min-width: 1024px)');
   const stage = normalizeStage(lead);
   const clientMode = !!client && (stage === 'client' || stage === 'won');
+  /* The showcase status shown on the Showcase button. One source: the saved
+     record's own showcase.published. A record that exists is Draft or
+     Published; no record at all is neither, and shows no pill. */
+  const hasShowcase = !!lead.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0;
+  const published = !!lead.showcase?.published;
   const booked = !clientMode && (stage === 'booked' || stage === 'won' || stage === 'client');
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
@@ -195,9 +200,16 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
         {/* Site Prompt 7, Part 3: the Showcase tab became its own page, so
             this is the way in, with what the public site currently shows. */}
         {clientMode && shell?.openShowcase && (
-          <Button variant="secondary" icon="Image01" onClick={() => shell.openShowcase(lead)}>
+          <Button variant="secondary" icon="Image01" onClick={() => shell.openShowcase(lead)} className="dt-showcase-btn">
             Showcase
-            <Pill tone={lead.showcase?.published ? 'booked' : 'neutral'} label={lead.showcase?.published ? 'Published' : 'Draft'} size="sm" variant={lead.showcase?.published ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
+            {/* Draft and Published are the only two states, and both mean
+                "there is a showcase record". A client that has never had one
+                gets no pill at all rather than a Draft that was never
+                drafted. The value is the saved showcase.published and
+                nothing else: not the object existing, not a slug. */}
+            {hasShowcase && (
+              <Pill tone={published ? 'booked' : 'neutral'} label={published ? 'Published' : 'Draft'} size="sm" variant={published ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
+            )}
           </Button>
         )}
       </Row>

@@ -78,6 +78,16 @@ export const leadDetailStyles = `
   .dt-block-sum { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
   .dt-when { font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); }
   .dt-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+
+  /* The Showcase button carries a status pill after its label. The kit's
+     button never wraps and never shrinks, so a long status used to push the
+     control past the edge of its card instead of the pill giving way. Here
+     the button may shrink inside its row, the label holds its own, and the
+     pill is the piece that truncates. The gap is stated rather than left to
+     .v-btn-inner's default so icon, label and pill can never sit flush. */
+  .dt-showcase-btn { max-width: 100%; flex-shrink: 1; min-width: 0; }
+  .dt-showcase-btn .v-btn-inner { gap: var(--v-space-2); min-width: 0; }
+  .dt-showcase-pill { flex-shrink: 1; min-width: 0; margin-left: var(--v-space-1); }
   .dt-gp { display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .dt-gp-note { margin-left: 34px; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .dt-opts { align-items: start; }
