@@ -75,6 +75,15 @@ export function loadScrollEngine() {
   return enginePromise;
 }
 
+/* Scrub smoothing (Site Prompt 8, check 2). `true` ties the animation to
+ * the scroll position exactly, which on a phone means every frame of the
+ * animation waits on the compositor's scroll and reads as lag under the
+ * finger. A small number gives ScrollTrigger half a second of catch-up
+ * instead, which is smoother on touch and imperceptible with a wheel. */
+export function scrubValue() {
+  return isCoarsePointer() ? 0.5 : true;
+}
+
 /** The engine if it has already loaded, else null. Never triggers a load. */
 export function getScrollEngine() {
   return engine;

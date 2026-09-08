@@ -20,7 +20,7 @@
 // centred rather than half cut off; the class is added to <html> only while
 // a track is mounted on a coarse pointer, and removed after.
 import { useEffect, useRef } from 'react';
-import { getScrollEngine } from '../scroll';
+import { getScrollEngine, scrubValue } from '../scroll';
 import { cx, useCoarsePointer } from './shared';
 import { useScrollEngine } from './useScroll';
 
@@ -92,7 +92,7 @@ export function TrackScroll({
         trigger: section,
         start: 'top top',
         end: 'bottom bottom',
-        scrub: true,
+        scrub: scrubValue(),
         onRefreshInit: () => { section.style.height = ''; },
         onRefresh: measure,
         onUpdate: (self) => { section.style.setProperty('--track-p', self.progress.toFixed(4)); },

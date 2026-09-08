@@ -164,7 +164,15 @@ body {
   line-height: 1.6;
   color: var(--text);
   background: var(--bg);
+  /* clip, not hidden (Site Prompt 8, check 2). overflow-x: hidden makes
+     the body a scroll container in BOTH axes, and a scroll container is
+     the scrollport every position: sticky descendant sticks inside. That
+     is why the pinned sections stopped holding on a phone: they were
+     sticking to a box that never scrolls instead of to the viewport.
+     clip stops the sideways overflow without creating that box. hidden
+     stays first as the fallback for engines without clip. */
   overflow-x: hidden;
+  overflow-x: clip;
   overflow-wrap: break-word;
 }
 
@@ -363,7 +371,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .page-shell {
-  min-height: calc(100vh - 72px);
+  min-height: calc(100 * var(--svh) - 72px);
 }
 
 .page-fade {
@@ -544,7 +552,11 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  /* clip rather than hidden for the same reason as body above: this is
+     the sticky element itself, and hidden would make it a scroll
+     container that touch scrolling can get caught in. */
   overflow: hidden;
+  overflow: clip;
 }
 
 /* Curtain: pulled up by a negative margin and pushed back down by

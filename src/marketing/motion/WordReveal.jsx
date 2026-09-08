@@ -12,7 +12,7 @@
 // holds them just below the line for the few frames before gsap arrives, and
 // 'on' hands them to a scrubbed timeline.
 import { Fragment, useEffect, useMemo, useRef } from 'react';
-import { getScrollEngine } from '../scroll';
+import { getScrollEngine, scrubValue } from '../scroll';
 import { cx } from './shared';
 import { useScrollEngine } from './useScroll';
 
@@ -46,7 +46,7 @@ export function WordReveal({
     const from = { yPercent: 110, opacity: 0 };
     const to = aboveFold
       ? { yPercent: 0, opacity: 1, ease: 'power3.out', duration: 0.7, stagger: 0.06 }
-      : { yPercent: 0, opacity: 1, ease: 'none', stagger: 0.25, scrollTrigger: { trigger: ref.current, start, end, scrub: true } };
+      : { yPercent: 0, opacity: 1, ease: 'none', stagger: 0.25, scrollTrigger: { trigger: ref.current, start, end, scrub: scrubValue() } };
 
     const tween = eng.gsap.fromTo(targets, from, to);
 

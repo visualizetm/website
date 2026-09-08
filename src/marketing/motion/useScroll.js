@@ -3,7 +3,7 @@
  * host, under reduced motion, and if the dynamic import ever fails.
  */
 import { useEffect, useRef, useState } from 'react';
-import { loadScrollEngine, refreshScrollTriggers, scrollEngineAllowed } from '../scroll';
+import { loadScrollEngine, refreshScrollTriggers, scrollEngineAllowed, scrubValue } from '../scroll';
 
 /** 'off' | 'loading' | 'on'. 'off' is decided synchronously on the first
  * render (reduced motion, admin host) so a helper never paints a hidden
@@ -59,7 +59,7 @@ export function useScrollProgress(ref, {
         trigger: ref.current,
         start,
         end,
-        scrub: true,
+        scrub: scrubValue(),
         onUpdate: (self) => {
           progress.current = self.progress;
           if (cssVar) target.style.setProperty(cssVar, self.progress.toFixed(4));
