@@ -18,7 +18,7 @@
  * rather than leaving content hidden behind a script that never arrived.
  */
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
-import { prefersReducedMotion, isCoarsePointer } from './motion/shared';
+import { prefersReducedMotion, isCoarsePointer, isTouchDevice } from './motion/shared';
 
 let enginePromise = null;
 let engine = null;
@@ -55,13 +55,27 @@ export function loadScrollEngine() {
        * src/index.css), which does not move with the bar either. */
       ScrollTrigger.config({ ignoreMobileResize: true });
 
+      /* Lenis is desktop only, and "desktop" is now two questions, not
+       * one: the pointer query AND whether the device has a touchscreen
+       * at all. A phone with a mouse paired, and some Android browsers
+       * unprompted, report a fine pointer, and smooth scrolling on top of
+       * a real finger is exactly the lag being fixed here. If a touch ever
+       * happens after Lenis started anyway, it stops on the spot. */
       let lenis = null;
-      if (!isCoarsePointer()) {
+      if (!isCoarsePointer() && !isTouchDevice()) {
         const { default: Lenis } = await import('lenis');
         lenis = new Lenis({ autoRaf: false, duration: 1.05, smoothWheel: true });
         lenis.on('scroll', ScrollTrigger.update);
-        gsap.ticker.add((time) => lenis.raf(time * 1000));
+        const tick = (time) => lenis.raf(time * 1000);
+        gsap.ticker.add(tick);
         gsap.ticker.lagSmoothing(0);
+        const stopOnTouch = () => {
+          gsap.ticker.remove(tick);
+          lenis.destroy();
+          if (engine) engine.lenis = null;
+          window.removeEventListener('touchstart', stopOnTouch);
+        };
+        window.addEventListener('touchstart', stopOnTouch, { passive: true, once: true });
       }
 
       engine = { gsap, ScrollTrigger, lenis };
