@@ -17,7 +17,10 @@
       try { ls.theme = localStorage.getItem('vz_theme'); ls.motion = localStorage.getItem('vz_motion'); ls.boot = localStorage.getItem('vz_boot'); ls.side = localStorage.getItem('vz_shell_collapsed'); } catch (e) {}
       try { osLight = window.matchMedia('(prefers-color-scheme: light)').matches; } catch (e) {}
       var admin = /^admin\./.test(location.hostname) || /^\/admin(\/|$)/.test(location.pathname);
-      var t = (ls.theme === 'light' || ls.theme === 'dark') ? ls.theme : (admin && ls.theme !== 'system') ? 'dark' : (osLight ? 'light' : 'dark');
+      // Site Prompt 7, Part 5: the public site is dark only, so the OS
+      // preference and the stored choice decide nothing there any more; the
+      // admin keeps its own picker exactly as it was.
+      var t = admin ? ((ls.theme === 'light' || ls.theme === 'dark') ? ls.theme : (ls.theme === 'system' ? (osLight ? 'light' : 'dark') : 'dark')) : 'dark';
       de.dataset.theme = t;
       if (admin) {
         de.dataset.vTheme = t;

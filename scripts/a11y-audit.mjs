@@ -66,6 +66,10 @@ for (const theme of THEMES) for (const width of WIDTHS) {
   const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, serviceWorkers: 'block' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
+    // Site Prompt 7, Part 5: the public site is dark only, so a light pass
+    // over a marketing row would audit a theme that cannot happen. The
+    // admin keeps both themes.
+    if (s.marketing && theme === 'light') continue;
     if (s.minWidth && width < s.minWidth) continue;
     if (s.maxWidth && width > s.maxWidth) continue;
     const passes = [false, ...(SKELETON && !s.static && !s.boot ? [true] : [])];

@@ -75,11 +75,11 @@
   --glass-blur-strong: 24px;
 
   /* Brand-colored text specifically (an eyebrow, a link, a card's business
-     name): --brand itself is 4.27:1 on white and 4.38:1 on --bg-card,
-     both under WCAG's 4.5:1 text minimum, so text uses this instead of
-     --brand directly. --brand-light on the dark theme (5.9:1+ against
-     both the page and card backgrounds); the light theme override below
-     points it at the darker --brand-dark instead (Site Prompt 4, Part 3). */
+     name): --brand itself is 4.38:1 on --bg-card, under WCAG's 4.5:1 text
+     minimum, so text uses this instead of --brand directly. --brand-light
+     clears 5.9:1 against both the page and card backgrounds. The variable
+     stays even though the site is dark only (Site Prompt 7, Part 5) so
+     every call site keeps reading one name for "brand, but legible". */
   --brand-text: var(--brand-light);
 
   /* Transitions */
@@ -96,50 +96,15 @@
      rgba rather than hex, so the hex count is unaffected. */
   --m-curtain-shadow: 0 -24px 60px rgba(0, 0, 0, 0.55);
 
-  /* Maintenance screen (src/main.jsx): "the brand black ground," fixed
-     regardless of the site's own light/dark toggle, so declared once here
-     and never overridden under :root[data-theme='light'] below, unlike
-     --bg-deep/--text/--text-secondary, which are (the same reasoning as
-     Prints.jsx's own fixed-dark palette, Site Prompt 5, Part 2). Same
-     literal values as this theme's own --bg-deep/--text/--text-secondary. */
+  /* Light-on-dark values that are fixed by what they sit on rather than by
+     the page's theme: the maintenance screen's ground (src/main.jsx) and
+     any text over an image's dark scrim (the hero deck's labels, an
+     Instagram caption). The site itself is dark only since Site Prompt 7,
+     Part 5, so these now match --bg-deep/--text/--text-secondary; they stay
+     separate because their reason for existing is different. */
   --uc-bg: #080808;
   --uc-text: #fafafa;
   --uc-text-secondary: #cccccc;
-}
-
-/* Light theme, user toggle or OS preference (set pre-paint in index.html) */
-:root[data-theme='light'] {
-  --bg: #ffffff;
-  --bg-deep: #f7f7f7;
-  --bg-elevated: #f7f7f7;
-  --bg-card: #f2f2f2;
-  --surface: #ebebeb;
-  --border: rgba(0, 0, 0, 0.09);
-  --border-light: rgba(0, 0, 0, 0.16);
-
-  --text: #1b1b1c;
-  --text-secondary: #4a4a4b;
-  /* #8a8a8a (the dark theme's value) reads at 3.2-3.5:1 on this theme's
-     backgrounds, below the 4.5:1 WCAG text minimum; darkened here until
-     both the drawer contact line and the footer copyright line pass
-     against both white and --bg-deep (Site Prompt 4, Part 3). */
-  --text-muted: #6b6b6b;
-  --text-faint: #b0b0b0;
-
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-bg-strong: rgba(255, 255, 255, 0.92);
-  --glass-border: rgba(0, 0, 0, 0.08);
-
-  --chrome: rgba(255, 255, 255, 0.82);
-  --chrome-solid: rgba(255, 255, 255, 0.96);
-  --hover-soft: rgba(0, 0, 0, 0.05);
-  --hover-strong: rgba(0, 0, 0, 0.09);
-  --shadow-chrome: 0 4px 32px rgba(0, 0, 0, 0.08);
-  --shadow-chrome-strong: 0 8px 40px rgba(0, 0, 0, 0.13);
-
-  color-scheme: light;
-  --brand-text: var(--brand-dark);
-  --m-curtain-shadow: 0 -24px 60px rgba(0, 0, 0, 0.12);
 }
 
 *, *::before, *::after {
@@ -424,30 +389,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 .wordmark-dot { color: var(--brand); }
 
-/* Theme toggle button */
-.theme-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--glass-bg);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background 0.2s, color 0.2s;
-}
-.theme-toggle:hover {
-  background: var(--hover-strong);
-  color: var(--text);
-}
-
 /* ── Marketing motion primitives (src/marketing/motion) ───────────────
    One shared stylesheet for every instance, same convention as .wordmark
-   and .theme-toggle above (a component that renders many times does not
-   carry its own <style> tag per instance). See docs/MARKETING-MOTION.md. */
+   above (a component that renders many times does not carry its own
+   <style> tag per instance). See docs/MARKETING-MOTION.md. */
 
 /* Reveal / Stagger: fade in and rise --m-rise on first viewport entry, once. */
 .m-reveal {

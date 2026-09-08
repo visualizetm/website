@@ -26,8 +26,10 @@ const MAX_FEATURED = 6;
 const featuredOrder = (l) => Number(l.showcase?.featured?.order) || 0;
 const byFeaturedOrder = (a, b) => featuredOrder(a) - featuredOrder(b);
 const clientName = (l) => l.showcase?.displayName || l.business;
-const hasLogo = (l) => !!(l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light);
-const logoSrc = (l) => l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || '';
+// Site Prompt 7, Part 5: one logo, with the old light/dark pair still read
+// for records written before the Showcase editor changed.
+const hasLogo = (l) => !!(l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || l.showcase?.logoUrl);
+const logoSrc = (l) => l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || l.showcase?.logoUrl || '';
 
 function excerpt(s, max = 90) {
   const t = String(s || '').trim();

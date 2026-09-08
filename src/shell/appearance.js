@@ -5,7 +5,8 @@
  * data-v-motion on .lay-root and on <html>), and Settings Profile (the picker
  * and the toggle, which also persist to the settings profile document).
  *
- * Keys, shared with the marketing site's pre-paint script and ThemeToggle:
+ * Keys, shared with the pre-paint script in index.html (the marketing
+ * site's own toggle was removed in Site Prompt 7, Part 5: it is dark only):
  *   vz_theme   'dark' | 'light' | 'system'   (admin default: dark; marketing: OS)
  *   vz_motion  'reduce' when the in-app toggle is on
  *   vz_boot    '1' once a session check has answered signed in (the boot frame hint)

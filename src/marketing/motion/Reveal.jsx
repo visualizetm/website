@@ -2,7 +2,7 @@
 // viewport, once. Stagger: the same behavior applied to a list of children,
 // each delayed a step further than the last (capped, see STAGGER_MAX_STEP).
 // The .m-reveal / .m-reveal--visible rules live once in src/index.css
-// (a marketing utility class, same convention as .wordmark, .theme-toggle),
+// (a marketing utility class, same convention as .wordmark),
 // not duplicated into a <style> tag per instance.
 import { Children, useMemo } from 'react';
 import { cssMs, cx, useMotionPreference, useRevealOnce } from './shared';

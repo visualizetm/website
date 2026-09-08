@@ -8,7 +8,6 @@ import Home01 from '@untitled-ui/icons-react/build/esm/Home01';
 import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import Wordmark from './Wordmark';
-import ThemeToggle from './ThemeToggle';
 import { CALENDLY_URL, CONTACT_EMAIL } from '../marketing/links';
 
 export default function Navbar() {
@@ -60,9 +59,6 @@ export default function Navbar() {
               ))}
             </ul>
           </nav>
-
-          {/* Theme switch, visible at all widths */}
-          <ThemeToggle />
 
           {/* Desktop action buttons */}
           <div className="navbar-actions">
