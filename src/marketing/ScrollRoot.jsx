@@ -17,8 +17,36 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getScrollEngine, loadScrollEngine, refreshScrollTriggers } from './scroll';
 
+/* --svh fallback (Site Prompt 8, check 1). Browsers that know svh get it
+ * from the stylesheet and this never runs; older ones get a pixel value
+ * measured from innerHeight, re-measured only on a real resize (an
+ * orientation change), never on the address bar's own scroll-driven
+ * resize, which is what the ignoreMobileResize config is for. */
+function useSmallViewportFallback() {
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    if (window.CSS?.supports?.('height', '1svh')) return undefined;
+    let last = 0;
+    const set = () => {
+      const h = window.innerHeight;
+      // Only a real resize: ignore the address bar's few-hundred-pixel nudge.
+      if (Math.abs(h - last) < 120) return;
+      last = h;
+      document.documentElement.style.setProperty('--svh', `${h / 100}px`);
+    };
+    set();
+    window.addEventListener('resize', set, { passive: true });
+    window.addEventListener('orientationchange', set, { passive: true });
+    return () => {
+      window.removeEventListener('resize', set);
+      window.removeEventListener('orientationchange', set);
+    };
+  }, []);
+}
+
 export default function ScrollRoot() {
   const { pathname } = useLocation();
+  useSmallViewportFallback();
 
   useEffect(() => {
     let alive = true;

@@ -48,6 +48,13 @@ export function loadScrollEngine() {
       const ScrollTrigger = stMod.ScrollTrigger || stMod.default;
       gsap.registerPlugin(ScrollTrigger);
 
+      /* iOS Safari resizes the viewport as its address bar hides and shows.
+       * Without this, every one of those counts as a resize, ScrollTrigger
+       * refreshes mid-scroll, and a pinned section re-measures under the
+       * reader's finger. The heights themselves are in svh (see --svh in
+       * src/index.css), which does not move with the bar either. */
+      ScrollTrigger.config({ ignoreMobileResize: true });
+
       let lenis = null;
       if (!isCoarsePointer()) {
         const { default: Lenis } = await import('lenis');

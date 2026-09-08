@@ -195,7 +195,7 @@ const heroStyles = `
      moves nothing, which is the difference between 0.089 CLS and 0. */
   .hero--static {
     display: flex; flex-direction: column; justify-content: center;
-    min-height: 100vh; min-height: 100svh;
+    min-height: calc(100 * var(--svh));
     gap: var(--space-6); padding: var(--space-24) 0 var(--space-8);
   }
 
