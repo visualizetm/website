@@ -23,8 +23,10 @@ function textScore(lead, needle) {
 }
 
 /**
- * @returns {{ leads: Array, clients: Array, jumps: Array, digits: boolean }}
- * leads/clients entries are { lead, rank }.
+ * @returns {{ leads: Array, clients: Array, showcases: Array, jumps: Array, digits: boolean }}
+ * leads/clients/showcases entries are { lead, rank }; showcases are the same
+ * client matches offered a second time as "Showcase: <business>", the jump
+ * to that client's showcase editor (Site Prompt 7, Part 3).
  */
 export function searchAll(query, leads, { limit = 6 } = {}) {
   const q = String(query || '').trim();
@@ -43,5 +45,6 @@ export function searchAll(query, leads, { limit = 6 } = {}) {
   const jumps = q && !digits
     ? NAV.filter(n => !n.soon && (lower(n.label).includes(needle) || lower(n.id).includes(needle))).slice(0, 4)
     : [];
-  return { leads: leadsOut, clients, jumps, digits, digitsPretty: digits ? (formatPhone(digitsOf(q)) || digitsOf(q)) : '' };
+  const showcases = digits ? [] : clients.slice(0, 3);
+  return { leads: leadsOut, clients, showcases, jumps, digits, digitsPretty: digits ? (formatPhone(digitsOf(q)) || digitsOf(q)) : '' };
 }

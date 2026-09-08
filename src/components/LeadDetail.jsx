@@ -18,7 +18,7 @@ import { ScriptSteps, Objections, CloseCards, IntelCards } from './LeadPlaybook'
 import Checklists from './Checklists';
 import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
-import { ClientLinks, ClientBrand, ClientSections, ShowcaseSection } from './ClientWorkspace';
+import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
 import { PackPicker } from '../pages/AdminConcepts';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CONCEPT_STATUSES, CONCEPT_PRESETS, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
@@ -192,6 +192,14 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
         <Button icon={PhoneCall01} onClick={() => shell?.go('calls', { ids: [lead._id], autostart: true })} disabled={!lead.phone}>Start call</Button>
         {!readOnly && <Button variant="secondary" icon={Edit02} onClick={() => setEditAll(true)} className="dt-editall">Edit all</Button>}
         {stage === 'client' && !clientMode && <Button variant="ghost" onClick={() => shell?.openRecord(lead)}>Open client record</Button>}
+        {/* Site Prompt 7, Part 3: the Showcase tab became its own page, so
+            this is the way in, with what the public site currently shows. */}
+        {clientMode && shell?.openShowcase && (
+          <Button variant="secondary" icon="Image01" onClick={() => shell.openShowcase(lead)}>
+            Showcase
+            <Pill tone={lead.showcase?.published ? 'booked' : 'neutral'} label={lead.showcase?.published ? 'Published' : 'Draft'} size="sm" variant={lead.showcase?.published ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
+          </Button>
+        )}
       </Row>
       <Stack gap={1} className="dt-facts">
         <Fact label="Phone" value={formatPhone(lead.phone) || ''} onSave={save('phone')} inputMode="tel" placeholder="Add phone" readOnly={readOnly} />
@@ -211,7 +219,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   );
 
   const tabs = clientMode
-    ? [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: (client.projects || []).filter(p => String(p.leadId) === String(lead._id) && !p.archived && p.kind !== 'retainer').length || undefined }, { id: 'payments', label: 'Payments' }, { id: 'retainer', label: 'Retainer' }, { id: 'deliverables', label: 'Deliverables' }, { id: 'showcase', label: 'Showcase' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }]
+    ? [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: (client.projects || []).filter(p => String(p.leadId) === String(lead._id) && !p.archived && p.kind !== 'retainer').length || undefined }, { id: 'payments', label: 'Payments' }, { id: 'retainer', label: 'Retainer' }, { id: 'deliverables', label: 'Deliverables' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }]
     : [{ id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
   const sec = (id) => ({ ref: (el) => { refs.current[id] = el; }, id: `dt-${id}`, className: 'dt-sec' });
 
@@ -303,9 +311,8 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
     </section>
   );
   const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
-  const showcase = clientMode && <ShowcaseSection lead={lead} patch={patch} patchRaw={patchRaw} submissions={submissions} sec={sec} jump={jump} readOnly={readOnly} />;
   const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
-  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{showcase}{notes}{history}</Stagger>;
+  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
   const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /></> : profile;
 
   return (

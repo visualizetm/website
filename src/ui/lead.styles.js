@@ -210,7 +210,6 @@ export const clientStyles = `
 
   /* Showcase tab (Site Prompt 2 Part 2): sc- prefix. */
   .sc-imgfield { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; }
-  .sc-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border); background: var(--v-surface-3); }
   .sc-thumb-warn { margin: 0; font-size: var(--v-text-xs); color: var(--v-status-danger-text); }
   .sc-objrow { display: flex; flex-direction: row; align-items: flex-start; gap: var(--v-space-2); min-width: 0; }
   .sc-objrow[draggable="true"] { cursor: grab; }
