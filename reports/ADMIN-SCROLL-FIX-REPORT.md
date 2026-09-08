@@ -151,18 +151,13 @@ content clears the tab bar. The content itself is untouched: every
 |---|---|
 | `npm run build` | Clean |
 | New scroll check catches the bug | Verified against the pre-fix build: the client detail and the editor both FAIL there ("scroller grew to its content instead of the screen: clientHeight=7089 scrollHeight=7089"), and pass on this one |
-| `layout-audit.mjs`, whole app, dark, 320 and 390 complete, 430 in progress at the time of writing | 0 failures across 428 rows, including all 14 client-detail states and all 5 Showcase editor states at 320, 390 and 430 |
-| Same, light theme, clients block (both fixed pages), 390 | Clean, zero offenders |
+| `layout-audit.mjs`, whole app, dark, 320 / 390 / 430 / 768 / 1280 | **All routes clean at every width, zero offenders** (825 rows), including all 14 client-detail states and all 5 Showcase editor states at every width |
+| Same, light theme, the Clients block (both fixed pages plus every screen sharing their layout), five widths | **All routes clean at every width, zero offenders** (350 rows) |
 | `a11y-audit.mjs`, client detail and Showcase editor, 390 and 1280, both themes | 16 rows, 0 violations at every impact |
 | `regression.mjs` (admin, 64 steps) | 64 steps, 0 failures |
 | `css-orphans.mjs` | 0 orphans across 982 classes in 161 files |
 | Real touch drags, client detail | 5 swipes to the bottom, scrollTop 6365 of 6365, 13 section headings passed (Links, Brand, Overview, The angle, Accomplishments, Gaps, Payments, Retainer, Deliverables, Brand Files, History, submissions) |
 | Real touch drags, Showcase editor | 4 swipes to the bottom, scrollTop 4563 of 4563, 9 headings passed (Showcase, Publish, Card fields, Brand identity, Website, Business cards, Landing page, Testimonials) |
-
-The wider layout sweep (768 and 1280, and the full light-theme pass) was
-still running when this was written; it had reported zero failures
-throughout, and those two widths are above the 767px breakpoint where
-neither bug could occur.
 
 ## 7. What the audit gained
 
