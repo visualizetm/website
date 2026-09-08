@@ -67,6 +67,59 @@ async function collectSmallTargets(page) {
   }, [TARGET_SEL, TARGET_MIN]);
 }
 
+/* Site Prompt 7, Part 4: the image rule, checked rather than trusted.
+ *
+ *   1. every <img> sits inside an .img-fit box (which clips, so an image
+ *      inside one can never visually spill past it),
+ *   2. an image stays inside that box's rectangle, unless something between
+ *      the two is transformed, which is the parallax drift and the settle
+ *      from 1.08 doing their job inside a box that clips them, and
+ *   3. no two boxes overlap each other.
+ *
+ * Together those are what "never extends past its container or over a
+ * neighbour" means. Boxes the page deliberately stacks (the hero deck,
+ * whose cards are one on top of another by design, and the marquee's
+ * duplicated loop) are exempt from 3, since their overlap IS the design.
+ */
+const STACK_OK = ['.hero-deck', '.m-marquee'];
+async function collectImageProblems(page) {
+  return page.evaluate((stackOk) => {
+    const out = [];
+    const rectOf = (el) => { const r = el.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
+    const boxes = new Map();
+    for (const img of document.querySelectorAll('img')) {
+      const cs = getComputedStyle(img);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      const r = rectOf(img);
+      if (r.w < 2 || r.h < 2) continue;
+      const name = `${img.className || 'img'}[${(img.getAttribute('src') || '').split('/').pop().slice(0, 24)}]`;
+      const frame = img.closest('.img-fit');
+      if (!frame) { out.push({ kind: 'no-box', el: name }); continue; }
+      // Is anything between the image and its box transformed?
+      let transformed = false;
+      for (let n = img; n && n !== frame.parentElement; n = n.parentElement) {
+        if (getComputedStyle(n).transform !== 'none') { transformed = true; break; }
+      }
+      const f = rectOf(frame);
+      if (!transformed && (r.l < f.l - 1 || r.t < f.t - 1 || r.r > f.r + 1 || r.b > f.b + 1)) {
+        out.push({ kind: 'outside-box', el: name, img: r, box: f });
+        continue;
+      }
+      if (!boxes.has(frame)) boxes.set(frame, { name, r: f, stacked: stackOk.some(sel => frame.closest(sel)) });
+    }
+    const list = [...boxes.values()];
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const a = list[i], b = list[j];
+        if (a.stacked && b.stacked) continue;
+        const overlap = Math.min(a.r.r, b.r.r) - Math.max(a.r.l, b.r.l) > 1 && Math.min(a.r.b, b.r.b) - Math.max(a.r.t, b.r.t) > 1;
+        if (overlap) out.push({ kind: 'overlap', el: a.name, other: b.name });
+      }
+    }
+    return out.slice(0, 12);
+  }, STACK_OK);
+}
+
 async function collectOffenders(page) {
   return page.evaluate(([hscrollOk, clipOk]) => {
     const vw = document.documentElement.clientWidth;
@@ -116,12 +169,18 @@ for (const width of WIDTHS) {
     if (SHOTS) await targetPage.screenshot({ path: `${SHOTS}/${width}-${label.replace(/[^a-z0-9]+/gi, '_')}.png` }).catch(() => {});
     const res = await collectOffenders(targetPage);
     const small = await collectSmallTargets(targetPage);
+    const imgs = await collectImageProblems(targetPage);
     const hscroll = res.scrollW > res.vw + 1;
-    if (hscroll || res.offenders.length || small.length) {
+    if (hscroll || res.offenders.length || small.length || imgs.length) {
       failures++;
-      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}`);
+      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
       for (const t of small) console.log(`        target <${t.tag} class="${t.cls}"> ${t.w}x${t.h} "${t.text}"`);
+      for (const im of imgs) {
+        if (im.kind === 'no-box') console.log(`        image not in an .img-fit box: ${im.el}`);
+        else if (im.kind === 'outside-box') console.log(`        image outside its box: ${im.el} img=${Math.round(im.img.l)},${Math.round(im.img.t)},${Math.round(im.img.r)},${Math.round(im.img.b)} box=${Math.round(im.box.l)},${Math.round(im.box.t)},${Math.round(im.box.r)},${Math.round(im.box.b)}`);
+        else console.log(`        images overlap: ${im.el} over ${im.other}`);
+      }
     } else {
       console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);
     }
@@ -241,7 +300,10 @@ for (const width of WIDTHS) {
     await ctx.close(); continue;
   }
 
-  if (!only || only === 'marketing') {
+  // Site Prompt 7, Part 5: the marketing site is dark only. A light pass
+  // here would measure a theme the public host can no longer render, so it
+  // is skipped rather than quietly passing against the wrong palette.
+  if ((!only || only === 'marketing') && THEME !== 'light') {
     // Site Prompt 1: the public marketing pages, overflow and 44px targets
     // at every width. (The print shop was removed in Site Prompt 6.)
     await goto('/');
@@ -510,14 +572,22 @@ for (const width of WIDTHS) {
   await check('clients skeleton');
   await openClient('Lead Business 11');
   await check('client detail (overview, plan client)');
-  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Showcase', 'Notes', 'History']) {
+  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Notes', 'History']) {
     await clientTab(t);
     await check(`client detail (${t.toLowerCase()})`);
   }
-  // Site Prompt 2: the Showcase tab, all four sections populated (Lead Business 11).
-  await clientTab('Showcase');
-  await page.locator('.sc-imgfield img, .sc-thumb').first().waitFor({ timeout: 3000 }).catch(() => {});
-  await check('showcase tab (published, all four sections)');
+  /* Site Prompt 7, Part 3: the Showcase editor is its own page now, and its
+   * image previews are exactly where a badly shaped upload would show, so
+   * this is where the image check earns its keep on the admin side. */
+  await goto('/admin/clients/L11/showcase');
+  await page.locator('.sc-thumb').first().waitFor({ timeout: 4000 }).catch(() => {});
+  await check('showcase editor (published, every section populated)');
+  await page.locator('.dt-block-btn').first().click({ timeout: 3000 }).catch(() => {});
+  await check('showcase editor (a section collapsed)');
+  await goto('/admin/clients/L14/showcase');
+  await page.locator('.sc-thumb').first().waitFor({ timeout: 4000 }).catch(() => {});
+  await check('showcase editor (portrait and panoramic uploads)');
+  await openClient('Lead Business 11');
   await clientTab('Projects');
   await page.locator('.cw-new-project').first().click({ timeout: 3000 }).catch(() => {});
   await check('new project sheet');
@@ -544,16 +614,16 @@ for (const width of WIDTHS) {
   await check('deliverables (released, toggle enabled)');
   await clientTab('Projects');
   await check('delivered project (send delivery checklist)');
-  await clientTab('Showcase');
-  await check('showcase tab (draft, never published)');
+  await goto('/admin/clients/L13/showcase');
+  await check('showcase editor (draft, never published)');
   await openClient('Lead Business 12');
   await clientTab('Retainer');
   await check('retainer (content kit months)');
   await page.locator('.cw-log-delivery').first().click({ timeout: 3000 }).catch(() => {});
   await check('log delivery modal');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await clientTab('Showcase');
-  await check('showcase tab (published, brand only)');
+  await goto('/admin/clients/L12/showcase');
+  await check('showcase editor (published, brand only)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await openClient('Lead Business 10');
   await check('client detail (hostile long name, single project)');

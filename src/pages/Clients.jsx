@@ -136,15 +136,14 @@ export const workStyles = `
     .wk-card, .wk-card:hover { transform: none; transition: border-color 0.25s; }
   }
 
-  .wk-card-media { aspect-ratio: 16 / 10; background: var(--surface); overflow: hidden; }
-  .wk-card-media img { width: 100%; height: 100%; object-fit: cover; }
+  .wk-card-media { background: var(--surface); }
   /* The cover settles in from 8% oversized, which means the settling
      layer is briefly wider than the frame; .wk-card-media clips it, and
      the frame itself never moves. Same reason the parallax layer below
      is taller than the frame: the drift needs room inside it. */
-  .wk-card-scale { width: 100%; height: 100%; }
+  .wk-card-scale { display: block; width: 100%; height: 100%; }
   .wk-card-scale img { width: 100%; height: 100%; object-fit: cover; }
-  .wk-card-shift { width: 100%; height: 112%; margin-top: -6%; }
+  .wk-card-shift { display: block; width: 100%; height: 112%; margin-top: -6%; }
   .wk-card-shift img { width: 100%; height: 100%; object-fit: cover; }
   .wk-card-mono {
     width: 100%; height: 100%;

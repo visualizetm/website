@@ -65,18 +65,18 @@ export function ClientCard({ client, parallax = false }) {
   const media = client.cover ? (
     <img src={capImageWidth(client.cover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
   ) : (
-    <div className="wk-card-mono" aria-hidden="true">
+    <span className="wk-card-mono" aria-hidden="true">
       <span className="display">{(client.displayName || '?').charAt(0)}</span>
-    </div>
+    </span>
   );
 
   return (
     <Link to={`/clients/${client.slug}`} className="wk-card">
-      <div className="wk-card-media">
-        <ScaleIn as="div" className="wk-card-scale">
-          {parallax ? <Parallax as="div" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
+      <span className="img-fit img-fit--16x10 wk-card-media">
+        <ScaleIn as="span" className="wk-card-scale">
+          {parallax ? <Parallax as="span" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
         </ScaleIn>
-      </div>
+      </span>
       <div className="wk-card-body">
         <div className="wk-card-top">
           <h2 className="wk-card-name">{client.displayName}</h2>

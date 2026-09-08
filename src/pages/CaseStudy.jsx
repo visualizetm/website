@@ -13,19 +13,22 @@ import { fetchShowcase, fetchClient, capImageWidth, TestimonialCard, testimonial
 import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 
-// Labeled placeholder for any image slot the client's showcase leaves empty.
-function Slot({ label, ratio = '16 / 10', children }) {
+/* Site Prompt 7, Part 4: every image on this page is one of these. The box
+ * declares its ratio and clips, the image covers it, and the empty state is
+ * the same box with a label in it, so a missing image and a panoramic one
+ * both occupy exactly the space the layout reserved. */
+function Slot({ fit = 'img-fit--16x10', className = '', children, label }) {
   return (
-    <div className="cs-slot" style={{ aspectRatio: ratio }}>
+    <span className={`img-fit ${fit} cs-slot ${className}`.trim()}>
       {children || <span className="cs-slot-label">{label}</span>}
-    </div>
+    </span>
   );
 }
 
-function Media({ src, alt, label, ratio }) {
+function Media({ src, alt, label, fit, className, width = 1600, height = 1000 }) {
   return (
-    <Slot label={label} ratio={ratio}>
-      {src ? <img src={src} alt={alt} loading="lazy" /> : null}
+    <Slot fit={fit} label={label} className={className}>
+      {src ? <img src={capImageWidth(src)} alt={alt} loading="lazy" width={width} height={height} /> : null}
     </Slot>
   );
 }
@@ -140,7 +143,9 @@ export default function CaseStudy() {
         {client.cover && (
           <div className="cs-cover">
             <ScaleIn as="div" className="cs-cover-scale">
-              <Parallax className="cs-cover-inner"><img src={client.cover} alt={`${client.displayName} cover`} loading="lazy" /></Parallax>
+              <Parallax className="img-fit cs-cover-inner">
+                <img src={capImageWidth(client.cover)} alt={`${client.displayName} cover`} loading="lazy" width={2100} height={900} />
+              </Parallax>
             </ScaleIn>
           </div>
         )}
@@ -151,7 +156,7 @@ export default function CaseStudy() {
             <Reveal as="section" className="cs-section">
               <SectionHead icon={Palette} title="Brand Identity" />
               <div className="cs-brand-grid">
-                <Media src={logoSrc} alt={`${client.displayName} logo`} label="Logo" ratio="4 / 3" />
+                <Media src={logoSrc} alt={`${client.displayName} logo`} label="Logo" fit="img-fit--16x10 img-fit--contain" width={800} height={500} />
                 <div className="cs-brand-side">
                   {brand.palette?.length > 0 && (
                     <div className="cs-palette">
@@ -195,10 +200,10 @@ export default function CaseStudy() {
                 <div className="cs-browser-bar"><span /><span /><span /></div>
                 {website.screenshots?.length > 0 ? (
                   website.screenshots.map((s, i) => (
-                    <img key={s.link + i} src={s.link} alt={s.caption || `${client.displayName} website`} loading="lazy" className="cs-browser-shot" />
+                    <Media key={s.link + i} src={s.link} alt={s.caption || `${client.displayName} website`} label="Website screenshot" className="cs-browser-shot" />
                   ))
                 ) : (
-                  <Slot label="Website screenshot" ratio="16 / 9" />
+                  <Slot label="Website screenshot" />
                 )}
               </div>
               <div className="cs-sec-foot">
@@ -255,8 +260,8 @@ export default function CaseStudy() {
             <Reveal as="section" className="cs-section">
               <SectionHead icon={CreditCard02} title="Business Cards" />
               <div className="cs-cards-grid">
-                <Media src={cards.front} alt={`${client.displayName} card front`} label="Card front" ratio="7 / 4" />
-                <Media src={cards.back} alt={`${client.displayName} card back`} label="Card back" ratio="7 / 4" />
+                <Media src={cards.front} alt={`${client.displayName} card front`} label="Card front" fit="img-fit--7x4" width={1050} height={600} />
+                <Media src={cards.back} alt={`${client.displayName} card back`} label="Card back" fit="img-fit--7x4" width={1050} height={600} />
               </div>
               {cards.notes && <p className="cs-notes">{cards.notes}</p>}
             </Reveal>
@@ -269,7 +274,7 @@ export default function CaseStudy() {
               <div className="cs-media-grid">
                 {(print.items || []).map((item, i) => (
                   <figure key={item.label + i} className="cs-print-item">
-                    <Media src={item.image} alt={item.label} label={item.label} />
+                    <Media src={item.image} alt={item.label} label={item.label} fit="img-fit--1x1" width={1000} height={1000} />
                     <figcaption className="cs-print-caption">{item.label}</figcaption>
                   </figure>
                 ))}
@@ -359,8 +364,10 @@ const csStyles = `
 
   .cs-cover { background: var(--bg-deep); border-bottom: 1px solid var(--border); overflow: hidden; }
   .cs-cover-scale { display: block; }
+  /* 21:9 here, 16:9 on a phone, where a 21:9 band of somebody's cover is a
+     stripe rather than a picture (Site Prompt 7, Part 4). */
   .cs-cover-inner { aspect-ratio: 21 / 9; max-height: 520px; }
-  .cs-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (max-width: 700px) { .cs-cover-inner { aspect-ratio: 16 / 9; } }
 
   .cs-body { display: flex; flex-direction: column; gap: var(--space-20); padding: var(--space-16) var(--space-6) var(--space-20); }
 
@@ -373,13 +380,14 @@ const csStyles = `
   }
   .cs-sec-title { font-size: clamp(1.6rem, 3.5vw, 2.4rem); color: var(--text); }
 
+  /* .img-fit already does the box, the clip and the cover; this only adds
+     the empty state's dashed frame and centres its label. */
   .cs-slot {
-    width: 100%; border-radius: var(--radius-lg); overflow: hidden;
+    border-radius: var(--radius-lg);
     background: var(--bg-card); border: 1px dashed var(--border-light);
     display: flex; align-items: center; justify-content: center;
   }
   .cs-slot:has(img) { border-style: solid; border-color: var(--border); }
-  .cs-slot img { width: 100%; height: 100%; object-fit: cover; }
   .cs-slot-label {
     font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
     text-transform: uppercase; color: var(--text-faint);
@@ -421,7 +429,7 @@ const csStyles = `
   .cs-browser-bar span:nth-child(2) { background: var(--dot-min); }
   .cs-browser-bar span:nth-child(3) { background: var(--dot-max); }
   .cs-browser .cs-slot { border: none; border-radius: 0; }
-  .cs-browser-shot { width: 100%; display: block; }
+  .cs-browser-shot { border-radius: 0; border: none; }
 
   .cs-sec-foot {
     display: flex; align-items: flex-start; justify-content: space-between;
