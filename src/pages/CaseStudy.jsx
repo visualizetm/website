@@ -240,7 +240,7 @@ export default function CaseStudy() {
                   The row scrolls sideways with the same snap the
                   testimonial carousel uses when it runs past the edge. */}
               {instagram.highlights?.length > 0 && (
-                <Stagger as="ul" className="cs-ig-highlights" aria-label="Story highlights">
+                <Stagger as="ul" itemAs="li" itemClassName="cs-hl" className="cs-ig-highlights" aria-label="Story highlights">
                   {instagram.highlights.map((h, i) => {
                     const inner = (<>
                       <span className="img-fit img-fit--1x1 img-fit--circle cs-hl-cover">
@@ -248,13 +248,14 @@ export default function CaseStudy() {
                       </span>
                       <span className="cs-hl-label">{h.label || `Highlight ${i + 1}`}</span>
                     </>);
-                    return (
-                      <li key={h.id || i} className="cs-hl">
-                        {h.link
-                          ? <a className="cs-hl-link" href={h.link} target="_blank" rel="noopener noreferrer">{inner}</a>
-                          : <span className="cs-hl-link">{inner}</span>}
-                      </li>
-                    );
+                    /* Stagger wraps each child in its own element, so the
+                       <li> is itemAs rather than written here: a <ul> whose
+                       direct children are anything but <li> is a serious
+                       axe violation, and that is exactly what a div wrapper
+                       would have made. */
+                    return h.link
+                      ? <a key={h.id || i} className="cs-hl-link" href={h.link} target="_blank" rel="noopener noreferrer">{inner}</a>
+                      : <span key={h.id || i} className="cs-hl-link">{inner}</span>;
                   })}
                 </Stagger>
               )}
