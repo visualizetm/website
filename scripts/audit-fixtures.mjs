@@ -121,6 +121,18 @@ export const PIPE_EXTRA = {
               { link: 'https://www.instagram.com/p/ccc/', caption: 'Shop front' },
               { link: 'https://www.instagram.com/p/ddd/', caption: '' },
             ].map((x, i) => ({ ...x, image: i % 2 ? '/showcase/fixtures/portrait.svg' : '/showcase/fixtures/pano.svg' })),
+            /* Story highlights: enough of them to run past a 320px screen,
+               a mix of linked and unlinked (an unlinked one must not be
+               focusable), a label at the 40 character cap, and covers in
+               all three fixture shapes so the circular crop is exercised. */
+            highlights: [
+              { id: 'h1', label: 'Fades', image: '/showcase/fixtures/square.svg', link: 'https://www.instagram.com/stories/highlights/1/' },
+              { id: 'h2', label: 'Before and after, every single week', image: '/showcase/fixtures/portrait.svg', link: '' },
+              { id: 'h3', label: 'Shop', image: '/showcase/fixtures/pano.svg', link: 'https://www.instagram.com/stories/highlights/3/' },
+              { id: 'h4', label: 'Reviews', image: '/showcase/fixtures/square.svg', link: '' },
+              { id: 'h5', label: 'Hours', image: '/showcase/fixtures/portrait.svg', link: 'https://www.instagram.com/stories/highlights/5/' },
+              { id: 'h6', label: '', image: '/showcase/fixtures/square.svg', link: '' },
+            ],
             notes: '' },
           featured: { landing: true, logoStrip: true, work: true, order: 2 },
           updatedAt: NOW_ISO,
@@ -252,7 +264,9 @@ function publicClientOf(lead) {
     instagram: {
       enabled: !!sh.instagram?.enabled, handle: (sh.instagram?.handle || '').replace(/^@+/, ''),
       url: sh.instagram?.url || lead.socials?.instagram || '', profileImage: sh.instagram?.profileImage || '',
-      posts: (sh.instagram?.posts || []).slice(0, 9), notes: sh.instagram?.notes || '',
+      posts: (sh.instagram?.posts || []).slice(0, 9),
+      highlights: (sh.instagram?.highlights || []).slice(0, 10),
+      notes: sh.instagram?.notes || '',
     },
     cards: { enabled: sh.cards?.enabled !== false, front: sh.cards?.front || '', back: sh.cards?.back || '', notes: sh.cards?.notes || '' },
     print: { enabled: sh.print?.enabled !== false, items: sh.print?.items || [], notes: sh.print?.notes || '' },

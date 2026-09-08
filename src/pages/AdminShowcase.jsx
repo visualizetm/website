@@ -36,7 +36,7 @@ const DEFAULT_SHOWCASE = {
   logoUrl: '',
   brand: { enabled: true, logo: { light: '', dark: '' }, images: [], notes: '' },
   website: { enabled: true, url: '', screenshots: [], notes: '' },
-  instagram: { enabled: false, handle: '', url: '', profileImage: '', posts: [], notes: '' },
+  instagram: { enabled: false, handle: '', url: '', profileImage: '', posts: [], highlights: [], notes: '' },
   cards: { enabled: true, front: '', back: '', notes: '' },
   print: { enabled: true, items: [], notes: '' },
   featured: { landing: false, logoStrip: false, work: false, order: 0 },
@@ -408,7 +408,8 @@ function WebsiteBlock({ sh, write, writeRaw, lead, readOnly }) {
 function InstagramBlock({ sh, write, writeRaw, lead, readOnly }) {
   const ig = sh.instagram;
   const posts = ig.posts || [];
-  const summary = !ig.enabled ? 'Off' : ([ig.handle ? `@${ig.handle}` : '', posts.length ? `${posts.length} post${posts.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ') || 'Not set up yet');
+  const highlights = ig.highlights || [];
+  const summary = !ig.enabled ? 'Off' : ([ig.handle ? `@${ig.handle}` : '', posts.length ? `${posts.length} post${posts.length === 1 ? '' : 's'}` : '', highlights.length ? `${highlights.length} highlight${highlights.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ') || 'Not set up yet');
   const setIg = (next) => write({ instagram: { ...ig, ...next } });
   const setIgRaw = (next) => writeRaw({ instagram: { ...ig, ...next } });
   return (
@@ -418,7 +419,7 @@ function InstagramBlock({ sh, write, writeRaw, lead, readOnly }) {
           <div className="cw-brand-row"><span className="dt-fact-label">Handle</span><EditableText value={ig.handle} onSave={(v) => setIgRaw({ handle: v.replace(/^@+/, '').slice(0, 60) })} placeholder="visualizetm" label="Instagram handle" readOnly={readOnly} className="dt-fact-edit" /></div>
           <div className="cw-brand-row"><span className="dt-fact-label">Profile URL</span><EditableText value={ig.url} onSave={(v) => setIgRaw({ url: v.slice(0, 400) })} placeholder={lead.socials?.instagram || 'https://instagram.com/...'} label="Instagram URL" readOnly={readOnly} className="dt-fact-edit" /></div>
         </Grid>
-        <div className="v-field"><span className="v-field-label">Profile image</span><ImageField value={ig.profileImage} label="Profile image" placeholder="Profile image URL" ratio="img-fit--1x1 sc-thumb-round" onSave={(v) => setIgRaw({ profileImage: v })} readOnly={readOnly} /></div>
+        <div className="v-field"><span className="v-field-label">Profile image</span><ImageField value={ig.profileImage} label="Profile image" placeholder="Profile image URL" ratio="img-fit--1x1 img-fit--circle sc-thumb-round" onSave={(v) => setIgRaw({ profileImage: v })} readOnly={readOnly} /></div>
         <div className="v-field">
           <span className="v-field-label">Posts ({posts.length} of 9)</span>
           <UploadMany label="posts" count={posts.length} cap={9} readOnly={readOnly}
@@ -431,6 +432,25 @@ function InstagramBlock({ sh, write, writeRaw, lead, readOnly }) {
               <EditableText value={it.link} onSave={(v) => setIgRaw({ posts: posts.map((x, j) => (j === i ? { ...x, link: v.slice(0, 400) } : x)) })} placeholder="Post URL" label={`Post ${i + 1} link`} readOnly={readOnly} />
               <ImageField value={it.image} label={`Post ${i + 1} image`} placeholder="Image URL" ratio="img-fit--1x1" onSave={(v) => setIgRaw({ posts: posts.map((x, j) => (j === i ? { ...x, image: v } : x)) })} readOnly={readOnly} />
               <EditableText value={it.caption} onSave={(v) => setIgRaw({ posts: posts.map((x, j) => (j === i ? { ...x, caption: v.slice(0, 200) } : x)) })} placeholder="Caption (optional)" label={`Post ${i + 1} caption`} readOnly={readOnly} />
+            </>)} />
+        </div>
+        {/* Story highlights: the row of circles at the top of a profile.
+            The cover preview is a circle at the size the public page draws
+            it, so a face cropped out of frame is obvious here rather than
+            after publishing. The link is optional; a highlight without one
+            simply is not tappable on the site. */}
+        <div className="v-field">
+          <span className="v-field-label">Highlights ({highlights.length} of 10)</span>
+          <UploadMany label="highlight covers" count={highlights.length} cap={10} readOnly={readOnly}
+            onUploaded={(urls) => setIg({ highlights: [...highlights, ...urls.map(image => ({ id: uid(), label: '', image, link: '' }))] })} />
+          <ObjectListEditor items={highlights} readOnly={readOnly} canAdd={!readOnly && highlights.length < 10} addLabel="Add highlight"
+            onReorder={(next) => setIg({ highlights: next })}
+            onRemove={(i) => setIg({ highlights: highlights.filter((_, j) => j !== i) })}
+            onAdd={() => setIg({ highlights: [...highlights, { id: uid(), label: '', image: '', link: '' }] })}
+            renderRow={(it, i) => (<>
+              <ImageField value={it.image} label={`Highlight ${i + 1} cover`} placeholder="Cover image URL" ratio="img-fit--1x1 img-fit--circle sc-thumb-highlight" onSave={(v) => setIgRaw({ highlights: highlights.map((x, j) => (j === i ? { ...x, image: v } : x)) })} readOnly={readOnly} />
+              <EditableText value={it.label} onSave={(v) => setIgRaw({ highlights: highlights.map((x, j) => (j === i ? { ...x, label: v.slice(0, 40) } : x)) })} placeholder="Label (up to 40 characters)" label={`Highlight ${i + 1} label`} readOnly={readOnly} />
+              <EditableText value={it.link} onSave={(v) => setIgRaw({ highlights: highlights.map((x, j) => (j === i ? { ...x, link: v.slice(0, 400) } : x)) })} placeholder="Highlight URL (optional)" label={`Highlight ${i + 1} link`} readOnly={readOnly} />
             </>)} />
         </div>
         <div className="v-field"><span className="v-field-label">Notes</span><EditableText value={ig.notes} onSave={(v) => setIgRaw({ notes: v.slice(0, 600) })} multiline placeholder="Notes for the showcase page" label="Instagram notes" readOnly={readOnly} /></div>
@@ -849,6 +869,11 @@ const scStyles = `
   /* Admin surfaces, not the marketing ones: .img-fit is shared with the
      public site, so its ground is re-pointed here. */
   .lay-root .img-fit { background: var(--v-surface-3); border-radius: var(--v-radius-md); }
+  /* ...except the round ones. .img-fit--circle sets 50% at one class of
+     specificity, which the rule above outranked, so the profile image and
+     the highlight covers previewed as rounded squares while the public page
+     drew them as circles. */
+  .lay-root .img-fit--circle { border-radius: 50%; }
   .sc-thumb { width: 200px; max-width: 100%; border: 1px solid var(--v-border); }
   .sc-imgfield-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .sc-review-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
@@ -866,7 +891,10 @@ const scStyles = `
     font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1);
   }
   .sc-thumb-logo { height: 72px; width: 160px; background: none; }
-  .sc-thumb-round { width: 96px; border-radius: 50%; }
+  .sc-thumb-round { width: 96px; }
+  /* The public page draws a highlight at 88px on a desktop, so the preview
+     is 88px and round: the crop you see here is the crop that ships. */
+  .sc-thumb-highlight { width: 88px; }
 
   /* Fixed, and deliberately a child of PageShell rather than of the
      ScrollArea, so nothing with overflow or a transform is between it and

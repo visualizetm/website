@@ -389,6 +389,9 @@ for (const width of WIDTHS) {
     await check('marketing: Clients (detail, full showcase)');
     await goto('/clients/brand-only-co');
     await check('marketing: Clients (detail, brand only)');
+    // The highlights prompt: circles above the post grid, some linked.
+    await goto('/clients/portrait-co');
+    await check('marketing: Clients (detail, Instagram highlights)');
     await goto('/clients/does-not-exist');
     await check('marketing: Clients (error state, unknown slug)');
     // /work and /work/:slug: the client-side Navigate fallback (vercel.json
@@ -675,6 +678,20 @@ for (const width of WIDTHS) {
   await goto('/admin/clients/L14/showcase');
   await page.locator('.sc-thumb').first().waitFor({ timeout: 4000 }).catch(() => {});
   await check('showcase editor (portrait and panoramic uploads)');
+  /* The save bar is the one floating control on this page, and on a phone
+     it has to clear the tab bar completely: the scroll check below is what
+     catches it sitting on top of the last card, and the target check is
+     what catches Save being cut in half. Toggling Publish is the cheapest
+     way to open it. */
+  await page.locator('.sc-publish .v-toggle').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('showcase editor (save bar shown)');
+  /* Story highlights: circular covers in a sideways-scrolling row, which is
+     both an image-fit case and an overflow case. */
+  await goto('/admin/clients/L14/showcase');
+  await page.locator('.dt-block-head, button').filter({ hasText: /^Instagram/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('showcase editor (Instagram highlights)');
   await openClient('Lead Business 11');
   await clientTab('Projects');
   await page.locator('.cw-new-project').first().click({ timeout: 3000 }).catch(() => {});

@@ -73,6 +73,9 @@ export const SCREENS = [
   { id: 'mkt-clients-list', screen: 'Clients (marketing)', label: 'list', path: '/clients', session: false, static: true, marketing: true },
   { id: 'mkt-clients-full', screen: 'Clients (marketing)', label: 'detail, full showcase', path: '/clients/full-showcase-co', session: false, static: true, marketing: true },
   { id: 'mkt-clients-brand', screen: 'Clients (marketing)', label: 'detail, brand only', path: '/clients/brand-only-co', session: false, static: true, marketing: true },
+  // The highlights prompt: the client detail of the fixture that carries six
+  // story highlights, linked and unlinked, above its post grid.
+  { id: 'mkt-clients-highlights', screen: 'Clients (marketing)', label: 'detail, Instagram highlights', path: '/clients/portrait-co', session: false, static: true, marketing: true },
   { id: 'mkt-clients-empty', screen: 'Clients (marketing)', label: 'empty state', path: '/clients', session: false, static: true, marketing: true, emptyResource: 'showcase' },
   { id: 'mkt-clients-error', screen: 'Clients (marketing)', label: 'error state (unknown slug)', path: '/clients/does-not-exist', session: false, static: true, marketing: true },
 

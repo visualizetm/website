@@ -82,6 +82,8 @@ function publicClient(lead) {
       url: sh.instagram?.url || lead.socials?.instagram || '',
       profileImage: sh.instagram?.profileImage || '',
       posts: Array.isArray(sh.instagram?.posts) ? sh.instagram.posts.slice(0, 9) : [],
+      // Story highlights, the row of circles above the post grid.
+      highlights: Array.isArray(sh.instagram?.highlights) ? sh.instagram.highlights.slice(0, 10) : [],
       notes: sh.instagram?.notes || '',
     },
     cards: {

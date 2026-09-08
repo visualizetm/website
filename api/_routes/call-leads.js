@@ -113,6 +113,14 @@ function sanitizeShowcase(sh) {
       posts: Array.isArray(instagram.posts)
         ? instagram.posts.slice(0, 9).map(x => ({ link: str(x?.link, 400), image: imgLink(x?.image), caption: str(x?.caption, 200) }))
         : [],
+      /* Story highlights, additive: the row of circles at the top of an
+       * Instagram profile. id is the editor's own row key, label is what
+       * shows under the circle, link is optional (a highlight without one
+       * is not interactive on the public page). Ten, which is more than
+       * fits on one phone screen anyway. */
+      highlights: Array.isArray(instagram.highlights)
+        ? instagram.highlights.slice(0, 10).map(x => ({ id: str(x?.id, 40), label: str(x?.label, 40), image: imgLink(x?.image), link: str(x?.link, 400) }))
+        : [],
       notes: str(instagram.notes, 600),
     },
     featured: {

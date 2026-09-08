@@ -52,7 +52,7 @@ const hasCards = (c) => !!(c?.front || c?.back || c?.notes);
 const hasPrint = (p) => !!(p?.items?.length || p?.notes);
 // Site Prompt 7, Part 2: shown only when the client turned it on and there
 // is something to look at. A handle on its own is a link, not a section.
-const hasInstagram = (ig) => !!(ig?.enabled && (ig.posts?.length || ig.profileImage));
+const hasInstagram = (ig) => !!(ig?.enabled && (ig.posts?.length || ig.highlights?.length || ig.profileImage));
 
 // Untitled UI's free icon set has no brand marks (Instagram, Facebook), so
 // every social link uses the same generic external-link glyph; the platform
@@ -233,6 +233,31 @@ export default function CaseStudy() {
                     : <span className="cs-ig-handle">@{instagram.handle}</span>
                 )}
               </div>
+              {/* Story highlights: the row of circles Instagram puts above
+                  the grid, in the same order the editor set. One with a
+                  link is a real link; one without is a plain span, so it
+                  never lands in the tab order pretending to be tappable.
+                  The row scrolls sideways with the same snap the
+                  testimonial carousel uses when it runs past the edge. */}
+              {instagram.highlights?.length > 0 && (
+                <Stagger as="ul" className="cs-ig-highlights" aria-label="Story highlights">
+                  {instagram.highlights.map((h, i) => {
+                    const inner = (<>
+                      <span className="img-fit img-fit--1x1 img-fit--circle cs-hl-cover">
+                        <img src={capImageWidth(h.image || instagram.profileImage, IMG_W.avatar)} alt="" loading="lazy" width={176} height={176} />
+                      </span>
+                      <span className="cs-hl-label">{h.label || `Highlight ${i + 1}`}</span>
+                    </>);
+                    return (
+                      <li key={h.id || i} className="cs-hl">
+                        {h.link
+                          ? <a className="cs-hl-link" href={h.link} target="_blank" rel="noopener noreferrer">{inner}</a>
+                          : <span className="cs-hl-link">{inner}</span>}
+                      </li>
+                    );
+                  })}
+                </Stagger>
+              )}
               {instagram.posts?.length > 0 && (
                 <Stagger className="cs-ig-grid">
                   {instagram.posts.map((post, i) => (
@@ -459,6 +484,36 @@ const csStyles = `
     color: var(--brand-text);
   }
   a.cs-ig-handle:hover { text-decoration: underline; }
+  /* Highlights: 72px circles on a phone, 88px from 768 up, a thin brand
+     ring, and a sideways scroll with the testimonial carousel's snap once
+     there are more than fit. list-style is off because the row reads as a
+     row of covers, not a bulleted list. */
+  .cs-ig-highlights {
+    display: flex; gap: var(--space-4); margin: 0 0 var(--space-6); padding: 0 0 var(--space-2);
+    list-style: none; overflow-x: auto; scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch; scrollbar-width: thin;
+  }
+  .cs-hl { flex: 0 0 auto; scroll-snap-align: start; }
+  .cs-hl-link {
+    display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+    width: 88px; text-decoration: none; color: var(--text-secondary);
+  }
+  a.cs-hl-link { color: var(--text); }
+  a.cs-hl-link:hover .cs-hl-cover { border-color: var(--brand); transform: translateY(-2px); }
+  a.cs-hl-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: var(--radius); }
+  .cs-hl-cover {
+    width: 72px; height: 72px; flex: 0 0 72px;
+    border: 2px solid var(--glass-border-brand);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .cs-hl-label {
+    max-width: 88px; font-size: 0.8125rem; line-height: 1.3; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @media (min-width: 768px) {
+    .cs-hl-cover { width: 88px; height: 88px; flex: 0 0 88px; }
+    .cs-hl-link, .cs-hl-label { width: 104px; max-width: 104px; }
+  }
   .cs-ig-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
   .cs-ig-post {
     position: relative; display: block;

@@ -40,7 +40,9 @@ const fullClient = {
     brand: { enabled: true, logo: { light: 'https://img.example/full-logo-light.png', dark: 'https://img.example/full-logo-dark.png' }, images: [{ link: 'https://img.example/full-1.jpg', caption: 'Signage' }], notes: 'showcase brand notes' },
     // Site Prompt 7: ten posts and an @-prefixed handle, to prove the cap and the strip.
     instagram: { enabled: true, handle: '@fullclient', url: '', profileImage: 'https://img.example/full-avatar.jpg',
-      posts: Array.from({ length: 10 }, (_, i) => ({ link: `https://instagram.example/p/${i}`, image: `https://img.example/ig-${i}.jpg`, caption: '' })), notes: '' },
+      posts: Array.from({ length: 10 }, (_, i) => ({ link: `https://instagram.example/p/${i}`, image: `https://img.example/ig-${i}.jpg`, caption: '' })),
+      highlights: Array.from({ length: 12 }, (_, i) => ({ id: `h${i}`, label: `Highlight ${i}`, image: `https://img.example/hl-${i}.jpg`, link: i % 2 ? `https://instagram.example/stories/highlights/${i}` : '' })),
+      notes: '' },
     website: { enabled: true, url: 'https://fullclient.example', screenshots: [{ link: 'https://img.example/full-shot.jpg', caption: 'Homepage' }], notes: '' },
     cards: { enabled: true, front: 'https://img.example/full-card-front.jpg', back: 'https://img.example/full-card-back.jpg', notes: '' },
     print: { enabled: true, items: [{ label: 'Menu', image: 'https://img.example/full-menu.jpg', caption: '' }], notes: '' },
@@ -212,9 +214,14 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   ok(typeof full.brand.logo === 'string', `brand.logo is a single string, not a light/dark pair (got ${typeof full.brand.logo})`);
   ok(full.brand.logo === 'https://img.example/full-logo-dark.png', 'brand.logo prefers the stored dark logo for a record written before the change');
   // Site Prompt 7, Part 2: the instagram block, and its own whitelist.
-  ok(Object.keys(full.instagram).sort().join(',') === 'enabled,handle,notes,posts,profileImage,url', `instagram whitelist is exactly enabled, handle, url, profileImage, posts, notes (got ${Object.keys(full.instagram).sort().join(',')})`);
+  ok(Object.keys(full.instagram).sort().join(',') === 'enabled,handle,highlights,notes,posts,profileImage,url', `instagram whitelist is exactly enabled, handle, url, profileImage, posts, highlights, notes (got ${Object.keys(full.instagram).sort().join(',')})`);
   ok(full.instagram.enabled === true && full.instagram.handle === 'fullclient', `instagram is served with the @ stripped from the handle (got ${JSON.stringify(full.instagram.handle)})`);
   ok(full.instagram.posts.length === 9, `instagram posts are capped at nine (got ${full.instagram.posts.length})`);
+  // Story highlights, additive with the same shape rules as posts.
+  ok(full.instagram.highlights.length === 10, `instagram highlights are capped at ten (got ${full.instagram.highlights.length})`);
+  ok(full.instagram.highlights[0].label === 'Highlight 0' && full.instagram.highlights[0].image === 'https://img.example/hl-0.jpg', 'a highlight carries its label and cover image');
+  ok(full.instagram.highlights[0].link === '' && full.instagram.highlights[1].link.startsWith('https://'), 'a highlight link is optional and passes through when set');
+  ok(res._json.clients.find(c => c.slug === 'brand-only').instagram.highlights.length === 0, 'a client with no highlights gets an empty array, never undefined');
 
   ok(!!res._json.landing, 'response has a landing object');
   ok(res._json.landing.logoStrip.some(c => c.slug === 'full-client'), 'logoStrip includes the client with featured.logoStrip true');
