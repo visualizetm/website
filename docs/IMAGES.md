@@ -67,6 +67,8 @@ Upload button silently never appears.
 | `VITE_CLOUDINARY_CLOUD_NAME` | The cloud name from the Cloudinary dashboard | No Upload button anywhere; paste a link instead |
 | `VITE_CLOUDINARY_UPLOAD_PRESET` | `visualize` | Same (both are required together) |
 
+The admin host's Content Security Policy has to allow the upload too: `connect-src` includes `https://api.cloudinary.com` in vercel.json. Without it the browser refuses the POST before it is sent, which surfaces as an upload failure with no HTTP status behind it. The images themselves come back from res.cloudinary.com and are already covered by `img-src`'s `https:`.
+
 Nothing else is needed, and nothing else should be added. There is no API
 key and no API secret in the client, by design: an unsigned preset is the
 entire credential and it can only create.

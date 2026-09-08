@@ -43,14 +43,28 @@ export function validateUploadFile(file) {
   return null;
 }
 
+/* The endpoint, built once so the URL in a log and the URL in the request
+ * are the same string. */
+export const uploadUrl = () => `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
 /**
  * Uploads one File to Cloudinary.
  *
  * Always resolves, never throws, and always says which of the four things
- * happened: not configured, rejected before sending, Cloudinary said no
- * (its own message is passed straight through, since "Upload preset not
- * found" is the one sentence that actually tells you what to fix), or the
- * network failed.
+ * happened, because each one has a different fix:
+ *
+ *   not configured        the two VITE_ vars are missing from the build
+ *   rejected here         wrong format or over the size limit, never sent
+ *   blocked, no response  fetch itself threw: the browser refused to make
+ *                         the request (a Content Security Policy without
+ *                         api.cloudinary.com in connect-src is the usual
+ *                         one, and it happens before any HTTP status
+ *                         exists), or the network is down
+ *   Cloudinary said no    an HTTP status, and its own message, which names
+ *                         a bad preset or a preset that is actually signed
+ *
+ * The status is always in the message when there is one, so the next
+ * failure is diagnosable from the toast alone, without a console.
  *
  * @param {File} file
  * @returns {Promise<{ url: string } | { error: string }>}
@@ -66,9 +80,11 @@ export async function uploadToCloudinary(file) {
 
   let res;
   try {
-    res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, { method: 'POST', body: form });
+    res = await fetch(uploadUrl(), { method: 'POST', body: form });
   } catch {
-    return { error: 'Could not reach Cloudinary. Check the connection and try again.' };
+    // No status, no response: the request never left the browser, or it
+    // left and nothing came back. A blocking CSP looks exactly like this.
+    return { error: 'Upload blocked by the browser or the network. Nothing reached api.cloudinary.com, so there is no status to report: check the connection, and check that api.cloudinary.com is in the admin CSP connect-src.' };
   }
 
   let data = null;
@@ -76,8 +92,8 @@ export async function uploadToCloudinary(file) {
 
   if (!res.ok) {
     const said = data?.error?.message;
-    return { error: said ? `Cloudinary: ${said}` : `Cloudinary rejected the upload (${res.status}).` };
+    return { error: said ? `Cloudinary refused the upload (${res.status}): ${said}` : `Cloudinary refused the upload (${res.status}).` };
   }
-  if (!data?.secure_url) return { error: 'Cloudinary accepted the file but returned no URL.' };
+  if (!data?.secure_url) return { error: `Cloudinary accepted the file (${res.status}) but returned no URL.` };
   return { url: data.secure_url };
 }

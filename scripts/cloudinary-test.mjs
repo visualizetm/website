@@ -59,14 +59,30 @@ const ENV = { VITE_CLOUDINARY_CLOUD_NAME: 'visualize-test', VITE_CLOUDINARY_UPLO
   ok(seen?.url.endsWith('/image/upload'), 'an SVG uses the same /image/upload endpoint');
   ok(!!svg.url, 'an SVG upload succeeds');
 
-  // Cloudinary's own message is passed through, not swallowed.
+  // Cloudinary's own message is passed through, not swallowed, and the
+  // status rides along so the toast alone is enough to diagnose it.
   globalThis.fetch = async () => ({ ok: false, status: 400, json: async () => ({ error: { message: 'Upload preset not found' } }) });
   const bad = await mod.uploadToCloudinary(file);
-  ok(bad.error === 'Cloudinary: Upload preset not found', `Cloudinary's message reaches the toast (got ${JSON.stringify(bad.error)})`);
+  ok(/Upload preset not found/.test(bad.error || '') && /\(400\)/.test(bad.error || ''),
+    `Cloudinary's message and status reach the toast (got ${JSON.stringify(bad.error)})`);
 
-  globalThis.fetch = async () => { throw new Error('offline'); };
+  // A 401 (a signed preset used unsigned) reads the same way.
+  globalThis.fetch = async () => ({ ok: false, status: 401, json: async () => ({ error: { message: 'Upload preset must be whitelisted for unsigned uploads' } }) });
+  const unauth = await mod.uploadToCloudinary(file);
+  ok(/\(401\)/.test(unauth.error || '') && /whitelisted/.test(unauth.error || ''),
+    `a 401 names the preset problem (got ${JSON.stringify(unauth.error)})`);
+
+  // A non-JSON body still gets the status.
+  globalThis.fetch = async () => ({ ok: false, status: 502, json: async () => { throw new Error('not json'); } });
+  const gateway = await mod.uploadToCloudinary(file);
+  ok(/\(502\)/.test(gateway.error || ''), `a non-JSON failure still carries its status (got ${JSON.stringify(gateway.error)})`);
+
+  // fetch throwing is the CSP case: no status exists, and the message has
+  // to point at the policy rather than blame the connection alone.
+  globalThis.fetch = async () => { throw new TypeError('Failed to fetch'); };
   const net = await mod.uploadToCloudinary(file);
-  ok(/Could not reach Cloudinary/.test(net.error || ''), 'a network failure says so');
+  ok(/blocked by the browser or the network/.test(net.error || '') && /connect-src/.test(net.error || ''),
+    `a blocked request says so and names the CSP (got ${JSON.stringify(net.error)})`);
 
   // Validation happens before anything is sent.
   let called = false;
