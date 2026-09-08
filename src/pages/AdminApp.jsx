@@ -427,6 +427,7 @@ export default function AdminApp() {
       {section === 'showcase' && (
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
+          loading={callLeadsLoading || forceLoading}
           submissions={V.items}
           onPatch={patchCallLead}
           onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: showcaseId, n: Date.now() }); }}

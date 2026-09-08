@@ -21,7 +21,9 @@ export default function Avatar({ name = '', src, size = 'md', status, className 
   const px = PX[size] || PX.md;
   return (
     <span className={`v-avatar v-avatar--${size} ${className}`.trim()} style={{ width: px, height: px, '--v-avatar-c': `var(--v-chart-${hueIndex(name)})`, ...style }} title={name} {...rest}>
-      {src ? <img src={src} alt={name} width={px} height={px} loading="lazy" decoding="async" /> : <span className="v-avatar-txt" aria-label={name}>{initialsOf(name)}</span>}
+      {src
+        ? <span className="img-fit img-fit--1x1 v-avatar-img"><img src={src} alt={name} width={px} height={px} loading="lazy" decoding="async" /></span>
+        : <span className="v-avatar-txt" aria-label={name}>{initialsOf(name)}</span>}
       {status && <span className="v-avatar-dot" style={{ background: `var(--v-status-${status}-solid)` }} aria-hidden="true" />}
     </span>
   );
@@ -37,7 +39,7 @@ export const avatarStyles = `
     border: 1px solid color-mix(in srgb, var(--v-avatar-c) 40%, transparent);
     color: var(--v-text); font-weight: var(--v-weight-bold); letter-spacing: 0.02em;
   }
-  .v-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .v-avatar-img { width: 100%; height: 100%; border-radius: 50%; }
   .v-avatar--xs .v-avatar-txt { font-size: 10px; }
   .v-avatar--sm .v-avatar-txt { font-size: var(--v-text-xs); }
   .v-avatar--md .v-avatar-txt { font-size: var(--v-text-sm); }

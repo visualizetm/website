@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, Icon, useToast, useConfirm, useMediaQuery,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
@@ -561,7 +561,7 @@ function draftOf(lead) {
  * @param {Function} props.onBack () => void, back to the client record
  * @param {Array} [props.submissions] every submission, filtered to reviews here
  */
-export default function AdminShowcase({ lead, onPatch, onBack, submissions = [], readOnly = false }) {
+export default function AdminShowcase({ lead, loading = false, onPatch, onBack, submissions = [], readOnly = false }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const [draft, setDraft] = useState(() => draftOf(lead));
@@ -615,11 +615,15 @@ export default function AdminShowcase({ lead, onPatch, onBack, submissions = [],
     return () => window.removeEventListener('beforeunload', onUnload);
   }, []);
 
+  /* A deep link to this URL lands before the client list has loaded, so
+   * "not found" has to wait for the list to actually be in. */
   if (!lead) {
     return (
       <PageShell className="aa-main aa-main--wide">
         <ScrollArea wide>
-          <EmptyState icon="Image01" title="Client not found" description="That client is not in the list any more." action={<Button onClick={onBack}>Back to clients</Button>} />
+          {loading
+            ? <Section title="Showcase" description=" " loading><Stack gap={3}>{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack></Section>
+            : <EmptyState icon="Image01" title="Client not found" description="That client is not in the list any more." action={<Button onClick={onBack}>Back to clients</Button>} />}
         </ScrollArea>
       </PageShell>
     );

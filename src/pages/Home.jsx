@@ -59,7 +59,7 @@ export default function Home() {
 
   return (
     <>
-      <Hero items={deck} />
+      <Hero items={data ? deck : null} />
 
       <Curtain className="home-panel">
         <Trust clients={clients} />

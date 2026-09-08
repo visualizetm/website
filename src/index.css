@@ -382,7 +382,12 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 800;
   letter-spacing: -0.045em;
   line-height: 1;
-  color: var(--text);
+  /* currentColor, not --text: this component is also used inside the
+     admin, whose light theme is still real. Hard-coding the marketing
+     text colour here put a near-white wordmark on the admin's cream login
+     card the moment the marketing light theme was deleted (Site Prompt 7,
+     Part 5), which is exactly the 1.12:1 the a11y audit then caught. */
+  color: inherit;
   display: inline-flex;
   align-items: baseline;
   white-space: nowrap;
@@ -530,15 +535,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* Curtain: pulled up by a negative margin and pushed back down by
-   --curtain-p, so progress 0 is exactly where normal flow put it. */
+   --curtain-p, so progress 0 is exactly where normal flow put it.
+   Both live on the base class, not the --active modifier: with no engine
+   --curtain-p is never written, the transform resolves to exactly the
+   margin it cancels, and the layout is identical either way. Putting the
+   margin behind --active instead moved everything below it the moment the
+   engine loaded, which was worth 0.04 of Home's CLS on a phone. */
 .m-curtain {
   position: relative;
   z-index: 2;
   background: var(--bg);
-}
-.m-curtain--active {
   margin-top: -16vh;
   transform: translate3d(0, calc((1 - var(--curtain-p, 0)) * 16vh), 0);
+}
+.m-curtain--active {
   border-top-left-radius: 32px;
   border-top-right-radius: 32px;
   box-shadow: var(--m-curtain-shadow);

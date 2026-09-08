@@ -17,6 +17,7 @@
  */
 import { chromium } from 'playwright-core';
 import { PACKAGES, ADDONS, money } from '../src/shared/pricing.js';
+import { mockRoutes } from './audit-fixtures.mjs';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
@@ -28,7 +29,9 @@ const client = () => ({
   blurb: 'A fixture client for the site regression walk.',
   cover: '',
   year: '2026',
-  brand: { enabled: true, logo: { light: '', dark: 'https://example.com/logo.png' }, palette: [], typography: [], images: [], notes: '' },
+  // Site Prompt 7: one logo string, and a cover so the hero deck has a card.
+  brand: { enabled: true, logo: '/showcase/fixtures/logo.svg', palette: [], typography: [], images: [], notes: '' },
+  instagram: { enabled: false, handle: '', url: '', profileImage: '', posts: [], notes: '' },
   website: { enabled: false, url: '', screenshots: [], notes: '' },
   cards: { enabled: false, front: '', back: '', notes: '' },
   print: { enabled: false, items: [], notes: '' },
@@ -46,7 +49,7 @@ function payloadFor(slug) {
   return {
     clients: list,
     landing: {
-      logoStrip: list.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo.dark })),
+      logoStrip: list.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo })),
       work: list.filter(c => c.featured.work).map(c => ({ slug: c.slug, displayName: c.displayName, type: c.type, blurb: c.blurb, cover: c.cover })),
       testimonials: list.flatMap(c => c.testimonials.filter(t => t.published && t.featured).map(t => ({ ...t, business: c.displayName, slug: c.slug }))),
       stats: {},
@@ -168,6 +171,71 @@ await step('9. Contact: three cards, no form and no Calendly embed', async () =>
   if (await page.locator('form').count()) throw new Error('a form is still on the page');
   if (await page.locator('.calendly-inline-widget').count()) throw new Error('the Calendly embed is still on the page');
   if (!await page.locator('.ct-copy').count()) throw new Error('the email Copy button is missing');
+});
+
+/* Site Prompt 7, Part 3: the Showcase editor, end to end. The same fixture
+ * client this walk has been publishing through /api/showcase is edited in
+ * the admin instead: the save bar appears, Discard puts it back, Save sends
+ * one PATCH, and what that PATCH says is then what the public site serves,
+ * so the last two checks are the client on /clients and its cover in the
+ * hero deck on Home. */
+await step('10. Showcase editor: edit, save bar, discard, save, publish, live', async () => {
+  state.published = false;
+  state.c.featured.work = true;
+  const adminLead = {
+    _id: 'SITECHECK', business: 'Site Check Co', stage: 'client', callStatus: 'booked', clientStatus: 'active',
+    industry: 'Testing', clientSince: '2026-01-01T10:00:00Z', socials: {}, links: {}, reviews: { testimonials: [] },
+    showcase: { ...state.c, published: false, cover: '/showcase/fixtures/wide.svg' },
+  };
+  const patched = [];
+  await page.unroute('**/api/showcase**').catch(() => {});
+  await mockRoutes(page, {});
+  await page.route('**/api/admin/call-leads**', async (r) => {
+    if (r.request().method() === 'PATCH') {
+      let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch {}
+      patched.push(body);
+      if (body.set?.showcase) { adminLead.showcase = body.set.showcase; Object.assign(state.c, body.set.showcase); state.published = !!body.set.showcase.published; }
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) });
+    }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [adminLead] }) });
+  });
+
+  await page.goto(`${BASE}/admin/clients/SITECHECK/showcase`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(2000);
+  const barOpen = () => page.$eval('.sc-savebar', e => e.classList.contains('is-open')).catch(() => null);
+  if (await barOpen() !== false) throw new Error('the save bar was already open on a clean load');
+
+  // Edit: turn Publish on. It must not reach the public site yet.
+  await page.locator('.sc-publish .v-toggle').first().click({ timeout: 5000 });
+  await page.waitForTimeout(400);
+  if (await barOpen() !== true) throw new Error('the save bar did not appear after an edit');
+  if (patched.length) throw new Error('an edit wrote to the server before Save');
+
+  // Discard puts it back.
+  await page.locator('.sc-savebar button', { hasText: 'Discard' }).click();
+  // The dialog's own button, not the save bar's behind the overlay.
+  await page.locator('.v-modal button', { hasText: /^Discard$/ }).first().click({ timeout: 5000 });
+  await page.waitForTimeout(500);
+  if (await barOpen() !== false) throw new Error('Discard did not clear the unsaved state');
+
+  // Edit again and Save.
+  await page.locator('.sc-publish .v-toggle').first().click({ timeout: 5000 });
+  await page.waitForTimeout(300);
+  await page.locator('.sc-savebar button', { hasText: 'Save changes' }).click();
+  await page.waitForTimeout(1200);
+  if (patched.length !== 1) throw new Error(`expected exactly one PATCH, got ${patched.length}`);
+  if (!patched[0].set?.showcase?.published) throw new Error('the saved showcase was not published');
+  if (!patched[0].set?.reviews) throw new Error('the PATCH did not carry testimonials alongside the showcase');
+  if (await barOpen() !== false) throw new Error('the save bar stayed open after a successful save');
+
+  // And now the public site.
+  await page.unroute('**/api/admin/call-leads**').catch(() => {});
+  await mockAndGoto(page, '/clients');
+  if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /clients');
+  await mockAndGoto(page, '/');
+  const inDeck = await page.locator('.hero-card', { hasText: 'Site Check Co' }).count();
+  if (!inDeck) throw new Error('the published cover is not in the hero deck');
+  return 'one PATCH, then live on /clients and in the hero deck';
 });
 
 await browser.close();

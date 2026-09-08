@@ -11,7 +11,11 @@ export default function Sidebar({ collapsed, canToggle = true, onToggle, activeI
   return (
     <nav className={`sh-side${collapsed ? ' is-collapsed' : ''}`} aria-label="Admin sections">
       <button type="button" className="sh-side-brand" onClick={() => onGo('dashboard')} aria-label="Dashboard">
-        <img src="/logo.svg" alt="" width="28" height="28" />
+        {/* The brand mark is an image like any other (Site Prompt 7, Part 4):
+            a fixed box that contains it, never crops it. */}
+        <span className="img-fit img-fit--1x1 img-fit--contain sh-side-mark">
+          <img src="/logo.svg" alt="" width="28" height="28" />
+        </span>
         {!collapsed && <span className="sh-wordmark">Visualize<span className="sh-wordmark-dot">.</span></span>}
       </button>
       <div className="sh-side-groups">
@@ -74,6 +78,7 @@ export const sidebarStyles = `
   @media (min-width: 768px) { .sh-side { display: flex; } }
   .sh-side-brand { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-2); margin-bottom: var(--v-space-2); border: 0; background: transparent; border-radius: var(--v-radius-md); cursor: pointer; color: var(--v-sidebar-text); }
   .sh-side-brand:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .sh-side-mark { width: 28px; flex-shrink: 0; }
   .sh-side.is-collapsed .sh-side-brand { justify-content: center; padding: 0; }
   .sh-wordmark { font-family: var(--v-font-body); font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); letter-spacing: -0.02em; white-space: nowrap; }
   .sh-wordmark-dot { color: var(--v-red); }

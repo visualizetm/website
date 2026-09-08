@@ -47,7 +47,10 @@ export function clearShowcaseCache() { listCache = null; clientCache.clear(); }
  * other URL (a fixture, a Drive link) is returned unchanged, since there is
  * no transform endpoint to append it to. */
 export function capImageWidth(url, width = 1600) {
-  if (!url) return url;
+  // Defensive: a record written before a shape change (brand.logo was an
+  // object until Site Prompt 7) must degrade to a broken image, never take
+  // the whole page down with a TypeError.
+  if (!url || typeof url !== 'string') return '';
   const marker = '/image/upload/';
   const i = url.indexOf(marker);
   if (i === -1 || !url.includes('res.cloudinary.com')) return url;

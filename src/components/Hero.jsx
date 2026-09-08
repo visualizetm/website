@@ -34,6 +34,12 @@ const VH_PER_CARD = 0.8;
  * row beneath it: same links, same order, no motion and nothing pinned.
  * With no published clients at all it is the designed default graphic. */
 export default function Hero({ items }) {
+  // null while the CRM fetch is still in flight, an array once it answers.
+  // The difference matters: before the answer this shows one default cover
+  // and nothing else, so the row of extra covers never appears and then
+  // vanishes underneath the reader (which is where Home's layout shift on
+  // a phone came from).
+  const loading = items == null;
   const deck = (items || []).filter(i => i?.cover).slice(0, MAX_CARDS);
   const state = useScrollEngine();
   const stacked = state === 'on' && deck.length > 1;
@@ -71,7 +77,7 @@ export default function Hero({ items }) {
             <HeroCard item={first} index={0} count={1} priority />
           </div>
         </div>
-        {deck.length > 1 && (
+        {!loading && deck.length > 1 && (
           <ul className="hero-row" aria-label="More client work">
             {deck.slice(1).map((item, i) => (
               <li key={item.slug || i}><HeroCard item={item} index={i + 1} count={deck.length} small /></li>
@@ -183,7 +189,15 @@ const heroStyles = `
   /* var(--space-24) of top padding clears the floating navbar, which sits
      over the top of the panel once the hero is pinned. */
   .hero-inner { gap: var(--space-6); padding: var(--space-24) 0 var(--space-8); }
-  .hero--static { padding: var(--space-24) 0 var(--space-12); }
+  /* The static hero holds the same viewport-tall frame the pinned one does.
+     Home renders this first (the CRM fetch has not answered yet) and swaps
+     to the deck when it does; giving both the same frame means that swap
+     moves nothing, which is the difference between 0.089 CLS and 0. */
+  .hero--static {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 100vh; min-height: 100svh;
+    gap: var(--space-6); padding: var(--space-24) 0 var(--space-8);
+  }
 
   .hero-copy {
     max-width: 780px; margin: 0 auto; text-align: center;
@@ -191,7 +205,8 @@ const heroStyles = `
     transform: translate3d(0, calc(var(--pin-p, 0) * -80px), 0);
     will-change: transform, opacity;
   }
-  .m-pin--active .hero-copy { flex: 0 0 auto; }
+  .m-pin--active .hero-copy,
+  .hero--static > .hero-copy { flex: 0 0 auto; }
   .hero-title {
     font-size: clamp(2.1rem, 5.4vw, 3.75rem);
     color: var(--text);
@@ -213,7 +228,8 @@ const heroStyles = `
     display: flex; align-items: center; justify-content: center;
     width: 100%; padding: 0 var(--space-4);
   }
-  .m-pin--active .hero-deck-wrap { flex: 1 1 auto; min-height: 0; }
+  .m-pin--active .hero-deck-wrap,
+  .hero--static > .hero-deck-wrap { flex: 1 1 auto; min-height: 0; }
   .hero-deck {
     position: relative;
     width: 100%; max-width: 1100px; max-height: 100%;

@@ -92,7 +92,13 @@ function useReorder(list, commit) {
 function Thumb({ src, fallbackIcon = 'Image01' }) {
   const [broken, setBroken] = useState(false);
   if (!src || broken) return <IconTile icon={fallbackIcon} tone="neutral" size="sm" glow={false} />;
-  return <img src={src} alt="" className="ld-thumb" width={40} height={40} loading="lazy" decoding="async" onError={() => setBroken(true)} />;
+  // Site Prompt 7, Part 4: an admin preview of a showcase image is still a
+  // showcase image, so it sits in the same kind of box the site uses.
+  return (
+    <span className="img-fit img-fit--1x1 ld-thumb">
+      <img src={src} alt="" width={40} height={40} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+    </span>
+  );
 }
 
 function rowTrailing({ name, published, cut, extraItems = [], onMoveUp, onMoveDown, atStart, atEnd, onOpen }) {
@@ -387,7 +393,7 @@ export default function AdminLanding({ leads = [], projects = [], loading, error
 
 const ldStyles = `
   .ld-sections { display: flex; flex-direction: column; gap: var(--v-space-6); min-width: 0; }
-  .ld-thumb { width: 40px; height: 40px; object-fit: cover; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border); background: var(--v-surface-2); flex-shrink: 0; }
+  .ld-thumb { width: 40px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border); background: var(--v-surface-2); flex-shrink: 0; }
   .ld-warn { border-color: color-mix(in srgb, var(--v-status-danger-text) 40%, var(--v-border)); }
   .ld-warn-title { margin: 0; font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); color: var(--v-status-danger-text); }
   .ld-note { margin: calc(-1 * var(--v-space-2)) 0 0; }
