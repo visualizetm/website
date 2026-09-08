@@ -265,6 +265,11 @@ function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children 
 function PublishCard({ sh, write, writeRaw, readOnly }) {
   const toast = useToast();
   const url = sh.slug ? `https://visualizestudio.org/clients/${sh.slug}` : '';
+  /* The review prompt, part 4: the link to text them after a delivery. The
+     same slug as the showcase URL, so it exists the moment this client is
+     published, and the form on the other end fills in the business name and
+     offers Google afterwards. */
+  const reviewUrl = sh.slug ? `https://visualizestudio.org/review/${sh.slug}` : '';
   const setPublished = (v) => {
     // First publish with no slug yet: mirror the server's own slugify() so the
     // URL shown here matches what will be stored (barring a rare collision,
@@ -288,6 +293,18 @@ function PublishCard({ sh, write, writeRaw, readOnly }) {
             <IconButton icon="Copy01" label="Copy showcase URL" variant="ghost" onClick={() => copyText(toast, url, 'Showcase URL')} />
           </Row>
         )}
+      </div>
+      <div className="v-field">
+        <span className="v-field-label">Review link</span>
+        {reviewUrl ? (
+          <>
+            <Row gap={1} align="center" wrap>
+              <a href={reviewUrl} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate">{reviewUrl}</a>
+              <IconButton icon="Copy01" label="Copy review link" variant="ghost" onClick={() => copyText(toast, reviewUrl, 'Review link')} />
+            </Row>
+            <p className="sc-review-note">Text this to them once the work is delivered. Their name and business are filled in for them.</p>
+          </>
+        ) : <p className="sc-review-note">Set a slug and the review link appears here.</p>}
       </div>
       <Row gap={2} wrap>
         <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
@@ -804,6 +821,7 @@ const scStyles = `
   .lay-root .img-fit { background: var(--v-surface-3); border-radius: var(--v-radius-md); }
   .sc-thumb { width: 200px; max-width: 100%; border: 1px solid var(--v-border); }
   .sc-imgfield-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .sc-review-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .sc-upload-progress { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-2); }
   /* The preview doubles as a drop target on a desktop. It keeps its own
      dashed outline only while there is nothing in it, so a field with an

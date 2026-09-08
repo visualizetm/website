@@ -25,7 +25,9 @@ published to the showcase.
 | 10 | Open the client's Showcase editor (/clients/:id/showcase), change a field, use Discard, change it again, Save, then Publish | Nothing writes until Save (one PATCH per save), Discard restores the saved state, and the published cover then shows on /clients and in Home's hero deck. |
 | 11 | In the Showcase editor, use Upload on an image field and pick a file | The button goes busy, the returned Cloudinary URL lands in the field, and the preview appears in the box the public page will use. Needs the VITE_CLOUDINARY_* pair in the build; without it there is no Upload button and the paste path is the only path. |
 
-`scripts/site-regression.mjs` result (last run): 11/11 steps pass. Step 11
+| 12 | Open /review/<slug> for that client, fill it in, pick five stars, send | The line reads "Thanks for working with me on <name>", the business field is filled and read only, and after sending the form is replaced by "Thanks. That means a lot." with a Leave one on Google too button (four or five stars and a Google link on file). The review lands in the admin's Reviews screen under Form submissions, carrying the slug, so Link to client is one tap. |
+
+`scripts/site-regression.mjs` result (last run): 12/12 steps pass. Step 11
 reports "skipped" against a build with no VITE_CLOUDINARY_* configuration,
 since no Upload button renders there.
 

@@ -100,6 +100,11 @@ function publicClient(lead) {
     },
     testimonials: publicTestimonials(lead.reviews?.testimonials),
     socials: publicSocials(lead.socials),
+    /* The review prompt: the client's own Google review link, so /review/<slug>
+     * can offer "Leave one on Google too" after a four or five star review.
+     * It is a link meant to be handed to that business's customers, which is
+     * the only reason it is public; nothing else from reviews is. */
+    googleReview: strOrNull(lead.reviews?.googleLink) || '',
   };
 }
 

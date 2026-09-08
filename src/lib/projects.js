@@ -138,6 +138,8 @@ export const DELIVERY_STEPS = [
   { id: 'driveShared', label: 'Drive folder shared as Viewer' },
   { id: 'emailSent', label: 'Delivery email sent' },
   { id: 'pitchSent', label: 'Retainer pitch sent' },
+  // The review prompt: the /review/<slug> link, sent after the files are.
+  { id: 'reviewLinkSent', label: 'Review link sent' },
   { id: 'followUp', label: `Follow up scheduled in ${FOLLOW_UP_DAYS} days` },
 ];
 
@@ -224,7 +226,7 @@ export function buildProject(leadId, pick, opts = {}) {
   return {
     leadId, name, kind, packageId, custom, stage: 'kickoff', stages: stagesFor(kind), total, schedule: items,
     revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan, links: { drive: opts.drive || '', clickup: opts.clickup || '' },
-    deliverables: deliverablesFor(kind), delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
+    deliverables: deliverablesFor(kind), delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
   };
 }
 export function buildRetainerProject(leadId, planId, startDate, billDay) {
@@ -232,7 +234,7 @@ export function buildRetainerProject(leadId, planId, startDate, billDay) {
   return {
     leadId, name: `${r.label} retainer`, kind: 'retainer', packageId: r.id, stage: 'kickoff', stages: stagesFor('retainer'), total: 0,
     schedule: retainerSchedule(r.price, startDate, billDay), revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan: null, links: { drive: '', clickup: '' },
-    deliverables: [], delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
+    deliverables: [], delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
     retainer: { planId: r.id, billDay, startedAt: startDate },
   };
 }

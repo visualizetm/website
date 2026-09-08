@@ -16,6 +16,9 @@ const CaseStudy = lazy(() => import('./pages/CaseStudy'));
 const Contact = lazy(() => import('./pages/Contact'));
 const LeadPartner = lazy(() => import('./pages/LeadPartner'));
 const Start = lazy(() => import('./pages/Start'));
+/* The review form. Nothing links to it: it is a link Rob sends after a
+ * delivery, so it is noindex and out of the sitemap. */
+const Review = lazy(() => import('./pages/Review'));
 /* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
  * in the marketing branch below, so the admin's entry never carries the
  * loader or the gsap/lenis chunk URLs behind it. */
@@ -137,6 +140,8 @@ export default function App() {
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
           <Route path="/start"       element={<Start />} />
+          <Route path="/review"       element={<Review />} />
+          <Route path="/review/:slug" element={<Review />} />
         </Routes>
       </main>
       <Footer />

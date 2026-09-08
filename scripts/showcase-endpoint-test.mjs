@@ -48,6 +48,8 @@ const fullClient = {
     updatedAt: now,
   },
   reviews: {
+    googleLink: 'https://g.page/r/full-client/review',
+    nfcCard: true,
     testimonials: [
       { id: 't1', quote: 'Great work.', author: 'Jamie Owner', role: 'Owner', rating: 5, source: 'text', published: true, featured: true, order: 0, at: now.toISOString() },
       { id: 't2', quote: 'Hidden draft quote.', author: 'Someone', role: '', rating: 3, source: 'email', published: false, featured: false, order: 1, at: now.toISOString() },
@@ -175,7 +177,7 @@ async function callShowcase(query = {}) {
 let fails = 0;
 const ok = (c, m, extra = '') => { console.log((c ? 'ok   ' : 'FAIL ') + m + (extra ? `  ${extra}` : '')); if (!c) fails++; };
 
-const WHITELIST = ['slug', 'displayName', 'type', 'blurb', 'cover', 'year', 'brand', 'website', 'instagram', 'cards', 'print', 'featured', 'testimonials', 'socials'].sort();
+const WHITELIST = ['slug', 'displayName', 'type', 'blurb', 'cover', 'year', 'brand', 'website', 'instagram', 'cards', 'print', 'featured', 'testimonials', 'socials', 'googleReview'].sort();
 // Key names to check are absent entirely (showcase.*.notes is a real,
 // intentionally public whitelisted field, so "notes" itself is checked by
 // value below, not by key).
@@ -202,6 +204,10 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   ok(full.brand.typography.some(t => t.family === 'Barlow Condensed' && t.role === 'Display'), 'brand.typography computed live from lead.brand');
   ok(full.testimonials.length === 1 && full.testimonials[0].quote === 'Great work.', 'only the PUBLISHED testimonial is returned, the draft one is excluded');
   ok(Object.keys(full.socials).sort().join(',') === 'facebook,instagram,website', 'socials whitelist is exactly instagram, facebook, website (tiktok excluded)');
+  // The review prompt: the Google review link is public (it is the link the
+  // client hands their own customers), and nothing else from reviews is.
+  ok(full.googleReview === 'https://g.page/r/full-client/review', `googleReview carries the client's Google link (got ${JSON.stringify(full.googleReview)})`);
+  ok(!dump.includes('nfcCard') && !dump.includes('asks'), 'the rest of the reviews record (NFC card, asks, counts) stays private');
   // Site Prompt 7, Part 5: one logo string, migrated at read from the old pair.
   ok(typeof full.brand.logo === 'string', `brand.logo is a single string, not a light/dark pair (got ${typeof full.brand.logo})`);
   ok(full.brand.logo === 'https://img.example/full-logo-dark.png', 'brand.logo prefers the stored dark logo for a record written before the change');

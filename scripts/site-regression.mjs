@@ -44,6 +44,7 @@ const client = () => ({
   cards: { enabled: false, front: '', back: '', notes: '' },
   print: { enabled: false, items: [], notes: '' },
   featured: { landing: false, logoStrip: false, work: false, order: 0 },
+  googleReview: '',
   testimonials: [],
   socials: {},
 });
@@ -305,6 +306,51 @@ await step('11. Showcase editor: upload an image, see it land in the field', asy
   const preview = await field.locator('.sc-thumb img').getAttribute('src').catch(() => null);
   if (preview !== UPLOADED) throw new Error(`the preview shows "${preview}"`);
   return 'busy state, one POST with the preset and no secret, URL and preview in place';
+});
+
+/* The review prompt: /review/<slug>, filled in and submitted against a
+ * mocked /api/submissions. The point of the step is the body: the slug and
+ * the rating have to reach the endpoint, since that is what lets the admin
+ * match the review to the client in one tap. */
+await step('12. Review form: fill it, submit, see the thank you', async () => {
+  state.published = true;
+  state.c.googleReview = 'https://g.page/r/sitecheck/review';
+  let body = null;
+  await page.unroute('**/api/showcase**').catch(() => {});
+  await page.route('**/api/submissions', (r) => {
+    try { body = JSON.parse(r.request().postData() || '{}'); } catch { body = null; }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, id: 'SUB1' }) });
+  });
+  await mockAndGoto(page, '/review/sitecheck-co');
+
+  const lead = (await page.locator('.rvw-lead').innerText()).trim();
+  if (!/Site Check Co/.test(lead)) throw new Error(`the slug line reads "${lead}"`);
+  const biz = await page.locator('#rvw-business').inputValue();
+  if (biz !== 'Site Check Co') throw new Error(`the business field holds "${biz}"`);
+  if (!await page.locator('#rvw-business').getAttribute('readonly').then(v => v !== null)) throw new Error('the pre-filled business field is editable');
+  if (!/noindex/.test(await page.locator('meta[name=robots]').getAttribute('content') || '')) throw new Error('the page is not noindex');
+
+  await page.fill('#rvw-name', 'Jamie Owner');
+  await page.locator('.rvw-star[data-star="5"]').click();
+  await page.fill('#rvw-text', 'Fast, clear, and the logo landed on the first try.');
+  await page.fill('#rvw-email', 'jamie@sitecheck.example');
+  await page.locator('.rvw-btn[type=submit]').click();
+  await page.waitForTimeout(900);
+
+  if (!body) throw new Error('nothing was posted to /api/submissions');
+  const want = { type: 'review', slug: 'sitecheck-co', rating: 5, name: 'Jamie Owner', business: 'Site Check Co' };
+  for (const [k, v] of Object.entries(want)) if (body[k] !== v) throw new Error(`body.${k} was ${JSON.stringify(body[k])}, expected ${JSON.stringify(v)}`);
+  if (!body.text) throw new Error('the review text did not reach the endpoint');
+  if (body.company !== '') throw new Error('the honeypot was not empty');
+
+  const thanks = (await page.locator('.rvw-title').innerText()).trim();
+  // innerText comes back through the heading's own text-transform, so match
+  // case insensitively rather than on the styled capitals.
+  if (!/thanks/i.test(thanks)) throw new Error(`the thank you never appeared (heading is "${thanks}")`);
+  const google = page.locator('.rvw-done a', { hasText: 'Google' });
+  if (!await google.count()) throw new Error('a five star review did not offer the Google link');
+  if (await google.getAttribute('href') !== state.c.googleReview) throw new Error('the Google button points somewhere else');
+  return 'slug line, locked business, five stars and the slug in the body, thank you with the Google prompt';
 });
 
 await browser.close();

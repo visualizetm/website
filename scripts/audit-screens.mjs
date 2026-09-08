@@ -88,6 +88,14 @@ export const SCREENS = [
   // AUDIT_ONLY=settings "shop checkout end to end" walk, not here.
   { id: 'mkt-contact', screen: 'Contact (marketing)', label: 'full', path: '/contact', session: false, static: true, marketing: true },
   { id: 'mkt-start', screen: 'Start (marketing)', label: 'intro', path: '/start', session: false, static: true, marketing: true },
+  /* The review prompt: /review, and /review/<slug> for a link sent to one
+     client (the slug pre-fills the business and unlocks the Google prompt
+     after a four or five star review). Nothing on the site links here; it
+     is noindex and out of the sitemap, but it is still a public page and
+     gets audited like one. */
+  { id: 'mkt-review', screen: 'Review (marketing)', label: 'form, no slug', path: '/review', session: false, static: true, marketing: true },
+  { id: 'mkt-review-slug', screen: 'Review (marketing)', label: 'form, client slug', path: '/review/full-showcase-co', session: false, static: true, marketing: true },
+  { id: 'mkt-review-unknown', screen: 'Review (marketing)', label: 'unknown slug falls back to the generic form', path: '/review/does-not-exist', session: false, static: true, marketing: true },
   // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
   // the React root, not a route, so unlike every other marketing: true
   // entry above it only renders against a build made with that env var

@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+# The review form is a link sent after a delivery, not a page to browse to.
+Disallow: /review
 
 Sitemap: https://visualizestudio.org/sitemap.xml

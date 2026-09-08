@@ -264,7 +264,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
 
   /* Delivery checklist (Delivered stage). */
   const setDelivery = async (p, id, v) => {
-    const d = { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '', ...(p.delivery || {}) };
+    const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(p.delivery || {}) };
     if (id === 'followUp') {
       if (v) {
         const at = new Date(); at.setDate(at.getDate() + FOLLOW_UP_DAYS); at.setHours(10, 0, 0, 0);

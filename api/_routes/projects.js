@@ -43,7 +43,7 @@ function sanitize(b) {
     links: b.links && typeof b.links === 'object' ? { drive: str(b.links.drive, 400), clickup: str(b.links.clickup, 400) } : undefined,
     deliverables: Array.isArray(b.deliverables)
       ? b.deliverables.slice(0, 60).map(d => ({ id: str(d?.id, 40), group: str(d?.group, 8), label: str(d?.label, 120), done: !!d?.done, link: str(d?.link, 400) })) : undefined,
-    delivery: b.delivery && typeof b.delivery === 'object' ? { driveShared: !!b.delivery.driveShared, emailSent: !!b.delivery.emailSent, pitchSent: !!b.delivery.pitchSent, followUpLeadCallbackAt: str(b.delivery.followUpLeadCallbackAt, 40) } : undefined,
+    delivery: b.delivery && typeof b.delivery === 'object' ? { driveShared: !!b.delivery.driveShared, emailSent: !!b.delivery.emailSent, pitchSent: !!b.delivery.pitchSent, reviewLinkSent: !!b.delivery.reviewLinkSent, followUpLeadCallbackAt: str(b.delivery.followUpLeadCallbackAt, 40) } : undefined,
     releasedAt: b.releasedAt !== undefined ? str(b.releasedAt, 40) : undefined,
     monthly: Array.isArray(b.monthly)
       ? b.monthly.slice(-60).map(m => ({

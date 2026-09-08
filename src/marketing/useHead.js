@@ -15,7 +15,11 @@ import { useEffect } from 'react';
 
 export const DEFAULT_OG_IMAGE = '/og-default.png';
 
-export function useHead({ title, description, ogImage }) {
+/* noindex: the one page that is a link Rob sends rather than a page anyone
+ * browses to (/review) asks crawlers to stay out. The tag is removed on
+ * unmount like every other tag this hook creates, so navigating away from
+ * it does not leave the rest of the site noindex. */
+export function useHead({ title, description, ogImage, noindex = false }) {
   useEffect(() => {
     if (!title) return undefined;
     const prevTitle = document.title;
@@ -38,10 +42,11 @@ export function useHead({ title, description, ogImage }) {
     setMeta('og:title', 'property', title);
     setMeta('og:description', 'property', description);
     setMeta('og:image', 'property', ogImage || DEFAULT_OG_IMAGE);
+    if (noindex) setMeta('robots', 'name', 'noindex, nofollow');
 
     return () => {
       document.title = prevTitle;
       created.forEach(el => el.remove());
     };
-  }, [title, description, ogImage]);
+  }, [title, description, ogImage, noindex]);
 }

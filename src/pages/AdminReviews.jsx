@@ -116,6 +116,10 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
   const list = useMemo(() => clients.filter(l => reviewPasses(l, projects, filter, now) && (!q.trim() || matchesSearch(l, q))), [clients, projects, filter, q, now]);
   const sel = selId ? leads.find(l => String(l._id) === String(selId)) : null;
   const forms = useMemo(() => submissions.filter(s => s.type === 'review' && !s.deleted), [submissions]);
+  /* Published showcase slug -> the client it belongs to, for matching a
+     review that came in through /review/<slug>. Published only: an
+     unpublished slug is not a link anyone could have followed. */
+  const bySlug = useMemo(() => new Map(clients.filter(l => l.showcase?.published && l.showcase?.slug).map(l => [l.showcase.slug, l])), [clients]);
   const left = clients.reduce((n, l) => n + asksOf(l).filter(a => a.result === 'left').length, 0);
   const summary = `${clients.length} client${clients.length === 1 ? '' : 's'}, ${counts.nfc} with the NFC card, ${left} review${left === 1 ? '' : 's'} logged as left`;
   const linkForm = async (sub, lead) => {
@@ -149,7 +153,14 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
         {!loading && (
           <Section title="Form submissions" description={forms.length ? `${forms.length} from the website review form` : undefined}>
             {!forms.length && <Card><EmptyState size="sm" icon="Inbox01" title={E('reviews.forms').title} description={E('reviews.forms').description} /></Card>}
-            {forms.length > 0 && <Stack gap={2}>{forms.map(s => { const linked = s.linkedLeadId ? leads.find(l => String(l._id) === String(s.linkedLeadId)) : null; return <ListRow key={s._id} leading={<IconTile icon="Star01" tone="won" size="sm" glow={false} />} title={`${s.business || s.name}${s.fields?.rating ? `, ${s.fields.rating} stars` : ''}`} subtitle={s.fields?.text || s.name} meta={fmtDate(s.createdAt)} trailing={linked ? <Pill tone="booked" label={linked.business} size="sm" icon={false} /> : <Button variant="secondary" size="md" onClick={() => setLinkSub(s)} className="rv-link-form">Link to client</Button>} chevron={false} className="rv-form-row" />; })}</Stack>}
+            {forms.length > 0 && <Stack gap={2}>{forms.map(s => {
+              const linked = s.linkedLeadId ? leads.find(l => String(l._id) === String(s.linkedLeadId)) : null;
+              /* The review prompt: a review sent from /review/<slug> carries
+                 that slug, so the client it belongs to is already known and
+                 Link to client is one tap rather than a picker. */
+              const match = !linked && s.fields?.slug ? bySlug.get(s.fields.slug) : null;
+              return <ListRow key={s._id} leading={<IconTile icon="Star01" tone="won" size="sm" glow={false} />} title={`${s.business || s.name}${s.fields?.rating ? `, ${s.fields.rating} stars` : ''}`} subtitle={s.fields?.text || s.name} meta={fmtDate(s.createdAt)} trailing={linked ? <Pill tone="booked" label={linked.business} size="sm" icon={false} /> : match ? <Row gap={2} align="center" wrap><Pill tone="new" label={match.business} size="sm" icon="Link01" /><Button variant="secondary" size="md" onClick={() => linkForm(s, match)} className="rv-link-form">Link to {match.business}</Button></Row> : <Button variant="secondary" size="md" onClick={() => setLinkSub(s)} className="rv-link-form">Link to client</Button>} chevron={false} className="rv-form-row" />;
+            })}</Stack>}
           </Section>
         )}
       </ScrollArea>

@@ -259,6 +259,9 @@ function publicClientOf(lead) {
     featured: sh.featured || { landing: false, logoStrip: false, work: false, order: 0 },
     testimonials: (lead.reviews?.testimonials || []).filter(t => t.published).map(t => ({ quote: t.quote, author: t.author, role: t.role, rating: t.rating, source: t.source })),
     socials: { instagram: lead.socials?.instagram || null, facebook: lead.socials?.facebook || null, website: lead.socials?.website || null },
+    // The review prompt: /review/<slug> reads this to offer Google after a
+    // four or five star review.
+    googleReview: lead.reviews?.googleLink || '',
   };
 }
 export const SHOWCASE_PUBLISHED = leads.filter(l => l.showcase?.published);
