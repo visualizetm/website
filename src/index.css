@@ -521,6 +521,34 @@ h1, h2, h3, h4, h5, h6 {
   to   { transform: translateX(-50%); }
 }
 
+/* ── Image boxes (Site Prompt 7, Part 4) ──────────────────────────────
+   The one rule every image on the marketing site and in the admin's
+   showcase previews goes through: a box with a declared aspect ratio that
+   clips, and an image that covers it. An image can then never be taller
+   than its box, never push a neighbour down, and never spill over the
+   card next to it, whatever shape the client uploaded. Always pair it
+   with width and height attributes on the <img> so the box is reserved
+   before the file arrives.
+
+   Ratios are named after what they hold, not after the number, so a page
+   that changes its mind about a ratio changes one class here. --contain
+   is for logos, which must never be cropped. */
+.img-fit {
+  position: relative;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+.img-fit > img,
+.img-fit > picture > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.img-fit--16x9 { aspect-ratio: 16 / 9; }
+
 /* ── Scroll-driven set (Site Prompt 6, src/marketing/scroll.js) ───────
    gsap + ScrollTrigger scrub these; Lenis smooths the scroll that drives
    them. Every animated property here is transform or opacity, nothing

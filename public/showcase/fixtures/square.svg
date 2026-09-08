@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000" role="img">
+  <defs>
+    <pattern id="p" width="80" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+      <rect width="40" height="80" fill="#d4a24c" opacity="0.18"/>
+    </pattern>
+  </defs>
+  <rect width="1000" height="1000" fill="#33291f"/>
+  <rect width="1000" height="1000" fill="url(#p)"/>
+  <rect x="8" y="8" width="984" height="984" fill="none" stroke="#d4a24c" stroke-width="8"/>
+  <circle cx="500" cy="500" r="166" fill="#d4a24c" opacity="0.5"/>
+  <text x="500" y="500" fill="#ffffff" font-family="monospace" font-size="83" text-anchor="middle" dominant-baseline="middle">1000x1000</text>
+</svg>

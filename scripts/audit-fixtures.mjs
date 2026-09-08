@@ -58,12 +58,12 @@ export const PIPE_EXTRA = {
         // Site Prompt 2/3 fixture: the "all four sections" published showcase client.
         showcase: {
           published: true, slug: 'full-showcase-co', displayName: LONG, type: 'Auto Detailing',
-          blurb: 'Mobile detailing that never misses a spot, booked end to end online.', cover: 'https://picsum.photos/seed/full11/1600/1000', year: '2026',
-          brand: { enabled: true, logo: { light: 'https://picsum.photos/seed/logo11l/400/400', dark: 'https://picsum.photos/seed/logo11d/400/400' },
-            images: [{ link: 'https://picsum.photos/seed/brand11a/1600/900', caption: 'Fleet wrap' }, { link: 'https://picsum.photos/seed/brand11b/1600/900', caption: '' }], notes: 'Full brand refresh, ' + UNBROKEN.slice(0, 30) },
-          website: { enabled: true, url: 'https://example.com/full-showcase', screenshots: [{ link: 'https://picsum.photos/seed/web11/1600/900', caption: 'Booking page' }], notes: '' },
-          cards: { enabled: true, front: 'https://picsum.photos/seed/card11f/1050/600', back: 'https://picsum.photos/seed/card11b/1050/600', notes: '' },
-          print: { enabled: true, items: [{ label: 'Door hanger', image: 'https://picsum.photos/seed/print11/1600/1000', caption: 'Neighborhood drop' }, { label: 'Yard sign', image: '', caption: 'No image yet' }], notes: '' },
+          blurb: 'Mobile detailing that never misses a spot, booked end to end online.', cover: '/showcase/fixtures/wide.svg', year: '2026',
+          brand: { enabled: true, logo: { light: '/showcase/fixtures/logo.svg', dark: '/showcase/fixtures/logo.svg' },
+            images: [{ link: '/showcase/fixtures/portrait.svg', caption: 'Fleet wrap' }, { link: '/showcase/fixtures/pano.svg', caption: '' }], notes: 'Full brand refresh, ' + UNBROKEN.slice(0, 30) },
+          website: { enabled: true, url: 'https://example.com/full-showcase', screenshots: [{ link: '/showcase/fixtures/wide.svg', caption: 'Booking page' }], notes: '' },
+          cards: { enabled: true, front: '/showcase/fixtures/pano.svg', back: '/showcase/fixtures/portrait.svg', notes: '' },
+          print: { enabled: true, items: [{ label: 'Door hanger', image: '/showcase/fixtures/square.svg', caption: 'Neighborhood drop' }, { label: 'Yard sign', image: '', caption: 'No image yet' }], notes: '' },
           featured: { landing: true, logoStrip: true, work: true, order: 0 },
           updatedAt: NOW_ISO,
         } },
@@ -79,7 +79,7 @@ export const PIPE_EXTRA = {
         // Site Prompt 2/3 fixture: the "brand only" published showcase client, every other section off/empty.
         showcase: {
           published: true, slug: 'brand-only-co', displayName: 'Lead Business 12', type: '', blurb: 'Only the brand section is set up so far.', cover: '', year: '',
-          brand: { enabled: true, logo: { light: '', dark: 'https://picsum.photos/seed/logo12d/400/400' }, images: [], notes: '' },
+          brand: { enabled: true, logo: { light: '', dark: '/showcase/fixtures/logo.svg' }, images: [], notes: '' },
           website: { enabled: false, url: '', screenshots: [], notes: '' },
           cards: { enabled: false, front: '', back: '', notes: '' },
           print: { enabled: false, items: [], notes: '' },
@@ -100,6 +100,41 @@ export const PIPE_EXTRA = {
           cards: { enabled: false, front: '', back: '', notes: '' },
           print: { enabled: false, items: [], notes: '' },
           featured: { landing: false, logoStrip: false, work: false, order: 0 },
+          updatedAt: NOW_ISO,
+        } },
+  // Site Prompt 7 fixtures: two more published clients so the hero deck has a
+  // real stack to flip through, and so cover cropping is exercised by a
+  // portrait and a panoramic image, not only by the 16:9 one.
+  14: { stage: 'client', callStatus: 'booked', clientSince: '2026-10-01T10:00:00Z', clientStatus: 'active',
+        showcase: {
+          published: true, slug: 'portrait-co', displayName: 'Portrait Cover Co', type: 'Beauty and Barbers',
+          blurb: 'A tall cover, to prove the box crops instead of the page stretching.',
+          cover: '/showcase/fixtures/portrait.svg', year: '2026',
+          brand: { enabled: true, logo: { light: '', dark: '/showcase/fixtures/logo.svg' }, images: [{ link: '/showcase/fixtures/square.svg', caption: 'Square' }], notes: '' },
+          website: { enabled: true, url: 'https://example.com/portrait', screenshots: [{ link: '/showcase/fixtures/pano.svg', caption: 'Panoramic shot' }], notes: '' },
+          cards: { enabled: false, front: '', back: '', notes: '' },
+          print: { enabled: true, items: [{ label: 'Sticker', image: '/showcase/fixtures/portrait.svg', caption: 'Tall' }], notes: '' },
+          instagram: { enabled: true, handle: 'portraitco', url: 'https://www.instagram.com/portraitco/', profileImage: '/showcase/fixtures/square.svg',
+            posts: [
+              { link: 'https://www.instagram.com/p/aaa/', caption: 'Fresh fade' },
+              { link: 'https://www.instagram.com/p/bbb/', caption: '' },
+              { link: 'https://www.instagram.com/p/ccc/', caption: 'Shop front' },
+              { link: 'https://www.instagram.com/p/ddd/', caption: '' },
+            ].map((x, i) => ({ ...x, image: i % 2 ? '/showcase/fixtures/portrait.svg' : '/showcase/fixtures/pano.svg' })),
+            notes: '' },
+          featured: { landing: true, logoStrip: true, work: true, order: 2 },
+          updatedAt: NOW_ISO,
+        } },
+  15: { stage: 'client', callStatus: 'booked', clientSince: '2026-09-01T10:00:00Z', clientStatus: 'active',
+        showcase: {
+          published: true, slug: 'pano-co', displayName: 'Panorama Print Co', type: 'Shops and Products',
+          blurb: 'A very wide cover in the same box as everyone else.',
+          cover: '/showcase/fixtures/pano.svg', year: '2025',
+          brand: { enabled: true, logo: { light: '/showcase/fixtures/logo.svg', dark: '' }, images: [], notes: '' },
+          website: { enabled: false, url: '', screenshots: [], notes: '' },
+          cards: { enabled: true, front: '/showcase/fixtures/square.svg', back: '/showcase/fixtures/portrait.svg', notes: '' },
+          print: { enabled: false, items: [], notes: '' },
+          featured: { landing: true, logoStrip: false, work: true, order: 3 },
           updatedAt: NOW_ISO,
         } },
 };
@@ -154,7 +189,7 @@ export const packs = [
   { _id: 'K2', title: 'Auto detailing social grid ' + UNBROKEN.slice(0, 20), leadId: 'L8', industryKey: 'auto detailing', kind: 'social', tags: ['grid', 'before and after'], prompts: [{ id: 'p4', label: 'Nine post grid', text: 'A nine post Instagram grid for a mobile detailer.' }], images: [{ id: 'm1', label: 'Grid mock', link: 'https://example.com/grid.png' }, { id: 'm2', label: 'Story', link: 'https://example.com/story.jpg' }, { id: 'm3', label: 'Drive folder', link: 'https://drive.google.com/drive/folders/x' }], notes: '', usedFor: ['L8'], lastUsedAt: daysFrom(-2), createdAt: daysFrom(-20), updatedAt: daysFrom(-2) },
 ];
 
-export const leads = Array.from({ length: 14 }, (_, i) => ({
+export const leads = Array.from({ length: 16 }, (_, i) => ({
   ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
   ...(PIPE_EXTRA[i] || {}),
   _id: 'L' + i,

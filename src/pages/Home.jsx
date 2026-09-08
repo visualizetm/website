@@ -50,11 +50,16 @@ export default function Home() {
   const landing = data?.landing || EMPTY.landing;
   const clients = data?.clients || [];
   const work = landing.work || [];
-  const work0 = work[0];
+  /* Site Prompt 7, Part 1: the hero deck is every showcased cover. The
+   * landing's own featured work when there is any, otherwise the newest
+   * published clients, which the list already arrives sorted as. */
+  const deck = (work.length ? work : clients).map(c => ({
+    slug: c.slug, displayName: c.displayName, type: c.type, cover: c.cover,
+  }));
 
   return (
     <>
-      <Hero cover={work0 ? { src: work0.cover, alt: `${work0.displayName} project` } : null} />
+      <Hero items={deck} />
 
       <Curtain className="home-panel">
         <Trust clients={clients} />
