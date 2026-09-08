@@ -129,6 +129,10 @@ const bkStyles = `
   .bk-panel { padding: var(--v-space-3); }
   .bk-panel-scroll { padding: 0; }
   @media (min-width: 1024px) and (max-width: 1279px) { .bk-panel--rail { width: 232px; } }
-  .bk-main { display: flex; flex-direction: column; min-width: 0; }
+  /* min-height: 0 is not optional on a flex item that holds a scroller:
+     without it the item's automatic minimum size is its content, so it
+     grows to the full height of the detail and the ScrollArea inside it
+     has nothing left to scroll (the mobile scroll fix). */
+  .bk-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
   @media (max-width: 767px) { .aa-app.has-detail .aa-main.bk-main { display: flex; } }
 `;

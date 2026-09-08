@@ -521,9 +521,17 @@ const aaStyles = `
     .aa-app { flex-direction: column; }
     .aa-panel { width: 100%; flex: 1; border-right: none; }
     .aa-main { display: none; }
-    .aa-main--wide { display: block; flex: 1; }
+    /* display: flex with min-height: 0, not display: block (the mobile
+       scroll fix). These two rules used to turn the screen's shell into a
+       block box on a phone, which takes its ScrollArea out of the flex
+       column: flex: 1 1 auto then means nothing, the scroller sizes itself
+       to its content, and there is nothing left to scroll. The shell has
+       to stay a flex column that is allowed to shrink, exactly as it is
+       on a desktop, or the whole layout contract in LAYOUT.md stops
+       holding at the one width where it matters most. */
+    .aa-main--wide { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .aa-app.has-detail .aa-panel { display: none; }
-    .aa-app.has-detail .aa-main { display: block; flex: 1; }
+    .aa-app.has-detail .aa-main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
     .aa-embed { flex: 1; min-height: 0; }
   }
 `;

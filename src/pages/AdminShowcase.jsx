@@ -660,7 +660,13 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
         </Section>
       </div>
 
-      {/* The save bar rises the moment the draft differs from what is live. */}
+      </ScrollArea>
+
+      {/* The save bar rises the moment the draft differs from what is live.
+          It sits outside the ScrollArea: it is a fixed overlay belonging to
+          the page, not scroll content, and leaving it inside the scroller
+          meant the scroller reserved no room for it. The space it needs is
+          reserved through the kit's own --v-scroll-extra hook above. */}
       <div className={`sc-savebar${dirty ? ' is-open' : ''}`} role="status" aria-hidden={dirty ? undefined : 'true'}>
         <Row gap={2} align="center" wrap>
           <span className="sc-savebar-msg">You have unsaved changes</span>
@@ -670,7 +676,6 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           </Row>
         </Row>
       </div>
-      </ScrollArea>
       {confirmDialog}
       <style>{scStyles}</style>
     </PageShell>
@@ -678,7 +683,13 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
 }
 
 const scStyles = `
-  .sc-scroll { padding-bottom: 132px; }
+  /* --v-scroll-extra is the kit's own hook for "reserve room at the bottom
+     of this scroller": ScrollArea folds it into both padding-bottom and
+     scroll-padding-bottom. Setting padding-bottom here instead lost to
+     .lay-scroll's own padding shorthand, so the last card sat under the
+     save bar and, on a phone, under the tab bar too. The shell already
+     reserves the tab bar itself; this is the save bar's own height. */
+  .sc-scroll { --v-scroll-extra: 104px; }
   .sc-topbar {
     position: sticky; top: 0; z-index: 5;
     padding: var(--v-space-3) 0;

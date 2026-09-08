@@ -67,6 +67,72 @@ async function collectSmallTargets(page) {
   }, [TARGET_SEL, TARGET_MIN]);
 }
 
+/* The scroll check (the admin mobile scroll fix). Every admin screen has
+ * one scroller, the kit's .lay-scroll, and two things have to be true of
+ * it: it can actually reach its own bottom, and the last thing in it is
+ * fully visible above the tab bar and above any floating bar over it.
+ *
+ * The first catches the failure this check was written for: a flex item
+ * in the chain without min-height: 0 grows to its content, the scroller
+ * inherits that height, clientHeight equals scrollHeight, and the page
+ * silently stops scrolling with everything below the fold unreachable.
+ * The second catches content hidden behind the chrome.
+ *
+ * .lay-scroll's scroll-behavior is smooth, so the scroll is done with it
+ * turned off, or the read below happens mid-animation and every screen
+ * looks stuck. The scroll position is restored afterwards. */
+async function collectScrollProblems(page) {
+  return page.evaluate(async () => {
+    const frame = () => new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const scrollers = [...document.querySelectorAll('.lay-scroll')].filter(e => e.offsetParent !== null && e.clientHeight > 40);
+    if (!scrollers.length) return [];
+    const main = scrollers.sort((a, b) => b.clientHeight - a.clientHeight)[0];
+    const out = [];
+    const name = `.${String(main.className || '').split(' ').slice(0, 2).join('.')}`;
+    const prevTop = main.scrollTop;
+    const prevBehavior = main.style.scrollBehavior;
+    main.style.scrollBehavior = 'auto';
+    main.scrollTop = main.scrollHeight;
+    await frame();
+    const reached = main.scrollTop + main.clientHeight >= main.scrollHeight - 4;
+    if (!reached) {
+      out.push({ kind: 'stuck', el: name, h: Math.round(main.clientHeight), sh: Math.round(main.scrollHeight), top: Math.round(main.scrollTop) });
+    }
+    /* The scroller itself must fit on the screen. When it does not, it has
+     * grown to its content instead of being constrained, clientHeight
+     * equals scrollHeight, "reached the bottom" is trivially true, and the
+     * page does not scroll at all. Naming that directly beats reporting
+     * only its symptom. */
+    const box = main.getBoundingClientRect();
+    if (box.bottom > window.innerHeight + 1) {
+      out.push({ kind: 'oversized', el: name, h: Math.round(main.clientHeight), sh: Math.round(main.scrollHeight), bottom: Math.round(box.bottom) });
+    }
+    const content = main.querySelector(':scope > .lay-content') || main;
+    const kids = [...content.children].filter((e) => {
+      const cs = getComputedStyle(e);
+      return cs.display !== 'none' && cs.visibility !== 'hidden' && cs.position !== 'fixed' && e.getBoundingClientRect().height > 4;
+    });
+    const last = kids[kids.length - 1]?.getBoundingClientRect();
+    if (last) {
+      const tabBar = document.querySelector('.sh-tabs')?.getBoundingClientRect();
+      const floating = [...document.querySelectorAll('.sc-savebar.is-open, .v-stickyfooter')]
+        .map(e => e.getBoundingClientRect()).filter(r => r.height > 4);
+      const limit = Math.min(
+        window.innerHeight,
+        tabBar && tabBar.height > 4 ? tabBar.top : window.innerHeight,
+        ...floating.map(r => r.top),
+      );
+      if (last.bottom > limit + 1) {
+        out.push({ kind: 'covered', el: name, bottom: Math.round(last.bottom), limit: Math.round(limit) });
+      }
+    }
+    main.scrollTop = prevTop;
+    main.style.scrollBehavior = prevBehavior;
+    await frame();
+    return out;
+  });
+}
+
 /* Site Prompt 7, Part 4: the image rule, checked rather than trusted.
  *
  *   1. every <img> sits inside an .img-fit box (which clips, so an image
@@ -170,16 +236,22 @@ for (const width of WIDTHS) {
     const res = await collectOffenders(targetPage);
     const small = await collectSmallTargets(targetPage);
     const imgs = await collectImageProblems(targetPage);
+    const scrolls = await collectScrollProblems(targetPage);
     const hscroll = res.scrollW > res.vw + 1;
-    if (hscroll || res.offenders.length || small.length || imgs.length) {
+    if (hscroll || res.offenders.length || small.length || imgs.length || scrolls.length) {
       failures++;
-      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}`);
+      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}${scrolls.length ? `, ${scrolls.length} scroll problem${scrolls.length === 1 ? '' : 's'}` : ''}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
       for (const t of small) console.log(`        target <${t.tag} class="${t.cls}"> ${t.w}x${t.h} "${t.text}"`);
       for (const im of imgs) {
         if (im.kind === 'no-box') console.log(`        image not in an .img-fit box: ${im.el}`);
         else if (im.kind === 'outside-box') console.log(`        image outside its box: ${im.el} img=${Math.round(im.img.l)},${Math.round(im.img.t)},${Math.round(im.img.r)},${Math.round(im.img.b)} box=${Math.round(im.box.l)},${Math.round(im.box.t)},${Math.round(im.box.r)},${Math.round(im.box.b)}`);
         else console.log(`        images overlap: ${im.el} over ${im.other}`);
+      }
+      for (const sc of scrolls) {
+        if (sc.kind === 'stuck') console.log(`        scroller cannot reach its bottom: ${sc.el} clientHeight=${sc.h} scrollHeight=${sc.sh} (stopped at ${sc.top})`);
+        else if (sc.kind === 'oversized') console.log(`        scroller grew to its content instead of the screen: ${sc.el} clientHeight=${sc.h} scrollHeight=${sc.sh}, bottom at ${sc.bottom}`);
+        else console.log(`        last content hidden behind the chrome: ${sc.el} ends at ${sc.bottom}, visible to ${sc.limit}`);
       }
     } else {
       console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);

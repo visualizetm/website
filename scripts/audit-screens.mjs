@@ -61,8 +61,12 @@ export const SCREENS = [
 
   { id: 'clients-list', screen: 'Clients', label: 'list', path: '/admin/clients', resource: 'leads' },
   { id: 'clients-detail', screen: 'Clients', label: 'client detail', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
-  // Site Prompt 2: the Showcase tab, published client with all four sections.
-  { id: 'clients-showcase', screen: 'Clients', label: 'showcase tab (published, all sections)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, noFit: true, act: async (p, w) => { await openRow(p, w, 'Lead Business 11', 'Open Lead Business 11'); await tab(p, 'Showcase'); } },
+  /* Site Prompt 7 moved the Showcase editor out of the client record into
+   * its own page, so this is a plain route now, not a tab to click. Two
+   * rows: the fully populated client, and the one whose uploads are a
+   * portrait and a panorama. */
+  { id: 'clients-showcase', screen: 'Showcase editor', label: 'published, every section', path: '/admin/clients/L11/showcase', resource: 'leads', noFit: true },
+  { id: 'clients-showcase-shapes', screen: 'Showcase editor', label: 'portrait and panoramic uploads', path: '/admin/clients/L14/showcase', resource: 'leads', noFit: true },
 
   // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).
