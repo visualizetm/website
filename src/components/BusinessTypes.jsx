@@ -125,6 +125,19 @@ export default function BusinessTypes() {
           color: var(--brand-text);
         }
         .bt-link:hover { text-decoration: underline; }
+
+        /* Six cards stacked is the longest run of real content on a phone
+           (Site Prompt 8): tighter padding and gaps take it from 2.6
+           screens to under two, without dropping a card or a line. */
+        @media (max-width: 767px) {
+          .bt-row { gap: var(--space-4); padding: 0 var(--space-4); }
+          .bt-card { padding: var(--space-5); gap: var(--space-2); }
+          .bt-needs { gap: 2px; }
+          .bt-needs li { font-size: 0.9rem; line-height: 1.45; }
+          .bt-does { padding-top: 0; }
+          .bt-link { min-height: 44px; }
+          .bt-head { margin-bottom: var(--space-8); }
+        }
       `}</style>
     </section>
   );
