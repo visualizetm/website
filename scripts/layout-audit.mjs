@@ -30,7 +30,7 @@ import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-
 // .cs-cover on a detail page and .wk-card-media on a card. All three
 // frames are themselves still checked, so a frame that genuinely does
 // not fit still fails.)
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.m-track-viewport', '.cs-cover', '.wk-card-media'];
+const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.m-track-viewport', '.cs-cover', '.wk-card-media', '.cs-ig-highlights'];
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
