@@ -26,6 +26,7 @@ export function Curtain({
 }) {
   const ref = useRef(null);
   const prev = useRef(null);
+  const hinted = useRef(false);
   const state = useScrollEngine();
   const active = state !== 'off';
 
@@ -39,10 +40,20 @@ export function Curtain({
         if (!sibling) return;
         prev.current = sibling;
         sibling.style.transformOrigin = 'center top';
-        sibling.style.willChange = 'transform, opacity';
       }
-      prev.current.style.transform = `scale(${1 - PREV_SCALE * p})`;
-      prev.current.style.opacity = `${1 - PREV_FADE * p}`;
+      /* will-change only while this curtain is actually moving (Site
+       * Prompt 8, check 7): left on permanently it holds a layer for
+       * every curtained section for the life of the page, which on a
+       * phone is exactly the memory that makes the rest of the scroll
+       * stutter. Two writes per frame, both composited, no layout read. */
+      const active = p > 0.001 && p < 0.999;
+      if (active !== hinted.current) {
+        hinted.current = active;
+        prev.current.style.willChange = active ? 'transform, opacity' : '';
+        el.style.willChange = active ? 'transform' : '';
+      }
+      prev.current.style.transform = `scale(${(1 - PREV_SCALE * p).toFixed(4)})`;
+      prev.current.style.opacity = `${(1 - PREV_FADE * p).toFixed(3)}`;
     },
   });
 

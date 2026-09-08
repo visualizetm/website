@@ -36,8 +36,8 @@ export default function Popover({ open, onClose, anchorRef, align = 'start', sid
     };
     place();
     window.addEventListener('resize', place);
-    window.addEventListener('scroll', place, true);
-    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+    window.addEventListener('scroll', place, { capture: true, passive: true });
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, { capture: true }); };
   }, [open, anchorRef, align, side, width]);
   useEffect(() => {
     if (!open) return undefined;

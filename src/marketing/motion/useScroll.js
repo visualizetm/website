@@ -55,6 +55,13 @@ export function useScrollProgress(ref, {
     loadScrollEngine().then((eng) => {
       if (!alive || !eng || !ref.current) return;
       const target = varTarget?.current || ref.current;
+      /* onUpdate runs inside ScrollTrigger's own tick, which is gsap's
+       * requestAnimationFrame, so this is already once per frame and never
+       * inside a scroll event. It reads no layout, and it skips the write
+       * entirely when the rounded value has not moved, so a frame where
+       * nothing changed does not invalidate style (Site Prompt 8, check 6).
+       * Three decimals is finer than a pixel on any of these. */
+      let last = '';
       trigger = eng.ScrollTrigger.create({
         trigger: ref.current,
         start,
@@ -62,7 +69,10 @@ export function useScrollProgress(ref, {
         scrub: scrubValue(),
         onUpdate: (self) => {
           progress.current = self.progress;
-          if (cssVar) target.style.setProperty(cssVar, self.progress.toFixed(4));
+          const next = self.progress.toFixed(3);
+          if (next === last) return;
+          last = next;
+          if (cssVar) target.style.setProperty(cssVar, next);
           cb.current?.(self.progress, target);
         },
       });

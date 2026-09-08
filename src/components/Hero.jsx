@@ -277,8 +277,14 @@ const heroStyles = `
       translate3d(0, calc((1 - var(--r)) * 26px + var(--t) * -112%), 0)
       scale(calc(0.96 + 0.04 * var(--r) - 0.04 * var(--t)));
     opacity: calc(0.35 + 0.65 * var(--r) - var(--t));
-    will-change: transform, opacity;
   }
+  /* The cover is promoted by its card's own translate3d above, one layer
+     per card and no more (Site Prompt 8, check 7): a second translateZ(0)
+     on the image inside would add a redundant layer per card for no fewer
+     repaints, which on a phone is memory spent to save nothing. The hint
+     is scoped to the pinned deck, where these actually move; the static
+     fallback and the overflow row hold no layer at all. */
+  .m-pin--active .hero-card { will-change: transform, opacity; }
   /* The last card never leaves: it is what the Curtain of the next
      section arrives over, and an empty deck at the end of the hold would
      be a hole in the page. */
@@ -310,7 +316,7 @@ const heroStyles = `
   .hero-row > li { flex: 0 0 260px; scroll-snap-align: start; }
   .hero-card--small {
     position: relative; inset: auto;
-    transform: none; opacity: 1; z-index: auto;
+    transform: none; opacity: 1; z-index: auto; will-change: auto;
     box-shadow: none; border: 1px solid var(--border);
   }
   .hero-card--small .hero-card-label { padding: var(--space-6) var(--space-3) var(--space-3); }
