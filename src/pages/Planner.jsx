@@ -555,8 +555,8 @@ const plannerStyles = `
      the wrap scrolls sideways instead of shrinking them. The default view on
      a phone is the list, so this only affects somebody who chose the
      calendar there on purpose. */
-  .pl-cal { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; min-width: 348px; }
-  @media (min-width: 430px) { .pl-cal { border-spacing: var(--space-2); min-width: 0; } }
+  .pl-cal { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; min-width: 408px; }
+  @media (min-width: 768px) { .pl-cal { border-spacing: var(--space-2); } }
   .pl-cal th { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: var(--space-1); }
   .pl-cell { vertical-align: top; height: 84px; padding: 0; border-radius: var(--radius); background: var(--bg-card); border: 1px solid var(--border); position: relative; }
   .pl-cell.is-blank { background: none; border-color: transparent; }
