@@ -84,7 +84,11 @@ const publicPost = (p) => ({
   id: String(p._id),
   date: p.date || '',
   time: p.time || '',
-  platform: p.platform || 'instagram',
+  /* An array, always: a post written before this existed carries a single
+   * `platform` string and comes back as a one item list. */
+  platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
+  format: p.format === 'story' ? 'story' : 'portrait',
+  hashtags: p.hashtags || '',
   imageUrl: p.imageUrl || '',
   caption: p.caption || '',
   status: p.status || 'making',

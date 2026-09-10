@@ -11,7 +11,7 @@ import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientP
 import { Reveal, Stagger } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
-import { postDateLabel, postLabel } from '../lib/posts';
+import { postDateLabel, postLabel, platformsOf, formatOf, hashtagsOf } from '../lib/posts';
 
 /* The client facing Content Planner (planner prompt 3), at /planner/:token.
  *
@@ -39,6 +39,16 @@ const STATES = {
 };
 const stateOf = (s) => STATES[s] || STATES.making;
 const PLATFORM_LABEL = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', other: 'Other' };
+const FORMAT = {
+  portrait: { label: 'Portrait post', aspect: 'img-fit--4x5' },
+  story: { label: 'Story', aspect: 'img-fit--9x16' },
+};
+const formatMeta = (post) => FORMAT[formatOf(post)] || FORMAT.portrait;
+/** Up to two platform names, then "+1", for a badge with no room. */
+const platformBadge = (post) => {
+  const names = platformsOf(post).map(id => PLATFORM_LABEL[id] || 'Other');
+  return { initials: names.slice(0, 2).map(n => n.slice(0, 1)), extra: Math.max(0, names.length - 2), all: names.join(', ') };
+};
 
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const thisMonth = () => monthKey(new Date());
@@ -93,13 +103,17 @@ function PostImage({ post, size, label = true, alt = '' }) {
   useEffect(() => { setBroken(false); }, [post.imageUrl]);
   const st = stateOf(post.status);
   const shown = post.imageUrl && !broken;
+  /* A calendar cell is a square by design and crops what it holds; every
+     other slot draws the post at the shape it will actually be published
+     at, so a story is never previewed as a square nobody will see. */
+  const ratio = size === 'cell' ? 'img-fit--1x1' : formatMeta(post).aspect;
   return (
-    <span className={`img-fit img-fit--1x1 pl-img pl-img--${size}${shown ? '' : ` is-placeholder pl-img--${st.tone}`}`}>
+    <span className={`img-fit ${ratio} pl-img pl-img--${size}${shown ? '' : ` is-placeholder pl-img--${st.tone}`}`}>
       {shown ? (
         <img src={post.imageUrl} alt={alt} width={720} height={720} loading="lazy" decoding="async" onError={() => setBroken(true)} />
       ) : (
         <span className="pl-img-empty">
-          <span className="pl-img-initial" aria-hidden="true">{(PLATFORM_LABEL[post.platform] || 'Other').slice(0, 1)}</span>
+          <span className="pl-img-initial" aria-hidden="true">{platformBadge(post).initials.join('')}</span>
           {label && <span className="pl-img-label">{broken ? 'Image did not load' : 'Image coming'}</span>}
           {!label && <span className="visually-hidden">{broken ? 'Image did not load' : 'Image coming'}</span>}
         </span>
@@ -135,7 +149,8 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
   const [asking, setAsking] = useState(false);
   const draftKey = `${DRAFT_PREFIX}:${token}:${post.id}`;
   const [note, setNote] = useState(() => { try { return sessionStorage.getItem(draftKey) || ''; } catch { return ''; } });
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState('');
+  const tags = hashtagsOf(post).join(' ');
   const closeRef = useRef(null);
   const C = COPY.planner.detail;
   const st = stateOf(post.status);
@@ -148,9 +163,13 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const copyCaption = async () => {
-    try { await navigator.clipboard.writeText(post.caption || ''); setCopied(true); setTimeout(() => setCopied(false), 2400); }
-    catch { setCopied(false); }
+  /* Copy takes the caption and the tags together, because that is what they
+     are pasting into the app almost every time; "Caption only" is there for
+     the times they want the words somewhere else. */
+  const copy = async (what) => {
+    const text = what === 'caption' ? (post.caption || '') : [post.caption || '', tags].filter(Boolean).join('\n\n');
+    try { await navigator.clipboard.writeText(text); setCopied(what); setTimeout(() => setCopied(''), 2400); }
+    catch { setCopied(''); }
   };
 
   const send = async () => {
@@ -173,20 +192,31 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
           <PostImage post={post} size="panel" />
 
           <div className="pl-pills">
-            <span className="pl-pill pl-pill--idle">{PLATFORM_LABEL[post.platform] || 'Other'}</span>
+            {platformsOf(post).map(id => <span key={id} className="pl-pill pl-pill--idle">{PLATFORM_LABEL[id] || 'Other'}</span>)}
+            <span className="pl-pill pl-pill--idle">{formatMeta(post).label}</span>
             <StatusPill status={post.status} />
           </div>
 
-          {post.caption && (
+          {/* A story with no caption has no caption section at all: there is
+              nothing to read and nothing to copy. */}
+          {(post.caption || tags) && (
             <div className="pl-caption">
               <div className="pl-caption-head">
                 <span className="pl-label">{C.caption}</span>
-                <button type="button" className="pl-btn pl-btn--ghost pl-copy" onClick={copyCaption}>
-                  {copied ? <Check width={15} height={15} aria-hidden="true" /> : <Copy01 width={15} height={15} aria-hidden="true" />}
-                  {copied ? 'Copied' : C.copy}
-                </button>
+                <span className="pl-copies">
+                  <button type="button" className="pl-btn pl-btn--ghost pl-copy" onClick={() => copy('all')}>
+                    {copied === 'all' ? <Check width={15} height={15} aria-hidden="true" /> : <Copy01 width={15} height={15} aria-hidden="true" />}
+                    {copied === 'all' ? 'Copied' : C.copy}
+                  </button>
+                  {post.caption && tags && (
+                    <button type="button" className="pl-copy-only" onClick={() => copy('caption')}>
+                      {copied === 'caption' ? 'Copied' : C.copyCaptionOnly}
+                    </button>
+                  )}
+                </span>
               </div>
-              <p className="pl-caption-body">{post.caption}</p>
+              {post.caption && <p className="pl-caption-body">{post.caption}</p>}
+              {tags && <p className="pl-tags">{tags}</p>}
             </div>
           )}
 
@@ -467,10 +497,10 @@ export default function Planner() {
                                   <button key={p.id} type="button" className="pl-cell-post" onClick={() => setOpenId(p.id)}>
                                     <PostImage post={p} size="cell" label={false} />
                                     <span className="pl-cell-meta">
-                                      {p.imageUrl && <span className="pl-cell-badge" aria-hidden="true">{(PLATFORM_LABEL[p.platform] || 'O').slice(0, 1)}</span>}
+                                      {p.imageUrl && <span className="pl-cell-badge" aria-hidden="true">{platformBadge(p).initials.join('')}{platformBadge(p).extra ? `+${platformBadge(p).extra}` : ''}</span>}
                                       <StatusDot status={p.status} />
                                     </span>
-                                    <span className="visually-hidden">{`${postDateLabel(p.date)}, ${PLATFORM_LABEL[p.platform] || 'Other'}, ${postLabel(p)}`}</span>
+                                    <span className="visually-hidden">{`${postDateLabel(p.date)}, ${platformBadge(p).all}, ${formatMeta(p).label}, ${postLabel(p)}`}</span>
                                   </button>
                                 ))}
                               </>
@@ -491,7 +521,8 @@ export default function Planner() {
                       <span className="pl-row-when">{postDateLabel(p.date) || 'No date yet'}{p.time ? `, ${p.time}` : ''}</span>
                       <span className="pl-row-cap">{p.caption ? p.caption.split('\n')[0] : postLabel(p)}</span>
                       <span className="pl-row-pills">
-                        <span className="pl-pill pl-pill--idle">{PLATFORM_LABEL[p.platform] || 'Other'}</span>
+                        <span className="pl-pill pl-pill--idle">{platformsOf(p).map(id => PLATFORM_LABEL[id] || 'Other').join(', ')}</span>
+                        <span className="pl-pill pl-pill--idle">{formatMeta(p).label}</span>
                         <StatusPill status={p.status} />
                       </span>
                     </span>
@@ -686,6 +717,15 @@ const plannerStyles = `
   .pl-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .pl-caption { display: flex; flex-direction: column; gap: var(--space-2); }
   .pl-caption-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+  .pl-tags { margin: 0; font-size: 0.9375rem; line-height: 1.6; color: var(--text-muted); overflow-wrap: anywhere; }
+  .pl-copies { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+  .pl-copy-only {
+    min-height: 44px; padding: 0 var(--space-3);
+    background: none; border: 0; cursor: pointer;
+    font: inherit; font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); text-decoration: underline;
+  }
+  .pl-copy-only:hover { color: var(--text); }
+  .pl-copy-only:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: var(--radius); }
   .pl-caption-body { margin: 0; font-size: 1rem; line-height: 1.65; color: var(--text); white-space: pre-wrap; overflow-wrap: anywhere; }
   .pl-note { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); background: var(--glass-bg); border-radius: var(--radius); }
   .pl-note--rob { background: var(--glass-bg-brand); }

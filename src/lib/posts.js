@@ -10,6 +10,44 @@ const FILLER = new Set(['a', 'an', 'the', 'on', 'of', 'in', 'and', 'for', 'with'
 /** How far back a client action still counts as news worth a notification. */
 export const RECENT_ACTION_H = 48;
 
+/* Every read path goes through this: a post written today carries a
+ * `platforms` array, one written before carries a single `platform` string,
+ * and one written by something older still carries neither. Nothing reads
+ * post.platform directly any more. */
+export function platformsOf(post) {
+  const many = post?.platforms;
+  if (Array.isArray(many) && many.length) return many;
+  return post?.platform ? [post.platform] : ['instagram'];
+}
+
+/** The post's format, with the pre-format default every old post reads as. */
+export const formatOf = (post) => (post?.format === 'story' ? 'story' : 'portrait');
+
+/** The hashtags on a post as tokens, for counting and for display. */
+export const hashtagsOf = (post) => String(post?.hashtags || '').split(/\s+/).filter(t => t.startsWith('#') && t.length > 1);
+
+/* What a post still needs before it can go out for approval. A portrait post
+ * is a feed post: it needs something to look at, words, and tags. A story is
+ * a picture that vanishes in a day, so the picture is the whole requirement
+ * and a caption on one is optional. Returns the missing pieces in the order
+ * a sentence would name them. */
+export function missingForReview(post) {
+  const missing = [];
+  if (!post?.imageUrl) missing.push('an image');
+  if (formatOf(post) === 'portrait') {
+    if (!String(post?.caption || '').trim()) missing.push('a caption');
+    if (!hashtagsOf(post).length) missing.push('hashtags');
+  }
+  return missing;
+}
+export const readyForReview = (post) => missingForReview(post).length === 0;
+
+/** "an image, a caption and hashtags", the way a person would say it. */
+export function listPhrase(items) {
+  if (items.length <= 1) return items[0] || '';
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 /** Live posts only: not soft deleted, not archived. */
 export const livePosts = (posts = []) => posts.filter(p => !p.deleted && !p.archived);
 

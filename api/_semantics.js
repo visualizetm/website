@@ -29,3 +29,4 @@ export const TESTIMONIAL_SOURCE_IDS = ['nfc', 'text', 'email', 'in-person', 'web
 // Planner prompt 1: the posts collection's two enums.
 export const PLATFORM_IDS = ['instagram', 'facebook', 'tiktok', 'other'];
 export const POST_STATUS_IDS = ['making', 'review', 'approved', 'posted'];
+export const POST_FORMAT_IDS = ['portrait', 'story'];

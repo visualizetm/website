@@ -136,6 +136,7 @@ export const COPY = {
     detail: {
       caption: 'Caption',
       copy: 'Copy caption',
+      copyCaptionOnly: 'Caption only',
       copied: 'Caption copied.',
       fromRob: 'From Rob',
       yourNote: 'What you asked for',

@@ -173,6 +173,12 @@ export const posts = [
      before its image exists, and a link that will never load. */
   { _id: 'PO12', leadId: 'L11', month: THIS_MONTH, date: daysFrom(16), time: '10:00', platform: 'instagram', imageUrl: '', caption: 'Waiting on the photo from the shoot', status: 'review', note: 'Image lands tomorrow, the words are the ask here.', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO13', leadId: 'L11', month: THIS_MONTH, date: daysFrom(18), time: '', platform: 'tiktok', imageUrl: '/showcase/fixtures/does-not-exist.svg', caption: 'A broken link, on purpose', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  /* The three shapes the planner has to read: a portrait post on three
+     platforms with hashtags, a story with no caption, and a legacy record
+     with a single `platform` string and no format at all. */
+  { _id: 'PO14', leadId: 'L11', month: THIS_MONTH, date: daysFrom(20), time: '11:00', platforms: ['instagram', 'facebook', 'tiktok'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/portrait.svg', caption: 'Three places at once, one post', hashtags: '#phillydetailing #ceramiccoating #mobiledetailing', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO15', leadId: 'L11', month: THIS_MONTH, date: daysFrom(21), time: '', platforms: ['instagram'], platform: 'instagram', format: 'story', imageUrl: '/showcase/fixtures/portrait.svg', caption: '', hashtags: '', status: 'approved', note: 'Goes up first thing.', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO16', leadId: 'L11', month: THIS_MONTH, date: daysFrom(22), time: '13:00', platform: 'facebook', imageUrl: '/showcase/fixtures/square.svg', caption: 'Written before platforms were a list', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: NOW_ISO, order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO4', leadId: 'L13', month: THIS_MONTH, date: daysFrom(1), time: '12:00', platform: 'facebook', imageUrl: '', caption: 'Grand reopening', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO5', leadId: 'L13', month: THIS_MONTH, date: daysFrom(-6), time: '', platform: 'instagram', imageUrl: '', caption: 'Last week', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 8 * 864e5).toISOString(), postedAt: new Date(Date.now() - 6 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
 ];
@@ -381,7 +387,10 @@ export async function mockRoutes(page, opts = {}) {
     }
     const month = url.searchParams.get('month') || THIS_MONTH;
     const mine = posts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived)
-      .map(p => ({ id: String(p._id), date: p.date, time: p.time, platform: p.platform, imageUrl: p.imageUrl, caption: p.caption, status: p.status, note: p.note, clientNote: p.clientNote }));
+      .map(p => ({ id: String(p._id), date: p.date, time: p.time,
+        platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
+        format: p.format === 'story' ? 'story' : 'portrait', hashtags: p.hashtags || '',
+        imageUrl: p.imageUrl, caption: p.caption, status: p.status, note: p.note, clientNote: p.clientNote }));
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
       client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth },
       month, posts: mine,

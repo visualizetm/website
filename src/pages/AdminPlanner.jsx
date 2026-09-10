@@ -6,9 +6,9 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
-import { platformOf, postStatusOf } from '../shared/semantics';
+import { platformOf, postStatusOf, postFormatOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
-import { postsOf, postsInReview, postDateLabel, postLabel } from '../lib/posts';
+import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, missingForReview, listPhrase, hashtagsOf } from '../lib/posts';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import ImageField, { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
@@ -81,9 +81,9 @@ function plannerPatch(lead, draft) {
 /* One post as the draft holds it: only the fields this editor writes, so a
  * save never sends a stamp the server owns (approvedAt, postedAt) unless the
  * status change is what set it. */
-const POST_FIELDS = ['date', 'time', 'platform', 'imageUrl', 'caption', 'status', 'note', 'order'];
-const postDraftOf = (p) => Object.fromEntries(POST_FIELDS.map(k => [k, p?.[k] ?? (k === 'order' ? 0 : '')]));
-const samePost = (a, b) => POST_FIELDS.every(k => String(a?.[k] ?? '') === String(b?.[k] ?? ''));
+const POST_FIELDS = ['date', 'time', 'platform', 'platforms', 'format', 'imageUrl', 'caption', 'hashtags', 'status', 'note', 'order'];
+const postDraftOf = (p) => Object.fromEntries(POST_FIELDS.map(k => [k, p?.[k] ?? (k === 'order' ? 0 : k === 'platforms' ? [] : '')]));
+const samePost = (a, b) => POST_FIELDS.every(k => JSON.stringify(a?.[k] ?? '') === JSON.stringify(b?.[k] ?? ''));
 
 /* ── The invite card ──────────────────────────────────────────────── */
 function InviteCard({ planner, url, onRegenerate, readOnly }) {
@@ -128,7 +128,13 @@ function InviteCard({ planner, url, onRegenerate, readOnly }) {
 function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, dragProps }) {
   const p = { ...post, ...draft };
   const st = postStatusOf(p.status);
-  const pf = platformOf(p.platform);
+  const fmt = postFormatOf(formatOf(p));
+  /* Up to two platform icons on a row; a third and a fourth become "+1" and
+     "+2" rather than four icons crowding the date. */
+  const platforms = platformsOf(p).map(platformOf);
+  const shown = platforms.slice(0, 2);
+  const extra = platforms.length - shown.length;
+  const missing = missingForReview(p);
   const note = post.clientNote;
   /* A note is news while the post is back in `making`; once it has gone up
    * for review again it stays on the record as history. */
@@ -137,7 +143,7 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
     <Card as="div" padding={3} interactive className="pl-post" {...dragProps}>
       <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Edit the ${postLabel(p)}`}>{`Edit the ${postLabel(p)}`}</button>
       <Row gap={3} align="start" wrap={false} style={{ minWidth: 0 }}>
-        <span className="img-fit img-fit--1x1 pl-thumb">
+        <span className={`img-fit ${fmt.aspect} pl-thumb`}>
           {p.imageUrl
             ? <img src={p.imageUrl} alt="" width={144} height={144} loading="lazy" decoding="async" />
             : <span className="pl-thumb-empty" aria-hidden="true"><Icon icon="Image01" size="var(--v-icon-md)" /></span>}
@@ -145,13 +151,21 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
         <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap>
             <span className="pl-post-when">{postDateLabel(p.date) || 'No date'}{p.time ? `, ${p.time}` : ''}</span>
-            <Pill tone={pf.id === 'other' ? 'neutral' : undefined} label={pf.label} icon={pf.icon} size="sm" variant="soft" style={{ '--sc': pf.color }} />
+            <span className="pl-plats" title={platforms.map(x => x.label).join(', ')}>
+              {shown.map(x => <span key={x.id} className="pl-plat" style={{ '--sc': x.color }}><Icon icon={x.icon} size={13} /></span>)}
+              {extra > 0 && <span className="pl-plat pl-plat--more">+{extra}</span>}
+              <span className="visually-hidden">{platforms.map(x => x.label).join(', ')}</span>
+            </span>
+            <Pill label={fmt.label} icon={fmt.icon} size="sm" variant="soft" style={{ '--sc': fmt.color }} />
             <Pill label={st.label} icon={st.icon} size="sm" variant={p.status === 'review' ? 'solid' : 'soft'} style={{ '--sc': st.color }} />
-            {/* A post sitting with a client with nothing to look at is stuck,
-                not waiting, so it says so on the row. */}
-            {p.status === 'review' && !p.imageUrl && <Pill tone="danger" label="No image" icon="AlertTriangle" size="sm" variant="solid" />}
+            {/* A post sitting with a client that they cannot act on is stuck,
+                not waiting, so the row says so and names what it needs. */}
+            {p.status === 'review' && missing.length > 0 && (
+              <Pill tone="danger" label="Not ready" icon="AlertTriangle" size="sm" variant="solid" title={`Needs ${listPhrase(missing)}.`} />
+            )}
           </Row>
           <span className="pl-post-label lay-truncate">{postLabel(p)}</span>
+          {p.status === 'review' && missing.length > 0 && <span className="pl-missing">Needs {listPhrase(missing)}.</span>}
           {note && (
             <div className={`pl-clientnote${noteIsNew ? ' is-new' : ''}`}>
               <Row gap={2} align="center" wrap>
@@ -195,6 +209,14 @@ export default function AdminPlanner({
   const saved = useMemo(() => plannerDraftOf(lead), [lead]);
   const [draft, setDraft] = useState(saved);
   const mine = useMemo(() => postsOf(posts, lead?._id), [posts, lead]);
+  /* The tag set from this client's most recent post that has any, so a set
+     is reused rather than retyped. Newest by date, then by creation. A hook,
+     so it lives up here with the others and never after the early return. */
+  const lastHashtags = useMemo(() => {
+    const withTags = mine.filter(p => hashtagsOf(p).length)
+      .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    return withTags[0]?.hashtags || '';
+  }, [mine]);
   const monthPosts = useMemo(
     () => mine.filter(p => p.month === month).sort((a, b) => String(a.date).localeCompare(String(b.date)) || (a.order || 0) - (b.order || 0) || String(a.time).localeCompare(String(b.time))),
     [mine, month],
@@ -229,7 +251,15 @@ export default function AdminPlanner({
   }, [saved, lead]);
 
   const setPlanner = useCallback((next) => setDraft(d => ({ ...d, ...next })), []);
-  const writePost = useCallback((id, next) => setPostDrafts(m => ({ ...m, [String(id)]: { ...m[String(id)], ...next } })), []);
+  /* The one place a post edit is written. `platform` is kept in step with
+     the first entry of `platforms` here rather than at each call site, so a
+     record written today is still readable by anything still looking at the
+     old single field. */
+  const writePost = useCallback((id, next) => setPostDrafts(m => {
+    const patch = { ...next };
+    if (Array.isArray(patch.platforms) && patch.platforms.length) patch.platform = patch.platforms[0];
+    return { ...m, [String(id)]: { ...m[String(id)], ...patch } };
+  }), []);
 
   const save = useCallback(async () => {
     if (saving || !lead) return false;
@@ -284,7 +314,7 @@ export default function AdminPlanner({
   const addPost = useCallback(async () => {
     if (!lead || busy) return;
     setBusy(true);
-    const item = await onCreatePost({ leadId: String(lead._id), month, date: `${month}-01`, platform: 'instagram', status: 'making', order: monthPosts.length });
+    const item = await onCreatePost({ leadId: String(lead._id), month, date: `${month}-01`, platforms: ['instagram'], platform: 'instagram', format: 'portrait', status: 'making', order: monthPosts.length });
     setBusy(false);
     if (item) { setOpenId(String(item._id)); toast.success('Post added.'); }
     else toast.error(COPY.error.save);
@@ -310,7 +340,8 @@ export default function AdminPlanner({
       // eslint-disable-next-line no-await-in-loop
       const item = await onCreatePost({
         leadId: String(lead._id), month, date: shiftDate(p.date, 1), time: p.time,
-        platform: p.platform, imageUrl: p.imageUrl, caption: p.caption,
+        platforms: platformsOf(p), platform: platformsOf(p)[0], format: formatOf(p),
+        imageUrl: p.imageUrl, caption: p.caption, hashtags: p.hashtags || '',
         status: 'making', note: p.note, order: p.order || 0,
       });
       if (item) made += 1;
@@ -452,6 +483,7 @@ export default function AdminPlanner({
           post={open}
           draft={postDrafts[String(open._id)] || {}}
           client={name}
+          lastHashtags={lastHashtags}
           readOnly={readOnly}
           onWrite={(next) => writePost(open._id, next)}
           onDelete={() => removePost(open)}
@@ -485,6 +517,14 @@ const plStyles = `
   .pl-post:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .pl-post .v-stretch:focus-visible { outline: 0; }
   .pl-thumb { width: 72px; flex: 0 0 72px; border: 1px solid var(--v-border); }
+  .pl-plats { display: inline-flex; align-items: center; gap: 2px; }
+  .pl-plat {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: var(--v-radius-sm);
+    background: var(--v-surface-3); color: var(--sc, var(--v-text-2));
+  }
+  .pl-plat--more { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .pl-missing { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-status-danger-text); }
   .pl-thumb-empty { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--v-text-3); }
   .pl-post-when { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .pl-post-label { font-size: var(--v-text-sm); color: var(--v-text-2); }

@@ -523,6 +523,9 @@ h1, h2, h3, h4, h5, h6 {
 .img-fit--16x10 { aspect-ratio: 16 / 10; }
 .img-fit--7x4 { aspect-ratio: 7 / 4; }
 .img-fit--1x1 { aspect-ratio: 1 / 1; }
+/* The two Content Planner post formats (planner formats prompt). */
+.img-fit--4x5 { aspect-ratio: 4 / 5; }
+.img-fit--9x16 { aspect-ratio: 9 / 16; }
 /* Logos: the box is a fixed size, the mark sits inside it uncropped. */
 .img-fit--contain { background: none; }
 .img-fit--contain > img { object-fit: contain; }

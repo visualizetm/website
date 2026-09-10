@@ -54,7 +54,10 @@ const disabledClient = {
 const noPlannerClient = { _id: '507f1f77bcf86cd799439033', business: 'No Planner Co', phone: '555-0300' };
 
 const posts = [
-  { _id: '607f1f77bcf86cd799439001', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-24`, time: '09:00', platform: 'instagram', imageUrl: 'https://img.example/a.jpg', caption: 'Peach dumplings', status: 'review', note: 'Let me know', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
+  { _id: '607f1f77bcf86cd799439001', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-24`, time: '09:00', platforms: ['instagram', 'facebook'], platform: 'instagram', format: 'portrait', hashtags: '#one #two', imageUrl: 'https://img.example/a.jpg', caption: 'Peach dumplings', status: 'review', note: 'Let me know', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
+  // A story, and a record written before platforms/format existed.
+  { _id: '607f1f77bcf86cd799439007', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-26`, time: '', platforms: ['instagram'], platform: 'instagram', format: 'story', hashtags: '', imageUrl: 'https://img.example/s.jpg', caption: '', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: '2026-09-01T10:00:00Z', postedAt: '', order: 0, archived: false },
+  { _id: '607f1f77bcf86cd799439008', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-27`, time: '', platform: 'tiktok', imageUrl: 'https://img.example/l.jpg', caption: 'Legacy', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
   { _id: '607f1f77bcf86cd799439002', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-02`, time: '17:30', platform: 'tiktok', imageUrl: '', caption: 'Behind the counter', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: '2026-09-01T10:00:00Z', postedAt: '', order: 0, archived: false },
   { _id: '607f1f77bcf86cd799439003', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-10`, time: '', platform: 'instagram', imageUrl: '', caption: '', status: 'making', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
   { _id: '607f1f77bcf86cd799439004', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-11`, time: '', platform: 'instagram', imageUrl: '', caption: 'Deleted one', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, deleted: true },
@@ -144,12 +147,26 @@ async function call(method, query = {}, body = undefined) {
   ok(body.client.displayName === 'Kims Cafe' && body.client.postsPerMonth === 12 && body.client.welcome === 'Here is September.', 'client carries the showcase display name, the welcome, and postsPerMonth');
   ok(body.month === THIS_MONTH, `month defaults to the current one (got ${body.month})`);
 
-  const WANT = ['id', 'date', 'time', 'platform', 'imageUrl', 'caption', 'status', 'note', 'clientNote'].sort().join(',');
-  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the nine whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
-  ok(body.posts.length === 3, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
-  ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-24`].join(' '), 'posts are sorted by date');
+  const WANT = ['id', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote'].sort().join(',');
+  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the eleven whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  ok(body.posts.length === 5, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
+  ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-24`, `${THIS_MONTH}-26`, `${THIS_MONTH}-27`].join(' '), 'posts are sorted by date');
   ok(!body.posts.some(p => p.caption === 'Deleted one'), 'a soft deleted post never reaches the client');
   ok(!body.posts.some(p => p.caption === 'Not yours'), "another client's post never reaches this client");
+
+  /* The three shapes, read back. */
+  const byId = Object.fromEntries(body.posts.map(p => [p.id, p]));
+  const multi = byId['607f1f77bcf86cd799439001'];
+  const story = byId['607f1f77bcf86cd799439007'];
+  const legacy = byId['607f1f77bcf86cd799439008'];
+  ok(Array.isArray(multi.platforms) && multi.platforms.join(',') === 'instagram,facebook', `platforms comes back as an array in order (got ${JSON.stringify(multi.platforms)})`);
+  ok(multi.format === 'portrait' && multi.hashtags === '#one #two', 'a portrait post carries its format and its hashtags');
+  ok(story.format === 'story' && story.caption === '' && story.hashtags === '', 'a story comes back with no caption and no hashtags, and says it is a story');
+  ok(Array.isArray(legacy.platforms) && legacy.platforms.length === 1 && legacy.platforms[0] === 'tiktok',
+    `a legacy single-platform post comes back as a one item array (got ${JSON.stringify(legacy.platforms)})`);
+  ok(legacy.format === 'portrait', 'a record with no format reads as a portrait post');
+  ok(legacy.hashtags === '', 'a record with no hashtags reads as an empty string, never undefined');
+  ok(!JSON.stringify(body.posts).includes('"platform"'), 'the singular platform field is not in the public shape');
 
   const dump = JSON.stringify(body);
   for (const key of ['phone', 'email', 'askFor', 'purchases', 'callLog', 'notes', 'prepNotes', 'links', 'reviews', 'token', 'planner', 'leadId', '_id', 'stage', 'clientSince']) {

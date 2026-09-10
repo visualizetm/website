@@ -1,8 +1,8 @@
-import { useRef } from 'react';
-import { Sheet, Stack, Row, Grid, Card, Button, Input, Select, Textarea, Pill, Icon } from '../ui';
-import { PLATFORMS, postStatusOf } from '../shared/semantics';
+import { useMemo, useRef } from 'react';
+import { Sheet, Stack, Row, Grid, Card, Button, Input, Textarea, ChipGroup, Pill, Icon } from '../ui';
+import { PLATFORMS, POST_FORMATS, postStatusOf, postFormatOf } from '../shared/semantics';
 import { fmtDateTime } from '../shared/dates';
-import { postLabel } from '../lib/posts';
+import { postLabel, platformsOf, formatOf, hashtagsOf, missingForReview, listPhrase } from '../lib/posts';
 import ImageField from './ImageField';
 
 /* The post editor (planner prompt 2, part 3). Every field here is DRAFTED:
@@ -36,8 +36,9 @@ const CAPTION_MAX = 2200;
  *
  * Radio semantics by hand rather than four buttons: one tab stop into the
  * group, arrow keys move and select, and the checked row is the tab stop. */
-function StatusPicker({ value, onChange, readOnly, canReview }) {
+function StatusPicker({ value, onChange, readOnly, missing }) {
   const ref = useRef(null);
+  const canReview = missing.length === 0;
   const usable = STATUS_OPTIONS.filter(o => o.id !== 'review' || canReview);
 
   const move = (dir) => {
@@ -82,7 +83,7 @@ function StatusPicker({ value, onChange, readOnly, canReview }) {
               <span className="ps-status-icon" aria-hidden="true"><Icon icon={o.icon} size={16} /></span>
               <span className="ps-status-text">
                 <span className="ps-status-name">{o.label}</span>
-                <span className="ps-status-means">{blocked ? 'Add an image before sending this for approval.' : STATUS_MEANS[o.id]}</span>
+                <span className="ps-status-means">{blocked ? `Add ${listPhrase(missing)} before sending this for approval.` : STATUS_MEANS[o.id]}</span>
               </span>
               {on && <span className="ps-status-tick" aria-hidden="true"><Icon icon="Check" size={16} /></span>}
             </button>
@@ -93,10 +94,27 @@ function StatusPicker({ value, onChange, readOnly, canReview }) {
   );
 }
 
-export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose }) {
+export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose, lastHashtags = '' }) {
   const p = { ...post, ...draft };
   const st = postStatusOf(p.status);
+  const format = formatOf(p);
+  const fmt = postFormatOf(format);
+  const platforms = useMemo(() => platformsOf(p), [p.platforms, p.platform]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tagCount = hashtagsOf(p).length;
+  const missing = missingForReview(p);
+  const lastSet = lastHashtags;
   const captionLen = String(p.caption || '').length;
+  const formatRef = useRef(null);
+  const onFormatKey = (e) => {
+    if (readOnly) return;
+    if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
+    e.preventDefault();
+    const dir = (e.key === 'ArrowDown' || e.key === 'ArrowRight') ? 1 : -1;
+    const i = POST_FORMATS.findIndex(f => f.id === format);
+    const next = POST_FORMATS[(i + dir + POST_FORMATS.length) % POST_FORMATS.length];
+    onWrite({ format: next.id });
+    formatRef.current?.querySelector(`[data-format="${next.id}"]`)?.focus();
+  };
   /* A note stops being news the moment the post goes back up for approval,
    * but it stays on the record: it is what they asked for, and Rob needs it
    * while the post is being redone. */
@@ -135,7 +153,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
         <div className="v-field">
           <span className="v-field-label">Image</span>
           <ImageField value={p.imageUrl} label="Post image" placeholder="Image URL"
-            ratio="img-fit--1x1" thumbClass="ps-thumb" readOnly={readOnly}
+            ratio={fmt.aspect} thumbClass="ps-thumb" readOnly={readOnly}
             onSave={(v) => onWrite({ imageUrl: v })} />
         </div>
 
@@ -144,24 +162,78 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
           onChange={(e) => onWrite({ caption: e.target.value.slice(0, CAPTION_MAX) })}
           hint={`${captionLen} of ${CAPTION_MAX}`} />
 
+        {/* Format first: it decides what the rest of this form requires. */}
+        <div className="v-field">
+          <span className="v-field-label" id="ps-format-label">Format</span>
+          <div className="ps-status" role="radiogroup" aria-labelledby="ps-format-label" ref={formatRef} onKeyDown={onFormatKey}>
+            {POST_FORMATS.map(f => {
+              const on = f.id === format;
+              return (
+                <button key={f.id} type="button" data-format={f.id} role="radio" aria-checked={on}
+                  tabIndex={on ? 0 : -1} disabled={readOnly}
+                  className={`ps-status-opt${on ? ' is-on' : ''} ps-status-opt--progress`}
+                  onClick={() => !readOnly && onWrite({ format: f.id })}>
+                  <span className="ps-status-icon" aria-hidden="true"><Icon icon={f.icon} size={16} /></span>
+                  <span className="ps-status-text">
+                    <span className="ps-status-name">{f.label}</span>
+                    <span className="ps-status-means">{f.blurb} Previews at {f.ratio}.</span>
+                  </span>
+                  {on && <span className="ps-status-tick" aria-hidden="true"><Icon icon="Check" size={16} /></span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="v-field">
+          <span className="v-field-label">Platforms</span>
+          <ChipGroup label="Platforms" multi allWhenEmpty={false}
+            options={PLATFORMS.map(x => ({ id: x.id, label: x.label, icon: x.icon }))}
+            value={new Set(platforms)}
+            onChange={(next) => {
+              if (readOnly) return;
+              // At least one, always: deselecting the last one is refused.
+              const list = PLATFORMS.map(x => x.id).filter(id => next.has(id));
+              if (!list.length) return;
+              onWrite({ platforms: list, platform: list[0] });
+            }} />
+          <p className="ps-hint">One post, every place it goes. At least one.</p>
+        </div>
+
         <Grid minColumnWidth={150} gap={2}>
-          <Select label="Platform" value={p.platform || 'instagram'} disabled={readOnly}
-            options={PLATFORMS.map(x => ({ id: x.id, label: x.label }))}
-            onChange={(e) => onWrite({ platform: e.target.value })} />
           <Input label="Date" type="date" value={p.date || ''} disabled={readOnly}
             onChange={(e) => onWrite({ date: e.target.value })} />
           <Input label="Time" type="time" value={p.time || ''} disabled={readOnly}
             onChange={(e) => onWrite({ time: e.target.value })} />
         </Grid>
 
+        {/* Hashtags belong to a feed post. A story does not carry them, so
+            the field is not there to be filled in by mistake. */}
+        {format === 'portrait' && (
+          <div className="v-field">
+            <Textarea label="Hashtags" rows={3} maxLength={500} value={p.hashtags || ''} disabled={readOnly}
+              placeholder="#phillydetailing #ceramiccoating"
+              onChange={(e) => onWrite({ hashtags: e.target.value.slice(0, 500) })}
+              hint={`These get copied with the caption. ${tagCount} tag${tagCount === 1 ? '' : 's'}, ${String(p.hashtags || '').length} of 500.`} />
+            {!readOnly && lastSet && lastSet !== (p.hashtags || '') && (
+              <Row gap={2} wrap>
+                <Button variant="secondary" size="md" icon="Copy01" className="ps-lastset"
+                  onClick={() => onWrite({ hashtags: lastSet })}>Use last set</Button>
+                <span className="dt-muted ps-lastset-peek lay-truncate">{lastSet}</span>
+              </Row>
+            )}
+          </div>
+        )}
+
         <Textarea label="Note to the client" rows={2} maxLength={500} value={p.note || ''} disabled={readOnly}
           placeholder="Anything you want them to know about this one"
           onChange={(e) => onWrite({ note: e.target.value.slice(0, 500) })}
           hint={`They read this under the caption. ${String(p.note || '').length} of 500.`} />
 
-        {/* An image is what the client is being asked to approve, so a post
-            cannot go up for approval without one. A caption can follow. */}
-        <StatusPicker value={p.status || 'making'} readOnly={readOnly} canReview={!!p.imageUrl}
+        {/* A feed post needs something to look at, words and tags before a
+            client is asked to approve it; a story needs the picture. The row
+            names whichever of those is still missing. */}
+        <StatusPicker value={p.status || 'making'} readOnly={readOnly} missing={missing}
           onChange={(v) => onWrite({ status: v })} />
       </Stack>
     </Sheet>
@@ -170,6 +242,8 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
 
 export const postSheetStyles = `
   .ps-thumb { width: 200px; }
+  .ps-hint { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .ps-lastset-peek { min-width: 0; font-size: var(--v-text-xs); }
   .ps-note { gap: var(--v-space-1); }
   .ps-note.is-new { border-color: var(--v-status-danger-text); background: var(--v-status-danger-soft); }
   .ps-note-who { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-1); }

@@ -67,7 +67,10 @@ function api(req, res, url) {
     if (m === 'POST') return json(res, { ok: true });
     const month = url.searchParams.get('month') || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const mine = posts.filter(x => String(x.leadId) === String(lead._id) && x.month === month && !x.deleted && !x.archived)
-      .map(x => ({ id: String(x._id), date: x.date, time: x.time, platform: x.platform, imageUrl: x.imageUrl, caption: x.caption, status: x.status, note: x.note, clientNote: x.clientNote }));
+      .map(x => ({ id: String(x._id), date: x.date, time: x.time,
+        platforms: (Array.isArray(x.platforms) && x.platforms.length) ? x.platforms : [x.platform || 'instagram'],
+        format: x.format === 'story' ? 'story' : 'portrait', hashtags: x.hashtags || '',
+        imageUrl: x.imageUrl, caption: x.caption, status: x.status, note: x.note, clientNote: x.clientNote }));
     return json(res, { client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth }, month, posts: mine });
   }
   if (p === '/api/submissions') return json(res, { ok: true, id: 'subMock' });

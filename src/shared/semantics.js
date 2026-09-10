@@ -244,6 +244,16 @@ export const POST_STATUSES = [
   { id: 'posted',   label: 'Posted',   icon: 'Send01',      order: 3, ...tone('neutral') },
 ];
 export const postStatusOf = (id) => POST_STATUSES.find(s => s.id === id) || POST_STATUSES[0];
+/* What shape the post is. Every post written before this existed reads as a
+   portrait post, which is what they all were. The aspect is what the image
+   previews at, in the editor and on the client's page, so a story is never
+   cropped into a square nobody will ever see. */
+export const POST_FORMATS = [
+  { id: 'portrait', label: 'Portrait post', icon: 'Image01', aspect: 'img-fit--4x5', ratio: '4:5', blurb: 'The standard feed post.', order: 0, ...tone('progress') },
+  { id: 'story',    label: 'Story',         icon: 'Zap',     aspect: 'img-fit--9x16', ratio: '9:16', blurb: 'Disappears in 24 hours.', order: 1, ...tone('callback') },
+];
+export const postFormatOf = (id) => POST_FORMATS.find(f => f.id === id) || POST_FORMATS[0];
+export const POST_FORMAT_IDS = POST_FORMATS.map(f => f.id);
 export const PLATFORM_IDS = PLATFORMS.map(p => p.id);
 export const POST_STATUS_IDS = POST_STATUSES.map(s => s.id);
 

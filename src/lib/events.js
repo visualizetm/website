@@ -4,14 +4,14 @@
  * kinds: meeting, callback, scraper, calendly, bill (retainer bill dates and
  * month starts), planfinal (a payment plan's final month, Prompt 10).
  * Rules in reports/PROMPT-09-REPORT.md and PROMPT-10-REPORT.md section 6. */
-import { normalizeStage, postStatusOf, platformOf } from '../shared/semantics';
+import { normalizeStage, postStatusOf, platformOf, postFormatOf } from '../shared/semantics';
 import { meetingDate } from './booked';
 import { parseDate } from '../shared/dates';
 import { last10 } from '../shared/phone';
 import { normName } from './leads';
 import { retainerBills, planFinalItem, localDate, isOnRetainer } from './projects';
 import { retainerOf } from '../shared/pricing';
-import { postLabel } from './posts';
+import { postLabel, platformsOf, formatOf } from './posts';
 
 const MIN = 60e3;
 export const MEETING_MIN = 45;
@@ -58,7 +58,7 @@ export function buildEvents(leads = [], extras = [], now = Date.now(), projects 
       id: `post:${p._id}`, kind: 'post', at, end: at + POST_MIN * MIN,
       allDay: !p.time,
       title: `${lead.business}: ${postLabel(p)}`,
-      subtitle: `${platformOf(p.platform).label}, ${st.label.toLowerCase()}`,
+      subtitle: `${platformsOf(p).map(id => platformOf(id).label).join(', ')}, ${postFormatOf(formatOf(p)).label.toLowerCase()}, ${st.label.toLowerCase()}`,
       tone: p.status === 'review' ? 'new' : p.status === 'approved' ? 'booked' : 'neutral',
       leadId: lead._id, lead, source: 'crm', post: p, month: p.month || String(p.date).slice(0, 7),
     });
