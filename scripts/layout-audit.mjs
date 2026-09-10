@@ -171,13 +171,19 @@ async function collectImageProblems(page) {
         out.push({ kind: 'outside-box', el: name, img: r, box: f });
         continue;
       }
-      if (!boxes.has(frame)) boxes.set(frame, { name, r: f, stacked: stackOk.some(sel => frame.closest(sel)) });
+      /* Which layer the box is on. An open Sheet or Modal is drawn over the
+         page on its own opaque layer, so a preview inside one sitting on top
+         of a thumbnail behind it is not an overlap anybody can see; only
+         boxes on the SAME layer can really collide. */
+      const layer = frame.closest('.v-sheet, .v-modal') ? 'overlay' : 'page';
+      if (!boxes.has(frame)) boxes.set(frame, { name, r: f, layer, stacked: stackOk.some(sel => frame.closest(sel)) });
     }
     const list = [...boxes.values()];
     for (let i = 0; i < list.length; i++) {
       for (let j = i + 1; j < list.length; j++) {
         const a = list[i], b = list[j];
         if (a.stacked && b.stacked) continue;
+        if (a.layer !== b.layer) continue; // an overlay over the page, not a collision
         const overlap = Math.min(a.r.r, b.r.r) - Math.max(a.r.l, b.r.l) > 1 && Math.min(a.r.b, b.r.b) - Math.max(a.r.t, b.r.t) > 1;
         if (overlap) out.push({ kind: 'overlap', el: a.name, other: b.name });
       }
