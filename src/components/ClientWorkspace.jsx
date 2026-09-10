@@ -12,6 +12,8 @@ import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, pr
 import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
+import { postsOf } from '../lib/posts';
+import { useShell } from '../shell/ShellContext';
 import {
   uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
   planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject,
@@ -144,6 +146,11 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
  */
 export function ClientSections({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, sec, jump, readOnly, onPulseTab }) {
   const toast = useToast();
+  const shell = useShell();
+  // Planner prompt 2, part 5: the retainer month's delivered count comes
+  // from the planner when the client has one.
+  const posts = shell?.posts || [];
+  const plannerOn = !!lead.planner?.enabled;
   const [paidPulse, setPaidPulse] = useState(null); // schedule item id that just got paid
   const [retPulse, setRetPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -433,13 +440,23 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
             {retProject && (
               <Stack gap={2} className="cw-months">
                 <p className="pb-card-h">Monthly deliverables: {retainerMonthly(ret.planId).label}</p>
-                {months.map((m, i) => (
+                {months.map((m, i) => {
+                  /* Planner prompt 2, part 5: when the planner is on, the
+                     month's delivered count is the posts that actually
+                     reached approved or posted, rather than a number typed
+                     into Log delivery. The line under the bar says so, so
+                     nobody wonders why the manual count is being ignored. */
+                  const fromPlanner = plannerOn ? postsOf(posts, lead._id).filter(p => p.month === m.month && (p.status === 'approved' || p.status === 'posted')).length : null;
+                  const delivered = fromPlanner ?? m.delivered;
+                  return (
                   <Card key={m.month} level={2} padding={3} className={`cw-month${i === 0 ? ' is-current' : ''}`}>
-                    <Row gap={2} justify="between" align="center" wrap><span className="cw-month-name">{monthLabel(m.month)}{i === 0 && <Pill tone="booked" label="This month" size="sm" icon={false} className="cw-month-pin" />}</span>{!readOnly && <Button variant="secondary" size="md" icon={Plus} onClick={() => { setLogDel({ project: retProject, month: m.month }); setLogForm({ count: '1', note: '' }); }} className="cw-log-delivery">Log delivery</Button>}</Row>
-                    <ProgressBar value={m.included ? Math.min(100, Math.round((m.delivered / m.included) * 100)) : 0} tone={m.delivered >= m.included && m.included ? 'booked' : 'progress'} size="sm" label={`${m.delivered} of ${m.included} ${retainerMonthly(ret.planId).unit}`} />
-                    {(m.log || []).length > 0 && <ul className="cw-rev-log">{m.log.slice(-3).map((l, j) => <li key={j}><span className="cw-rev-when">{fmtDate(l.at)}</span><span className="cw-rev-note">{l.count} delivered{l.note ? `, ${l.note}` : ''}</span></li>)}</ul>}
+                    <Row gap={2} justify="between" align="center" wrap><span className="cw-month-name">{monthLabel(m.month)}{i === 0 && <Pill tone="booked" label="This month" size="sm" icon={false} className="cw-month-pin" />}</span>{!readOnly && fromPlanner === null && <Button variant="secondary" size="md" icon={Plus} onClick={() => { setLogDel({ project: retProject, month: m.month }); setLogForm({ count: '1', note: '' }); }} className="cw-log-delivery">Log delivery</Button>}</Row>
+                    <ProgressBar value={m.included ? Math.min(100, Math.round((delivered / m.included) * 100)) : 0} tone={delivered >= m.included && m.included ? 'booked' : 'progress'} size="sm" label={`${delivered} of ${m.included} ${retainerMonthly(ret.planId).unit}`} />
+                    {fromPlanner !== null && <p className="dt-muted cw-month-src">Counted from their planner: posts approved or posted this month.</p>}
+                    {fromPlanner === null && (m.log || []).length > 0 && <ul className="cw-rev-log">{m.log.slice(-3).map((l, j) => <li key={j}><span className="cw-rev-when">{fmtDate(l.at)}</span><span className="cw-rev-note">{l.count} delivered{l.note ? `, ${l.note}` : ''}</span></li>)}</ul>}
                   </Card>
-                ))}
+                  );
+                })}
               </Stack>
             )}
           </Card>

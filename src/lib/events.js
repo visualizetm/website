@@ -4,17 +4,20 @@
  * kinds: meeting, callback, scraper, calendly, bill (retainer bill dates and
  * month starts), planfinal (a payment plan's final month, Prompt 10).
  * Rules in reports/PROMPT-09-REPORT.md and PROMPT-10-REPORT.md section 6. */
-import { normalizeStage } from '../shared/semantics';
+import { normalizeStage, postStatusOf, platformOf } from '../shared/semantics';
 import { meetingDate } from './booked';
 import { parseDate } from '../shared/dates';
 import { last10 } from '../shared/phone';
 import { normName } from './leads';
 import { retainerBills, planFinalItem, localDate, isOnRetainer } from './projects';
 import { retainerOf } from '../shared/pricing';
+import { postLabel } from './posts';
 
 const MIN = 60e3;
 export const MEETING_MIN = 45;
 export const CALLBACK_MIN = 15;
+// A post is a moment, not a meeting; 30 minutes is enough to draw a block.
+export const POST_MIN = 30;
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
 export const sameDay = (a, b) => dayKey(a) === dayKey(b);
 const TYPE_LABEL = { call: 'Call', video: 'Video', 'in-person': 'In person' };
@@ -33,10 +36,34 @@ export function matchCalendly(ev, leads) {
   return null;
 }
 
-export function buildEvents(leads = [], extras = [], now = Date.now(), projects = []) {
+export function buildEvents(leads = [], extras = [], now = Date.now(), projects = [], posts = []) {
   const out = [];
   const scraperDays = new Map();
   const byId = new Map(leads.map(l => [String(l._id), l]));
+  /* Content Planner posts (planner prompt 2, part 5): a client's scheduled
+     content sits on the calendar beside their meetings and callbacks. The
+     tone is the post's own status tone, so a post waiting on the client
+     reads amber on the grid the same way it does in their planner. */
+  for (const p of posts) {
+    if (p.deleted || p.archived || !p.date) continue;
+    const lead = byId.get(String(p.leadId));
+    if (!lead) continue;
+    const [y, m, d] = String(p.date).split('-').map(Number);
+    const [hh, mm] = String(p.time || '').split(':').map(Number);
+    const when = new Date(y, (m || 1) - 1, d || 1, Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0);
+    const at = when.getTime();
+    if (!at) continue;
+    const st = postStatusOf(p.status);
+    out.push({
+      id: `post:${p._id}`, kind: 'post', at, end: at + POST_MIN * MIN,
+      allDay: !p.time,
+      title: `${lead.business}: ${postLabel(p)}`,
+      subtitle: `${platformOf(p.platform).label}, ${st.label.toLowerCase()}`,
+      tone: p.status === 'review' ? 'new' : p.status === 'approved' ? 'booked' : 'neutral',
+      leadId: lead._id, lead, source: 'crm', post: p, month: p.month || String(p.date).slice(0, 7),
+    });
+  }
+
   for (const l of leads) {
     const stage = normalizeStage(l);
     if (stage === 'lost') continue;
@@ -82,4 +109,4 @@ export function buildEvents(leads = [], extras = [], now = Date.now(), projects 
 }
 
 export const eventsOn = (events, day) => events.filter(e => sameDay(e.at, day));
-export const KIND_LABEL = { meeting: 'Meetings', callback: 'Callbacks', calendly: 'Calendly', scraper: 'New leads', bill: 'Bills', planfinal: 'Final payments' };
+export const KIND_LABEL = { meeting: 'Meetings', callback: 'Callbacks', calendly: 'Calendly', scraper: 'New leads', bill: 'Bills', planfinal: 'Final payments', post: 'Posts' };

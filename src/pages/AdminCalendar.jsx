@@ -23,7 +23,7 @@ const VIEW_KEY = 'vz_cal_view';
 const HOUR_PX = 88; // a 30 minute block is 44px, the minimum target (Prompt 15)
 const START_H = 7;
 const END_H = 21;
-const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill'];
+const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill', 'post'];
 const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -71,7 +71,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
 
   const calendly = shell?.calendly || { configured: null, events: [] };
   const projects = shell?.projects || [];
-  const all = useMemo(() => buildEvents(leads, calendly.events, now, projects), [leads, calendly.events, now, projects]);
+  const posts = shell?.posts || [];
+  const all = useMemo(() => buildEvents(leads, calendly.events, now, projects, posts), [leads, calendly.events, now, projects, posts]);
   const events = useMemo(() => all.filter(e => !kinds.size || kinds.has(e.kind) || (e.kind === 'planfinal' && kinds.has('bill'))), [all, kinds]);
   // One bucket per day (Prompt 15): the strip, the week, and the 42 month cells read a Map instead of filtering every event per cell.
   const dk = (d) => { const x = new Date(d); return `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`; };
@@ -97,7 +98,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   }); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openLead = (e) => { if (e.lead) shell?.openRecord(e.lead); };
+  /* A post opens its own month in the planner editor, not the lead. */
+  const openLead = (e) => { if (e.kind === 'post' && e.lead && shell?.openPlanner) shell.openPlanner(e.lead, e.month); else if (e.lead) shell?.openRecord(e.lead); };
   const reschedule = (e) => { if (e.kind === 'callback') { setAddSlot(new Date(e.at)); setAddLead(e.lead); } else if (e.lead) shell?.openRecord(e.lead); };
   const markDone = async (e) => {
     const l = e.lead; if (!l) return;

@@ -4,6 +4,7 @@ import { PROJECT_STAGES } from '../shared/semantics';
 import { retainerOf } from '../shared/pricing';
 import { money } from '../shared/format';
 import { activeProject, paidTotal, scheduleTotal, paidPct, isFullyPaid, isOnRetainer, nextDateFor, localDate } from '../lib/projects';
+import { postsOf } from '../lib/posts';
 
 /**
  * ClientCard (Prompt 10): LeadCard compact plus the client line: package pill
@@ -24,8 +25,9 @@ export function clientLine(lead, projects) {
   return { project: p, retainer: ret, retainerAmount: lead.retainer?.amount, next, paid: p ? paidTotal(p) : 0, total: p ? scheduleTotal(p) : 0, pct: p ? paidPct(p) : 0 };
 }
 
-export default function ClientCard({ lead, projects = [], onOpen, selected = false, compact = false, className = '', ...rest }) {
+export default function ClientCard({ lead, projects = [], posts = [], onOpen, selected = false, compact = false, className = '', ...rest }) {
   const c = clientLine(lead, projects);
+  const plannerWaiting = lead.planner?.enabled ? postsOf(posts, lead._id).filter(p => p.status === 'review').length : 0;
   return (
     <div className={`clc${selected ? ' is-selected' : ''} ${className}`.trim()} {...rest}>
       <LeadCard lead={lead} compact onOpen={onOpen} selected={selected} />
@@ -34,6 +36,13 @@ export default function ClientCard({ lead, projects = [], onOpen, selected = fal
           <div className="clc-row">
             {c.project ? <><Pill tone="progress" label={c.project.name} size="sm" icon="Briefcase01" variant="outline" className="clc-pkg" /><Pill id={c.project.stage} list={PROJECT_STAGES} size="sm" /></> : <span className="clc-muted">No active project</span>}
             {c.retainer && <Pill tone="booked" label={`${c.retainer.label} ${money(c.retainerAmount)}/mo`} size="sm" icon="RefreshCw01" className="clc-ret" />}
+            {/* Planner prompt 2, part 5: the indicator, and the count when
+                posts are sitting with them, which is the version of it Rob
+                needs to act on. */}
+            {lead.planner?.enabled && (
+              <Pill tone={plannerWaiting ? 'new' : 'neutral'} size="sm" icon="Calendar" variant={plannerWaiting ? 'solid' : 'soft'}
+                label={plannerWaiting ? `${plannerWaiting} in review` : 'Planner'} className="clc-planner" />
+            )}
           </div>
           {c.project && <div className="clc-row clc-pay"><ProgressBar value={c.pct} tone={isFullyPaid(c.project) ? 'booked' : 'progress'} size="sm" /><span className="clc-paid">{money(c.paid)} of {money(c.total)}</span></div>}
           {c.next && <span className="clc-next">{c.next.kind === 'bill' ? 'Next bill' : 'Next payment'} {fmtDay(c.next.dueAt)}, {money(c.next.amount)}</span>}

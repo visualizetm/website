@@ -8,6 +8,7 @@ import {
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import ClientCard, { clientLine } from '../components/ClientCard';
+import { postsOf } from '../lib/posts';
 import LeadDetail from '../components/LeadDetail';
 import LeadForm from '../components/LeadForm';
 import { defaultLead } from '../lib/defaultLead';
@@ -24,7 +25,7 @@ import { isClientLead, isOnRetainer, lifetimeValue, CLIENT_FILTERS, clientPasses
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
 
 export default function AdminClients({
-  leads, submissions = [], loading, error, onRetry, projects = [], onCreateProject, onPatchProject, onRefreshProjects,
+  leads, submissions = [], loading, error, onRetry, projects = [], posts = [], onCreateProject, onPatchProject, onRefreshProjects,
   onPatch, onCreate, onDelete, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
 }) {
   const shell = useShell();
@@ -81,7 +82,7 @@ export default function AdminClients({
     return (
       <>
         <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients">
-          <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} compact onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
+          <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} posts={posts} compact onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
         </aside>
         <div className="aa-main cl-main">
           <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} client={clientProps} />
@@ -98,10 +99,15 @@ export default function AdminClients({
     { id: 'stage', label: 'Stage', width: 140, render: (r) => (r.project ? <Pill id={r.project.stage} list={PROJECT_STAGES} size="sm" /> : <Pill id={r.lead.clientStatus || 'active'} tone="neutral" label={r.lead.clientStatus || 'active'} size="sm" icon={false} variant="outline" />) },
     { id: 'paid', label: 'Paid / Total', render: (r) => (r.project ? <span className="cl-cell-pay"><ProgressBar value={r.pct} tone={isFullyPaid(r.project) ? 'booked' : 'progress'} size="sm" /><span>{money(r.paid)} / {money(r.total)}</span></span> : <span className="cl-muted-cell">{money(lifetimeValue(r.lead))} lifetime</span>) },
     { id: 'retainer', label: 'Retainer', render: (r) => (r.retainer ? <Pill tone="booked" label={`${r.retainer.label} ${money(r.retainerAmount)}/mo`} size="sm" icon="RefreshCw01" /> : <span className="cl-muted-cell">None</span>) },
+    /* Planner prompt 2, part 5: the same indicator the cards carry, for the
+       desktop table. The count is the version worth interrupting for. */
+    { id: 'planner', label: 'Planner', width: 130, render: (r) => (r.lead.planner?.enabled
+      ? <Pill tone={r.plannerWaiting ? 'new' : 'neutral'} size="sm" icon="Calendar" variant={r.plannerWaiting ? 'solid' : 'soft'} label={r.plannerWaiting ? `${r.plannerWaiting} in review` : 'On'} />
+      : <span className="cl-muted-cell">Off</span>) },
     { id: 'next', label: 'Next date', render: (r) => (r.next ? `${r.next.kind === 'bill' ? 'Bill' : 'Payment'} ${fmtDay(r.next.dueAt)}` : <span className="cl-muted-cell">None</span>) },
     { id: 'since', label: 'Since', render: (r) => fmtDate(r.lead.clientSince) || fmtDate(r.lead.bookedOutcome?.at) || <span className="cl-muted-cell">Unknown</span> },
   ];
-  const rows = list.map(l => ({ _id: l._id, lead: l, ...clientLine(l, projects) }));
+  const rows = list.map(l => ({ _id: l._id, lead: l, plannerWaiting: l.planner?.enabled ? postsOf(posts, l._id).filter(p => p.status === 'review').length : 0, ...clientLine(l, projects) }));
 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell">
@@ -124,7 +130,7 @@ export default function AdminClients({
         ) : desktop ? (
           <Table aria-label="Clients" columns={columns} rows={rows} onRowClick={(r) => pick(r._id)} storageKey="vz_clients_cols" density="md" className="cl-table" />
         ) : (
-          <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} />)}</Stagger>
+          <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} posts={posts} onOpen={() => pick(l._id)} />)}</Stagger>
         )}
         {loading ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
       </ScrollArea>

@@ -463,7 +463,7 @@ export default function AdminApp() {
       {section === 'clients' && (
         <AdminClients
           leads={V.leads} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }}
-          projects={V.projects} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
+          projects={V.projects} posts={V.posts} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
