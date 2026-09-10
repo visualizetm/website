@@ -48,6 +48,10 @@
       "destination": "/api/admin/index?r=submissions"
     },
     {
+      "source": "/api/admin/posts",
+      "destination": "/api/admin/index?r=posts"
+    },
+    {
       "source": "/api/admin/projects",
       "destination": "/api/admin/index?r=projects"
     },

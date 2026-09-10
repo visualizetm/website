@@ -221,6 +221,32 @@ export const SUBMISSION_TYPES = [
 export const SUBMISSION_TYPE_IDS = SUBMISSION_TYPES.map(t => t.id);
 export const submissionTypeOf = (id) => SUBMISSION_TYPES.find(t => t.id === id) || SUBMISSION_TYPES[4];
 
+/* ── Content Planner (planner prompt 1) ────────────────────────────
+   One posts document per scheduled social post. PLATFORMS is where it goes,
+   POST_STATUSES is where it is in the loop: Rob makes it, the client sees it
+   in review, the client approves it, Rob posts it.
+
+   A note on the tones: there is no `done` tone token, and `neutral` IS the
+   muted grey a finished post wants, so `making` and `posted` share it. They
+   are told apart by icon and by order, which is how the two ends of a
+   pipeline usually read anyway. */
+export const PLATFORMS = [
+  { id: 'instagram', label: 'Instagram', icon: 'Camera01',        order: 0, ...tone('won') },
+  { id: 'facebook',  label: 'Facebook',  icon: 'Globe01',         order: 1, ...tone('progress') },
+  { id: 'tiktok',    label: 'TikTok',    icon: 'Play',            order: 2, ...tone('callback') },
+  { id: 'other',     label: 'Other',     icon: 'File06',          order: 3, ...tone('neutral') },
+];
+export const platformOf = (id) => PLATFORMS.find(p => p.id === id) || PLATFORMS[3];
+export const POST_STATUSES = [
+  { id: 'making',   label: 'Making',   icon: 'Edit02',      order: 0, ...tone('neutral') },
+  { id: 'review',   label: 'In review', icon: 'Clock',      order: 1, ...tone('new') },
+  { id: 'approved', label: 'Approved', icon: 'Check',       order: 2, ...tone('booked') },
+  { id: 'posted',   label: 'Posted',   icon: 'Send01',      order: 3, ...tone('neutral') },
+];
+export const postStatusOf = (id) => POST_STATUSES.find(s => s.id === id) || POST_STATUSES[0];
+export const PLATFORM_IDS = PLATFORMS.map(p => p.id);
+export const POST_STATUS_IDS = POST_STATUSES.map(s => s.id);
+
 /* ── Industry normalization ────────────────────────────────────── */
 /** The nightly enricher writes lowercase industries ("food & beverage")
  *  while spreadsheet imports keep Title Case. Compare and group on this

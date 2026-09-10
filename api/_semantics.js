@@ -26,3 +26,6 @@ export const REVIEW_RESULT_IDS = ['asked', 'left', 'declined'];
 export const SUBMISSION_TYPE_IDS = ['start', 'contact', 'review', 'shop-order', 'other'];
 // Site Prompt 2: where a showcase testimonial's text came from.
 export const TESTIMONIAL_SOURCE_IDS = ['nfc', 'text', 'email', 'in-person', 'website', 'google'];
+// Planner prompt 1: the posts collection's two enums.
+export const PLATFORM_IDS = ['instagram', 'facebook', 'tiktok', 'other'];
+export const POST_STATUS_IDS = ['making', 'review', 'approved', 'posted'];

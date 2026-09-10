@@ -18,6 +18,7 @@ import { handler as exportHandler } from '../_routes/export.js';
 import { handler as leadsImport } from '../_routes/leads-import.js';
 import { handler as log } from '../_routes/log.js';
 import { handler as orders } from '../_routes/orders.js';
+import { handler as posts } from '../_routes/posts.js';
 import { handler as projects } from '../_routes/projects.js';
 import { handler as pushSubscribe } from '../_routes/push-subscribe.js';
 import { handler as settings } from '../_routes/settings.js';
@@ -34,6 +35,7 @@ const ROUTES = {
   'leads-import': route(leadsImport, { methods: ['POST'], maxBody: 2 * 1024 * 1024 }),
   'log': route(log, { methods: ['GET', 'POST', 'DELETE'], maxBody: 16 * 1024 }),
   'orders': route(orders, { methods: ['GET', 'POST', 'PATCH'] }),
+  'posts': route(posts, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'projects': route(projects, { methods: ['GET', 'POST', 'PATCH'] }),
   'push-subscribe': route(pushSubscribe, { methods: ['POST'], maxBody: 8 * 1024 }),
   'settings': route(settings, { methods: ['GET', 'POST', 'PATCH'], maxBody: 64 * 1024 }),
