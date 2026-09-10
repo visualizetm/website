@@ -237,6 +237,19 @@ export default function Planner() {
   const [toast, setToast] = useState('');
   const wide = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)') : null;
   const [desktop, setDesktop] = useState(() => !!wide?.matches);
+  /* Seven columns of 44px do not fit a phone: 320 minus the page padding is
+     288, which is 41 a column even with no gaps. So the calendar is offered
+     from 430 up and the list is the whole story below that, rather than
+     shrinking the days into targets nobody can hit or making somebody swipe
+     sideways through their own month. */
+  const roomy = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 430px)') : null;
+  const [canGrid, setCanGrid] = useState(() => !!roomy?.matches);
+  useEffect(() => {
+    if (!roomy) return undefined;
+    const on = (e) => setCanGrid(e.matches);
+    roomy.addEventListener('change', on);
+    return () => roomy.removeEventListener('change', on);
+  }, [roomy]);
 
   useHead({ title: 'Content planner | Visualize.', description: 'Your posts for the month.', noindex: true });
 
@@ -248,7 +261,7 @@ export default function Planner() {
   }, [wide]);
 
   // Calendar on a desktop, list on a phone, and whatever they picked after that.
-  const activeView = view || (desktop ? 'calendar' : 'list');
+  const activeView = canGrid ? (view || (desktop ? 'calendar' : 'list')) : 'list';
   const pickView = (v) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode */ } };
 
   const load = useCallback(async (m = month, { quiet = false } = {}) => {
@@ -383,14 +396,14 @@ export default function Planner() {
                   <ChevronLeft width={18} height={18} aria-hidden="true" />
                 </button>
               </div>
-              <div className="pl-views" role="radiogroup" aria-label="How to show the month">
+              {canGrid && <div className="pl-views" role="radiogroup" aria-label="How to show the month">
                 {['calendar', 'list'].map(v => (
                   <button key={v} type="button" role="radio" aria-checked={activeView === v}
                     className={`pl-view${activeView === v ? ' is-on' : ''}`} onClick={() => pickView(v)}>
                     {C.views[v]}
                   </button>
                 ))}
-              </div>
+              </div>}
             </Reveal>
 
             <Reveal as="div" className="pl-progress" delay={160}>
@@ -415,7 +428,11 @@ export default function Planner() {
                   <tbody>
                     {weeksOf(data.month).map((week, wi) => (
                       <tr key={wi}>
-                        <th scope="row" className="visually-hidden">{`Week ${wi + 1}`}</th>
+                        {/* No row header: a week number means nothing to
+                            anybody, and a visually hidden th still takes a
+                            real column in a fixed layout table, which is
+                            what was pushing the month past the screen. The
+                            day columns are the headers that matter. */}
                         {week.map((day, di) => (
                           <td key={di} className={`pl-cell${day ? '' : ' is-blank'}`}>
                             {day ? (
@@ -555,7 +572,7 @@ const plannerStyles = `
      the wrap scrolls sideways instead of shrinking them. The default view on
      a phone is the list, so this only affects somebody who chose the
      calendar there on purpose. */
-  .pl-cal { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; min-width: 408px; }
+  .pl-cal { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
   @media (min-width: 768px) { .pl-cal { border-spacing: var(--space-2); } }
   .pl-cal th { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: var(--space-1); }
   .pl-cell { vertical-align: top; height: 84px; padding: 0; border-radius: var(--radius); background: var(--bg-card); border: 1px solid var(--border); position: relative; }

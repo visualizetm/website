@@ -453,7 +453,10 @@ for (const width of WIDTHS) {
        form, an empty month, and the dead end a revoked link lands on. */
     await goto('/planner/plnrTESTtoken0123456789abcdEF');
     await page.locator('.pl-legend').first().waitFor({ timeout: 5000 }).catch(() => {});
-    await page.locator('.pl-view', { hasText: 'Calendar' }).first().click({ timeout: 3000 }).catch(() => {});
+    /* The calendar is only offered from 430 up, where seven 44px columns
+       actually fit; below that the list is the whole story, so this row
+       measures whichever view the width can honestly show. */
+    await page.locator('.pl-view', { hasText: 'Calendar' }).first().click({ timeout: 2000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (calendar view)');
     await page.locator('.pl-view', { hasText: 'List' }).first().click({ timeout: 3000 }).catch(() => {});
