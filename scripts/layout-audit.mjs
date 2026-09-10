@@ -115,7 +115,7 @@ async function collectScrollProblems(page) {
     const last = kids[kids.length - 1]?.getBoundingClientRect();
     if (last) {
       const tabBar = document.querySelector('.sh-tabs')?.getBoundingClientRect();
-      const floating = [...document.querySelectorAll('.sc-savebar.is-open, .v-stickyfooter')]
+      const floating = [...document.querySelectorAll('.sb-bar.is-open, .v-stickyfooter')]
         .map(e => e.getBoundingClientRect()).filter(r => r.height > 4);
       const limit = Math.min(
         window.innerHeight,
@@ -438,6 +438,33 @@ for (const width of WIDTHS) {
     await check('marketing: Review (no slug)');
     await goto('/review/full-showcase-co');
     await check('marketing: Review (client slug)');
+    /* The client facing Content Planner (planner prompt 3): both views, the
+       detail in a review status and in a settled one, the change request
+       form, an empty month, and the dead end a revoked link lands on. */
+    await goto('/planner/plnrTESTtoken0123456789abcdEF');
+    await page.locator('.pl-legend').first().waitFor({ timeout: 5000 }).catch(() => {});
+    await page.locator('.pl-view', { hasText: 'Calendar' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (calendar view)');
+    await page.locator('.pl-view', { hasText: 'List' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (list view)');
+    await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (detail, needs approval)');
+    await page.locator('.pl-ask-btn').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (change request form)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.pl-row').filter({ hasText: 'Posted' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (detail, a settled post)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.pl-monthnav button').last().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    await check('marketing: Planner (a month with nothing in it)');
+    await goto('/planner/notarealtokenatall000000000');
+    await check('marketing: Planner (a link that is not active)');
     {
       await page.route('**/api/submissions', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"id":"S1"}' }));
       await page.fill('#rvw-name', 'Jamie Owner');

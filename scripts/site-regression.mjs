@@ -215,7 +215,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
 
   await page.goto(`${BASE}/admin/clients/SITECHECK/showcase`, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForTimeout(2000);
-  const barOpen = () => page.$eval('.sc-savebar', e => e.classList.contains('is-open')).catch(() => null);
+  const barOpen = () => page.$eval('.sb-bar', e => e.classList.contains('is-open')).catch(() => null);
   if (await barOpen() !== false) throw new Error('the save bar was already open on a clean load');
 
   // Edit: turn Publish on. It must not reach the public site yet.
@@ -225,7 +225,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   if (patched.length) throw new Error('an edit wrote to the server before Save');
 
   // Discard puts it back.
-  await page.locator('.sc-savebar button', { hasText: 'Discard' }).click();
+  await page.locator('.sb-bar button', { hasText: 'Discard' }).click();
   // The dialog's own button, not the save bar's behind the overlay.
   await page.locator('.v-modal button', { hasText: /^Discard$/ }).first().click({ timeout: 5000 });
   await page.waitForTimeout(500);
@@ -234,7 +234,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   // Edit again and Save.
   await page.locator('.sc-publish .v-toggle').first().click({ timeout: 5000 });
   await page.waitForTimeout(300);
-  await page.locator('.sc-savebar button', { hasText: 'Save changes' }).click();
+  await page.locator('.sb-bar button', { hasText: 'Save changes' }).click();
   await page.waitForTimeout(1200);
   if (patched.length !== 1) throw new Error(`expected exactly one PATCH, got ${patched.length}`);
   if (!patched[0].set?.showcase?.published) throw new Error('the saved showcase was not published');
@@ -351,6 +351,75 @@ await step('12. Review form: fill it, submit, see the thank you', async () => {
   if (!await google.count()) throw new Error('a five star review did not offer the Google link');
   if (await google.getAttribute('href') !== state.c.googleReview) throw new Error('the Google button points somewhere else');
   return 'slug line, locked business, five stars and the slug in the body, thank you with the Google prompt';
+});
+
+/* The planner prompt: the page a client opens with their token. The month
+ * they see, then the two things they can actually do, each checked by what
+ * reaches the endpoint and what changes on the page afterwards. */
+await step('13. Content planner: open a month, approve one, ask for a change on another', async () => {
+  const TOKEN = 'plnrREGRESSIONtoken01234567';
+  const MONTH = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+  const bodies = [];
+  const rows = [
+    { id: 'RG1', date: `${MONTH}-04`, time: '09:00', platform: 'instagram', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on Friday', status: 'review', note: 'Happy with this one?', clientNote: '' },
+    { id: 'RG2', date: `${MONTH}-11`, time: '', platform: 'tiktok', imageUrl: '', caption: 'Behind the counter', status: 'review', note: '', clientNote: '' },
+    { id: 'RG3', date: `${MONTH}-18`, time: '', platform: 'facebook', imageUrl: '', caption: 'Already up', status: 'posted', note: '', clientNote: '' },
+  ];
+  await page.unroute('**/api/showcase**').catch(() => {});
+  await page.route('**/api/planner**', (r) => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.get('token') !== TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (r.request().method() === 'POST') {
+      const body = JSON.parse(r.request().postData() || '{}');
+      bodies.push(body);
+      const post = rows.find(x => x.id === body.postId);
+      if (!post) return r.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not found"}' });
+      if (post.status !== 'review') return r.fulfill({ status: 409, contentType: 'application/json', body: '{"error":"stale"}' });
+      if (body.action === 'request-change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"note required"}' });
+      post.status = body.action === 'approve' ? 'approved' : 'making';
+      if (body.action === 'request-change') post.clientNote = body.note;
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: post.status }) });
+    }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      client: { displayName: 'Site Check Co', welcome: 'Here is your month.', postsPerMonth: 8 },
+      month: u.searchParams.get('month') || MONTH,
+      posts: rows,
+    }) });
+  });
+
+  await page.goto(`${BASE}/planner/${TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(1600);
+  if (!/Site Check Co/i.test(await page.locator('.pl-title').innerText())) throw new Error('the client name is not the heading');
+  const waiting = await page.locator('.pl-waiting').innerText();
+  if (!/2 posts need your approval/i.test(waiting)) throw new Error(`the waiting line reads "${waiting}"`);
+  if (!/1 of 8 posts ready/i.test(await page.locator('.pl-progress-label').innerText())) throw new Error('the progress line is wrong before approving');
+
+  // The list view is the stable one to click through at any width.
+  await page.locator('.pl-view', { hasText: 'List' }).click();
+  await page.waitForTimeout(400);
+  await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click();
+  await page.waitForTimeout(500);
+  if (!await page.locator('.pl-caption-body').count()) throw new Error('the caption is not in the detail');
+  await page.locator('.pl-approve').click();
+  await page.waitForTimeout(900);
+  if (!/Approved/i.test(await page.locator('.pl-toast').innerText().catch(() => ''))) throw new Error('no confirmation after approving');
+  if (bodies.at(-1)?.action !== 'approve' || bodies.at(-1)?.postId !== 'RG1') throw new Error(`the approve body was ${JSON.stringify(bodies.at(-1))}`);
+  if (!/1 post needs your approval/i.test(await page.locator('.pl-waiting').innerText())) throw new Error('the waiting count did not drop');
+  if (!/2 of 8 posts ready/i.test(await page.locator('.pl-progress-label').innerText())) throw new Error('the ready count did not rise');
+
+  await page.waitForTimeout(2400);
+  await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click();
+  await page.waitForTimeout(500);
+  await page.locator('.pl-ask-btn').click();
+  await page.waitForTimeout(300);
+  await page.fill('#pl-note', 'Can we shoot this one outside instead?');
+  await page.locator('.pl-panel-foot button', { hasText: /^Send$/ }).click();
+  await page.waitForTimeout(1000);
+  const sent = bodies.at(-1);
+  if (sent?.action !== 'request-change' || sent?.postId !== 'RG2') throw new Error(`the change body was ${JSON.stringify(sent)}`);
+  if (sent?.note !== 'Can we shoot this one outside instead?') throw new Error('the note did not reach the endpoint');
+  if (!await page.locator('.pl-row').filter({ hasText: 'Being made' }).count()) throw new Error('the post did not go back to Being made');
+  return 'the month, an approval with the counts moving, and a change request with the note in the body';
 });
 
 await browser.close();
