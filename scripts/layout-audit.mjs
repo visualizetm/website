@@ -159,6 +159,11 @@ async function collectImageProblems(page) {
       const r = rectOf(img);
       if (r.w < 2 || r.h < 2) continue;
       const name = `${img.className || 'img'}[${(img.getAttribute('src') || '').split('/').pop().slice(0, 24)}]`;
+      /* A full screen viewer is the one place an image is not in a declared
+         box: it is sized to the viewport at its own aspect, with contain, so
+         it cannot draw outside anything. The box rule exists to stop an
+         image escaping its frame, and here the frame is the screen. */
+      if (img.closest('.pl-zoom')) continue;
       const frame = img.closest('.img-fit');
       if (!frame) { out.push({ kind: 'no-box', el: name }); continue; }
       // Is anything between the image and its box transformed?
