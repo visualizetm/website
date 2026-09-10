@@ -98,17 +98,23 @@ function StatusPill({ status }) {
  * draws a solid tile in the post's own status tone, labelled, and the
  * calendar keeps the platform initial on it so a planned day still reads as
  * planned. */
-function PostImage({ post, size, label = true, alt = '' }) {
+function PostImage({ post, size, label = true, alt = '', onExpand }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [post.imageUrl]);
   const st = stateOf(post.status);
   const shown = post.imageUrl && !broken;
-  /* A calendar cell is a square by design and crops what it holds; every
-     other slot draws the post at the shape it will actually be published
-     at, so a story is never previewed as a square nobody will see. */
-  const ratio = size === 'cell' ? 'img-fit--1x1' : formatMeta(post).aspect;
+  /* A calendar cell and a list thumbnail are square by design and crop what
+     they hold: they are a glance. The detail panel is where approving
+     happens, so there the whole image is shown, letterboxed inside the
+     format's own aspect rather than cropped to fit it. */
+  const ratio = size === 'panel' ? formatMeta(post).aspect : 'img-fit--1x1';
+  const whole = size === 'panel';
+  const Tag = whole && shown && onExpand ? 'button' : 'span';
+  const tagProps = Tag === 'button'
+    ? { type: 'button', onClick: onExpand, 'aria-label': 'See the whole image' }
+    : {};
   return (
-    <span className={`img-fit ${ratio} pl-img pl-img--${size}${shown ? '' : ` is-placeholder pl-img--${st.tone}`}`}>
+    <Tag className={`img-fit ${ratio} pl-img pl-img--${size}${whole ? ' pl-img--whole' : ''}${shown ? '' : ` is-placeholder pl-img--${st.tone}`}`} {...tagProps}>
       {shown ? (
         <img src={post.imageUrl} alt={alt} width={720} height={720} loading="lazy" decoding="async" onError={() => setBroken(true)} />
       ) : (
@@ -118,7 +124,40 @@ function PostImage({ post, size, label = true, alt = '' }) {
           {!label && <span className="visually-hidden">{broken ? 'Image did not load' : 'Image coming'}</span>}
         </span>
       )}
-    </span>
+      {whole && shown && onExpand && <span className="pl-img-zoom" aria-hidden="true">Tap to see it whole</span>}
+    </Tag>
+  );
+}
+
+/* The whole image on its own, fit to the screen. What somebody does when
+ * they want to look properly before saying yes, and on a phone the panel is
+ * never big enough. A dialog: labelled, focus trapped, Escape closes, and so
+ * does tapping anywhere. */
+function Expanded({ post, onClose }) {
+  const ref = useRef(null);
+  const closeRef = useRef(null);
+  useEffect(() => { closeRef.current?.focus(); }, []);
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
+      if (e.key !== 'Tab') return;
+      const f = ref.current?.querySelectorAll('button');
+      if (!f?.length) return;
+      const first = f[0];
+      const last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+  return (
+    <div className="pl-zoom" role="dialog" aria-modal="true" aria-label={`${postLabel(post)}, the whole image`} ref={ref} onClick={onClose}>
+      <img className="pl-zoom-img" src={post.imageUrl} alt="" onClick={(e) => e.stopPropagation()} />
+      <button type="button" ref={closeRef} className="pl-zoom-close" onClick={onClose} aria-label="Close the image">
+        <XClose width={20} height={20} aria-hidden="true" />
+      </button>
+    </div>
   );
 }
 
@@ -150,6 +189,7 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
   const draftKey = `${DRAFT_PREFIX}:${token}:${post.id}`;
   const [note, setNote] = useState(() => { try { return sessionStorage.getItem(draftKey) || ''; } catch { return ''; } });
   const [copied, setCopied] = useState('');
+  const [zoom, setZoom] = useState(false);
   const tags = hashtagsOf(post).join(' ');
   const closeRef = useRef(null);
   const C = COPY.planner.detail;
@@ -189,7 +229,8 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
         </div>
 
         <div className="pl-panel-body">
-          <PostImage post={post} size="panel" />
+          <PostImage post={post} size="panel" onExpand={() => setZoom(true)} />
+          {zoom && <Expanded post={post} onClose={() => setZoom(false)} />}
 
           <div className="pl-pills">
             {platformsOf(post).map(id => <span key={id} className="pl-pill pl-pill--idle">{PLATFORM_LABEL[id] || 'Other'}</span>)}
@@ -632,7 +673,37 @@ const plannerStyles = `
      tone so an unfinished post still reads as a planned one. */
   .pl-img--cell { width: 100%; height: 100%; border-radius: var(--radius); }
   .pl-img--row { width: 64px; flex: 0 0 64px; border-radius: var(--radius); }
-  .pl-img--panel { width: 100%; border-radius: var(--radius); }
+  /* The panel box holds the format's aspect and never shrinks: it is a flex
+     item in a column, and the default flex-shrink was squashing a 9:16 box
+     to 0.72 at phone widths, which is what was cropping the image. */
+  .pl-img--panel { width: 100%; border-radius: var(--radius); flex: 0 0 auto; }
+  /* Approving happens here, so the whole image is shown, letterboxed against
+     the surface rather than cropped to the box. */
+  .pl-img--whole > img { object-fit: contain; }
+  .pl-img--whole { position: relative; background: var(--surface); padding: 0; border: 0; width: 100%; cursor: zoom-in; }
+  button.pl-img--whole:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+  .pl-img-zoom {
+    position: absolute; right: var(--space-2); bottom: var(--space-2);
+    padding: 4px 9px; border-radius: 999px;
+    background: var(--chrome-solid); color: var(--text-secondary);
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .pl-zoom {
+    position: fixed; inset: 0; z-index: 80;
+    display: flex; align-items: center; justify-content: center;
+    padding: var(--space-4);
+    background: rgba(0, 0, 0, 0.92);
+  }
+  .pl-zoom-img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .pl-zoom-close {
+    position: absolute; top: var(--space-4); right: var(--space-4);
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; padding: 0;
+    background: var(--glass-bg-strong); color: var(--text);
+    border: 1px solid var(--border-light); border-radius: var(--radius); cursor: pointer;
+  }
+  .pl-zoom-close:hover { background: var(--hover-strong); }
+  .pl-zoom-close:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .pl-img.is-placeholder { border: 1px dashed var(--border-light); }
   .pl-img--idle.is-placeholder { background: var(--glass-bg-strong); }
   .pl-img--wait.is-placeholder { background: var(--glass-bg-brand); border-color: var(--glass-border-brand); }

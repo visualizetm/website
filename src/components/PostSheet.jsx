@@ -1,8 +1,8 @@
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet, Stack, Row, Grid, Card, Button, Input, Textarea, ChipGroup, Pill, Icon } from '../ui';
 import { PLATFORMS, POST_FORMATS, postStatusOf, postFormatOf } from '../shared/semantics';
 import { fmtDateTime } from '../shared/dates';
-import { postLabel, platformsOf, formatOf, hashtagsOf, missingForReview, listPhrase } from '../lib/posts';
+import { postLabel, platformsOf, formatOf, hashtagsOf, missingForReview, listPhrase, aspectNote } from '../lib/posts';
 import ImageField from './ImageField';
 
 /* The post editor (planner prompt 2, part 3). Every field here is DRAFTED:
@@ -105,6 +105,11 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
   const lastSet = lastHashtags;
   const captionLen = String(p.caption || '').length;
   const formatRef = useRef(null);
+  /* The image's real shape, measured when it loads. A mismatch with the
+     declared format is a note for Rob, never a block: he may have meant it. */
+  const [natural, setNatural] = useState(null);
+  useEffect(() => { setNatural(null); }, [p.imageUrl]);
+  const mismatch = natural ? aspectNote(format, natural.w, natural.h) : '';
   const onFormatKey = (e) => {
     if (readOnly) return;
     if (!['ArrowDown', 'ArrowRight', 'ArrowUp', 'ArrowLeft'].includes(e.key)) return;
@@ -153,8 +158,10 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
         <div className="v-field">
           <span className="v-field-label">Image</span>
           <ImageField value={p.imageUrl} label="Post image" placeholder="Image URL"
-            ratio={fmt.aspect} thumbClass="ps-thumb" readOnly={readOnly}
+            ratio={fmt.aspect} thumbClass="ps-thumb" readOnly={readOnly} whole
+            onNatural={(w, h) => setNatural({ w, h })}
             onSave={(v) => onWrite({ imageUrl: v })} />
+          {mismatch && <p className="ps-mismatch">{mismatch}</p>}
         </div>
 
         <Textarea label="Caption" rows={8} maxLength={CAPTION_MAX} value={p.caption || ''} disabled={readOnly}
@@ -243,6 +250,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
 export const postSheetStyles = `
   .ps-thumb { width: 200px; }
   .ps-hint { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .ps-mismatch { margin: var(--v-space-2) 0 0; font-size: var(--v-text-xs); color: var(--v-status-new-text); }
   .ps-lastset-peek { min-width: 0; font-size: var(--v-text-xs); }
   .ps-note { gap: var(--v-space-1); }
   .ps-note.is-new { border-color: var(--v-status-danger-text); background: var(--v-status-danger-soft); }

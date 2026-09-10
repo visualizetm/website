@@ -14,7 +14,7 @@ import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloud
  * publicly, so a bad crop shows here rather than after publishing, and the
  * box doubles as a drop target on a desktop.
  */
-export default function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10', thumbClass = '' }) {
+export default function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10', thumbClass = '', whole = false, onNatural }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const [broken, setBroken] = useState(false);
@@ -68,8 +68,10 @@ export default function ImageField({ value, label, placeholder, onSave, readOnly
       <div className={`sc-drop${dropping ? ' is-over' : ''}`} {...dropProps}>
         {value ? (broken
           ? <p className="sc-thumb-warn">Image not reachable.</p>
-          : <span className={`img-fit ${ratio} sc-thumb ${thumbClass}`.trim()}>
-              <img src={value} alt="" width={320} height={200} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+          : <span className={`img-fit ${ratio} sc-thumb ${whole ? 'sc-thumb--whole' : ''} ${thumbClass}`.trim()}>
+              <img src={value} alt="" width={320} height={200} loading="lazy" decoding="async"
+                onLoad={(e) => onNatural?.(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
+                onError={() => setBroken(true)} />
             </span>
         ) : (!readOnly && cloudinaryEnabled ? <p className="sc-drop-hint">Drop an image here, or paste a link above.</p> : null)}
         {dropping && <span className="sc-drop-over">Drop to upload</span>}
@@ -89,6 +91,9 @@ export const imageFieldStyles = `
      specificity, which the rule above outranked. */
   .lay-root .img-fit--circle { border-radius: 50%; }
   .sc-thumb { width: 200px; max-width: 100%; border: 1px solid var(--v-border); }
+  /* The whole variant shows the entire image letterboxed inside the box,
+     which is exactly what the client will be looking at when they approve. */
+  .sc-thumb--whole > img { object-fit: contain; }
   .sc-thumb-warn { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-status-danger-text); }
   .sc-imgfield-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .sc-upload-progress { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-2); }

@@ -48,6 +48,27 @@ export function listPhrase(items) {
   return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
 }
 
+/* Whether an image's real shape matches the format it is set to. Used to
+ * tell Rob, never the client: he may have meant it, so it is a note rather
+ * than a block. The tolerance is generous on purpose, since a 1080x1350
+ * export and a 4:5 crop are the same intent. */
+const FORMAT_RATIO = { portrait: 4 / 5, story: 9 / 16 };
+export function aspectNote(format, w, h) {
+  if (!w || !h) return '';
+  const want = FORMAT_RATIO[format] || FORMAT_RATIO.portrait;
+  const got = w / h;
+  if (Math.abs(got - want) / want < 0.12) return '';
+  const label = format === 'story' ? 'Story' : 'Portrait post';
+  return `This image is ${describeRatio(got)} but the post is set to ${label}.`;
+}
+/** The nearest familiar name for a ratio, for a sentence a person reads. */
+export function describeRatio(r) {
+  const known = [[1, '1:1'], [4 / 5, '4:5'], [9 / 16, '9:16'], [16 / 9, '16:9'], [3 / 4, '3:4'], [4 / 3, '4:3'], [3 / 2, '3:2'], [2 / 3, '2:3']];
+  let best = known[0];
+  for (const k of known) if (Math.abs(k[0] - r) < Math.abs(best[0] - r)) best = k;
+  return Math.abs(best[0] - r) / best[0] < 0.08 ? best[1] : `${r.toFixed(2)} to 1`;
+}
+
 /** Live posts only: not soft deleted, not archived. */
 export const livePosts = (posts = []) => posts.filter(p => !p.deleted && !p.archived);
 

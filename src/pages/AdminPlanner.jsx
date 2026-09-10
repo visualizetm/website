@@ -8,7 +8,7 @@ import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
 import { platformOf, postStatusOf, postFormatOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
-import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, missingForReview, listPhrase, hashtagsOf } from '../lib/posts';
+import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, missingForReview, listPhrase, hashtagsOf, aspectNote } from '../lib/posts';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import ImageField, { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
@@ -135,6 +135,8 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
   const shown = platforms.slice(0, 2);
   const extra = platforms.length - shown.length;
   const missing = missingForReview(p);
+  const [natural, setNatural] = useState(null);
+  const mismatch = natural ? aspectNote(formatOf(p), natural.w, natural.h) : '';
   const note = post.clientNote;
   /* A note is news while the post is back in `making`; once it has gone up
    * for review again it stays on the record as history. */
@@ -145,7 +147,8 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
       <Row gap={3} align="start" wrap={false} style={{ minWidth: 0 }}>
         <span className={`img-fit ${fmt.aspect} pl-thumb`}>
           {p.imageUrl
-            ? <img src={p.imageUrl} alt="" width={144} height={144} loading="lazy" decoding="async" />
+            ? <img src={p.imageUrl} alt="" width={144} height={144} loading="lazy" decoding="async"
+                onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
             : <span className="pl-thumb-empty" aria-hidden="true"><Icon icon="Image01" size="var(--v-icon-md)" /></span>}
         </span>
         <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
@@ -166,6 +169,8 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
           </Row>
           <span className="pl-post-label lay-truncate">{postLabel(p)}</span>
           {p.status === 'review' && missing.length > 0 && <span className="pl-missing">Needs {listPhrase(missing)}.</span>}
+          {/* Not a problem, just worth knowing: he may have meant it. */}
+          {mismatch && <span className="pl-mismatch">{mismatch}</span>}
           {note && (
             <div className={`pl-clientnote${noteIsNew ? ' is-new' : ''}`}>
               <Row gap={2} align="center" wrap>
@@ -525,6 +530,7 @@ const plStyles = `
   }
   .pl-plat--more { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .pl-missing { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-status-danger-text); }
+  .pl-mismatch { font-size: var(--v-text-xs); color: var(--v-status-new-text); }
   .pl-thumb-empty { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--v-text-3); }
   .pl-post-when { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .pl-post-label { font-size: var(--v-text-sm); color: var(--v-text-2); }
