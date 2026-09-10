@@ -124,6 +124,27 @@ export default function App() {
   // The client portal and intake form were retired (Prompt 13); old links land on Contact with a notice.
   if (location.pathname === '/portal' || location.pathname.startsWith('/intake')) return <Navigate to="/contact?from=portal" replace />;
 
+  /* The two pages a client reaches by a link Rob sends stand alone: no
+   * navbar, no hamburger, no marketing footer, no theme control, and no
+   * scroll engine. They are somebody's own planner or their own review
+   * form, not a page on the site, and the navigation only invites them to
+   * wander off in the middle of it. Each page carries its own slim bar and
+   * a one line footer (src/components/ClientPageChrome.jsx). */
+  if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/')) {
+    return (
+      <Suspense fallback={<LoadingScreen done={false} />}>
+        <LoadingScreen done={!loading} />
+        <main className="page-shell page-fade" key={location.pathname}>
+          <Routes location={location}>
+            <Route path="/review" element={<Review />} />
+            <Route path="/review/:slug" element={<Review />} />
+            <Route path="/planner/:token" element={<Planner />} />
+          </Routes>
+        </main>
+      </Suspense>
+    );
+  }
+
   return (
     <Suspense fallback={<LoadingScreen done={false} />}>
       <LoadingScreen done={!loading} />
@@ -143,9 +164,6 @@ export default function App() {
           <Route path="/lead-partner" element={<LeadPartner />} />
           <Route path="/pricing"     element={<Navigate to="/services" replace />} />
           <Route path="/start"       element={<Start />} />
-          <Route path="/review"       element={<Review />} />
-          <Route path="/review/:slug" element={<Review />} />
-          <Route path="/planner/:token" element={<Planner />} />
         </Routes>
       </main>
       <Footer />

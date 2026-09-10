@@ -7,7 +7,7 @@ import Send01 from '@untitled-ui/icons-react/build/esm/Send01';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
-import Wordmark from '../components/Wordmark';
+import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
 import { Reveal, Stagger } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
@@ -374,13 +374,14 @@ export default function Planner() {
     return (
       <section className="pl section pl-dead-wrap">
         <div className="wrap pl-narrow">
-          <Bar />
+          <ClientBar label={C.heading} />
           <Reveal as="h1" className="pl-title display">{C.dead.title}</Reveal>
           <Reveal as="p" className="pl-lead" delay={60}>
             {C.dead.body} <a className="pl-mail" href={`mailto:${C.dead.email}`}>{C.dead.email}</a>
           </Reveal>
+          <ClientFoot />
         </div>
-        <style>{plannerStyles}</style>
+        <style>{clientChromeStyles + plannerStyles}</style>
       </section>
     );
   }
@@ -388,7 +389,7 @@ export default function Planner() {
   return (
     <section className="pl section">
       <div className="wrap pl-wrap">
-        <Bar />
+        <ClientBar label={C.heading} />
 
         {state === 'loading' && <Skeleton />}
 
@@ -513,6 +514,7 @@ export default function Planner() {
             </Reveal>
           </>
         )}
+        {state !== 'loading' && <ClientFoot />}
       </div>
 
       {open && (
@@ -522,29 +524,16 @@ export default function Planner() {
       )}
 
       {toast && <p className="pl-toast" role="status">{toast}</p>}
-      <style>{plannerStyles}</style>
+      <style>{clientChromeStyles + plannerStyles}</style>
     </section>
   );
 }
 
-function Bar() {
-  return (
-    <div className="pl-bar">
-      <span className="pl-bar-mark"><Wordmark size={20} /></span>
-      <span className="pl-bar-div" aria-hidden="true" />
-      <span className="pl-bar-name">{COPY.planner.heading}</span>
-    </div>
-  );
-}
 
 const plannerStyles = `
   .pl { background: var(--bg); }
   .pl-wrap { max-width: 1000px; }
   .pl-narrow { max-width: 560px; }
-  .pl-bar { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-10); }
-  .pl-bar-mark { display: inline-flex; }
-  .pl-bar-div { width: 1px; height: 20px; background: var(--border-light); }
-  .pl-bar-name { font-size: 0.9375rem; font-weight: 600; color: var(--text-secondary); }
 
   .pl-title { font-size: clamp(2.2rem, 6vw, 3.6rem); color: var(--text); }
   .pl-lead { margin: var(--space-4) 0 0; font-size: 1.0625rem; color: var(--text-secondary); line-height: 1.6; max-width: 60ch; }

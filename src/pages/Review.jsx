@@ -7,6 +7,7 @@ import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import { Reveal, Stagger } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 import { fetchClient } from '../marketing/showcase';
+import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
 
 /* The public review form (/review, and /review/:slug for a link sent to one
  * client). Nothing on the site links here: Rob sends the link after a
@@ -187,6 +188,11 @@ export default function Review() {
   return (
     <section className="rvw section">
       <div className="wrap rvw-wrap">
+        {/* The same standalone chrome the planner uses: this is a link Rob
+            sends after a delivery, not a page anybody browses to, so the
+            marketing navbar and footer are gone (App.jsx) and the studio's
+            name lives here instead. */}
+        <ClientBar />
         <Reveal as="h1" className="rvw-title display">{heading}</Reveal>
 
         {status === 'done' ? (
@@ -302,9 +308,10 @@ export default function Review() {
             </form>
           </>
         )}
+        <ClientFoot />
       </div>
 
-      <style>{`
+      <style>{clientChromeStyles + `
         .rvw { background: var(--bg); }
         .rvw-wrap { max-width: 640px; }
         .rvw-title { font-size: clamp(2.4rem, 7vw, 4.2rem); color: var(--text); }
