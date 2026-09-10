@@ -582,7 +582,16 @@ const plannerStyles = `
   .pl-cal th { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: var(--space-1); }
   .pl-cell { vertical-align: top; height: 84px; padding: 0; border-radius: var(--radius); background: var(--bg-card); border: 1px solid var(--border); position: relative; }
   .pl-cell.is-blank { background: none; border-color: transparent; }
-  .pl-cell-day { position: absolute; top: 4px; left: 6px; z-index: 1; font-size: 0.6875rem; color: var(--text-muted); }
+  /* The day number sits over whatever the cell is showing: a photo, or a
+     placeholder in the post's status tone. Muted grey on the green tone
+     measured 4.36:1, and over a bright photo it would be worse, so it gets
+     its own dark chip and the brighter text colour. */
+  .pl-cell-day {
+    position: absolute; top: 4px; left: 4px; z-index: 1;
+    padding: 1px 5px; border-radius: 999px;
+    background: var(--chrome-solid); color: var(--text-secondary);
+    font-size: 0.6875rem; font-weight: 600;
+  }
   .pl-cell-post {
     display: block; position: relative; width: 100%; height: 100%; padding: 0;
     background: none; border: 0; border-radius: var(--radius); overflow: hidden; cursor: pointer;
