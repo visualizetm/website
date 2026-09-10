@@ -1,4 +1,5 @@
-import { Sheet, Stack, Row, Grid, Card, Button, Input, Select, Textarea, SegmentedControl, Pill, Icon } from '../ui';
+import { useRef } from 'react';
+import { Sheet, Stack, Row, Grid, Card, Button, Input, Select, Textarea, Pill, Icon } from '../ui';
 import { PLATFORMS, postStatusOf } from '../shared/semantics';
 import { fmtDateTime } from '../shared/dates';
 import { postLabel } from '../lib/posts';
@@ -15,10 +16,10 @@ import ImageField from './ImageField';
  */
 
 const STATUS_OPTIONS = [
-  { id: 'making', label: 'Being made', icon: 'Edit02' },
-  { id: 'review', label: 'Send for approval', icon: 'Clock' },
-  { id: 'approved', label: 'Approved', icon: 'Check' },
-  { id: 'posted', label: 'Posted', icon: 'Send01' },
+  { id: 'making', label: 'Being made', icon: 'Edit02', tone: 'neutral' },
+  { id: 'review', label: 'Send for approval', icon: 'Clock', tone: 'new' },
+  { id: 'approved', label: 'Approved', icon: 'Check', tone: 'booked' },
+  { id: 'posted', label: 'Posted', icon: 'Send01', tone: 'neutral' },
 ];
 const STATUS_MEANS = {
   making: 'They see it as in progress. Nothing for them to do.',
@@ -27,6 +28,70 @@ const STATUS_MEANS = {
   posted: 'They see it as done.',
 };
 const CAPTION_MAX = 2200;
+
+/* The status picker (fix prompt, bug 3). Four long labels do not fit a
+ * SegmentedControl at 390: they overlapped and collided. A vertical list of
+ * rows fits any width, and it has room for the "what the client sees" line
+ * on the row itself, which is where that information belonged all along.
+ *
+ * Radio semantics by hand rather than four buttons: one tab stop into the
+ * group, arrow keys move and select, and the checked row is the tab stop. */
+function StatusPicker({ value, onChange, readOnly, canReview }) {
+  const ref = useRef(null);
+  const usable = STATUS_OPTIONS.filter(o => o.id !== 'review' || canReview);
+
+  const move = (dir) => {
+    const i = usable.findIndex(o => o.id === value);
+    const next = usable[(i + dir + usable.length) % usable.length];
+    if (!next) return;
+    onChange(next.id);
+    ref.current?.querySelector(`[data-status="${next.id}"]`)?.focus();
+  };
+  const onKeyDown = (e) => {
+    if (readOnly) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); move(1); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); move(-1); }
+  };
+
+  /* The tab stop is the checked row, unless that row is the blocked one (a
+     post already in review that lost its image), in which case it moves to
+     the first row somebody can actually pick, so the group is never a dead
+     stop in the tab order. */
+  const tabStop = (usable.find(o => o.id === value) || usable[0])?.id;
+
+  return (
+    <div className="v-field">
+      <span className="v-field-label" id="ps-status-label">Status</span>
+      <div ref={ref} className="ps-status" role="radiogroup" aria-labelledby="ps-status-label" onKeyDown={onKeyDown}>
+        {STATUS_OPTIONS.map(o => {
+          const on = o.id === value;
+          const blocked = o.id === 'review' && !canReview;
+          return (
+            <button
+              key={o.id}
+              type="button"
+              data-status={o.id}
+              role="radio"
+              aria-checked={on}
+              aria-disabled={readOnly || blocked ? 'true' : undefined}
+              tabIndex={o.id === tabStop ? 0 : -1}
+              disabled={readOnly || blocked}
+              className={`ps-status-opt${on ? ' is-on' : ''}${blocked ? ' is-blocked' : ''} ps-status-opt--${o.tone}`}
+              onClick={() => !readOnly && !blocked && onChange(o.id)}
+            >
+              <span className="ps-status-icon" aria-hidden="true"><Icon icon={o.icon} size={16} /></span>
+              <span className="ps-status-text">
+                <span className="ps-status-name">{o.label}</span>
+                <span className="ps-status-means">{blocked ? 'Add an image before sending this for approval.' : STATUS_MEANS[o.id]}</span>
+              </span>
+              {on && <span className="ps-status-tick" aria-hidden="true"><Icon icon="Check" size={16} /></span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose }) {
   const p = { ...post, ...draft };
@@ -94,19 +159,10 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
           onChange={(e) => onWrite({ note: e.target.value.slice(0, 500) })}
           hint={`They read this under the caption. ${String(p.note || '').length} of 500.`} />
 
-        <div className="v-field">
-          <span className="v-field-label">Status</span>
-          <SegmentedControl label="Post status" options={STATUS_OPTIONS} value={p.status || 'making'}
-            onChange={readOnly ? () => {} : (v) => onWrite({ status: v })} full />
-          <ul className="ps-means">
-            {STATUS_OPTIONS.map(o => (
-              <li key={o.id} className={o.id === p.status ? 'is-on' : ''}>
-                <span className="ps-means-name">{o.label}</span>
-                <span className="ps-means-text">{STATUS_MEANS[o.id]}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* An image is what the client is being asked to approve, so a post
+            cannot go up for approval without one. A caption can follow. */}
+        <StatusPicker value={p.status || 'making'} readOnly={readOnly} canReview={!!p.imageUrl}
+          onChange={(v) => onWrite({ status: v })} />
       </Stack>
     </Sheet>
   );
@@ -119,10 +175,28 @@ export const postSheetStyles = `
   .ps-note-who { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .ps-note-body { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .ps-note-foot { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .ps-means { list-style: none; margin: var(--v-space-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
-  .ps-means li { display: flex; gap: var(--v-space-2); font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .ps-means li.is-on { color: var(--v-text-2); }
-  .ps-means li.is-on .ps-means-name { color: var(--v-text-1); }
-  .ps-means-name { flex: 0 0 11ch; font-weight: var(--v-weight-bold); }
-  .ps-means-text { min-width: 0; }
+  /* One row per status, so four long labels never have to share a line. */
+  .ps-status { display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .ps-status-opt {
+    display: flex; align-items: flex-start; gap: var(--v-space-3);
+    width: 100%; min-height: var(--v-tap); padding: var(--v-space-3);
+    text-align: left; cursor: pointer;
+    background: var(--v-surface-2); color: var(--v-text-2);
+    border: 1px solid var(--v-border-1); border-radius: var(--v-radius-md);
+    font-family: var(--v-font-body);
+    transition: border-color var(--v-dur-fast) var(--v-ease-out), background var(--v-dur-fast) var(--v-ease-out);
+  }
+  .ps-status-opt:hover:not(:disabled) { border-color: var(--v-border-2); background: var(--v-surface-3); }
+  .ps-status-opt:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .ps-status-opt.is-on { border-color: var(--sc, var(--v-border-2)); background: var(--v-surface-3); }
+  .ps-status-opt--neutral.is-on { --sc: var(--v-status-neutral-text); }
+  .ps-status-opt--new.is-on { --sc: var(--v-status-new-text); }
+  .ps-status-opt--booked.is-on { --sc: var(--v-status-booked-text); }
+  .ps-status-opt.is-blocked { opacity: 0.6; cursor: not-allowed; }
+  .ps-status-icon { display: inline-flex; color: var(--sc, var(--v-text-3)); padding-top: 2px; }
+  .ps-status-opt.is-on .ps-status-icon { color: var(--sc); }
+  .ps-status-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .ps-status-name { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .ps-status-means { font-size: var(--v-text-xs); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow-wrap: anywhere; }
+  .ps-status-tick { display: inline-flex; color: var(--sc); padding-top: 2px; }
 `;

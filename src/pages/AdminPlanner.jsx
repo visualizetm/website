@@ -147,6 +147,9 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
             <span className="pl-post-when">{postDateLabel(p.date) || 'No date'}{p.time ? `, ${p.time}` : ''}</span>
             <Pill tone={pf.id === 'other' ? 'neutral' : undefined} label={pf.label} icon={pf.icon} size="sm" variant="soft" style={{ '--sc': pf.color }} />
             <Pill label={st.label} icon={st.icon} size="sm" variant={p.status === 'review' ? 'solid' : 'soft'} style={{ '--sc': st.color }} />
+            {/* A post sitting with a client with nothing to look at is stuck,
+                not waiting, so it says so on the row. */}
+            {p.status === 'review' && !p.imageUrl && <Pill tone="danger" label="No image" icon="AlertTriangle" size="sm" variant="solid" />}
           </Row>
           <span className="pl-post-label lay-truncate">{postLabel(p)}</span>
           {note && (
