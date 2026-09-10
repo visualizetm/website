@@ -678,6 +678,29 @@ for (const width of WIDTHS) {
   await goto('/admin/clients/L14/showcase');
   await page.locator('.sc-thumb').first().waitFor({ timeout: 4000 }).catch(() => {});
   await check('showcase editor (portrait and panoramic uploads)');
+
+  /* The Content Planner editor (planner prompt 2, part 6): the page on and
+     off, a month with nothing in it, the post editor Sheet, the save bar,
+     and the regenerate dialog. The image check earns its keep here too: a
+     post thumbnail is a 1:1 box holding whatever shape was uploaded. */
+  await goto('/admin/clients/L11/planner');
+  await page.locator('.pl-post').first().waitFor({ timeout: 4000 }).catch(() => {});
+  await check('planner editor (enabled, a full month)');
+  await page.locator('.pl-post .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('planner editor (post editor sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.pl-setup textarea').first().fill('An edit, so the save bar is up.').catch(() => {});
+  await page.waitForTimeout(500);
+  await check('planner editor (save bar shown)');
+  await page.locator('.pl-regen').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('planner editor (regenerate dialog)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/clients/L13/planner');
+  await check('planner editor (disabled)');
+  await goto('/admin/clients/L11/planner?month=2030-07');
+  await check('planner editor (a month with no posts)');
   /* The save bar is the one floating control on this page, and on a phone
      it has to clear the tab bar completely: the scroll check below is what
      catches it sitting on top of the last card, and the target check is

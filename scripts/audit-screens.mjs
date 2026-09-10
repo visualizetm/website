@@ -68,6 +68,15 @@ export const SCREENS = [
   { id: 'clients-showcase', screen: 'Showcase editor', label: 'published, every section', path: '/admin/clients/L11/showcase', resource: 'leads', noFit: true },
   { id: 'clients-showcase-shapes', screen: 'Showcase editor', label: 'portrait and panoramic uploads', path: '/admin/clients/L14/showcase', resource: 'leads', noFit: true },
 
+  /* The Content Planner editor (planner prompt 2). L11 has a planner on with
+     a full month including a post in review carrying a client note; L13 has
+     one switched off. The Sheet, the save bar and the regenerate dialog are
+     driven by the layout audit's own walk, which can press things. */
+  { id: 'planner-on', screen: 'Planner editor', label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads' },
+  { id: 'planner-off', screen: 'Planner editor', label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
+  { id: 'planner-empty', screen: 'Planner editor', label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
+  { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
+
   // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).
   { id: 'mkt-clients-list', screen: 'Clients (marketing)', label: 'list', path: '/clients', session: false, static: true, marketing: true },
