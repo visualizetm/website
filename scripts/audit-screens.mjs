@@ -76,6 +76,10 @@ export const SCREENS = [
   { id: 'planner-off', screen: 'Planner editor', label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
   { id: 'planner-empty', screen: 'Planner editor', label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
   { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
+  /* The format control and the platform chips, on a post that is a story
+     (no hashtag field) and on one that is blocked from approval. */
+  { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
+  { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
 
   // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).

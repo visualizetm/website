@@ -465,6 +465,16 @@ for (const width of WIDTHS) {
     await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (detail, needs approval)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    /* A post on three platforms with hashtags, and a story with no caption
+       at all: the two shapes the detail panel has to hold. */
+    await page.locator('.pl-row').filter({ hasText: 'Instagram, Facebook, TikTok' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (detail, three platforms)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.pl-row').filter({ hasText: 'Story' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (detail, a story with no caption)');
     await page.locator('.pl-ask-btn').first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (change request form)');
@@ -725,6 +735,16 @@ for (const width of WIDTHS) {
   await page.locator('.pl-post .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
   await check('planner editor (post editor sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  /* The two format cases: a story (no hashtag field, a 9:16 preview) and a
+     portrait post that cannot go out for approval yet. */
+  await page.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('planner editor (post editor sheet, a story)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await page.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('planner editor (post editor sheet, approval blocked)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.locator('.pl-setup textarea').first().fill('An edit, so the save bar is up.').catch(() => {});
   await page.waitForTimeout(500);
