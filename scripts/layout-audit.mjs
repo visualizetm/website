@@ -475,6 +475,17 @@ for (const width of WIDTHS) {
     await page.locator('.pl-row').filter({ hasText: 'Story' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (detail, a story with no caption)');
+    /* The whole image, expanded. A dialog fit to the viewport. */
+    await page.locator('button.pl-img--whole').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (the whole image, expanded)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    /* An image whose real shape does not match its format, both ways: a 1:1
+       on a story, and a wide one on a portrait post. */
+    await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).last().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (detail, an image that is not the format shape)');
     await page.locator('.pl-ask-btn').first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (change request form)');
