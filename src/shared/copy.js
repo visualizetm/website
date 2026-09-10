@@ -14,6 +14,9 @@ export const COPY = {
     /* Dashboard */
     'dashboard.today': { title: 'All caught up', description: 'No callbacks, meetings, or new leads waiting. Start a call session.', action: 'Start call session' },
     'dashboard.activity': { title: 'Nothing yet', description: 'Calls, briefs, wins, and orders show up here the moment they land.', action: 'Start call session' },
+    /* Content Planner (planner prompt 2) */
+    'planner.month': { title: 'No posts for this month yet', description: 'Add the first one, or copy last month across and edit from there.', action: 'Add post' },
+    'planner.off': { title: 'The planner is off for this client', description: 'Turn it on above and they get a private link to read captions, approve posts, and ask for changes.', action: 'Turn it on' },
     /* Leads */
     'leads.none': { title: 'No open leads', description: 'Add one, import a spreadsheet, or check Booked and Clients. Everyone might just be further down the pipeline.', action: 'Add lead', secondary: 'Import spreadsheet' },
     'leads.filter': { title: 'Nothing matches', description: 'Loosen a filter or clear the search.', action: 'Clear all' },
@@ -79,6 +82,7 @@ export const COPY = {
     'notifications.none': { title: 'All caught up', description: 'Nothing due, nothing new. Start a call session.', action: 'Open Call Console' },
   },
   error: {
+    posts: { title: 'The planner did not load', description: 'The posts for this client could not be fetched. Try again.', action: 'Try again' },
     generic: { title: 'Could not load this', description: 'Check the connection and try again.' },
     leads: { title: 'Could not load your leads', description: 'The call_leads list did not come back. Try again; nothing was changed.' },
     submissions: { title: 'Could not load submissions', description: 'The website submissions did not come back. Try again.' },

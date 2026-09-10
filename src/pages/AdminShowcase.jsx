@@ -8,6 +8,7 @@ import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_I
 import { fmtDate } from '../shared/dates';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { uid, today, isHex } from '../lib/projects';
+import SaveBar, { saveBarStyles } from '../components/SaveBar';
 
 /* The Showcase editor (Site Prompt 7, Part 3), its own admin page at
  * /clients/:id/showcase rather than a tab inside the client record.
@@ -793,7 +794,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
   const name = sh.displayName || lead.business || 'Client';
 
   return (
-    <PageShell className="aa-main aa-main--wide sc-page">
+    <PageShell className="aa-main aa-main--wide sc-page sb-host">
       <ScrollArea wide className="sc-scroll">
       <div className="sc-topbar">
         <Row gap={2} align="center" justify="between" wrap>
@@ -827,17 +828,9 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           the page, not scroll content, and leaving it inside the scroller
           meant the scroller reserved no room for it. The space it needs is
           reserved through the kit's own --v-scroll-extra hook above. */}
-      <div className={`sc-savebar${dirty ? ' is-open' : ''}`} role="status" aria-hidden={dirty ? undefined : 'true'}>
-        <Row gap={2} align="center" wrap>
-          <span className="sc-savebar-msg">You have unsaved changes</span>
-          <Row gap={2}>
-            <Button variant="ghost" onClick={discard} disabled={saving || !dirty}>Discard</Button>
-            <Button onClick={save} loading={saving} disabled={!dirty}>Save changes</Button>
-          </Row>
-        </Row>
-      </div>
+      <SaveBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
-      <style>{scStyles}</style>
+      <style>{saveBarStyles + scStyles}</style>
     </PageShell>
   );
 }
@@ -855,8 +848,7 @@ const scStyles = `
      bar again would leave 92px of dead space under the last card. The bar
      is two rows tall on a phone and one on a desktop, hence the two
      values. */
-  .sc-scroll { --sc-savebar-h: 72px; --v-scroll-extra: calc(var(--sc-savebar-h) + var(--v-space-4)); }
-  @media (max-width: 900px) { .sc-scroll { --sc-savebar-h: 104px; } }
+  .sc-scroll { --v-scroll-extra: var(--sb-scroll-extra); }
   .sc-topbar {
     position: sticky; top: 0; z-index: 5;
     padding: var(--v-space-3) 0;
@@ -896,33 +888,4 @@ const scStyles = `
      is 88px and round: the crop you see here is the crop that ships. */
   .sc-thumb-highlight { width: 88px; }
 
-  /* Fixed, and deliberately a child of PageShell rather than of the
-     ScrollArea, so nothing with overflow or a transform is between it and
-     the viewport: its corners and shadow draw in full. Below the tab bar in
-     the stack (the tab bar always wins) and above page content. */
-  .sc-savebar {
-    position: fixed; right: var(--v-space-4);
-    bottom: calc(var(--v-inset-bottom) + var(--v-space-4));
-    z-index: calc(var(--v-z-tabbar) - 1);
-    padding: var(--v-space-3) var(--v-space-4);
-    background: var(--v-surface-2); border: 1px solid var(--v-border-2);
-    border-radius: var(--v-radius-lg); box-shadow: var(--v-shadow-lg);
-    transform: translateY(140%); opacity: 0;
-    transition: transform var(--v-dur-enter) var(--v-ease-out), opacity var(--v-dur-enter) var(--v-ease-out);
-    pointer-events: none;
-  }
-  .sc-savebar.is-open { transform: none; opacity: 1; pointer-events: auto; }
-  .sc-savebar-msg { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1); }
-  @media (max-width: 900px) {
-    .sc-savebar { left: var(--v-space-3); right: var(--v-space-3); }
-    .sc-savebar > .v-row { justify-content: space-between; }
-  }
-  /* The tab bar exists below 768px only, and it is --v-tabbar-h TALL PLUS
-     the home indicator inset (TabBar.jsx sets exactly that height). The old
-     rule lifted the save bar by the tab bar height alone, so on any phone
-     with an inset the bar sat that many pixels inside the tab bar and the
-     Save button was cut in half. Mirror the tab bar's own expression. */
-  @media (max-width: 767.98px) {
-    .sc-savebar { bottom: calc(var(--v-tabbar-h) + var(--v-inset-bottom) + var(--v-space-3)); }
-  }
 `;

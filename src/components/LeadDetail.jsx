@@ -11,6 +11,7 @@ import {
   PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState, IconTile,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { postsOf } from '../lib/posts';
 import LeadForm from './LeadForm';
 import LeadHistory from './LeadHistory';
 import LeadNotes from './LeadNotes';
@@ -103,6 +104,7 @@ function Block({ title, summary, callMode, action, children }) {
 
 export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null }) {
   const shell = useShell();
+  const posts = shell?.posts || [];
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
   const stage = normalizeStage(lead);
@@ -112,6 +114,12 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
      Published; no record at all is neither, and shows no pill. */
   const hasShowcase = !!lead.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0;
   const published = !!lead.showcase?.published;
+  /* The Content Planner's status, read the same way: the saved record only.
+     Off when it is switched off (or was never switched on), the count while
+     posts are sitting with the client, otherwise just On. */
+  const plannerOn = !!lead.planner?.enabled;
+  const plannerWaiting = postsOf(posts, lead._id).filter(p => p.status === 'review').length;
+  const plannerLabel = !plannerOn ? 'Off' : plannerWaiting ? `${plannerWaiting} in review` : 'On';
   const booked = !clientMode && (stage === 'booked' || stage === 'won' || stage === 'client');
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
@@ -210,6 +218,14 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
             {hasShowcase && (
               <Pill tone={published ? 'booked' : 'neutral'} label={published ? 'Published' : 'Draft'} size="sm" variant={published ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
             )}
+          </Button>
+        )}
+        {/* Content Planner (planner prompt 2). Same treatment as Showcase
+            beside it: the button may shrink, the pill is what truncates. */}
+        {clientMode && shell?.openPlanner && (
+          <Button variant="secondary" icon="Calendar" onClick={() => shell.openPlanner(lead)} className="dt-showcase-btn">
+            Planner
+            <Pill tone={!plannerOn ? 'neutral' : plannerWaiting ? 'new' : 'booked'} label={plannerLabel} size="sm" variant={plannerOn && !plannerWaiting ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
           </Button>
         )}
       </Row>

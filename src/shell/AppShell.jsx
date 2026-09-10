@@ -132,9 +132,9 @@ export default function AppShell({
   const openLead = useCallback((lead) => { setNotifOpen(false); onOpenLead(lead); }, [onOpenLead]);
 
   const ctx = useMemo(() => ({
-    go, openRecord: openLead, openShowcase: onOpenShowcase, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, setProfile, appearance, saveAppearance,
-  }), [go, openLead, onOpenShowcase, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs, health, profile, appearance, saveAppearance]);
+    go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, packs, posts, health, profile, setProfile, appearance, saveAppearance,
+  }), [go, openLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, packs, posts, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
@@ -161,7 +161,7 @@ export default function AppShell({
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
           <TopBar title={title} onBack={topBar?.back || null}
-            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
+            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
           {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}
           <div className={`sh-offline${online ? ' is-hidden' : ''}`} role="status" aria-live="polite">{!online && <><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></>}</div>

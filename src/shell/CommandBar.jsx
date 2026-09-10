@@ -33,13 +33,16 @@ function ResultRow({ item, active, onPick, onHover }) {
   if (item.type === 'showcase') {
     return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon="Image01" size="var(--v-icon-md)" /></span>} title={`Showcase: ${l.business}`} subtitle="Edit the public page" />;
   }
+  if (item.type === 'planner') {
+    return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon="Calendar" size="var(--v-icon-md)" /></span>} title={`Planner: ${l.business}`} subtitle="Their scheduled posts" />;
+  }
   if (item.type === 'jump') {
     return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon={item.nav.icon} size="var(--v-icon-md)" /></span>} title={item.nav.label} subtitle="Jump to" />;
   }
   return <ListRow {...common} leading={<span className="sh-cmd-jumpicon sh-cmd-jumpicon--add"><UserPlus01 width={18} height={18} /></span>} title="Add as new lead" subtitle={`Start a lead with ${item.pretty}`} />;
 }
 
-export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onJump, onNewLead }) {
+export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onOpenPlanner, onJump, onNewLead }) {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const [q, setQ] = useState('');
   const [mode, setMode] = useState('text');
@@ -64,6 +67,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
       ...res.leads.map(x => ({ type: 'lead', lead: x.lead, key: `l:${x.lead._id}` })),
       ...res.clients.map(x => ({ type: 'client', lead: x.lead, key: `c:${x.lead._id}` })),
       ...(onOpenShowcase ? res.showcases.map(x => ({ type: 'showcase', lead: x.lead, key: `s:${x.lead._id}` })) : []),
+      ...(onOpenPlanner ? res.showcases.map(x => ({ type: 'planner', lead: x.lead, key: `pl:${x.lead._id}` })) : []),
       ...res.jumps.map(n => ({ type: 'jump', nav: n, key: `j:${n.id}` })),
     ];
     if (res.digits && !out.length && !showSkel) out.push({ type: 'add', pretty: res.digitsPretty, digits: digitsOf(q), key: 'add' });
@@ -93,8 +97,9 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     onOpenChange(false);
     if (item.type === 'jump') onJump(item.nav);
     else if (item.type === 'showcase') onOpenShowcase(item.lead);
+    else if (item.type === 'planner') onOpenPlanner(item.lead);
     else onOpenLead(item.lead);
-  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onNewLead, recent]);
+  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, recent]);
 
   const onKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setIdx(i => Math.min(flat.length - 1, i + 1)); }
@@ -108,7 +113,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     if (!q.trim()) return i === 0 ? 'Recent' : null;
     const item = flat[i]; const prev = flat[i - 1];
     if (prev && prev.type === item.type) return null;
-    return { lead: 'Leads', client: 'Clients', showcase: 'Jump to', jump: 'Jump to', add: 'No match' }[item.type];
+    return { lead: 'Leads', client: 'Clients', showcase: 'Jump to', planner: 'Jump to', jump: 'Jump to', add: 'No match' }[item.type];
   };
 
   const results = (

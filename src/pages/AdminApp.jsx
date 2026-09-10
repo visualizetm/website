@@ -25,6 +25,7 @@ const loaders = {
   calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
   submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
+  planner: () => import('./AdminPlanner'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -39,6 +40,7 @@ const AdminSettings = lazy(loaders.settings);
 const AdminDesign = lazy(loaders.design);
 const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
+const AdminPlanner = lazy(loaders.planner);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -218,6 +220,7 @@ export default function AdminApp() {
     if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
+    if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
@@ -231,6 +234,8 @@ export default function AdminApp() {
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
+  // /clients/:id/planner (planner prompt 2), the same shape.
+  const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
   const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [], posts: [] } : { leads: callLeads, items, projects, orders, packs, posts };
   const activeNav = useMemo(() => navForPath(relPath), [relPath]);
@@ -252,6 +257,7 @@ export default function AdminApp() {
   }, [go, navigate]);
   // The Showcase editor for one client (Site Prompt 7, Part 3).
   const openShowcase = useCallback((lead) => { navigate(`${BASE}/clients/${lead._id}/showcase`); }, [navigate]);
+  const openPlanner = useCallback((lead, month) => { navigate(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`); }, [navigate]);
   // Open a lead in whichever screen owns its stage.
   const openLead = useCallback((lead) => {
     const stage = effectiveStage(lead);
@@ -413,7 +419,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -438,6 +444,17 @@ export default function AdminApp() {
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
           onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
           openId={reqFor('clients')} createPreset={createFor('clients')}
+        />
+      )}
+      {section === 'planner' && (
+        <AdminPlanner
+          lead={V.leads.find(l => String(l._id) === plannerId) || null}
+          posts={V.posts}
+          loading={callLeadsLoading || forceLoading}
+          error={errors.posts}
+          onRetry={loadPosts}
+          onPatch={patchCallLead}
+          onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
         />
       )}
       {section === 'showcase' && (
