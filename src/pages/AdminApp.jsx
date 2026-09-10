@@ -12,6 +12,7 @@ import BootFrame from '../shell/BootFrame';
 import { applyAppearance, setBootHint } from '../shell/appearance';
 import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
+import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
 
@@ -122,6 +123,17 @@ export default function AdminApp() {
     return false;
   }, []);
 
+  /* Content Planner posts (planner prompt 1): loaded at the shell level for
+   * the same reason projects are. With no leadId the endpoint answers this
+   * month and next, which is the window the notifications drawer and the
+   * nav badge read; a client's own months are fetched by the planner screen
+   * itself in prompt 2. */
+  const [posts, setPosts] = useState([]);
+  const loadPosts = useCallback(async () => {
+    const r = await apiFetch('/api/admin/posts');
+    if (r.ok) { setPosts(r.data?.items || []); setErr('posts', false); } else setErr('posts', true);
+  }, [setErr]);
+
   // Projects (Prompt 10): loaded at the shell level like call leads so the
   // Calendar, the drawer, and the Clients list all read one array.
   const [projects, setProjects] = useState([]);
@@ -220,7 +232,7 @@ export default function AdminApp() {
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
-  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [] } : { leads: callLeads, items, projects, orders, packs };
+  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [], posts: [] } : { leads: callLeads, items, projects, orders, packs, posts };
   const activeNav = useMemo(() => navForPath(relPath), [relPath]);
 
   const go = useCallback((sec, itemId) => {
@@ -281,6 +293,7 @@ export default function AdminApp() {
   useEffect(() => { if (authed) load(); }, [authed, load]);
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
   useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
+  useEffect(() => { if (authed) loadPosts(); }, [authed, loadPosts]);
   useEffect(() => { if (authed) { loadOrders(); loadPacks(); } }, [authed, loadOrders, loadPacks]);
 
   const stageCounts = useMemo(() => {
@@ -333,6 +346,9 @@ export default function AdminApp() {
   const unreadSubs = items.filter(s => !s.read && !s.deleted).length;
   const newOrders = useMemo(() => orders.filter(o => o.status === 'new' && !o.archived).length, [orders]);
   const reviewsDue = useMemo(() => reviewAsksDue(callLeads, projects), [callLeads, projects]);
+  // Posts sitting with clients right now, across every client: the Planner
+  // badge, so Rob can see at a glance how many are waiting on somebody else.
+  const postsWithClients = useMemo(() => postsInReview(posts), [posts]);
 
   useEffect(() => {
     document.title = unread > 0 ? `(${unread}) Visualize Admin` : 'Visualize Admin';
@@ -389,7 +405,7 @@ export default function AdminApp() {
 
   const hasDetail = (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue };
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, planner: postsWithClients };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -397,7 +413,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>

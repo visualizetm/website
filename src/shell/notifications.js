@@ -1,11 +1,12 @@
 /* Notifications (Prompt 9) built from the one event source in src/lib/events.js
- * plus two more: an enrichment summary for the last 24 hours and Calendly
- * bookings that arrived since lastSeenAt. Groups: overdue, today, upcoming
+ * plus an enrichment summary for the last 24 hours, Calendly bookings that
+ * arrived since lastSeenAt, and what clients did in their Content Planner. Groups: overdue, today, upcoming
  * (next 7 days), new (leads created in the last 48h), system. */
 import { normalizeStage } from '../shared/semantics';
 import { buildEvents, sameDay } from '../lib/events';
 import { projectsOf, scheduleStatus, localDate, money } from '../lib/projects';
 import { reviewAskDue } from '../lib/reviews';
+import { recentClientActions, postLabel, postDateLabel } from '../lib/posts';
 
 const H = 3600e3;
 export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
@@ -57,6 +58,26 @@ export function buildNotifications(leads, opts = {}) {
     const id = `review:${l._id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
     items.push({ id, kind: 'review', group: 'system', tone: 'won', icon: 'Star01', title: `Ask ${l.business} for a review`, detail: `${due.project.name} was released ${new Date(due.project.releasedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} and nobody has asked yet.`, at: due.at, lead: l });
   }
+  /* Content Planner (planner prompt 1, part 4): what a client did in their
+   * planner in the last 48 hours, computed from the posts themselves rather
+   * than from a separate log. An approval is good news and reads as such; a
+   * change request is the one that needs Rob to do something, so it carries
+   * their words as the detail line and the danger tone. Both open the
+   * client's planner editor. */
+  for (const a of recentClientActions(opts.posts || [], leads, 48, now)) {
+    const sn = snoozed[a.id]; if (sn && new Date(sn).getTime() > now) continue;
+    const who = a.lead.showcase?.displayName || a.lead.business;
+    if (a.kind === 'approved') {
+      items.push({ id: a.id, kind: 'post-approved', group: 'system', tone: 'booked', icon: 'Check', openPlanner: true,
+        title: `${who} approved the ${postLabel(a.post)}`,
+        detail: `${postDateLabel(a.post.date) || 'No date yet'}, ready to schedule.`, at: a.at, lead: a.lead });
+    } else {
+      items.push({ id: a.id, kind: 'post-change', group: 'system', tone: 'danger', icon: 'Edit02', openPlanner: true,
+        title: `${who} asked for a change on the ${postDateLabel(a.post.date) || 'untitled'} post`,
+        detail: a.post.clientNote, at: a.at, lead: a.lead });
+    }
+  }
+
   // Prompt 12: task health. The enrichment scan or the scraper going quiet for 36 hours is a System item.
   const h = opts.health;
   if (h) {

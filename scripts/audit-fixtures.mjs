@@ -150,6 +150,20 @@ export const PIPE_EXTRA = {
           updatedAt: NOW_ISO,
         } },
 };
+/* Content Planner posts (planner prompt 1): enough to exercise the two
+   notification sources (one approval and one change request inside the 48
+   hour window, one approval outside it) and the Planner badge, which counts
+   posts still sitting with clients. */
+const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const THIS_MONTH = monthKey(new Date());
+export const posts = [
+  { _id: 'PO1', leadId: 'L11', month: THIS_MONTH, date: daysFrom(2), time: '09:00', platform: 'instagram', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on the menu this Friday', status: 'review', note: 'Happy with this one?', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO2', leadId: 'L11', month: THIS_MONTH, date: daysFrom(4), time: '17:30', platform: 'tiktok', imageUrl: '/showcase/fixtures/portrait.svg', caption: 'Behind the counter on a Saturday', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 3 * 3600e3).toISOString(), postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO3', leadId: 'L11', month: THIS_MONTH, date: daysFrom(6), time: '', platform: 'instagram', imageUrl: '', caption: '', status: 'making', note: '', clientNote: 'Can we use the other photo of the storefront?', clientNoteAt: new Date(Date.now() - 5 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO4', leadId: 'L13', month: THIS_MONTH, date: daysFrom(1), time: '12:00', platform: 'facebook', imageUrl: '', caption: 'Grand reopening', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO5', leadId: 'L13', month: THIS_MONTH, date: daysFrom(-6), time: '', platform: 'instagram', imageUrl: '', caption: 'Last week', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 8 * 864e5).toISOString(), postedAt: new Date(Date.now() - 6 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+];
+
 export const projects = [
   { _id: 'P10', leadId: 'L10', name: 'Web Essentials', kind: 'web', packageId: 'web-essentials', stage: 'design', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 500,
     schedule: [{ id: 's1', amount: 500, dueAt: daysFrom(-10), status: 'upcoming', ledgerId: '', label: 'Full payment' }], revisions: { max: 2, used: 1, log: [{ at: NOW_ISO, note: 'Tightened the hero ' + UNBROKEN.slice(0, 40), extra: false }] }, plan: null,
@@ -304,8 +318,9 @@ export const PAYLOADS = {
   orders: () => ({ items: orders, unimported: 2 }),
   packs: () => ({ items: packs }),
   projects: () => ({ items: projects }),
+  posts: () => ({ items: posts }),
 };
-export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, projects: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
@@ -330,6 +345,7 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', PAYLOADS.orders()) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
   await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? respond(r, 'packs', PAYLOADS.packs()) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
+  await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
   // Site Prompt 3: the public showcase endpoint the marketing Clients page reads.
   await page.route('**/api/showcase**', (r) => {

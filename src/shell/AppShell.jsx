@@ -36,7 +36,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onOpenShowcase, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], packs = [], styles, children,
+  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], packs = [], posts = [], styles, children,
 }) {
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
   // 768 to 1023px: the rail only. A 240px sidebar next to the 324px list panel
@@ -105,7 +105,7 @@ export default function AppShell({
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
 
-  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
+  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, posts, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, posts, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
   const events = useMemo(() => buildEvents(leads || [], calendly.events, Date.now(), projects), [leads, calendly.events, projects]);
   const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
   const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
@@ -170,7 +170,10 @@ export default function AppShell({
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />
         <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} items={notifications} loading={leadsLoading} error={leadsError} onRetry={onRetryLeads} readIds={readIds}
-          onOpenItem={(item) => { markRead([item.id]); if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
+          /* A planner item wants the client's planner editor, which arrives in
+             prompt 2. Until onOpenPlanner is passed in, it opens the client
+             record, which is where that editor will live. */
+          onOpenItem={(item) => { markRead([item.id]); if (item.openPlanner && item.lead && onOpenPlanner) onOpenPlanner(item.lead); else if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
           onMarkAllRead={() => markRead(notifications.map(n => n.id))} onSnooze={snooze} onDone={(item) => markRead([item.id])} onGoCalls={() => go('calls')} />
         <style>{styles}</style>
       </div>
