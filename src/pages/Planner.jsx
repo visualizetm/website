@@ -80,6 +80,34 @@ function StatusPill({ status }) {
   );
 }
 
+/* The image slot, used by the detail, the calendar and the list.
+ *
+ * A post with no image yet is the reason this exists: the client was being
+ * asked to approve something they could not see, and an empty cell reads as
+ * "nothing planned" rather than "not finished". So an empty or broken image
+ * draws a solid tile in the post's own status tone, labelled, and the
+ * calendar keeps the platform initial on it so a planned day still reads as
+ * planned. */
+function PostImage({ post, size, label = true, alt = '' }) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [post.imageUrl]);
+  const st = stateOf(post.status);
+  const shown = post.imageUrl && !broken;
+  return (
+    <span className={`img-fit img-fit--1x1 pl-img pl-img--${size}${shown ? '' : ` is-placeholder pl-img--${st.tone}`}`}>
+      {shown ? (
+        <img src={post.imageUrl} alt={alt} width={720} height={720} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+      ) : (
+        <span className="pl-img-empty">
+          <span className="pl-img-initial" aria-hidden="true">{(PLATFORM_LABEL[post.platform] || 'Other').slice(0, 1)}</span>
+          {label && <span className="pl-img-label">{broken ? 'Image did not load' : 'Image coming'}</span>}
+          {!label && <span className="visually-hidden">{broken ? 'Image did not load' : 'Image coming'}</span>}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* The dot on a calendar cell. Color alone never carries it: every dot has
  * text beside it for a screen reader. */
 function StatusDot({ status }) {
@@ -142,11 +170,7 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
         </div>
 
         <div className="pl-panel-body">
-          <span className="img-fit img-fit--1x1 pl-panel-img">
-            {post.imageUrl
-              ? <img src={post.imageUrl} alt="" width={720} height={720} loading="lazy" decoding="async" />
-              : <span className="pl-noimg">Image coming</span>}
-          </span>
+          <PostImage post={post} size="panel" />
 
           <div className="pl-pills">
             <span className="pl-pill pl-pill--idle">{PLATFORM_LABEL[post.platform] || 'Other'}</span>
@@ -440,13 +464,9 @@ export default function Planner() {
                                 <span className="pl-cell-day" aria-hidden="true">{day}</span>
                                 {(byDay.get(day) || []).map(p => (
                                   <button key={p.id} type="button" className="pl-cell-post" onClick={() => setOpenId(p.id)}>
-                                    <span className="img-fit img-fit--1x1 pl-cell-img">
-                                      {p.imageUrl
-                                        ? <img src={p.imageUrl} alt="" width={200} height={200} loading="lazy" decoding="async" />
-                                        : <span className="pl-cell-noimg" aria-hidden="true" />}
-                                    </span>
+                                    <PostImage post={p} size="cell" label={false} />
                                     <span className="pl-cell-meta">
-                                      <span className="pl-cell-badge" aria-hidden="true">{(PLATFORM_LABEL[p.platform] || 'O').slice(0, 1)}</span>
+                                      {p.imageUrl && <span className="pl-cell-badge" aria-hidden="true">{(PLATFORM_LABEL[p.platform] || 'O').slice(0, 1)}</span>}
                                       <StatusDot status={p.status} />
                                     </span>
                                     <span className="visually-hidden">{`${postDateLabel(p.date)}, ${PLATFORM_LABEL[p.platform] || 'Other'}, ${postLabel(p)}`}</span>
@@ -465,11 +485,7 @@ export default function Planner() {
               <Stagger as="ul" itemAs="li" itemClassName="pl-rowwrap" className="pl-list">
                 {posts.map(p => (
                   <button key={p.id} type="button" className="pl-row" onClick={() => setOpenId(p.id)}>
-                    <span className="img-fit img-fit--1x1 pl-row-img">
-                      {p.imageUrl
-                        ? <img src={p.imageUrl} alt="" width={160} height={160} loading="lazy" decoding="async" />
-                        : <span className="pl-cell-noimg" aria-hidden="true" />}
-                    </span>
+                    <PostImage post={p} size="row" label={false} />
                     <span className="pl-row-main">
                       <span className="pl-row-when">{postDateLabel(p.date) || 'No date yet'}{p.time ? `, ${p.time}` : ''}</span>
                       <span className="pl-row-cap">{p.caption ? p.caption.split('\n')[0] : postLabel(p)}</span>
@@ -583,8 +599,23 @@ const plannerStyles = `
     background: none; border: 0; border-radius: var(--radius); overflow: hidden; cursor: pointer;
   }
   .pl-cell-post:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-  .pl-cell-img { width: 100%; height: 100%; border-radius: var(--radius); }
-  .pl-cell-noimg { display: block; width: 100%; height: 100%; background: var(--surface); }
+  /* The image slot, in three sizes. A placeholder takes the post's status
+     tone so an unfinished post still reads as a planned one. */
+  .pl-img--cell { width: 100%; height: 100%; border-radius: var(--radius); }
+  .pl-img--row { width: 64px; flex: 0 0 64px; border-radius: var(--radius); }
+  .pl-img--panel { width: 100%; border-radius: var(--radius); }
+  .pl-img.is-placeholder { border: 1px dashed var(--border-light); }
+  .pl-img--idle.is-placeholder { background: var(--glass-bg-strong); }
+  .pl-img--wait.is-placeholder { background: var(--glass-bg-brand); border-color: var(--glass-border-brand); }
+  .pl-img--ok.is-placeholder { background: color-mix(in srgb, var(--success) 14%, transparent); }
+  .pl-img--done.is-placeholder { background: var(--glass-bg); }
+  .pl-img-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
+    width: 100%; height: 100%; padding: var(--space-2); text-align: center;
+  }
+  .pl-img-initial { font-size: 1.125rem; font-weight: 700; color: var(--text-secondary); }
+  .pl-img--panel .pl-img-initial { font-size: 2rem; }
+  .pl-img-label { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
   .pl-cell-meta { position: absolute; right: 4px; bottom: 4px; display: flex; align-items: center; gap: 4px; }
   .pl-cell-badge {
     display: inline-flex; align-items: center; justify-content: center;
@@ -609,7 +640,6 @@ const plannerStyles = `
   }
   .pl-row:hover { border-color: var(--border-light); transform: translateY(-1px); }
   .pl-row:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-  .pl-row-img { width: 64px; flex: 0 0 64px; border-radius: var(--radius); }
   .pl-row-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .pl-row-when { font-size: 0.8125rem; font-weight: 700; color: var(--text); }
   .pl-row-cap { font-size: 0.9375rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -654,8 +684,6 @@ const plannerStyles = `
   .pl-panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
   .pl-panel-title { font-size: 1rem; font-weight: 700; color: var(--text); }
   .pl-panel-body { display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5); overflow-y: auto; }
-  .pl-panel-img { width: 100%; border-radius: var(--radius); }
-  .pl-noimg { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--text-muted); font-size: 0.875rem; }
   .pl-pills { display: flex; gap: var(--space-2); flex-wrap: wrap; }
   .pl-label { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
   .pl-caption { display: flex; flex-direction: column; gap: var(--space-2); }
