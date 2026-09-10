@@ -175,7 +175,7 @@ async function collectImageProblems(page) {
          page on its own opaque layer, so a preview inside one sitting on top
          of a thumbnail behind it is not an overlap anybody can see; only
          boxes on the SAME layer can really collide. */
-      const layer = frame.closest('.v-sheet, .v-modal') ? 'overlay' : 'page';
+      const layer = frame.closest('.v-sheet, .v-modal, .pl-panel') ? 'overlay' : 'page';
       if (!boxes.has(frame)) boxes.set(frame, { name, r: f, layer, stacked: stackOk.some(sel => frame.closest(sel)) });
     }
     const list = [...boxes.values()];
@@ -438,6 +438,16 @@ for (const width of WIDTHS) {
     await check('marketing: Review (no slug)');
     await goto('/review/full-showcase-co');
     await check('marketing: Review (client slug)');
+    {
+      await page.route('**/api/submissions', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"id":"S1"}' }));
+      await page.fill('#rvw-name', 'Jamie Owner');
+      await page.locator('.rvw-star[data-star="5"]').click();
+      await page.fill('#rvw-text', 'Fast, clear, and it landed on the first try.');
+      await page.locator('.rvw-btn[type=submit]').click();
+      await page.waitForSelector('.rvw-done', { timeout: 5000 }).catch(() => {});
+      await check('marketing: Review (thank you)');
+      await page.unroute('**/api/submissions').catch(() => {});
+    }
     /* The client facing Content Planner (planner prompt 3): both views, the
        detail in a review status and in a settled one, the change request
        form, an empty month, and the dead end a revoked link lands on. */
@@ -465,16 +475,6 @@ for (const width of WIDTHS) {
     await check('marketing: Planner (a month with nothing in it)');
     await goto('/planner/notarealtokenatall000000000');
     await check('marketing: Planner (a link that is not active)');
-    {
-      await page.route('**/api/submissions', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"id":"S1"}' }));
-      await page.fill('#rvw-name', 'Jamie Owner');
-      await page.locator('.rvw-star[data-star="5"]').click();
-      await page.fill('#rvw-text', 'Fast, clear, and it landed on the first try.');
-      await page.locator('.rvw-btn[type=submit]').click();
-      await page.waitForSelector('.rvw-done', { timeout: 5000 }).catch(() => {});
-      await check('marketing: Review (thank you)');
-      await page.unroute('**/api/submissions').catch(() => {});
-    }
     if (only === 'marketing') { await ctx.close(); continue; }
   }
 

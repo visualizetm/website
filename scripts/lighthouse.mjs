@@ -37,6 +37,8 @@ const TARGETS = [
   // Site Prompt 5: the remaining marketing pages this prompt aligned.
   { id: 'services', label: 'Services', path: '/services' },
   { id: 'contact', label: 'Contact', path: '/contact' },
+  // planner prompt 3: the page a client opens, with its month mocked.
+  { id: 'planner', label: 'Planner (client facing)', path: '/planner/plnrTESTtoken0123456789abcdEF' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
 

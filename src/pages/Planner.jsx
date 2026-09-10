@@ -535,7 +535,7 @@ const plannerStyles = `
 
   .pl-views { display: inline-flex; padding: 3px; background: var(--glass-bg); border: 1px solid var(--border); border-radius: var(--radius); }
   .pl-view {
-    min-height: 38px; padding: 0 var(--space-4);
+    min-height: 44px; padding: 0 var(--space-4);
     background: none; border: 0; border-radius: 6px; cursor: pointer;
     font: inherit; font-size: 0.875rem; font-weight: 600; color: var(--text-secondary);
   }
@@ -550,7 +550,11 @@ const plannerStyles = `
   /* The calendar. A real table: day-of-week column headers and a week row
      header, so it reads as a grid rather than as a pile of buttons. */
   .pl-cal-wrap { overflow-x: auto; }
-  .pl-cal { width: 100%; border-collapse: separate; border-spacing: var(--space-2); table-layout: fixed; min-width: 320px; }
+  /* The month fits the screen at 320 rather than scrolling sideways: a
+     client should never have to swipe to see their own month. Tighter
+     spacing below 430 is what buys the seven columns the room. */
+  .pl-cal { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
+  @media (min-width: 430px) { .pl-cal { border-spacing: var(--space-2); } }
   .pl-cal th { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; padding-bottom: var(--space-1); }
   .pl-cell { vertical-align: top; height: 84px; padding: 0; border-radius: var(--radius); background: var(--bg-card); border: 1px solid var(--border); position: relative; }
   .pl-cell.is-blank { background: none; border-color: transparent; }

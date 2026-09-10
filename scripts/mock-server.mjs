@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, packs, projects, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, packs, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -57,6 +57,18 @@ function api(req, res, url) {
     if (!slug) return json(res, SHOWCASE_PAYLOAD);
     const client = SHOWCASE_CLIENTS.find(c => c.slug === slug);
     return client ? json(res, client) : json(res, { error: 'not found' }, 404);
+  }
+  /* The client facing planner (planner prompt 3), so Lighthouse measures a
+     real month rather than the not-active page. */
+  if (p === '/api/planner') {
+    const token = url.searchParams.get('token') || '';
+    const lead = leads.find(l => l.planner?.enabled && l.planner?.token === token);
+    if (!lead) return json(res, { error: 'not found' }, 404);
+    if (m === 'POST') return json(res, { ok: true });
+    const month = url.searchParams.get('month') || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const mine = posts.filter(x => String(x.leadId) === String(lead._id) && x.month === month && !x.deleted && !x.archived)
+      .map(x => ({ id: String(x._id), date: x.date, time: x.time, platform: x.platform, imageUrl: x.imageUrl, caption: x.caption, status: x.status, note: x.note, clientNote: x.clientNote }));
+    return json(res, { client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth }, month, posts: mine });
   }
   if (p === '/api/submissions') return json(res, { ok: true, id: 'subMock' });
   return json(res, { error: 'not mocked' }, 404);
