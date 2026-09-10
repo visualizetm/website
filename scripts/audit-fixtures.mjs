@@ -42,6 +42,9 @@ export const PIPE_EXTRA = {
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
         servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
   11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
+        /* Planner prompt 2: the client with a planner switched ON and a full
+           month, including a post in review carrying a client note. */
+        planner: { enabled: true, token: 'plnrTESTtoken0123456789abcdEF', tokenCreatedAt: daysFrom(-30), lastViewedAt: new Date(Date.now() - 4 * 3600e3).toISOString(), postsPerMonth: 8, welcome: 'Here is what is going out this month. Tap any post to read it.' },
         servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
         pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
         checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }],
@@ -87,6 +90,9 @@ export const PIPE_EXTRA = {
           updatedAt: NOW_ISO,
         } },
   13: { stage: 'client', callStatus: 'booked', clientSince: '2026-11-01T10:00:00Z', clientStatus: 'delivered',
+        // Planner prompt 2: the client whose planner is switched OFF. The
+        // token survives being turned off, which is the point of it.
+        planner: { enabled: false, token: 'plnrOFFtoken0123456789abcdEFG', tokenCreatedAt: daysFrom(-60), lastViewedAt: '', postsPerMonth: 8, welcome: '' },
         purchases: [{ id: 'lg13', label: 'Brand Starter: Full payment', amount: 350, at: '2026-11-02', notes: '', projectId: 'P13' }],
         reviews: {
           // The second published testimonial (not featured), on a third client.
@@ -160,6 +166,9 @@ export const posts = [
   { _id: 'PO1', leadId: 'L11', month: THIS_MONTH, date: daysFrom(2), time: '09:00', platform: 'instagram', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on the menu this Friday', status: 'review', note: 'Happy with this one?', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO2', leadId: 'L11', month: THIS_MONTH, date: daysFrom(4), time: '17:30', platform: 'tiktok', imageUrl: '/showcase/fixtures/portrait.svg', caption: 'Behind the counter on a Saturday', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 3 * 3600e3).toISOString(), postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO3', leadId: 'L11', month: THIS_MONTH, date: daysFrom(6), time: '', platform: 'instagram', imageUrl: '', caption: '', status: 'making', note: '', clientNote: 'Can we use the other photo of the storefront?', clientNoteAt: new Date(Date.now() - 5 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO6', leadId: 'L11', month: THIS_MONTH, date: daysFrom(9), time: '08:00', platform: 'instagram', imageUrl: '/showcase/fixtures/wide.svg', caption: 'The new window vinyl went up this week and it looks unreal in the afternoon light', status: 'review', note: 'This one needs your yes before Friday.', clientNote: 'Can the caption say Tuesday instead of Friday? We are shut Friday.', clientNoteAt: new Date(Date.now() - 26 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 1, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO7', leadId: 'L11', month: THIS_MONTH, date: daysFrom(12), time: '19:00', platform: 'facebook', imageUrl: '', caption: 'Weekend hours', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 9 * 864e5).toISOString(), postedAt: new Date(Date.now() - 8 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO8', leadId: 'L11', month: THIS_MONTH, date: daysFrom(14), time: '', platform: 'other', imageUrl: '/showcase/fixtures/portrait.svg', caption: UNBROKEN, status: 'making', note: UNBROKEN.slice(0, 60), clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO4', leadId: 'L13', month: THIS_MONTH, date: daysFrom(1), time: '12:00', platform: 'facebook', imageUrl: '', caption: 'Grand reopening', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO5', leadId: 'L13', month: THIS_MONTH, date: daysFrom(-6), time: '', platform: 'instagram', imageUrl: '', caption: 'Last week', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 8 * 864e5).toISOString(), postedAt: new Date(Date.now() - 6 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
 ];

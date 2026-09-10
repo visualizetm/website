@@ -9,6 +9,7 @@ import { fmtDate } from '../shared/dates';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { uid, today, isHex } from '../lib/projects';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
+import ImageField, { imageFieldStyles } from '../components/ImageField';
 
 /* The Showcase editor (Site Prompt 7, Part 3), its own admin page at
  * /clients/:id/showcase rather than a tab inside the client record.
@@ -55,81 +56,6 @@ function EditableText({ value, onSave, placeholder, label, multiline, readOnly, 
   return readOnly
     ? <span className={`dt-fact-ro${multiline ? '' : ' lay-truncate'}`}>{value || placeholder}</span>
     : <InlineEdit value={value || ''} onSave={onSave} placeholder={placeholder} label={label} multiline={multiline} className={className} />;
-}
-
-/* An image URL field: the link itself (InlineEdit, or plain text when read
- * only), an Upload button when Cloudinary is configured, and a live preview
- * in the exact box the public page will use, so a tall or panoramic upload
- * shows its crop here rather than at publish.
- *
- * Pasting a link always works and is never hidden behind the upload path;
- * the button is the shortcut, not the requirement. Uploading calls the same
- * onSave the manual link uses, so the full-replacement write rule still
- * applies and the draft/save model is untouched.
- *
- * The preview box is also a drop target on a desktop. */
-function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10' }) {
-  const toast = useToast();
-  const fileRef = useRef(null);
-  const [broken, setBroken] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [dropping, setDropping] = useState(false);
-  useEffect(() => { setBroken(false); }, [value]);
-
-  const send = async (file) => {
-    if (!file) return;
-    setUploading(true);
-    const res = await uploadToCloudinary(file);
-    setUploading(false);
-    if (res.url) { await onSave(res.url); toast.success('Image uploaded.'); }
-    else toast.error(res.error);
-  };
-
-  const onPick = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    await send(file);
-  };
-
-  const dropProps = (!readOnly && cloudinaryEnabled && !uploading) ? {
-    onDragOver: (e) => { e.preventDefault(); setDropping(true); },
-    onDragLeave: () => setDropping(false),
-    onDrop: async (e) => { e.preventDefault(); setDropping(false); await send(e.dataTransfer?.files?.[0]); },
-  } : {};
-
-  return (
-    <div className="sc-imgfield">
-      <Row gap={2} align="center" wrap>
-        <EditableText value={value} onSave={onSave} placeholder={placeholder} label={label} readOnly={readOnly || uploading} className="sc-imgfield-edit" />
-        {!readOnly && cloudinaryEnabled && (
-          <>
-            <Button variant="secondary" size="md" icon="Upload01" loading={uploading} disabled={uploading}
-              onClick={() => fileRef.current?.click()} aria-label={uploading ? `Uploading ${label}` : `Upload ${label}`}>
-              Upload
-            </Button>
-            {uploading && <span className="sc-upload-progress" role="status" aria-live="polite">Uploading</span>}
-            {/* No capture attribute: with one, a phone opens the camera and
-                nothing else. Without it, iOS and Android both offer the
-                photo library, Files, and the camera. */}
-            <input ref={fileRef} type="file" accept={ACCEPT_ATTR} style={{ display: 'none' }}
-              onChange={onPick} aria-hidden="true" tabIndex={-1} />
-          </>
-        )}
-      </Row>
-
-      <div className={`sc-drop${dropping ? ' is-over' : ''}`} {...dropProps}>
-        {value ? (broken
-          ? <p className="sc-thumb-warn">Image not reachable.</p>
-          : <span className={`img-fit ${ratio} sc-thumb`}>
-              <img src={value} alt="" width={320} height={200} loading="lazy" decoding="async" onError={() => setBroken(true)} />
-            </span>
-        ) : (!readOnly && cloudinaryEnabled ? <p className="sc-drop-hint">Drop an image here, or paste a link above.</p> : null)}
-        {dropping && <span className="sc-drop-over">Drop to upload</span>}
-      </div>
-
-      {!readOnly && value && <p className="sc-imgfield-note">Clearing this field removes the link from the record. The file stays in Cloudinary.</p>}
-    </div>
-  );
 }
 
 /* Site Prompt "upload flow", check 4: the same upload, for a list.
@@ -830,7 +756,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           reserved through the kit's own --v-scroll-extra hook above. */}
       <SaveBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
-      <style>{saveBarStyles + scStyles}</style>
+      <style>{saveBarStyles + imageFieldStyles + scStyles}</style>
     </PageShell>
   );
 }
@@ -858,30 +784,7 @@ const scStyles = `
   .sc-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .sc-page-body { padding-top: var(--v-space-4); }
 
-  /* Admin surfaces, not the marketing ones: .img-fit is shared with the
-     public site, so its ground is re-pointed here. */
-  .lay-root .img-fit { background: var(--v-surface-3); border-radius: var(--v-radius-md); }
-  /* ...except the round ones. .img-fit--circle sets 50% at one class of
-     specificity, which the rule above outranked, so the profile image and
-     the highlight covers previewed as rounded squares while the public page
-     drew them as circles. */
-  .lay-root .img-fit--circle { border-radius: 50%; }
-  .sc-thumb { width: 200px; max-width: 100%; border: 1px solid var(--v-border); }
-  .sc-imgfield-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .sc-review-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .sc-upload-progress { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-2); }
-  /* The preview doubles as a drop target on a desktop. It keeps its own
-     dashed outline only while there is nothing in it, so a field with an
-     image does not grow a second border around the thumbnail. */
-  .sc-drop { position: relative; margin-top: var(--v-space-2); border-radius: var(--v-radius-md); }
-  .sc-drop:not(:has(.sc-thumb)) { border: 1px dashed var(--v-border); padding: var(--v-space-3); }
-  .sc-drop.is-over { outline: 2px solid var(--v-border-focus); outline-offset: 2px; background: var(--v-surface-3); }
-  .sc-drop-hint { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .sc-drop-over {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    border-radius: var(--v-radius-md); background: var(--v-surface-2);
-    font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1);
-  }
   .sc-thumb-logo { height: 72px; width: 160px; background: none; }
   .sc-thumb-round { width: 96px; }
   /* The public page draws a highlight at 88px on a desktop, so the preview

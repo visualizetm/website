@@ -135,6 +135,30 @@ export default function AdminApp() {
     const r = await apiFetch('/api/admin/posts');
     if (r.ok) { setPosts(r.data?.items || []); setErr('posts', false); } else setErr('posts', true);
   }, [setErr]);
+  /* Adding and deleting a post are immediate (planner prompt 2, part 4);
+   * every other edit is drafted in the editor and saved through patchPost. */
+  const createPost = useCallback(async (doc) => {
+    const r = await apiFetch('/api/admin/posts', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setPosts(ps => [...ps, r.data.item]);
+    return r.data?.item || null;
+  }, []);
+  const patchPost = useCallback(async (id, set) => {
+    let prev;
+    setPosts(ps => ps.map(p => { if (String(p._id) === String(id)) { prev = p; return { ...p, ...set }; } return p; }));
+    const r = await apiFetch('/api/admin/posts', { method: 'PATCH', body: { id, set } });
+    if (r.ok) return true;
+    if (prev) setPosts(ps => ps.map(p => String(p._id) === String(id) ? prev : p));
+    return false;
+  }, []);
+  const deletePost = useCallback(async (id) => {
+    let prev;
+    setPosts(ps => ps.filter(p => { if (String(p._id) === String(id)) { prev = p; return false; } return true; }));
+    const r = await apiFetch('/api/admin/posts', { method: 'DELETE', body: { id } });
+    if (r.ok) return true;
+    if (prev) setPosts(ps => [...ps, prev]);
+    return false;
+  }, []);
 
   // Projects (Prompt 10): loaded at the shell level like call leads so the
   // Calendar, the drawer, and the Clients list all read one array.
@@ -450,10 +474,15 @@ export default function AdminApp() {
         <AdminPlanner
           lead={V.leads.find(l => String(l._id) === plannerId) || null}
           posts={V.posts}
+          month={new URLSearchParams(location.search).get('month') || ''}
           loading={callLeadsLoading || forceLoading}
           error={errors.posts}
           onRetry={loadPosts}
           onPatch={patchCallLead}
+          onRefetchLead={loadCallLeads}
+          onCreatePost={createPost}
+          onPatchPost={patchPost}
+          onDeletePost={deletePost}
           onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
         />
       )}
