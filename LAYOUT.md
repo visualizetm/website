@@ -107,15 +107,29 @@ strings, giant emails) through mocked APIs and fails if any element extends
 past the viewport, any page can scroll sideways, or any interactive element
 measures under 44 by 44 (text links inside prose are the one exemption;
 inputs measure by their field shell, checkboxes and toggles by their row).
-It also fails if a layer is left over the page with nothing open: with no
-dialog, sheet or modal mounted, nothing covering more than half the
-viewport may have a non-transparent background and a z-index above the
-content. The marketing site's boot splash is the single allowance, and only
-on its own terms: only on a marketing route, never on `/planner/:token` or
-`/review`, which have their own in-flow placeholder (`ClientBoot` in
-`src/App.jsx`), and only for the first three seconds after navigation
-started. A splash still in the document after that has stopped being a
-splash and become a scrim.
+It also fails on either half of the overlay contract. With no dialog, sheet
+or modal mounted, nothing covering more than half the viewport may have a
+non-transparent background and a z-index above the content. With one
+mounted, that dialog's surface (the panel, the sheet, the modal, the
+viewer, never its backdrop) must have a non-zero box, at least 90 percent
+of itself inside the viewport, and be what elementFromPoint returns at its
+own centre; another dialog surface on top of it is allowed, because the
+expanded image opens over the detail panel. A backdrop with no dialog and a
+dialog behind its own backdrop look the same to somebody holding the phone:
+the screen dims and nothing opens.
+
+A dialog is only ever placed against the screen if nothing between it and
+the root carries a transform, a filter or a containment, so the client
+planner's layers portal to the body the way the kit's Sheet, Modal, Toast
+and Popover do (src/ui/portal.js), and `.page-fade` fills backwards rather
+than forwards so a finished entrance leaves no transform on `main`.
+
+The marketing site's boot splash is the one allowance on the first half of
+the rule, and only on its own terms: only on a marketing route, never on
+`/planner/:token` or `/review`, which have their own in-flow placeholder
+(`ClientBoot` in `src/App.jsx`), and only for the first three seconds after
+navigation started. A splash still in the document after that has stopped
+being a splash and become a scrim.
 
 `AUDIT_ONLY=a11y` adds the 200 percent zoom pass (a viewport of half the
 CSS pixels at twice the device scale, which is what browser zoom does) and

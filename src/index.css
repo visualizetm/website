@@ -374,9 +374,18 @@ h1, h2, h3, h4, h5, h6 {
   min-height: calc(100 * var(--svh) - 72px);
 }
 
+/* backwards, not forwards. The entrance needs its first frame filled in
+   before it starts; it does not need its last frame held forever, and
+   holding it was doing real damage. pageFade's last keyframe carries
+   transform: translateY(0), which computes to a matrix, and an element with
+   a transform is the containing block for every position: fixed descendant.
+   So main.page-shell quietly became "the viewport" for everything inside it:
+   the client planner's detail panel, sized to inset: 0 of a 2699px page
+   instead of the screen, opened 1078px below the fold with its backdrop
+   still covering all of it. With backwards the element is left with its own
+   styles once the animation has run, and fixed means fixed again. */
 .page-fade {
-  opacity: 0;
-  animation: pageFade 0.5s var(--ease) forwards;
+  animation: pageFade 0.5s var(--ease) backwards;
 }
 
 /* Glass utility for cards/panels */

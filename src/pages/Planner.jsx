@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams } from 'react-router-dom';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
@@ -129,6 +130,17 @@ function PostImage({ post, size, label = true, alt = '', onExpand }) {
   );
 }
 
+/* Every layer on this page that means "the screen" is portaled to the body,
+ * the same way the admin kit portals its Sheet, Modal, Toast and Popover
+ * (src/ui/portal.js). position: fixed only means the viewport while nothing
+ * between the element and the root carries a transform, a filter or a
+ * containment: any one of those makes that ancestor the containing block
+ * instead, and the layer is then sized and placed against a page that can
+ * be three viewports tall. src/marketing/motion/TrackScroll.jsx has the
+ * same note about a Curtain. The page's <style> is global, so a portaled
+ * layer keeps every rule and every token it had inside the page. */
+const overlay = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
+
 /* The whole image on its own, fit to the screen. What somebody does when
  * they want to look properly before saying yes, and on a phone the panel is
  * never big enough. A dialog: labelled, focus trapped, Escape closes, and so
@@ -151,7 +163,7 @@ function Expanded({ post, onClose }) {
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
   }, [onClose]);
-  return (
+  return overlay(
     <div className="pl-zoom" role="dialog" aria-modal="true" aria-label={`${postLabel(post)}, the whole image`} ref={ref} onClick={onClose}>
       <img className="pl-zoom-img" src={post.imageUrl} alt="" onClick={(e) => e.stopPropagation()} />
       <button type="button" ref={closeRef} className="pl-zoom-close" onClick={onClose} aria-label="Close the image">
@@ -217,7 +229,7 @@ function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, f
     if (ok) { try { sessionStorage.removeItem(draftKey); } catch { /* nothing to clear */ } setNote(''); setAsking(false); }
   };
 
-  return (
+  return overlay(
     <div className="pl-panel-wrap" role="dialog" aria-modal="true" aria-label={`${postLabel(post)}, ${st.label}`}>
       <button type="button" className="pl-scrim" aria-label="Close" onClick={onClose} />
       <div className="pl-panel">
@@ -595,7 +607,7 @@ export default function Planner() {
           onApprove={approve} onChange={requestChange} />
       )}
 
-      {toast && <p className="pl-toast" role="status">{toast}</p>}
+      {toast && overlay(<p className="pl-toast" role="status">{toast}</p>)}
       <style>{clientChromeStyles + plannerStyles}</style>
     </section>
   );

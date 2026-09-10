@@ -356,6 +356,33 @@ await step('12. Review form: fill it, submit, see the thank you', async () => {
 /* The planner prompt: the page a client opens with their token. The month
  * they see, then the two things they can actually do, each checked by what
  * reaches the endpoint and what changes on the page afterwards. */
+/* A client tapping a post has to SEE the panel, not merely have it in the
+ * document. This step used to assert the caption existed, which stayed true
+ * while the whole panel sat a thousand pixels below the fold behind its own
+ * backdrop, so it walked straight past that bug. Same rule the layout audit
+ * applies: painted, at least 90 percent of its own box inside the viewport,
+ * and the thing being drawn at its own centre. */
+async function panelOnScreen(page, what) {
+  const v = await page.evaluate(() => {
+    const el = document.querySelector('.pl-panel');
+    if (!el) return { mounted: false };
+    const cs = getComputedStyle(el), r = el.getBoundingClientRect();
+    const w = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0));
+    const h = Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0));
+    const pct = (r.width * r.height) ? Math.round((w * h) / (r.width * r.height) * 100) : 0;
+    const hit = w && h ? document.elementFromPoint(Math.round(Math.max(r.left, 0) + w / 2), Math.round(Math.max(r.top, 0) + h / 2)) : null;
+    return { mounted: true, painted: cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0', pct,
+      box: `${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.left)},${Math.round(r.top)}`,
+      viewport: `${innerWidth}x${innerHeight}`,
+      onTop: !!hit && (hit === el || el.contains(hit)),
+      hit: hit ? `${hit.tagName.toLowerCase()}.${String(hit.className).trim().slice(0, 24)}` : 'nothing' };
+  });
+  if (!v.mounted) throw new Error(`${what}: the detail panel is not mounted at all`);
+  if (!v.painted) throw new Error(`${what}: the detail panel is mounted but not painted`);
+  if (v.pct < 90) throw new Error(`${what}: only ${v.pct}% of the detail panel is on screen (${v.box}, viewport ${v.viewport})`);
+  if (!v.onTop) throw new Error(`${what}: the detail panel is behind ${v.hit} at its own centre`);
+}
+
 await step('13. Content planner: open a month, approve one, ask for a change on another', async () => {
   const TOKEN = 'plnrREGRESSIONtoken01234567';
   const MONTH = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -399,7 +426,9 @@ await step('13. Content planner: open a month, approve one, ask for a change on 
   await page.waitForTimeout(400);
   await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click();
   await page.waitForTimeout(500);
+  await panelOnScreen(page, 'approving');
   if (!await page.locator('.pl-caption-body').count()) throw new Error('the caption is not in the detail');
+  if (!await page.locator('.pl-caption-body').isVisible()) throw new Error('the caption is in the detail but not visible');
   await page.locator('.pl-approve').click();
   await page.waitForTimeout(900);
   if (!/Approved/i.test(await page.locator('.pl-toast').innerText().catch(() => ''))) throw new Error('no confirmation after approving');
@@ -410,8 +439,10 @@ await step('13. Content planner: open a month, approve one, ask for a change on 
   await page.waitForTimeout(2400);
   await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click();
   await page.waitForTimeout(500);
+  await panelOnScreen(page, 'asking for a change');
   await page.locator('.pl-ask-btn').click();
   await page.waitForTimeout(300);
+  if (!await page.locator('#pl-note').isVisible()) throw new Error('the change request box is not visible');
   await page.fill('#pl-note', 'Can we shoot this one outside instead?');
   await page.locator('.pl-panel-foot button', { hasText: /^Send$/ }).click();
   await page.waitForTimeout(1000);
@@ -419,7 +450,7 @@ await step('13. Content planner: open a month, approve one, ask for a change on 
   if (sent?.action !== 'request-change' || sent?.postId !== 'RG2') throw new Error(`the change body was ${JSON.stringify(sent)}`);
   if (sent?.note !== 'Can we shoot this one outside instead?') throw new Error('the note did not reach the endpoint');
   if (!await page.locator('.pl-row').filter({ hasText: 'Being made' }).count()) throw new Error('the post did not go back to Being made');
-  return 'the month, an approval with the counts moving, and a change request with the note in the body';
+  return 'the month, a panel measured on screen before each action, an approval with the counts moving, and a change request with the note in the body';
 });
 
 await browser.close();

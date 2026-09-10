@@ -197,35 +197,89 @@ async function collectImageProblems(page) {
   }, STACK_OK);
 }
 
-/* Stuck overlays (the client planner scrim). A scrim, a backdrop or a
- * splash is a full screen layer with a background, drawn over the page on
- * its own z-index. While a dialog is open that is exactly right. While
- * nothing is open it is a page nobody can read or touch, which is what the
- * marketing splash was doing to the client planner: rendered on both of
- * those routes on a 1300ms timer, and left up for as long as the page's
- * own chunk took to arrive.
+/* Overlay layers, both ways round (the client planner scrim, then the
+ * client planner panel).
  *
- * So, with no dialog, sheet or modal mounted, nothing covering more than
- * half the viewport may have a non-transparent background and a z-index
- * above the content. An element still fading out is caught too, at
- * whatever opacity it is currently painting.
+ * A scrim, a backdrop or a splash is a full screen layer with a background,
+ * drawn over the page on its own z-index. While a dialog is open that is
+ * exactly right. While nothing is open it is a page nobody can read or
+ * touch, which is what the marketing splash was doing to the client
+ * planner: rendered on both of those routes on a 1300ms timer, and left up
+ * for as long as the page's own chunk took to arrive.
  *
- * The one layer that is allowed over a page with nothing open is the
- * marketing site's boot splash, and only on its own terms: only on a
- * marketing route (never on a client's planner or review form, which have
- * their own in-flow placeholder), and only while it is still inside its
- * own life. A splash still in the document three seconds after navigation
- * started has stopped being a splash and become a scrim.
+ * The other half of the same failure is a dialog that is mounted and not
+ * visible. A backdrop with no dialog and a dialog behind its own backdrop
+ * look identical to somebody holding the phone: the screen dims and nothing
+ * opens. So every mounted dialog is measured too, and it has to have a real
+ * size, be on the screen, and be the thing painting at its own centre.
+ *
+ * With nothing open: nothing covering more than half the viewport may have
+ * a non-transparent background and a z-index above the content. The
+ * marketing site's boot splash is the single allowance, only on a marketing
+ * route (never on a client's planner or review form, which have their own
+ * in-flow placeholder) and only for the first three seconds after
+ * navigation started. A splash still in the document after that has stopped
+ * being a splash and become a scrim.
+ *
+ * With something open: each dialog's surface (the panel, the sheet, the
+ * modal, the viewer, not its backdrop) must have a non-zero rect, must have
+ * at least half of itself inside the viewport, and must be what
+ * elementFromPoint returns at its own centre. Another dialog surface on top
+ * of it is allowed, because the expanded image opens over the detail panel.
  */
 const DIALOG_SEL = '[role="dialog"], [role="alertdialog"], dialog[open], .v-sheet, .v-sheet-back, .v-modal, .pl-panel-wrap, .pl-zoom';
+const SURFACE_SEL = '.pl-panel, .pl-zoom, .v-sheet, .v-modal';
 const SPLASH_LIFE_MS = 3000;
+/* How much of a dialog's own box has to be inside the viewport. Every
+ * dialog on this site is built to fit the screen (the client panel caps at
+ * 92vh, the kit's Sheet and Modal cap themselves, the image viewer is
+ * inset: 0), so anything much under the whole of it is a dialog that has
+ * been placed against something other than the screen. The client planner's
+ * panel measured 0% from the top of the page and 61% once the browser had
+ * scrolled its focused close button into view; both fail this. */
+const VISIBLE_MIN = 0.9;
 async function collectStuckOverlays(page) {
-  return page.evaluate(([dialogSel, splashLife]) => {
-    if (document.querySelector(dialogSel)) return []; // something is open: a backdrop belongs here
+  return page.evaluate(([dialogSel, surfaceSel, splashLife, visibleMin]) => {
     const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
     const out = [];
+    const name = (el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}`.slice(0, 70);
     const describe = (el, cs, cover, why) => ({ tag: el.tagName.toLowerCase(), cls: String(el.className).slice(0, 60), bg: cs.backgroundColor, opacity: cs.opacity, z: cs.zIndex, pe: cs.pointerEvents, cover, why });
 
+    const containers = [...document.querySelectorAll(dialogSel)];
+
+    /* ── Something is open: is it actually on screen? ───────────────── */
+    if (containers.length) {
+      const surfaces = new Set();
+      for (const c of containers) surfaces.add(c.matches(surfaceSel) ? c : (c.querySelector(surfaceSel) || c));
+      for (const el of surfaces) {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') {
+          out.push(describe(el, cs, 0, 'a dialog is mounted but not painted'));
+          continue;
+        }
+        if (r.width < 1 || r.height < 1) {
+          out.push(describe(el, cs, 0, `a dialog is mounted with a zero size (${Math.round(r.width)}x${Math.round(r.height)})`));
+          continue;
+        }
+        const seenW = Math.min(r.right, vw) - Math.max(r.left, 0);
+        const seenH = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+        const seen = Math.max(0, seenW) * Math.max(0, seenH);
+        const share = seen / (r.width * r.height);
+        if (share < visibleMin) {
+          const below = Math.round(r.top - vh);
+          out.push(describe(el, cs, Math.round(share * 100), `a dialog is mounted with ${Math.round(share * 100)}% of it on screen (its box is ${Math.round(r.width)}x${Math.round(r.height)} at ${Math.round(r.left)},${Math.round(r.top)}${below > 0 ? `, ${below}px below the fold` : ''}, the viewport is ${vw}x${vh})`));
+          continue;
+        }
+        const x = Math.round(Math.max(r.left, 0) + seenW / 2), y = Math.round(Math.max(r.top, 0) + seenH / 2);
+        const hit = document.elementFromPoint(x, y);
+        const onTop = hit && (el.contains(hit) || hit === el || [...surfaces].some(o => o !== el && (o === hit || o.contains(hit))));
+        if (!onTop) out.push(describe(el, cs, Math.round(share * 100), `a dialog is behind ${hit ? name(hit) : 'nothing'} at its own centre (${x},${y})`));
+      }
+      return out.slice(0, 6);
+    }
+
+    /* ── Nothing is open: is anything still covering the page? ──────── */
     const splash = document.querySelector('.app-loader');
     if (splash) {
       const cs = getComputedStyle(splash);
@@ -233,7 +287,6 @@ async function collectStuckOverlays(page) {
       if (onClientPage) out.push(describe(splash, cs, 100, 'the marketing splash, on a standalone client page'));
       else if (performance.now() > splashLife) out.push(describe(splash, cs, 100, `still in the document ${Math.round(performance.now())}ms after navigation started`));
     }
-
     for (const el of document.querySelectorAll('body *')) {
       if (el.closest('.app-loader')) continue; // the splash has its own rule above
       const cs = getComputedStyle(el);
@@ -251,7 +304,7 @@ async function collectStuckOverlays(page) {
       out.push(describe(el, cs, Math.round((w * h) / (vw * vh) * 100), 'over the page with nothing open'));
     }
     return out.slice(0, 6);
-  }, [DIALOG_SEL, SPLASH_LIFE_MS]);
+  }, [DIALOG_SEL, SURFACE_SEL, SPLASH_LIFE_MS, VISIBLE_MIN]);
 }
 
 async function collectOffenders(page) {
@@ -309,7 +362,7 @@ for (const width of WIDTHS) {
     const hscroll = res.scrollW > res.vw + 1;
     if (hscroll || res.offenders.length || small.length || imgs.length || scrolls.length || stuck.length) {
       failures++;
-      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}${scrolls.length ? `, ${scrolls.length} scroll problem${scrolls.length === 1 ? '' : 's'}` : ''}${stuck.length ? `, ${stuck.length} stuck overlay${stuck.length === 1 ? '' : 's'}` : ''}`);
+      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}${scrolls.length ? `, ${scrolls.length} scroll problem${scrolls.length === 1 ? '' : 's'}` : ''}${stuck.length ? `, ${stuck.length} overlay problem${stuck.length === 1 ? '' : 's'}` : ''}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
       for (const t of small) console.log(`        target <${t.tag} class="${t.cls}"> ${t.w}x${t.h} "${t.text}"`);
       for (const im of imgs) {
@@ -322,7 +375,7 @@ for (const width of WIDTHS) {
         else if (sc.kind === 'oversized') console.log(`        scroller grew to its content instead of the screen: ${sc.el} clientHeight=${sc.h} scrollHeight=${sc.sh}, bottom at ${sc.bottom}`);
         else console.log(`        last content hidden behind the chrome: ${sc.el} ends at ${sc.bottom}, visible to ${sc.limit}`);
       }
-      for (const o of stuck) console.log(`        overlay ${o.why}: <${o.tag} class="${o.cls}"> covers ${o.cover}% bg=${o.bg} opacity=${o.opacity} z=${o.z} pointer-events=${o.pe}`);
+      for (const o of stuck) console.log(`        ${o.why}: <${o.tag} class="${o.cls}"> bg=${o.bg} opacity=${o.opacity} z=${o.z} pointer-events=${o.pe}`);
     } else {
       console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);
     }
