@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 
 import {
@@ -303,6 +304,16 @@ function sanitize(b) {
     // ever changed through the PATCH handler's own logic below (slug
     // generation, uniqueness), never trusted verbatim from the client here.
     showcase: b.showcase && typeof b.showcase === 'object' ? sanitizeShowcase(b.showcase) : undefined,
+    /* Content Planner (planner prompt 1), additive: the per client switch
+     * for the private planner link. Only these three fields are writable
+     * from a request. token, tokenCreatedAt and lastViewedAt are stamped
+     * server side and carried forward by the PATCH handler below, which is
+     * what makes a token impossible to set, read back, or wipe from here. */
+    planner: b.planner && typeof b.planner === 'object' ? {
+      enabled: !!b.planner.enabled,
+      postsPerMonth: Math.max(0, Math.min(60, Math.round(Number(b.planner.postsPerMonth)) || 0)) || 8,
+      welcome: str(b.planner.welcome, 300),
+    } : undefined,
     retainer: b.retainer && typeof b.retainer === 'object' ? {
       projectId: str(b.retainer.projectId, 64), planId: str(b.retainer.planId, 40),
       amount: Number.isFinite(Number(b.retainer.amount)) ? Math.max(0, Math.min(100000, Number(b.retainer.amount))) : 0,
@@ -411,6 +422,29 @@ export async function handler(req, res) {
     }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();
+
+    /* Content Planner: the planner object is full replacement like every
+     * other object here, so the token has to be carried forward rather than
+     * trusted from the request. A token is minted the first time a client
+     * gets a planner record and again only when the caller asks for
+     * { planner: { regenerate: true } }, which is the revoke: the old link
+     * stops resolving the moment the new token is stored. Turning enabled
+     * off keeps the token, so switching it back on revives the same link. */
+    if (allowed.planner) {
+      const oid = new ObjectId(String(id));
+      const before = await col.findOne({ _id: oid }, { projection: { planner: 1 } });
+      const had = before?.planner || {};
+      const regenerate = !!set.planner?.regenerate;
+      const mint = regenerate || !had.token;
+      allowed.planner = {
+        ...allowed.planner,
+        token: mint ? randomBytes(24).toString('base64url') : had.token,
+        tokenCreatedAt: mint ? new Date().toISOString() : (had.tokenCreatedAt || ''),
+        lastViewedAt: had.lastViewedAt || '',
+      };
+      // No early return: this only resolves the token, so a PATCH carrying
+      // both planner and showcase still runs the slug logic below.
+    }
 
     // Site Prompt 2: slug generation (first publish) and uniqueness among
     // OTHER published clients. showcase is a full-replacement object (same
