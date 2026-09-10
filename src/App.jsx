@@ -89,15 +89,53 @@ function LoadingScreen({ done }) {
   );
 }
 
+/* The two standalone client pages get this while their chunk is on the way,
+ * instead of the marketing splash. It sits in the page's own flow rather
+ * than in a fixed, full screen layer, so the arriving page takes its place
+ * and it can never end up on top of content that has already rendered.
+ * A fixed layer can: see the standalone branch below. */
+function ClientBoot() {
+  return (
+    <div className="client-boot" role="status">
+      <span className="client-boot-logo" aria-hidden="true"><Wordmark size={22} /></span>
+      <span className="visually-hidden">Loading</span>
+      <style>{`
+        .client-boot {
+          min-height: calc(100 * var(--svh, 1vh));
+          display: flex; align-items: center; justify-content: center;
+          background: var(--bg);
+        }
+        .client-boot-logo {
+          display: inline-flex;
+          animation: clientBootPulse 1.4s ease-in-out infinite;
+        }
+        @keyframes clientBootPulse {
+          0%, 100% { opacity: 0.45; }
+          50%      { opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
-  const location              = useLocation();
-  const [loading, setLoading] = useState(true);
+  const location                  = useLocation();
+  const [loading, setLoading]     = useState(true);
+  /* The splash is removed from the tree once it has faded, rather than left
+   * behind at opacity 0. A fixed, full screen, z-index 9999 element that
+   * lives forever is one stray style away from covering the site again. */
+  const [splashGone, setSplashGone] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 1300);
     return () => clearTimeout(t);
   }, []);
 
+  useEffect(() => {
+    if (loading) return undefined;
+    const t = setTimeout(() => setSplashGone(true), 600); // the 0.5s fade, plus a frame
+    return () => clearTimeout(t);
+  }, [loading]);
 
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
@@ -131,9 +169,15 @@ export default function App() {
    * wander off in the middle of it. Each page carries its own slim bar and
    * a one line footer (src/components/ClientPageChrome.jsx). */
   if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/')) {
+    /* No splash here. The marketing splash is a fixed, opaque, z-index 9999
+     * layer on a 1300ms timer that has nothing to do with whether the page
+     * is ready, and its Suspense fallback is hard coded to done={false},
+     * which has no exit path of its own. On these pages that put the
+     * finished planner under a black scrim for the best part of two
+     * seconds, and left it there for as long as the page's chunk took to
+     * arrive. ClientBoot is in the flow instead, so the page replaces it. */
     return (
-      <Suspense fallback={<LoadingScreen done={false} />}>
-        <LoadingScreen done={!loading} />
+      <Suspense fallback={<ClientBoot />}>
         <main className="page-shell page-fade" key={location.pathname}>
           <Routes location={location}>
             <Route path="/review" element={<Review />} />
@@ -147,7 +191,7 @@ export default function App() {
 
   return (
     <Suspense fallback={<LoadingScreen done={false} />}>
-      <LoadingScreen done={!loading} />
+      {!splashGone && <LoadingScreen done={!loading} />}
       <ScrollRoot />
       <Navbar />
       <main className="page-shell page-fade" key={location.pathname}>

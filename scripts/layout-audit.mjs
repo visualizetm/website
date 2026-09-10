@@ -197,6 +197,63 @@ async function collectImageProblems(page) {
   }, STACK_OK);
 }
 
+/* Stuck overlays (the client planner scrim). A scrim, a backdrop or a
+ * splash is a full screen layer with a background, drawn over the page on
+ * its own z-index. While a dialog is open that is exactly right. While
+ * nothing is open it is a page nobody can read or touch, which is what the
+ * marketing splash was doing to the client planner: rendered on both of
+ * those routes on a 1300ms timer, and left up for as long as the page's
+ * own chunk took to arrive.
+ *
+ * So, with no dialog, sheet or modal mounted, nothing covering more than
+ * half the viewport may have a non-transparent background and a z-index
+ * above the content. An element still fading out is caught too, at
+ * whatever opacity it is currently painting.
+ *
+ * The one layer that is allowed over a page with nothing open is the
+ * marketing site's boot splash, and only on its own terms: only on a
+ * marketing route (never on a client's planner or review form, which have
+ * their own in-flow placeholder), and only while it is still inside its
+ * own life. A splash still in the document three seconds after navigation
+ * started has stopped being a splash and become a scrim.
+ */
+const DIALOG_SEL = '[role="dialog"], [role="alertdialog"], dialog[open], .v-sheet, .v-sheet-back, .v-modal, .pl-panel-wrap, .pl-zoom';
+const SPLASH_LIFE_MS = 3000;
+async function collectStuckOverlays(page) {
+  return page.evaluate(([dialogSel, splashLife]) => {
+    if (document.querySelector(dialogSel)) return []; // something is open: a backdrop belongs here
+    const vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+    const out = [];
+    const describe = (el, cs, cover, why) => ({ tag: el.tagName.toLowerCase(), cls: String(el.className).slice(0, 60), bg: cs.backgroundColor, opacity: cs.opacity, z: cs.zIndex, pe: cs.pointerEvents, cover, why });
+
+    const splash = document.querySelector('.app-loader');
+    if (splash) {
+      const cs = getComputedStyle(splash);
+      const onClientPage = /^\/(planner|review)(\/|$)/.test(location.pathname);
+      if (onClientPage) out.push(describe(splash, cs, 100, 'the marketing splash, on a standalone client page'));
+      else if (performance.now() > splashLife) out.push(describe(splash, cs, 100, `still in the document ${Math.round(performance.now())}ms after navigation started`));
+    }
+
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.closest('.app-loader')) continue; // the splash has its own rule above
+      const cs = getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') continue;
+      // Only a layer drawn over the page can strand one; in-flow backgrounds are the page.
+      if (cs.position !== 'fixed' && cs.position !== 'absolute' && cs.position !== 'sticky') continue;
+      const z = cs.zIndex === 'auto' ? 0 : Number(cs.zIndex) || 0;
+      if (z <= 0) continue;
+      const bg = cs.backgroundColor;
+      if (!bg || bg === 'transparent' || /,\s*0\)$/.test(bg)) continue;
+      const r = el.getBoundingClientRect();
+      const w = Math.min(r.right, vw) - Math.max(r.left, 0);
+      const h = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+      if (w <= 0 || h <= 0 || w * h < vw * vh * 0.5) continue;
+      out.push(describe(el, cs, Math.round((w * h) / (vw * vh) * 100), 'over the page with nothing open'));
+    }
+    return out.slice(0, 6);
+  }, [DIALOG_SEL, SPLASH_LIFE_MS]);
+}
+
 async function collectOffenders(page) {
   return page.evaluate(([hscrollOk, clipOk]) => {
     const vw = document.documentElement.clientWidth;
@@ -248,10 +305,11 @@ for (const width of WIDTHS) {
     const small = await collectSmallTargets(targetPage);
     const imgs = await collectImageProblems(targetPage);
     const scrolls = await collectScrollProblems(targetPage);
+    const stuck = await collectStuckOverlays(targetPage);
     const hscroll = res.scrollW > res.vw + 1;
-    if (hscroll || res.offenders.length || small.length || imgs.length || scrolls.length) {
+    if (hscroll || res.offenders.length || small.length || imgs.length || scrolls.length || stuck.length) {
       failures++;
-      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}${scrolls.length ? `, ${scrolls.length} scroll problem${scrolls.length === 1 ? '' : 's'}` : ''}`);
+      console.log(`  FAIL [${width}px] ${label}${hscroll || res.offenders.length ? `, scrollW=${res.scrollW} vw=${res.vw}` : ''}${small.length ? `, ${small.length} target${small.length === 1 ? '' : 's'} under ${TARGET_MIN}px` : ''}${imgs.length ? `, ${imgs.length} image problem${imgs.length === 1 ? '' : 's'}` : ''}${scrolls.length ? `, ${scrolls.length} scroll problem${scrolls.length === 1 ? '' : 's'}` : ''}${stuck.length ? `, ${stuck.length} stuck overlay${stuck.length === 1 ? '' : 's'}` : ''}`);
       for (const o of res.offenders) console.log(`        <${o.tag} class="${o.cls}"> left=${o.rect.left} right=${o.rect.right} w=${o.rect.w}`);
       for (const t of small) console.log(`        target <${t.tag} class="${t.cls}"> ${t.w}x${t.h} "${t.text}"`);
       for (const im of imgs) {
@@ -264,6 +322,7 @@ for (const width of WIDTHS) {
         else if (sc.kind === 'oversized') console.log(`        scroller grew to its content instead of the screen: ${sc.el} clientHeight=${sc.h} scrollHeight=${sc.sh}, bottom at ${sc.bottom}`);
         else console.log(`        last content hidden behind the chrome: ${sc.el} ends at ${sc.bottom}, visible to ${sc.limit}`);
       }
+      for (const o of stuck) console.log(`        overlay ${o.why}: <${o.tag} class="${o.cls}"> covers ${o.cover}% bg=${o.bg} opacity=${o.opacity} z=${o.z} pointer-events=${o.pe}`);
     } else {
       console.log(`  ok   [${width}px${THEME === 'light' ? ' light' : ''}${MOTION === 'reduce' ? ' reduce' : ''}] ${label}`);
     }
@@ -442,6 +501,8 @@ for (const width of WIDTHS) {
     await goto('/review');
     await check('marketing: Review (no slug)');
     await goto('/review/full-showcase-co');
+    await check('marketing: Review (the moment it opens)');
+    await page.waitForTimeout(1200);
     await check('marketing: Review (client slug)');
     {
       await page.route('**/api/submissions', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"id":"S1"}' }));
@@ -457,6 +518,10 @@ for (const width of WIDTHS) {
        detail in a review status and in a settled one, the change request
        form, an empty month, and the dead end a revoked link lands on. */
     await goto('/planner/plnrTESTtoken0123456789abcdEF');
+    /* The moment it opens, before anything settles: this is where the
+       marketing splash used to be sitting on top of the finished page, and
+       it is the one state the stuck overlay check has to see. */
+    await check('marketing: Planner (the moment it opens)');
     await page.locator('.pl-legend').first().waitFor({ timeout: 5000 }).catch(() => {});
     /* The calendar is only offered from 430 up, where seven 44px columns
        actually fit; below that the list is the whole story, so this row
@@ -485,7 +550,10 @@ for (const width of WIDTHS) {
     await page.waitForTimeout(400);
     await check('marketing: Planner (the whole image, expanded)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    /* Closed again: the viewer has to take its backdrop with it. */
+    await check('marketing: Planner (the whole image, closed again)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await check('marketing: Planner (detail closed, nothing over the page)');
     /* An image whose real shape does not match its format, both ways: a 1:1
        on a story, and a wide one on a portrait post. */
     await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).last().click({ timeout: 3000 }).catch(() => {});
@@ -752,6 +820,8 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(500);
   await check('planner editor (post editor sheet)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  /* The Sheet closed again: no backdrop left behind over the page. */
+  await check('planner editor (post editor sheet, closed again)');
   /* The two format cases: a story (no hashtag field, a 9:16 preview) and a
      portrait post that cannot go out for approval yet. */
   await page.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});

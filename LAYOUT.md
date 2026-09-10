@@ -107,6 +107,16 @@ strings, giant emails) through mocked APIs and fails if any element extends
 past the viewport, any page can scroll sideways, or any interactive element
 measures under 44 by 44 (text links inside prose are the one exemption;
 inputs measure by their field shell, checkboxes and toggles by their row).
+It also fails if a layer is left over the page with nothing open: with no
+dialog, sheet or modal mounted, nothing covering more than half the
+viewport may have a non-transparent background and a z-index above the
+content. The marketing site's boot splash is the single allowance, and only
+on its own terms: only on a marketing route, never on `/planner/:token` or
+`/review`, which have their own in-flow placeholder (`ClientBoot` in
+`src/App.jsx`), and only for the first three seconds after navigation
+started. A splash still in the document after that has stopped being a
+splash and become a scrim.
+
 `AUDIT_ONLY=a11y` adds the 200 percent zoom pass (a viewport of half the
 CSS pixels at twice the device scale, which is what browser zoom does) and
 the WCAG text spacing overrides on the Dashboard, Leads, and the call room.

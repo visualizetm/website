@@ -163,7 +163,7 @@ and /fonts.
 ```
 npm run build                                  # Vite build to dist/ (also pins the CSP hash in vercel.json, prerenders published clients, writes the sitemap)
 npx vite preview --port 4330                   # serve dist/ for the audits
-node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs, 44px targets
+node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs, 44px targets, stuck overlays
 AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs   # also clients, studio, design, dashboard
 AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs   # the other theme, motion off
 AUDIT_ONLY=a11y AUDIT_WIDTHS=390,1280 node scripts/layout-audit.mjs   # 200 percent zoom and text spacing on Dashboard, Leads, call room
