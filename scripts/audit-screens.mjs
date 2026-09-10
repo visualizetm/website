@@ -108,6 +108,11 @@ export const SCREENS = [
   { id: 'mkt-review', screen: 'Review (marketing)', label: 'form, no slug', path: '/review', session: false, static: true, marketing: true },
   { id: 'mkt-review-slug', screen: 'Review (marketing)', label: 'form, client slug', path: '/review/full-showcase-co', session: false, static: true, marketing: true },
   { id: 'mkt-review-unknown', screen: 'Review (marketing)', label: 'unknown slug falls back to the generic form', path: '/review/does-not-exist', session: false, static: true, marketing: true },
+
+  /* The client facing Content Planner (planner prompt 3). The token in these
+     paths is the audit fixture's, answered by the mocked /api/planner. */
+  { id: 'mkt-planner-cal', screen: 'Planner (marketing)', label: 'calendar view', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true },
+  { id: 'mkt-planner-dead', screen: 'Planner (marketing)', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000', session: false, static: true, marketing: true },
   // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
   // the React root, not a route, so unlike every other marketing: true
   // entry above it only renders against a build made with that env var

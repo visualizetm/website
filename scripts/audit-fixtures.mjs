@@ -357,6 +357,32 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
   // Site Prompt 3: the public showcase endpoint the marketing Clients page reads.
+  /* The client facing planner (planner prompt 3): api/planner.js answers one
+     client's month for a token, and answers 404 for anything it does not
+     recognise, which is the page's dead end state. */
+  await page.route('**/api/planner**', (r) => {
+    const url = new URL(r.request().url());
+    const token = url.searchParams.get('token') || '';
+    const lead = leads.find(l => l.planner?.enabled && l.planner?.token === token);
+    if (!lead) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (r.request().method() === 'POST') {
+      let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+      const p = posts.find(x => String(x._id) === String(body.postId));
+      if (!p) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+      if (p.status !== 'review') return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'That post is not waiting for approval any more.' }) });
+      if (body.action === 'request-change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'note required' }) });
+      p.status = body.action === 'approve' ? 'approved' : 'making';
+      if (body.action === 'request-change') { p.clientNote = String(body.note).slice(0, 500); p.clientNoteAt = new Date().toISOString(); }
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: p.status }) });
+    }
+    const month = url.searchParams.get('month') || THIS_MONTH;
+    const mine = posts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived)
+      .map(p => ({ id: String(p._id), date: p.date, time: p.time, platform: p.platform, imageUrl: p.imageUrl, caption: p.caption, status: p.status, note: p.note, clientNote: p.clientNote }));
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+      client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth },
+      month, posts: mine,
+    }) });
+  });
   await page.route('**/api/showcase**', (r) => {
     const u = new URL(r.request().url());
     const slug = u.searchParams.get('slug');

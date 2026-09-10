@@ -19,6 +19,9 @@ const Start = lazy(() => import('./pages/Start'));
 /* The review form. Nothing links to it: it is a link Rob sends after a
  * delivery, so it is noindex and out of the sitemap. */
 const Review = lazy(() => import('./pages/Review'));
+/* The client facing Content Planner, opened with a token Rob sends. Also
+ * unlinked and noindex: it is somebody's own month, not a page to browse. */
+const Planner = lazy(() => import('./pages/Planner'));
 /* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
  * in the marketing branch below, so the admin's entry never carries the
  * loader or the gsap/lenis chunk URLs behind it. */
@@ -142,6 +145,7 @@ export default function App() {
           <Route path="/start"       element={<Start />} />
           <Route path="/review"       element={<Review />} />
           <Route path="/review/:slug" element={<Review />} />
+          <Route path="/planner/:token" element={<Planner />} />
         </Routes>
       </main>
       <Footer />

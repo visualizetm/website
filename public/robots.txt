@@ -2,5 +2,7 @@ User-agent: *
 Allow: /
 # The review form is a link sent after a delivery, not a page to browse to.
 Disallow: /review
+# A planner link is one client's own month, opened with a token.
+Disallow: /planner
 
 Sitemap: https://visualizestudio.org/sitemap.xml

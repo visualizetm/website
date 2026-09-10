@@ -109,6 +109,63 @@ export const COPY = {
   success: {
     targetHit: 'Target hit. Nice.',
   },
+  /* The client facing Content Planner (planner prompt 3). This is the only
+   * block here written to a business owner rather than to Rob, so it stays
+   * plain: no CRM words, no jargon, and nothing that assumes they know how
+   * any of this works. */
+  planner: {
+    dead: {
+      title: 'This link is not active',
+      body: 'Check with Rob for a current one.',
+      email: 'contact@visualizeclients.com',
+    },
+    heading: 'Content planner',
+    waiting: (n) => `${n} post${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} your approval.`,
+    nothingWaiting: 'Nothing needs your approval right now.',
+    planned: (n) => `${n} post${n === 1 ? '' : 's'} planned this month.`,
+    progress: (done, of) => `${done} of ${of} posts ready`,
+    emptyMonth: 'Nothing planned for this month yet.',
+    emptyMonthSub: 'Check back, or look at another month.',
+    views: { calendar: 'Calendar', list: 'List' },
+    legend: [
+      { id: 'making', label: 'Being made', text: 'Rob is working on it. Nothing for you to do.' },
+      { id: 'review', label: 'Needs your approval', text: 'Read it and approve, or ask for a change.' },
+      { id: 'approved', label: 'Approved and scheduled', text: 'You said yes. It goes out on its date.' },
+      { id: 'posted', label: 'Posted', text: 'It is live.' },
+    ],
+    detail: {
+      caption: 'Caption',
+      copy: 'Copy caption',
+      copied: 'Caption copied.',
+      fromRob: 'From Rob',
+      yourNote: 'What you asked for',
+      approve: 'Approve',
+      change: 'Ask for a change',
+      close: 'Close',
+      changeLabel: 'What should change?',
+      changeHint: 'Tell Rob what to fix and he will redo it.',
+      send: 'Send',
+      sending: 'Sending',
+      needNote: 'Add a line about what to change and Rob will redo it.',
+      states: {
+        making: 'Rob is working on this one. You will get it here when it is ready.',
+        approved: 'You approved this. It goes out on its date.',
+        posted: 'This one is already live.',
+      },
+    },
+    toast: {
+      approved: 'Approved. Rob will schedule it.',
+      changeSent: 'Sent. Rob will redo it.',
+      stale: 'That post is not waiting for approval any more.',
+      tooMany: 'That is a lot of changes at once. Give it a few minutes.',
+      failed: 'That did not send. Try again in a moment.',
+    },
+    error: {
+      title: 'The planner did not load',
+      body: 'Something went wrong on the way. Try again.',
+      retry: 'Try again',
+    },
+  },
 };
 
 /** Convenience: the empty entry for a key, with a fallback so a typo never renders blank. */
