@@ -151,6 +151,8 @@ export const clientStyles = `
   .cw-link-btn { display: inline-flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); color: var(--v-text); text-decoration: none; font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); flex-shrink: 0; }
   a.cw-link-btn:hover .cw-link-label { text-decoration: underline; }
   .cw-link-edit { min-width: 0; }
+  /* A derived value is a plain span; as a grid cell it has to be a block to truncate at 320. */
+  .cw-link-edit .dt-fact-ro, .sc-derived .dt-fact-ro { display: block; min-width: 0; max-width: 100%; }
   .cw-link-field { width: 100%; font-size: var(--v-text-sm); }
   .cw-link-field .v-inline-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
   .cw-brand-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); }
