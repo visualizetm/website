@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
+import { safeUrl } from '../_lib/url.js';
 import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS } from '../_semantics.js';
 
 /* Posts (Content Planner, prompt 1): one document per scheduled social post.
@@ -83,7 +84,7 @@ function sanitize(b) {
     /* Their own field rather than part of the caption, so a set can be
      * reused across posts and the client can copy the caption clean. */
     hashtags: b.hashtags !== undefined ? normalizeHashtags(b.hashtags) : undefined,
-    imageUrl: b.imageUrl !== undefined ? str(b.imageUrl, 600) : undefined,
+    imageUrl: b.imageUrl !== undefined ? safeUrl(b.imageUrl, 600) : undefined, // http, https or a root path, else ''
     caption: b.caption !== undefined ? String(b.caption ?? '').slice(0, 2200) : undefined, // Instagram's own cap
     status: b.status !== undefined ? (POST_STATUS_IDS.includes(b.status) ? b.status : 'making') : undefined,
     note: b.note !== undefined ? str(b.note, 500) : undefined,             // Rob writes this one

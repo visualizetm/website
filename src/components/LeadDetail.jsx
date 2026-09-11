@@ -1,3 +1,4 @@
+import { safeHref } from '../lib/safeUrl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
@@ -312,7 +313,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
                 </Row>
                 {c.packId && <Row gap={1} align="center"><Pill tone="callback" label={(shell?.packs || []).find(pk => String(pk._id) === String(c.packId))?.title || 'Library pack'} size="sm" icon="Image01" variant="outline" className="dt-concept-pack" /><Button variant="ghost" size="md" onClick={() => shell?.go('concepts')}>Open library</Button></Row>}
                 {!readOnly && !c.link && !c.packId && <Button variant="ghost" size="md" icon="Image01" onClick={() => setPackFor(c.id)} className="dt-from-library">From library</Button>}
-                {c.link ? <Button variant="secondary" full href={c.link} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
+                {safeHref(c.link) ? <Button variant="secondary" full href={safeHref(c.link)} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
               </Card>
             ))}
             {!concepts.length && <EmptyState size="sm" icon="Image01" title={COPY.empty['leads.detail.concepts'].title} description={COPY.empty['leads.detail.concepts'].description} action={!readOnly ? { label: COPY.empty['leads.detail.concepts'].action, onClick: () => patch({ concepts: CONCEPT_PRESETS.map(l => ({ id: uid(), label: l, status: 'planned', link: '' })) }) } : undefined} />}

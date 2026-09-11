@@ -12,6 +12,7 @@ import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
 import { fetchShowcase, fetchClient, capImageWidth, IMG_W, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
+import { safeHref } from '../lib/safeUrl';
 
 /* Site Prompt 7, Part 4: every image on this page is one of these. The box
  * declares its ratio and clips, the image covers it, and the empty state is
@@ -208,8 +209,8 @@ export default function CaseStudy() {
               </div>
               <div className="cs-sec-foot">
                 {website.notes && <p className="cs-notes">{website.notes}</p>}
-                {website.url && (
-                  <a href={website.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary cs-live-btn">
+                {safeHref(website.url) && (
+                  <a href={safeHref(website.url)} target="_blank" rel="noopener noreferrer" className="btn btn-secondary cs-live-btn">
                     Visit live site <ArrowUpRight width={15} height={15} />
                   </a>
                 )}
@@ -228,8 +229,8 @@ export default function CaseStudy() {
                   </span>
                 )}
                 {instagram.handle && (
-                  instagram.url
-                    ? <a className="cs-ig-handle" href={instagram.url} target="_blank" rel="noopener noreferrer">@{instagram.handle}</a>
+                  safeHref(instagram.url)
+                    ? <a className="cs-ig-handle" href={safeHref(instagram.url)} target="_blank" rel="noopener noreferrer">@{instagram.handle}</a>
                     : <span className="cs-ig-handle">@{instagram.handle}</span>
                 )}
               </div>
@@ -253,8 +254,8 @@ export default function CaseStudy() {
                        direct children are anything but <li> is a serious
                        axe violation, and that is exactly what a div wrapper
                        would have made. */
-                    return h.link
-                      ? <a key={h.id || i} className="cs-hl-link" href={h.link} target="_blank" rel="noopener noreferrer">{inner}</a>
+                    return safeHref(h.link)
+                      ? <a key={h.id || i} className="cs-hl-link" href={safeHref(h.link)} target="_blank" rel="noopener noreferrer">{inner}</a>
                       : <span key={h.id || i} className="cs-hl-link">{inner}</span>;
                   })}
                 </Stagger>
@@ -269,7 +270,7 @@ export default function CaseStudy() {
                     <a
                       key={(post.link || '') + i}
                       className="cs-ig-post"
-                      href={post.link || instagram.url || '#'}
+                      href={safeHref(post.link) || safeHref(instagram.url) || '#'}
                       target="_blank"
                       rel="noopener noreferrer"
                       aria-label={post.caption || `Instagram post ${i + 1}${instagram.handle ? ` from @${instagram.handle}` : ''}`}

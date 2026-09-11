@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
+import { safeUrl } from '../_lib/url.js';
 import { orderFromSubmission } from '../_lib/orders.js';
 import { PRINT_ORDER_STATUS_IDS, ORDER_SOURCE_IDS } from '../_semantics.js';
 
@@ -28,7 +29,7 @@ function sanitize(b) {
           id: str(i?.id, 40), productId: str(i?.productId, 40), name: str(i?.name, 160), label: str(i?.label, 200),
           qty: Math.max(1, Math.min(100000, Math.round(num(i?.qty, 100000)) || 1)),
           options: i?.options && typeof i.options === 'object' ? Object.fromEntries(Object.entries(i.options).slice(0, 20).map(([k, v]) => [str(k, 40), str(v, 200)])) : {},
-          artworkLink: str(i?.artworkLink, 400),
+          artworkLink: safeUrl(i?.artworkLink, 400),
           priceTotal: i?.priceTotal === null || i?.priceTotal === undefined || i?.priceTotal === '' ? null : num(i.priceTotal),
           quote: !!i?.quote,
         })) : undefined,

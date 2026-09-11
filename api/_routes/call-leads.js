@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
+import { safeUrl } from '../_lib/url.js';
 
 import {
   CONCEPT_STATUS_IDS,
@@ -52,7 +53,9 @@ function slugify(v) {
   return String(v ?? '').toLowerCase().trim()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
 }
-const imgLink = (v) => str(v, 500);
+// Every image and link field goes through safeUrl (api/_lib/url.js): http, https, or a root relative path, else ''.
+const imgLink = (v) => safeUrl(v, 500);
+const link = (v, max = 400) => safeUrl(v, max);
 function showcaseImageList(v, max) {
   return Array.isArray(v) ? v.slice(0, max).map(x => ({ link: imgLink(x?.link), caption: str(x?.caption, 200) })) : [];
 }
@@ -87,7 +90,7 @@ function sanitizeShowcase(sh) {
     },
     website: {
       enabled: website.enabled !== false,
-      url: str(website.url, 400),
+      url: link(website.url),
       screenshots: showcaseImageList(website.screenshots, 8),
       notes: str(website.notes, 600),
     },
@@ -109,10 +112,10 @@ function sanitizeShowcase(sh) {
     instagram: {
       enabled: !!instagram.enabled,
       handle: str(instagram.handle, 60).replace(/^@+/, ''),
-      url: str(instagram.url, 400),
+      url: link(instagram.url),
       profileImage: imgLink(instagram.profileImage),
       posts: Array.isArray(instagram.posts)
-        ? instagram.posts.slice(0, 9).map(x => ({ link: str(x?.link, 400), image: imgLink(x?.image), caption: str(x?.caption, 200) }))
+        ? instagram.posts.slice(0, 9).map(x => ({ link: link(x?.link), image: imgLink(x?.image), caption: str(x?.caption, 200) }))
         : [],
       /* Story highlights, additive: the row of circles at the top of an
        * Instagram profile. id is the editor's own row key, label is what
@@ -120,7 +123,7 @@ function sanitizeShowcase(sh) {
        * is not interactive on the public page). Ten, which is more than
        * fits on one phone screen anyway. */
       highlights: Array.isArray(instagram.highlights)
-        ? instagram.highlights.slice(0, 10).map(x => ({ id: str(x?.id, 40), label: str(x?.label, 40), image: imgLink(x?.image), link: str(x?.link, 400) }))
+        ? instagram.highlights.slice(0, 10).map(x => ({ id: str(x?.id, 40), label: str(x?.label, 40), image: imgLink(x?.image), link: link(x?.link) }))
         : [],
       notes: str(instagram.notes, 600),
     },
@@ -227,7 +230,7 @@ function sanitize(b) {
       ? b.concepts.slice(0, 30).map(c => ({
           id: str(c?.id, 40), label: str(c?.label, 120),
           status: CONCEPT_STATUS_IDS.includes(c?.status) ? c.status : 'planned',
-          link: str(c?.link, 400),
+          link: link(c?.link),
           // Prompt 11 additive: the concept pack it was linked from.
           ...(c?.packId ? { packId: str(c.packId, 64) } : {}),
         })) : undefined,
@@ -256,8 +259,8 @@ function sanitize(b) {
       items: Array.isArray(b.conceptsTracker.items)
         ? b.conceptsTracker.items.slice(0, 20).map(i => ({ label: str(i?.label, 120), done: !!i?.done }))
         : [],
-      demoUrl: str(b.conceptsTracker.demoUrl, 400),
-      driveUrl: str(b.conceptsTracker.driveUrl, 400),
+      demoUrl: link(b.conceptsTracker.demoUrl),
+      driveUrl: link(b.conceptsTracker.driveUrl),
     } : undefined,
     prepNotes: b.prepNotes !== undefined ? str(b.prepNotes, 3000) : undefined,
     // Named task lists ("checklists"), additive. ≤10 lists × ≤50 items.
@@ -292,13 +295,13 @@ function sanitize(b) {
       : undefined,
     // ── Prompt 10 client fields (all additive) ──
     links: b.links && typeof b.links === 'object' ? {
-      website: str(b.links.website, 400), drive: str(b.links.drive, 400), clickup: str(b.links.clickup, 400), instagram: str(b.links.instagram, 400),
+      website: link(b.links.website), drive: link(b.links.drive), clickup: link(b.links.clickup), instagram: link(b.links.instagram),
     } : undefined,
     brand: b.brand && typeof b.brand === 'object' ? {
       primary: str(b.brand.primary, 20),
       colors: Array.isArray(b.brand.colors) ? b.brand.colors.slice(0, 4).map(c => str(c, 20)) : [],
       fontDisplay: str(b.brand.fontDisplay, 120), fontBody: str(b.brand.fontBody, 120),
-      logoLink: str(b.brand.logoLink, 400), notes: str(b.brand.notes, 600),
+      logoLink: link(b.brand.logoLink), notes: str(b.brand.notes, 600),
     } : undefined,
     // Site Prompt 2 additive: the public showcase. published/slug are only
     // ever changed through the PATCH handler's own logic below (slug
@@ -327,7 +330,7 @@ function sanitize(b) {
     clientStatus: b.clientStatus !== undefined ? (CLIENT_STATUS_IDS.includes(b.clientStatus) ? b.clientStatus : '') : undefined,
     // Prompt 11 additive: Google reviews tracking.
     reviews: b.reviews && typeof b.reviews === 'object' ? {
-      nfcCard: !!b.reviews.nfcCard, nfcGivenAt: str(b.reviews.nfcGivenAt, 40), googleLink: str(b.reviews.googleLink, 400),
+      nfcCard: !!b.reviews.nfcCard, nfcGivenAt: str(b.reviews.nfcGivenAt, 40), googleLink: link(b.reviews.googleLink),
       baseline: b.reviews.baseline && typeof b.reviews.baseline === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.baseline.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.baseline.rating) || 0)), at: str(b.reviews.baseline.at, 40) } : null,
       latest: b.reviews.latest && typeof b.reviews.latest === 'object' ? { count: Math.max(0, Math.round(Number(b.reviews.latest.count)) || 0), rating: Math.max(0, Math.min(5, Number(b.reviews.latest.rating) || 0)), at: str(b.reviews.latest.at, 40) } : null,
       asks: Array.isArray(b.reviews.asks) ? b.reviews.asks.slice(-200).map(a => ({ at: str(a?.at, 40), channel: REVIEW_CHANNEL_IDS.includes(a?.channel) ? a.channel : 'text', result: REVIEW_RESULT_IDS.includes(a?.result) ? a.result : 'asked', note: str(a?.note, 400) })) : [],

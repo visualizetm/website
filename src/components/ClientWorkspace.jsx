@@ -1,3 +1,4 @@
+import { safeHref } from '../lib/safeUrl';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
@@ -47,7 +48,7 @@ export function ClientLinks({ lead, patch, patchRaw, readOnly }) {
       <Stack gap={1}>
         {LINKS.map(([k, label, icon]) => { const v = valueOf(k); return (
           <div key={k} className={`cw-link${v ? ' has-value' : ''}`}>
-            {v ? <a className="cw-link-btn" href={v} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label}`}><IconTile icon={icon} tone={v ? 'progress' : 'neutral'} size="sm" glow={false} /><span className="cw-link-label">{label}</span></a>
+            {safeHref(v) ? <a className="cw-link-btn" href={safeHref(v)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label}`}><IconTile icon={icon} tone={v ? 'progress' : 'neutral'} size="sm" glow={false} /><span className="cw-link-label">{label}</span></a>
               : <span className="cw-link-btn"><IconTile icon={icon} tone="neutral" size="sm" glow={false} /><span className="cw-link-label">{label}</span></span>}
             <span className="cw-link-edit">{readOnly ? <span className="dt-fact-ro lay-truncate">{v || 'None'}</span> : <InlineEdit value={links[k] || ''} onSave={save(k)} placeholder={v ? v : 'Paste a link'} label={`${label} link`} className="cw-link-field" />}</span>
             <IconButton icon={Copy01} label={`Copy ${label}`} variant="ghost" disabled={!v} onClick={() => copyText(toast, v, label)} />
@@ -477,7 +478,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
           <Stack gap={3}>
             <Card className={`cw-release${current.releasedAt ? ' is-on' : ''}`} glow={current.releasedAt ? 'booked' : undefined}>
               <Toggle label="Released to client" description={current.releasedAt ? `Released ${fmtDateTime(current.releasedAt)}.` : relBlock || 'Paid in full. Flip this once the Drive folder is shared.'} checked={!!current.releasedAt} disabled={!!relBlock || readOnly} onChange={(v) => pp(current, { releasedAt: v ? new Date().toISOString() : '' })} className="cw-release-toggle" />
-              {current.releasedAt && (driveLink ? <Button full size="lg" href={driveLink} target="_blank" rel="noopener noreferrer" icon="Folder" iconEnd="LinkExternal01" className="cw-drive-big">Open the Drive folder</Button> : <p className="dt-muted">Add the Drive folder link on the project or in Links to show it here.</p>)}
+              {current.releasedAt && (safeHref(driveLink) ? <Button full size="lg" href={safeHref(driveLink)} target="_blank" rel="noopener noreferrer" icon="Folder" iconEnd="LinkExternal01" className="cw-drive-big">Open the Drive folder</Button> : <p className="dt-muted">Add the Drive folder link on the project or in Links to show it here.</p>)}
             </Card>
             {(current.deliverables || []).length ? DELIVERABLE_GROUPS.filter(g => (current.deliverables || []).some(d => d.group === g.id)).map(g => (
               <Card key={g.id} className="cw-dgroup">
@@ -485,7 +486,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
                 <Stack gap={1}>{(current.deliverables || []).filter(d => d.group === g.id).map(d => (
                   <div key={d.id} className="cw-deliv">
                     <Checkbox label={d.label} checked={!!d.done} onChange={(v) => pp(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, done: v } : x)) })} disabled={readOnly} />
-                    <span className="cw-deliv-link">{readOnly ? (d.link ? <a href={d.link} target="_blank" rel="noopener noreferrer" className="cw-deliv-a lay-truncate">{d.link.replace(/^https?:\/\//, '')}</a> : null) : <InlineEdit value={d.link || ''} onSave={(v) => ppRaw(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, link: v } : x)) })} placeholder="Add a link" label={`${d.label} link`} format={(v) => v.replace(/^https?:\/\//, '')} className={`cw-deliv-edit${d.link ? ' has-link' : ''}`} />}{d.link && <IconButton icon="LinkExternal01" label={`Open ${d.label}`} variant="ghost" onClick={() => window.open(d.link, '_blank', 'noopener')} />}</span>
+                    <span className="cw-deliv-link">{readOnly ? (safeHref(d.link) ? <a href={safeHref(d.link)} target="_blank" rel="noopener noreferrer" className="cw-deliv-a lay-truncate">{d.link.replace(/^https?:\/\//, '')}</a> : null) : <InlineEdit value={d.link || ''} onSave={(v) => ppRaw(current, { deliverables: current.deliverables.map(x => (x.id === d.id ? { ...x, link: v } : x)) })} placeholder="Add a link" label={`${d.label} link`} format={(v) => v.replace(/^https?:\/\//, '')} className={`cw-deliv-edit${d.link ? ' has-link' : ''}`} />}{d.link && <IconButton icon="LinkExternal01" label={`Open ${d.label}`} variant="ghost" onClick={() => { const u = safeHref(d.link); if (u) window.open(u, '_blank', 'noopener'); }} />}</span>
                   </div>
                 ))}</Stack>
               </Card>

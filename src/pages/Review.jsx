@@ -6,6 +6,7 @@ import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
 import { Reveal, Stagger } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
+import { safeHref } from '../lib/safeUrl';
 import { fetchClient } from '../marketing/showcase';
 import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
 
@@ -178,7 +179,7 @@ export default function Review() {
   };
 
   const count = form.text.trim().length;
-  const google = client?.googleReview || '';
+  const google = safeHref(client?.googleReview);
   const lead = client?.displayName
     ? `Thanks for working with me on ${client.displayName}.`
     : 'Takes a minute. It helps more than you know.';

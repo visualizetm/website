@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
+import { safeUrl } from '../_lib/url.js';
 import { CONCEPT_KIND_IDS } from '../_semantics.js';
 
 /* Concept packs (Prompt 11): the library of prompts and images Rob copies into
@@ -21,7 +22,7 @@ function sanitize(b) {
     industryKey: b.industryKey !== undefined ? str(b.industryKey, 80).trim().toLowerCase().replace(/\s+/g, ' ') : undefined,
     kind: b.kind !== undefined ? (CONCEPT_KIND_IDS.includes(b.kind) ? b.kind : 'other') : undefined,
     prompts: Array.isArray(b.prompts) ? b.prompts.slice(0, 40).map(p => ({ id: str(p?.id, 40) || uid(), label: str(p?.label, 120), text: str(p?.text, 6000) })) : undefined,
-    images: Array.isArray(b.images) ? b.images.slice(0, 60).map(i => ({ id: str(i?.id, 40) || uid(), label: str(i?.label, 120), link: str(i?.link, 600) })) : undefined,
+    images: Array.isArray(b.images) ? b.images.slice(0, 60).map(i => ({ id: str(i?.id, 40) || uid(), label: str(i?.label, 120), link: safeUrl(i?.link, 600) })) : undefined,
     tags: Array.isArray(b.tags) ? [...new Set(b.tags.slice(0, 30).map(t => str(t, 40).trim().toLowerCase()).filter(Boolean))] : undefined,
     notes: b.notes !== undefined ? str(b.notes, 3000) : undefined,
     usedFor: Array.isArray(b.usedFor) ? [...new Set(b.usedFor.slice(-200).map(x => str(x, 64)))] : undefined,
