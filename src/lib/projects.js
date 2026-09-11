@@ -207,7 +207,7 @@ export function brandText(lead) {
     (b.colors || []).filter(Boolean).length && `Secondary colors: ${(b.colors || []).filter(Boolean).join(', ')}`,
     b.fontDisplay && `Display font: ${b.fontDisplay}`,
     b.fontBody && `Body font: ${b.fontBody}`,
-    b.logoLink && `Logo: ${b.logoLink}`,
+    (lead?.showcase?.logoUrl || lead?.showcase?.brand?.logo?.dark || lead?.showcase?.brand?.logo?.light || b.logoLink) && `Logo: ${lead?.showcase?.logoUrl || lead?.showcase?.brand?.logo?.dark || lead?.showcase?.brand?.logo?.light || b.logoLink}`,
     b.notes && `Notes: ${b.notes}`,
   ].filter(Boolean);
   return lines.join('\n');

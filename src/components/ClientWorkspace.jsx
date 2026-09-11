@@ -75,7 +75,11 @@ function Swatch({ value, label, onSave, readOnly }) {
     </div>
   );
 }
-export function ClientBrand({ lead, patch, patchRaw, readOnly }) {
+export function ClientBrand({ lead, patch, patchRaw, readOnly, onEditShowcase }) {
+  /* UX audit, D2: the logo is the showcase's (one image, edited there), so
+     this card only shows it. brand.logoLink stays readable for old records. */
+  const sh = lead.showcase || {};
+  const logo = sh.logoUrl || sh.brand?.logo?.dark || sh.brand?.logo?.light || lead.brand?.logoLink || '';
   const toast = useToast();
   const b = { primary: '', colors: [], fontDisplay: '', fontBody: '', logoLink: '', notes: '', ...(lead.brand || {}) };
   const write = (next) => (patchRaw || patch)({ brand: { ...b, ...next } });
@@ -88,7 +92,7 @@ export function ClientBrand({ lead, patch, patchRaw, readOnly }) {
         <div className="cw-brand-row"><span className="dt-fact-label">Secondary</span><div className="cw-swatches">{colors.map((c, i) => <Swatch key={i} value={c} label={`Color ${i + 1}`} onSave={(v) => { const n = [...colors]; n[i] = v; write({ colors: n.map(x => x || '').filter((x, j) => x || j < colors.filter(Boolean).length) }); }} readOnly={readOnly} />)}</div></div>
         <div className="cw-brand-row"><span className="dt-fact-label">Display font</span>{readOnly ? <span className="dt-fact-ro">{b.fontDisplay || 'None'}</span> : <InlineEdit value={b.fontDisplay} onSave={(v) => write({ fontDisplay: v })} placeholder="Barlow Condensed" label="Display font" className="dt-fact-edit" />}</div>
         <div className="cw-brand-row"><span className="dt-fact-label">Body font</span>{readOnly ? <span className="dt-fact-ro">{b.fontBody || 'None'}</span> : <InlineEdit value={b.fontBody} onSave={(v) => write({ fontBody: v })} placeholder="Inter" label="Body font" className="dt-fact-edit" />}</div>
-        <div className="cw-brand-row"><span className="dt-fact-label">Logo</span>{readOnly ? <span className="dt-fact-ro lay-truncate">{b.logoLink || 'None'}</span> : <InlineEdit value={b.logoLink} onSave={(v) => write({ logoLink: v })} placeholder="Drive link to the logo files" label="Logo link" className="dt-fact-edit" />}</div>
+        <div className="cw-brand-row cw-brand-logo"><span className="dt-fact-label">Logo</span>{logo ? <span className="img-fit img-fit--16x10 img-fit--contain cw-logo-thumb"><img src={safeHref(logo)} alt="" width={160} height={100} loading="lazy" /></span> : <span className="dt-fact-ro">{onEditShowcase ? 'Add it in Showcase' : 'None'}</span>}{!readOnly && onEditShowcase && <Button variant="ghost" size="md" onClick={onEditShowcase} className="cw-logo-edit">Edit in Showcase</Button>}</div>
         <div className="cw-brand-row"><span className="dt-fact-label">Notes</span>{readOnly ? <span className="dt-fact-ro">{b.notes || 'None'}</span> : <InlineEdit value={b.notes} onSave={(v) => write({ notes: v })} placeholder="One line: tone, do and do not" label="Brand notes" className="dt-fact-edit" />}</div>
       </Stack>
     </Card>
