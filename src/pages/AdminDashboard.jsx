@@ -5,6 +5,7 @@ import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import {
   Stack, Row, Grid, Section, Card, StatCard, IconTile, Pill, ListRow, EmptyState, ErrorState, Button, InlineEdit, ProgressRing,
   Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useRetry, durationMs,
+  Icon, Collapsible,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
@@ -122,9 +123,9 @@ function DashboardSkeleton({ desktop, wide }) {
   const left = (
     <Stack gap={5}>
       <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 3 : 1} lineHeight={wide ? 39 : 39} gap={1} width={300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
+      <Grid minColumnWidth={120}>{Array.from({ length: 4 }, (_, i) => <StatCard.Skeleton key={i} />)}</Grid>
       <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
-      <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3 || i === 7} trendLines={wide && i < 4 ? 2 : 1} />)}</Grid>
-      <Card><SkeletonBlock width={90} height={14} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
+      <Card><SkeletonBlock width={90} height={14} /></Card>
     </Stack>
   );
   const right = (
@@ -137,10 +138,10 @@ function DashboardSkeleton({ desktop, wide }) {
   return (
     <Stack gap={5}>
       <div className="db-head"><Stack gap={1}><SkeletonText lines={2} lineHeight={32} gap={0} width="80%" /><SkeletonBlock width="60%" height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /></Row></div>
-      <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
       {right}
-      <Grid minColumnWidth={120}>{Array.from({ length: 8 }, (_, i) => <StatCard.Skeleton key={i} trend={i < 3} />)}</Grid>
-      <Card><SkeletonText lines={1} width={90} /><Grid minColumnWidth={150}>{[1, 2, 3, 4].map(i => <StatCard.Skeleton key={i} />)}</Grid></Card>
+      <Grid minColumnWidth={120}>{Array.from({ length: 4 }, (_, i) => <StatCard.Skeleton key={i} />)}</Grid>
+      <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
+      <Card><SkeletonText lines={1} width={90} /></Card>
     </Stack>
   );
 }
@@ -182,6 +183,7 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
   const ringPct = target ? Math.min(100, Math.round((s.callsToday / target) * 100)) : 0;
   // Target hit (Prompt 14): one red pulse the moment the ring crosses 100 in this session, and the context line for the rest of the day.
   const [hit, setHit] = useState(false);
+  const [more, setMore] = useState(false);
   const hitRef = useRef(null);
   useEffect(() => {
     if (loading) return undefined;
@@ -221,14 +223,20 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
     { id: 'booked', label: 'Booked', n: s.funnel.booked, tone: 'booked', pct: pct(s.funnel.booked, s.funnel.contacted), go: () => shell.go('booked') },
     { id: 'clients', label: 'Clients', n: s.funnel.clients, tone: 'won', pct: pct(s.funnel.clients, s.funnel.booked), go: () => shell.go('clients') },
   ];
-  const stats = [
+  /* UX audit, item 5: four numbers answer "what now" (today's calls against
+     the target, the callbacks that slip, the meetings that pay, the leads
+     that go cold). Everything else keeps its trend and its link, one tap
+     away behind More stats. */
+  const keyStats = [
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsToday, label: 'Calls today', go: () => shell.go('calls') },
+    { icon: 'PhoneIncoming01', tone: 'callback', value: s.callbacks, label: 'Callbacks pending', go: () => shell.go('calls', { status: ['callback'] }) },
+    { icon: 'CalendarCheck01', tone: 'booked', value: s.booked, label: 'Booked', go: () => shell.go('booked') },
+    { icon: 'Zap', tone: 'new', value: s.newLeads48h, label: 'New leads 48h', go: () => shell.go('leads', {}) },
+  ];
+  const stats = [
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsWeek, label: 'Calls this week', trend: trendOf(s.callsWeek, s.callsLastWeek, 'last week'), go: () => shell.go('calls') },
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsMonth, label: 'Calls this month', trend: trendOf(s.callsMonth, s.callsLastMonth, 'last month'), go: () => shell.go('calls') },
     { icon: 'Users01', tone: 'new', value: s.notCalled, label: 'Not yet called', go: () => shell.go('leads', { status: ['not-called'] }) },
-    { icon: 'CalendarCheck01', tone: 'booked', value: s.booked, label: 'Booked', go: () => shell.go('booked') },
-    { icon: 'PhoneIncoming01', tone: 'callback', value: s.callbacks, label: 'Callbacks pending', go: () => shell.go('calls', { status: ['callback'] }) },
-    { icon: 'Zap', tone: 'new', value: s.newLeads48h, label: 'New leads 48h', go: () => shell.go('leads', {}) },
     { icon: 'Check', tone: 'booked', value: s.connectRate == null ? 'n/a' : `${s.connectRate}%`, label: 'Connect rate this month',
       trend: s.connectRate != null && s.connectRateLast != null ? { value: `${s.connectRate - s.connectRateLast >= 0 ? '+' : ''}${s.connectRate - s.connectRateLast} pts vs last month`, direction: s.connectRate > s.connectRateLast ? 'up' : s.connectRate < s.connectRateLast ? 'down' : 'flat' } : undefined,
       go: () => shell.go('calls') },
@@ -257,10 +265,37 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
       ))}
     </div>
   );
-  const statGrid = (
-    <Grid minColumnWidth={120}>
-      {stats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}
+  const keyGrid = (
+    <Grid minColumnWidth={120} className="db-key">
+      {keyStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}
     </Grid>
+  );
+  const moreStats = stats.filter(c => c.label !== 'Calls today');
+  const moreBlock = (
+    <Card className="db-more">
+      <button type="button" className="db-more-btn" onClick={() => setMore(m => !m)} aria-expanded={more} aria-controls="db-more-body">
+        <span className="pb-card-h" style={{ margin: 0 }}>More stats</span>
+        <span className="db-more-sum">{more ? 'Hide' : `Calls this week and month, connect rate, not yet called, revenue`}</span>
+        <Icon icon={more ? 'ChevronUp' : 'ChevronDown'} size={16} />
+      </button>
+      <Collapsible open={more}>
+        <div id="db-more-body">
+          <Stack gap={4}>
+            <Grid minColumnWidth={120}>
+              {moreStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}
+            </Grid>
+            <Section title="Revenue" description={s.retainerClients || s.clients ? `${s.retainerClients} of ${s.clients} client${s.clients === 1 ? '' : 's'} on retainer` : undefined}>
+              <Grid minColumnWidth={150}>
+                <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
+                <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
+                <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
+                <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
+              </Grid>
+            </Section>
+          </Stack>
+        </div>
+      </Collapsible>
+    </Card>
   );
   const todayPanel = (
     <Card className="db-today">
@@ -286,18 +321,6 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
       </Section>
     </Card>
   );
-  const revenue = (
-    <Card>
-      <Section title="Revenue" description={s.retainerClients || s.clients ? `${s.retainerClients} of ${s.clients} client${s.clients === 1 ? '' : 's'} on retainer` : undefined}>
-        <Grid minColumnWidth={150}>
-          <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
-          <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
-          <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
-          <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
-        </Grid>
-      </Section>
-    </Card>
-  );
   const activity = (
     <Card>
       <Section title="Recent activity" action={<Button variant="ghost" iconEnd={ArrowUpRight} onClick={() => shell.go('submissions')}>Open submissions</Button>}>
@@ -319,13 +342,16 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
   return (
     <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
+        {/* UX audit, item 5: Today first (top right beside the greeting on a
+            desktop, straight under it on a phone), then the four numbers,
+            then the pipeline strip, then everything else behind one tap. */}
         {desktop ? (
           <div className="db-layout">
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{strip}{statGrid}{revenue}</Stagger>
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }} offset={4}>{todayPanel}{activity}</Stagger>
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{keyGrid}{strip}{moreBlock}{activity}</Stagger>
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }} offset={4}>{todayPanel}</Stagger>
           </div>
         ) : (
-          <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{strip}{todayPanel}{statGrid}{revenue}{activity}</Stagger>
+          <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{todayPanel}{keyGrid}{strip}{moreBlock}{activity}</Stagger>
         )}
       </div>
       <style>{dbStyles}</style>
@@ -354,6 +380,9 @@ const dbStyles = `
   .db-step-n { font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); font-weight: var(--v-weight-bold); color: var(--v-text); font-variant-numeric: tabular-nums; }
   .db-step-label { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-3); }
   .db-step-pct { position: absolute; top: var(--v-space-3); right: var(--v-space-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-2); border: 1px solid var(--v-border); border-radius: var(--v-radius-pill); padding: 2px 8px; font-variant-numeric: tabular-nums; }
+  .db-more-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0; background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }
+  .db-more-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
+  .db-more-sum { flex: 1; min-width: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .db-target-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .db-target-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .db-today .v-inline { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); }
