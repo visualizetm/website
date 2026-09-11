@@ -94,7 +94,7 @@ function StatusPicker({ value, onChange, readOnly, missing }) {
   );
 }
 
-export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose, lastHashtags = '' }) {
+export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose, lastHashtags = '', focusImage = false }) {
   const p = { ...post, ...draft };
   const st = postStatusOf(p.status);
   const format = formatOf(p);
@@ -158,7 +158,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
         <div className="v-field">
           <span className="v-field-label">Image</span>
           <ImageField value={p.imageUrl} label="Post image" placeholder="Image URL"
-            ratio={fmt.aspect} thumbClass="ps-thumb" readOnly={readOnly} whole
+            ratio={fmt.aspect} thumbClass="ps-thumb" readOnly={readOnly} whole autoFocus={focusImage}
             onNatural={(w, h) => setNatural({ w, h })}
             onSave={(v) => onWrite({ imageUrl: v })} />
           {mismatch && <p className="ps-mismatch">{mismatch}</p>}

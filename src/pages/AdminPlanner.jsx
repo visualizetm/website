@@ -327,12 +327,14 @@ export default function AdminPlanner({
 
   /* Adding and deleting are immediate: a post that exists only inside a
    * draft has no id to hang edits or an upload on. */
+  // UX audit, item 9: the post just added opens with its image field focused.
+  const [freshId, setFreshId] = useState(null);
   const addPost = useCallback(async () => {
     if (!lead || busy) return;
     setBusy(true);
     const item = await onCreatePost({ leadId: String(lead._id), month, date: `${month}-01`, platforms: ['instagram'], platform: 'instagram', format: 'portrait', status: 'making', order: monthPosts.length });
     setBusy(false);
-    if (item) { setOpenId(String(item._id)); toast.success('Post added.'); }
+    if (item) { setFreshId(String(item._id)); setOpenId(String(item._id)); toast.success('Post added.'); }
     else toast.error(COPY.error.save);
   }, [lead, busy, month, monthPosts.length, onCreatePost, toast]);
 
@@ -505,6 +507,7 @@ export default function AdminPlanner({
           client={name}
           lastHashtags={lastHashtags}
           readOnly={readOnly}
+          focusImage={!!freshId && String(open._id) === freshId}
           onWrite={(next) => writePost(open._id, next)}
           onDelete={() => removePost(open)}
           onClose={() => setOpenId(null)}

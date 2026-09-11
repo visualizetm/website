@@ -14,9 +14,18 @@ import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloud
  * publicly, so a bad crop shows here rather than after publishing, and the
  * box doubles as a drop target on a desktop.
  */
-export default function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10', thumbClass = '', whole = false, onNatural }) {
+export default function ImageField({ value, label, placeholder, onSave, readOnly, ratio = 'img-fit--16x10', thumbClass = '', whole = false, onNatural, autoFocus = false }) {
   const toast = useToast();
   const fileRef = useRef(null);
+  const rootRef = useRef(null);
+  /* UX audit, item 9: a new post opens with this field in hand. The Upload
+     button when there is one (the common case), else the link field. */
+  useEffect(() => {
+    if (!autoFocus || readOnly) return;
+    const root = rootRef.current; if (!root) return;
+    const target = root.querySelector('button:not([aria-hidden])') || root.querySelector('[tabindex="0"], button, input');
+    target?.focus?.();
+  }, [autoFocus, readOnly]);
   const [broken, setBroken] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -44,7 +53,7 @@ export default function ImageField({ value, label, placeholder, onSave, readOnly
   } : {};
 
   return (
-    <div className="sc-imgfield">
+    <div className="sc-imgfield" ref={rootRef}>
       <Row gap={2} align="center" wrap>
         {readOnly
           ? <span className="dt-fact-ro lay-truncate">{value || placeholder}</span>
