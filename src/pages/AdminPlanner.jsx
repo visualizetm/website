@@ -5,6 +5,8 @@ import {
   useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { RETAINERS } from '../shared/pricing';
+import { isOnRetainer } from '../lib/projects';
 import { useTopBar } from '../shell/ShellContext';
 import { platformOf, postStatusOf, postFormatOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
@@ -73,9 +75,18 @@ const samePlanner = (a, b) => JSON.stringify(a) === JSON.stringify(b);
  * because the server owns them, and a token is not settable from a request
  * at all. Revoking is a `regenerate: true` flag added by the caller, never a
  * token value. */
+/* UX audit, D7: a client on a retainer owes what the plan says (the Content
+ * Kit is eight a month), so the number is read from the plan, shown read
+ * only, and written into the planner record on save so the client's own
+ * page shows the same figure. Without a retainer it is typed on the page. */
+function planCountOf(lead) {
+  const plan = lead && isOnRetainer(lead) ? RETAINERS.find(r => r.id === lead.retainer?.planId) : null;
+  return Number(plan?.monthly?.count) || 0;
+}
 function plannerPatch(lead, draft) {
   const { token, tokenCreatedAt, lastViewedAt, regenerate, ...rest } = lead?.planner || {}; // eslint-disable-line no-unused-vars
-  return { ...rest, ...draft };
+  const fromPlan = planCountOf(lead);
+  return { ...rest, ...draft, ...(fromPlan ? { postsPerMonth: fromPlan } : {}) };
 }
 
 /* One post as the draft holds it: only the fields this editor writes, so a
@@ -386,7 +397,9 @@ export default function AdminPlanner({
   const waiting = postsInReview(mine);
   const token = lead.planner?.token || '';
   const url = token ? `${SITE}/planner/${token}` : '';
-  const cap = Number(draft.postsPerMonth) || 8;
+  const plan = lead && isOnRetainer(lead) ? RETAINERS.find(r => r.id === lead.retainer?.planId) : null;
+  const planCount = planCountOf(lead);
+  const cap = planCount || Number(draft.postsPerMonth) || 8;
   const open = openId ? monthPosts.find(p => String(p._id) === openId) || mine.find(p => String(p._id) === openId) : null;
 
   return (
@@ -420,9 +433,11 @@ export default function AdminPlanner({
                   description="When this is on, the client can open their planner with the link below. Turning it off makes the link stop working without deleting anything." />
                 <div className="v-field">
                   <span className="v-field-label">Posts a month</span>
-                  <InlineEdit value={String(cap)} onSave={(v) => setPlanner({ postsPerMonth: Math.max(0, Math.min(60, Math.round(Number(v)) || 0)) || 8 })}
-                    label="Posts a month" placeholder="8" readOnly={readOnly} className="dt-fact-edit" />
-                  <p className="pl-note">What they are owed each month. The Content Kit is 8.</p>
+                  {planCount
+                    ? <Row gap={2} align="center" wrap><span className="dt-fact-ro">{planCount} a month, from {plan.label}</span>{!readOnly && <Button variant="ghost" size="md" onClick={onBack}>Edit in Retainer</Button>}</Row>
+                    : <InlineEdit value={String(cap)} onSave={(v) => setPlanner({ postsPerMonth: Math.max(0, Math.min(60, Math.round(Number(v)) || 0)) || 8 })}
+                        label="Posts a month" placeholder="8" readOnly={readOnly} className="dt-fact-edit" />}
+                  <p className="pl-note">{planCount ? 'Their retainer plan sets this; the planner link shows the same number.' : 'What they are owed each month. The Content Kit is 8.'}</p>
                 </div>
                 <Textarea label="Welcome message" rows={3} maxLength={300} value={draft.welcome} disabled={readOnly}
                   onChange={(e) => setPlanner({ welcome: e.target.value.slice(0, 300) })}
