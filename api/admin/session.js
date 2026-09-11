@@ -8,6 +8,12 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });
   }
-  if (verifySession(req)) return res.status(200).json({ ok: true, authed: true });
+  try {
+    if (verifySession(req)) return res.status(200).json({ ok: true, authed: true });
+  } catch (err) {
+    console.error('[api] GET /api/admin/session', err?.stack || err);
+    if (/SESSION_SECRET/.test(String(err?.message))) return res.status(500).json({ ok: false, authed: false, error: 'SESSION_SECRET is not set' });
+    return res.status(500).json({ ok: false, authed: false, error: 'server error' });
+  }
   return res.status(401).json({ ok: false, authed: false, error: 'unauthorized' });
 }

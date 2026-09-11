@@ -1,8 +1,8 @@
 /* Admin sessions (auth rebuild): a signed cookie and nothing else.
  *
  * signSession()      -> `${expiresAt}.${hmac}`; the hmac is SHA-256 over the
- *                       expiry with the session secret (env SESSION_SECRET, or
- *                       the fallback in config.js).
+ *                       expiry with SESSION_SECRET (required on Vercel; a
+ *                       local dev fallback lives in config.js).
  * verifySession(req) -> true when the vz_admin cookie carries a valid hmac and
  *                       an expiry in the future. No database, no renewal.
  * requireAdmin(req, res) -> verifySession, else 401 { error: 'unauthorized' }

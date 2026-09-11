@@ -34,7 +34,9 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: true });
   } catch (err) {
     console.error('[api] POST /api/admin/login', err?.stack || err);
-    if (!res.headersSent) return res.status(500).json({ error: 'server error' });
-    return undefined;
+    if (res.headersSent) return undefined;
+    // A deployment without SESSION_SECRET must say so, not sign in with a constant.
+    if (/SESSION_SECRET/.test(String(err?.message))) return res.status(500).json({ error: 'SESSION_SECRET is not set' });
+    return res.status(500).json({ error: 'server error' });
   }
 }
