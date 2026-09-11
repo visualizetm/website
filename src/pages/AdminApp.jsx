@@ -58,14 +58,18 @@ function Login() {
   const submit = async (e) => {
     e.preventDefault();
     setBusy(true); setErr('');
-    let status = 0;
+    let status = 0; let message = '';
     try {
       const res = await fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
       status = res.status;
+      try { message = (await res.json())?.error || ''; } catch { /* no body */ }
     } catch { status = 0; }
     if (status === 200) { window.location.reload(); return; }
     setBusy(false);
-    setErr(status === 401 ? 'Wrong password' : `Server error ${status || '(network)'}`);
+    // 429 is the login limiter (ten wrong passwords in fifteen minutes) and
+    // 500 with a message is a deployment missing SESSION_SECRET: both say
+    // what happened, in the server's words.
+    setErr(status === 401 ? 'Wrong password' : (status === 429 || status === 500) && message ? message : `Server error ${status || '(network)'}`);
   };
   return (
     <main className="lay-root aa-loginpage" aria-label="Sign in">
