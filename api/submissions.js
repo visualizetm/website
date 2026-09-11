@@ -2,39 +2,50 @@ import { getDb } from './_lib/mongo.js';
 import { sendPush, sendEmail } from './_lib/notify.js';
 import { orderFromSubmission } from './_lib/orders.js';
 import { route, clientIp } from './_lib/handler.js';
-import { createHash } from 'node:crypto';
+import { rateKey, rateState, rateHit } from './_lib/limit.js';
 
 // Public endpoint: receives every form submission on the site
 // (/start briefs, shop orders, and the review form at /review).
 
 const HOUR = 60 * 60 * 1000;
 const REVIEWS_PER_HOUR = 3;
+const FORMS_PER_HOUR = 10; // start, contact, other: security audit, finding 4
 const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
-/* One settings document per sender, keyed by a hash of the IP rather than
- * the address itself: enough to count three posts in an hour, not a log of
- * who visited. The window is rolling and the stamps outside it are dropped
- * on every read, so the document never grows. */
-async function reviewRateExceeded(db, ip) {
-  const _id = `rate:review:${createHash('sha256').update(String(ip)).digest('hex').slice(0, 32)}`;
-  const now = Date.now();
-  const settings = db.collection('settings');
-  let doc = null;
-  try { doc = await settings.findOne({ _id }); } catch { return false; } // a read failure never blocks a real review
-  const hits = (Array.isArray(doc?.hits) ? doc.hits : []).filter(t => now - Number(t) < HOUR);
-  if (hits.length >= REVIEWS_PER_HOUR) return true;
-  try {
-    await settings.updateOne({ _id }, { $set: { hits: [...hits, now], updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  } catch { /* counted best effort */ }
-  return false;
+/* Text from the public: trimmed, capped, and with control characters other
+ * than newline and tab removed, so nothing that arrives here can carry a
+ * CR, an escape sequence or a null into the database, the CSV or an email. */
+const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, max);
+
+/* The form's own answers. They used to be stored as whatever object the
+ * request sent (any depth, 256KB of it). Now: at most 40 keys, each key up
+ * to 60 characters of letters, digits, space, underscore, dot and hyphen,
+ * every value a string of up to 3000 characters (an array joins with a
+ * comma, anything else is stringified), so the Submissions screen, the CSV
+ * export and the email always see flat text. */
+const FIELDS_MAX = 40;
+const FIELD_KEY = /^[A-Za-z0-9 _.\-]{1,60}$/;
+export function normalizeFields(raw) {
+  const out = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const [k, v] of Object.entries(raw)) {
+    if (Object.keys(out).length >= FIELDS_MAX) break;
+    const key = String(k).trim();
+    if (!FIELD_KEY.test(key)) continue;
+    const text = Array.isArray(v) ? v.map(x => (typeof x === 'object' ? JSON.stringify(x) : String(x ?? ''))).join(', ')
+      : v && typeof v === 'object' ? JSON.stringify(v)
+      : String(v ?? '');
+    out[key] = clean(text, 3000);
+  }
+  return out;
 }
 
 async function handler(req, res) {
 
-  const b = req.body || {};
+  const b = (req.body && typeof req.body === 'object') ? req.body : {};
   const isReview = b.type === 'review';
-  const name = String(b.name || '').trim().slice(0, 200);
-  const email = String(b.email || '').trim().slice(0, 200);
+  const name = clean(b.name, 200);
+  const email = clean(b.email, 200);
 
   /* The review form asks for an email only if they want a reply, so it is
    * optional there and validated only when it is filled in. Every other
@@ -53,12 +64,12 @@ async function handler(req, res) {
   const doc = {
     // Prompt 11: 'review' is the website review form (name, rating, text, business), additive.
     type: ['start', 'shop-order', 'contact', 'review'].includes(b.type) ? b.type : 'other',
-    projectType: String(b.projectType || '').slice(0, 60),
+    projectType: clean(b.projectType, 60),
     name,
-    business: String(b.business || '').trim().slice(0, 200),
+    business: clean(b.business, 200),
     email,
-    phone: String(b.phone || '').trim().slice(0, 60),
-    fields: (b.fields && typeof b.fields === 'object') ? b.fields : {},
+    phone: clean(b.phone, 60),
+    fields: normalizeFields(b.fields),
     status: 'new',
     read: false,
     notes: '',
@@ -73,8 +84,8 @@ async function handler(req, res) {
     doc.fields = {
       ...doc.fields,
       rating: Math.max(1, Math.min(5, Math.round(Number(b.rating ?? doc.fields.rating) || 0))),
-      text: String(b.text ?? doc.fields.text ?? '').trim().slice(0, 3000),
-      slug: String(b.slug || doc.fields.slug || '').trim().slice(0, 100),
+      text: clean(b.text ?? doc.fields.text, 3000),
+      slug: clean(b.slug || doc.fields.slug, 100).replace(/[^a-z0-9-]/gi, ''),
     };
   }
 
@@ -86,9 +97,16 @@ async function handler(req, res) {
 
   const db = await getDb();
 
-  if (doc.type === 'review' && await reviewRateExceeded(db, clientIp(req))) {
-    return res.status(429).json({ error: 'That is a few reviews in one hour. Give it a little while and try again.' });
+  /* Every form is rate limited per sender now, not only reviews: ten an
+   * hour for a brief or a contact, three for a review, the IP hashed into
+   * the key, the window rolling. */
+  const key = rateKey(doc.type === 'review' ? 'review' : 'form', clientIp(req));
+  const limit = await rateState(db, key, { max: doc.type === 'review' ? REVIEWS_PER_HOUR : FORMS_PER_HOUR, windowMs: HOUR });
+  if (limit.exceeded) {
+    res.setHeader('Retry-After', String(limit.retryAfter));
+    return res.status(429).json({ error: doc.type === 'review' ? 'That is a few reviews in one hour. Give it a little while and try again.' : 'That is a lot of messages in one hour. Give it a little while and try again.' });
   }
+  await rateHit(db, key, limit.hits);
   const { insertedId } = await db.collection('submissions').insertOne(doc);
   const id = insertedId.toString();
 
@@ -131,4 +149,4 @@ async function handler(req, res) {
 
   return res.status(200).json({ ok: true, id });
 }
-export default route(handler, { methods: ['POST'], admin: false, csrf: false, maxBody: 256 * 1024 });
+export default route(handler, { methods: ['POST'], admin: false, maxBody: 128 * 1024 });
