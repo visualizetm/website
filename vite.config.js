@@ -38,7 +38,8 @@ function vzAdminPreload() {
   };
 }
 
-/* Prompt 15: the admin Content-Security-Policy in vercel.json allows exactly
+/* Prompt 15: the Content-Security-Policy in vercel.json (the admin host's,
+ * and since the security audit the marketing host's too) allows exactly
  * one inline script, the pre-paint script in index.html, by hash. Any edit to
  * that script changes the hash; this plugin computes it at build time and
  * writes it into vercel.json (a mismatch would blank the admin in production). */
@@ -52,7 +53,8 @@ function vzCspHash() {
       const hash = createHash('sha256').update(inline[0]).digest('base64');
       const path = new URL('./vercel.json', import.meta.url);
       const json = readFileSync(path, 'utf8');
-      const next = json.replace(/'sha256-[A-Za-z0-9+/=_]*'/, `'sha256-${hash}'`);
+      // Every policy in the file (the admin host's and the marketing host's) pins the same script.
+      const next = json.replace(/'sha256-[A-Za-z0-9+/=_]*'/g, `'sha256-${hash}'`);
       if (next !== json) { writeFileSync(path, next); console.log(`vz-csp-hash: vercel.json now pins sha256-${hash}`); }
       return html;
     },
