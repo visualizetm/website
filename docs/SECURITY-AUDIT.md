@@ -17,28 +17,28 @@ Severity: critical (remote, unauthenticated, full compromise), high
 session), medium (needs the admin cookie or a second fault, or is a defense
 the site should have and does not), low (hardening, timing, hygiene).
 
-Status is one of: fixed <hash>, open (with why).
+Status is one of: fixed <commit>, open (with why). The guard is scripts/security-test.mjs (2f7fec0).
 
 ## Summary
 
 | # | Severity | Finding | Status |
 |---|---|---|---|
-| 1 | high | Session signing secret falls back to a constant in the repo | fixed |
-| 2 | high | No rate limit on POST /api/admin/login | fixed |
-| 3 | high | Public form fields override the notification email's own parameters (Web3Forms key, reply address, subject) | fixed |
-| 4 | medium | /api/submissions: contact and start forms have no rate limit and store an unbounded, untyped `fields` object | fixed |
-| 5 | medium | No URL scheme validation on any stored image or link field; `javascript:` reaches `href` on public and admin pages | fixed |
-| 6 | medium | `.env` is tracked in git despite `.gitignore` | fixed |
-| 7 | medium | The marketing host has no Content-Security-Policy | fixed |
-| 8 | medium | `npm audit`: 10 high, 4 moderate, 3 low | mostly fixed, xlsx open |
-| 9 | low | /api/planner responses carry no `Cache-Control: no-store`; the per token limiter stores the raw token as a settings `_id` | fixed |
-| 10 | low | A malformed `vz_admin` cookie throws inside `decodeURIComponent` and answers 500 from /api/admin/session | fixed |
-| 11 | low | A malformed ObjectId in several admin routes throws and answers 500 instead of 400 | fixed |
-| 12 | low | Crons compare CRON_SECRET with `!==` | fixed |
-| 13 | low | The backup carries the rate limiter documents (planner token keys) and the client error log | fixed |
-| 14 | low | ARCHITECTURE.md and RUNBOOK.md describe auth features that no longer exist | fixed |
+| 1 | high | Session signing secret falls back to a constant in the repo | fixed 8e568a2 |
+| 2 | high | No rate limit on POST /api/admin/login | fixed 304e275 |
+| 3 | high | Public form fields override the notification email's own parameters (Web3Forms key, reply address, subject) | fixed 12a1c59 |
+| 4 | medium | /api/submissions: contact and start forms have no rate limit and store an unbounded, untyped `fields` object | fixed 3410214 |
+| 5 | medium | No URL scheme validation on any stored image or link field; `javascript:` reaches `href` on public and admin pages | fixed 6168bf7 |
+| 6 | medium | `.env` is tracked in git despite `.gitignore` | fixed 6d63a25 |
+| 7 | medium | The marketing host has no Content-Security-Policy | fixed 30781de |
+| 8 | medium | `npm audit`: 10 high, 4 moderate, 3 low | 76c0fd1: 17 to 9; xlsx, react-router-dom 7, lighthouse 13, puppeteer-core 25 open (below) |
+| 9 | low | /api/planner responses carry no `Cache-Control: no-store`; the per token limiter stores the raw token as a settings `_id` | fixed 0f4d111 |
+| 10 | low | A malformed `vz_admin` cookie throws inside `decodeURIComponent` and answers 500 from /api/admin/session | fixed 0f4d111 |
+| 11 | low | A malformed ObjectId in several admin routes throws and answers 500 instead of 400 | fixed 0f4d111 |
+| 12 | low | Crons compare CRON_SECRET with `!==` | fixed 0f4d111 |
+| 13 | low | The backup carries the rate limiter documents (planner token keys) and the client error log | fixed 0f4d111 |
+| 14 | low | ARCHITECTURE.md and RUNBOOK.md describe auth features that no longer exist | fixed 43fca01 |
 | 15 | low | The admin password constant is seven uppercase letters | open, by design, see below |
-| 16 | info | HSTS is not declared in vercel.json | fixed (declared explicitly) |
+| 16 | info | HSTS is not declared in vercel.json | fixed 30781de (declared explicitly) |
 | 17 | info | Marketing index.html carries the admin chunk's URL in a meta tag | open, harmless |
 
 What was confirmed sound, with the evidence, is in "Confirmed" at the end.
@@ -240,10 +240,14 @@ Before: 17 (3 low, 4 moderate, 10 high). What matters at runtime:
   each.
 
 Fix: `npm audit fix` (non breaking) for everything it covers, then the full
-audit battery re-run to prove the build and every script still pass. After:
-see the report. Open: xlsx (no non breaking fix; the mitigation is that the
-only input is Rob's own file), lighthouse and puppeteer-core (dev only,
-major upgrades, left for a tooling prompt).
+audit battery re-run to prove the build and every script still pass.
+After: 9 (2 low, 2 moderate, 5 high): vite 6.4.3, postcss 8.5.28, nanoid
+3.3.19, picomatch 4.0.7, browserslist 4.28.9, @babel/core 7.29.7,
+react-router-dom 6.30.6. Open: xlsx (no published fix; the only input is
+Rob's own file), react-router-dom (the remaining advisory is fixed only in
+7.x, a major; nothing here navigates to user input, so the open redirect
+has no entry point), lighthouse and puppeteer-core (dev only, major
+upgrades, left for a tooling prompt).
 
 ### 9. Planner responses cacheable; the token limiter keys on the raw token (low)
 
