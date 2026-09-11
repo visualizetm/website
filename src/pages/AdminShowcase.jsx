@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, useToast, useConfirm, useMediaQuery,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, ProgressBar, Chip, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
@@ -190,18 +190,68 @@ function ObjectListEditor({ items, onReorder, onRemove, onAdd, canAdd, addLabel 
  * its header that stays visible either way (the Deliverables/Playbook
  * `Block` pattern in LeadDetail.jsx, reusing its dt-block* classes; kept
  * local here to avoid a circular import between the two files). */
-function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children }) {
-  const [open, setOpen] = useState(true);
+function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children, openSignal }) {
+  /* UX audit, item 7: closed until asked for, so the page reads as a
+     checklist; the completeness meter opens a block by bumping openSignal. */
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (openSignal) setOpen(true); }, [openSignal]);
   return (
     <Card className="dt-block">
       <Row gap={2} align="center" className="dt-block-head">
-        <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} data-block={title}>
           <span className="pb-card-h" style={{ margin: 0 }}>{title}</span>
           {!open && <span className="dt-block-sum lay-truncate">{summary}</span>}
         </button>
         <Toggle size="sm" checked={enabled} onChange={onEnabled} label="Enabled" disabled={readOnly} />
       </Row>
       <Collapsible open={open}>{children}</Collapsible>
+    </Card>
+  );
+}
+
+/* The completeness meter (UX audit, item 7): what the public page will
+ * have and what it is still missing, so the editor reads as a checklist.
+ * Each missing item is a chip that opens the block it lives in. Items that
+ * are switched off do not count against the page. */
+function completeness(sh, lead) {
+  const b = sh.brand || {}; const w = sh.website || {}; const ig = sh.instagram || {}; const c = sh.cards || {}; const p = sh.print || {};
+  const logo = sh.logoUrl || b.logo?.dark || b.logo?.light;
+  const items = [
+    { id: 'cover', label: 'Cover image', ok: !!sh.cover, block: 'fields' },
+    { id: 'blurb', label: 'Blurb', ok: !!sh.blurb, block: 'fields' },
+    { id: 'type', label: 'Type', ok: !!(sh.type || lead.industry), block: 'fields' },
+    ...(b.enabled !== false ? [
+      { id: 'logo', label: 'Logo', ok: !!logo, block: 'Brand identity' },
+      { id: 'gallery', label: 'Brand images', ok: (b.images || []).length > 0, block: 'Brand identity' },
+    ] : []),
+    ...(w.enabled !== false ? [
+      { id: 'site', label: 'Website URL', ok: !!(w.url || lead.socials?.website || lead.links?.website), block: 'Website' },
+      { id: 'shots', label: 'Website screenshots', ok: (w.screenshots || []).length > 0, block: 'Website' },
+    ] : []),
+    ...(ig.enabled ? [
+      { id: 'ig', label: 'Instagram posts', ok: (ig.posts || []).length > 0, block: 'Instagram' },
+    ] : []),
+    ...(c.enabled !== false ? [{ id: 'cards', label: 'Card front', ok: !!c.front, block: 'Business cards' }] : []),
+    ...(p.enabled !== false ? [{ id: 'print', label: 'Print items', ok: (p.items || []).length > 0, block: 'Print and product' }] : []),
+    { id: 'quote', label: 'A testimonial', ok: (lead.reviews?.testimonials || []).some(t => t.published), block: 'testimonials' },
+  ];
+  return { items, done: items.filter(i => i.ok).length, total: items.length };
+}
+
+function CompletenessCard({ sh, lead, onOpen }) {
+  const { items, done, total } = completeness(sh, lead);
+  const missing = items.filter(i => !i.ok);
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  return (
+    <Card className="sc-meter">
+      <Row gap={2} align="center" justify="between" wrap>
+        <p className="pb-card-h" style={{ margin: 0 }}>What the page will have</p>
+        <span className="dt-muted">{done} of {total} filled</span>
+      </Row>
+      <ProgressBar value={pct} tone={pct === 100 ? 'booked' : 'callback'} size="sm" />
+      {missing.length
+        ? <Row gap={1} wrap className="sc-meter-missing" aria-label="Still missing">{missing.map(i => <Chip key={i.id} label={i.label} onClick={() => onOpen(i.block)} />)}</Row>
+        : <p className="dt-muted">Everything the page shows is filled in.</p>}
     </Card>
   );
 }
@@ -283,7 +333,7 @@ function CardFieldsCard({ sh, writeRaw, lead, readOnly }) {
   );
 }
 
-function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
+function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump, openSignal }) {
   const b = sh.brand;
   const logo = sh.logoUrl || b.logo?.dark || b.logo?.light || '';
   const images = b.images || [];
@@ -291,7 +341,7 @@ function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   const brandProfile = { primary: '', colors: [], fontDisplay: '', fontBody: '', ...(lead.brand || {}) };
   const chips = [brandProfile.primary, ...(brandProfile.colors || [])].filter(Boolean);
   return (
-    <ShowcaseBlock title="Brand identity" enabled={b.enabled} onEnabled={(v) => write({ brand: { ...b, enabled: v } })} summary={summary} readOnly={readOnly}>
+    <ShowcaseBlock title="Brand identity" openSignal={openSignal} enabled={b.enabled} onEnabled={(v) => write({ brand: { ...b, enabled: v } })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         {/* One logo now that the public site is dark only. Saving blanks
             the old light/dark pair, which is how the new value wins at the
@@ -325,14 +375,14 @@ function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   );
 }
 
-function WebsiteBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
+function WebsiteBlock({ sh, write, writeRaw, lead, readOnly, jump, openSignal }) {
   const w = sh.website;
   // UX audit, D3: the lead's socials.website is the one place a website is typed.
   const siteUrl = lead.socials?.website || lead.links?.website || '';
   const shots = w.screenshots || [];
   const summary = !w.enabled ? 'Off' : ([shots.length ? `${shots.length} screenshot${shots.length === 1 ? '' : 's'}` : '', w.notes ? 'notes' : ''].filter(Boolean).join(', ') || 'Not set up yet');
   return (
-    <ShowcaseBlock title="Website" enabled={w.enabled} onEnabled={(v) => write({ website: { ...w, enabled: v } })} summary={summary} readOnly={readOnly}>
+    <ShowcaseBlock title="Website" openSignal={openSignal} enabled={w.enabled} onEnabled={(v) => write({ website: { ...w, enabled: v } })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         <DerivedRow label="URL" value={siteUrl} placeholder="Add the website in Overview" override={w.url && w.url !== siteUrl ? w.url : ''} onClear={() => write({ website: { ...w, url: '' } })} onEdit={jump} readOnly={readOnly} />
         <div className="v-field">
@@ -358,7 +408,7 @@ function WebsiteBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
  * the @ (typing one is stripped on save), and the URL falls back to the
  * lead's own Instagram link when left blank, so the common case is one
  * field and a toggle. Nine posts, because the public grid is 3 by 3. */
-function InstagramBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
+function InstagramBlock({ sh, write, writeRaw, lead, readOnly, jump, openSignal }) {
   const ig = sh.instagram;
   /* UX audit, D4: the lead's socials.instagram is the one place it is typed;
      the URL and the handle both derive from it. */
@@ -371,7 +421,7 @@ function InstagramBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   const setIg = (next) => write({ instagram: { ...ig, ...next } });
   const setIgRaw = (next) => writeRaw({ instagram: { ...ig, ...next } });
   return (
-    <ShowcaseBlock title="Instagram" enabled={ig.enabled} onEnabled={(v) => setIg({ enabled: v })} summary={summary} readOnly={readOnly}>
+    <ShowcaseBlock title="Instagram" openSignal={openSignal} enabled={ig.enabled} onEnabled={(v) => setIg({ enabled: v })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         <Grid minColumnWidth={180} gap={2}>
           <DerivedRow label="Handle" value={derivedHandle ? `@${derivedHandle}` : ''} placeholder="Add the Instagram link in Overview" override={ig.handle && ig.handle !== derivedHandle ? `@${ig.handle}` : ''} onClear={() => setIg({ handle: '' })} onEdit={jump} readOnly={readOnly} />
@@ -417,11 +467,11 @@ function InstagramBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   );
 }
 
-function CardsBlock({ sh, write, writeRaw, readOnly }) {
+function CardsBlock({ sh, write, writeRaw, readOnly, openSignal }) {
   const c = sh.cards;
   const summary = !c.enabled ? 'Off' : ([c.front && 'front', c.back && 'back', c.notes && 'notes'].filter(Boolean).join(', ') || 'Not set up yet');
   return (
-    <ShowcaseBlock title="Business cards" enabled={c.enabled} onEnabled={(v) => write({ cards: { ...c, enabled: v } })} summary={summary} readOnly={readOnly}>
+    <ShowcaseBlock title="Business cards" openSignal={openSignal} enabled={c.enabled} onEnabled={(v) => write({ cards: { ...c, enabled: v } })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         <Grid minColumnWidth={180} gap={2}>
           <div className="v-field"><span className="v-field-label">Front</span><ImageField value={c.front} label="Card front" placeholder="Front image URL" ratio="img-fit--7x4" onSave={(v) => writeRaw({ cards: { ...c, front: v } })} readOnly={readOnly} /></div>
@@ -433,12 +483,12 @@ function CardsBlock({ sh, write, writeRaw, readOnly }) {
   );
 }
 
-function PrintBlock({ sh, write, writeRaw, readOnly }) {
+function PrintBlock({ sh, write, writeRaw, readOnly, openSignal }) {
   const p = sh.print;
   const items = p.items || [];
   const summary = !p.enabled ? 'Off' : ([items.length ? `${items.length} item${items.length === 1 ? '' : 's'}` : '', p.notes && 'notes'].filter(Boolean).join(', ') || 'Not set up yet');
   return (
-    <ShowcaseBlock title="Print and product" enabled={p.enabled} onEnabled={(v) => write({ print: { ...p, enabled: v } })} summary={summary} readOnly={readOnly}>
+    <ShowcaseBlock title="Print and product" openSignal={openSignal} enabled={p.enabled} onEnabled={(v) => write({ print: { ...p, enabled: v } })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         <div className="v-field">
           <span className="v-field-label">Items ({items.length} of 12)</span>
@@ -659,6 +709,7 @@ function draftOf(lead) {
 export default function AdminShowcase({ lead, loading = false, onPatch, onBack, submissions = [], readOnly = false }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
+  const [signals, setSignals] = useState({});
   const [draft, setDraft] = useState(() => draftOf(lead));
   const [saving, setSaving] = useState(false);
   const saved = useMemo(() => draftOf(lead), [lead]);
@@ -748,6 +799,13 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
   }
 
   const publicUrl = sh.slug ? `https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}` : '';
+  /* The meter opens a block by bumping its signal; a chip for a card that is
+     always open (fields, testimonials) scrolls to it instead. */
+  const openBlock = (block) => {
+    if (block === 'fields' || block === 'testimonials') { document.querySelector(block === 'fields' ? '.sc-fields' : '.sc-testimonials')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    setSignals(prev => ({ ...prev, [block]: (prev[block] || 0) + 1 }));
+    requestAnimationFrame(() => document.querySelector(`[data-block="${block}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
   const name = sh.displayName || lead.business || 'Client';
 
   return (
@@ -766,13 +824,14 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
 
       <div className="sc-page-body">
         <Section title="Showcase" description="What shows on the public work page. Nothing here is live until you save.">
+          <CompletenessCard sh={sh} lead={lead} onOpen={openBlock} />
           <PublishCard sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
           <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} />
-          <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
-          <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
-          <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
-          <CardsBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
-          <PrintBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
+          <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals['Brand identity']} />
+          <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals.Website} />
+          <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals.Instagram} />
+          <CardsBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={signals['Business cards']} />
+          <PrintBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={signals['Print and product']} />
           <LandingCard sh={sh} write={write} readOnly={readOnly} />
           <TestimonialsCard lead={lead} testimonials={draft.testimonials} writeTestimonials={writeTestimonials} submissions={submissions} readOnly={readOnly} />
         </Section>
@@ -793,6 +852,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
 }
 
 const scStyles = `
+  .sc-meter-missing { margin-top: var(--v-space-1); }
   /* --v-scroll-extra is the kit's own hook for "reserve room at the bottom
      of this scroller": ScrollArea folds it into both padding-bottom and
      scroll-padding-bottom. Setting padding-bottom here instead lost to
