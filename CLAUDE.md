@@ -19,6 +19,7 @@ is in reports/PROMPT-NN-REPORT.md and reports/SITE-NN-REPORT.md.
 - `$set` only. Every write is `updateOne({ _id }, { $set: allowed })` (plus `$push` with `$slice` for capped lists). sanitize() in each route is the schema: a field the whitelist does not know is not written.
 - Every dispatched route uses `route()` from api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); the three auth endpoints (api/admin/login.js, logout.js, session.js) are plain handlers with their own method check. Auth is the signed `vz_admin` cookie alone: no CSRF header, no rate limit, no database lookup. The admin password is the constant in api/_lib/config.js (an ADMIN_PASSWORD env var overrides it); every other secret still comes from environment variables only, and nothing but config.js may hold a password.
 - No em dashes anywhere: copy, comments, docs, reports.
+- Security is docs/SECURITY-AUDIT.md. Every stored link or image goes through safeUrl() (api/_lib/url.js) in its sanitize() and safeHref() (src/lib/safeUrl.js) at the render; every request value in a Mongo filter is cast; every public door is behind the shared limiter (api/_lib/limit.js); SESSION_SECRET is required on Vercel. `node scripts/security-test.mjs` runs before every commit and must pass.
 - Skeletons ship with features. A new screen or region lands with its skeleton, its empty state (src/shared/copy.js), its error state with Retry, and its entrance; the feel audit checks all four.
 - Motion reads `--v-dur-*` and `--v-ease-*` only, and JS timers read `durationMs()`; everything collapses under Reduce motion.
 - Accessibility is part of done: one real control per card or row (the stretched `.v-stretch` button), 44px targets, labels on every icon button, live regions for status, landmarks named. `node scripts/a11y-audit.mjs` must show no serious or critical violation.
@@ -38,6 +39,7 @@ node scripts/site-regression.mjs                # docs/SITE-QA-CHECKLIST.md's CR
 node scripts/hex-count.js                       # 90 or lower
 node scripts/css-orphans.mjs                    # 0
 TZ=America/New_York node scripts/dates-test.mjs
+node scripts/security-test.mjs                  # operator injection, javascript: URLs, script tags, the planner token, the login and form limiters, against the real handlers
 ```
 
 Optional: `AUDIT_ONLY=a11y node scripts/layout-audit.mjs` (zoom and text
