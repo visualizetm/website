@@ -206,7 +206,7 @@ function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children 
   );
 }
 
-function PublishCard({ sh, write, writeRaw, readOnly }) {
+function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
   const toast = useToast();
   const url = sh.slug ? `https://visualizestudio.org/clients/${sh.slug}` : '';
   /* The review prompt, part 4: the link to text them after a delivery. The
@@ -218,7 +218,7 @@ function PublishCard({ sh, write, writeRaw, readOnly }) {
     // First publish with no slug yet: mirror the server's own slugify() so the
     // URL shown here matches what will be stored (barring a rare collision,
     // which the server resolves by auto-suffixing, see the PATCH handler).
-    if (v && !sh.slug) return write({ published: v, slug: clientSlugify(sh.displayName) || clientSlugify(sh.type) || uid() });
+    if (v && !sh.slug) return write({ published: v, slug: clientSlugify(sh.displayName || lead?.business) || clientSlugify(sh.type) || uid() });
     return write({ published: v });
   };
   return (
@@ -258,11 +258,18 @@ function PublishCard({ sh, write, writeRaw, readOnly }) {
 }
 
 function CardFieldsCard({ sh, writeRaw, lead, readOnly }) {
+  /* UX audit, D1: the business name is the public name. The override input
+     only appears when asked for, or when a record already holds one. */
+  const override = sh.displayName && sh.displayName !== lead.business ? sh.displayName : '';
+  const [renaming, setRenaming] = useState(false);
+  const showInput = !readOnly && (renaming || !!override);
   return (
     <Card className="sc-fields">
       <p className="pb-card-h">Card fields</p>
       <Stack gap={2}>
-        <div className="cw-brand-row"><span className="dt-fact-label">Display name</span><EditableText value={sh.displayName} onSave={(v) => writeRaw({ displayName: v.slice(0, 200) })} placeholder={lead.business} label="Display name" readOnly={readOnly} className="dt-fact-edit" /></div>
+        {showInput
+          ? <div className="cw-brand-row sc-derived"><span className="dt-fact-label">Public name</span><EditableText value={sh.displayName} onSave={(v) => writeRaw({ displayName: v.slice(0, 200) })} placeholder={lead.business} label="Public name" className="dt-fact-edit" />{override && <Button variant="ghost" size="md" onClick={() => { writeRaw({ displayName: '' }); setRenaming(false); }} className="sc-derived-btn">Use the business name</Button>}</div>
+          : <DerivedRow label="Public name" value={lead.business} placeholder="Set the business name in Overview" onEdit={readOnly ? undefined : () => setRenaming(true)} editLabel="Use a different name" readOnly={readOnly} />}
         <div className="cw-brand-row"><span className="dt-fact-label">Type</span><EditableText value={sh.type} onSave={(v) => writeRaw({ type: v.slice(0, 80) })} placeholder={industryKey(lead.industry) || 'Industry'} label="Type" readOnly={readOnly} className="dt-fact-edit" /></div>
         <div className="v-field">
           <span className="v-field-label">Blurb</span>
@@ -759,7 +766,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
 
       <div className="sc-page-body">
         <Section title="Showcase" description="What shows on the public work page. Nothing here is live until you save.">
-          <PublishCard sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
+          <PublishCard sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
           <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} />
           <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
           <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
