@@ -264,6 +264,8 @@ function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
      published, and the form on the other end fills in the business name and
      offers Google afterwards. */
   const reviewUrl = sh.slug ? `https://visualizestudio.org/review/${sh.slug}` : '';
+  const f = sh.featured || {};
+  const setF = (next) => write({ featured: { ...f, ...next } });
   const setPublished = (v) => {
     // First publish with no slug yet: mirror the server's own slugify() so the
     // URL shown here matches what will be stored (barring a rare collision,
@@ -299,6 +301,18 @@ function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
             <p className="sc-review-note">Text this to them once the work is delivered. Their name and business are filled in for them.</p>
           </>
         ) : <p className="sc-review-note">Set a slug and the review link appears here.</p>}
+      </div>
+      {/* UX audit, item 8: publishing and featuring always happen together,
+          so the landing toggles sit here, in the same save. */}
+      <div className="v-field">
+        <span className="v-field-label">On the landing page</span>
+        <Stack gap={0}>
+          <Toggle checked={f.landing} onChange={(v) => setF({ landing: v })} label="Feature on landing page" disabled={readOnly || !sh.published} />
+          <Toggle checked={f.logoStrip} onChange={(v) => setF({ logoStrip: v })} label="Show logo in the logo strip" disabled={readOnly || !sh.published} />
+          <Toggle checked={f.work} onChange={(v) => setF({ work: v })} label="Feature in the work row" disabled={readOnly || !sh.published} />
+        </Stack>
+        {!sh.published && <p className="sc-review-note">Publish first; the landing page only shows published clients.</p>}
+        <OrderField label="Display order" value={f.order} onSave={(n) => setF({ order: n })} readOnly={readOnly} hint="Lower numbers show first." />
       </div>
       <Row gap={2} wrap>
         <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
@@ -517,21 +531,6 @@ function OrderField({ label, value, onSave, readOnly, hint }) {
   return <Input label={label} type="number" inputMode="numeric" value={v} onChange={(e) => setV(e.target.value)} onBlur={() => { const n = Math.round(Number(v)) || 0; if (n !== value) onSave(n); }} disabled={readOnly} hint={hint} />;
 }
 
-function LandingCard({ sh, write, readOnly }) {
-  const f = sh.featured;
-  const setF = (next) => write({ featured: { ...f, ...next } });
-  return (
-    <Card className="sc-landing">
-      <p className="pb-card-h">Landing page</p>
-      <Stack gap={0}>
-        <Toggle checked={f.landing} onChange={(v) => setF({ landing: v })} label="Feature on landing page" disabled={readOnly} />
-        <Toggle checked={f.logoStrip} onChange={(v) => setF({ logoStrip: v })} label="Show logo in the logo strip" disabled={readOnly} />
-        <Toggle checked={f.work} onChange={(v) => setF({ work: v })} label="Feature in the work row" disabled={readOnly} />
-      </Stack>
-      <OrderField label="Display order" value={f.order} onSave={(n) => setF({ order: n })} readOnly={readOnly} hint="Lower numbers show first." />
-    </Card>
-  );
-}
 
 /* Add from asks (Site Prompt 2): review-channel ids (nfc/text/email/in-person)
  * map 1:1 onto testimonial-source ids for those four, so an ask's channel
@@ -832,7 +831,6 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals.Instagram} />
           <CardsBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={signals['Business cards']} />
           <PrintBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={signals['Print and product']} />
-          <LandingCard sh={sh} write={write} readOnly={readOnly} />
           <TestimonialsCard lead={lead} testimonials={draft.testimonials} writeTestimonials={writeTestimonials} submissions={submissions} readOnly={readOnly} />
         </Section>
       </div>
