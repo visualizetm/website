@@ -71,7 +71,7 @@ src/
 
 | Path | Screen | File |
 |---|---|---|
-| / | Dashboard: greeting, funnel, stats, Today panel, revenue, activity | pages/AdminDashboard.jsx |
+| / | Dashboard: greeting, Today panel, the four numbers that matter, the pipeline strip, More stats (the rest and revenue) behind one tap, activity | pages/AdminDashboard.jsx |
 | /leads | Leads: kanban and table, filters, bulk, duplicates, LeadDetail | pages/AdminLeads.jsx |
 | /calls | Call Console: session builder, queue, call room, outcomes, summary | pages/AdminCalls.jsx |
 | /booked | Booked workspace: meeting prep on LeadDetail | pages/AdminBooked.jsx |
@@ -81,7 +81,7 @@ src/
 | /concepts | Concepts library | pages/AdminConcepts.jsx |
 | /reviews | Reviews | pages/AdminReviews.jsx |
 | /submissions | Submissions | pages/AdminSubmissions.jsx |
-| /settings | Settings (Profile, Notifications, Integrations, Data, Automation, Shortcuts, Danger zone); /settings/deleted opens Data | pages/AdminSettings.jsx |
+| /settings | Settings (Profile, Notifications, Integrations with the crons and the client log, Data, Danger zone); /settings/deleted opens Data; keyboard shortcuts are a sheet off the account menu (shell/ShortcutsSheet.jsx) | pages/AdminSettings.jsx |
 | /design | Design system reference | pages/AdminDesign.jsx |
 | /landing | Landing: the public Home page's logo strip, featured work, testimonials, and stats, curated (Site Prompt 2, refined in Site Prompt 5) | pages/AdminLanding.jsx |
 
@@ -122,6 +122,7 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 
 ## Collections and sanitize shapes
 
+- Derived fields (docs/UX-AUDIT.md): the fields below are still stored and still accepted by sanitize(), but each has one place it is typed and is read only everywhere else. `showcase.displayName` is an override of `business` (the editor shows the business name until asked for a different one). `showcase.website.url` and `links.website` derive from `socials.website`; `showcase.instagram.url`, `showcase.instagram.handle` and `links.instagram` derive from `socials.instagram` (the handle is parsed from the URL by src/lib/socials.js instagramHandle and the same regex in api/showcase.js, which falls back showcase, then socials, then links). `brand.logoLink` is superseded by `showcase.logoUrl` (the Brand card shows the showcase logo). `planner.postsPerMonth` is written from the retainer plan's monthly count whenever the client is on a retainer. A record that already holds its own value in the secondary place keeps serving it; the editor shows it as an override with one Clear button.
 - call_leads: the lead, booked, and client record. Core fields business, industry, descriptor, phone, phoneNote, email, area, askFor, bestWindow, priority, callStatus, stage, angle, beforeYouDial[], script{}, objections[], close{}, afterCall{}, intel{}, socials{}, callLog[], contactLog[], notes, prepNotes, checklists[], meeting{date,time,type,location}, callbackAt, calendlyEventUri, concepts[]{id,label,status,link,packId}, gamePlan[], servicesPlanned[], pricingOptions[], conceptsTracker, purchases[]{id,label,amount,at,notes,projectId,source,stripeEventId}, bookedOutcome, clientSince, clientStatus, links{website,drive,clickup,instagram}, brand{primary,colors[],fontDisplay,fontBody,logoLink,notes}, retainer{projectId,planId,amount,status,startedAt,billDay,nextBillAt,cancelAt,stripeSubscriptionId,stripeCancelledAt}, reviews{nfcCard,nfcGivenAt,googleLink,baseline,latest,asks[]}, enrichment (written by the nightly job), sourceId, mergedInto, deleted, deletedAt, createdAt, updatedAt. Whitelist: api/_routes/call-leads.js sanitize().
 - submissions: type, projectType, name, business, email, phone, fields{}, status, read, notes, socials, linkedLeadId, deleted, deletedAt, createdAt.
 - projects: leadId, name, kind, packageId, custom, stage, stages[], total, schedule[]{id,amount,dueAt,status,ledgerId,label,paidAt,extra}, revisions{max,used,log[]}, plan{months,monthly,stripeCancelled,stripeSubscriptionId,stripeCancelledAt}, links{drive,clickup}, deliverables[], delivery{}, releasedAt, monthly[], retainer{planId,billDay,startedAt}, archived, createdAt, updatedAt.

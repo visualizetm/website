@@ -132,18 +132,18 @@ Twelve items. Commit hashes are filled in below as each landed.
 
 | # | Item | Commit |
 |---|---|---|
-| 1 | D3 and D4: website and Instagram have one source (`socials`); Links card and Showcase editor derive them; endpoint fallback order; handle parsed from the URL | |
-| 2 | D2: `brand.logoLink` leaves the Brand card, which shows the showcase logo read only | |
-| 3 | D1: `showcase.displayName` is an override of `business`, read only until asked for | |
-| 4 | D7: `planner.postsPerMonth` derives from the retainer plan when there is one | |
-| 5 | Dashboard: Today first, then four numbers, then the pipeline strip, then "More stats" | |
-| 6 | Detail pages open on the stage's section; the rest collapse to one line each | |
-| 7 | Showcase editor: blocks closed except Publish; completeness meter at the top | |
-| 8 | Publish card carries the landing toggles (one save) | |
-| 9 | New post: image first and focused | |
-| 10 | Delivered: one dialog with the review link, copy, and the checklist | |
-| 11 | Settings: Automation folds into Integrations, Shortcuts moves to the account menu | |
-| 12 | Dead weight: Address fact, showcase Year, "Ask for" relabelled Contact, intel and Before you dial folded | |
+| 1 | D3 and D4: website and Instagram have one source (`socials`); Links card and Showcase editor derive them; endpoint fallback order; handle parsed from the URL | 8169a9d |
+| 2 | D2: `brand.logoLink` leaves the Brand card, which shows the showcase logo read only | 7b5edf2 |
+| 3 | D1: `showcase.displayName` is an override of `business`, read only until asked for | 1a51d3e |
+| 4 | D7: `planner.postsPerMonth` derives from the retainer plan when there is one | 2c2cd50 |
+| 5 | Dashboard: Today first, then four numbers, then the pipeline strip, then "More stats" | f5db293 |
+| 6 | Detail pages open on the stage's section; the rest collapse to one line each | 1950216 |
+| 7 | Showcase editor: blocks closed except Publish; completeness meter at the top | 395d20c |
+| 8 | Publish card carries the landing toggles (one save) | 571e8d2 |
+| 9 | New post: image first and focused | 9cb2b36 |
+| 10 | Delivered: one dialog with the review link, copy, and the checklist | e9aff5a |
+| 11 | Settings: Automation folds into Integrations, Shortcuts moves to the account menu | 20abe43 |
+| 12 | Dead weight: Address fact, showcase Year, "Ask for" relabelled Contact, intel and Before you dial folded | b342164 |
 
 ### The four Dashboard numbers
 
@@ -172,6 +172,33 @@ behind "More stats", with the same trends and the same links.
 - The Booked screen's own tab strip and the Calendar's day view were not
   touched; neither showed a duplicate or a competing first read.
 
-## Part 4: verification and the after counts
+## Part 4: the after counts
 
-Filled in after the implementation, see the report.
+Same ten actions, same phone layout, counted on the built app after the
+twelve items (the Delivered dialog, the fold defaults, the meter and the
+Publish card were also driven in Chromium against the audit fixtures).
+
+| # | Action | Before | After | What changed |
+|---|---|---|---|---|
+| T1 | Log a callback from the console | 3 | 3 | Already inline; unchanged |
+| T2 | Set a callback from the lead detail | 3 | 3 | Unchanged |
+| T3 | Publish and feature on the landing page | 4 plus a long scroll | 4, no scroll | The landing toggles sit in the Publish card (item 8); the blocks below are closed (item 7) |
+| T4 | Create a post, add its image, send for approval | 6 plus two scrolls | 6, one scroll | The editor opens with Upload focused (item 9); the status picker is still at the end |
+| T5 | Mark delivered and send the review link | 6 across two screens | 3 in one dialog | Delivered carries the link, Copy ticks the checklist (item 10) |
+| T6 | Open a client's projects | 2 | 1 | A client opens on Projects (item 6) |
+| T7 | Open a booked lead's meeting prep | 2 | 1 | A booked lead opens on Meeting (item 6) |
+| T8 | See what to do now on the Dashboard | 0 taps, 1 scroll | 0 taps, 0 scroll | Today is straight under the greeting (item 5) |
+| T9 | Set a retainer client's posts a month | 4 | 0 | Read from the retainer plan (item 4) |
+| T10 | Check an integration key or a cron run | 3 (a fourth for the cron) | 3 | Crons live on the Integrations tab (item 11) |
+
+Things typed twice before and once now: the website (three places to
+one), Instagram (four to one, the handle never typed at all when the URL
+is known), the logo (three to one), the public name (two to one unless an
+override is wanted), posts a month for a retainer client (two to one).
+
+Dashboard at 390, above the fold: was the greeting, two buttons, the
+pipeline strip and the top of Today; now the greeting, two buttons, the
+whole Today panel (ring, target, the day's rows). Numbers on the first
+screen: sixteen before, four after, the rest one tap away.
+
+Audit results are in the report.
