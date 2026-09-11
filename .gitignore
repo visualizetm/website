@@ -52,3 +52,6 @@ dist-p13d
 dist-p14
 dist-p14b
 dist-*
+
+# The endpoint tests copy api/ in here with a fake mongo
+.tmp-verify/
