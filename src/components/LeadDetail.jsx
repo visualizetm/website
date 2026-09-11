@@ -240,11 +240,10 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
       </Row>
       <Stack gap={1} className="dt-facts">
         <Fact label="Phone" value={formatPhone(lead.phone) || ''} onSave={save('phone')} inputMode="tel" placeholder="Add phone" readOnly={readOnly} />
-        <Fact label="Ask for" value={lead.askFor} onSave={save('askFor')} placeholder="Who to ask for" readOnly={readOnly} />
+        <Fact label="Contact" value={lead.askFor} onSave={save('askFor')} placeholder="Who to ask for" readOnly={readOnly} />
         <Fact label="Phone note" value={lead.phoneNote} onSave={save('phoneNote')} placeholder="Front desk, extension" readOnly={readOnly} />
         <Fact label="Best window" value={lead.bestWindow} onSave={save('bestWindow')} placeholder="Before 8am or after 5pm" readOnly={readOnly} />
         <Fact label="Email" value={lead.email} onSave={save('email')} inputMode="email" type="email" placeholder="Add email" readOnly={readOnly} />
-        <Fact label="Address" value={lead.address} onSave={save('address')} placeholder="Add address" readOnly={readOnly} />
         {clientMode && <Fact label="Since" value={fmtDate(lead.clientSince) || fmtDate(lead.bookedOutcome?.at) || ''} placeholder="Unknown" readOnly />}
         {clientMode && <Fact label="Lifetime" value={fmtMoney(lifetimeValue(lead))} readOnly />}
         <Fact label="Source" value={lead.sourceId ? 'Nightly scraper' : 'Added by hand'} readOnly />
@@ -262,16 +261,16 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
 
   const overview = (
     <section {...sec('overview')}>
-      <FoldSection id="overview" title="Overview" open={foldOpen('overview')} onToggle={foldToggle} summary={(lead.angle || '').split('\n')[0] || 'The angle, intel, and before you dial'}>
+      <FoldSection id="overview" title="Overview" open={foldOpen('overview')} onToggle={foldToggle} summary={(lead.angle || '').split('\n')[0] || 'The angle'}>
         <Card><p className="pb-card-h">The angle</p><InlineEdit value={lead.angle || ''} onSave={save('angle')} multiline placeholder="Why this lead, in your words." label="The angle" className="pb-say pb-say--edit" /></Card>
-        <IntelCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ intel: v })} ListEditor={ListEditor} />
-        <Card><p className="pb-card-h">Before you dial</p>{readOnly ? <ul className="pb-list">{(lead.beforeYouDial || []).map((x, i) => <li key={i}>{x}</li>)}</ul> : <ListEditor items={lead.beforeYouDial || []} onChange={(v) => patch({ beforeYouDial: v })} placeholder="Add a pre-dial check" />}</Card>
       </FoldSection>
     </section>
   );
   const playbook = !clientMode && (
     <section {...sec('playbook')}>
-      <FoldSection id="playbook" title="Playbook" open={foldOpen('playbook')} onToggle={foldToggle} summary={'Script, objections, and the close'} description="Every line edits in place. Return to the ask after every objection.">
+      <FoldSection id="playbook" title="Playbook" open={foldOpen('playbook')} onToggle={foldToggle} summary={'Intel, before you dial, script, objections, and the close'} description="Every line edits in place. Return to the ask after every objection.">
+        <IntelCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ intel: v })} ListEditor={ListEditor} />
+        <Card><p className="pb-card-h">Before you dial</p>{readOnly ? <ul className="pb-list">{(lead.beforeYouDial || []).map((x, i) => <li key={i}>{x}</li>)}</ul> : <ListEditor items={lead.beforeYouDial || []} onChange={(v) => patch({ beforeYouDial: v })} placeholder="Add a pre-dial check" />}</Card>
         <Card><p className="pb-card-h">Script</p><ScriptSteps lead={lead} onChange={readOnly ? undefined : (v) => patch({ script: v })} /></Card>
         <Card><p className="pb-card-h">Objections</p><Objections lead={lead} onChange={readOnly ? undefined : (v) => patch({ objections: v })} /></Card>
         <Card><p className="pb-card-h">Close</p><CloseCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ close: v })} /></Card>

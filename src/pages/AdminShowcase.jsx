@@ -341,7 +341,6 @@ function CardFieldsCard({ sh, writeRaw, lead, readOnly }) {
           <span className="dt-muted">{(sh.blurb || '').length}/200</span>
         </div>
         <div className="v-field"><span className="v-field-label">Cover image</span><ImageField value={sh.cover} label="Cover image" placeholder="Cover image URL" ratio="img-fit--16x9" onSave={(v) => writeRaw({ cover: v })} readOnly={readOnly} /></div>
-        <div className="cw-brand-row"><span className="dt-fact-label">Year</span><EditableText value={sh.year} onSave={(v) => writeRaw({ year: v.slice(0, 10) })} placeholder="2026" label="Year" readOnly={readOnly} className="dt-fact-edit" /></div>
       </Stack>
     </Card>
   );
