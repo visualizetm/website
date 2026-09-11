@@ -16,6 +16,8 @@
 import { getDb } from './_lib/mongo.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
+// Mirror of src/lib/socials.js instagramHandle(): the handle inside an Instagram URL, or ''.
+const igHandle = (url) => { const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]+)/i); return m ? m[1].replace(/^@+/, '') : ''; };
 
 function paletteOf(brand) {
   const b = brand || {};
@@ -70,7 +72,9 @@ function publicClient(lead) {
     },
     website: {
       enabled: sh.website?.enabled !== false,
-      url: sh.website?.url || lead.links?.website || '',
+      /* UX audit, D3: the lead's own socials.website is the source; a
+       * showcase URL is an override a record may still hold. */
+      url: sh.website?.url || lead.socials?.website || lead.links?.website || '',
       screenshots: Array.isArray(sh.website?.screenshots) ? sh.website.screenshots : [],
       notes: sh.website?.notes || '',
     },
@@ -78,7 +82,10 @@ function publicClient(lead) {
     // something to show; the url falls back to the lead's own socials entry.
     instagram: {
       enabled: !!sh.instagram?.enabled,
-      handle: (sh.instagram?.handle || '').replace(/^@+/, ''),
+      /* UX audit, D4: the URL is the lead's socials.instagram unless the
+       * showcase holds its own, and the handle is parsed out of whichever
+       * URL wins unless one was typed. */
+      handle: (sh.instagram?.handle || igHandle(sh.instagram?.url || lead.socials?.instagram)).replace(/^@+/, ''),
       url: sh.instagram?.url || lead.socials?.instagram || '',
       profileImage: sh.instagram?.profileImage || '',
       posts: Array.isArray(sh.instagram?.posts) ? sh.instagram.posts.slice(0, 9) : [],

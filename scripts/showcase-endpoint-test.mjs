@@ -91,6 +91,18 @@ const draftClient = {
   updatedAt: now,
 };
 
+/* UX audit, D3 and D4: a published client that typed its website and
+ * Instagram once, on the lead's socials, and nothing on the showcase. The
+ * endpoint derives the showcase URL, the Instagram URL and the handle. */
+const derivedClient = {
+  _id: '507f1f77bcf86cd799439014', business: 'Derived Co', industry: 'Burgers',
+  stage: 'client', brand: {},
+  socials: { instagram: 'https://instagram.com/mr.burgers/?igsh=abc', website: 'https://derived.example' },
+  showcase: { published: true, slug: 'derived-co', displayName: '', type: '', blurb: '', cover: '', year: '', brand: { enabled: true, logo: { light: '', dark: '' }, images: [], notes: '' }, website: { enabled: true, url: '', screenshots: [], notes: '' }, instagram: { enabled: true, handle: '', url: '', profileImage: '', posts: [], highlights: [], notes: '' }, cards: { enabled: false, front: '', back: '', notes: '' }, print: { enabled: false, items: [], notes: '' }, featured: { landing: false, logoStrip: false, work: false, order: 0 } },
+  reviews: { testimonials: [] },
+  updatedAt: now,
+};
+
 // Two never-published clients for the slug generation/collision tests below,
 // seeded up front: the fake mongo module is written out as static source
 // (see below) so a later store.set() from this script cannot reach it.
@@ -151,7 +163,7 @@ function setPath(obj, key, value, del) {
 // which cannot cross the module boundary) so the real, unmodified handlers
 // import a self-contained getDb() with the same fixtures baked in.
 fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), `
-const fixtures = ${JSON.stringify([fullClient, brandOnlyClient, draftClient, newClient1, newClient2])};
+const fixtures = ${JSON.stringify([fullClient, brandOnlyClient, draftClient, derivedClient, newClient1, newClient2])};
 const store = new Map(fixtures.map(d => [d._id, d]));
 const settingsStore = new Map();
 const projectsStore = [];
@@ -192,7 +204,7 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   const res = await callShowcase();
   ok(res._status === 200, 'GET /api/showcase -> 200');
   ok(Array.isArray(res._json?.clients), 'response has a clients array');
-  ok(res._json.clients.length === 2, `exactly 2 published clients returned (got ${res._json.clients.length})`);
+  ok(res._json.clients.length === 3, `exactly 3 published clients returned (got ${res._json.clients.length})`);
   ok(!res._json.clients.some(c => c.slug === '' || c.displayName === 'Draft Co'), 'the draft client never appears in clients[]');
 
   const full = res._json.clients.find(c => c.slug === 'full-client');
@@ -217,6 +229,15 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   ok(Object.keys(full.instagram).sort().join(',') === 'enabled,handle,highlights,notes,posts,profileImage,url', `instagram whitelist is exactly enabled, handle, url, profileImage, posts, highlights, notes (got ${Object.keys(full.instagram).sort().join(',')})`);
   ok(full.instagram.enabled === true && full.instagram.handle === 'fullclient', `instagram is served with the @ stripped from the handle (got ${JSON.stringify(full.instagram.handle)})`);
   ok(full.instagram.posts.length === 9, `instagram posts are capped at nine (got ${full.instagram.posts.length})`);
+  // UX audit, D3 and D4: typed once on the lead, derived at the endpoint.
+  {
+    const res = await callShowcase({ slug: 'derived-co' });
+    const d = res._json || {};
+    ok(res._status === 200 && d.website.url === 'https://derived.example', `the showcase website URL derives from socials.website when the showcase has none (got ${JSON.stringify(d.website?.url)})`);
+    ok(d.instagram.url === 'https://instagram.com/mr.burgers/?igsh=abc', `the Instagram URL derives from socials.instagram (got ${JSON.stringify(d.instagram?.url)})`);
+    ok(d.instagram.handle === 'mr.burgers', `the Instagram handle is parsed out of that URL (got ${JSON.stringify(d.instagram?.handle)})`);
+    ok(d.displayName === 'Derived Co', 'the public name falls back to the business name');
+  }
   // Story highlights, additive with the same shape rules as posts.
   ok(full.instagram.highlights.length === 10, `instagram highlights are capped at ten (got ${full.instagram.highlights.length})`);
   ok(full.instagram.highlights[0].label === 'Highlight 0' && full.instagram.highlights[0].image === 'https://img.example/hl-0.jpg', 'a highlight carries its label and cover image');

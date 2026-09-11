@@ -154,6 +154,10 @@ export const clientStyles = `
   .cw-link-field { width: 100%; font-size: var(--v-text-sm); }
   .cw-link-field .v-inline-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
   .cw-brand-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); }
+  /* UX audit: a derived row carries a third cell, the way to where the value is edited. */
+  .cw-brand-logo, .sc-derived { grid-template-columns: 96px minmax(0, 1fr) auto; }
+  .cw-logo-thumb { width: 120px; }
+  .cw-logo-edit, .sc-derived-btn { justify-self: end; }
   .cw-brand-row:last-child { border-bottom: 0; }
   .cw-swatches { display: flex; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
   .cw-swatch { display: inline-flex; align-items: center; gap: var(--v-space-1); min-width: 0; }

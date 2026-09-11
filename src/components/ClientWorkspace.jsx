@@ -36,7 +36,11 @@ const E = (k) => COPY.empty[k];
 
 /* ── Links block ─────────────────────────────────────────────────── */
 const LINKS = [['website', 'Website', 'Globe01'], ['drive', 'Google Drive', 'Folder'], ['clickup', 'ClickUp', 'Columns03'], ['instagram', 'Instagram', 'Camera01']];
-export function ClientLinks({ lead, patch, patchRaw, readOnly }) {
+/* Website and Instagram are the lead's socials (UX audit, D3 and D4): they
+ * show here read only with the way to the place they are edited, never a
+ * second input. Drive and ClickUp are the client's own and stay editable. */
+const DERIVED = new Set(['website', 'instagram']);
+export function ClientLinks({ lead, patch, patchRaw, readOnly, onEditSocials }) {
   const toast = useToast();
   const write = patchRaw || patch;
   const links = lead.links || {};
@@ -50,8 +54,10 @@ export function ClientLinks({ lead, patch, patchRaw, readOnly }) {
           <div key={k} className={`cw-link${v ? ' has-value' : ''}`}>
             {safeHref(v) ? <a className="cw-link-btn" href={safeHref(v)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label}`}><IconTile icon={icon} tone={v ? 'progress' : 'neutral'} size="sm" glow={false} /><span className="cw-link-label">{label}</span></a>
               : <span className="cw-link-btn"><IconTile icon={icon} tone="neutral" size="sm" glow={false} /><span className="cw-link-label">{label}</span></span>}
-            <span className="cw-link-edit">{readOnly ? <span className="dt-fact-ro lay-truncate">{v || 'None'}</span> : <InlineEdit value={links[k] || ''} onSave={save(k)} placeholder={v ? v : 'Paste a link'} label={`${label} link`} className="cw-link-field" />}</span>
-            <IconButton icon={Copy01} label={`Copy ${label}`} variant="ghost" disabled={!v} onClick={() => copyText(toast, v, label)} />
+            <span className="cw-link-edit">{readOnly || DERIVED.has(k) ? <span className="dt-fact-ro lay-truncate">{v || (DERIVED.has(k) ? 'Not set in Overview' : 'None')}</span> : <InlineEdit value={links[k] || ''} onSave={save(k)} placeholder={v ? v : 'Paste a link'} label={`${label} link`} className="cw-link-field" />}</span>
+            {DERIVED.has(k) && !readOnly && onEditSocials
+              ? <IconButton icon="Edit02" label={`Edit ${label} in Overview`} variant="ghost" onClick={onEditSocials} />
+              : <IconButton icon={Copy01} label={`Copy ${label}`} variant="ghost" disabled={!v} onClick={() => copyText(toast, v, label)} />}
           </div>
         ); })}
       </Stack>

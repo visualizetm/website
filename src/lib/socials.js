@@ -69,3 +69,12 @@ export function normalizeSocials(obj) {
 }
 
 export const hasAnySocial = (obj) => SOCIAL_KEYS.some(k => obj?.[k]);
+
+/** The handle inside an Instagram URL ("https://instagram.com/mr.burgers/?x"
+ * gives "mr.burgers"), or '' when the value is not one. The showcase's
+ * handle derives from the lead's own socials.instagram through this (UX
+ * audit, D4), so it is typed once. api/showcase.js carries the same regex. */
+export function instagramHandle(url) {
+  const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]+)/i);
+  return m ? m[1].replace(/^@+/, '') : '';
+}

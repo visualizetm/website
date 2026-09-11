@@ -10,6 +10,7 @@ import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloud
 import { uid, today, isHex } from '../lib/projects';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import ImageField, { imageFieldStyles } from '../components/ImageField';
+import { instagramHandle } from '../lib/socials';
 
 /* The Showcase editor (Site Prompt 7, Part 3), its own admin page at
  * /clients/:id/showcase rather than a tab inside the client record.
@@ -52,6 +53,22 @@ const clientSlugify = (v) => String(v ?? '').toLowerCase().trim().replace(/[^a-z
 
 /* A value shown as plain text in read-only mode, an InlineEdit otherwise.
  * Centralizes the ternary every other read-only field in this file repeats. */
+/* A fact whose source is somewhere else (UX audit, D1, D3, D4): read only
+ * here with the way to the place it is edited. A record that already holds
+ * its own value shows it as an override with one Clear button, never a
+ * second input, so nothing written before this rule stops reading. */
+function DerivedRow({ label, value, placeholder, override, onClear, onEdit, editLabel = 'Edit in Overview', readOnly }) {
+  return (
+    <div className="cw-brand-row sc-derived">
+      <span className="dt-fact-label">{label}</span>
+      <span className="dt-fact-ro lay-truncate">{override || value || placeholder}</span>
+      {override
+        ? (!readOnly && <Button variant="ghost" size="md" onClick={onClear} className="sc-derived-btn">Clear override</Button>)
+        : (onEdit && !readOnly && <Button variant="ghost" size="md" onClick={onEdit} className="sc-derived-btn">{editLabel}</Button>)}
+    </div>
+  );
+}
+
 function EditableText({ value, onSave, placeholder, label, multiline, readOnly, className }) {
   return readOnly
     ? <span className={`dt-fact-ro${multiline ? '' : ' lay-truncate'}`}>{value || placeholder}</span>
@@ -301,14 +318,16 @@ function BrandBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   );
 }
 
-function WebsiteBlock({ sh, write, writeRaw, lead, readOnly }) {
+function WebsiteBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   const w = sh.website;
+  // UX audit, D3: the lead's socials.website is the one place a website is typed.
+  const siteUrl = lead.socials?.website || lead.links?.website || '';
   const shots = w.screenshots || [];
   const summary = !w.enabled ? 'Off' : ([shots.length ? `${shots.length} screenshot${shots.length === 1 ? '' : 's'}` : '', w.notes ? 'notes' : ''].filter(Boolean).join(', ') || 'Not set up yet');
   return (
     <ShowcaseBlock title="Website" enabled={w.enabled} onEnabled={(v) => write({ website: { ...w, enabled: v } })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
-        <div className="cw-brand-row"><span className="dt-fact-label">URL</span><EditableText value={w.url} onSave={(v) => writeRaw({ website: { ...w, url: v.slice(0, 400) } })} placeholder={lead.links?.website || 'https://...'} label="Website URL" readOnly={readOnly} className="dt-fact-edit" /></div>
+        <DerivedRow label="URL" value={siteUrl} placeholder="Add the website in Overview" override={w.url && w.url !== siteUrl ? w.url : ''} onClear={() => write({ website: { ...w, url: '' } })} onEdit={jump} readOnly={readOnly} />
         <div className="v-field">
           <span className="v-field-label">Screenshots ({shots.length} of 8)</span>
           <UploadMany label="screenshots" count={shots.length} cap={8} readOnly={readOnly}
@@ -332,19 +351,24 @@ function WebsiteBlock({ sh, write, writeRaw, lead, readOnly }) {
  * the @ (typing one is stripped on save), and the URL falls back to the
  * lead's own Instagram link when left blank, so the common case is one
  * field and a toggle. Nine posts, because the public grid is 3 by 3. */
-function InstagramBlock({ sh, write, writeRaw, lead, readOnly }) {
+function InstagramBlock({ sh, write, writeRaw, lead, readOnly, jump }) {
   const ig = sh.instagram;
+  /* UX audit, D4: the lead's socials.instagram is the one place it is typed;
+     the URL and the handle both derive from it. */
+  const derivedUrl = lead.socials?.instagram || '';
+  const derivedHandle = instagramHandle(derivedUrl);
+  const handle = ig.handle || derivedHandle;
   const posts = ig.posts || [];
   const highlights = ig.highlights || [];
-  const summary = !ig.enabled ? 'Off' : ([ig.handle ? `@${ig.handle}` : '', posts.length ? `${posts.length} post${posts.length === 1 ? '' : 's'}` : '', highlights.length ? `${highlights.length} highlight${highlights.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ') || 'Not set up yet');
+  const summary = !ig.enabled ? 'Off' : ([handle ? `@${handle}` : '', posts.length ? `${posts.length} post${posts.length === 1 ? '' : 's'}` : '', highlights.length ? `${highlights.length} highlight${highlights.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(', ') || 'Not set up yet');
   const setIg = (next) => write({ instagram: { ...ig, ...next } });
   const setIgRaw = (next) => writeRaw({ instagram: { ...ig, ...next } });
   return (
     <ShowcaseBlock title="Instagram" enabled={ig.enabled} onEnabled={(v) => setIg({ enabled: v })} summary={summary} readOnly={readOnly}>
       <Stack gap={3}>
         <Grid minColumnWidth={180} gap={2}>
-          <div className="cw-brand-row"><span className="dt-fact-label">Handle</span><EditableText value={ig.handle} onSave={(v) => setIgRaw({ handle: v.replace(/^@+/, '').slice(0, 60) })} placeholder="visualizetm" label="Instagram handle" readOnly={readOnly} className="dt-fact-edit" /></div>
-          <div className="cw-brand-row"><span className="dt-fact-label">Profile URL</span><EditableText value={ig.url} onSave={(v) => setIgRaw({ url: v.slice(0, 400) })} placeholder={lead.socials?.instagram || 'https://instagram.com/...'} label="Instagram URL" readOnly={readOnly} className="dt-fact-edit" /></div>
+          <DerivedRow label="Handle" value={derivedHandle ? `@${derivedHandle}` : ''} placeholder="Add the Instagram link in Overview" override={ig.handle && ig.handle !== derivedHandle ? `@${ig.handle}` : ''} onClear={() => setIg({ handle: '' })} onEdit={jump} readOnly={readOnly} />
+          <DerivedRow label="Profile URL" value={derivedUrl} placeholder="Add the Instagram link in Overview" override={ig.url && ig.url !== derivedUrl ? ig.url : ''} onClear={() => setIg({ url: '' })} onEdit={jump} readOnly={readOnly} />
         </Grid>
         <div className="v-field"><span className="v-field-label">Profile image</span><ImageField value={ig.profileImage} label="Profile image" placeholder="Profile image URL" ratio="img-fit--1x1 img-fit--circle sc-thumb-round" onSave={(v) => setIgRaw({ profileImage: v })} readOnly={readOnly} /></div>
         <div className="v-field">
@@ -738,8 +762,8 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           <PublishCard sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
           <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} />
           <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
-          <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
-          <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
+          <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
+          <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} />
           <CardsBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
           <PrintBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} />
           <LandingCard sh={sh} write={write} readOnly={readOnly} />

@@ -342,7 +342,7 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
   const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
   const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
-  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} /></> : profile;
+  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditSocials={() => setEditAll(true)} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditShowcase={shell?.openShowcase ? () => shell.openShowcase(lead) : undefined} /></> : profile;
 
   return (
     <PageShell className="dt">
