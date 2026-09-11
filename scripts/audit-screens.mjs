@@ -139,7 +139,7 @@ export const SCREENS = [
   { id: 'submissions-list', screen: 'Submissions', label: 'list', path: '/admin/submissions', resource: 'submissions' },
   { id: 'submissions-detail', screen: 'Submissions', label: 'submission detail (panel or sheet)', path: '/admin/submissions', open: 'id5', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'submissions', detail: true, act: (p, w) => openRow(p, w, 'Business 5', /^Open submission from Business 5/) },
 
-  ...['Profile', 'Notifications', 'Integrations', 'Data', 'Automation', 'Shortcuts', 'Danger zone'].map(t => ({
+  ...['Profile', 'Notifications', 'Integrations', 'Data', 'Danger zone'].map(t => ({
     id: `settings-${t.toLowerCase().replace(/ /g, '-')}`, screen: 'Settings', label: `${t} tab`, path: '/admin/settings', resource: 'settings', noEmpty: true,
     act: t === 'Profile' ? undefined : (p) => tab(p, t),
   })),

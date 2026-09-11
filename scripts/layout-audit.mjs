@@ -659,7 +659,7 @@ for (const width of WIDTHS) {
 
   await goto('/admin/settings');
   await check('settings: profile');
-  for (const t of ['Notifications', 'Integrations', 'Data', 'Automation', 'Shortcuts', 'Danger zone']) {
+  for (const t of ['Notifications', 'Integrations', 'Data', 'Danger zone']) {
     await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
     await check(`settings: ${t.toLowerCase()}`);
     if (t === 'Integrations') {

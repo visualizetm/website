@@ -11,7 +11,6 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
-import { SHORTCUT_GROUPS } from '../shell/shortcuts';
 import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '../shell/install';
 import { THEME_MODES } from '../shell/appearance';
 import LeadImport from '../components/LeadImport';
@@ -25,11 +24,13 @@ import { EXPORTS, downloadText } from '../lib/exports';
 import { readLocalOrders, planImport, itemSummary, orderSubtotal } from '../lib/orders';
 
 /* Settings (Prompt 12): every setting on the kit under a Tabs sub nav.
- * Profile, Notifications, Integrations, Data, Automation, Shortcuts, Danger zone. */
+ * Profile, Notifications, Integrations (with the crons and the client log,
+ * which were the Automation tab until the UX audit), Data, Danger zone.
+ * Shortcuts moved to the account menu (src/shell/ShortcutsSheet.jsx). */
 
 export const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' },
-  { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'automation', label: 'Automation', icon: 'RefreshCw01' }, { id: 'shortcuts', label: 'Shortcuts', icon: 'Keyboard01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
+  { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
@@ -102,8 +103,10 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const desktop = useMediaQuery('(min-width: 1024px)');
-  const [tab, setTab] = useState(initialTab || 'profile');
-  useEffect(() => { if (initialTab) setTab(initialTab); }, [initialTab]);
+  // Old deep links to the Automation and Shortcuts tabs land on Integrations (UX audit, item 11).
+  const tabOf = (t) => (t === 'automation' || t === 'shortcuts' ? 'integrations' : t);
+  const [tab, setTab] = useState(tabOf(initialTab) || 'profile');
+  useEffect(() => { if (initialTab) setTab(tabOf(initialTab)); }, [initialTab]);
   useTopBar(null);
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -174,7 +177,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
-  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 4, data: 4, automation: 3, shortcuts: SHORTCUT_GROUPS.length, danger: 3 };
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
   const narrow = !desktop && !useMediaQuery('(min-width: 768px)'); // descriptions wrap to two lines under 768
   const desc = (w) => line(w, narrow ? 36 : 18);
@@ -188,10 +191,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
   const TAB_HEIGHTS = {
     notifications: { n: [190, 318, 114, 150], d: [158, 302, 114, 74] },
-    integrations: { n: [96, 222, 144, 276], d: [78, 126, 126, 102] },
+    integrations: { n: [96, 222, 144, 276, 260, 260, 142], d: [78, 126, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
-    automation: { n: [260, 260, 142], d: [124, 124, 106] },
-    shortcuts: { n: [218, 218, 634, 220], d: [114, 114, 270, 166] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
@@ -273,7 +274,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Scheduled tasks</p>{statusPill(cronArmed, 'Armed', 'CRON_SECRET missing')}</Row>
           <p className="dt-muted">Reminders ran {health?.crons?.reminders?.lastRunAt ? relativeTime(health.crons.reminders.lastRunAt) : 'never'}; the daily job ran {health?.crons?.daily?.lastRunAt ? relativeTime(health.crons.daily.lastRunAt) : 'never'}. {cronArmed ? 'Both are on the Vercel cron schedule.' : 'Add CRON_SECRET in Vercel and both jobs start on their own.'}</p>
-          <Row gap={2}><Button variant="ghost" size="md" onClick={() => setTab('automation')}>Open Automation</Button></Row>
+
         </Stack></Row>
       </Card>
       <Card className="st-card st-integration">
@@ -287,6 +288,21 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           </Grid> : <p className="dt-muted">The daily job writes task health after its first run.</p>}
         </Stack></Row>
       </Card>
+      {crons.map(c => (
+        <Card key={c.id} className="st-card st-cron">
+          <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? (c.last ? 'booked' : 'new') : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+            <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{c.label}</p><Pill tone="neutral" label={c.every} size="sm" icon="Clock" variant="outline" />{!cronArmed && <Pill tone="new" label="Not armed" size="sm" icon="AlertTriangle" />}</Row>
+            <p className="dt-muted">{c.what}</p>
+            <Grid minColumnWidth={140} gap={2}>
+              <div className="cw-kv"><span className="dt-fact-label">Last run</span><span>{c.last ? fmtDateTime(c.last) : 'Never'}</span></div>
+              <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{cronArmed ? fmtDateTime(c.next) : 'Needs CRON_SECRET'}</span></div>
+              {c.extra && <div className="cw-kv"><span className="dt-fact-label">Last result</span><span>{c.extra}</span></div>}
+            </Grid>
+          </Stack></Row>
+        </Card>
+      ))}
+      <Card className="st-card"><p className="pb-card-h">Nightly jobs outside this app</p><p className="dt-muted">The enrichment scan and the scraper write straight into call_leads from their own schedule. Their last run shows under Integrations, and the drawer warns when either is quiet for 36 hours.</p></Card>
+      <ClientLogCard />
     </Stagger>
   ) : tab === 'data' ? (
     <Stagger className="v-stack st-stack">
@@ -322,33 +338,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <Row gap={2} justify="between" align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Backup</p><Button icon="Download04" onClick={backup} className="st-backup">Download backup</Button></Row>
         <p className="dt-muted">One JSON file of every collection (leads, submissions, projects, orders, concept packs, settings, Stripe events without raw payloads). Last backup {health?.lastBackupAt ? fmtDateTime(health.lastBackupAt) : 'never'}. Restore is out of scope: keep the file safe, and ask for a restore by hand if it is ever needed.</p>
       </Card>
-    </Stagger>
-  ) : tab === 'automation' ? (
-    <Stagger className="v-stack st-stack">
-      {crons.map(c => (
-        <Card key={c.id} className="st-card st-cron">
-          <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? (c.last ? 'booked' : 'new') : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-            <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{c.label}</p><Pill tone="neutral" label={c.every} size="sm" icon="Clock" variant="outline" />{!cronArmed && <Pill tone="new" label="Not armed" size="sm" icon="AlertTriangle" />}</Row>
-            <p className="dt-muted">{c.what}</p>
-            <Grid minColumnWidth={140} gap={2}>
-              <div className="cw-kv"><span className="dt-fact-label">Last run</span><span>{c.last ? fmtDateTime(c.last) : 'Never'}</span></div>
-              <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{cronArmed ? fmtDateTime(c.next) : 'Needs CRON_SECRET'}</span></div>
-              {c.extra && <div className="cw-kv"><span className="dt-fact-label">Last result</span><span>{c.extra}</span></div>}
-            </Grid>
-          </Stack></Row>
-        </Card>
-      ))}
-      <Card className="st-card"><p className="pb-card-h">Nightly jobs outside this app</p><p className="dt-muted">The enrichment scan and the scraper write straight into call_leads from their own schedule. Their last run shows under Integrations, and the drawer warns when either is quiet for 36 hours.</p></Card>
-      <ClientLogCard />
-    </Stagger>
-  ) : tab === 'shortcuts' ? (
-    <Stagger className="v-stack st-stack">
-      {SHORTCUT_GROUPS.map(g => (
-        <Card key={g.id} className="st-card">
-          <p className="pb-card-h">{g.label}</p>
-          <div className="st-keys">{g.keys.map(([k, what]) => <div key={k + what} className="st-key"><kbd className="st-kbd">{k}</kbd><span>{what}</span></div>)}</div>
-        </Card>
-      ))}
     </Stagger>
   ) : (
     <Stagger className="v-stack st-stack">
@@ -420,9 +409,6 @@ const stStyles = `
   .st-target { font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); }
   .st-export { gap: var(--v-space-2); justify-content: space-between; }
   .st-export-h { font-weight: var(--v-weight-bold); color: var(--v-text); }
-  .st-keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--v-space-2); }
-  .st-key { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
-  .st-kbd { display: inline-flex; align-items: center; min-height: 26px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-sm); background: var(--v-surface-3); border: 1px solid var(--v-border-strong); font-family: var(--v-font-mono, monospace); font-size: var(--v-text-xs); color: var(--v-text); white-space: nowrap; flex-shrink: 0; }
   .st-ev-row .v-lrow-sub { white-space: normal; overflow-wrap: anywhere; }
   .st-deleted .v-td { max-width: 240px; }
 `;

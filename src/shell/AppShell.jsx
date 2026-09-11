@@ -5,6 +5,7 @@ import Sidebar, { sidebarStyles } from './Sidebar';
 import TopBar, { topBarStyles } from './TopBar';
 import TabBar, { tabBarStyles } from './TabBar';
 import MoreSheet, { moreSheetStyles } from './MoreSheet';
+import ShortcutsSheet, { shortcutsSheetStyles } from './ShortcutsSheet';
 import CommandBar, { commandBarStyles } from './CommandBar';
 import NotificationsDrawer, { notificationsStyles } from './NotificationsDrawer';
 import { quickAddStyles } from './QuickAdd';
@@ -38,6 +39,7 @@ export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
   onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], packs = [], posts = [], styles, children,
 }) {
+  const [keysOpen, setKeysOpen] = useState(false);
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
   // 768 to 1023px: the rail only. A 240px sidebar next to the 324px list panel
   // leaves no room for a detail view, so the toggle is hidden and the
@@ -144,6 +146,7 @@ export default function AppShell({
   const menuItems = [
     { id: 'settings', label: 'Settings', icon: 'Settings01', onSelect: () => go('settings') },
     { id: 'design', label: 'Design system', icon: 'Palette', onSelect: () => go('design') },
+    { id: 'keys', label: 'Keyboard shortcuts', icon: 'Keyboard01', onSelect: () => setKeysOpen(true) },
     { id: 'theme', label: `Theme: ${modeLabel(appearance.mode)}, switch to ${modeLabel(nextMode).toLowerCase()}`, icon: appearance.theme === 'light' ? 'Sun' : appearance.mode === 'system' ? 'Monitor01' : 'Moon01', onSelect: () => saveAppearance({ theme: nextMode }) },
     'divider',
     { id: 'logout', label: 'Sign out', icon: 'LogOut01', danger: true, onSelect: onLogout },
@@ -169,6 +172,7 @@ export default function AppShell({
           <TabBar activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} onMore={() => setMoreOpen(true)} moreOpen={moreOpen} />
         </div>
         <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} activeId={activeNavId} counts={counts} onGo={go} onLogout={onLogout} />
+        <ShortcutsSheet open={keysOpen} onClose={() => setKeysOpen(false)} />
         <NotificationsDrawer open={notifOpen} onClose={() => setNotifOpen(false)} items={notifications} loading={leadsLoading} error={leadsError} onRetry={onRetryLeads} readIds={readIds}
           /* A planner item wants the client's planner editor, which arrives in
              prompt 2. Until onOpenPlanner is passed in, it opens the client
@@ -188,5 +192,5 @@ export const shellStyles = `
   .sh-content { flex: 1; min-height: 0; min-width: 0; display: flex; }
   .sh-offline.is-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; min-height: 0; }
   .sh-offline { display: flex; align-items: center; justify-content: center; gap: var(--v-space-2); flex-shrink: 0; min-height: var(--v-space-9); padding: var(--v-space-1) var(--v-gutter-r) var(--v-space-1) var(--v-gutter-l); background: var(--v-status-new-soft); color: var(--v-status-new-text); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); border-bottom: 1px solid color-mix(in srgb, var(--v-status-new-text) 30%, transparent); animation: lay-view-in var(--v-dur-base) var(--v-ease-out) both; }
-${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
+${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles + shortcutsSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
 `;
