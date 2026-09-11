@@ -47,6 +47,7 @@ function normalizeSocials(obj) {
 export { normalizeSocials };
 
 const str = (v, max = 400) => String(v ?? '').slice(0, max);
+const oid = (v) => { try { return new ObjectId(String(v)); } catch { return null; } };
 
 // Site Prompt 2: a-z0-9 and single hyphens, no leading/trailing hyphen.
 function slugify(v) {
@@ -416,7 +417,8 @@ export async function handler(req, res) {
     }
 
     const { id, set } = req.body || {};
-    if (!id || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
+    const oidOf = oid(id);
+    if (!oidOf || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
     const clean = sanitize(set);
     const allowed = {};
     for (const key of Object.keys(clean)) {
@@ -434,8 +436,7 @@ export async function handler(req, res) {
      * stops resolving the moment the new token is stored. Turning enabled
      * off keeps the token, so switching it back on revives the same link. */
     if (allowed.planner) {
-      const oid = new ObjectId(String(id));
-      const before = await col.findOne({ _id: oid }, { projection: { planner: 1 } });
+      const before = await col.findOne({ _id: oidOf }, { projection: { planner: 1 } });
       const had = before?.planner || {};
       const regenerate = !!set.planner?.regenerate;
       const mint = regenerate || !had.token;
@@ -454,7 +455,7 @@ export async function handler(req, res) {
     // convention as brand), so the caller always spreads the current
     // lead.showcase forward; this only needs to resolve slug itself.
     if (allowed.showcase) {
-      const oid = new ObjectId(String(id));
+      const oid = oidOf;
       const existingLead = await col.findOne({ _id: oid }, { projection: { business: 1, showcase: 1 } });
       const hadSlug = existingLead?.showcase?.slug || '';
       let slug = allowed.showcase.slug;
@@ -474,7 +475,7 @@ export async function handler(req, res) {
       return res.status(200).json((await col.updateOne({ _id: oid }, { $set: allowed })) && { ok: true, slug: allowed.showcase.slug });
     }
 
-    await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: allowed });
+    await col.updateOne({ _id: oidOf }, { $set: allowed });
     return res.status(200).json({ ok: true });
   }
 

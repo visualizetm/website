@@ -29,7 +29,7 @@ function readCookie(req) {
   const raw = String(req.headers?.cookie || '');
   for (const part of raw.split(';')) {
     const [k, ...v] = part.trim().split('=');
-    if (k === COOKIE) return decodeURIComponent(v.join('='));
+    if (k === COOKIE) { try { return decodeURIComponent(v.join('=')); } catch { return null; } }
   }
   return null;
 }

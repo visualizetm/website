@@ -34,9 +34,11 @@ function normalizeSocials(obj) {
   return out;
 }
 
+const oid = (v) => { try { return new ObjectId(String(v).trim()); } catch { return null; } };
+// A malformed id is dropped, never thrown: an empty list answers 400 below.
 const toIds = (v) => {
   const arr = Array.isArray(v) ? v : String(v || '').split(',');
-  return arr.map(s => String(s).trim()).filter(Boolean).map(s => new ObjectId(s));
+  return arr.map(s => String(s).trim()).filter(Boolean).map(oid).filter(Boolean);
 };
 
 export async function handler(req, res) {
@@ -50,7 +52,9 @@ export async function handler(req, res) {
     await col.deleteMany({ deleted: true, deletedAt: { $lt: new Date(Date.now() - PURGE_DAYS * 86400000) } });
 
     if (id) {
-      const doc = await col.findOne({ _id: new ObjectId(String(id)) });
+      const _id = oid(id);
+      if (!_id) return res.status(400).json({ error: 'bad id' });
+      const doc = await col.findOne({ _id });
       return res.status(200).json({ submission: doc });
     }
 
@@ -117,7 +121,8 @@ export async function handler(req, res) {
     }
 
     const { id, set } = body;
-    if (!id || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
+    const _id = oid(id);
+    if (!_id || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
     const allowed = {};
     if (STATUSES.includes(set.status)) allowed.status = set.status;
     if (typeof set.read === 'boolean') allowed.read = set.read;
@@ -126,7 +131,7 @@ export async function handler(req, res) {
     // Link a submission to a lead/client ('' unlinks). Additive field.
     if (typeof set.linkedLeadId === 'string') allowed.linkedLeadId = set.linkedLeadId.slice(0, 64);
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
-    await col.updateOne({ _id: new ObjectId(String(id)) }, { $set: allowed });
+    await col.updateOne({ _id }, { $set: allowed });
     return res.status(200).json({ ok: true });
   }
 

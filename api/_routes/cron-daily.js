@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
 
@@ -18,7 +19,8 @@ export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
-  if (!secret || given !== secret) return res.status(401).json({ error: 'unauthorized' });
+  const sha = (s) => createHash('sha256').update(String(s)).digest();
+  if (!secret || !timingSafeEqual(sha(given), sha(secret))) return res.status(401).json({ error: 'unauthorized' });
   const db = await getDb();
   const leads = db.collection('call_leads');
   const projects = db.collection('projects');

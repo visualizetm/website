@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from './_lib/mongo.js';
 import { route } from './_lib/handler.js';
+import { rateKey, rateState, rateHit } from './_lib/limit.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -41,23 +42,9 @@ const tokenStr = (v) => {
 };
 const thisMonth = (now = new Date()) => `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
-/* Per token, in the settings collection, the same shape the review form's
- * limiter uses: a rolling hour of stamps, trimmed on every read so the
- * document never grows. The token is already opaque, so unlike the review
- * limiter's IP there is nothing here to hash. */
-async function actionRateExceeded(db, token) {
-  const _id = `rate:planner:${token}`;
-  const now = Date.now();
-  const settings = db.collection('settings');
-  let doc = null;
-  try { doc = await settings.findOne({ _id }); } catch { return false; } // a read failure never blocks a real client
-  const hits = (Array.isArray(doc?.hits) ? doc.hits : []).filter(t => now - Number(t) < HOUR);
-  if (hits.length >= ACTIONS_PER_HOUR) return true;
-  try {
-    await settings.updateOne({ _id }, { $set: { hits: [...hits, now], updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  } catch { /* counted best effort */ }
-  return false;
-}
+/* Per token, through the shared limiter (api/_lib/limit.js): a rolling
+ * hour of stamps in the settings collection under rate:planner:<sha256 of
+ * the token>, so the token itself is written nowhere but the lead. */
 
 /* The lead behind a token, or null. The projection is the second half of the
  * whitelist: the fields this file is allowed to see are the only ones it
@@ -97,6 +84,8 @@ const publicPost = (p) => ({
 });
 
 async function handler(req, res) {
+  // A client's month is theirs: never a shared cache, never the back-forward cache with the token in the URL.
+  res.setHeader('Cache-Control', 'no-store');
   const token = tokenStr(req.query?.token);
   const db = await getDb();
   const lead = await clientFor(db, token);
@@ -130,9 +119,13 @@ async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    if (await actionRateExceeded(db, token)) {
+    const key = rateKey('planner', token);
+    const limit = await rateState(db, key, { max: ACTIONS_PER_HOUR, windowMs: HOUR });
+    if (limit.exceeded) {
+      res.setHeader('Retry-After', String(limit.retryAfter));
       return res.status(429).json({ error: 'That is a lot of changes in one hour. Give it a little while and try again.' });
     }
+    await rateHit(db, key, limit.hits);
 
     const { postId, action } = req.body || {};
     let _id = null;

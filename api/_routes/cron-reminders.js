@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 
@@ -35,7 +36,8 @@ export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers.authorization || '';
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
-  if (!secret || given !== secret) return res.status(401).json({ error: 'unauthorized' });
+  const sha = (s) => createHash('sha256').update(String(s)).digest();
+  if (!secret || !timingSafeEqual(sha(given), sha(secret))) return res.status(401).json({ error: 'unauthorized' });
   const db = await getDb();
   const settings = db.collection('settings');
   const doc = (await settings.findOne({ _id: 'notifications' })) || {};
