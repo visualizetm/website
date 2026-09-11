@@ -1,4 +1,5 @@
 import { safeHref } from '../lib/safeUrl';
+import FoldSection from './DetailFold';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
@@ -137,14 +138,21 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
   const setCallMode = (v) => { setCallModeState(v); try { localStorage.setItem(`vz_callmode_${lead._id}`, JSON.stringify(v)); } catch { /* fine */ } };
   const refs = useRef({});
   useTopBar({ title: lead.business, back: onClose });
-  useEffect(() => { setTab('overview'); setCallModeState(LS(`vz_callmode_${lead._id}`, false)); }, [lead._id]);
+  /* UX audit, item 6: the record opens on the section for its stage and
+     every other section is one line until asked for. The tab strip opens
+     a section as it jumps to it. */
+  const defaultSection = clientMode ? 'projects' : booked ? 'meeting' : 'overview';
+  const [openIds, setOpenIds] = useState(() => new Set([defaultSection]));
+  useEffect(() => { setTab(defaultSection); setOpenIds(new Set([defaultSection])); setCallModeState(LS(`vz_callmode_${lead._id}`, false)); }, [lead._id, defaultSection]);
+  const foldOpen = (id) => openIds.has(id);
+  const foldToggle = (id) => setOpenIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   // Two write paths: `patch` toasts on failure (buttons, menus, checkboxes); `patchRaw` is for InlineEdit, which shows its own failure toast.
   const patchRaw = (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set));
   const patch = async (set) => { const ok = await patchRaw(set); if (!ok && !readOnly) toast.error(COPY.error.save); return ok; };
   const save = (key) => async (v) => patchRaw({ [key]: v });
   const saveSocial = (key) => async (v) => patchRaw({ socials: { ...(lead.socials || {}), [key]: v } });
-  const jump = (id) => { setTab(id); refs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); };
+  const jump = (id) => { setTab(id); setOpenIds(prev => (prev.has(id) ? prev : new Set([...prev, id]))); requestAnimationFrame(() => refs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })); };
 
   /* Meeting */
   const mDate = meetingDate(lead);
@@ -254,26 +262,26 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
 
   const overview = (
     <section {...sec('overview')}>
-      <Section title="Overview">
+      <FoldSection id="overview" title="Overview" open={foldOpen('overview')} onToggle={foldToggle} summary={(lead.angle || '').split('\n')[0] || 'The angle, intel, and before you dial'}>
         <Card><p className="pb-card-h">The angle</p><InlineEdit value={lead.angle || ''} onSave={save('angle')} multiline placeholder="Why this lead, in your words." label="The angle" className="pb-say pb-say--edit" /></Card>
         <IntelCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ intel: v })} ListEditor={ListEditor} />
         <Card><p className="pb-card-h">Before you dial</p>{readOnly ? <ul className="pb-list">{(lead.beforeYouDial || []).map((x, i) => <li key={i}>{x}</li>)}</ul> : <ListEditor items={lead.beforeYouDial || []} onChange={(v) => patch({ beforeYouDial: v })} placeholder="Add a pre-dial check" />}</Card>
-      </Section>
+      </FoldSection>
     </section>
   );
   const playbook = !clientMode && (
     <section {...sec('playbook')}>
-      <Section title="Playbook" description="Every line edits in place. Return to the ask after every objection.">
+      <FoldSection id="playbook" title="Playbook" open={foldOpen('playbook')} onToggle={foldToggle} summary={'Script, objections, and the close'} description="Every line edits in place. Return to the ask after every objection.">
         <Card><p className="pb-card-h">Script</p><ScriptSteps lead={lead} onChange={readOnly ? undefined : (v) => patch({ script: v })} /></Card>
         <Card><p className="pb-card-h">Objections</p><Objections lead={lead} onChange={readOnly ? undefined : (v) => patch({ objections: v })} /></Card>
         <Card><p className="pb-card-h">Close</p><CloseCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ close: v })} /></Card>
-      </Section>
+      </FoldSection>
     </section>
   );
   const meetingSummary = mDate ? `${countdownLabel(mDate)}, ${fmtDateTime(mDate)}${lead.meeting?.type ? `, ${MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label}` : ''}` : legacyMeeting ? `${lead.afterCall.meeting} (no date set)` : 'No date set';
   const meeting = booked && (
     <section {...sec('meeting')}>
-      <Section title="Meeting" description={callMode ? 'Call mode: every block shows its one line.' : undefined} action={<CallMode on={callMode} onChange={setCallMode} />}>
+      <FoldSection id="meeting" title="Meeting" open={foldOpen('meeting')} onToggle={foldToggle} summary={meetingSummary} description={callMode ? 'Call mode: every block shows its one line.' : undefined} action={<CallMode on={callMode} onChange={setCallMode} />}>
         <Block title="When" summary={meetingSummary} callMode={callMode} action={<Row gap={1}><Button variant="secondary" icon={Calendar} onClick={() => setResched(true)} className="dt-resched">{mDate ? 'Reschedule' : 'Set date'}</Button>{mDate && <IconButton icon={Download01} label="Add to calendar (.ics)" variant="secondary" onClick={() => { if (!downloadIcs(lead)) toast.error('Set a date first.'); }} />}</Row>}>
           <Stack gap={2}>
             {mDate ? <Row gap={2} wrap><Pill tone={countdownLabel(mDate) === 'today' ? 'booked' : 'neutral'} label={countdownLabel(mDate)} size="sm" icon="CalendarCheck01" /><span className="dt-when">{fmtDateTime(mDate)}</span>{lead.meeting?.type && <Pill tone="progress" label={MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label || lead.meeting.type} size="sm" variant="outline" icon={false} />}</Row> : <p className="dt-muted">{legacyMeeting ? `Logged as "${lead.afterCall.meeting}". Set the date to get a countdown and a calendar file.` : 'No date yet.'}</p>}
@@ -322,24 +330,24 @@ export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, 
         <Block title="Prep notes" summary={(lead.prepNotes || '').split('\n')[0] || 'Empty'} callMode={callMode}>
           <LeadNotes lead={lead} field="prepNotes" onSave={(id, v) => onPatch(id, { prepNotes: v })} placeholder="What to show, what to ask, what to avoid." />
         </Block>
-      </Section>
+      </FoldSection>
     </section>
   );
   const notes = (
     <section {...sec('notes')}>
-      <Section title="Notes"><Card><LeadNotes lead={lead} onSave={(id, v) => onPatch(id, { notes: v })} /></Card>
+      <FoldSection id="notes" title="Notes" open={foldOpen('notes')} onToggle={foldToggle} summary={(lead.notes || '').split('\n')[0] || 'Notes and checklists'}><Card><LeadNotes lead={lead} onSave={(id, v) => onPatch(id, { notes: v })} /></Card>
         <Card><p className="pb-card-h">Checklists</p><Checklists lead={lead} onPatch={onPatch} /></Card>
-      </Section>
+      </FoldSection>
     </section>
   );
   const history = (
     <section {...sec('history')}>
-      <Section title="History"><Card><LeadHistory lead={lead} /></Card>
+      <FoldSection id="history" title="History" open={foldOpen('history')} onToggle={foldToggle} summary={`${(lead.callLog || []).length + (lead.contactLog || []).length} entries`}><Card><LeadHistory lead={lead} /></Card>
         <Card><p className="pb-card-h">Their site submissions</p><LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission ? async (...a) => { const ok = await onLinkSubmission(...a); if (ok === false) toast.error(COPY.error.save); return ok; } : undefined} /></Card>
-      </Section>
+      </FoldSection>
     </section>
   );
-  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
+  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} fold={{ open: foldOpen, toggle: foldToggle }} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
   const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
   const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
   const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditSocials={() => setEditAll(true)} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditShowcase={shell?.openShowcase ? () => shell.openShowcase(lead) : undefined} /></> : profile;

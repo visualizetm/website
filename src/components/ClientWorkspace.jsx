@@ -1,4 +1,5 @@
 import { safeHref } from '../lib/safeUrl';
+import FoldSection from './DetailFold';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
@@ -155,7 +156,9 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
  * @param {Function} props.sec (id) => section props from LeadDetail
  * @param {Function} props.jump (tabId) => void
  */
-export function ClientSections({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, sec, jump, readOnly, onPulseTab }) {
+export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreateProject, onPatchProject, sec, jump, readOnly, onPulseTab }) {
+  const foldOpen = (id) => (fold ? fold.open(id) : true);
+  const foldToggle = fold ? fold.toggle : undefined;
   const toast = useToast();
   const shell = useShell();
   // Planner prompt 2, part 5: the retainer month's delivered count comes
@@ -348,10 +351,10 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
   };
   const projectsSection = (
     <section {...sec('projects')}>
-      <Section title="Projects" description={work.length ? `${work.filter(isActiveProject).length} active of ${work.length}` : undefined} action={!readOnly && <Button icon={Plus} onClick={() => setNewOpen(true)} className="cw-new-project">New project</Button>}>
+      <FoldSection id="projects" title="Projects" open={foldOpen('projects')} onToggle={foldToggle} description={work.length ? `${work.filter(isActiveProject).length} active of ${work.length}` : undefined} action={!readOnly && <Button icon={Plus} onClick={() => setNewOpen(true)} className="cw-new-project">New project</Button>}>
         {work.length ? <Stack gap={3}>{work.map(projectCard)}</Stack>
           : <Card><EmptyState size="sm" icon="Briefcase01" title={E('clients.projects').title} description={E('clients.projects').description} action={!readOnly ? { label: E('clients.projects').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
-      </Section>
+      </FoldSection>
     </section>
   );
 
@@ -389,7 +392,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
   })();
   const paymentsSection = (
     <section {...sec('payments')}>
-      <Section title="Payments" description={current ? `${current.name}: ${money(paidTotal(current))} paid of ${money(scheduleTotal(current))}` : 'No project selected'} action={projectPicker}>
+      <FoldSection id="payments" title="Payments" open={foldOpen('payments')} onToggle={foldToggle} description={current ? `${current.name}: ${money(paidTotal(current))} paid of ${money(scheduleTotal(current))}` : 'No project selected'} action={projectPicker}>
         {current ? (
           <Stack gap={3}>
             <ProgressBar value={paidPct(current)} tone={isFullyPaid(current) ? 'booked' : 'progress'} size="sm" label={isFullyPaid(current) ? 'Paid in full' : `${money(owedTotal(current))} still owed`} />
@@ -411,7 +414,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
           <Row gap={2} justify="between" align="center" wrap><span className="pb-card-h" style={{ margin: 0 }}>Lifetime ledger, {money(ledger.reduce((n, x) => n + (Number(x.amount) || 0), 0))}</span>{!readOnly && <Button variant="secondary" size="md" icon={Plus} onClick={() => setManual(true)} className="cw-add-manual">Add manual payment</Button>}</Row>
           {ledger.length ? <Stack gap={1}>{ledger.map(x => { const proj = x.projectId ? mine.find(p => String(p._id) === String(x.projectId)) : null; return <ListRow key={x.id || x._i} id={x.id ? `ledger-${x.id}` : undefined} leading={<IconTile icon="CurrencyDollar" tone="won" size="sm" glow={false} />} title={x.label || 'Payment'} subtitle={[fmtDay(x.at) || fmtDate(x.at), proj?.name, x.notes].filter(Boolean).join(', ')} meta={money(x.amount)} chevron={false} className="cw-ledger-row" />; })}</Stack> : <EmptyState size="sm" icon="CurrencyDollar" title={E('clients.ledger').title} description={E('clients.ledger').description} action={!readOnly ? { label: E('clients.ledger').action, icon: Plus, onClick: () => setManual(true) } : undefined} />}
         </Card>
-      </Section>
+      </FoldSection>
     </section>
   );
 
@@ -421,7 +424,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
   const months = retProject ? (() => { const cur = monthKey(); const keys = [...new Set([cur, ...(retProject.monthly || []).map(m => m.month)])].sort().reverse(); return keys.map(k => monthRecord(retProject, k)); })() : [];
   const retainerSection = (
     <section {...sec('retainer')}>
-      <Section title="Retainer" description={ret ? `${retPlan?.label || ret.planId}, ${money(ret.amount)} a month` : 'Every delivery ends with a retainer pitch.'} action={!ret || ret.status === 'cancelled' ? (!readOnly && <Button icon={RefreshCw01} onClick={() => setRetOpen(true)} className="cw-start-retainer">Start a retainer</Button>) : undefined}>
+      <FoldSection id="retainer" title="Retainer" open={foldOpen('retainer')} onToggle={foldToggle} description={ret ? `${retPlan?.label || ret.planId}, ${money(ret.amount)} a month` : 'Every delivery ends with a retainer pitch.'} action={!ret || ret.status === 'cancelled' ? (!readOnly && <Button icon={RefreshCw01} onClick={() => setRetOpen(true)} className="cw-start-retainer">Start a retainer</Button>) : undefined}>
         {ret && ret.status !== 'cancelled' ? (
           <Card className={`cw-retainer${retPulse ? ' v-pulse-won' : ''}`}>
             <Row gap={2} wrap align="center"><Pill id={ret.status} list={RETAINER_STATUSES} size="sm" /><span className="cw-project-name">{retPlan?.label || ret.planId}</span><span className="dt-opt-n cw-ret-price">{money(ret.amount)}<small>/mo</small></span></Row>
@@ -474,7 +477,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
         ) : (
           <Card><EmptyState size="sm" icon="RefreshCw01" title={ret?.status === 'cancelled' ? E('clients.retainer.cancelled').title : E('clients.retainer').title} description={ret?.status === 'cancelled' ? `${retPlan?.label || 'The plan'} ended ${fmtDate(ret.cancelAt) || 'recently'}. ${E('clients.retainer.cancelled').description}` : E('clients.retainer').description} action={!readOnly ? { label: E('clients.retainer').action, icon: RefreshCw01, onClick: () => setRetOpen(true) } : undefined} /></Card>
         )}
-      </Section>
+      </FoldSection>
     </section>
   );
 
@@ -483,7 +486,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
   const driveLink = current?.links?.drive || lead.links?.drive || '';
   const deliverablesSection = (
     <section {...sec('deliverables')}>
-      <Section title="Deliverables" description={current ? `${(current.deliverables || []).filter(d => d.done).length} of ${(current.deliverables || []).length} ready` : 'No project selected'} action={projectPicker}>
+      <FoldSection id="deliverables" title="Deliverables" open={foldOpen('deliverables')} onToggle={foldToggle} description={current ? `${(current.deliverables || []).filter(d => d.done).length} of ${(current.deliverables || []).length} ready` : 'No project selected'} action={projectPicker}>
         {current ? (
           <Stack gap={3}>
             <Card className={`cw-release${current.releasedAt ? ' is-on' : ''}`} glow={current.releasedAt ? 'booked' : undefined}>
@@ -503,7 +506,7 @@ export function ClientSections({ lead, projects, patch, patchRaw, onCreateProjec
             )) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables').title} description={E('clients.deliverables').description} action={!readOnly ? { label: E('clients.deliverables').action, onClick: () => pp(current, { deliverables: deliverablesFor(current.kind) }) } : undefined} /></Card>}
           </Stack>
         ) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables.noproject').title} description={E('clients.deliverables.noproject').description} action={!readOnly ? { label: E('clients.deliverables.noproject').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
-      </Section>
+      </FoldSection>
     </section>
   );
 
