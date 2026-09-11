@@ -193,13 +193,27 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   const otherActive = (p) => work.some(x => String(x._id) !== String(p._id) && isActiveProject(x));
 
   /* Stage changes, with the delivery gate. */
+  /* UX audit, item 10: Delivered is one dialog. It carries the review link
+     (the same /review/<slug> the Showcase editor shows) with a Copy button,
+     and copying ticks "Review link sent" on the delivery checklist as an
+     undoable default, so delivering and sending the link stop being two
+     trips through two screens. */
+  const [deliver, setDeliver] = useState(null); // { project, copied }
+  const reviewUrl = lead.showcase?.slug ? `https://visualizestudio.org/review/${lead.showcase.slug}` : '';
+  const confirmDeliver = async () => {
+    const p = deliver.project;
+    const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(p.delivery || {}) };
+    setBusy(true);
+    const ok = await pp(p, { stage: 'delivered', delivery: { ...d, reviewLinkSent: d.reviewLinkSent || !!deliver.copied } });
+    setBusy(false);
+    if (ok) { setDeliver(null); toast.success(`${p.name} delivered.${deliver.copied ? ' Review link copied and ticked.' : ''}`); if (!otherActive(p)) patch({ clientStatus: 'delivered' }); }
+    else toast.error(COPY.error.save);
+  };
   const setStage = async (p, stage) => {
     if (stage === 'delivered') {
       const why = deliverBlockReason(p);
       if (why) { if (await confirm({ title: 'Not ready to deliver', body: why, confirmLabel: 'Open payments', icon: 'CreditCard01' })) jump('payments'); return; }
-      if (!(await confirm({ title: `Mark ${p.name} delivered?`, body: 'Every delivery ends with a retainer pitch. The Send delivery checklist opens on the card.', confirmLabel: 'Mark delivered', icon: 'Check' }))) return;
-      const ok = await pp(p, { stage });
-      if (ok) { toast.success(`${p.name} delivered.`); if (!otherActive(p)) patch({ clientStatus: 'delivered' }); }
+      setDeliver({ project: p, copied: false });
       return;
     }
     const ok = await pp(p, { stage });
@@ -518,6 +532,16 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>
         <Textarea label={round?.extra ? 'Reason' : 'What changed'} rows={3} value={roundNote} onChange={(e) => setRoundNote(e.target.value)} placeholder={round?.extra ? 'They want the mark reworked after approving it.' : 'Tightened the wordmark spacing, swapped the secondary color.'} data-autofocus />
+      </Modal>
+      <Modal open={!!deliver} onClose={() => setDeliver(null)} title={deliver ? `Mark ${deliver.project.name} delivered?` : ''} description="Every delivery ends with a retainer pitch. The Send delivery checklist opens on the card."
+        footer={<><Button variant="ghost" onClick={() => setDeliver(null)} disabled={busy}>Cancel</Button><Button loading={busy} icon={Check} onClick={confirmDeliver} className="cw-deliver-confirm">Mark delivered</Button></>}>
+        <Card level={2} padding={3} className="cw-deliver-link">
+          <p className="pb-card-h">Review link</p>
+          {reviewUrl
+            ? <><Row gap={1} align="center" wrap><a href={reviewUrl} target="_blank" rel="noopener noreferrer" className="cw-deliv-a lay-truncate">{reviewUrl}</a><Button variant="secondary" size="md" icon={Copy01} onClick={async () => { await copyText(toast, reviewUrl, 'Review link'); setDeliver(d => (d ? { ...d, copied: true } : d)); }}>{deliver?.copied ? 'Copied' : 'Copy'}</Button></Row>
+              <p className="dt-muted">Text it to them with the files. Copying ticks "Review link sent" on the checklist; untick it on the card if you change your mind.</p></>
+            : <p className="dt-muted">Publish their showcase to get a review link; the checklist item stays on the card.</p>}
+        </Card>
       </Modal>
       <Modal open={!!pay} onClose={() => setPay(null)} title="Mark paid" description={pay ? `${pay.project.name}: ${pay.item.label || 'payment'}` : ''}
         footer={<><Button variant="ghost" onClick={() => setPay(null)}>Cancel</Button><Button loading={busy} icon={Check} onClick={savePay}>Record payment</Button></>}>
