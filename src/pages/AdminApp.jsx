@@ -440,7 +440,12 @@ export default function AdminApp() {
 
   const hasDetail = (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
   const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, planner: postsWithClients };
+  /* Part 2: the Clients badge counts clients (stage client or won; the list
+     already excludes deleted). It used to carry the planner's posts-in-review
+     count, which is why it read 40 with six clients. Planner and Projects
+     are their own entries now. */
+  const openProjects = useMemo(() => (projects || []).filter(p => !p.archived && p.stage !== 'delivered' && p.kind !== 'retainer').length, [projects]);
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);

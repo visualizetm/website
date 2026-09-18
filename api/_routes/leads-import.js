@@ -113,7 +113,7 @@ export async function handler(req, res) {
 
   // Load existing (incl. soft-deleted) once for matching.
   const existing = await col.find({}, {
-    projection: { business: 1, phone: 1, sourceId: 1, deleted: 1, socials: 1 },
+    projection: { business: 1, phone: 1, sourceId: 1, deleted: 1, socials: 1, stage: 1 },
   }).toArray();
   const byId = new Map();
   for (const l of existing) if (l.sourceId) byId.set(String(l.sourceId), l);
@@ -146,8 +146,12 @@ export async function handler(req, res) {
       for (const k of ['business', 'askFor', 'phone', 'email', 'area', 'industry', 'serviceInterest', 'angle', 'notes', 'descriptor']) {
         if (f[k]) set[k] = f[k];
       }
-      set.priority = f.priority;
-      set.callStatus = f.callStatus;
+      /* The pipeline guard: a spreadsheet never touches stage, and on a record
+         that is already a client or won it does not reset the call status or
+         the priority either; those rows describe how the lead was worked, and
+         the work is done. */
+      const settled = match.stage === 'client' || match.stage === 'won';
+      if (!settled) { set.priority = f.priority; set.callStatus = f.callStatus; }
       if (f.sourceId) set.sourceId = f.sourceId;
       if (Object.keys(f.socials).length) set.socials = { ...(match.socials || {}), ...f.socials };
       await col.updateOne({ _id: match._id }, { $set: set });

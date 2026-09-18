@@ -57,6 +57,19 @@ export async function handler(req, res) {
     }
   }
 
+  /* 1b. The pipeline guard's backstop (stage regression fix). The nightly
+     enricher writes straight into call_leads and has been seen to leave
+     stage as '' on records it touches; a client with no stage reads as a
+     lead. A record that carries clientSince (set the moment it was won) or
+     a won outcome and whose stage is not a stage any more is a client, and
+     is put back before the day starts. */
+  const STAGE_IDS = ['lead', 'booked', 'won', 'client', 'lost'];
+  const healed = await leads.updateMany(
+    { deleted: { $ne: true }, stage: { $nin: STAGE_IDS }, $or: [{ clientSince: { $exists: true, $nin: ['', null] } }, { 'bookedOutcome.result': 'won' }] },
+    { $set: { stage: 'client', updatedAt: new Date() } },
+  );
+  const healedCount = healed?.modifiedCount || 0;
+
   // 2. Health.
   const since24 = new Date(Date.now() - 24 * 3600e3); const since7 = new Date(Date.now() - 7 * 864e5);
   const scanned = await leads.find({ deleted: { $ne: true }, 'enrichment.lastScanAt': { $exists: true, $ne: '' } }).project({ enrichment: 1, descriptor: 1, industry: 1, phone: 1, email: 1, socials: 1, intel: 1 }).toArray();
@@ -73,7 +86,7 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended } },
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };

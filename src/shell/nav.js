@@ -20,7 +20,7 @@ export const NAV = [
   /* Planner prompt 2, part 5: no sidebar entry for the planner itself (it
      is per client, reached from the record), so its count rides the Clients
      badge, which is where Rob goes to act on it. */
-  { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    group: 'Clients',  badge: 'planner' },
+  { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    group: 'Clients',  badge: 'clients' },
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: null },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews' },

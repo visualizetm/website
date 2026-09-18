@@ -420,6 +420,20 @@ export async function handler(req, res) {
     const oidOf = oid(id);
     if (!oidOf || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
     const clean = sanitize(set);
+    /* The pipeline guard (stage regression fix). stage is the one field that
+       says whether a record is a lead, booked, or a client, and once it is
+       client or won it may only move backwards by an explicit user action:
+       the request has to say so with explicit: true, which only the outcome
+       dialogs send. A status change, an import, a merge or any other write
+       that happens to carry a lower stage is refused with 409 and the
+       record is left as it was. */
+    if (clean.stage !== undefined && 'stage' in set) {
+      const before = await col.findOne({ _id: oidOf }, { projection: { stage: 1 } });
+      const was = before?.stage;
+      if ((was === 'client' || was === 'won') && clean.stage !== was && clean.stage !== 'client' && req.body?.explicit !== true) {
+        return res.status(409).json({ error: `${before.stage === 'won' ? 'Won' : 'Client'} records only leave that stage through an explicit action.`, stage: was });
+      }
+    }
     const allowed = {};
     for (const key of Object.keys(clean)) {
       // only fields the caller actually sent, and never write an undefined
