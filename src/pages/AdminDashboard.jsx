@@ -8,6 +8,7 @@ import {
   Icon, Collapsible,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { CONTACTED_STATUSES } from '../lib/leads';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { buildNotifications } from '../shell/notifications';
 import { normalizeStage, CALL_STATUSES } from '../shared/semantics';
@@ -20,7 +21,7 @@ import { apiFetch } from '../shared/api';
  * plus the submissions list; the only fetch is the daily call target. */
 
 const DAY = 864e5;
-const CONTACTED = new Set(['callback', 'no-answer', 'no']);
+const CONTACTED = new Set(CONTACTED_STATUSES);
 
 function periods(now = new Date()) {
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);

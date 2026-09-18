@@ -12,24 +12,38 @@
  *   soon      true = planned screen: rendered disabled, never a dead link
  */
 export const NAV = [
+  // PIPELINE: the work of landing someone.
   { id: 'dashboard',   label: 'Dashboard',        icon: 'LayoutAlt01',     path: '',            group: 'Pipeline', badge: null,        tab: true },
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      group: 'Pipeline', badge: 'leads',     tab: true },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabLabel: 'Call' },
   { id: 'booked',      label: 'Booked',           icon: 'CalendarCheck01', path: '/booked',     group: 'Pipeline', badge: 'booked',    tab: true },
   { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   group: 'Pipeline', badge: 'calendar' },
-  /* Planner prompt 2, part 5: no sidebar entry for the planner itself (it
-     is per client, reached from the record), so its count rides the Clients
-     badge, which is where Rob goes to act on it. */
+  // CLIENTS: the work after they say yes. Projects and Planner are the
+  // Clients screen with a filter applied (href carries the query; path is
+  // what the active state matches on).
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    group: 'Clients',  badge: 'clients' },
+  { id: 'projects',    label: 'Projects',         icon: 'Folder',          path: '/clients',    href: '/clients?filter=active',  search: 'filter=active',  group: 'Clients', badge: 'projects' },
+  { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', group: 'Clients', badge: 'planner' },
+  // STUDIO
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: null },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews' },
   { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null },
+  // SYSTEM
   { id: 'submissions', label: 'Submissions',      icon: 'Inbox01',         path: '/submissions', group: 'System',  badge: 'submissions' },
   { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null },
   { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null },
   { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   group: 'System',   badge: null },
 ];
+
+/* One line per group: the icon the collapsed rail shows and the sentence
+ * under the group name, so the navigation reads as the process. */
+export const NAV_GROUP_META = {
+  Pipeline: { icon: 'PhoneCall01',  blurb: 'the work of landing someone' },
+  Clients:  { icon: 'Briefcase01',  blurb: 'the work after they say yes' },
+  Studio:   { icon: 'Palette',      blurb: 'what gets made' },
+  System:   { icon: 'Settings01',   blurb: 'the app itself' },
+};
 
 export const NAV_GROUPS = ['Pipeline', 'Clients', 'Studio', 'System'];
 
@@ -44,18 +58,23 @@ export const MORE_NAV = NAV.filter(n => !n.tab);
 
 /** Active entry for a path relative to the admin base. Longest path wins so
  *  '/settings/deleted' resolves to Recently Deleted, not Settings. */
-export function navForPath(rel) {
+export function navForPath(rel, search = '') {
   const p = rel || '/';
+  const q = String(search || '').replace(/^\?/, '');
   let best = NAV[0];
   for (const n of NAV) {
     if (!n.path) continue;
-    if (p === n.path || p.startsWith(n.path + '/')) { if (!best.path || n.path.length > best.path.length) best = n; }
+    if (p === n.path || p.startsWith(n.path + '/')) {
+      // an entry with a search part only matches when the query carries it; among equals the longer path wins
+      if (n.search && !q.split('&').includes(n.search)) continue;
+      if (!best.path || n.path.length > best.path.length || (n.path.length === best.path.length && n.search)) best = n;
+    }
   }
   if (p === '/' || p === '') return NAV[0];
   return best;
 }
 
 /** Section id AdminApp branches on for a nav entry. */
-export const sectionOf = (entry) => (entry.id === 'deleted' ? 'settings' : entry.id);
+export const sectionOf = (entry) => (entry.id === 'deleted' ? 'settings' : (entry.id === 'projects' || entry.id === 'planner') ? 'clients' : entry.id);
 
 export const navById = (id) => NAV.find(n => n.id === id) || null;

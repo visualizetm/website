@@ -176,11 +176,12 @@ export function clientStatusOf(lead, projects) {
   return 'active';
 }
 export const CLIENT_FILTERS = [
-  ['all', 'All'], ['active', 'Active project'], ['retainer', 'On retainer'], ['delivered', 'Delivered'], ['paused', 'Paused'], ['owes', 'Owes a payment'], ['ready', 'Ready to deliver'],
+  ['all', 'All'], ['active', 'Active project'], ['planner', 'Posts to approve'], ['retainer', 'On retainer'], ['delivered', 'Delivered'], ['paused', 'Paused'], ['owes', 'Owes a payment'], ['ready', 'Ready to deliver'],
 ];
-export function clientPasses(lead, projects, filter, now = Date.now()) {
+export function clientPasses(lead, projects, filter, now = Date.now(), posts = []) {
   const mine = projectsOf(projects, lead._id);
   switch (filter) {
+    case 'planner': return (posts || []).some(p => String(p.leadId) === String(lead._id) && p.status === 'review' && !p.deleted && !p.archived);
     case 'active': return mine.some(isActiveProject);
     case 'retainer': return isOnRetainer(lead);
     case 'delivered': return clientStatusOf(lead, projects) === 'delivered';

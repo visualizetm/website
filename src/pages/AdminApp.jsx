@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
-import { normalizeLeads } from '../lib/leads';
+import { normalizeLeads, pipelineFunnel } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Wordmark from '../components/Wordmark';
 import AdminDashboard from './AdminDashboard';
@@ -267,7 +267,7 @@ export default function AdminApp() {
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
   const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [], posts: [] } : { leads: callLeads, items, projects, orders, packs, posts };
-  const activeNav = useMemo(() => navForPath(relPath), [relPath]);
+  const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
   const go = useCallback((sec, itemId) => {
     navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}` || '/');
@@ -280,6 +280,7 @@ export default function AdminApp() {
     const entry = navById(navId);
     if (!entry || entry.soon) return;
     if (entry.id === 'deleted') { navigate(`${BASE}/settings/deleted`); return; }
+    if (entry.href) { navigate(`${BASE}${entry.href}`); return; }
     const sec = sectionOf(entry);
     go(sec);
     setPresetReq(preset ? { section: sec, preset, n: Date.now() } : null);
@@ -341,6 +342,8 @@ export default function AdminApp() {
     return c;
   }, [callLeads]);
   const bookedCount = stageCounts.booked;
+  const funnel = useMemo(() => pipelineFunnel(callLeads), [callLeads]);
+  const openProjects = useMemo(() => (projects || []).filter(p => !p.archived && p.stage !== 'delivered' && p.kind !== 'retainer').length, [projects]);
   // Callbacks due: every open callback (the console stores no due date, so an
   // unfinished callback is due). Feeds the Call tab badge.
   const callbacksDue = useMemo(() => callLeads.filter(l => l.callStatus === 'callback' && effectiveStage(l) !== 'lost').length, [callLeads]);
@@ -444,7 +447,6 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const openProjects = useMemo(() => (projects || []).filter(p => !p.archived && p.stage !== 'delivered' && p.kind !== 'retainer').length, [projects]);
   const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
@@ -452,7 +454,7 @@ export default function AdminApp() {
 
   return (
     <ToastProvider>
-    <AppShell activeNavId={activeNav.id} counts={counts} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
+    <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
       leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
@@ -36,15 +37,19 @@ export default function AdminClients({
   const wide = useMediaQuery('(min-width: 1280px)');
   const [selId, setSelId] = useState(null);
   const [creating, setCreating] = useState(false);
-  const [filter, setFilter] = useState('all');
+  /* The sidebar's Projects and Planner entries are this screen with a filter (?filter=active, ?filter=planner). */
+  const location = useLocation();
+  const urlFilter = new URLSearchParams(location.search).get('filter');
+  const [filter, setFilter] = useState(CLIENT_FILTERS.some(([id]) => id === urlFilter) ? urlFilter : 'all');
+  useEffect(() => { if (CLIENT_FILTERS.some(([id]) => id === urlFilter)) setFilter(urlFilter); else if (urlFilter === null) setFilter('all'); }, [urlFilter]);
   const [q, setQ] = useState('');
   const showSkel = useDelayedLoading(loading); // projects load after leads, and the counts need both
   const pending = loading && !showSkel;
   const now = Date.now();
 
   const clients = useMemo(() => leads.filter(isClientLead).sort((a, b) => new Date(b.clientSince || b.bookedOutcome?.at || b.updatedAt || 0) - new Date(a.clientSince || a.bookedOutcome?.at || a.updatedAt || 0)), [leads]);
-  const counts = useMemo(() => Object.fromEntries(CLIENT_FILTERS.map(([id]) => [id, clients.filter(l => clientPasses(l, projects, id, now)).length])), [clients, projects, now]);
-  const list = useMemo(() => clients.filter(l => clientPasses(l, projects, filter, now) && (!q.trim() || matchesSearch(l, q))), [clients, projects, filter, q, now]);
+  const counts = useMemo(() => Object.fromEntries(CLIENT_FILTERS.map(([id]) => [id, clients.filter(l => clientPasses(l, projects, id, now, posts)).length])), [clients, projects, posts, now]);
+  const list = useMemo(() => clients.filter(l => clientPasses(l, projects, filter, now, posts) && (!q.trim() || matchesSearch(l, q))), [clients, projects, posts, filter, q, now]);
   const collected = useMemo(() => clients.reduce((n, l) => n + lifetimeValue(l), 0), [clients]);
   const onRet = counts.retainer;
   const summary = `${clients.length} client${clients.length === 1 ? '' : 's'}, ${onRet} on retainer, ${money(collected)} collected`;

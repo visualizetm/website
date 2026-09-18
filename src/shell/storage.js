@@ -1,6 +1,7 @@
 /* localStorage with guards. Keys the shell owns. */
 export const KEYS = {
   collapsed: 'vz_shell_collapsed',
+  sideGroups: 'vz_side_groups',
   recent: 'vz_cmd_recent',
   notifRead: 'vz_notif_read',
 };
