@@ -49,8 +49,10 @@ export function repairsFor(doc) {
   for (const k of STRING_FIELDS) if (k in doc && typeof doc[k] !== 'string') note(k, `${kindOf(doc[k])} where a string is expected`, doc[k], asString(doc[k]));
   for (const k of ARRAY_FIELDS) if (k in doc && !Array.isArray(doc[k])) note(k, `${kindOf(doc[k])} where an array is expected`, doc[k], asArray(doc[k]));
   for (const k of OBJECT_FIELDS) if (k in doc && doc[k] != null && (typeof doc[k] !== 'object' || Array.isArray(doc[k]))) note(k, `${kindOf(doc[k])} where an object is expected`, doc[k], asObject(doc[k]));
-  const intel = set.intel ?? doc.intel;
-  if (intel && typeof intel === 'object' && ['accomplishments', 'gaps', 'dropLines'].some(k => k in intel && !Array.isArray(intel[k]))) note('intel', 'intel lists are not arrays', doc.intel, { accomplishments: asArray(intel.accomplishments), gaps: asArray(intel.gaps), dropLines: asArray(intel.dropLines) });
+  if ('intel' in doc) {
+    const intel = asObject(set.intel ?? doc.intel);
+    if (doc.intel === null || ['accomplishments', 'gaps', 'dropLines'].some(k => !Array.isArray(intel[k]))) note('intel', doc.intel === null ? 'null intel' : 'intel lists are not arrays', doc.intel, { ...intel, accomplishments: asArray(intel.accomplishments), gaps: asArray(intel.gaps), dropLines: asArray(intel.dropLines) });
+  }
   if ('stage' in doc && doc.stage !== undefined && !STAGES.includes(doc.stage)) {
     /* A record that was a client (clientSince set, or the outcome was won) whose stage was wiped reads as a client again. Anything else unknown reads as '' (lead). */
     const wasClient = (typeof doc.clientSince === 'string' && doc.clientSince) || doc.bookedOutcome?.result === 'won';
