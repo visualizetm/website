@@ -1,4 +1,5 @@
 import { safeHref } from '../lib/safeUrl';
+import { normalizeLead } from '../lib/leads';
 import FoldSection from './DetailFold';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
@@ -104,7 +105,9 @@ function Block({ title, summary, callMode, action, children }) {
   );
 }
 
-export default function LeadDetail({ lead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null }) {
+export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null }) {
+  // The shape guard (src/lib/leads.js): every field this screen maps or reads keys from is the type it expects.
+  const lead = normalizeLead(rawLead);
   const shell = useShell();
   const posts = shell?.posts || [];
   const toast = useToast();

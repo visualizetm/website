@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { normalizeLeads } from '../lib/leads';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Play from '@untitled-ui/icons-react/build/esm/Play';
@@ -296,7 +297,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const load = useCallback(async () => {
     const r = await apiFetch('/api/admin/call-leads');
     if (r.status === 401) { window.location.replace(ADMIN_HOME); return; }
-    if (r.ok) { setLeads(r.data?.items || []); setLoaded(true); setLoadError(false); } else setLoadError(true);
+    if (r.ok) { setLeads(normalizeLeads(r.data?.items)); setLoaded(true); setLoadError(false); } else setLoadError(true);
   }, []);
   useEffect(() => { if (authed) load(); }, [authed, load]);
   const [retry, retrying] = useRetry(load);

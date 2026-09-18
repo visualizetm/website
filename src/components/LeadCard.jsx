@@ -7,7 +7,7 @@ import { Avatar, Pill, Menu, Tooltip, Checkbox, SkeletonBlock, SkeletonCircle } 
 import { CALL_STATUSES, PRIORITIES, displayIndustry } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
 import { relativeTime, fmtDate } from '../shared/dates';
-import { isNewLead, lastCall, lastTouchAt, scanAgeDays } from '../lib/leads';
+import { isNewLead, lastCall, lastTouchAt, scanAgeDays, normalizeLead } from '../lib/leads';
 import { deleteBlockReason } from '../lib/booked';
 
 /**
@@ -41,7 +41,9 @@ export function leadMenuItems(lead, actions) {
   return items;
 }
 
-function LeadCardInner({ lead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, compact = false, className = '', ...rest }) {
+function LeadCardInner({ lead: rawLead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, compact = false, className = '', ...rest }) {
+  // The shape guard, again, so a record that skipped the loader (a fixture, a fresh insert) cannot take the list down.
+  const lead = normalizeLead(rawLead);
   const lc = lastCall(lead);
   const touched = lastTouchAt(lead);
   const scan = scanAgeDays(lead);

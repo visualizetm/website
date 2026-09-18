@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { normalizeLeads } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Wordmark from '../components/Wordmark';
 import AdminDashboard from './AdminDashboard';
@@ -115,7 +116,7 @@ export default function AdminApp() {
   const [callLeadsLoading, setCallLeadsLoading] = useState(true);
   const loadCallLeads = useCallback(async () => {
     const r = await apiFetch('/api/admin/call-leads');
-    if (r.ok) { setCallLeads(r.data?.items || []); setErr('leads', false); } else setErr('leads', true);
+    if (r.ok) { setCallLeads(normalizeLeads(r.data?.items)); setErr('leads', false); } else setErr('leads', true);
     setCallLeadsLoading(false);
   }, [setErr]);
 
