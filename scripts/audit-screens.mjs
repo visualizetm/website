@@ -150,5 +150,8 @@ export const SCREENS = [
   { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
 
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
+  /* The sidebar rebuild: the groups are disclosure widgets, the rail's groups are menus. */
+  { id: 'side-groups', screen: 'Shell', label: 'sidebar, every group open', path: '/admin', minWidth: 768, resource: 'leads', static: true, act: async (p) => { for (const b of await p.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {}); } },
+  { id: 'side-rail', screen: 'Shell', label: 'sidebar rail, a group menu open', path: '/admin', minWidth: 768, resource: 'leads', static: true, prep: (p) => setLS(p, 'vz_shell_collapsed', true), act: (p) => click(p.locator('.sh-side-group--rail .sh-nav--group').first()) },
   { id: 'more', screen: 'Shell', label: 'More sheet', path: '/admin/leads', region: '.v-sheet', maxWidth: 767, resource: null, static: true, act: (p) => click(p.locator('.sh-tab--more')) },
 ];

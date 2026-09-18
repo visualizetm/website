@@ -1054,8 +1054,20 @@ for (const width of WIDTHS) {
     await check('sidebar collapsed: concepts');
     await goto('/admin/reviews');
     await check('sidebar collapsed: reviews');
+    /* The rail's group menu (the sidebar rebuild): one icon per group, its items in a menu. */
+    await page.locator('.sh-side-group--rail .sh-nav--group').first().click({ timeout: 3000 }).catch(() => {});
+    await check('sidebar rail: group menu open');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
     await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
+    /* The groups (the sidebar rebuild): every one open, then every one closed. */
+    await goto('/admin');
+    await page.waitForTimeout(400);
+    for (const b of await page.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {});
+    await check('sidebar: every group open');
+    for (const b of await page.locator('.sh-group-btn[aria-expanded="true"]').all()) await b.click({ timeout: 2000 }).catch(() => {});
+    await check('sidebar: every group closed');
+    await page.evaluate(() => localStorage.removeItem('vz_side_groups')).catch(() => {});
   }
   if (only) { await ctx.close(); continue; }
 
