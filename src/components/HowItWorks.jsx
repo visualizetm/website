@@ -1,4 +1,4 @@
-import { Counter, Reveal } from '../marketing/motion';
+import { Counter, Reveal, WordReveal } from '../marketing/motion';
 
 const STEPS = [
   { n: 1, title: 'A free call', desc: 'Twenty minutes to talk through what you need. No pitch, no pressure.' },
@@ -36,7 +36,7 @@ export default function HowItWorks() {
   return (
     <section className="hiw section section-elevated">
       <div className="wrap">
-        <Reveal as="h2" className="section-title">How it works</Reveal>
+        <WordReveal as="h2" className="section-title">How it works</WordReveal>
         {STEPS.map((s, i) => (
           <Reveal key={s.n} as="div" className="hiw-plain" delay={i * 90} threshold={0.3}><Step step={s} /></Reveal>
         ))}

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Reveal, Stagger } from '../marketing/motion';
+import { Reveal, Stagger, WordReveal } from '../marketing/motion';
 import { ClientCard, workStyles } from '../pages/Clients';
 
 /* Site Prompt 4, Part 1.4: three cards from landing.work (already ordered
@@ -14,7 +14,7 @@ export default function RecentClients({ work }) {
     <section className="rc section">
       <div className="wrap">
         <Reveal as="div" className="rc-head">
-          <h2 className="section-title">Recent clients</h2>
+          <WordReveal as="h2" className="section-title">Recent clients</WordReveal>
           <Link to="/clients" className="btn btn-secondary">All clients</Link>
         </Reveal>
         <Stagger className="rc-grid">

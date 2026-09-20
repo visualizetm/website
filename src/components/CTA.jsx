@@ -1,4 +1,4 @@
-import { Reveal, Tone } from '../marketing/motion';
+import { Reveal, Tone, WordReveal } from '../marketing/motion';
 import Wordmark from './Wordmark';
 import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '../marketing/links';
 
@@ -11,7 +11,7 @@ export default function CTA() {
     <Tone as="section" className="cta section" from="var(--bg-elevated)" to="var(--bg)">
       <Reveal as="div" className="wrap cta-inner">
         <Wordmark size={28} className="cta-wordmark" />
-        <h2 className="cta-title">Your vision, our creation.</h2>
+        <WordReveal as="h2" className="cta-title">Your vision, our creation.</WordReveal>
         <a href={CALENDLY_URL} className="btn btn-primary cta-btn" target="_blank" rel="noreferrer">Book a free call</a>
         <div className="cta-reach">
           <a href={`mailto:${CONTACT_EMAIL}`} className="cta-link">{CONTACT_EMAIL}</a>

@@ -12,7 +12,7 @@ const DEFAULT_COVER = '/hero-default.svg';
  * stuck. Four covers at 0.5 is two screens; the rest are still there, in
  * the row underneath. */
 const MAX_CARDS = 8;
-const MAX_CARDS_PHONE = 4;
+const MAX_CARDS_PHONE = 3;   // Site Prompt 10: three covers at 0.5 is the 2.5 screen cap exactly
 const VH_PER_CARD = 0.8;
 const VH_PER_CARD_PHONE = 0.5;
 const PHONE_QUERY = '(max-width: 767px)';

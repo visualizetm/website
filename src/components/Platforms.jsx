@@ -1,4 +1,4 @@
-import { Reveal, Stagger, Tone } from '../marketing/motion';
+import { Reveal, Stagger, Tone, WordReveal } from '../marketing/motion';
 
 /* Site Prompt 6, Part 2.4: the "I am not going to argue with you about your
  * platform" section, and Home's second Tone shift. Text pills, no logos:
@@ -10,7 +10,7 @@ export default function Platforms() {
   return (
     <Tone as="section" className="pf section" from="var(--bg-elevated)" to="var(--bg)">
       <div className="wrap">
-        <Reveal as="h2" className="section-title">Built on whatever you will actually use.</Reveal>
+        <WordReveal as="h2" className="section-title">Built on whatever you will actually use.</WordReveal>
         <Reveal as="p" className="pf-copy" delay={80}>
           Some businesses live on Shopify. Restaurants lean on Wix or Squarespace. Some need a
           custom coded site. I work in all of them, and I make sure it does not look like a template.
