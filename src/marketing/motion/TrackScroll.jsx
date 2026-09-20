@@ -194,7 +194,13 @@ export function TrackScroll({
         },
       });
 
+      /* The hold just added a row's worth of height to the page, under
+       * every trigger created before this one measured. One refresh, next
+       * frame, so they measure against the page as it now is. */
+      const raf = requestAnimationFrame(() => eng.ScrollTrigger.refresh());
+
       return () => {
+        cancelAnimationFrame(raf);
         trigger.kill();
         goToRef.current = null;
         row.removeEventListener('focusin', onFocusIn);

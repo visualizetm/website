@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Hero from '../components/Hero';
 import Trust from '../components/Trust';
 import BusinessTypes from '../components/BusinessTypes';
+import Packages from '../components/Packages';
 import Platforms from '../components/Platforms';
 import RecentClients from '../components/RecentClients';
 import HomeTestimonials from '../components/HomeTestimonials';
@@ -65,6 +66,8 @@ export default function Home() {
         <Trust clients={clients} />
         <BusinessTypes />
       </Curtain>
+
+      <Packages />
 
       <Platforms />
 

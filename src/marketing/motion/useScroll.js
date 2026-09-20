@@ -91,8 +91,15 @@ export function useScrollProgress(ref, {
 export function useScrollRefresh(dep) {
   useEffect(() => {
     if (!scrollEngineAllowed()) return undefined;
-    let alive = true;
-    const raf = requestAnimationFrame(() => { if (alive) refreshScrollTriggers(); });
+    let alive = true; let raf = 0;
+    /* Waits for the engine rather than checking whether it is there: the
+     * data can land before the import resolves (a fast API, a slow
+     * network for the chunk), and a refresh skipped then left every
+     * trigger measured against the page before the CRM filled it. */
+    loadScrollEngine().then((eng) => {
+      if (!alive || !eng) return;
+      raf = requestAnimationFrame(() => { if (alive) refreshScrollTriggers(); });
+    });
     return () => { alive = false; cancelAnimationFrame(raf); };
   }, [dep]);
 }
