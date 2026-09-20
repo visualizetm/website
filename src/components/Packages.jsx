@@ -206,10 +206,13 @@ export default function Packages() {
 
         /* ── Held (desktop, engine on): four beats, one tier at the centre
            at a time. --u runs 0 to 4 across the hold. */
+        /* The panel's spare height is spread evenly between its five
+           blocks rather than pooled above and below them, so no run of
+           the viewport is empty while the panel is held (Part 4's rule). */
         .pk--held .pk-inner {
           --u: calc(var(--pin-p, 0) * ${BEATS});
-          justify-content: center; gap: var(--space-5);
-          padding-top: var(--space-6); padding-bottom: var(--space-6);
+          justify-content: space-evenly; gap: 0;
+          padding-top: var(--space-4); padding-bottom: var(--space-4);
         }
         .pk--held .pk-head { flex: 0 0 auto; }
         .pk--held .pk-pills {
@@ -241,11 +244,11 @@ export default function Packages() {
           content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--brand);
           transform: scale(clamp(0, calc((var(--u) - var(--i) + 0.15) / 0.15), 1));
         }
-        .pk--held .pk-tiers { position: relative; min-height: 360px; }
+        .pk--held .pk-tiers { position: relative; min-height: 330px; }
         .pk--held .pk-tier {
           position: absolute; inset: 0;
           --t: calc(var(--u) - var(--i));
-          --in: clamp(0, calc((var(--t) + 0.25) / 0.25), 1);
+          --in: clamp(0, calc((var(--t) + 0.35) / 0.25), 1);
           --out: calc(1 - clamp(0, calc((var(--t) - 0.82) / 0.18), 1));
           opacity: calc(var(--in) * var(--out));
           transform: translate3d(0, calc((1 - var(--in)) * 28px - (1 - var(--out)) * 28px), 0);
@@ -255,7 +258,7 @@ export default function Packages() {
         .pk--held .pk-tier--last { --out: 1; }
         .pk--held .pk-tier > [style*="--e"],
         .pk--held .pk-tier .pk-chip {
-          --ep: clamp(0, calc((var(--t) + 0.22 - var(--e, 0) * 0.04) / 0.16), 1);
+          --ep: clamp(0, calc((var(--t) + 0.33 - var(--e, 0) * 0.03) / 0.12), 1);
           opacity: calc(var(--ep) * var(--out));
           transform: translate3d(0, calc((1 - var(--ep)) * 10px), 0);
           transition: none;
