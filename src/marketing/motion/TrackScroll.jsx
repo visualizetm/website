@@ -51,6 +51,7 @@ export function TrackScroll({
   className = '',
   rowClassName = '',
   head = null,
+  holdPerCard = 0,
   segments = null,
   progressLabel = 'Cards',
   children,
@@ -82,6 +83,7 @@ export function TrackScroll({
       const cards = Array.from(row.children);
       const segs = progressRef.current ? Array.from(progressRef.current.querySelectorAll('.m-track-seg')) : [];
       let distance = 0;
+      let hold = 0;        // the scroll the section is held for: the row's distance, or more when a card gets a longer beat
       let centers = [];    // each card's centre, in row coordinates, before the transform
       let span = 1;        // one card plus the gap: the distance over which closeness runs 1 to 0
       const lastC = cards.map(() => '');
@@ -99,8 +101,14 @@ export function TrackScroll({
         const cw = inner.clientWidth;
         distance = cards.length ? Math.max(0, Math.round(centers[centers.length - 1] - cw / 2)) : 0;
         span = cards.length > 1 ? Math.max(1, centers[1] - centers[0]) : Math.max(1, cards[0]?.offsetWidth || 1);
+        /* Site Prompt 10, Part 2: a card at the centre holds for holdPerCard
+         * viewports of scroll (0.6 for the business types, long enough to
+         * read three bullets and a line) rather than the row's own pace.
+         * The row still travels exactly its distance; the hold is what
+         * --track-p is measured over. */
+        hold = Math.max(distance, Math.round(cards.length * holdPerCard * window.innerHeight));
         section.style.setProperty('--track-d', `${distance}px`);
-        section.style.height = `${window.innerHeight + distance}px`;
+        section.style.height = `${window.innerHeight + hold}px`;
       };
 
       /* Where the page has to be for card i to sit at the centre: the row
@@ -109,7 +117,7 @@ export function TrackScroll({
        * rects, for the reason given in onFocusIn below. */
       const progressFor = (i) => (distance ? Math.min(1, Math.max(0, (centers[i] - inner.clientWidth / 2) / distance)) : 0);
       const scrollToCard = (i) => {
-        let top = progressFor(i) * distance;
+        let top = progressFor(i) * hold;
         for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
         if (eng.lenis) eng.lenis.scrollTo(top);
         else window.scrollTo({ top, behavior: 'smooth' });
@@ -160,7 +168,7 @@ export function TrackScroll({
         const card = e.target.closest?.('.m-track-row > *');
         const i = card ? cards.indexOf(card) : -1;
         if (i < 0 || !distance) return;
-        let top = progressFor(i) * distance;
+        let top = progressFor(i) * hold;
         for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
         if (eng.lenis) eng.lenis.scrollTo(top, { immediate: true });
         else window.scrollTo({ top, behavior: 'auto' });
@@ -184,7 +192,7 @@ export function TrackScroll({
       const trigger = eng.ScrollTrigger.create({
         trigger: section,
         start: () => absTop(),
-        end: () => absTop() + distance,
+        end: () => absTop() + hold,
         scrub: scrubValue(),
         onRefreshInit: measure,
         onRefresh: (self) => paint(self.progress),
@@ -217,7 +225,7 @@ export function TrackScroll({
     });
 
     return () => mm.revert();
-  }, [state]);
+  }, [state, holdPerCard]);
 
   return (
     <Tag ref={ref} className={cx('m-track', className)} {...rest}>

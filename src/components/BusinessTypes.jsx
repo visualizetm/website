@@ -66,6 +66,7 @@ export default function BusinessTypes() {
       <TrackScroll
         className="bt-track"
         rowClassName="bt-row"
+        holdPerCard={0.6}
         segments={TYPES.map(t => t.type)}
         progressLabel="Kinds of business"
         head={(
@@ -102,6 +103,9 @@ export default function BusinessTypes() {
            that clips. The row's own clipping happens on .m-track-viewport,
            one level in. */
         .bt-head { margin-bottom: var(--space-10); }
+        /* The hold ends and the next panel's edge follows close behind:
+           less bottom padding here keeps that boundary under a third empty. */
+        @media (min-width: 861px) { .bt.section { padding-bottom: var(--space-8); } }
         /* Inside the held panel the panel's own gap spaces the heading
            from the row; the stack keeps the margin. */
         .m-track--h .bt-head { margin-bottom: 0; }
@@ -232,9 +236,9 @@ export default function BusinessTypes() {
            (Site Prompt 8): tighter padding and gaps take it from 2.6
            screens to under two, without dropping a card or a line. */
         @media (max-width: 767px) {
-          .bt-row { gap: var(--space-4); padding: 0 var(--space-4); }
+          .bt-row { gap: var(--space-5); padding: 0 var(--space-4); }
           .bt-card { padding: var(--space-5); gap: var(--space-2); }
-          .bt-needs { gap: 2px; }
+          .bt-needs { gap: var(--space-1); }
           .bt-needs li { font-size: 0.9rem; line-height: 1.45; }
           .bt-does { padding-top: 0; }
           .bt-link { min-height: 46px; }
