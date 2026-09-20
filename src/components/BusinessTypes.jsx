@@ -224,9 +224,11 @@ export default function BusinessTypes() {
           margin-top: auto; padding-top: var(--space-2);
           font-size: 0.9375rem; color: var(--text); line-height: 1.6;
         }
+        /* 46px, not 44: a card waiting to enter sits at scale 0.97, and
+           the target has to measure 44px even then. */
         .bt-link {
           display: inline-flex; align-items: center; align-self: flex-start;
-          min-height: 44px; font-size: 0.9375rem; font-weight: 600;
+          min-height: 46px; font-size: 0.9375rem; font-weight: 600;
           color: var(--brand-text);
         }
         .bt-link::after { content: ''; position: absolute; inset: 0; }
@@ -262,8 +264,19 @@ export default function BusinessTypes() {
           .bt-needs { gap: 2px; }
           .bt-needs li { font-size: 0.9rem; line-height: 1.45; }
           .bt-does { padding-top: 0; }
-          .bt-link { min-height: 44px; }
+          .bt-link { min-height: 46px; }
           .bt-head { margin-bottom: var(--space-8); }
+        }
+        /* Narrow phones (320 wide): the same six cards, tighter still, so
+           the stack costs the fewest screens the content allows. */
+        @media (max-width: 360px) {
+          .bt-row { gap: var(--space-3); }
+          .bt-card { padding: var(--space-4); }
+          .bt-icon { width: 36px; height: 36px; }
+          .bt-type { font-size: 1.0625rem; }
+          .bt-needs li { font-size: 0.875rem; line-height: 1.35; }
+          .bt-does { font-size: 0.875rem; line-height: 1.45; }
+          .bt-intro { font-size: 1rem; }
         }
       `}</style>
     </Tone>
