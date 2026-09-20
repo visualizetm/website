@@ -52,14 +52,18 @@ const TYPES = [
 export default function BusinessTypes() {
   return (
     <section className="bt section" id="what-i-do">
-      <div className="wrap bt-head">
-        <WordReveal as="h2" className="section-title">What I do for your kind of business</WordReveal>
-        <Reveal as="p" className="bt-intro">
-          Every business needs something different. Here is what that usually looks like.
-        </Reveal>
-      </div>
-
-      <TrackScroll className="bt-track" rowClassName="bt-row">
+      <TrackScroll
+        className="bt-track"
+        rowClassName="bt-row"
+        head={(
+          <div className="wrap bt-head">
+            <WordReveal as="h2" className="section-title">What I do for your kind of business</WordReveal>
+            <Reveal as="p" className="bt-intro">
+              Every business needs something different. Here is what that usually looks like.
+            </Reveal>
+          </div>
+        )}
+      >
         {TYPES.map(({ icon: Icon, type, needs, does }) => (
           <article className="bt-card" key={type}>
             <span className="bt-icon" aria-hidden="true"><Icon width={22} height={22} /></span>
@@ -82,6 +86,9 @@ export default function BusinessTypes() {
            that clips. The row's own clipping happens on .m-track-viewport,
            one level in. */
         .bt-head { margin-bottom: var(--space-10); }
+        /* Inside the held panel the panel's own gap spaces the heading
+           from the row; the stack keeps the margin. */
+        .m-track--h .bt-head { margin-bottom: 0; }
         .bt-intro {
           margin-top: var(--space-4); max-width: 52ch;
           font-size: 1.0625rem; color: var(--text-secondary); line-height: 1.6;

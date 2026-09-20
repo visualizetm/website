@@ -34,6 +34,7 @@ export function TrackScroll({
   as: Tag = 'section',
   className = '',
   rowClassName = '',
+  head = null,
   children,
   ...rest
 }) {
@@ -116,6 +117,11 @@ export function TrackScroll({
   return (
     <Tag ref={ref} className={cx('m-track', className)} {...rest}>
       <div ref={innerRef} className="m-track-inner">
+        {/* The heading lives INSIDE the sticky panel (the gap fix): a
+            heading placed before the track scrolls away the moment the
+            panel sticks, leaving the cards alone in the middle of an
+            otherwise empty viewport for the whole hold. */}
+        {head && <div className="m-track-head">{head}</div>}
         <div className="m-track-viewport">
           <div ref={rowRef} className={cx('m-track-row', rowClassName)}>
             {children}

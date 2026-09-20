@@ -645,15 +645,28 @@ h1, h2, h3, h4, h5, h6 {
   flex-direction: column;
   gap: var(--space-6);
 }
+/* The held panel is one column: the heading at the top, the row under it,
+   the whole group centred as a unit. Before this the panel was a single
+   centred row and the heading sat outside it, so the hold showed the
+   cards alone with a fifth of the viewport empty above and below them
+   and the heading already scrolled away (the gap Site Prompt 9 fixed). */
 .m-track--h .m-track-inner {
   position: sticky;
   top: 0;
   height: calc(100 * var(--svh));
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-6) 0;
+}
+.m-track--h .m-track-head {
+  flex: 0 0 auto;
 }
 .m-track--h .m-track-viewport {
   width: 100%;
+  flex: 0 1 auto;
+  min-height: 0;
   overflow: hidden;
   /* clip, not just hidden: hidden leaves a scroll container the browser
      can scroll programmatically when focus lands on a card that is off to
