@@ -39,7 +39,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getScrollEngine, scrubValue } from '../scroll';
 import { cx } from './shared';
-import { useScrollEngine } from './useScroll';
+import { useScrollEngine, whenNear } from './useScroll';
 
 const DESKTOP_QUERY = '(min-width: 861px) and (pointer: fine)';
 const CENTER_AT = 0.9;    // closeness at which a card counts as the one at the centre
@@ -73,7 +73,15 @@ export function TrackScroll({
     const section = ref.current;
     const inner = innerRef.current;
     const row = rowRef.current;
-    const mm = eng.gsap.matchMedia();
+    let mm = null;
+
+    /* Built when the section is within a screen and a half of the
+     * viewport (whenNear), like every other trigger: the hold's height is
+     * added to the page then, which is below the reader, so nothing on
+     * screen moves. */
+    const stopNear = whenNear(section, () => {
+    if (!ref.current) return;
+    mm = eng.gsap.matchMedia();
 
     /* The horizontal layout is a media query in the stylesheet, so the
      * class that switches it on is added here rather than in render: only
@@ -224,7 +232,9 @@ export function TrackScroll({
       };
     });
 
-    return () => mm.revert();
+    });
+
+    return () => { stopNear(); mm?.revert(); };
   }, [state, holdPerCard]);
 
   return (

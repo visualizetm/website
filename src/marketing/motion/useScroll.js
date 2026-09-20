@@ -5,6 +5,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { loadScrollEngine, refreshScrollTriggers, scrollEngineAllowed, scrubValue } from '../scroll';
 
+/* How far below (or above) the viewport an element may be and still get
+ * its trigger created now, as a multiple of the viewport height. */
+const NEAR = '150%';
+
+/** Calls `cb(rect)` once, as soon as `el` is within NEAR of the viewport
+ * (Site Prompt 10). Home carries some thirty scrubbed elements; creating
+ * every trigger the moment the engine lands meant thirty layout reads
+ * interleaved with thirty rounds of style writes at load, which is what
+ * a phone's main thread was spending its first second on. A trigger for
+ * a section two screens down can wait until the reader is one screen
+ * away; it measures the same page either way. Returns a stop function. */
+export function whenNear(el, cb) {
+  if (typeof IntersectionObserver === 'undefined') { cb(el.getBoundingClientRect()); return () => {}; }
+  const io = new IntersectionObserver((entries) => {
+    const hit = entries.find(e => e.isIntersecting);
+    if (!hit) return;
+    io.disconnect();
+    cb(hit.boundingClientRect);
+  }, { rootMargin: `${NEAR} 0px ${NEAR} 0px` });
+  io.observe(el);
+  return () => io.disconnect();
+}
+
 /** 'off' | 'loading' | 'on'. 'off' is decided synchronously on the first
  * render (reduced motion, admin host) so a helper never paints a hidden
  * first frame it will not animate out of. */
@@ -52,7 +75,7 @@ export function useScrollProgress(ref, {
     let trigger = null;
     let alive = true;
 
-    loadScrollEngine().then((eng) => {
+    const stopNear = whenNear(el, () => loadScrollEngine().then((eng) => {
       if (!alive || !eng || !ref.current) return;
       const target = varTarget?.current || ref.current;
       /* onUpdate runs inside ScrollTrigger's own tick, which is gsap's
@@ -76,9 +99,9 @@ export function useScrollProgress(ref, {
           cb.current?.(self.progress, target);
         },
       });
-    });
+    }));
 
-    return () => { alive = false; trigger?.kill(); };
+    return () => { alive = false; stopNear(); trigger?.kill(); };
   }, [ref, start, end, cssVar, varTarget]);
 
   return progress;

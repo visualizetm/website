@@ -14,7 +14,7 @@
 import { Fragment, useEffect, useMemo, useRef } from 'react';
 import { getScrollEngine, scrubValue } from '../scroll';
 import { cx } from './shared';
-import { useScrollEngine } from './useScroll';
+import { useScrollEngine, whenNear } from './useScroll';
 
 export function WordReveal({
   as: Tag = 'h2',
@@ -37,20 +37,29 @@ export function WordReveal({
     const targets = ref.current.querySelectorAll('.m-word-i');
     if (!targets.length) return undefined;
 
-    /* A heading that is already on screen when the page loads has no
+    /* The tween is built when the heading is within a screen and a half
+     * of the viewport (whenNear), not at engine load: eight headings each
+     * reading their rect and then writing a style per word, back to back,
+     * was a run of forced layouts on a phone's first second. The rect
+     * comes from the observer, so no read is forced here either.
+     *
+     * A heading that is already on screen when the page loads has no
      * scroll left between its start and end positions, so a scrubbed
      * reveal would sit at progress 0 forever and the heading would never
      * appear. Those play once on their own clock instead; only headings
      * still below the fold are handed to the scroll. */
-    const aboveFold = ref.current.getBoundingClientRect().top < window.innerHeight * 0.6;
-    const from = { yPercent: 110, opacity: 0 };
-    const to = aboveFold
-      ? { yPercent: 0, opacity: 1, ease: 'power3.out', duration: 0.7, stagger: 0.06 }
-      : { yPercent: 0, opacity: 1, ease: 'none', stagger: 0.25, scrollTrigger: { trigger: ref.current, start, end, scrub: scrubValue() } };
+    let tween = null;
+    const stopNear = whenNear(ref.current, (rect) => {
+      if (!ref.current) return;
+      const aboveFold = rect.top < window.innerHeight * 0.6;
+      const from = { yPercent: 110, opacity: 0 };
+      const to = aboveFold
+        ? { yPercent: 0, opacity: 1, ease: 'power3.out', duration: 0.7, stagger: 0.06 }
+        : { yPercent: 0, opacity: 1, ease: 'none', stagger: 0.25, scrollTrigger: { trigger: ref.current, start, end, scrub: scrubValue() } };
+      tween = eng.gsap.fromTo(targets, from, to);
+    });
 
-    const tween = eng.gsap.fromTo(targets, from, to);
-
-    return () => { tween.scrollTrigger?.kill(); tween.kill(); };
+    return () => { stopNear(); tween?.scrollTrigger?.kill(); tween?.kill(); };
   }, [state, start, end, words.length]);
 
   return (

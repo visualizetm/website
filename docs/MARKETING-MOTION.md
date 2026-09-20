@@ -311,6 +311,23 @@ Reduced motion is decided synchronously on the first render, so a
 reduced-motion viewer never sees a motion frame at all. What they get is
 the composed final state plus the plain `Reveal` fades from the light set.
 
+## Triggers are created when their element is near
+
+`whenNear(el, cb)` in `useScroll.js` (Site Prompt 10) calls back once the
+element is within a screen and a half of the viewport, through an
+IntersectionObserver, and `useScrollProgress`, `WordReveal` and
+`TrackScroll` all create their trigger inside it. Home carries some
+thirty scrubbed elements; creating every trigger the moment the engine
+landed meant thirty layout reads interleaved with thirty rounds of style
+writes in a phone's first second, which was the difference between a
+Lighthouse mobile score of 90 and 87. A section two screens down measures
+the same page when the reader is one screen away. Two things follow: a
+probe that jumps straight to a section by a position computed at load
+will land above it (the held sections set their height when they are
+approached), so the probes in this repo walk the page once first; and a
+`WordReveal` decides "above the fold" from the observer's rect, not a
+fresh read.
+
 ## Heavy set versus light set
 
 **Heavy set: `Pin`, `Curtain`, `WordReveal`, `TrackScroll`. Home only.**
@@ -444,6 +461,7 @@ held still until the row runs out, one card reaching the centre at a time
 
 | Prop | Default | Does |
 |---|---|---|
+| `holdPerCard` | `0` | Viewports of scroll each card holds the centre for (Site Prompt 10). The row still travels exactly its distance; the hold is what the scrub is measured over, so 0.6 gives a card long enough to read three bullets and a line. 0 means the row's own distance. |
 | `head` | - | A node rendered inside the sticky panel above the row (the section heading). Outside the panel a heading scrolls away the moment the panel sticks, leaving the cards alone in an otherwise empty viewport for the whole hold, which was the gap Site Prompt 9 fixed. |
 | `segments` | - | Labels, one per card. Draws the progress strip under the row: one 44px button per card whose 3px bar fills with that card's closeness to the centre; tapping one scrolls to its card. `role="tablist"` with a named tab each. |
 | `progressLabel` | `'Cards'` | The strip's accessible name. |
@@ -517,13 +535,34 @@ that goes with it: sampled every 80px at 390 and 1280, no scroll position
 is more than 30 percent empty, which is why How it works no longer pins
 its three steps on a desktop.
 
-The packages ladder (`src/components/Packages.jsx`) is built from
-`useScrollProgress` alone: each rung's bar is a `scaleX` reading its own
-`--rung-p`, the connecting line a `scaleY` reading the list's `--line-p`,
-the title and line fading in over the last third of the rung's progress.
-Every fallback is 1, so with no engine every bar is at its final width on
-the first frame; with the engine live the `pk-ladder--live` class starts
-the unreached rungs at 0 until ScrollTrigger writes them.
+The packages ladder (`src/components/Packages.jsx`, Site Prompt 10) is a
+`Pin` on a desktop with the engine, held for four beats of 0.8 viewports,
+one per tier. `--u` (the pin's `--pin-p` times four) runs 0 to 4 across
+the hold and every tier reads `--t = --u - i`: a crossfade and a small
+slide in over t -0.35 to -0.1 and out over 0.82 to 1.0 (the last tier
+never leaves), the name, line, contents and step line revealing in
+sequence off a per element `--e`, the passed tiers collapsing to pills,
+a line down the left growing with `--u` and its nodes filling as each
+tier lands, the tier's width bar growing from the previous width to its
+own, all scrubbed. Every fallback is the resting state, so with no engine
+(reduced motion, a phone, the admin host) the four tiers are a plain
+stack, each card settling in with ScaleIn and its parts stepping in 50ms
+apart, with "Tier n of 4" and "The step:" in the text. The held panel
+spreads its spare height evenly between its blocks so no run of the
+viewport is empty while it holds.
+
+`useNearestCenter(ref, selector, skip)` in `shared.js` marks the element
+nearest the vertical centre of the screen with `data-center`, re-decided
+on scroll: the phone's sense of focus without pinning, shared by the
+business types and the packages. `skip` names a selector that, when
+present, means something else decides the centre (the held track).
+
+A full-screen minimum for the short desktop sections was built and
+measured in Site Prompt 10 and taken out again: centred in a viewport
+they read 35 to 45 percent empty, over the 30 percent rule above. A
+section's beat comes from being held (the hero, the track, the ladder)
+and from its heading completing word by word before the body's Reveal
+and Stagger land, not from padding.
 
 `scripts/mobile-trace.mjs` is the phone walk: Home top to bottom on a
 touch profile with real CDP touch drags at 390, 320 and 430, then 390
