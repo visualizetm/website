@@ -400,7 +400,12 @@ in. Heavy set, Home only.
 ### `Curtain`
 
 The section arrives over the one before it, rounded at the top, while the
-section it covers scales back a little and dims. Finds its predecessor at
+section it covers scales back a little and dims. A one pixel brand
+hairline runs along the leading edge and fades as the curtain lands (an
+opacity reading `--curtain-p`). The trigger measures the transformed rect,
+so the edge enters the viewport at the moment the section before it lets
+go; the hero deck runs count minus one turns over its hold for exactly
+that reason, so its last cover finishes landing as the curtain begins. Finds its predecessor at
 runtime (`previousElementSibling`) and writes `transform` and `opacity` to
 it directly from the scroll frame, both composited, no layout property
 touched. Takes no props beyond `as`, `className` and `style`. Heavy set.
@@ -408,7 +413,8 @@ touched. Takes no props beyond `as`, `className` and `style`. Heavy set.
 ### `ScaleIn`
 
 An image or card settles from slightly oversized and transparent into place,
-once, on first viewport entry. The one new helper that is not scrubbed: it
+once, on first viewport entry. `soft` is the card variant: from 0.97 and
+no blur, because a line of text that blurs reads as a rendering fault. The one new helper that is not scrubbed: it
 is a CSS transition on the same `IntersectionObserver` `Reveal` uses, which
 is why it is safe on every page. Props match `Reveal` (`delay`,
 `threshold`, `rootMargin`, `as`, `className`). Light set.
@@ -433,7 +439,29 @@ documented exception (it does not take over the scroll).
 ### `TrackScroll`
 
 A row of cards that moves sideways while the page scrolls down, the section
-held still until the row runs out. Desktop and a fine pointer only, above
+held still until the row runs out, one card reaching the centre at a time
+(Site Prompt 9).
+
+| Prop | Default | Does |
+|---|---|---|
+| `head` | - | A node rendered inside the sticky panel above the row (the section heading). Outside the panel a heading scrolls away the moment the panel sticks, leaving the cards alone in an otherwise empty viewport for the whole hold, which was the gap Site Prompt 9 fixed. |
+| `segments` | - | Labels, one per card. Draws the progress strip under the row: one 44px button per card whose 3px bar fills with that card's closeness to the centre; tapping one scrolls to its card. `role="tablist"` with a named tab each. |
+| `progressLabel` | `'Cards'` | The strip's accessible name. |
+| `rowClassName` | `''` | Extra class on the row. |
+
+Every scroll frame the helper writes each card's closeness to the centre
+to `--card-c` on the card (1 dead centre, 0 one card away), sets
+`data-center` on the card at the centre and `data-landed` once as a card
+arrives (cleared once it has clearly left, so it lands again next time).
+The card's own CSS reads those: scale, opacity, an inset outline, a
+sequenced bullet reveal keyed off a per item `--li-i`, an icon pulse on
+landing. Data attributes rather than classes because the cards are React
+elements that re-render their className once on entering the viewport.
+The row is padded so the first and the last card can both sit at the
+centre, and the distance is measured from the card centres, not
+`scrollWidth`, which drops a flex container's trailing padding. Start and
+end come from layout offsets, not the rect, because inside a Curtain the
+rect sits a sixth of a viewport low while the page is at the top. Desktop and a fine pointer only, above
 860px. The hold is `position: sticky` and the row moves on a CSS transform
 reading `--track-p`, not ScrollTrigger's own `pin: true`: pinning is
 `position: fixed`, and Home puts this section inside a `Curtain`, whose
@@ -469,5 +497,35 @@ compositor work, animating `background-color` is not.
 | `from` | `'var(--bg)'` | The section's own ground. |
 | `to` | `'var(--bg-elevated)'` | What it settles to. |
 
-Without the engine the layer sits at full opacity, so the section still
-shows its settled tone. Light set, at most one per page.
+The crossfade runs from the section's first pixel entering to its top
+nearly reaching the top of the viewport (`top 12%`), so the ground
+changes across the whole boundary. Without the engine the layer sits at
+full opacity, so the section still shows its settled tone. Light set, at
+most one per page away from Home.
+
+## Home's boundaries (Site Prompt 9, Part 4)
+
+Every boundary on Home is a Curtain or a Tone, alternating, so the page
+reads as one continuous scroll: hero to Trust (Curtain), Trust to
+Business types (Tone, elevated to ground), Business types to Packages
+(Curtain, elevated panel), Packages to Platforms (Tone, back to ground),
+Platforms to Recent clients (Curtain, elevated), Recent clients to
+Testimonials (Tone, back to ground), Testimonials to How it works
+(Curtain, elevated), How it works to CTA (Tone, back to ground). With no
+published work Testimonials takes the Recent clients curtain. The rule
+that goes with it: sampled every 80px at 390 and 1280, no scroll position
+is more than 30 percent empty, which is why How it works no longer pins
+its three steps on a desktop.
+
+The packages ladder (`src/components/Packages.jsx`) is built from
+`useScrollProgress` alone: each rung's bar is a `scaleX` reading its own
+`--rung-p`, the connecting line a `scaleY` reading the list's `--line-p`,
+the title and line fading in over the last third of the rung's progress.
+Every fallback is 1, so with no engine every bar is at its final width on
+the first frame; with the engine live the `pk-ladder--live` class starts
+the unreached rungs at 0 until ScrollTrigger writes them.
+
+`scripts/mobile-trace.mjs` is the phone walk: Home top to bottom on a
+touch profile with real CDP touch drags at 390, 320 and 430, then 390
+with reduce motion, reporting screens, the longest section, backwards
+frames, footer reachability and long tasks.

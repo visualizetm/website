@@ -9,6 +9,7 @@
  *   AUDIT_ONLY=calls node scripts/a11y-audit.mjs                       # one screen group
  *   AUDIT_SKELETON=1 node scripts/a11y-audit.mjs                       # also the forced loading state
  *   AUDIT_OUT=/tmp/a11y.json node scripts/a11y-audit.mjs
+ *   AUDIT_MOTION=reduce AUDIT_ONLY=mkt node scripts/a11y-audit.mjs       # the marketing pages under reduced motion
  *
  * Rules: WCAG 2.0 and 2.1 A and AA plus axe best practices. Exits 1 when any
  * serious or critical violation remains, so it can gate a build.
@@ -25,6 +26,7 @@ const THEMES = process.env.AUDIT_THEME === 'both' ? ['dark', 'light'] : [process
 const ONLY = process.env.AUDIT_ONLY || '';
 const OUT = process.env.AUDIT_OUT || '';
 const SKELETON = !!process.env.AUDIT_SKELETON;
+const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce (Site Prompt 9): the OS preference and the in-app switch
 const AXE = readFileSync(new URL('../node_modules/axe-core/axe.min.js', import.meta.url), 'utf8');
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'];
 const ORDER = { critical: 0, serious: 1, moderate: 2, minor: 3 };
@@ -41,7 +43,7 @@ async function runAxe(page) {
 
 async function state(ctx, s, width, theme, skeleton) {
   const page = await ctx.newPage();
-  await page.addInitScript(([theme]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); localStorage.removeItem('vz_motion'); } catch {} }, [theme]);
+  await page.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); else localStorage.removeItem('vz_motion'); } catch {} }, [theme, MOTION]);
   const goto = (u) => page.goto(u, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   if (s.boot) {
     await mockRoutes(page, { session: 'hang' });
@@ -63,7 +65,7 @@ async function state(ctx, s, width, theme, skeleton) {
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 const rows = [];
 for (const theme of THEMES) for (const width of WIDTHS) {
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, serviceWorkers: 'block', reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
     // Site Prompt 7, Part 5: the public site is dark only, so a light pass

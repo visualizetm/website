@@ -37,6 +37,7 @@ AUDIT_THEME=both AUDIT_MOTION=both node scripts/feel-audit.mjs
 AUDIT_THEME=both node scripts/a11y-audit.mjs
 node scripts/regression.mjs
 node scripts/site-regression.mjs                # docs/SITE-QA-CHECKLIST.md's CRM-to-site walk
+node scripts/mobile-trace.mjs                   # Home on a phone with real touch drags (390, 320, 430, reduce motion), against the mock server on 4350
 node scripts/hex-count.js                       # 90 or lower
 node scripts/css-orphans.mjs                    # 0
 TZ=America/New_York node scripts/dates-test.mjs

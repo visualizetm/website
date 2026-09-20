@@ -420,9 +420,13 @@ const csStyles = `
     display: flex; align-items: center; justify-content: center;
   }
   .cs-slot:has(img) { border-style: solid; border-color: var(--border); }
+  /* --text-muted, not --text-faint: under reduced motion the empty slot's
+     label is on screen from the first frame (nothing fades it in), and at
+     11px bold the faint token is 2.5:1 on the card (Site Prompt 9's
+     reduced-motion a11y run). */
   .cs-slot-label {
     font-size: 0.72rem; font-weight: 700; letter-spacing: 0.14em;
-    text-transform: uppercase; color: var(--text-faint);
+    text-transform: uppercase; color: var(--text-muted);
   }
 
   .cs-brand-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: var(--space-6); align-items: start; }
