@@ -2,12 +2,16 @@ import { ObjectId } from 'mongodb';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
+import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
  *     extend the retainer project's schedule so six future months exist
  *     (the same rule Mark paid applies), and move ending retainers whose
  *     cancelAt has passed to cancelled.
+ *  1b. Stage heal: a live record whose stage was wiped by a background job and
+ *     that carries client evidence goes back to client (api/_lib/pipeline.js).
+ *  1c. clientSince backfill for any client or won record missing it.
  *  2. Task health: write the settings 'health' document (enrichment, scraper,
  *     crons, stripe) the Integrations cards and the drawer read. */
 const pad = (n) => String(n).padStart(2, '0');
@@ -60,15 +64,46 @@ export async function handler(req, res) {
   /* 1b. The pipeline guard's backstop (stage regression fix). The nightly
      enricher writes straight into call_leads and has been seen to leave
      stage as '' on records it touches; a client with no stage reads as a
-     lead. A record that carries clientSince (set the moment it was won) or
-     a won outcome and whose stage is not a stage any more is a client, and
-     is put back before the day starts. */
-  const STAGE_IDS = ['lead', 'booked', 'won', 'client', 'lost'];
-  const healed = await leads.updateMany(
-    { deleted: { $ne: true }, stage: { $nin: STAGE_IDS }, $or: [{ clientSince: { $exists: true, $nin: ['', null] } }, { 'bookedOutcome.result': 'won' }] },
-    { $set: { stage: 'client', updatedAt: new Date() } },
-  );
-  const healedCount = healed?.modifiedCount || 0;
+     lead. Any live record whose stage is not a stage and that carries any
+     client evidence (api/_lib/pipeline.js: clientSince, a won outcome, a
+     published showcase, a project, a purchase, a planner switched on, a
+     testimonial) is a client and is put back before the day starts. Each
+     heal is counted on the record (stageHeals, additive) and listed in the
+     health document so the notifications drawer can name it; a record
+     healed more than twice means something upstream is still wiping it. */
+  const wiped = await leads.find({ deleted: { $ne: true }, stage: { $nin: STAGE_IDS } })
+    .project({ business: 1, stage: 1, clientSince: 1, bookedOutcome: 1, showcase: 1, purchases: 1, planner: 1, reviews: 1, stageHeals: 1, updatedAt: 1 }).toArray();
+  const projectCounts = new Map();
+  if (wiped.length) {
+    const rows = await projects.find({ leadId: { $in: wiped.map(l => String(l._id)) } }).project({ leadId: 1 }).toArray();
+    for (const p of rows) projectCounts.set(String(p.leadId), (projectCounts.get(String(p.leadId)) || 0) + 1);
+  }
+  const healedRecords = [];
+  for (const l of wiped) {
+    const rules = clientEvidence(l, projectCounts.get(String(l._id)) || 0);
+    if (!rules.length) continue;
+    const count = (Number(l.stageHeals?.count) || 0) + 1;
+    const set = { stage: 'client', stageHeals: { count, lastAt: nowIso, lastRules: rules }, updatedAt: new Date() };
+    if (!(typeof l.clientSince === 'string' && l.clientSince.trim())) {
+      const own = await projects.find({ leadId: String(l._id) }).project({ createdAt: 1 }).toArray();
+      set.clientSince = earliestClientSince(l, own) || nowIso;
+    }
+    await leads.updateOne({ _id: l._id }, { $set: set });
+    healedRecords.push({ id: String(l._id), business: String(l.business || ''), at: nowIso, count, rules });
+  }
+  const healedCount = healedRecords.length;
+
+  /* 1c. A client without clientSince should not exist (every path that makes
+     a client stamps it now); records from before that rule get the earliest
+     of their first purchase, first project, or updatedAt. */
+  const unstamped = await leads.find({ deleted: { $ne: true }, stage: { $in: ['client', 'won'] }, $or: [{ clientSince: { $exists: false } }, { clientSince: '' }, { clientSince: null }] })
+    .project({ purchases: 1, updatedAt: 1 }).toArray();
+  let stamped = 0;
+  for (const l of unstamped) {
+    const own = await projects.find({ leadId: String(l._id) }).project({ createdAt: 1 }).toArray();
+    const since = earliestClientSince(l, own) || nowIso;
+    await leads.updateOne({ _id: l._id }, { $set: { clientSince: since, updatedAt: new Date() } }); stamped++;
+  }
 
   // 2. Health.
   const since24 = new Date(Date.now() - 24 * 3600e3); const since7 = new Date(Date.now() - 7 * 864e5);
@@ -86,10 +121,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount } },
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped,
+      // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
+      healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, health });
 }

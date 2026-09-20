@@ -18,6 +18,7 @@
  * dropped, and a record that is already well formed is not touched.
  */
 import fs from 'node:fs';
+import { clientEvidence } from '../api/_lib/pipeline.js';
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -55,8 +56,8 @@ export function repairsFor(doc) {
   }
   if ('stage' in doc && doc.stage !== undefined && !STAGES.includes(doc.stage)) {
     /* A record that was a client (clientSince set, or the outcome was won) whose stage was wiped reads as a client again. Anything else unknown reads as '' (lead). */
-    const wasClient = (typeof doc.clientSince === 'string' && doc.clientSince) || doc.bookedOutcome?.result === 'won';
-    note('stage', wasClient ? `stage ${JSON.stringify(doc.stage)} on a record with clientSince or a won outcome` : `stage ${JSON.stringify(doc.stage)} is not a stage`, doc.stage, wasClient ? 'client' : '');
+    const rules = clientEvidence(doc, 0); // projects live in another collection; the daily cron's heal reads those too
+    note('stage', rules.length ? `stage ${JSON.stringify(doc.stage)} on a record with client evidence (${rules.join(', ')})` : `stage ${JSON.stringify(doc.stage)} is not a stage`, doc.stage, rules.length ? 'client' : '');
   }
   if (!('stage' in doc) && doc.callStatus === 'booked') note('stage', 'no stage on a booked call (legacy record)', undefined, 'booked');
   if ('priority' in doc && !PRIORITIES.includes(doc.priority)) note('priority', 'unknown priority', doc.priority, 'warm');

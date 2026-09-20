@@ -380,7 +380,10 @@ export async function handler(req, res) {
       .filter(d => d.business)
       .map(d => {
         for (const k of Object.keys(d)) if (d[k] === undefined) delete d[k];
-        return { ...d, createdAt: new Date(), updatedAt: new Date() };
+        const now = new Date();
+        // Created straight as a client (the Add client flow): clientSince is stamped here too.
+        if ((d.stage === 'client' || d.stage === 'won') && !(typeof d.clientSince === 'string' && d.clientSince.trim())) d.clientSince = now.toISOString();
+        return { ...d, createdAt: now, updatedAt: now };
       });
     if (!docs.length) return res.status(400).json({ error: 'business name required' });
 
@@ -441,6 +444,14 @@ export async function handler(req, res) {
     }
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();
+    /* A client without clientSince should not be possible: whatever path
+       moves a record to client or won (the Won dialog, Add client, a merge,
+       anything) stamps the moment if the record does not carry one already.
+       The daily cron backfills the records from before this rule. */
+    if ((allowed.stage === 'client' || allowed.stage === 'won') && !(typeof allowed.clientSince === 'string' && allowed.clientSince.trim())) {
+      const cur = await col.findOne({ _id: oidOf }, { projection: { clientSince: 1 } });
+      if (!(typeof cur?.clientSince === 'string' && cur.clientSince.trim())) allowed.clientSince = new Date().toISOString();
+    }
 
     /* Content Planner: the planner object is full replacement like every
      * other object here, so the token has to be carried forward rather than

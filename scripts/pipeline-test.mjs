@@ -7,7 +7,10 @@
  *     bulk re-import, and a PATCH that carries a lower stage without an
  *     explicit flag (409, record untouched); an explicit action moves it
  *   - the daily cron puts a client's stage back after a background job
- *     wiped it, and leaves everything else alone
+ *     wiped it (clientSince, a won outcome, a published showcase, a project,
+ *     a purchase, a planner, a testimonial), leaves a genuine lead alone,
+ *     names each heal for the drawer, and stamps clientSince on every client
+ *   - every path to client stamps clientSince
  *   - normalizeLead turns every shape that crashed a screen into the shape
  *     the screen expects, and leaves a well formed record identical
  *
@@ -128,6 +131,86 @@ section('5. the daily cron puts a wiped client stage back');
   const health = _stores.settings.find(s => s._id === 'health');
   ok(health?.crons?.daily?.healed === 2, `the health document counts the two heals (${health?.crons?.daily?.healed})`);
   ok(lead(LEAD).stage === 'lead', 'a real lead is untouched');
+}
+
+section('5b. the broadened heal: a client with none of the old markers, wiped, is still a client');
+{
+  const P1 = '507f1f77bcf86cd799439041', P2 = '507f1f77bcf86cd799439042', P3 = '507f1f77bcf86cd799439043', P4 = '507f1f77bcf86cd799439044', P5 = '507f1f77bcf86cd799439045', L2 = '507f1f77bcf86cd799439046';
+  seed();
+  const bare = (id, business, extra) => ({ _id: id, business, stage: '', callStatus: 'not-called', priority: 'warm', socials: {}, callLog: [], updatedAt: new Date('2026-06-01T00:00:00Z'), ...extra });
+  _stores.call_leads.push(
+    bare(P1, 'Project Only Client', {}),
+    bare(P2, 'Purchase Only Client', { purchases: [{ label: 'Website', amount: 900, at: '2026-03-03T00:00:00Z' }] }),
+    bare(P3, 'Showcase Only Client', { showcase: { published: true, slug: 'showcase-only' } }),
+    bare(P4, 'Planner Only Client', { planner: { enabled: true, postsPerMonth: 8, token: 't' } }),
+    bare(P5, 'Testimonial Only Client', { reviews: { asks: [], testimonials: [{ quote: 'Great work', name: 'A' }] } }),
+    bare(L2, 'Genuine Lead', { showcase: { published: false }, purchases: [], planner: { enabled: false }, reviews: { testimonials: [] }, intel: { accomplishments: ['x'] }, notes: 'called twice' }),
+  );
+  _stores.projects.push({ _id: '507f1f77bcf86cd799439051', leadId: P1, name: 'Logo', stage: 'delivered', createdAt: new Date('2026-04-04T00:00:00Z') });
+  const r = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
+  ok(r._status === 200, `the cron runs (${r._status})`);
+  for (const [id, name] of [[P1, 'a project'], [P2, 'a purchase'], [P3, 'a published showcase'], [P4, 'a planner'], [P5, 'a testimonial']]) {
+    ok(lead(id).stage === 'client', `a wiped client with only ${name} is a client again (${JSON.stringify(lead(id).stage)})`);
+  }
+  ok(lead(L2).stage === '', `a genuine lead with none of those is not healed into a client (${JSON.stringify(lead(L2).stage)})`);
+  ok(lead(P1).clientSince === '2026-04-04T00:00:00.000Z', `the healed project-only client is stamped from its first project (${lead(P1).clientSince})`);
+  ok(lead(P2).clientSince === '2026-03-03T00:00:00.000Z', `the healed purchase-only client is stamped from its first purchase (${lead(P2).clientSince})`);
+  ok(lead(P3).clientSince === '2026-06-01T00:00:00.000Z', `a healed client with neither is stamped from updatedAt (${lead(P3).clientSince})`);
+  ok(lead(P1).stageHeals?.count === 1 && lead(P1).stageHeals.lastRules.join() === 'project', `the heal is counted on the record with its rule (${JSON.stringify(lead(P1).stageHeals)})`);
+  const health = _stores.settings.find(s => s._id === 'health');
+  ok(health?.crons?.daily?.healed === 5, `the health document counts every heal (${health?.crons?.daily?.healed})`);
+  ok((health?.crons?.daily?.healedRecords || []).some(h => h.business === 'Project Only Client' && h.rules.includes('project')), 'the health document names the healed record and its rule');
+}
+
+section('5c. a repeated heal is counted, and the drawer names both');
+{
+  const { healItems } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'heals.js')).href);
+  const buildNotifications = (leads, o) => healItems(o.health?.crons?.daily?.healedRecords, leads, {}, o.now);
+  seed();
+  lead(CLIENT).stage = ''; lead(CLIENT).stageHeals = { count: 2, lastAt: '2026-09-18T06:00:00Z', lastRules: ['clientSince'] };
+  lead(WON).stage = '';
+  _stores.settings.push({ _id: 'health', crons: { daily: { healedRecords: [{ id: CLIENT, business: 'Abyssinia Bar and Restaurant', at: '2026-09-18T06:00:00.000Z', count: 2, rules: ['clientSince'] }] } } });
+  const r = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
+  ok(r._status === 200 && lead(CLIENT).stageHeals.count === 3, `the third heal counts to three (${lead(CLIENT).stageHeals?.count})`);
+  const health = _stores.settings.find(s => s._id === 'health');
+  const recs = health.crons.daily.healedRecords;
+  ok(recs.length === 3 && recs[0].count === 3, `the health list keeps the earlier heal and adds today's two (${recs.length}, newest count ${recs[0]?.count})`);
+  const now = new Date(recs[0].at).getTime() + 3600e3;
+  const items = buildNotifications(_stores.call_leads, { health, now });
+  const heals = items.filter(i => i.kind === 'heal');
+  const abyss = heals.find(i => i.title === 'Abyssinia Bar and Restaurant was restored to Clients' && i.at === new Date(recs[0].at).getTime());
+  ok(abyss && abyss.group === 'system', `the drawer has a System item naming the client (${heals.map(i => i.title).join(' | ')})`);
+  ok(abyss && abyss.tone === 'danger' && /3rd time/.test(abyss.detail) && /upstream/.test(abyss.detail), `more than two heals says something upstream is still wiping it (${abyss?.detail})`);
+  const nibble = heals.find(i => i.title === 'Nibble and Nabble was restored to Clients');
+  ok(nibble && nibble.tone !== 'danger' && !/upstream/.test(nibble.detail), `a first heal is a plain restore (${nibble?.detail})`);
+  ok(new Set(heals.map(i => i.id)).size === heals.length, 'every heal item has its own id (readIds work)');
+  ok(buildNotifications(_stores.call_leads, { health, now: now + 8 * 864e5 }).filter(i => i.kind === 'heal').length === 0, 'heal items leave the drawer after seven days');
+}
+
+section('5d. every path to client stamps clientSince');
+{
+  seed();
+  let r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'client' } } });
+  ok(r._status === 200 && /^\d{4}-\d{2}-\d{2}T/.test(lead(LEAD).clientSince || ''), `an explicit stage change to client stamps clientSince (${lead(LEAD).clientSince})`);
+  const before = lead(WON).clientSince;
+  r = await call(callLeads, 'PATCH', { body: { id: WON, set: { stage: 'client' } } });
+  ok(r._status === 200 && /^\d{4}/.test(lead(WON).clientSince || ''), `won to client with no clientSince gets one (${lead(WON).clientSince}, before ${JSON.stringify(before)})`);
+  r = await call(callLeads, 'PATCH', { body: { id: CLIENT, set: { stage: 'client', notes: 'still here' } } });
+  ok(lead(CLIENT).clientSince === '2026-05-01T00:00:00Z', `an existing clientSince is never overwritten (${lead(CLIENT).clientSince})`);
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'client', clientSince: '2026-02-02T00:00:00Z' } } });
+  ok(lead(LEAD).clientSince === '2026-02-02T00:00:00Z', `a clientSince the caller sends (the Won dialog) wins (${lead(LEAD).clientSince})`);
+  r = await call(callLeads, 'POST', { body: { business: 'Walk In Client', stage: 'client', clientStatus: 'active' } });
+  const walk = _stores.call_leads.find(l => l.business === 'Walk In Client');
+  ok(r._status === 200 && /^\d{4}/.test(walk?.clientSince || ''), `Add client (POST with stage client) stamps clientSince (${walk?.clientSince})`);
+  r = await call(callLeads, 'POST', { body: { business: 'Plain Lead', stage: 'lead' } });
+  ok(!_stores.call_leads.find(l => l.business === 'Plain Lead').clientSince, 'a new lead gets no clientSince');
+  // 1c: the cron backfills the records from before the rule.
+  _stores.call_leads.push({ _id: '507f1f77bcf86cd799439061', business: 'Old Client', stage: 'client', clientSince: '', purchases: [{ label: 'Cards', amount: 200, at: '2026-01-15T00:00:00Z' }], updatedAt: new Date('2026-08-01T00:00:00Z'), socials: {}, callLog: [] });
+  _stores.call_leads.push({ _id: '507f1f77bcf86cd799439062', business: 'Old Won', stage: 'won', updatedAt: new Date('2026-07-01T00:00:00Z'), socials: {}, callLog: [] });
+  r = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
+  ok(_stores.call_leads.find(l => l.business === 'Old Client').clientSince === '2026-01-15T00:00:00.000Z', 'the cron backfills clientSince from the first purchase');
+  ok(_stores.call_leads.find(l => l.business === 'Old Won').clientSince === '2026-07-01T00:00:00.000Z', 'and from updatedAt when there is nothing else');
+  ok(_stores.settings.find(s => s._id === 'health').crons.daily.stamped === 2, `the health document counts the stamps (${_stores.settings.find(s => s._id === 'health').crons.daily.stamped})`);
 }
 
 section('6. normalizeLead turns every crashing shape into the expected one');

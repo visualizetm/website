@@ -7,6 +7,7 @@ import { buildEvents, sameDay } from '../lib/events';
 import { projectsOf, scheduleStatus, localDate, money } from '../lib/projects';
 import { reviewAskDue } from '../lib/reviews';
 import { recentClientActions, postLabel, postDateLabel } from '../lib/posts';
+import { healItems } from '../lib/heals';
 
 const H = 3600e3;
 export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
@@ -86,6 +87,8 @@ export function buildNotifications(leads, opts = {}) {
     if (h.enrichment && stale(h.enrichment.lastScanAt)) { const id = 'health:enrichment'; const sn = snoozed[id]; if (!(sn && new Date(sn).getTime() > now)) items.push({ id, kind: 'health', group: 'system', tone: 'danger', icon: 'AlertTriangle', title: 'The enrichment scan has not run in 36 hours', detail: `${staleMsg(h.enrichment.lastScanAt)} Check the nightly job.`, at: now }); }
     if (h.scraper && stale(h.scraper.lastInsertAt)) { const id = 'health:scraper'; const sn = snoozed[id]; if (!(sn && new Date(sn).getTime() > now)) items.push({ id, kind: 'health', group: 'system', tone: 'danger', icon: 'AlertTriangle', title: 'The scraper has not added a lead in 36 hours', detail: `${staleMsg(h.scraper.lastInsertAt)} Check the nightly job.`, at: now }); }
   }
+  // Stage heals (the daily cron put a client's wiped stage back): named, so it is visible rather than silent.
+  items.push(...healItems(h?.crons?.daily?.healedRecords, leads, snoozed, now));
   // New leads in the last 48 hours.
   for (const l of leads) {
     if (normalizeStage(l) !== 'lead' || !l.createdAt) continue;
