@@ -84,22 +84,23 @@ export function useScrollProgress(ref, {
   return progress;
 }
 
-/** Re-measures every pinned and scrubbed trigger one frame after `dep`
- * changes. Home passes its showcase payload: a pin that measured the
- * page before the CRM's sections had any content in them would hold for
- * the wrong distance once they did. A no-op when no engine is running. */
+/** Re-measures every trigger one frame after `dep` changes, and one frame
+ * after the engine turns on. Home passes its showcase payload: a pin that
+ * measured the page before the CRM's sections had any content in them
+ * would hold for the wrong distance once they did. The engine flip is the
+ * other half of the same race (Site Prompt 9): when the data lands before
+ * the gsap chunk does, every trigger is created in the chunk's own
+ * promise callbacks, before React has re-rendered the components that
+ * switch on with the engine, and the hero's pinned deck then grows the
+ * page by a screen and a half underneath them. This effect runs after
+ * that commit, so the measure sees the page as it will stay. A no-op
+ * while no engine is running. */
 export function useScrollRefresh(dep) {
+  const state = useScrollEngine();
   useEffect(() => {
-    if (!scrollEngineAllowed()) return undefined;
-    let alive = true; let raf = 0;
-    /* Waits for the engine rather than checking whether it is there: the
-     * data can land before the import resolves (a fast API, a slow
-     * network for the chunk), and a refresh skipped then left every
-     * trigger measured against the page before the CRM filled it. */
-    loadScrollEngine().then((eng) => {
-      if (!alive || !eng) return;
-      raf = requestAnimationFrame(() => { if (alive) refreshScrollTriggers(); });
-    });
+    if (!scrollEngineAllowed() || state !== 'on') return undefined;
+    let alive = true;
+    const raf = requestAnimationFrame(() => { if (alive) refreshScrollTriggers(); });
     return () => { alive = false; cancelAnimationFrame(raf); };
-  }, [dep]);
+  }, [dep, state]);
 }

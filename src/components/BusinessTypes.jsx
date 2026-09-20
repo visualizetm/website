@@ -178,6 +178,8 @@ export default function BusinessTypes() {
             opacity: calc(0.55 + 0.45 * var(--card-c, 1));
             transition: none; filter: none;
           }
+          /* A side card sits at scale 0.94; 48px still measures 44 there. */
+          .m-track--h .bt-link { min-height: 48px; }
           .m-track--h .bt-card::before {
             opacity: calc(0.4 * clamp(0, calc((var(--card-c, 1) - 0.7) / 0.3), 1));
             transition: none;
