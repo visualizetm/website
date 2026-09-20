@@ -1,6 +1,6 @@
 import { Building02, ShoppingBag03, Briefcase01, Scissors01, Car01, Brush01 } from '@untitled-ui/icons-react';
 import { useEffect, useRef } from 'react';
-import { Reveal, ScaleIn, TrackScroll, WordReveal } from '../marketing/motion';
+import { Reveal, ScaleIn, Tone, TrackScroll, WordReveal } from '../marketing/motion';
 import { CALENDLY_URL } from '../marketing/links';
 
 /* Site Prompt 6, Part 2.3: the point of the landing page. Six kinds of
@@ -90,7 +90,8 @@ export default function BusinessTypes() {
   }, []);
 
   return (
-    <section className="bt section" id="what-i-do" ref={ref}>
+    <Tone as="section" className="bt section" id="what-i-do" from="var(--bg-elevated)" to="var(--bg)">
+      <div ref={ref} className="bt-body">
       <TrackScroll
         className="bt-track"
         rowClassName="bt-row"
@@ -122,6 +123,7 @@ export default function BusinessTypes() {
           </ScaleIn>
         ))}
       </TrackScroll>
+      </div>
 
       <style>{`
         /* No overflow on this section: TrackScroll holds itself still with
@@ -264,6 +266,6 @@ export default function BusinessTypes() {
           .bt-head { margin-bottom: var(--space-8); }
         }
       `}</style>
-    </section>
+    </Tone>
   );
 }

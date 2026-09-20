@@ -8,8 +8,12 @@
 // (previousElementSibling) and written to directly from the scroll frame:
 // transform and opacity only, both composited, no layout property touched.
 //
-// With no engine the negative margin is not applied, the shadow and radius
-// still read as an edge, and the previous section is never written to.
+// A one pixel brand hairline runs along the curtain's leading edge and
+// fades as it lands (opacity reads --curtain-p), so the edge that is doing
+// the moving is the edge the eye is on.
+//
+// With no engine the transform cancels the margin exactly, the shadow and
+// radius still read as an edge, and the previous section is never written to.
 import { useRef } from 'react';
 import { cx } from './shared';
 import { useScrollEngine, useScrollProgress } from './useScroll';

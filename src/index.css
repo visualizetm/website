@@ -591,6 +591,18 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: var(--m-curtain-shadow);
   will-change: transform;
 }
+/* The hairline on the leading edge: one pixel of brand red following the
+   rounded top, fading out as the curtain lands (opacity only). */
+.m-curtain--active::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid var(--brand);
+  border-radius: inherit;
+  opacity: calc(1 - var(--curtain-p, 0));
+  pointer-events: none;
+  z-index: 3;
+}
 
 /* ScaleIn: one-shot settle on first viewport entry, safe on any page.
    filter is the one animated property in this block that is neither a

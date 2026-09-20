@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stagger, WordReveal } from '../marketing/motion';
+import { Stagger, Tone, WordReveal } from '../marketing/motion';
 import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.6: landing.testimonials (already published, featured,
@@ -7,7 +7,11 @@ import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
  * same cards become a swipeable single-card row (scroll-snap, dot
  * indicators tracking scroll position via IntersectionObserver, no
  * autoplay, since dragging is the only motion here). Hidden when empty. */
-export default function HomeTestimonials({ testimonials }) {
+/* `tone`: true when Recent clients precedes this (its curtain panel is
+ * elevated, so the ground crossfades back to the page here); false when
+ * the CRM has no work and Home wraps this section in that curtain instead,
+ * where it carries the elevated ground itself (Site Prompt 9, Part 4). */
+export default function HomeTestimonials({ testimonials, tone = true }) {
   const items = testimonials || [];
   const trackRef = useRef(null);
   const [active, setActive] = useState(0);
@@ -33,7 +37,7 @@ export default function HomeTestimonials({ testimonials }) {
   };
 
   return (
-    <section className="ht section">
+    <Tone as="section" className="ht section" from="var(--bg-elevated)" to={tone ? 'var(--bg)' : 'var(--bg-elevated)'}>
       <div className="wrap">
         <WordReveal as="h2" className="section-title">What clients say</WordReveal>
         <div className="ht-track" ref={trackRef}>
@@ -91,6 +95,6 @@ export default function HomeTestimonials({ testimonials }) {
         }
       `}</style>
       <style>{testimonialCardStyles}</style>
-    </section>
+    </Tone>
   );
 }

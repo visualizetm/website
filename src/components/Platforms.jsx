@@ -8,7 +8,7 @@ const PLATFORMS = ['Shopify', 'Wix', 'Squarespace', 'Custom code', 'Google Busin
 
 export default function Platforms() {
   return (
-    <Tone as="section" className="pf section" from="var(--bg)" to="var(--bg-elevated)">
+    <Tone as="section" className="pf section" from="var(--bg-elevated)" to="var(--bg)">
       <div className="wrap">
         <Reveal as="h2" className="section-title">Built on whatever you will actually use.</Reveal>
         <Reveal as="p" className="pf-copy" delay={80}>

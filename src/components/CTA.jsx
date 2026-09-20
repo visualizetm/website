@@ -1,4 +1,4 @@
-import { Reveal } from '../marketing/motion';
+import { Reveal, Tone } from '../marketing/motion';
 import Wordmark from './Wordmark';
 import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '../marketing/links';
 
@@ -8,7 +8,7 @@ import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '..
  * is rendered by App.jsx, not here. */
 export default function CTA() {
   return (
-    <section className="cta section">
+    <Tone as="section" className="cta section" from="var(--bg-elevated)" to="var(--bg)">
       <Reveal as="div" className="wrap cta-inner">
         <Wordmark size={28} className="cta-wordmark" />
         <h2 className="cta-title">Your vision, our creation.</h2>
@@ -19,11 +19,10 @@ export default function CTA() {
         </div>
       </Reveal>
       <style>{`
-        .cta {
-          position: relative;
-          background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg) 100%);
-          border-top: 1px solid var(--border);
-        }
+        /* Site Prompt 9, Part 4: the ground is the Tone's crossfade now,
+           scrubbed as the section comes up, in place of a static gradient
+           and a rule. */
+        .cta { position: relative; }
         .cta-inner {
           text-align: center; display: flex; flex-direction: column;
           align-items: center; gap: var(--space-5);
@@ -41,6 +40,6 @@ export default function CTA() {
         }
         .cta-link:hover { color: var(--text); }
       `}</style>
-    </section>
+    </Tone>
   );
 }

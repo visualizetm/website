@@ -62,29 +62,57 @@ export default function Home() {
     <>
       <Hero items={data ? deck : null} />
 
+      {/* Site Prompt 9, Part 4: every boundary is a Curtain or a Tone
+          shift, alternating, so the page reads as one continuous scroll.
+          In order: hero -> Trust (Curtain, the deck's last cover hands
+          straight into it), Trust -> Business types (Tone, elevated to
+          ground), Business types -> Packages (Curtain, elevated panel),
+          Packages -> Platforms (Tone, back to ground), Platforms ->
+          Recent clients (Curtain, elevated), Recent clients ->
+          Testimonials (Tone, back to ground), Testimonials -> How it
+          works (Curtain, elevated), How it works -> CTA (Tone, back to
+          ground). With no published work the Recent clients curtain is
+          not rendered and Testimonials takes that curtain instead. */}
       <Curtain className="home-panel">
         <Trust clients={clients} />
         <BusinessTypes />
       </Curtain>
 
-      <Packages />
+      <Curtain className="home-panel home-panel--elevated">
+        <Packages />
+      </Curtain>
 
       <Platforms />
 
-      {work.length > 0 && (
-        <Curtain className="home-panel">
-          <RecentClients work={work} />
+      {work.length > 0 ? (
+        <>
+          <Curtain className="home-panel home-panel--elevated">
+            <RecentClients work={work} />
+          </Curtain>
+          <HomeTestimonials testimonials={landing.testimonials} />
+        </>
+      ) : (
+        <Curtain className="home-panel home-panel--elevated">
+          <HomeTestimonials testimonials={landing.testimonials} tone={false} />
         </Curtain>
       )}
 
-      <HomeTestimonials testimonials={landing.testimonials} />
-      <HowItWorks />
+      <Curtain className="home-panel home-panel--elevated">
+        <HowItWorks />
+      </Curtain>
+
       <CTA />
 
       <style>{`
-        /* Both Curtains cover the section above them, so they carry the
-           page ground themselves rather than letting it show through. */
+        /* Every Curtain covers the section above it, so it carries its
+           own ground rather than letting the page show through: the page
+           ground, or the elevated one where the boundary before it is a
+           Tone back down to the page ground. */
         .home-panel { background: var(--bg); }
+        .home-panel--elevated { background: var(--bg-elevated); }
+        /* A panel's own top edge is the curtain's rounded edge and its
+           hairline; a second rule there would double it. */
+        .home-panel .section-elevated { border-top: 0; }
       `}</style>
     </>
   );

@@ -16,6 +16,13 @@ const MAX_CARDS_PHONE = 4;
 const VH_PER_CARD = 0.8;
 const VH_PER_CARD_PHONE = 0.5;
 const PHONE_QUERY = '(max-width: 767px)';
+/* The deck runs count minus one turns over the hold (Site Prompt 9, Part
+ * 4): the last cover finishes rising into place at the exact end of the
+ * hold, which is the moment the next section's Curtain edge enters the
+ * viewport, so the cover lands and the curtain rises with no stretch
+ * between where the deck sits finished and nothing moves. --k is the turn
+ * rate the CSS reads in place of the card count. */
+const turnRate = (count) => (count > 1 ? count - 1 : 1);
 
 /* Site Prompt 7, Part 1: the hero is a deck of every showcased cover, and
  * scrolling flips through it.
@@ -107,13 +114,14 @@ function HeroStack({ deck, rest, copy, vhPerCard }) {
   const rootRef = useRef(null);
   const [active, setActive] = useState(0);
   const count = deck.length;
+  const k = turnRate(count);
 
   // Pin calls this every scroll frame; setState only when the card in
   // place actually changes, so this costs at most `count` renders.
   const onProgress = useCallback((p) => {
-    const i = Math.max(0, Math.min(count - 1, Math.round(p * count)));
+    const i = Math.max(0, Math.min(count - 1, Math.round(p * k)));
     setActive(prev => (prev === i ? prev : i));
-  }, [count]);
+  }, [count, k]);
 
   /* A dot scrolls to the point where its card is exactly in place, which
    * is --pin-p = index / count, measured from layout offsets rather than
@@ -122,7 +130,7 @@ function HeroStack({ deck, rest, copy, vhPerCard }) {
   const goTo = (i) => {
     const section = rootRef.current?.closest('.m-pin');
     if (!section) return;
-    let top = i * vhPerCard * window.innerHeight;
+    let top = (i / k) * count * vhPerCard * window.innerHeight;
     for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
     const eng = getScrollEngine();
     if (eng?.lenis) eng.lenis.scrollTo(top);
@@ -138,7 +146,7 @@ function HeroStack({ deck, rest, copy, vhPerCard }) {
     >
       {copy}
       <div className="hero-deck-wrap">
-        <div className="hero-deck" style={{ '--n': count }}>
+        <div className="hero-deck" style={{ '--n': count, '--k': k.toFixed(4) }}>
           {deck.map((item, i) => (
             <HeroCard key={item.slug || i} item={item} index={i} count={count} priority={i === 0} last={i === count - 1} />
           ))}
@@ -270,7 +278,7 @@ const heroStyles = `
     overflow: hidden;
     box-shadow: var(--shadow-chrome-strong);
     z-index: calc(var(--n) - var(--i));
-    --u: calc(var(--pin-p, 0) * var(--n) - var(--i));
+    --u: calc(var(--pin-p, 0) * var(--k, var(--n)) - var(--i));
     --t: clamp(0, var(--u), 1);
     --r: clamp(0, calc(var(--u) + 1), 1);
     transform:

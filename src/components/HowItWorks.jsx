@@ -1,4 +1,4 @@
-import { Counter, Pin, Reveal, useMediaQuery } from '../marketing/motion';
+import { Counter, Reveal } from '../marketing/motion';
 
 const STEPS = [
   { n: 1, title: 'A free call', desc: 'Twenty minutes to talk through what you need. No pitch, no pressure.' },
@@ -16,14 +16,14 @@ const STEPS = [
  * Without the engine the three steps are a plain stack, numbers already
  * counted, which is what reduced motion gets.
  *
- * Site Prompt 8, check 3: and that is what a phone gets too. Three holds
- * of four tenths of a viewport each came to four and a half screens of
- * scrolling for three short sentences, which on a phone is the single
- * worst "it will not let me scroll" stretch on the page. The beat is
- * worth having on a desktop, where the scroll is cheap; on a phone the
- * steps are just a stack. */
+ * Site Prompt 8, check 3 took the holds off the phone: three of them came
+ * to four and a half screens of scrolling for three short sentences.
+ * Site Prompt 9, Part 4 took them off the desktop as well: one line of
+ * text held in the middle of a full viewport left that viewport 45
+ * percent empty, and the page's rule is now that no scroll position may
+ * be more than 30 percent empty. The beat is the Reveal's own stagger
+ * (each step a beat after the last) and the number counting in. */
 export default function HowItWorks() {
-  const phone = useMediaQuery('(max-width: 767px)');
   const Step = ({ step }) => (
     <div className="hiw-step">
       <Counter as="span" className="hiw-n display" value={step.n} format={(v) => `0${Math.round(v)}`} />
@@ -37,24 +37,15 @@ export default function HowItWorks() {
     <section className="hiw section section-elevated">
       <div className="wrap">
         <Reveal as="h2" className="section-title">How it works</Reveal>
-        {STEPS.map(s => (phone
-          ? <Reveal key={s.n} as="div" className="hiw-plain"><Step step={s} /></Reveal>
-          : (
-            <Pin key={s.n} height={0.4} as="div" className="hiw-pin" innerClassName="hiw-inner">
-              <Step step={s} />
-            </Pin>
-          )
+        {STEPS.map((s, i) => (
+          <Reveal key={s.n} as="div" className="hiw-plain" delay={i * 90} threshold={0.3}><Step step={s} /></Reveal>
         ))}
       </div>
       <style>{`
-        .hiw-pin { position: relative; }
         .hiw-plain { padding: var(--space-2) 0; }
-        .hiw-inner { justify-content: center; }
         .hiw-step {
           display: flex; align-items: baseline; gap: var(--space-6);
-          padding: var(--space-8) 0;
-          opacity: clamp(0.6, calc(1.25 - var(--pin-p, 0) * 0.65), 1);
-          transform: translate3d(0, calc(var(--pin-p, 0) * -24px), 0);
+          padding: var(--space-6) 0;
         }
         @media (max-width: 700px) {
           .hiw-step { flex-direction: column; align-items: flex-start; gap: var(--space-3); }

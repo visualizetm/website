@@ -26,7 +26,11 @@ export function Tone({
 
   useScrollProgress(ref, {
     start: 'top bottom',
-    end: 'top 40%',
+    /* Site Prompt 9, Part 4: the crossfade runs from the section's first
+     * pixel entering to its top nearly reaching the top of the viewport,
+     * so the ground changes across the whole boundary rather than in the
+     * last third of it. */
+    end: 'top 12%',
     cssVar: '--tone-p',
   });
 
