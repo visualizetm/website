@@ -1,6 +1,6 @@
 import { Building02, ShoppingBag03, Briefcase01, Scissors01, Car01, Brush01 } from '@untitled-ui/icons-react';
-import { useEffect, useRef } from 'react';
-import { Reveal, ScaleIn, Tone, TrackScroll, WordReveal } from '../marketing/motion';
+import { useRef } from 'react';
+import { Reveal, ScaleIn, Tone, TrackScroll, WordReveal, useNearestCenter } from '../marketing/motion';
 import { CALENDLY_URL } from '../marketing/links';
 
 /* Site Prompt 6, Part 2.3: the point of the landing page. Six kinds of
@@ -56,38 +56,9 @@ const TYPES = [
 export default function BusinessTypes() {
   const ref = useRef(null);
 
-  /* The phone stack's sense of focus (Site Prompt 9): with nothing pinned,
-   * the card nearest the vertical centre of the screen carries the red
-   * inset outline, re-decided on scroll. One passive listener, one rAF,
-   * six rects, and only while the section is the stack (the held track
-   * decides its own centre from --card-c). Reduced motion keeps this: it
-   * is a class flip, and the sitewide rule collapses the fade. */
-  useEffect(() => {
-    const section = ref.current;
-    if (!section) return undefined;
-    let raf = 0; let current = null;
-    const pick = () => {
-      raf = 0;
-      if (section.querySelector('.m-track--h')) return;
-      const mid = window.innerHeight / 2;
-      let best = null; let bestD = Infinity;
-      for (const card of section.querySelectorAll('.bt-card')) {
-        const r = card.getBoundingClientRect();
-        if (r.bottom < 0 || r.top > window.innerHeight) continue;
-        const d = Math.abs((r.top + r.bottom) / 2 - mid);
-        if (d < bestD) { bestD = d; best = card; }
-      }
-      if (best === current) return;
-      current?.removeAttribute('data-center');
-      best?.setAttribute('data-center', '');
-      current = best;
-    };
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(pick); };
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll, { passive: true });
-    onScroll();
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); if (raf) cancelAnimationFrame(raf); };
-  }, []);
+  // The phone stack's sense of focus: the card nearest the centre of the
+  // screen carries the outline; the held track decides its own centre.
+  useNearestCenter(ref, '.bt-card', '.m-track--h');
 
   return (
     <Tone as="section" className="bt section" id="what-i-do" from="var(--bg-elevated)" to="var(--bg)">

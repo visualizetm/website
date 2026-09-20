@@ -18,4 +18,4 @@ export { WordReveal } from './WordReveal';
 export { TrackScroll } from './TrackScroll';
 export { Tone } from './Tone';
 export { useScrollProgress, useScrollEngine, useScrollRefresh } from './useScroll';
-export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
+export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, useNearestCenter, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
