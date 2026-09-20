@@ -1,5 +1,6 @@
 import { Building02, ShoppingBag03, Briefcase01, Scissors01, Car01, Brush01 } from '@untitled-ui/icons-react';
-import { Reveal, TrackScroll, WordReveal } from '../marketing/motion';
+import { useEffect, useRef } from 'react';
+import { Reveal, ScaleIn, TrackScroll, WordReveal } from '../marketing/motion';
 import { CALENDLY_URL } from '../marketing/links';
 
 /* Site Prompt 6, Part 2.3: the point of the landing page. Six kinds of
@@ -7,9 +8,12 @@ import { CALENDLY_URL } from '../marketing/links';
  * Rob does about it. No prices anywhere: the answer to "how much" is the
  * free call, which is what every card links to.
  *
- * TrackScroll moves the row sideways while the section is pinned on a
- * desktop with a fine pointer, and is a plain vertical stack of the same
- * six cards everywhere else, including under reduced motion. */
+ * TrackScroll moves the row sideways while the section is held on a
+ * desktop with a fine pointer, one card reaching the centre at a time
+ * (Site Prompt 9: scale, opacity, the outline and the bullet reveal all
+ * read the card's closeness to the centre), and is a plain vertical stack
+ * of the same six cards everywhere else, including under reduced motion,
+ * where the card nearest the centre of the screen carries the outline. */
 const TYPES = [
   {
     icon: Building02,
@@ -50,11 +54,48 @@ const TYPES = [
 ];
 
 export default function BusinessTypes() {
+  const ref = useRef(null);
+
+  /* The phone stack's sense of focus (Site Prompt 9): with nothing pinned,
+   * the card nearest the vertical centre of the screen carries the red
+   * inset outline, re-decided on scroll. One passive listener, one rAF,
+   * six rects, and only while the section is the stack (the held track
+   * decides its own centre from --card-c). Reduced motion keeps this: it
+   * is a class flip, and the sitewide rule collapses the fade. */
+  useEffect(() => {
+    const section = ref.current;
+    if (!section) return undefined;
+    let raf = 0; let current = null;
+    const pick = () => {
+      raf = 0;
+      if (section.querySelector('.m-track--h')) return;
+      const mid = window.innerHeight / 2;
+      let best = null; let bestD = Infinity;
+      for (const card of section.querySelectorAll('.bt-card')) {
+        const r = card.getBoundingClientRect();
+        if (r.bottom < 0 || r.top > window.innerHeight) continue;
+        const d = Math.abs((r.top + r.bottom) / 2 - mid);
+        if (d < bestD) { bestD = d; best = card; }
+      }
+      if (best === current) return;
+      current?.removeAttribute('data-center');
+      best?.setAttribute('data-center', '');
+      current = best;
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(pick); };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    onScroll();
+    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+
   return (
-    <section className="bt section" id="what-i-do">
+    <section className="bt section" id="what-i-do" ref={ref}>
       <TrackScroll
         className="bt-track"
         rowClassName="bt-row"
+        segments={TYPES.map(t => t.type)}
+        progressLabel="Kinds of business"
         head={(
           <div className="wrap bt-head">
             <WordReveal as="h2" className="section-title">What I do for your kind of business</WordReveal>
@@ -65,18 +106,20 @@ export default function BusinessTypes() {
         )}
       >
         {TYPES.map(({ icon: Icon, type, needs, does }) => (
-          <article className="bt-card" key={type}>
+          <ScaleIn as="article" soft threshold={0.4} className="bt-card" key={type}>
             <span className="bt-icon" aria-hidden="true"><Icon width={22} height={22} /></span>
             <h3 className="bt-type">{type}</h3>
             <ul className="bt-needs">
-              {needs.map(n => <li key={n}>{n}</li>)}
+              {needs.map((n, i) => <li key={n} style={{ '--li-i': i }}>{n}</li>)}
             </ul>
-            <p className="bt-does">{does}</p>
-            <a href={CALENDLY_URL} className="bt-link" target="_blank" rel="noreferrer">
+            <p className="bt-does" style={{ '--li-i': needs.length }}>{does}</p>
+            {/* The one real control per card, stretched over the whole card
+                (the ::after below), so the card is tappable in full. */}
+            <a href={CALENDLY_URL} className="bt-link" style={{ '--li-i': needs.length + 1 }} target="_blank" rel="noreferrer">
               Book a free call
               <span className="visually-hidden"> about {type.toLowerCase()}</span>
             </a>
-          </article>
+          </ScaleIn>
         ))}
       </TrackScroll>
 
@@ -95,23 +138,76 @@ export default function BusinessTypes() {
         }
 
         .bt-row { padding: 0 var(--space-6); }
+        /* Padded so the first and the last card can both sit at the
+           centre: the row starts with card one centred and ends with
+           card six centred, and every card between reaches it in turn. */
         @media (min-width: 861px) and (pointer: fine) {
-          .m-track--h .bt-row { padding: 0 var(--space-10); }
+          .m-track--h .bt-row { padding: 0 calc(50% - 170px); gap: var(--space-6); }
         }
 
         .bt-card {
+          position: relative;
           display: flex; flex-direction: column; gap: var(--space-3);
           background: var(--bg-card); border: 1px solid var(--border);
           border-radius: var(--radius-lg); padding: var(--space-6);
         }
-        @media (min-width: 861px) and (pointer: fine) {
-          .m-track--h .bt-card { width: 340px; flex: 0 0 340px; }
+        /* The inset outline: brand red, one pixel, at 40 percent when the
+           card is the one in focus. An opacity on a pseudo element, never
+           a border that would move layout. */
+        .bt-card::before {
+          content: ''; position: absolute; inset: 0; border-radius: inherit;
+          box-shadow: inset 0 0 0 1px var(--brand);
+          opacity: 0; pointer-events: none;
+          transition: opacity var(--m-dur) var(--m-ease);
         }
+        .bt-card[data-center]::before { opacity: 0.4; }
+
+        /* ── The held track (desktop, engine on) ──
+           Everything below reads --card-c, the card's closeness to the
+           centre that TrackScroll writes every frame: 1 at the centre,
+           0 one card away. Scale and opacity on the card, the outline,
+           then the bullets one after another as the card arrives, the
+           closing line and the link last. All scrubbed, so scrolling back
+           plays it in reverse. The fallbacks are the resting state. */
+        @media (min-width: 861px) and (pointer: fine) {
+          .m-track--h .bt-card {
+            width: 340px; flex: 0 0 340px;
+            transform: scale(calc(0.94 + 0.06 * var(--card-c, 1)));
+            opacity: calc(0.55 + 0.45 * var(--card-c, 1));
+            transition: none; filter: none;
+          }
+          .m-track--h .bt-card::before {
+            opacity: calc(0.4 * clamp(0, calc((var(--card-c, 1) - 0.7) / 0.3), 1));
+            transition: none;
+          }
+          .m-track--h .bt-needs li,
+          .m-track--h .bt-does,
+          .m-track--h .bt-link {
+            --lp: clamp(0, calc((var(--card-c, 1) - 0.4 - var(--li-i, 0) * 0.07) / 0.2), 1);
+            opacity: var(--lp);
+            transform: translate3d(0, calc((1 - var(--lp)) * 8px), 0);
+            transition: none;
+          }
+        }
+        /* The icon tile pulses its tint once as the card lands: an overlay
+           whose opacity rises and falls, run once per landing. */
         .bt-icon {
+          position: relative; overflow: hidden;
           display: inline-flex; align-items: center; justify-content: center;
           width: 44px; height: 44px; border-radius: var(--radius);
           background: var(--glass-bg-brand); color: var(--brand-text);
         }
+        .bt-icon::after {
+          content: ''; position: absolute; inset: 0; border-radius: inherit;
+          background: var(--brand); opacity: 0; pointer-events: none;
+        }
+        .bt-card[data-landed] .bt-icon::after { animation: bt-pulse 1.4s var(--m-ease) 1; }
+        @keyframes bt-pulse {
+          0% { opacity: 0; }
+          30% { opacity: 0.35; }
+          100% { opacity: 0; }
+        }
+
         .bt-type { font-size: 1.1875rem; font-weight: 700; color: var(--text); }
         .bt-needs { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); }
         .bt-needs li {
@@ -131,7 +227,29 @@ export default function BusinessTypes() {
           min-height: 44px; font-size: 0.9375rem; font-weight: 600;
           color: var(--brand-text);
         }
+        .bt-link::after { content: ''; position: absolute; inset: 0; }
         .bt-link:hover { text-decoration: underline; }
+        .bt-link:focus-visible { outline: none; }
+        .bt-card:has(.bt-link:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+        /* ── The stack (phones, touch, reduced motion, no engine) ──
+           Each card settles from 0.97 as it enters (ScaleIn, soft), and
+           once it is 40 percent visible its bullets rise in 50ms apart,
+           the closing line and the link after them. Reduced motion marks
+           every card in on the first frame and the sitewide rule collapses
+           the transitions, so nothing is hidden and nothing moves. */
+        .m-track:not(.m-track--h) .bt-card .bt-needs li,
+        .m-track:not(.m-track--h) .bt-card .bt-does,
+        .m-track:not(.m-track--h) .bt-card .bt-link {
+          opacity: 0; transform: translate3d(0, 8px, 0);
+          transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
+          transition-delay: calc(var(--li-i, 0) * 50ms + 100ms);
+        }
+        .m-track:not(.m-track--h) .bt-card.m-scalein--in .bt-needs li,
+        .m-track:not(.m-track--h) .bt-card.m-scalein--in .bt-does,
+        .m-track:not(.m-track--h) .bt-card.m-scalein--in .bt-link {
+          opacity: 1; transform: none;
+        }
 
         /* Six cards stacked is the longest run of real content on a phone
            (Site Prompt 8): tighter padding and gaps take it from 2.6

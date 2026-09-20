@@ -5,6 +5,8 @@
 // IntersectionObserver Reveal uses, which is why it is safe on every page,
 // not just Home.
 //
+// `soft` is the card variant: from 0.97 and no blur (text must never blur).
+//
 // Under reduced motion useRevealOnce reports "already in view" on the first
 // render, so the final state paints immediately with no transition.
 import { cx, useMotionPreference, useRevealOnce } from './shared';
@@ -12,6 +14,7 @@ import { cx, useMotionPreference, useRevealOnce } from './shared';
 export function ScaleIn({
   as: Tag = 'div',
   delay = 0,
+  soft = false,
   threshold = 0.15,
   rootMargin = '0px',
   className = '',
@@ -29,7 +32,7 @@ export function ScaleIn({
   return (
     <Tag
       ref={ref}
-      className={cx('m-scalein', visible && 'm-scalein--in', className)}
+      className={cx('m-scalein', soft && 'm-scalein--soft', visible && 'm-scalein--in', className)}
       style={mergedStyle}
       {...rest}
     >

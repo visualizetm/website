@@ -608,6 +608,15 @@ h1, h2, h3, h4, h5, h6 {
   transform: none;
   filter: blur(0);
 }
+/* The card variant: a settle from slightly under size, no blur. Cards
+   carry text, and a blurred line of text reads as a rendering fault. */
+.m-scalein--soft {
+  transform: scale(0.97);
+  filter: none;
+}
+.m-scalein--soft.m-scalein--in {
+  transform: none;
+}
 
 /* WordReveal: one clipping span per word so a word rises out from behind
    its own line. The padding/margin pair keeps descenders (g, y, p) from
@@ -679,6 +688,58 @@ h1, h2, h3, h4, h5, h6 {
   align-items: stretch;
   transform: translate3d(calc(var(--track-p, 0) * var(--track-d, 0px) * -1), 0, 0);
   will-change: transform;
+}
+/* The progress strip under the row (Site Prompt 9): one segment per
+   card, each a 44px button holding a 3px bar whose fill is that card's
+   own closeness to the centre, so the active segment fills as its card
+   holds. Only exists where the row moves; the stack has no track to
+   mark. Fill is a scaleX, colour is a token. */
+.m-track-progress {
+  display: none;
+}
+.m-track--h .m-track-progress {
+  display: flex;
+  gap: var(--space-2);
+  width: min(100% - 2 * var(--space-6), 520px);
+  margin: 0 auto;
+  flex: 0 0 auto;
+}
+.m-track-seg {
+  flex: 1 1 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.m-track-seg::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.m-track-seg-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--brand);
+  transform: scaleX(var(--seg-p, 0));
+  transform-origin: left center;
+  pointer-events: none;
+}
+.m-track-seg {
+  position: relative;
+}
+.m-track-seg:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 /* Tone: a section's ground crossfades to --tone-to as it comes up the
    page. Crossfading two filled layers is compositor work; animating
