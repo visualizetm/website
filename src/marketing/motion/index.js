@@ -19,3 +19,5 @@ export { TrackScroll } from './TrackScroll';
 export { Tone } from './Tone';
 export { useScrollProgress, useScrollEngine, useScrollRefresh } from './useScroll';
 export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, useNearestCenter, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
+// Site Prompt 11: the one primitive Home is built on. See docs/SCENE-ENGINE.md.
+export { Scene, REVEAL_SPAN } from './Scene';

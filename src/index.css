@@ -95,6 +95,9 @@
      never changes mid-scroll. ScrollRoot overwrites this with a pixel
      value from innerHeight on browsers too old to know svh. */
   --svh: 1vh;
+  /* The sticky navbar's height: what a pinned stage keeps clear at its
+     top (Site Prompt 11). 52px pill plus 16px padding each side. */
+  --nav-h: 84px;
 
   /* Marketing motion primitives (src/marketing/motion, docs/MARKETING-MOTION.md) */
   --m-dur: 600ms;
@@ -231,6 +234,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
+  :root { --nav-h: 72px; }
   .wrap {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
@@ -775,6 +779,131 @@ h1, h2, h3, h4, h5, h6 {
 .m-tone > :not(.m-tone-layer) {
   position: relative;
   z-index: 1;
+}
+
+/* ── Scene (Site Prompt 11, src/marketing/motion/Scene.jsx) ──────────
+   One primitive. The root is the pin spacer and the stage is the sticky
+   panel, both sized by the same two numbers (--scene-steps and
+   --scene-d), so they cannot disagree. --scene-p is written by the
+   engine (0 to steps); --sr is each data-step child's own reveal, 0 to 1,
+   registered so it computes to a number the audit can read. Every
+   fallback is the resting state: no engine, no pin, everything shown. */
+@property --sr {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 1;
+}
+.m-scene {
+  position: relative;
+}
+.m-scene--pinned {
+  height: calc((1 + var(--scene-steps, 0) * var(--scene-d, 0.7)) * 100 * var(--svh));
+}
+.m-scene-stage {
+  position: relative;
+  background: var(--bg);
+}
+.m-scene--tone-b .m-scene-stage {
+  background: var(--bg-elevated);
+}
+/* The one boundary ornament: a brand hairline on the stage's top edge. */
+.m-scene-stage::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--brand);
+  opacity: 0.7;
+  pointer-events: none;
+}
+.m-scene--pinned .m-scene-stage {
+  position: sticky;
+  top: 0;
+  height: calc(100 * var(--svh));
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--nav-h) + var(--space-3)) 0 var(--space-4);
+  /* clip, never hidden: hidden makes the stage a scroll container that
+     touch scrolling can get caught inside (Site Prompt 8). */
+  overflow: clip;
+}
+.m-scene--pinned .m-scene-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* safe: content taller than the stage overflows downward, never up
+     under the navbar. The audit fails a stage whose content does not
+     fit, so this is the guard for the frame before the fix, not a
+     licence to overfill. */
+  justify-content: safe center;
+}
+/* The reveal: --sr runs 0 to 1 over the first 0.35 of the child's step
+   and holds at 1 for the rest of the scene. A data-step="0" child is
+   revealed with the stage. Reduced motion never sees these rules. */
+.m-scene--pinned [data-step] {
+  --sr: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 1) / 0.35), 1);
+}
+.m-scene--pinned [data-step]:not([data-reveal="custom"]) {
+  opacity: var(--sr);
+  transform: translate3d(0, calc((1 - var(--sr)) * 16px), 0);
+}
+/* Not pinned: reveal on entering the viewport, in data-step order. */
+.m-scene--flow [data-step] {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
+  transition-delay: calc(max(0, var(--step, 1) - 1) * var(--m-stagger));
+}
+.m-scene--flow [data-step][data-in] {
+  opacity: 1;
+  transform: none;
+}
+/* The step indicator: one 44px button per step, its 3px bar filling as
+   that step runs. */
+.m-scene-steps {
+  flex: 0 0 auto;
+  display: flex;
+  gap: var(--space-2);
+  width: min(100% - 2 * var(--space-6), 520px);
+  margin: var(--space-3) auto 0;
+}
+.m-scene-seg {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.m-scene-seg::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.m-scene-seg-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--brand);
+  transform: scaleX(clamp(0, calc(var(--scene-p, 0) - var(--seg-i, 1) + 1), 1));
+  transform-origin: left center;
+  pointer-events: none;
+}
+.m-scene-seg:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: var(--radius);
 }
 
 /* ── Maintenance screen (VITE_MAINTENANCE_MODE) ───────────────────────
