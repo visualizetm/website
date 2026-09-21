@@ -708,6 +708,11 @@ h1, h2, h3, h4, h5, h6 {
 .m-scene--pinned [data-step]:not([data-reveal="custom"]) {
   opacity: var(--sr);
   transform: translate3d(0, calc((1 - var(--sr)) * 16px), 0);
+  /* Without this, WebKit on a real phone was caught compositing two
+     paints of the same text at once (a doubled "Book a free call") while
+     opacity and transform both changed every scroll frame with nothing
+     promoting the element to its own layer first. */
+  will-change: opacity, transform;
 }
 /* Not pinned: reveal on entering the viewport, in data-step order. */
 .m-scene--flow [data-step] {
