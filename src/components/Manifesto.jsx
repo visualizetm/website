@@ -27,11 +27,16 @@ export default function Manifesto({ tone = 'b' }) {
         .mf-col { display: flex; flex-direction: column; gap: clamp(8px, 1.8vh, 24px); }
         .mf-title { font-size: clamp(1.7rem, max(3.6vw, 4.6vh), 3rem); line-height: 1.05; max-width: 18ch; }
         .mf-list { list-style: none; display: flex; flex-direction: column; }
+        /* The numeral column is sized by the numeral's own face, never by
+           ch of the row's body font: 2.6ch of Inter at 16px was 23px, and
+           "01" in the display face at 25px wrapped into "0" over "1" on a
+           phone (Site Prompt 12, bug 2). auto plus a nowrap numeral with
+           a two digit minimum in its own em fits "04" at every width. */
         .mf-line {
-          display: grid; grid-template-columns: 2.6ch 1fr; gap: var(--space-4); align-items: start;
+          display: grid; grid-template-columns: auto 1fr; gap: var(--space-4); align-items: start;
           padding: clamp(8px, 1.6vh, 18px) 0; border-top: 1px solid var(--border);
         }
-        .mf-n { font-size: clamp(1.2rem, 3.2vh, 2rem); line-height: 1.2; color: var(--brand-text); }
+        .mf-n { font-size: clamp(1.2rem, 3.2vh, 2rem); line-height: 1.2; color: var(--brand-text); white-space: nowrap; min-width: 2.2ch; font-variant-numeric: tabular-nums; }
         .mf-line p { font-size: clamp(1rem, 2.5vh, 1.85rem); line-height: 1.38; color: var(--text); max-width: 40ch; }
       `}</style>
     </Scene>
