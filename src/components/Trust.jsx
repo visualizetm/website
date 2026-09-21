@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Marquee, Tone } from '../marketing/motion';
+import { Marquee } from '../marketing/motion';
 import { capImageWidth, IMG_W } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.2, restaged by Site Prompt 6, Part 2.2: the logo
@@ -17,7 +17,7 @@ export default function Trust({ clients }) {
   if (!strip.length) return null;
 
   return (
-    <Tone as="section" className="trust" from="var(--bg)" to="var(--bg-elevated)">
+    <section className="trust" aria-label="Trusted by local businesses">
       <p className="trust-label">Trusted by local businesses</p>
       <Marquee duration={36}>
         {strip.map((c) => {
@@ -36,7 +36,9 @@ export default function Trust({ clients }) {
         })}
       </Marquee>
       <style>{`
-        .trust { padding: var(--space-10) 0; }
+        /* A thin band between the hero and the manifesto (Site Prompt 11), not
+           pinned, hidden when empty. */
+        .trust { padding: clamp(20px, 3.5vh, 40px) 0; background: var(--bg); border-top: 1px solid var(--border); }
         .trust-label {
           font-size: 0.8125rem; font-weight: 600; text-transform: uppercase;
           letter-spacing: 0.1em; color: var(--text-muted);
@@ -52,6 +54,6 @@ export default function Trust({ clients }) {
         .trust-logo-box { width: 140px; height: 56px; }
         .trust-logo-fallback { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); white-space: nowrap; }
       `}</style>
-    </Tone>
+    </section>
   );
 }

@@ -1,38 +1,39 @@
 import { Link } from 'react-router-dom';
-import { Reveal, Stagger, WordReveal } from '../marketing/motion';
+import { Scene } from '../marketing/motion';
 import { ClientCard, workStyles } from '../pages/Clients';
 
-/* Site Prompt 4, Part 1.4: three cards from landing.work (already ordered
- * by the endpoint, featured.order then updatedAt). Hidden when empty.
- * Site Prompt 6, Part 2.5: the covers drift with Parallax, and Home wraps
- * this section in a Curtain so it arrives over the platforms section. */
-export default function RecentClients({ work }) {
+/* Scene 5, recent clients (Site Prompt 11): not pinned. The heading and
+ * the All clients link, then the three cards from the CRM, each revealing
+ * as it enters in step order. Hidden entirely when there is no work. */
+export default function RecentClients({ work, tone = 'a' }) {
   const items = (work || []).slice(0, 3);
   if (!items.length) return null;
-
   return (
-    <section className="rc section">
-      <div className="wrap">
-        <Reveal as="div" className="rc-head">
-          <WordReveal as="h2" className="section-title">Recent clients</WordReveal>
+    <Scene steps={0} tone={tone} label="Recent clients" className="rc">
+      <div className="wrap rc-col">
+        <div data-step="1" className="rc-head">
+          <h2 className="section-title">Recent clients</h2>
           <Link to="/clients" className="btn btn-secondary">All clients</Link>
-        </Reveal>
-        <Stagger className="rc-grid">
-          {items.map(c => <ClientCard key={c.slug} client={c} parallax />)}
-        </Stagger>
+        </div>
+        <div className="rc-grid">
+          {items.map((c, i) => <div key={c.slug} data-step={i + 2}><ClientCard client={c} parallax /></div>)}
+        </div>
       </div>
       <style>{`
-        .rc-head {
-          display: flex; align-items: center; justify-content: space-between;
-          flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-10);
+        .rc .m-scene-body { padding: clamp(28px, 6vh, 64px) 0; }
+        .rc-col { display: flex; flex-direction: column; gap: var(--space-6); }
+        .rc-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+        .rc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+        /* Phones: the three cards side by side in a snap row (one card
+           wide, the next peeking) rather than a stack of three screens,
+           which is what keeps Home inside its length budget. */
+        @media (max-width: 900px) {
+          .rc-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: var(--space-3); margin: 0 calc(-1 * var(--space-4)); padding: 0 var(--space-4) var(--space-2); scrollbar-width: none; }
+          .rc-grid::-webkit-scrollbar { display: none; }
+          .rc-grid > * { flex: 0 0 min(82%, 340px); scroll-snap-align: center; }
         }
-        .rc-grid {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5);
-        }
-        @media (max-width: 900px) { .rc-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 600px) { .rc-grid { grid-template-columns: 1fr; } }
+        ${workStyles}
       `}</style>
-      <style>{workStyles}</style>
-    </section>
+    </Scene>
   );
 }

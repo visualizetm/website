@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Stagger, Tone, WordReveal } from '../marketing/motion';
+import { Scene } from '../marketing/motion';
 import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 
 /* Site Prompt 4, Part 1.6: landing.testimonials (already published, featured,
@@ -7,11 +7,9 @@ import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
  * same cards become a swipeable single-card row (scroll-snap, dot
  * indicators tracking scroll position via IntersectionObserver, no
  * autoplay, since dragging is the only motion here). Hidden when empty. */
-/* `tone`: true when Recent clients precedes this (its curtain panel is
- * elevated, so the ground crossfades back to the page here); false when
- * the CRM has no work and Home wraps this section in that curtain instead,
- * where it carries the elevated ground itself (Site Prompt 9, Part 4). */
-export default function HomeTestimonials({ testimonials, tone = true }) {
+/* Scene 6 (Site Prompt 11): not pinned, hidden entirely when there are
+ * none. `tone` is the stage ground Home assigns in the alternation. */
+export default function HomeTestimonials({ testimonials, tone = 'b' }) {
   const items = testimonials || [];
   const trackRef = useRef(null);
   const [active, setActive] = useState(0);
@@ -37,10 +35,10 @@ export default function HomeTestimonials({ testimonials, tone = true }) {
   };
 
   return (
-    <Tone as="section" className="ht section" from="var(--bg-elevated)" to={tone ? 'var(--bg)' : 'var(--bg-elevated)'}>
+    <Scene steps={0} tone={tone} label="What clients say" className="ht">
       <div className="wrap">
-        <WordReveal as="h2" className="section-title">What clients say</WordReveal>
-        <div className="ht-track" ref={trackRef}>
+        <h2 data-step="1" className="section-title">What clients say</h2>
+        <div data-step="2" className="ht-track" ref={trackRef}>
           {items.map(t => (
             <div key={`${t.slug}-${t.author}`} className="ht-slide">
               <TestimonialCard testimonial={t} />
@@ -95,6 +93,6 @@ export default function HomeTestimonials({ testimonials, tone = true }) {
         }
       `}</style>
       <style>{testimonialCardStyles}</style>
-    </Tone>
+    </Scene>
   );
 }

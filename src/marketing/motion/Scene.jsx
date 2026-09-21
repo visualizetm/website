@@ -48,7 +48,7 @@ export function Scene({
   as: Tag = 'section',
   steps = 0,
   stepDistance = 0.7,
-  mobileStepDistance = 0.5,
+  mobileStepDistance = 0.4,   // 0.5 in the brief; 0.45 and then 0.4 were the allowed fallbacks for the length budget (see the Site Prompt 11 report)
   tone = 'a',
   label,
   indicator = false,
@@ -58,10 +58,12 @@ export function Scene({
   className = '',
   stageClassName = '',
   bodyClassName = '',
+  backdrop = null,
   children,
   ...rest
 }) {
   const rootRef = useRef(null);
+  const stageRef = useRef(null);
   const bodyRef = useRef(null);
   const cb = useRef(onProgress);
   cb.current = onProgress;
@@ -78,9 +80,9 @@ export function Scene({
    * (the hero's covers arrive with the CRM data); a write only when the
    * value differs, so this is a cheap walk, never a style storm. */
   useEffect(() => {
-    const body = bodyRef.current;
-    if (!body) return;
-    for (const el of body.querySelectorAll('[data-step]')) {
+    const stage = stageRef.current;
+    if (!stage) return;
+    for (const el of stage.querySelectorAll('[data-step]')) {
       const n = String(Number(el.getAttribute('data-step')) || 0);
       if (el.style.getPropertyValue('--step') !== n) el.style.setProperty('--step', n);
     }
@@ -148,7 +150,12 @@ export function Scene({
       style={{ '--scene-steps': steps, '--scene-d': d }}
       {...rest}
     >
-      <div className={cx('m-scene-stage', stageClassName)} role="region" aria-label={label}>
+      <div ref={stageRef} className={cx('m-scene-stage', stageClassName)} role="region" aria-label={label}>
+        {/* The backdrop fills the whole stage behind the body (the hero's
+            cover deck): scenery, not content, so it may sit under the
+            navbar and does not count toward the body's fit. Its data-step
+            children reveal like any other. */}
+        {backdrop && <div className="m-scene-backdrop" aria-hidden="true">{backdrop}</div>}
         <div ref={bodyRef} className={cx('m-scene-body', bodyClassName)}>
           {children}
         </div>

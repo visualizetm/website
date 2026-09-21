@@ -1,4 +1,5 @@
-import { Counter, Reveal, WordReveal } from '../marketing/motion';
+import { useCallback, useRef } from 'react';
+import { Scene, useScrollEngine, REVEAL_SPAN } from '../marketing/motion';
 
 const STEPS = [
   { n: 1, title: 'A free call', desc: 'Twenty minutes to talk through what you need. No pitch, no pressure.' },
@@ -6,59 +7,59 @@ const STEPS = [
   { n: 3, title: 'Launch', desc: 'I design and build it, you review, we ship. You own everything.' },
 ];
 
-/* Site Prompt 6, Part 2.7: three steps, each held briefly while its
- * number counts in, so the process reads one beat at a time instead of as
- * a row of three columns skimmed at once. Four tenths of a viewport each
- * is deliberate: enough to land, short enough that a visitor who already
- * gets it is not trapped scrolling through it.
- *
- * No price or payment line: Home says what happens, never what it costs.
- * Without the engine the three steps are a plain stack, numbers already
- * counted, which is what reduced motion gets.
- *
- * Site Prompt 8, check 3 took the holds off the phone: three of them came
- * to four and a half screens of scrolling for three short sentences.
- * Site Prompt 9, Part 4 took them off the desktop as well: one line of
- * text held in the middle of a full viewport left that viewport 45
- * percent empty, and the page's rule is now that no scroll position may
- * be more than 30 percent empty. The beat is the Reveal's own stagger
- * (each step a beat after the last) and the number counting in. */
-export default function HowItWorks() {
-  const Step = ({ step }) => (
-    <div className="hiw-step">
-      <Counter as="span" className="hiw-n display" value={step.n} format={(v) => `0${Math.round(v)}`} />
-      <div className="hiw-text">
-        <h3 className="hiw-title">{step.title}</h3>
-        <p className="hiw-desc">{step.desc}</p>
-      </div>
-    </div>
-  );
+/* Scene 7, how it works (Site Prompt 11): four steps. Step 1 is the
+ * heading; steps 2 to 4 are the three numbered steps, each staying once
+ * revealed, so by step 4 all three sit under the heading. The number is
+ * in the brand red display face and counts up from 00 as its step
+ * arrives (the one place text changes per frame, written straight to the
+ * DOM from the scene's onProgress, never through React). Before its step
+ * a row shows its number as a faint 00 and nothing else, which is the
+ * reserved space the stage centres, so the heading is never over a hole
+ * and the stage never has less on it than the three rows. */
+export default function HowItWorks({ tone = 'a' }) {
+  const nums = useRef([]);
+  const state = useScrollEngine();
+  const live = state !== 'off';
+  const onProgress = useCallback((p) => {
+    STEPS.forEach((s, i) => {
+      const el = nums.current[i]; if (!el) return;
+      const t = Math.max(0, Math.min(1, (p - (i + 1)) / REVEAL_SPAN));
+      const v = `0${Math.round(t * s.n)}`;
+      if (el.textContent !== v) el.textContent = v;
+    });
+  }, []);
   return (
-    <section className="hiw section section-elevated">
-      <div className="wrap">
-        <WordReveal as="h2" className="section-title">How it works</WordReveal>
-        {STEPS.map((s, i) => (
-          <Reveal key={s.n} as="div" className="hiw-plain" delay={i * 90} threshold={0.3}><Step step={s} /></Reveal>
-        ))}
+    <Scene steps={4} tone={tone} label="How it works" className="hiw" onProgress={onProgress}>
+      <div className="wrap hiw-col">
+        <h2 data-step="1" className="section-title hiw-title">How it works</h2>
+        <ol className="hiw-list">
+          {STEPS.map((s, i) => (
+            <li key={s.n} data-step={i + 2} data-reveal="custom" className="hiw-step">
+              <span className="hiw-n display" aria-hidden="true" ref={el => { nums.current[i] = el; }}>{live ? '00' : `0${s.n}`}</span>
+              <div className="hiw-text">
+                <h3 className="hiw-h"><span className="visually-hidden">Step {s.n}: </span>{s.title}</h3>
+                <p className="hiw-desc">{s.desc}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
       </div>
       <style>{`
-        .hiw-plain { padding: var(--space-2) 0; }
+        .hiw-col { display: flex; flex-direction: column; gap: clamp(12px, 2.6vh, 32px); }
+        .hiw-title { font-size: clamp(1.9rem, max(4vw, 5.6vh), 3.25rem); line-height: 1.05; }
+        .hiw-list { list-style: none; display: flex; flex-direction: column; }
         .hiw-step {
-          display: flex; align-items: baseline; gap: var(--space-6);
-          padding: var(--space-6) 0;
+          display: grid; grid-template-columns: minmax(3.2ch, auto) 1fr; gap: var(--space-4); align-items: center;
+          padding: clamp(10px, 2.8vh, 32px) 0; border-top: 1px solid var(--border);
         }
-        @media (max-width: 700px) {
-          .hiw-step { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
-        }
-        .hiw-n {
-          font-size: clamp(2.75rem, 8vw, 5rem);
-          line-height: 1; color: var(--brand-text);
-          font-variant-numeric: tabular-nums;
-        }
-        .hiw-text { display: flex; flex-direction: column; gap: var(--space-3); max-width: 46ch; }
-        .hiw-title { font-size: 1.375rem; font-weight: 700; color: var(--text); }
-        .hiw-desc { font-size: 1rem; color: var(--text-secondary); line-height: 1.6; }
+        .hiw-n { font-size: clamp(2.6rem, 8.5vh, 5rem); line-height: 1; color: var(--brand-text); font-variant-numeric: tabular-nums; }
+        .hiw-h { font-size: clamp(1.1rem, 2.6vh, 1.5rem); font-weight: 700; color: var(--text); }
+        .hiw-desc { margin-top: clamp(2px, 0.8vh, 8px); font-size: clamp(0.95rem, 2.1vh, 1.125rem); line-height: 1.5; color: var(--text-secondary); max-width: 48ch; }
+        /* The custom reveal: the number is a faint 00 before its step (the
+           reserved row), then counts and brightens; the text fades in. */
+        .m-scene--pinned .hiw-n { opacity: calc(0.22 + 0.78 * var(--sr, 1)); }
+        .m-scene--pinned .hiw-text { opacity: var(--sr, 1); transform: translate3d(0, calc((1 - var(--sr, 1)) * 12px), 0); }
       `}</style>
-    </section>
+    </Scene>
   );
 }

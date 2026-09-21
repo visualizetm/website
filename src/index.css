@@ -95,9 +95,11 @@
      never changes mid-scroll. ScrollRoot overwrites this with a pixel
      value from innerHeight on browsers too old to know svh. */
   --svh: 1vh;
-  /* The sticky navbar's height: what a pinned stage keeps clear at its
-     top (Site Prompt 11). 52px pill plus 16px padding each side. */
-  --nav-h: 84px;
+  /* The sticky navbar's height once the page has scrolled (52px pill plus
+     8px padding each side): what a held stage keeps clear at its top
+     (Site Prompt 11). Only the hero is held with the page at the top,
+     where the navbar is its unscrolled 84px; the hero clears that itself. */
+  --nav-h: 68px;
 
   /* Marketing motion primitives (src/marketing/motion, docs/MARKETING-MOTION.md) */
   --m-dur: 600ms;
@@ -107,7 +109,6 @@
   /* Curtain's top edge (Site Prompt 6): a shadow cast upward onto the
      section it is covering. Tokens rather than a literal in the rule, and
      rgba rather than hex, so the hex count is unaffected. */
-  --m-curtain-shadow: 0 -24px 60px rgba(0, 0, 0, 0.55);
 
   /* Light-on-dark values that are fixed by what they sit on rather than by
      the page's theme: the maintenance screen's ground (src/main.jsx) and
@@ -234,7 +235,6 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @media (max-width: 768px) {
-  :root { --nav-h: 72px; }
   .wrap {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
@@ -552,62 +552,6 @@ h1, h2, h3, h4, h5, h6 {
    the motion on, so content is never left hidden behind a script that
    did not arrive. See docs/MARKETING-MOTION.md. */
 
-/* Pin: a sticky panel held for --pin-h extra viewports while --pin-p runs
-   0 to 1 on .m-pin-inner. Without the engine the wrapper keeps its natural
-   height and nothing sticks. */
-.m-pin {
-  position: relative;
-}
-.m-pin--active {
-  height: calc((var(--pin-h, 1.5) + 1) * 100 * var(--svh));
-}
-.m-pin--active .m-pin-inner {
-  position: sticky;
-  top: 0;
-  height: calc(100 * var(--svh));
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  /* clip rather than hidden for the same reason as body above: this is
-     the sticky element itself, and hidden would make it a scroll
-     container that touch scrolling can get caught in. */
-  overflow: hidden;
-  overflow: clip;
-}
-
-/* Curtain: pulled up by a negative margin and pushed back down by
-   --curtain-p, so progress 0 is exactly where normal flow put it.
-   Both live on the base class, not the --active modifier: with no engine
-   --curtain-p is never written, the transform resolves to exactly the
-   margin it cancels, and the layout is identical either way. Putting the
-   margin behind --active instead moved everything below it the moment the
-   engine loaded, which was worth 0.04 of Home's CLS on a phone. */
-.m-curtain {
-  position: relative;
-  z-index: 2;
-  background: var(--bg);
-  margin-top: -16vh;
-  transform: translate3d(0, calc((1 - var(--curtain-p, 0)) * 16vh), 0);
-}
-.m-curtain--active {
-  border-top-left-radius: 32px;
-  border-top-right-radius: 32px;
-  box-shadow: var(--m-curtain-shadow);
-  will-change: transform;
-}
-/* The hairline on the leading edge: one pixel of brand red following the
-   rounded top, fading out as the curtain lands (opacity only). */
-.m-curtain--active::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-top: 1px solid var(--brand);
-  border-radius: inherit;
-  opacity: calc(1 - var(--curtain-p, 0));
-  pointer-events: none;
-  z-index: 3;
-}
-
 /* ScaleIn: one-shot settle on first viewport entry, safe on any page.
    filter is the one animated property in this block that is neither a
    transform nor opacity; it is still compositor work, never layout, and
@@ -656,107 +600,6 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0;
 }
 
-/* TrackScroll: a column by default, which is also what touch, reduced
-   motion and a failed import get. The .m-track--h class is added by the
-   helper itself, and only when the engine is live, the pointer is fine
-   and the breakpoint agrees; the wrapper's height and --track-d are
-   measured there too. Sticky rather than a fixed pin, so the track still
-   works inside a Curtain (whose transform would otherwise capture it). */
-.m-track {
-  position: relative;
-}
-.m-track-row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-/* The held panel is one column: the heading at the top, the row under it,
-   the whole group centred as a unit. Before this the panel was a single
-   centred row and the heading sat outside it, so the hold showed the
-   cards alone with a fifth of the viewport empty above and below them
-   and the heading already scrolled away (the gap Site Prompt 9 fixed). */
-.m-track--h .m-track-inner {
-  position: sticky;
-  top: 0;
-  height: calc(100 * var(--svh));
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: var(--space-8);
-  padding: var(--space-6) 0;
-}
-.m-track--h .m-track-head {
-  flex: 0 0 auto;
-}
-.m-track--h .m-track-viewport {
-  width: 100%;
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: hidden;
-  /* clip, not just hidden: hidden leaves a scroll container the browser
-     can scroll programmatically when focus lands on a card that is off to
-     the right, which would slide the row out of step with --track-p.
-     TrackScroll moves the page instead (see its focusin handler). */
-  overflow: clip;
-}
-.m-track--h .m-track-row {
-  flex-direction: row;
-  align-items: stretch;
-  transform: translate3d(calc(var(--track-p, 0) * var(--track-d, 0px) * -1), 0, 0);
-  will-change: transform;
-}
-/* The progress strip under the row (Site Prompt 9): one segment per
-   card, each a 44px button holding a 3px bar whose fill is that card's
-   own closeness to the centre, so the active segment fills as its card
-   holds. Only exists where the row moves; the stack has no track to
-   mark. Fill is a scaleX, colour is a token. */
-.m-track-progress {
-  display: none;
-}
-.m-track--h .m-track-progress {
-  display: flex;
-  gap: var(--space-2);
-  width: min(100% - 2 * var(--space-6), 520px);
-  margin: 0 auto;
-  flex: 0 0 auto;
-}
-.m-track-seg {
-  flex: 1 1 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.m-track-seg::before {
-  content: '';
-  display: block;
-  width: 100%;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border);
-}
-.m-track-seg-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--brand);
-  transform: scaleX(var(--seg-p, 0));
-  transform-origin: left center;
-  pointer-events: none;
-}
-.m-track-seg {
-  position: relative;
-}
-.m-track-seg:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  border-radius: var(--radius);
-}
 /* Tone: a section's ground crossfades to --tone-to as it comes up the
    page. Crossfading two filled layers is compositor work; animating
    background-color is not. Without the engine the layer sits at full
@@ -828,6 +671,17 @@ h1, h2, h3, h4, h5, h6 {
   /* clip, never hidden: hidden makes the stage a scroll container that
      touch scrolling can get caught inside (Site Prompt 8). */
   overflow: clip;
+}
+.m-scene-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: clip;
+}
+.m-scene-body,
+.m-scene-steps {
+  position: relative;
+  z-index: 1;
 }
 .m-scene--pinned .m-scene-body {
   flex: 1 1 auto;

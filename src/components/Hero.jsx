@@ -1,352 +1,97 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Pin, WordReveal, useScrollEngine, useMediaQuery } from '../marketing/motion';
-import { getScrollEngine } from '../marketing/scroll';
+import { Scene } from '../marketing/motion';
+import Wordmark from './Wordmark';
 import { capImageWidth, IMG_W } from '../marketing/showcase';
 import { CALENDLY_URL } from '../marketing/links';
 
 const DEFAULT_COVER = '/hero-default.svg';
-/* Site Prompt 8, check 3: a phone gets a shorter deck and a shorter hold.
- * Eight covers at 0.8 viewports each is over six screens of scrolling
- * before the page moves on, which does not read as a deck, it reads as
- * stuck. Four covers at 0.5 is two screens; the rest are still there, in
- * the row underneath. */
-const MAX_CARDS = 8;
-const MAX_CARDS_PHONE = 3;   // Site Prompt 10: three covers at 0.5 is the 2.5 screen cap exactly
-const VH_PER_CARD = 0.8;
-const VH_PER_CARD_PHONE = 0.5;
-const PHONE_QUERY = '(max-width: 767px)';
-/* The deck runs count minus one turns over the hold (Site Prompt 9, Part
- * 4): the last cover finishes rising into place at the exact end of the
- * hold, which is the moment the next section's Curtain edge enters the
- * viewport, so the cover lands and the curtain rises with no stretch
- * between where the deck sits finished and nothing moves. --k is the turn
- * rate the CSS reads in place of the card count. */
-const turnRate = (count) => (count > 1 ? count - 1 : 1);
 
-/* Site Prompt 7, Part 1: the hero is a deck of every showcased cover, and
- * scrolling flips through it.
- *
- * The whole animation is one number. Pin scrubs --pin-p from 0 to 1 across
- * the hold, and each card computes its own two derived values from it in
- * CSS, off its index:
- *
- *   --u = --pin-p * count - index     where it is in its own turn
- *   --t = clamp(0, --u, 1)            how far it has left
- *   --r = clamp(0, --u + 1, 1)        how far it has risen into place
- *
- * A card sits in place while --r is 1 and --t is 0, rises as the card
- * before it leaves (--r is the previous card's --t), and leaves by sliding
- * up while scaling to 0.96 and fading out. Because z-index descends with
- * the index and never changes, the card leaving is always painted above
- * the one arriving, so the two never cross incorrectly. No React state
- * changes while any of this happens.
- *
- * Without the engine (reduced motion, a failed import) or with one cover,
- * the deck is the first cover shown plainly with the rest as a horizontal
- * row beneath it: same links, same order, no motion and nothing pinned.
- * With no published clients at all it is the designed default graphic. */
-export default function Hero({ items }) {
-  // null while the CRM fetch is still in flight, an array once it answers.
-  // The difference matters: before the answer this shows one default cover
-  // and nothing else, so the row of extra covers never appears and then
-  // vanishes underneath the reader (which is where Home's layout shift on
-  // a phone came from).
-  const loading = items == null;
-  const phone = useMediaQuery(PHONE_QUERY);
-  const all = (items || []).filter(i => i?.cover).slice(0, MAX_CARDS);
-  const deck = all.slice(0, phone ? MAX_CARDS_PHONE : MAX_CARDS);
-  const rest = all.slice(deck.length);
-  const state = useScrollEngine();
-  const stacked = state === 'on' && deck.length > 1;
-  const first = deck[0];
-
-  useEffect(() => {
-    if (!first?.cover) return undefined;
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = capImageWidth(first.cover, IMG_W.heroCover);
-    document.head.appendChild(link);
-    return () => { document.head.removeChild(link); };
-  }, [first?.cover]);
-
-  const copy = (
-    <div className="wrap hero-copy">
-      <WordReveal as="h1" className="hero-title display" start="top 90%" end="top 55%">
-        Branding and websites for local businesses.
-      </WordReveal>
-      <p className="hero-sub">Delaware based. Brand, website, print. The first call is free.</p>
-      <div className="hero-cta">
-        <a href={CALENDLY_URL} className="btn btn-primary" target="_blank" rel="noreferrer">Book a free call</a>
-        <Link to="/clients" className="btn btn-secondary">See client work</Link>
-      </div>
-    </div>
-  );
-
-  if (!stacked) {
-    return (
-      <section className="hero hero--static">
-        {copy}
-        <div className="hero-deck-wrap">
-          <div className="hero-deck hero-deck--static">
-            <HeroCard item={first} index={0} count={1} priority />
+/* Scene 1, the hero (Site Prompt 11): three steps. The wordmark and the
+ * headline at step 1, the line at step 2, the two buttons at step 3. The
+ * cover deck (up to three real covers from the CRM, the default cover with
+ * none) sits behind the text from step 1 and cycles one cover per step:
+ * each cover is a data-step child with a custom reveal (fade and a small
+ * settle from 1.06), stacked so the newest is on top and the earlier ones
+ * stay underneath, which is what makes the change a cycle rather than a
+ * swap. The deck fills the stage, so the stage is never empty. `items` is
+ * null until the CRM answers; the default cover is what shows until then
+ * and what shows when nothing is published. */
+export default function Hero({ items, tone = 'a' }) {
+  const covers = (items || []).filter(i => i?.cover).slice(0, 3);
+  const deck = covers.length ? covers : [{ cover: DEFAULT_COVER, slug: '' }];
+  return (
+    <Scene
+      steps={3} tone={tone} label="Visualize" className="hero"
+      backdrop={(
+        <div className="hero-deck">
+                {deck.map((c, i) => (
+                  <span key={c.slug || i} className="hero-cover" data-step={i + 1} data-reveal="custom" style={{ '--i': i }}>
+                    <img
+                      src={c.cover === DEFAULT_COVER ? c.cover : capImageWidth(c.cover, IMG_W.heroCover)}
+                      alt="" width={1600} height={900}
+                      fetchpriority={i === 0 ? 'high' : undefined}
+                      loading={i === 0 ? undefined : 'lazy'}
+                    />
+                  </span>
+                ))}
+          {/* The cover's name, above the scrim, revealed with its cover. */}
+          <div className="hero-names">
+            {deck.map((c, i) => c.displayName && (
+              <span key={`${c.slug || i}-name`} className="hero-cover-name" data-step={i + 1} data-reveal="custom">
+                <span className="hero-cover-name-b">{c.displayName}</span>
+                {c.type && <span className="hero-cover-name-t">{c.type}</span>}
+              </span>
+            ))}
           </div>
         </div>
-        {!loading && all.length > 1 && (
-          <ul className="hero-row" aria-label="More client work">
-            {all.slice(1).map((item, i) => (
-              <li key={item.slug || i}><HeroCard item={item} index={i + 1} count={all.length} small /></li>
-            ))}
-          </ul>
-        )}
-        <style>{heroStyles}</style>
-      </section>
-    );
-  }
-
-  return <HeroStack deck={deck} rest={rest} copy={copy} vhPerCard={phone ? VH_PER_CARD_PHONE : VH_PER_CARD} />;
-}
-
-/* The pinned deck. Separated so the hooks it needs (the active dot, the
- * jump-to-card handler) only exist when there is a deck to run them on. */
-function HeroStack({ deck, rest, copy, vhPerCard }) {
-  const rootRef = useRef(null);
-  const [active, setActive] = useState(0);
-  const count = deck.length;
-  const k = turnRate(count);
-
-  // Pin calls this every scroll frame; setState only when the card in
-  // place actually changes, so this costs at most `count` renders.
-  const onProgress = useCallback((p) => {
-    const i = Math.max(0, Math.min(count - 1, Math.round(p * k)));
-    setActive(prev => (prev === i ? prev : i));
-  }, [count, k]);
-
-  /* A dot scrolls to the point where its card is exactly in place, which
-   * is --pin-p = index / count, measured from layout offsets rather than
-   * the rect: Home wraps what follows in a Curtain whose transform moves
-   * rects around, and the hero's own scale under it does the same. */
-  const goTo = (i) => {
-    const section = rootRef.current?.closest('.m-pin');
-    if (!section) return;
-    let top = (i / k) * count * vhPerCard * window.innerHeight;
-    for (let n = section; n; n = n.offsetParent) top += n.offsetTop;
-    const eng = getScrollEngine();
-    if (eng?.lenis) eng.lenis.scrollTo(top);
-    else window.scrollTo({ top, behavior: 'smooth' });
-  };
-
-  const pinned = (
-    <Pin
-      height={count * vhPerCard}
-      className="hero hero--stacked"
-      innerClassName="hero-inner"
-      onProgress={onProgress}
+      )}
     >
-      {copy}
-      <div className="hero-deck-wrap">
-        <div className="hero-deck" style={{ '--n': count, '--k': k.toFixed(4) }}>
-          {deck.map((item, i) => (
-            <HeroCard key={item.slug || i} item={item} index={i} count={count} priority={i === 0} last={i === count - 1} />
-          ))}
+      <div className="wrap hero-copy">
+        <div data-step="1" className="hero-mark"><Wordmark size={34} /></div>
+        <h1 data-step="1" className="hero-title display">Branding and websites for local businesses.</h1>
+        <p data-step="2" className="hero-sub">Solo studio in Delaware. Brand, website, print, all in one place.</p>
+        <div data-step="3" className="hero-cta">
+          <a href={CALENDLY_URL} className="btn btn-primary" target="_blank" rel="noreferrer">Book a free call</a>
+          <Link to="/clients" className="btn btn-secondary">See client work</Link>
         </div>
       </div>
-      <div className="hero-dots" ref={rootRef} role="tablist" aria-label="Client work">
-        {deck.map((item, i) => (
-          <button
-            key={item.slug || i}
-            type="button"
-            role="tab"
-            aria-selected={i === active}
-            aria-label={`${item.displayName || 'Client'}, ${i + 1} of ${count}`}
-            className={`hero-dot ${i === active ? 'is-active' : ''}`}
-            onClick={() => goTo(i)}
-          />
-        ))}
-      </div>
-      <style>{heroStyles}</style>
-    </Pin>
-  );
-
-  /* The row of covers the phone's shorter deck could not hold sits after
-   * the pinned section, not inside it: everything inside a Pin lives in
-   * the sticky panel and would be clipped by it. The wrapper keeps the
-   * two together so the Curtain that follows still scales and dims one
-   * element, which is the whole hero block. */
-  if (!rest?.length) return pinned;
-  return (
-    <div className="hero-block">
-      {pinned}
-      <ul className="hero-row" aria-label="More client work">
-        {rest.map((item, i) => (
-          <li key={item.slug || i}><HeroCard item={item} index={i} count={rest.length} small /></li>
-        ))}
-      </ul>
-    </div>
+      <style>{`
+        .hero-deck { position: absolute; inset: 0; background: var(--bg); }
+        /* The page is at the top while the hero is held, so the navbar is
+           its unscrolled 84px (72px on a phone). */
+        .m-scene--pinned.hero .m-scene-stage { padding-top: calc(84px + var(--space-3)); }
+        @media (max-width: 768px) { .m-scene--pinned.hero .m-scene-stage { padding-top: calc(72px + var(--space-3)); } }
+        .hero-cover {
+          position: absolute; inset: 0; z-index: calc(var(--i, 0) + 1);
+          opacity: var(--sr, 1);
+          transform: scale(calc(1.06 - 0.06 * var(--sr, 1)));
+          transform-origin: center center;
+        }
+        .hero-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+        .hero-names { position: absolute; right: var(--space-4); bottom: var(--space-4); z-index: 11; display: grid; }
+        .hero-cover-name {
+          grid-area: 1 / 1; justify-self: end; display: flex; flex-direction: column; align-items: flex-end;
+          padding: 6px 10px; border-radius: var(--radius); background: var(--glass-bg); border: 1px solid var(--glass-border);
+          font-size: 0.8125rem; color: var(--text); opacity: var(--sr, 1);
+        }
+        .hero-cover-name-b { font-weight: 700; }
+        .hero-cover-name-t { font-size: 0.75rem; color: var(--text-secondary); }
+        @media (max-width: 767px) { .hero-names { bottom: var(--space-3); } }
+        /* The scrim: the page ground rising from the bottom and the left so
+           the copy reads on any cover. Static, not animated. */
+        .hero-deck::after {
+          content: ''; position: absolute; inset: 0; z-index: 10;
+          background:
+            linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0.25) 40%, rgba(10, 10, 10, 0.88) 100%),
+            linear-gradient(90deg, rgba(10, 10, 10, 0.72) 0%, rgba(10, 10, 10, 0.2) 70%);
+        }
+        .hero-copy { display: flex; flex-direction: column; gap: clamp(10px, 2vh, 24px); }
+        .hero-mark { display: flex; }
+        .hero-title { max-width: 14ch; font-size: clamp(2.1rem, min(11vw, max(6vw, 7.5vh)), 5rem); line-height: 1.02; color: var(--text); }
+        .hero-sub { max-width: 40ch; font-size: clamp(1.0625rem, 2.6vh, 1.375rem); line-height: 1.5; color: var(--text-secondary); }
+        .hero-cta { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+        @media (max-width: 767px) { .hero-cta .btn { flex: 1 1 100%; justify-content: center; } }
+      `}</style>
+    </Scene>
   );
 }
-
-function HeroCard({ item, index, count, priority = false, small = false, last = false }) {
-  const src = item?.cover ? capImageWidth(item.cover, small ? IMG_W.cardCover : IMG_W.heroCover) : DEFAULT_COVER;
-  const name = item?.displayName || '';
-  const inner = (
-    <>
-      <span className="img-fit img-fit--16x9 hero-card-media">
-        <img
-          src={src}
-          alt=""
-          width={1600}
-          height={900}
-          loading={priority ? undefined : 'lazy'}
-          fetchpriority={priority ? 'high' : undefined}
-        />
-      </span>
-      {name && (
-        <span className="hero-card-label">
-          <span className="hero-card-name">{name}</span>
-          {item.type && <span className="hero-card-type">{item.type}</span>}
-        </span>
-      )}
-    </>
-  );
-
-  const cls = `hero-card${small ? ' hero-card--small' : ''}${last ? ' hero-card--last' : ''}`;
-  const style = { '--i': index, '--n': count };
-
-  if (!item?.slug) return <span className={cls} style={style}>{inner}</span>;
-  return <Link to={`/clients/${item.slug}`} className={cls} style={style}>{inner}</Link>;
-}
-
-const heroStyles = `
-  .hero { position: relative; }
-  /* var(--space-24) of top padding clears the floating navbar, which sits
-     over the top of the panel once the hero is pinned. */
-  .hero-inner { gap: var(--space-6); padding: var(--space-24) 0 var(--space-8); }
-  /* The static hero holds the same viewport-tall frame the pinned one does.
-     Home renders this first (the CRM fetch has not answered yet) and swaps
-     to the deck when it does; giving both the same frame means that swap
-     moves nothing, which is the difference between 0.089 CLS and 0. */
-  .hero--static {
-    display: flex; flex-direction: column; justify-content: center;
-    min-height: calc(100 * var(--svh));
-    gap: var(--space-6); padding: var(--space-24) 0 var(--space-8);
-  }
-
-  .hero-copy {
-    max-width: 780px; margin: 0 auto; text-align: center;
-    opacity: clamp(0, calc(1 - var(--pin-p, 0) * 2.4), 1);
-    transform: translate3d(0, calc(var(--pin-p, 0) * -80px), 0);
-    will-change: transform, opacity;
-  }
-  .m-pin--active .hero-copy,
-  .hero--static > .hero-copy { flex: 0 0 auto; }
-  .hero-title {
-    font-size: clamp(2.1rem, 5.4vw, 3.75rem);
-    color: var(--text);
-    margin-bottom: var(--space-5);
-  }
-  .hero-sub {
-    font-size: clamp(1rem, 1.6vw, 1.15rem);
-    color: var(--text-secondary);
-    max-width: 46ch;
-    margin: 0 auto var(--space-8);
-    line-height: 1.6;
-  }
-  .hero-cta { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-3); }
-
-  /* The deck: every card absolutely stacked on the same box, so the flip
-     never reflows anything. max-height lets a short window crop the box
-     rather than push the dots off screen; the image covers either way. */
-  .hero-deck-wrap {
-    display: flex; align-items: center; justify-content: center;
-    width: 100%; padding: 0 var(--space-4);
-  }
-  .m-pin--active .hero-deck-wrap,
-  .hero--static > .hero-deck-wrap { flex: 1 1 auto; min-height: 0; }
-  .hero-deck {
-    position: relative;
-    width: 100%; max-width: 1100px; max-height: 100%;
-    aspect-ratio: 16 / 9;
-  }
-  .hero-deck--static { position: relative; }
-
-  .hero-card {
-    position: absolute; inset: 0;
-    display: block;
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    box-shadow: var(--shadow-chrome-strong);
-    z-index: calc(var(--n) - var(--i));
-    --u: calc(var(--pin-p, 0) * var(--k, var(--n)) - var(--i));
-    --t: clamp(0, var(--u), 1);
-    --r: clamp(0, calc(var(--u) + 1), 1);
-    transform:
-      translate3d(0, calc((1 - var(--r)) * 26px + var(--t) * -112%), 0)
-      scale(calc(0.96 + 0.04 * var(--r) - 0.04 * var(--t)));
-    opacity: calc(0.35 + 0.65 * var(--r) - var(--t));
-  }
-  /* The cover is promoted by its card's own translate3d above, one layer
-     per card and no more (Site Prompt 8, check 7): a second translateZ(0)
-     on the image inside would add a redundant layer per card for no fewer
-     repaints, which on a phone is memory spent to save nothing. The hint
-     is scoped to the pinned deck, where these actually move; the static
-     fallback and the overflow row hold no layer at all. */
-  .m-pin--active .hero-card { will-change: transform, opacity; }
-  /* The last card never leaves: it is what the Curtain of the next
-     section arrives over, and an empty deck at the end of the hold would
-     be a hole in the page. */
-  .hero-card--last { --t: 0; }
-  .hero-deck--static .hero-card { transform: none; opacity: 1; }
-  .hero-card-media { height: 100%; border-radius: inherit; }
-  .m-pin--active .hero-card-media { aspect-ratio: auto; }
-
-  .hero-card-label {
-    position: absolute; left: 0; bottom: 0; right: 0;
-    display: flex; flex-direction: column; gap: 2px;
-    padding: var(--space-8) var(--space-5) var(--space-4);
-    background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.72) 100%);
-    text-align: left;
-  }
-  /* This label sits on a dark scrim over somebody's photograph, so it
-     reads light whatever the page ground is doing; --uc-* are the two
-     theme-invariant light values already in the token block. */
-  .hero-card-name { font-size: 1.0625rem; font-weight: 700; color: var(--uc-text); }
-  .hero-card-type { font-size: 0.8125rem; color: var(--uc-text-secondary); }
-
-  /* Fallback row: the rest of the covers, smaller, scrollable sideways. */
-  .hero-block { position: relative; }
-  .hero-row {
-    display: flex; gap: var(--space-4); list-style: none;
-    margin-top: var(--space-6); padding: 0 var(--space-4) var(--space-2);
-    overflow-x: auto; scroll-snap-type: x proximity;
-  }
-  .hero-row > li { flex: 0 0 260px; scroll-snap-align: start; }
-  .hero-card--small {
-    position: relative; inset: auto;
-    transform: none; opacity: 1; z-index: auto; will-change: auto;
-    box-shadow: none; border: 1px solid var(--border);
-  }
-  .hero-card--small .hero-card-label { padding: var(--space-6) var(--space-3) var(--space-3); }
-
-  .hero-dots {
-    display: flex; justify-content: center; flex-wrap: wrap; gap: 2px;
-    margin-top: var(--space-4);
-  }
-  .hero-dot {
-    width: 44px; height: 44px; padding: 0;
-    background: none; border: none; cursor: pointer;
-    display: inline-flex; align-items: center; justify-content: center;
-  }
-  .hero-dot::after {
-    content: ''; width: 8px; height: 8px; border-radius: 50%;
-    background: var(--border-light);
-    transition: background var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
-  }
-  .hero-dot.is-active::after { background: var(--brand); transform: scale(1.4); }
-
-  @media (max-width: 700px) {
-    .hero-inner { padding-top: var(--space-20); }
-    .hero-card-label { padding: var(--space-6) var(--space-4) var(--space-3); }
-  }
-`;
