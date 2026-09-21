@@ -74,11 +74,18 @@ export default function Hero({ items, tone = 'a' }) {
         }
         .hero-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .hero-names { position: absolute; right: var(--space-4); bottom: var(--space-4); z-index: 11; display: grid; }
+        /* A caption arrives with its cover and gives way as the next cover
+           arrives over it (its cover is fully underneath by then), so one
+           name is on the corner at a time. --sr itself stays at 1. */
         .hero-cover-name {
           grid-area: 1 / 1; justify-self: end; display: flex; flex-direction: column; align-items: flex-end;
           padding: 6px 10px; border-radius: var(--radius); background: var(--glass-bg); border: 1px solid var(--glass-border);
-          font-size: 0.8125rem; color: var(--text); opacity: var(--sr, 1);
+          font-size: 0.8125rem; color: var(--text);
+          --next: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
+          opacity: calc(var(--sr, 1) * (1 - var(--next)));
         }
+        .hero-cover-name:last-child { --next: 0; }
+        .m-scene--static .hero-cover-name:not(:last-child) { display: none; }
         .hero-cover-name-b { font-weight: 700; }
         .hero-cover-name-t { font-size: 0.75rem; color: var(--text-secondary); }
         @media (max-width: 767px) { .hero-names { bottom: var(--space-3); } }
