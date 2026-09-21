@@ -98,22 +98,87 @@ export function Scene({
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !pinned || state !== 'on') return undefined;
-    let trigger = null; let alive = true; let last = ''; let lastActive = 0;
+    let trigger = null; let approach = null; let alive = true; let last = ''; let lastActive = 0;
+    const body = bodyRef.current;
+    /* The visible part of the stack is what is centred (Site Prompt 12,
+     * bug 1). Centring the fully revealed layout left the reserved space
+     * of the steps still to come as one blank band under the content:
+     * a third of a phone's viewport at the hero's first step. So the
+     * body is shifted down by half of what has not arrived yet, and
+     * drifts up as each step lands. The heights come from layout offsets
+     * once per refresh (H[k] is the stack's height with steps 0..k in);
+     * per frame it is arithmetic and one style write. Transform only. */
+    let H = []; let B = 0; let Hwrap = 0; let entry = 1; let lastP = 0; let padTop = 0; let cap = 0;
+    const measure = () => {
+      if (!body) return;
+      B = body.clientHeight; Hwrap = body.firstElementChild?.offsetHeight || 0;
+      padTop = parseFloat(getComputedStyle(root.firstElementChild).paddingTop) || 0;
+      /* The most the block may sit below the navbar: 15 percent of the
+       * viewport, less the stage's own gap under the navbar. */
+      cap = Math.max(0, 0.14 * window.innerHeight - 12);
+      const rel = (el) => { let t = 0; for (let n = el; n && n !== body; n = n.offsetParent) t += n.offsetTop; return t; };
+      const items = [...body.querySelectorAll('[data-step]')].map(el => ({ n: Number(el.getAttribute('data-step')) || 0, top: rel(el), bottom: rel(el) + el.offsetHeight }));
+      const all = items.length ? items : [{ n: 0, top: 0, bottom: body.scrollHeight }];
+      const top0 = Math.min(...all.map(i => i.top));
+      H = [];
+      for (let k = 0; k <= steps; k++) {
+        const seen = all.filter(i => i.n <= k);
+        H[k] = seen.length ? Math.max(...seen.map(i => i.bottom)) - top0 : 0;
+      }
+    };
+    /* The drift leads the reveal by a third of a window: most of the move up
+     * has happened before the arriving item is more than faintly visible,
+     * so an item is never inside the indicator's box while it can be
+     * seen, and the block is never more than a sixth of an item off centre.
+     * The visible height is H[0] plus each step's own reveal (the same
+     * 0.35 window the CSS uses) times the height that step adds. */
+    /* Where the visible block sits (Site Prompt 12, bug 1): centred in the
+     * body when it is tall enough, otherwise no lower than the cap, so a
+     * short first step (one heading, one line) sits near the top and the
+     * list builds downward from there rather than hanging in the middle of
+     * a black stage. The static layout centres the full stack by auto
+     * margins; this is the correction from that. While the stage is still
+     * entering from below the body also loses the stage's top padding
+     * (nothing is over it yet), blended back over the last tenth of the
+     * entry, so the block stays put in the viewport while the stage's
+     * edge slides up under it. Transform only, scrubbed. */
+    const shift = (p) => {
+      if (!body || !H.length) return;
+      lastP = p;
+      const q = p + 0.35 * REVEAL_SPAN;
+      let visible = H[0];
+      for (let n = 1; n <= steps; n++) visible += stepReveal(q, n) * (H[n] - H[n - 1]);
+      const want = Math.min(cap, Math.max(0, (B - visible) / 2));
+      const k = Math.max(0, Math.min(1, (entry - 0.9) / 0.1));
+      const total = want - (B - Hwrap) / 2 - (1 - k) * padTop;
+      body.style.setProperty('--scene-shift', `${total.toFixed(1)}px`);
+    };
     const stopNear = whenNear(root, () => loadScrollEngine().then((eng) => {
       if (!alive || !eng || !rootRef.current) return;
       const absTop = () => { let t = 0; for (let n = root; n; n = n.offsetParent) t += n.offsetTop; return t; };
       const hold = () => Math.max(1, root.offsetHeight - (root.firstElementChild?.offsetHeight || 0));
+      measure(); shift(0);
+      approach = eng.ScrollTrigger.create({
+        trigger: root,
+        start: () => absTop() - window.innerHeight,
+        end: () => absTop(),
+        scrub: scrubValue(),
+        onUpdate: (self) => { const e = self.progress; if (Math.abs(e - entry) > 0.002) { entry = e; shift(lastP); } },
+        onRefresh: (self) => { entry = self.progress; },
+      });
       trigger = eng.ScrollTrigger.create({
         trigger: root,
         start: () => absTop(),
         end: () => absTop() + hold(),
         scrub: scrubValue(),
+        onRefresh: (self) => { measure(); shift(self.progress * steps); },
         onUpdate: (self) => {
           const p = self.progress * steps;
           const next = p.toFixed(3);
           if (next !== last) {
             last = next;
             root.style.setProperty('--scene-p', next);
+            shift(p);
             cb.current?.(p, root);
             const a = Math.max(1, Math.min(steps, Math.floor(p + REVEAL_SPAN + 1e-6) + 1));
             if (a !== lastActive) { lastActive = a; setActive(a); }
@@ -121,7 +186,7 @@ export function Scene({
         },
       });
     }));
-    return () => { alive = false; stopNear(); trigger?.kill(); };
+    return () => { alive = false; stopNear(); trigger?.kill(); approach?.kill(); body?.style.removeProperty('--scene-shift'); };
   }, [pinned, state, steps]);
 
   /* Not pinned: data-step children reveal on entering the viewport, once,

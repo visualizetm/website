@@ -667,7 +667,9 @@ h1, h2, h3, h4, h5, h6 {
   height: calc(100 * var(--svh));
   display: flex;
   flex-direction: column;
-  padding: calc(var(--nav-h) + var(--space-3)) 0 var(--space-4);
+  /* The bottom keeps the home indicator's inset clear, so the step
+     indicator is pinned to the bottom of the stage above it. */
+  padding: calc(var(--nav-h) + var(--space-3)) 0 calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   /* clip, never hidden: hidden makes the stage a scroll container that
      touch scrolling can get caught inside (Site Prompt 8). */
   overflow: clip;
@@ -690,11 +692,25 @@ h1, h2, h3, h4, h5, h6 {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  /* safe: content taller than the stage overflows downward, never up
-     under the navbar. The audit fails a stage whose content does not
-     fit, so this is the guard for the frame before the fix, not a
-     licence to overfill. */
-  justify-content: safe center;
+  /* Shifted down by half of the space the steps still to come will take,
+     written by Scene.jsx per frame, so what has arrived is what sits in
+     the middle. Transform only. */
+  transform: translate3d(0, var(--scene-shift, 0px), 0);
+  will-change: transform;
+}
+/* Centred by auto margins, not justify-content: safe center. Safari does
+   not know the safe keyword in a flex container, dropped the whole
+   declaration, and left every stage top-aligned with the bottom half
+   black (Site Prompt 12, bug 1); Chromium, where the audit ran, centred
+   it. Auto margins centre everywhere and collapse to zero when the
+   content is taller than the box, so overflow only ever goes down, never
+   up under the navbar. A fixed gap keeps the block off the indicator. */
+.m-scene--pinned .m-scene-body > * {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+.m-scene--pinned .m-scene-body > :last-child {
+  padding-bottom: var(--space-6);
 }
 /* The reveal: a child at step n runs --sr 0 to 1 while progress goes
    from n - 1.35 to n - 1 and holds at 1 for the rest of the scene, so
@@ -742,7 +758,7 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   gap: var(--space-2);
   width: min(100% - 2 * var(--space-6), 520px);
-  margin: var(--space-3) auto 0;
+  margin: 0 auto;
 }
 /* Six 44px segments have to fit a 320px phone: the strip takes the full
    width inside the page gutter and the gaps close to 4px. */
