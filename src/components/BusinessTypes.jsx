@@ -72,6 +72,8 @@ export default function BusinessTypes({ tone = 'a' }) {
           .bt-zone > * { width: min(100%, 520px); align-self: end; }
           .bt-card { --dx: calc((var(--i, 0) - 2.5) * min(158px, 12.4vw)); --dy: calc(-1 * (50% + 110px)); --ds: 0.72; transform-origin: center center; }
         }
+        /* The sixth card has no next card to make room for: it stays centred to the end. */
+        .bt-card:last-child { --done: 0; }
         /* Static (reduced motion, no engine): the six as a plain grid. */
         .m-scene--static .bt-zone { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
         .m-scene--static .bt-zone > * { grid-area: auto; width: auto; align-self: stretch; }

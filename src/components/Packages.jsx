@@ -81,6 +81,7 @@ export default function Packages({ tone = 'b' }) {
           transform: translate3d(0, calc((1 - var(--sr, 1)) * 16px), 0) scale(calc(1 - 0.04 * var(--done)));
           z-index: calc(var(--i, 0) + 1);
         }
+        .pk-tier:last-child { --done: 0; }
         .m-scene--static .pk-tiers { gap: var(--space-3); }
         .m-scene--static .pk-tiers > * { grid-area: auto; }
         .m-scene--static .pk-tier { transform: none; opacity: 1; box-shadow: none; }
