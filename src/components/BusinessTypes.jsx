@@ -60,8 +60,11 @@ export default function BusinessTypes({ tone = 'a' }) {
           /* Done when the next card arrives: 0.35 of a step before its beat. */
           --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
           --dx: 0px; --dy: 0px; --ds: 0.04;
-          opacity: var(--sr, 1);
-          transform: translate3d(calc(var(--dx) * var(--done)), calc((1 - var(--sr, 1)) * 16px + var(--dy) * var(--done)), 0) scale(calc(1 - var(--ds) * var(--done)));
+          /* On a phone the card arrives opaque and grows from 0.97 over the
+             one before it (settled to 0.96 underneath); a fade showed the
+             card below through it (Site Prompt 12). */
+          opacity: clamp(0, calc(var(--sr, 1) * 100), 1);
+          transform: translate3d(calc(var(--dx) * var(--done)), calc(var(--dy) * var(--done)), 0) scale(calc(0.97 + 0.03 * var(--sr, 1) - var(--ds) * var(--done)));
           z-index: calc(var(--i, 0) + 1);
         }
         /* Desktop: the card sits at the bottom of a zone that leaves room
@@ -70,7 +73,16 @@ export default function BusinessTypes({ tone = 'a' }) {
         @media (min-width: 861px) {
           .bt-zone { min-height: 450px; }
           .bt-zone > * { width: min(100%, 520px); align-self: end; }
-          .bt-card { --dx: calc((var(--i, 0) - 2.5) * min(158px, 12.4vw)); --dy: calc(-1 * (50% + 110px)); --ds: 0.72; transform-origin: center center; }
+          /* Desktop: the outgoing card moves to the row over the first
+             half of the window, the incoming fades in over the second, so
+             the two never share the centre while both are visible. */
+          .bt-card {
+            --dx: calc((var(--i, 0) - 2.5) * min(158px, 12.4vw)); --dy: calc(-1 * (50% + 110px)); --ds: 0.72; transform-origin: center center;
+            --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.175), 1);
+            --late: clamp(0, calc((var(--sr, 1) - 0.5) / 0.5), 1);
+            opacity: var(--late);
+            transform: translate3d(calc(var(--dx) * var(--done)), calc((1 - var(--late)) * 16px + var(--dy) * var(--done)), 0) scale(calc(1 - var(--ds) * var(--done)));
+          }
         }
         /* The sixth card has no next card to make room for: it stays centred to the end. */
         .bt-card:last-child { --done: 0; }
@@ -78,7 +90,7 @@ export default function BusinessTypes({ tone = 'a' }) {
         .m-scene--static .bt-zone { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
         .m-scene--static .bt-zone > * { grid-area: auto; width: auto; align-self: stretch; }
         .m-scene--static .bt-card { transform: none; opacity: 1; box-shadow: none; }
-        @media (max-width: 767px) and (max-height: 700px) { .bt-intro { display: none; } .bt-card { gap: 4px; } }
+        @media (max-width: 767px) and (max-height: 600px) { .bt-intro { display: none; } .bt-card { gap: 4px; } }
         .bt-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius); background: var(--glass-bg-brand); color: var(--brand-text); }
         .bt-type { font-size: clamp(1.0625rem, 2.4vh, 1.5rem); font-weight: 700; color: var(--text); }
         .bt-needs { list-style: none; display: flex; flex-direction: column; gap: clamp(2px, 0.8vh, 10px); }

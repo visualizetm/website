@@ -77,8 +77,13 @@ export default function Packages({ tone = 'b' }) {
           padding: clamp(10px, 1.5vh, 20px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
           --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
-          opacity: var(--sr, 1);
-          transform: translate3d(0, calc((1 - var(--sr, 1)) * 16px), 0) scale(calc(1 - 0.04 * var(--done)));
+          /* Arrives opaque and grows from 0.97 over the tier before it,
+             which has settled to 0.96 underneath: a fade would show that
+             tier's text through this one for a third of a step, which a
+             phone caught as three tiers printed over each other (Site
+             Prompt 12). Opaque from the first frame of its window. */
+          opacity: clamp(0, calc(var(--sr, 1) * 100), 1);
+          transform: scale(calc(0.97 + 0.03 * var(--sr, 1) - 0.04 * var(--done)));
           z-index: calc(var(--i, 0) + 1);
         }
         .pk-tier:last-child { --done: 0; }
@@ -100,11 +105,18 @@ export default function Packages({ tone = 'b' }) {
         .pk-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-6); }
         .pk-note { font-size: clamp(0.95rem, 2.1vh, 1.0625rem); color: var(--text); }
         @media (max-width: 767px) { .pk-foot .btn { width: 100%; justify-content: center; } }
-        /* A short phone (under 700px tall) cannot hold the tier's chip list,
-           the pills and the intro with the rest: the chips and the pills
-           are the parts that go, the tier's name, line and step stay. */
-        @media (max-width: 767px) and (max-height: 700px) {
-          .pk-contents, .pk-pills, .pk-intro { display: none; }
+        /* A phone with Safari's bars showing is about 720px tall at 390
+           wide, not the 844 the audit used to run at (Site Prompt 12, bugs
+           5 and 6: the full stack overflowed the stage there, the pills
+           under the navbar and the button under the indicator). Under
+           780px the chip list goes; under 600px the pills and the intro go
+           too. The tier's name, line and step line always stay. */
+        @media (max-width: 767px) and (max-height: 780px) {
+          .pk-contents { display: none; }
+          .pk-tier { gap: 4px; }
+        }
+        @media (max-width: 767px) and (max-height: 600px) {
+          .pk-pills, .pk-intro { display: none; }
         }
       `}</style>
     </Scene>
