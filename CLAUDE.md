@@ -38,7 +38,7 @@ AUDIT_THEME=both AUDIT_MOTION=both node scripts/feel-audit.mjs
 AUDIT_THEME=both node scripts/a11y-audit.mjs
 node scripts/regression.mjs
 node scripts/site-regression.mjs                # docs/SITE-QA-CHECKLIST.md's CRM-to-site walk
-SCENE_PATH=/ SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # Home's gate: every 5 percent, stage fit, navbar overlap, reveal order, empty viewport, the strip (docs/SCENE-ENGINE.md); SCENE_MOTION=reduce for reduced motion
+SCENE_PATH=/ SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # Home's gate at a phone's real viewport heights: painted-row dead bands, block placement, text overlap, navbar and indicator clearance, wrapped words, cover names, the strip (docs/SCENE-ENGINE.md); SCENE_MOTION=reduce for reduced motion
 node scripts/mobile-trace.mjs                   # Home on a phone with real touch drags (390, 320, 430, reduce motion), against the mock server on 4350
 node scripts/hex-count.js                       # 90 or lower
 node scripts/css-orphans.mjs                    # 0

@@ -100,18 +100,70 @@ on or loading), `m-scene--flow` (`steps=0`, motion allowed), and
 `m-scene--static` (reduced motion, the admin host, a failed import: no
 pin, everything shown).
 
+## Where the block sits (Site Prompt 12)
+
+The stage centres the fully revealed stack by auto margins (never
+`justify-content: safe center`: Safari does not know `safe` in a flex
+container, drops the declaration and top-aligns the stage). On top of
+that the engine shifts the body by a scrubbed transform so the VISIBLE
+block is what a person sees placed: centred when it is tall enough,
+otherwise no lower than 15 percent under the navbar, building downward
+as steps land. The heights come from layout offsets once per refresh
+(`H[k]` is the stack's height with steps 0 to k in); per frame it is one
+sum and one style write. The drift leads each reveal by a third of its
+window so an arriving item is never inside the step indicator's box
+while it can be seen. While a stage is still entering from below, its
+block rides at the stage's top edge (the stage's top padding is taken
+off), blended back over the last tenth of the entry. The step indicator
+is pinned to the stage's bottom above the home indicator inset, with a
+24px gap under the block.
+
+Cards that stack in one slot arrive opaque (a scale-in from 0.97 over the
+card below, settled at 0.96), never as a fade: a fading card shows the
+card beneath it through itself for a third of a step. The hero's cover
+names swap hard: name n goes out over the first half of a 0.15 step
+window as cover n+1 arrives, name n+1 comes in over the second half, so
+two names are never above zero at once.
+
 ## The audit
 
-`scripts/scene-audit.mjs` scrolls a page in 5 percent increments (390
-touch, 1280, and every width Home is checked at) and captures, at every
-increment, a screenshot, each stage's rect, whether any content overlaps
-the navbar, the percentage of the viewport that is empty, and which steps
-are revealed. It fails if a pinned stage is ever not exactly the viewport
-height, any content overlaps the navbar, a step shows before its
-progress, a revealed step later hides while pinned, the viewport is ever
-more than 25 percent empty, two pinned stages are visible at once, the
-footer is unreachable, or scrolling back does not reverse the reveal.
-"Empty" is the share of the viewport's height with no content box in it,
-where a `data-step` child counts by its final box whether or not it has
-revealed yet, since that reserved space is the point of the layout;
-outside a stage an element counts only when visible.
+`scripts/scene-audit.mjs` scrolls a page in 5 percent increments and
+captures, at every increment, a screenshot, each stage's rect, which
+steps are revealed, and what a person would see. The phone profiles are
+the viewport a phone actually shows with Safari's bars on screen
+(390x720, 320x500, 430x800; `SCENE_HEIGHTS=390:844` overrides one), not
+the full screen: the old 390x844 was 124px taller than any phone ever
+shows Home at, which is where the button under the indicator lived.
+
+It fails if: a pinned stage is not exactly the viewport height; a
+stage's content does not fit its box; visible content inside a held
+stage is above the navbar's bottom edge; visible content intersects the
+step indicator's box or comes within 16px of it; two visible text
+elements overlap by more than 4px with no effectively opaque element
+between them; a single word breaks across lines; more than one hero
+cover name is visible at any of 20 positions through the hero; a step
+shows before its progress or hides while pinned; two pinned stages fill
+the viewport at once; the footer is unreachable; or scrolling back does
+not reverse the reveal.
+
+Dead space is measured from painted pixels: the screenshot is decoded in
+the page and a row is empty when it is within 8 units of a surface
+colour across more than 90 percent of its width. Inside a held stage no
+band between the block's first and last painted row may exceed 15
+percent of the viewport; the block is centred (its bands above and below
+within 32px of each other) or, when too short to centre without more
+than 15 percent above it, sits at that cap; once the scene is fully
+revealed no band above or below the block may exceed 15 percent; and a
+stage entering from below has its first content within 15 percent of its
+own top edge. A cover photo paints its own rows, so a backdrop stage is
+judged by its block's placement, not by rows. The whole-viewport empty
+share is reported, not judged: by the row rule a paragraph is mostly
+empty rows (line gaps, ascender space) and a four letter link is an empty
+row, so a screen full of text reads 60 percent empty; the bands are what
+a person sees.
+
+What the old audit missed, and why: it counted a `data-step` child's
+final box as content whether or not it had revealed, so a stage with one
+card slot and half a viewport of black read as full; it had no text
+overlap check; it had no navbar clearance check for content inside a
+held stage; and it ran the phone at 844px tall.
