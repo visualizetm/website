@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { Scene, useScrollEngine, REVEAL_SPAN } from '../marketing/motion';
+import { Scene, useScrollEngine, stepReveal } from '../marketing/motion';
 
 const STEPS = [
   { n: 1, title: 'A free call', desc: 'Twenty minutes to talk through what you need. No pitch, no pressure.' },
@@ -23,7 +23,7 @@ export default function HowItWorks({ tone = 'a' }) {
   const onProgress = useCallback((p) => {
     STEPS.forEach((s, i) => {
       const el = nums.current[i]; if (!el) return;
-      const t = Math.max(0, Math.min(1, (p - (i + 1)) / REVEAL_SPAN));
+      const t = stepReveal(p, i + 2);
       const v = `0${Math.round(t * s.n)}`;
       if (el.textContent !== v) el.textContent = v;
     });

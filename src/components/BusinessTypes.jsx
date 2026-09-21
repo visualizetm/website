@@ -57,7 +57,8 @@ export default function BusinessTypes({ tone = 'a' }) {
           position: relative; display: flex; flex-direction: column; gap: clamp(6px, 1.4vh, 16px);
           padding: clamp(14px, 2.4vh, 28px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-          --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1)) / 0.35), 1);
+          /* Done when the next card arrives: 0.35 of a step before its beat. */
+          --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
           --dx: 0px; --dy: 0px; --ds: 0.04;
           opacity: var(--sr, 1);
           transform: translate3d(calc(var(--dx) * var(--done)), calc((1 - var(--sr, 1)) * 16px + var(--dy) * var(--done)), 0) scale(calc(1 - var(--ds) * var(--done)));
@@ -89,7 +90,7 @@ export default function BusinessTypes({ tone = 'a' }) {
         .bt-card:has(.bt-link:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
         /* The parts stagger in over the step, off the scene's progress. */
         .m-scene--pinned .bt-needs li, .m-scene--pinned .bt-does, .m-scene--pinned .bt-link {
-          --lt: calc(var(--scene-p, 0) - var(--step, 1) + 1);
+          --lt: calc(var(--scene-p, 0) - var(--step, 1) + 1.35);
           --lp: clamp(0, calc((var(--lt) - 0.12 - var(--e, 0) * 0.09) / 0.2), 1);
           opacity: var(--lp); transform: translate3d(0, calc((1 - var(--lp)) * 8px), 0);
         }

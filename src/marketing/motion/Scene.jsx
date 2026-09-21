@@ -4,7 +4,7 @@
 // viewports of scroll and exposes progress 0 to steps as --scene-p on its
 // root, scrubbed to scroll, with no React render per frame. Children say
 // which step they belong to with data-step="n": a child at step n is
-// hidden until progress reaches n minus 1, reveals over 0.35 of a step
+// hidden until progress reaches n minus 1.35, reveals over 0.35 of a step
 // (a fade and a 16px rise, or whatever a data-reveal="custom" child does
 // with --sr), and then stays revealed for the rest of the scene. Nothing
 // that has revealed hides while the scene is pinned; scrolling back
@@ -33,7 +33,12 @@ import { cx, useMediaQuery, useMotionPreference } from './shared';
 import { useScrollEngine, whenNear } from './useScroll';
 
 const PHONE = '(max-width: 767px)';
-export const REVEAL_SPAN = 0.35;   // of a step: how long a child takes to reveal once its step begins
+export const REVEAL_SPAN = 0.35;   // of a step: how long a child takes to reveal
+/** Where step n begins revealing: 0.35 of a step before its beat, so step 1 is
+ * on screen at progress 0 and the last step holds a full beat before release. */
+export const revealStart = (n) => n - 1 - REVEAL_SPAN;
+/** A child's reveal, 0 to 1, at progress p: the same number the CSS computes. */
+export const stepReveal = (p, n) => Math.max(0, Math.min(1, (p - revealStart(n)) / REVEAL_SPAN));
 
 /** The page position at which `scene`'s progress is `p` (layout offsets, transform-free). */
 function positionFor(root, p, steps) {
@@ -110,7 +115,7 @@ export function Scene({
             last = next;
             root.style.setProperty('--scene-p', next);
             cb.current?.(p, root);
-            const a = Math.max(1, Math.min(steps, Math.floor(p + 1e-6) + 1));
+            const a = Math.max(1, Math.min(steps, Math.floor(p + REVEAL_SPAN + 1e-6) + 1));
             if (a !== lastActive) { lastActive = a; setActive(a); }
           }
         },
@@ -136,7 +141,7 @@ export function Scene({
   const goTo = (i) => {
     const root = rootRef.current;
     if (!root) return;
-    const top = positionFor(root, i - 1 + REVEAL_SPAN, steps);
+    const top = positionFor(root, Math.max(0, i - 1), steps);
     const eng = getScrollEngine();
     if (eng?.lenis) eng.lenis.scrollTo(top);
     else window.scrollTo({ top, behavior: reduced ? 'auto' : 'smooth' });

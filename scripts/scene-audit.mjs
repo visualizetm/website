@@ -6,7 +6,7 @@
  * checks the reveal reversed exactly. Fails if:
  *   - a pinned stage is ever not exactly the viewport height
  *   - any content overlaps the navbar
- *   - a step shows before its progress
+ *   - a step shows before its progress (its reveal begins 0.35 of a step before its beat)
  *   - a revealed step later hides while its scene is pinned
  *   - the viewport is ever more than 25 percent empty
  *   - two pinned stages are visible at once (Home)
@@ -136,7 +136,7 @@ async function walk(width) {
       if (sc.pinned && sc.p !== null) {
         for (const [n, sr] of Object.entries(sc.reveal)) {
           const key = `${sc.i}:${n}`;
-          if (sr > 0.02 && sc.p < Number(n) - 1 - 0.01) bad.push(`${at}: scene ${sc.i} step ${n} visible (${sr.toFixed(2)}) at progress ${sc.p.toFixed(2)}`);
+          if (sr > 0.02 && sc.p < Number(n) - 1.35 - 0.01) bad.push(`${at}: scene ${sc.i} step ${n} visible (${sr.toFixed(2)}) at progress ${sc.p.toFixed(2)}`);
           if (held && maxSeen[key] !== undefined && sr < maxSeen[key] - 0.05) bad.push(`${at}: scene ${sc.i} step ${n} hid (${sr.toFixed(2)} after ${maxSeen[key].toFixed(2)}) while pinned`);
           if (held) maxSeen[key] = Math.max(maxSeen[key] || 0, sr);
         }

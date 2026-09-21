@@ -85,12 +85,15 @@ frame, `--step: n` on every `data-step` child once, `--sr` on every
 and the audit can read its computed value.
 
 The reveal window: a child at step n begins revealing when progress
-reaches n minus 1 and is fully revealed at n minus 0.65, then holds.
-The brief phrased the window as "n minus 0.35 to n"; with progress
-starting at 0 that leaves the stage with nothing revealed for the first
-0.65 of a step and releases the scene the instant the last step has
-landed, so the window sits at the start of each beat instead and the
-rest of the beat is reading time.
+reaches n minus 1.35 and is fully revealed at n minus 1, then holds. So
+step 1 is on screen at progress 0 (the first frame of a scene, and of
+the page, is never a bare stage), each later step arrives over the last
+0.35 of the beat before its own, and the last step holds for one full
+beat before the scene lets go. The brief phrased the window as "n minus
+0.35 to n"; with progress starting at 0 that leaves the stage with
+nothing revealed for the first 0.65 of a step and releases the scene the
+instant the last step has landed. `stepReveal(p, n)` is the same number
+in JS, for the one child that changes text (How it works' counters).
 
 Three states, the content legible in all three: `m-scene--pinned` (engine
 on or loading), `m-scene--flow` (`steps=0`, motion allowed), and

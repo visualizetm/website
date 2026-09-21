@@ -76,7 +76,7 @@ export default function Packages({ tone = 'b' }) {
           position: relative; display: flex; flex-direction: column; gap: clamp(4px, 1vh, 8px);
           padding: clamp(10px, 1.5vh, 20px); background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg);
           box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-          --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1)) / 0.35), 1);
+          --done: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
           opacity: var(--sr, 1);
           transform: translate3d(0, calc((1 - var(--sr, 1)) * 16px), 0) scale(calc(1 - 0.04 * var(--done)));
           z-index: calc(var(--i, 0) + 1);

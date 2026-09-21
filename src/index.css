@@ -694,11 +694,14 @@ h1, h2, h3, h4, h5, h6 {
      licence to overfill. */
   justify-content: safe center;
 }
-/* The reveal: --sr runs 0 to 1 over the first 0.35 of the child's step
-   and holds at 1 for the rest of the scene. A data-step="0" child is
-   revealed with the stage. Reduced motion never sees these rules. */
+/* The reveal: a child at step n runs --sr 0 to 1 while progress goes
+   from n - 1.35 to n - 1 and holds at 1 for the rest of the scene, so
+   step 1 is on screen at progress 0 (the first frame of a scene is never
+   bare) and the last step holds a full beat before the scene lets go.
+   A data-step="0" child is revealed with the stage. Reduced motion never
+   sees these rules. */
 .m-scene--pinned [data-step] {
-  --sr: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 1) / 0.35), 1);
+  --sr: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 1.35) / 0.35), 1);
 }
 .m-scene--pinned [data-step]:not([data-reveal="custom"]) {
   opacity: var(--sr);
