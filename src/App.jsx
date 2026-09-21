@@ -16,6 +16,7 @@ const CaseStudy = lazy(() => import('./pages/CaseStudy'));
 const Contact = lazy(() => import('./pages/Contact'));
 const LeadPartner = lazy(() => import('./pages/LeadPartner'));
 const Start = lazy(() => import('./pages/Start'));
+const SceneTest = lazy(() => import('./pages/SceneTest'));   // Site Prompt 11: the scene engine's proving ground, noindex, unlinked
 /* The review form. Nothing links to it: it is a link Rob sends after a
  * delivery, so it is noindex and out of the sitemap. */
 const Review = lazy(() => import('./pages/Review'));
@@ -197,6 +198,7 @@ export default function App() {
       <main className="page-shell page-fade" key={location.pathname}>
         <Routes location={location}>
           <Route path="/"            element={<Home />} />
+          <Route path="/scene-test"  element={<SceneTest />} />
           <Route path="/services"    element={<Services />} />
           <Route path="/clients"        element={<Clients />} />
           <Route path="/clients/:slug"  element={<CaseStudy />} />
