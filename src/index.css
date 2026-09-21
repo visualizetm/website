@@ -708,11 +708,21 @@ h1, h2, h3, h4, h5, h6 {
 .m-scene--pinned [data-step]:not([data-reveal="custom"]) {
   opacity: var(--sr);
   transform: translate3d(0, calc((1 - var(--sr)) * 16px), 0);
-  /* Without this, WebKit on a real phone was caught compositing two
-     paints of the same text at once (a doubled "Book a free call") while
-     opacity and transform both changed every scroll frame with nothing
-     promoting the element to its own layer first. */
   will-change: opacity, transform;
+}
+/* .btn carries backdrop-filter: blur() (the frosted glass look). A real
+   phone caught a button inside a pinned scene rendering as a garbled
+   double image with lines bleeding past its own rounded edges: WebKit
+   recomputes a backdrop-filter's blur surface against whatever is behind
+   it, and here that background is an ancestor whose opacity and
+   transform are rewritten every single scroll frame while the scene is
+   pinned, which corrupts the blur's compositing on iOS Safari. This is
+   the actual fix; will-change above was not it. The button sits on a
+   solid stage background here, not a photo, so the blur was doing
+   nothing but causing this; dropping it is not a visible loss. */
+.m-scene--pinned [data-step] .btn {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 /* Not pinned: reveal on entering the viewport, in data-step order. */
 .m-scene--flow [data-step] {
