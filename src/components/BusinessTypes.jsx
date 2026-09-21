@@ -91,9 +91,12 @@ export default function BusinessTypes({ tone = 'a' }) {
         .bt-link:focus-visible { outline: none; }
         .bt-card:has(.bt-link:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
         /* The parts stagger in over the step, off the scene's progress. */
+        /* Inside the card's own 0.35 reveal window, 0.05 apart, so a card
+           that has arrived has every part at full (step 1 at progress 0
+           included: a half-faded line at rest is a contrast failure). */
         .m-scene--pinned .bt-needs li, .m-scene--pinned .bt-does, .m-scene--pinned .bt-link {
           --lt: calc(var(--scene-p, 0) - var(--step, 1) + 1.35);
-          --lp: clamp(0, calc((var(--lt) - 0.12 - var(--e, 0) * 0.09) / 0.2), 1);
+          --lp: clamp(0, calc((var(--lt) - var(--e, 0) * 0.05) / 0.15), 1);
           opacity: var(--lp); transform: translate3d(0, calc((1 - var(--lp)) * 8px), 0);
         }
       `}</style>
