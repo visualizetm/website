@@ -724,6 +724,14 @@ h1, h2, h3, h4, h5, h6 {
   width: min(100% - 2 * var(--space-6), 520px);
   margin: var(--space-3) auto 0;
 }
+/* Six 44px segments have to fit a 320px phone: the strip takes the full
+   width inside the page gutter and the gaps close to 4px. */
+@media (max-width: 767px) {
+  .m-scene-steps {
+    gap: 4px;
+    width: calc(100% - 2 * var(--space-4));
+  }
+}
 .m-scene-seg {
   position: relative;
   flex: 1 1 0;

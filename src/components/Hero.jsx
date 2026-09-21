@@ -25,7 +25,7 @@ export default function Hero({ items, tone = 'a' }) {
       backdrop={(
         <div className="hero-deck">
                 {deck.map((c, i) => (
-                  <span key={c.slug || i} className="hero-cover" data-step={i + 1} data-reveal="custom" style={{ '--i': i }}>
+                  <span key={c.slug || i} className="img-fit hero-cover" data-step={i + 1} data-reveal="custom" style={{ '--i': i }}>
                     <img
                       src={c.cover === DEFAULT_COVER ? c.cover : capImageWidth(c.cover, IMG_W.heroCover)}
                       alt="" width={1600} height={900}
@@ -64,8 +64,11 @@ export default function Hero({ items, tone = 'a' }) {
         .hero-cover {
           position: absolute; inset: 0; z-index: calc(var(--i, 0) + 1);
           opacity: var(--sr, 1);
-          transform: scale(calc(1.06 - 0.06 * var(--sr, 1)));
+          /* Settles from just under size, never over it: a cover scaled past
+             the viewport is a box the layout audit reads as overflow. */
+          transform: scale(calc(0.97 + 0.03 * var(--sr, 1)));
           transform-origin: center center;
+          background: var(--bg);
         }
         .hero-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .hero-names { position: absolute; right: var(--space-4); bottom: var(--space-4); z-index: 11; display: grid; }
