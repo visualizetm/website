@@ -61,8 +61,11 @@ export default function Hero({ items, tone = 'a' }) {
            its unscrolled 84px (72px on a phone). */
         .m-scene--pinned.hero .m-scene-stage { padding-top: calc(84px + var(--space-3)); }
         @media (max-width: 768px) { .m-scene--pinned.hero .m-scene-stage { padding-top: calc(72px + var(--space-3)); } }
+        /* Stacked by DOM order (a later cover paints over an earlier one),
+           no z-index and no ground of its own: a layer with both would read
+           as an overlay covering the page. */
         .hero-cover {
-          position: absolute; inset: 0; z-index: calc(var(--i, 0) + 1);
+          position: absolute; inset: 0; background: transparent;
           opacity: var(--sr, 1);
           /* Settles from just under size, never over it: a cover scaled past
              the viewport is a box the layout audit reads as overflow. */
