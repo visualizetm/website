@@ -74,33 +74,44 @@ export default function Hero({ items, tone = 'a' }) {
         }
         .hero-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
         .hero-names { position: absolute; right: var(--space-4); bottom: var(--space-4); z-index: 11; display: grid; }
-        /* A caption arrives with its cover and gives way as the next cover
-           arrives over it (its cover is fully underneath by then), so one
-           name is on the corner at a time. --sr itself stays at 1. */
+        /* One name at a time (Site Prompt 12, bug 4). The names share one
+           corner, so they may never both be above zero: name n goes out
+           over the first half of a 0.15 step window as cover n+1 arrives
+           (--srn is cover n+1's own reveal), and name n+1 comes in over the
+           second half. At no progress value are two names visible; the
+           old version crossfaded them over 0.35 of a step and a phone
+           caught both printed over each other. */
         .hero-cover-name {
           grid-area: 1 / 1; justify-self: end; display: flex; flex-direction: column; align-items: flex-end;
-          padding: 6px 10px; border-radius: var(--radius); background: var(--glass-bg); border: 1px solid var(--glass-border);
+          padding: 6px 10px; border-radius: var(--radius); background: var(--chrome); border: 1px solid var(--glass-border);
           font-size: 0.8125rem; color: var(--text);
-          --next: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
-          opacity: calc(var(--sr, 1) * (1 - var(--next)));
+          --srn: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 0.35) / 0.35), 1);
+          --in: clamp(0, calc((var(--sr, 1) - 0.85) / 0.075), 1);
+          --out: calc(1 - clamp(0, calc((var(--srn) - 0.775) / 0.075), 1));
+          opacity: calc(var(--in) * var(--out));
         }
-        .hero-cover-name:last-child { --next: 0; }
+        .hero-cover-name:last-child { --srn: 0; }
         .m-scene--static .hero-cover-name:not(:last-child) { display: none; }
         .hero-cover-name-b { font-weight: 700; }
         .hero-cover-name-t { font-size: 0.75rem; color: var(--text-secondary); }
         @media (max-width: 767px) { .hero-names { bottom: var(--space-3); } }
-        /* The scrim: the page ground rising from the bottom and the left so
-           the copy reads on any cover. Static, not animated. */
+        /* The scrim (Site Prompt 12, bug 4): a uniform 40 percent dim over
+           the whole deck plus a vertical gradient from transparent at the
+           top to the surface colour at the bottom. Together they are at
+           least 55 percent of the surface behind every row the headline can
+           occupy, which is what white text needs to read 4.5:1 over a pure
+           white cover, the worst case (a busy light cover's own lettering
+           showed through the headline on a phone). Static, never animated. */
         .hero-deck::after {
           content: ''; position: absolute; inset: 0; z-index: 10;
           background:
-            linear-gradient(180deg, rgba(10, 10, 10, 0.55) 0%, rgba(10, 10, 10, 0.25) 40%, rgba(10, 10, 10, 0.88) 100%),
-            linear-gradient(90deg, rgba(10, 10, 10, 0.72) 0%, rgba(10, 10, 10, 0.2) 70%);
+            linear-gradient(180deg, rgba(10, 10, 10, 0) 0%, rgba(10, 10, 10, 0.3) 22%, rgba(10, 10, 10, 0.55) 55%, rgba(10, 10, 10, 1) 100%),
+            rgba(10, 10, 10, 0.4);
         }
-        .hero-copy { display: flex; flex-direction: column; gap: clamp(10px, 2vh, 24px); }
+        .hero-copy { display: flex; flex-direction: column; gap: clamp(12px, 3vh, 28px); }
         .hero-mark { display: flex; }
-        .hero-title { max-width: 14ch; font-size: clamp(2.1rem, min(11vw, max(6vw, 7.5vh)), 5rem); line-height: 1.02; color: var(--text); }
-        .hero-sub { max-width: 40ch; font-size: clamp(1.0625rem, 2.6vh, 1.375rem); line-height: 1.5; color: var(--text-secondary); }
+        .hero-title { max-width: 14ch; font-size: clamp(2.1rem, min(12vw, max(6vw, 7.5vh)), 5rem); line-height: 1.06; color: var(--text); }
+        .hero-sub { max-width: 34ch; font-size: clamp(1.0625rem, 2.8vh, 1.375rem); line-height: 1.5; color: var(--text-secondary); }
         .hero-cta { display: flex; flex-wrap: wrap; gap: var(--space-3); }
         @media (max-width: 767px) { .hero-cta .btn { flex: 1 1 100%; justify-content: center; } }
       `}</style>
