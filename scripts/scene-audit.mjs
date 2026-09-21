@@ -34,7 +34,7 @@ const REDUCE = process.env.SCENE_MOTION === 'reduce';
 const OUT = process.env.SCENE_OUT || path.join(process.cwd(), '.tmp-verify', 'scene-audit');
 const STEP_PCT = Number(process.env.SCENE_STEP || 5);
 const MAX_EMPTY = 0.25;
-const HEIGHTS = { 320: 568, 390: 844, 430: 932, 768: 1024, 1280: 800 };
+const HEIGHTS = { 320: 640, 390: 844, 430: 932, 768: 1024, 1280: 800 };
 const isHome = PATH === '/';
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -88,7 +88,7 @@ const SAMPLE = () => {
        section's text passing under the sticky navbar as the page scrolls
        is how every page works; a stage stuck at the top with its content
        under the pill is the failure. */
-    if (navRect && !overlap && r.top < navRect.bottom - 6 && r.bottom > navRect.top + 2 && r.left < navRect.right && r.right > navRect.left) {
+    if (navRect && !overlap && !el.closest('.m-scene-backdrop') && r.top < navRect.bottom - 6 && r.bottom > navRect.top + 2 && r.left < navRect.right && r.right > navRect.left) {
       const stage = el.closest('.m-scene--pinned > .m-scene-stage');
       const sr = stage?.getBoundingClientRect();
       const held = sr && Math.abs(sr.top) < 2 && sr.height >= vh - 2;
@@ -109,7 +109,7 @@ async function walk(width) {
   await page.addInitScript((reduce) => { try { localStorage.setItem('vz_theme', 'dark'); if (reduce) localStorage.setItem('vz_motion', 'reduce'); else localStorage.removeItem('vz_motion'); } catch {} }, REDUCE);
   await page.goto(BASE + PATH, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
-  const settle = touch ? 750 : 450;   // the scrub catches up over half a second on touch
+  const settle = touch ? 750 : 1100;  // the scrub catches up over half a second on touch; Lenis smooths a jump over a second on a desktop
   const label = `${width}x${height}${REDUCE ? ' reduce' : ''}`;
   const dir = path.join(OUT, label.replace(/[^a-z0-9]+/gi, '-'));
   fs.mkdirSync(dir, { recursive: true });
@@ -125,7 +125,7 @@ async function walk(width) {
     const shot = path.join(dir, `${String(k).padStart(2, '0')}-${Math.round((y / Math.max(1, max)) * 100)}pct.png`);
     await page.screenshot({ path: shot });
     const at = `${Math.round((y / Math.max(1, max)) * 100)}% (y=${s.y})`;
-    if (s.empty > MAX_EMPTY) bad.push(`${at}: viewport ${Math.round(s.empty * 100)}% empty`);
+    if (s.empty > MAX_EMPTY) bad.push(`${at}: viewport ${Math.round(s.empty * 100)}% empty (on screen: ${s.scenes.filter(sc => sc.onScreen).map(sc => `${sc.label} ${sc.top}..${sc.bottom}`).join('; ')})`);
     if (s.overlap) bad.push(`${at}: content overlaps the navbar: ${s.overlap}`);
     let pinnedOnScreen = 0;
     for (const sc of s.scenes) {

@@ -84,7 +84,7 @@ async function walk(width, reduced) {
     for (let i = 1; i < s.length; i++) { const d = s[i][0] - s[i - 1][0]; if (d < -2) { back++; worstBack = Math.min(worstBack, d); if (backAt.length < 6) backAt.push(`${s[i - 1][0]}:${d}`); } }
     const footer = document.querySelector('footer'); const fr = footer?.getBoundingClientRect();
     const root = document.querySelector('.page-shell') || document.body;
-    const els = [...root.querySelectorAll('section, .m-pin')];
+    const els = [...root.querySelectorAll('section, .m-scene')];
     const sections = els.filter(el => !els.some(o => o !== el && el.contains(o)))
       .map(el => ({ name: (el.querySelector('h1,h2')?.textContent || el.className).trim().slice(0, 34), vhs: Math.round((el.getBoundingClientRect().height / innerHeight) * 10) / 10 }))
       .filter(x => x.vhs > 0.05).sort((a, b) => b.vhs - a.vhs);

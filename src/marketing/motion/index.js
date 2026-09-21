@@ -5,19 +5,14 @@ export { Parallax } from './Parallax';
 export { Counter } from './Counter';
 export { SectionNumber } from './SectionNumber';
 export { Marquee } from './Marquee';
-// Site Prompt 6's scroll-driven set. Everything below needs the scroll
-// engine (src/marketing/scroll.js, gsap + ScrollTrigger + Lenis, dynamically
-// imported on the marketing host only) and degrades to a plain resting state
-// without it. Pin, Curtain, WordReveal and TrackScroll are the heavy set,
-// Home only; ScaleIn and Tone are safe on any page. See
-// docs/MARKETING-MOTION.md.
-export { Pin } from './Pin';
-export { Curtain } from './Curtain';
+// The scroll-driven set (Site Prompt 6, cut down in Site Prompt 11: Pin,
+// Curtain and TrackScroll are gone, Scene below is what Home is built on).
+// ScaleIn, WordReveal and Tone need the engine only for their motion and
+// rest at their final state without it; the client pages use them.
 export { ScaleIn } from './ScaleIn';
 export { WordReveal } from './WordReveal';
-export { TrackScroll } from './TrackScroll';
 export { Tone } from './Tone';
 export { useScrollProgress, useScrollEngine, useScrollRefresh } from './useScroll';
-export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, useNearestCenter, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
+export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
 // Site Prompt 11: the one primitive Home is built on. See docs/SCENE-ENGINE.md.
 export { Scene, REVEAL_SPAN } from './Scene';

@@ -246,7 +246,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   await mockAndGoto(page, '/clients');
   if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /clients');
   await mockAndGoto(page, '/');
-  const inDeck = await page.locator('.hero-card', { hasText: 'Site Check Co' }).count();
+  const inDeck = await page.locator('.hero-cover-name', { hasText: 'Site Check Co' }).count();
   if (!inDeck) throw new Error('the published cover is not in the hero deck');
   return 'one PATCH, then live on /clients and in the hero deck';
 });

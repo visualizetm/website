@@ -328,44 +328,46 @@ approached), so the probes in this repo walk the page once first; and a
 `WordReveal` decides "above the fold" from the observer's rect, not a
 fresh read.
 
-## Heavy set versus light set
+## Home is built on Scene
 
-**Heavy set: `Pin`, `Curtain`, `WordReveal`, `TrackScroll`. Home only.**
-These take over the scroll: they hold a section still, slide one section
-over another, or move a row sideways while the page goes down. That is
-right for a landing page a visitor is browsing and wrong for a page they
-came to read, where taking the scroll away from them is an obstacle.
+Since Site Prompt 11 every section of Home is a `Scene`
+(`src/marketing/motion/Scene.jsx`, documented in `docs/SCENE-ENGINE.md`):
+one primitive that pins a stage for `steps` beats, exposes progress as
+`--scene-p`, and reveals `data-step` children off that progress. Pin,
+Curtain and TrackScroll, the page level helpers this file used to
+document, are gone with it; `Tone`, `ScaleIn` and `WordReveal` remain for
+the client pages (the light set), and `useScrollProgress`,
+`useScrollRefresh` and `whenNear` are the hooks underneath. The
+`scripts/scene-audit.mjs` walk is Home's gate: five percent increments at
+320, 390 (touch), 430, 768 and 1280, and under reduced motion.
 
-**Light set: `Reveal`, `Stagger`, `Parallax`, `Counter`, `SectionNumber`,
-`Marquee`, `ScaleIn`, plus at most one `Tone` shift per page.** Nothing
-pinned, nothing that changes how far a scroll travels. Safe on every page.
+## The light set on the other pages
 
 | Page | Set |
 |---|---|
-| Home (`/`) | Heavy. Pinned hero, Curtain entrances, WordReveal headings, the business-type TrackScroll, two Tone shifts. |
-| Clients (`/clients`) | Light. `Reveal`, `Stagger`, `ScaleIn` on covers, one `Tone`. |
-| Client detail (`/clients/:slug`) | Light. |
-| Contact (`/contact`, `/book`) | Light. One `WordReveal` heading is the single exception, it does not touch the scroll. |
-| Start (`/start`) | Light. |
-| Services (`/services`) | Light. |
-| Lead partner (`/lead-partner`) | Light. |
+| Clients (`/clients`) | `Reveal`, `Stagger`, `ScaleIn` on covers, one `Tone`. |
+| Client detail (`/clients/:slug`) | `Reveal`, `Stagger`, `Parallax` and `ScaleIn` on the cover, one `Tone`. |
+| Contact (`/contact`, `/book`) | `Reveal`, one `WordReveal` heading, one `Tone`. |
+| Start (`/start`) | `Reveal` only. |
+| Services (`/services`) | `Reveal`, `Stagger`, `SectionNumber`, one `Tone`. |
 
-Lenis stays on everywhere on the marketing host. It is the feel of the
-scroll itself, not an effect, and turning it off between pages would be
-more noticeable than leaving it on.
+Lenis stays on everywhere on the marketing host: it is the feel of the
+scroll itself, not an effect.
 
 ## API
 
 ### `useScrollEngine()`
 
 Returns `'off' | 'loading' | 'on'`. Use it to pick the class that decides
-which of the three states above a helper renders.
+which of the three states a helper renders.
 
 ### `useScrollProgress(ref, options)`
 
 Scrubs 0 to 1 while `ref`'s element crosses the viewport, writing the value
 to a CSS custom property every scroll frame. CSS reads that property inside
-`transform` and `opacity`, so scrubbing costs no React renders at all.
+`transform` and `opacity`, so scrubbing costs no React renders at all. The
+trigger is created when the element is within a screen and a half of the
+viewport (`whenNear`).
 
 | Option | Default | Does |
 |---|---|---|
@@ -375,196 +377,34 @@ to a CSS custom property every scroll frame. CSS reads that property inside
 | `varTarget` | the trigger | A different ref to write the property on. |
 | `onUpdate` | - | `(progress, element)` for the rare case JS has to react. |
 
-Returns a ref whose `.current` is the latest progress, for reads outside
-render. With no engine the property is never written, so whatever fallback
-the stylesheet gives it is what the viewer sees.
-
-```jsx
-const ref = useRef(null);
-useScrollProgress(ref, { cssVar: '--fade-p', end: 'center center' });
-<section ref={ref} style={{ opacity: 'var(--fade-p, 1)' }} />
-```
-
 ### `useScrollRefresh(dep)`
 
-Re-measures every trigger one frame after `dep` changes. Home passes its
-showcase payload: a pin that measured the page before the CRM sections had
-any content in them would hold for the wrong distance once they did.
-
-### `Pin`
-
-Holds a section still for `height` extra viewport heights while its
-children animate against `--pin-p` (0 to 1 across the hold), which is set
-on the inner panel. The hold is `position: sticky`, not a JS transform, so
-it never jitters and never fights the browser's own scrolling.
-
-| Prop | Default | Does |
-|---|---|---|
-| `height` | `1.5` | Extra viewport heights to hold for. |
-| `innerClassName` | `''` | Extra class on the sticky panel. |
-| `onProgress` | - | `(p)` each frame, if JS needs it. |
-
-Without the engine the wrapper keeps its natural height and nothing sticks,
-so write the children so that `--pin-p: 0` is a state a viewer can be left
-in. Heavy set, Home only.
-
-```jsx
-<Pin height={1.5}>
-  <h1 style={{ opacity: 'calc(1 - var(--pin-p, 0) * 2)' }}>Headline</h1>
-</Pin>
-```
-
-### `Curtain`
-
-The section arrives over the one before it, rounded at the top, while the
-section it covers scales back a little and dims. A one pixel brand
-hairline runs along the leading edge and fades as the curtain lands (an
-opacity reading `--curtain-p`). The trigger measures the transformed rect,
-so the edge enters the viewport at the moment the section before it lets
-go; the hero deck runs count minus one turns over its hold for exactly
-that reason, so its last cover finishes landing as the curtain begins. Finds its predecessor at
-runtime (`previousElementSibling`) and writes `transform` and `opacity` to
-it directly from the scroll frame, both composited, no layout property
-touched. Takes no props beyond `as`, `className` and `style`. Heavy set.
+Re-measures every trigger one frame after `dep` changes and one frame
+after the engine turns on. Home passes its showcase payload.
 
 ### `ScaleIn`
 
 An image or card settles from slightly oversized and transparent into place,
 once, on first viewport entry. `soft` is the card variant: from 0.97 and
-no blur, because a line of text that blurs reads as a rendering fault. The one new helper that is not scrubbed: it
-is a CSS transition on the same `IntersectionObserver` `Reveal` uses, which
-is why it is safe on every page. Props match `Reveal` (`delay`,
-`threshold`, `rootMargin`, `as`, `className`). Light set.
+no blur. A CSS transition on the same `IntersectionObserver` `Reveal`
+uses, safe on every page. Props match `Reveal`.
 
 ### `WordReveal`
 
 A headline whose words rise into place one after another as it crosses the
-viewport, scrubbed. Pass a plain string as the only child.
-
-| Prop | Default | Does |
-|---|---|---|
-| `as` | `'h2'` | The heading tag. |
-| `start` | `'top 85%'` | Where the reveal begins. |
-| `end` | `'top 45%'` | Where it finishes. |
-
-Each word gets one clipping span so it rises out from behind its own line,
-with descenders protected by a static padding/margin pair. The spaces
-between words stay real text nodes, so the heading still reads, copies and
-is announced as one sentence. Heavy set, with Contact's heading the one
-documented exception (it does not take over the scroll).
-
-### `TrackScroll`
-
-A row of cards that moves sideways while the page scrolls down, the section
-held still until the row runs out, one card reaching the centre at a time
-(Site Prompt 9).
-
-| Prop | Default | Does |
-|---|---|---|
-| `holdPerCard` | `0` | Viewports of scroll each card holds the centre for (Site Prompt 10). The row still travels exactly its distance; the hold is what the scrub is measured over, so 0.6 gives a card long enough to read three bullets and a line. 0 means the row's own distance. |
-| `head` | - | A node rendered inside the sticky panel above the row (the section heading). Outside the panel a heading scrolls away the moment the panel sticks, leaving the cards alone in an otherwise empty viewport for the whole hold, which was the gap Site Prompt 9 fixed. |
-| `segments` | - | Labels, one per card. Draws the progress strip under the row: one 44px button per card whose 3px bar fills with that card's closeness to the centre; tapping one scrolls to its card. `role="tablist"` with a named tab each. |
-| `progressLabel` | `'Cards'` | The strip's accessible name. |
-| `rowClassName` | `''` | Extra class on the row. |
-
-Every scroll frame the helper writes each card's closeness to the centre
-to `--card-c` on the card (1 dead centre, 0 one card away), sets
-`data-center` on the card at the centre and `data-landed` once as a card
-arrives (cleared once it has clearly left, so it lands again next time).
-The card's own CSS reads those: scale, opacity, an inset outline, a
-sequenced bullet reveal keyed off a per item `--li-i`, an icon pulse on
-landing. Data attributes rather than classes because the cards are React
-elements that re-render their className once on entering the viewport.
-The row is padded so the first and the last card can both sit at the
-centre, and the distance is measured from the card centres, not
-`scrollWidth`, which drops a flex container's trailing padding. Start and
-end come from layout offsets, not the rect, because inside a Curtain the
-rect sits a sixth of a viewport low while the page is at the top. Desktop and a fine pointer only, above
-860px. The hold is `position: sticky` and the row moves on a CSS transform
-reading `--track-p`, not ScrollTrigger's own `pin: true`: pinning is
-`position: fixed`, and Home puts this section inside a `Curtain`, whose
-transform becomes the containing block for fixed positioning and drags a
-pinned track out of the viewport. The wrapper's height is one viewport plus
-exactly the distance the row overflows, measured on every refresh, so a
-resize, a font swap or a late fetch never leaves the last card unreachable.
-
-Two things follow from that, both of which bit during Site Prompt 6. No
-ancestor of the track may clip (`overflow` anything but visible), because
-sticky silently stops working inside one. And focus has to move the page
-itself: Tab reaches the cards in DOM order, but where a card sits on screen
-is a function of scroll, so the browser's own scroll-into-view cannot reach
-one still off to the right. The helper listens for `focusin` and scrolls to
-the point where the focused card is visible, measured from layout offsets
-rather than the rect, since the Curtain's transform moves the rect.
-
-Everywhere else, and with no engine, it is a plain vertical stack of the
-same cards in the same order. On touch the page snaps gently to them
-(`scroll-snap-type: y proximity`, never `mandatory`, added to `<html>` only
-while a track is mounted), so a card tends to settle centred without ever
-trapping the scroll. Heavy set.
+viewport, scrubbed (played once when already above the fold). Pass a plain
+string as the only child. Contact's heading is its one use.
 
 ### `Tone`
 
-A section changes ground colour as it comes up the page, so a long page
-does not read as one flat surface. Implemented as the opacity of one filled
-layer over the section's own background: crossfading two layers is
-compositor work, animating `background-color` is not.
+A section changes ground colour as it comes up the page: the opacity of one
+filled layer over the section's own background, crossfading from the
+section's first pixel entering to its top at 12 percent of the viewport.
 
 | Prop | Default | Does |
 |---|---|---|
 | `from` | `'var(--bg)'` | The section's own ground. |
 | `to` | `'var(--bg-elevated)'` | What it settles to. |
 
-The crossfade runs from the section's first pixel entering to its top
-nearly reaching the top of the viewport (`top 12%`), so the ground
-changes across the whole boundary. Without the engine the layer sits at
-full opacity, so the section still shows its settled tone. Light set, at
-most one per page away from Home.
-
-## Home's boundaries (Site Prompt 9, Part 4)
-
-Every boundary on Home is a Curtain or a Tone, alternating, so the page
-reads as one continuous scroll: hero to Trust (Curtain), Trust to
-Business types (Tone, elevated to ground), Business types to Packages
-(Curtain, elevated panel), Packages to Platforms (Tone, back to ground),
-Platforms to Recent clients (Curtain, elevated), Recent clients to
-Testimonials (Tone, back to ground), Testimonials to How it works
-(Curtain, elevated), How it works to CTA (Tone, back to ground). With no
-published work Testimonials takes the Recent clients curtain. The rule
-that goes with it: sampled every 80px at 390 and 1280, no scroll position
-is more than 30 percent empty, which is why How it works no longer pins
-its three steps on a desktop.
-
-The packages ladder (`src/components/Packages.jsx`, Site Prompt 10) is a
-`Pin` on a desktop with the engine, held for four beats of 0.8 viewports,
-one per tier. `--u` (the pin's `--pin-p` times four) runs 0 to 4 across
-the hold and every tier reads `--t = --u - i`: a crossfade and a small
-slide in over t -0.35 to -0.1 and out over 0.82 to 1.0 (the last tier
-never leaves), the name, line, contents and step line revealing in
-sequence off a per element `--e`, the passed tiers collapsing to pills,
-a line down the left growing with `--u` and its nodes filling as each
-tier lands, the tier's width bar growing from the previous width to its
-own, all scrubbed. Every fallback is the resting state, so with no engine
-(reduced motion, a phone, the admin host) the four tiers are a plain
-stack, each card settling in with ScaleIn and its parts stepping in 50ms
-apart, with "Tier n of 4" and "The step:" in the text. The held panel
-spreads its spare height evenly between its blocks so no run of the
-viewport is empty while it holds.
-
-`useNearestCenter(ref, selector, skip)` in `shared.js` marks the element
-nearest the vertical centre of the screen with `data-center`, re-decided
-on scroll: the phone's sense of focus without pinning, shared by the
-business types and the packages. `skip` names a selector that, when
-present, means something else decides the centre (the held track).
-
-A full-screen minimum for the short desktop sections was built and
-measured in Site Prompt 10 and taken out again: centred in a viewport
-they read 35 to 45 percent empty, over the 30 percent rule above. A
-section's beat comes from being held (the hero, the track, the ladder)
-and from its heading completing word by word before the body's Reveal
-and Stagger land, not from padding.
-
-`scripts/mobile-trace.mjs` is the phone walk: Home top to bottom on a
-touch profile with real CDP touch drags at 390, 320 and 430, then 390
-with reduce motion, reporting screens, the longest section, backwards
-frames, footer reachability and long tasks.
+Without the engine the layer sits at full opacity. Light set, at most one
+per page.
