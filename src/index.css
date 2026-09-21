@@ -677,6 +677,8 @@ h1, h2, h3, h4, h5, h6 {
   inset: 0;
   z-index: 0;
   overflow: clip;
+  /* Scenery: it never takes a click, so nothing in it reads as an overlay. */
+  pointer-events: none;
 }
 .m-scene-body,
 .m-scene-steps {
