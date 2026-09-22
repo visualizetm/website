@@ -117,7 +117,9 @@ export function Scene({
        * viewport, less the stage's own gap under the navbar. */
       cap = Math.max(0, 0.14 * window.innerHeight - 12);
       const rel = (el) => { let t = 0; for (let n = el; n && n !== body; n = n.offsetParent) t += n.offsetTop; return t; };
-      const items = [...body.querySelectorAll('[data-step]')].map(el => ({ n: Number(el.getAttribute('data-step')) || 0, top: rel(el), bottom: rel(el) + el.offsetHeight }));
+      /* A data-step child that is display: none at this width (a desktop only
+         deck) has no height and no place, and must not set the stack's top. */
+      const items = [...body.querySelectorAll('[data-step]')].filter(el => el.offsetHeight > 0).map(el => ({ n: Number(el.getAttribute('data-step')) || 0, top: rel(el), bottom: rel(el) + el.offsetHeight }));
       const all = items.length ? items : [{ n: 0, top: 0, bottom: body.scrollHeight }];
       const top0 = Math.min(...all.map(i => i.top));
       H = [];

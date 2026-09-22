@@ -246,7 +246,7 @@ export const sets = [
   { _id: 'S8', leadId: 'L8', title: 'Three directions for the new look', round: 1, intro: 'Each one comes from what you told me on the call: clean, trustworthy, and easy to read on the side of a van. ' + UNBROKEN.slice(0, 24), status: 'viewed', archived: false,
     directions: [
       { id: 'dA', name: 'Warm and hand drawn', rationale: 'A friendlier mark for a business people invite onto their driveway. One image, so the beat is short.', order: 0, items: [item('iA1', IMG.p, 'logo', 'The primary mark', 0)] },
-      { id: 'dB', name: 'Clean and geometric ' + UNBROKEN.slice(0, 16), rationale: 'Sharper and more modern. Reads at a distance and on a dark van. ' + UNBROKEN, order: 1,
+      { id: 'dB', name: 'Clean and geometric', rationale: 'Sharper and more modern. Reads at a distance and on a dark van, and it scales down to a favicon without losing its shape.', order: 1,
         items: [item('iB1', IMG.l, 'logo', 'Wordmark on dark', 0), item('iB2', IMG.s, 'board', 'Colours and type', 1), item('iB3', IMG.p, 'mockup', 'On the van', 2), item('iB4', IMG.f, 'social', 'Instagram grid ' + UNBROKEN.slice(0, 30), 3)] },
       { id: 'dC', name: 'Bold badge', rationale: 'A badge that works as a sticker, a stamp and a profile picture.', order: 2,
         items: [item('iC1', IMG.s, 'logo', 'The badge', 0), item('iC2', IMG.g, 'logo', 'One colour', 1), item('iC3', IMG.p, 'mockup', 'Shirt', 2), item('iC4', IMG.l, 'mockup', 'Van side', 3), item('iC5', IMG.f, 'social', 'Profile', 4), item('iC6', IMG.s, 'print', 'Business card', 5), item('iC7', IMG.p, 'web', 'Homepage', 6), item('iC8', IMG.l, 'other', '', 7)] },

@@ -22,6 +22,7 @@ const SceneTest = lazy(() => import('./pages/SceneTest'));   // Site Prompt 11: 
 const Review = lazy(() => import('./pages/Review'));
 /* The client facing Content Planner, opened with a token Rob sends. Also
  * unlinked and noindex: it is somebody's own month, not a page to browse. */
+const Concepts = lazy(() => import('./pages/Concepts'));
 const Planner = lazy(() => import('./pages/Planner'));
 /* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
  * in the marketing branch below, so the admin's entry never carries the
@@ -169,6 +170,21 @@ export default function App() {
    * form, not a page on the site, and the navigation only invites them to
    * wander off in the middle of it. Each page carries its own slim bar and
    * a one line footer (src/components/ClientPageChrome.jsx). */
+  /* The concepts presentation (Concepts rebuild) stands alone the same way,
+   * but it is built on the Scene engine, so it is the one standalone page
+   * that mounts ScrollRoot. */
+  if (location.pathname.startsWith('/concepts/')) {
+    return (
+      <Suspense fallback={<ClientBoot />}>
+        <ScrollRoot />
+        <main className="page-shell page-fade" key={location.pathname}>
+          <Routes location={location}>
+            <Route path="/concepts/:token" element={<Concepts />} />
+          </Routes>
+        </main>
+      </Suspense>
+    );
+  }
   if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/')) {
     /* No splash here. The marketing splash is a fixed, opaque, z-index 9999
      * layer on a 1300ms timer that has nothing to do with whether the page

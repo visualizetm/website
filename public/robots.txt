@@ -4,5 +4,7 @@ Allow: /
 Disallow: /review
 # A planner link is one client's own month, opened with a token.
 Disallow: /planner
+# A concepts link is one client's own directions, opened with a token.
+Disallow: /concepts
 
 Sitemap: https://visualizestudio.org/sitemap.xml
