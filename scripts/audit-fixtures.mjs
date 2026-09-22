@@ -232,10 +232,53 @@ export const orders = [
     items: [{ id: 'i4', productId: 'stickers-50', name: 'Stickers, 50 pack', label: '', qty: 1, options: {}, artworkLink: '', priceTotal: 40, quote: false }, { id: 'i5', productId: 'cards-250', name: 'Business cards, 250', label: '', qty: 1, options: {}, artworkLink: '', priceTotal: 35, quote: false }],
     subtotal: 75, rush: false, dueAt: daysFrom(-8), notes: '', paid: { at: daysFrom(-9), ledgerId: 'lg4', amount: 75 }, packaging: { polyBag: true, headerCard: false, usageGuide: false }, createdAt: daysFrom(-15), archived: false },
 ];
-export const packs = [
-  { _id: 'K1', title: 'Universal logo directions', leadId: '', industryKey: '', kind: 'logo', tags: ['seed', 'logo'], prompts: [{ id: 'p1', label: 'Direction 1: wordmark', text: 'A clean, confident wordmark for [business] ' + UNBROKEN }, { id: 'p2', label: 'Direction 2: mark and lockup', text: 'A simple geometric brand mark.' }, { id: 'p3', label: 'Direction 3: badge', text: 'A circular badge logo.' }], images: [], notes: 'Edit these.', usedFor: [], createdAt: daysFrom(-10), updatedAt: daysFrom(-1) },
-  { _id: 'K2', title: 'Auto detailing social grid ' + UNBROKEN.slice(0, 20), leadId: 'L8', industryKey: 'auto detailing', kind: 'social', tags: ['grid', 'before and after'], prompts: [{ id: 'p4', label: 'Nine post grid', text: 'A nine post Instagram grid for a mobile detailer.' }], images: [{ id: 'm1', label: 'Grid mock', link: 'https://example.com/grid.png' }, { id: 'm2', label: 'Story', link: 'https://example.com/story.jpg' }, { id: 'm3', label: 'Drive folder', link: 'https://drive.google.com/drive/folders/x' }], notes: '', usedFor: ['L8'], lastUsedAt: daysFrom(-2), createdAt: daysFrom(-20), updatedAt: daysFrom(-2) },
+export const packs = [];
+/* Concept sets (Concepts rebuild): the presentation fixture the scene audit
+ * walks (S8: three directions with 1, 4 and 8 images, portrait, landscape
+ * and square, sent to the booked lead L8, one change note in), a draft on
+ * the client L11, a changes-requested set on L0, an approved round 2 on L3,
+ * and an archived round 1 on L3. The public token is the one the audits and
+ * scripts/concepts-endpoint-test.mjs know. */
+export const CONCEPT_TOKEN = 'cncpTESTtoken0123456789abcdEF';
+const IMG = { p: '/showcase/fixtures/portrait.svg', l: '/showcase/fixtures/wide.svg', s: '/showcase/fixtures/square.svg', f: '/showcase/fixtures/feed.svg', g: '/showcase/fixtures/logo.svg' };
+const item = (id, image, kind, caption = '', order = 0) => ({ id, kind, image, caption, order });
+export const sets = [
+  { _id: 'S8', leadId: 'L8', title: 'Three directions for the new look', round: 1, intro: 'Each one comes from what you told me on the call: clean, trustworthy, and easy to read on the side of a van. ' + UNBROKEN.slice(0, 24), status: 'viewed', archived: false,
+    directions: [
+      { id: 'dA', name: 'Warm and hand drawn', rationale: 'A friendlier mark for a business people invite onto their driveway. One image, so the beat is short.', order: 0, items: [item('iA1', IMG.p, 'logo', 'The primary mark', 0)] },
+      { id: 'dB', name: 'Clean and geometric ' + UNBROKEN.slice(0, 16), rationale: 'Sharper and more modern. Reads at a distance and on a dark van. ' + UNBROKEN, order: 1,
+        items: [item('iB1', IMG.l, 'logo', 'Wordmark on dark', 0), item('iB2', IMG.s, 'board', 'Colours and type', 1), item('iB3', IMG.p, 'mockup', 'On the van', 2), item('iB4', IMG.f, 'social', 'Instagram grid ' + UNBROKEN.slice(0, 30), 3)] },
+      { id: 'dC', name: 'Bold badge', rationale: 'A badge that works as a sticker, a stamp and a profile picture.', order: 2,
+        items: [item('iC1', IMG.s, 'logo', 'The badge', 0), item('iC2', IMG.g, 'logo', 'One colour', 1), item('iC3', IMG.p, 'mockup', 'Shirt', 2), item('iC4', IMG.l, 'mockup', 'Van side', 3), item('iC5', IMG.f, 'social', 'Profile', 4), item('iC6', IMG.s, 'print', 'Business card', 5), item('iC7', IMG.p, 'web', 'Homepage', 6), item('iC8', IMG.l, 'other', '', 7)] },
+    ],
+    feedback: [{ at: new Date(Date.now() - 2 * 3600e3).toISOString(), directionId: 'dB', action: 'change', name: 'Sam', note: 'Love it, but can the blue be closer to the van wrap? ' + UNBROKEN.slice(0, 20) }],
+    approvedDirectionId: '', approvedAt: '', projectId: '', token: CONCEPT_TOKEN, tokenCreatedAt: daysFrom(-3), sentAt: daysFrom(-3), lastViewedAt: new Date(Date.now() - 2 * 3600e3).toISOString(), createdAt: daysFrom(-4), updatedAt: daysFrom(-1) },
+  { _id: 'S11', leadId: 'L11', title: '', round: 1, intro: '', status: 'draft', archived: false,
+    directions: [{ id: 'dD', name: 'Menu board refresh', rationale: '', order: 0, items: [item('iD1', IMG.s, 'board', '', 0), item('iD2', '', 'other', 'A broken link', 1)] }],
+    feedback: [], approvedDirectionId: '', approvedAt: '', projectId: 'P11', token: 'cncpDRAFTtoken0123456789abcd', tokenCreatedAt: daysFrom(-1), sentAt: '', lastViewedAt: '', createdAt: daysFrom(-1), updatedAt: daysFrom(-1) },
+  { _id: 'S0', leadId: 'L0', title: 'Logo directions', round: 1, intro: 'Two ways to go.', status: 'changes', archived: false,
+    directions: [{ id: 'dE', name: 'Serif', rationale: 'Classic.', order: 0, items: [item('iE1', IMG.g, 'logo', '', 0)] }, { id: 'dF', name: 'Sans', rationale: 'Modern.', order: 1, items: [item('iF1', IMG.g, 'logo', '', 0)] }],
+    feedback: [{ at: daysFrom(-2), directionId: 'dE', action: 'change', name: 'Person 0', note: 'Serif but heavier.' }, { at: new Date(Date.now() - 26 * 3600e3).toISOString(), directionId: '', action: 'note', name: 'Person 0', note: 'Also the phone number on the card is old.' }],
+    approvedDirectionId: '', approvedAt: '', projectId: '', token: 'cncpCHANGEtoken0123456789abc', tokenCreatedAt: daysFrom(-5), sentAt: daysFrom(-5), lastViewedAt: daysFrom(-2), createdAt: daysFrom(-6), updatedAt: daysFrom(-2) },
+  { _id: 'S3b', leadId: 'L3', title: 'Round two', round: 2, intro: 'The serif, heavier, as asked.', status: 'approved', archived: false,
+    directions: [{ id: 'dG', name: 'Serif, heavier', rationale: 'What you asked for.', order: 0, items: [item('iG1', IMG.g, 'logo', '', 0), item('iG2', IMG.s, 'mockup', '', 1)] }],
+    feedback: [{ at: daysFrom(-1), directionId: 'dG', action: 'approve', name: 'Lead Business 3', note: 'Perfect.' }],
+    approvedDirectionId: 'dG', approvedAt: daysFrom(-1), projectId: '', token: 'cncpAPPROVEDtoken0123456789a', tokenCreatedAt: daysFrom(-3), sentAt: daysFrom(-3), lastViewedAt: daysFrom(-1), createdAt: daysFrom(-3), updatedAt: daysFrom(-1) },
+  { _id: 'S3a', leadId: 'L3', title: 'Logo directions', round: 1, intro: '', status: 'changes', archived: true,
+    directions: [{ id: 'dH', name: 'Serif', rationale: '', order: 0, items: [item('iH1', IMG.g, 'logo', '', 0)] }],
+    feedback: [{ at: daysFrom(-4), directionId: 'dH', action: 'change', name: 'Lead Business 3', note: 'Heavier.' }],
+    approvedDirectionId: '', approvedAt: '', projectId: '', token: 'cncpARCHIVEDtoken0123456789a', tokenCreatedAt: daysFrom(-8), sentAt: daysFrom(-8), lastViewedAt: daysFrom(-4), createdAt: daysFrom(-9), updatedAt: daysFrom(-3) },
 ];
+/* What /api/concepts?token= answers with for a set: the exact public shape. */
+export const publicConceptSet = (s) => {
+  const lead = leads.find(l => String(l._id) === String(s.leadId));
+  return {
+    client: { displayName: lead?.showcase?.displayName || lead?.business || 'Client' },
+    set: { title: s.title, round: s.round, intro: s.intro, status: s.status, approvedDirectionId: s.approvedDirectionId },
+    directions: s.directions.map(d => ({ id: d.id, name: d.name, rationale: d.rationale, items: d.items.map(it => ({ id: it.id, kind: it.kind, image: it.image, caption: it.caption })) })),
+    feedback: s.feedback.map(f => ({ at: f.at, directionId: f.directionId, action: f.action, name: f.name })),
+  };
+};
 
 export const leads = Array.from({ length: 16 }, (_, i) => ({
   ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
@@ -339,10 +382,11 @@ export const PAYLOADS = {
   leads: () => ({ items: leads }),
   orders: () => ({ items: orders, unimported: 2 }),
   packs: () => ({ items: packs }),
+  sets: () => ({ items: sets }),
   projects: () => ({ items: projects }),
   posts: () => ({ items: posts }),
 };
-export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
@@ -365,7 +409,40 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/log', r => r.fulfill(json({ ok: true, items: [] })));
   await page.route('**/api/admin/call-leads**', r => (r.request().method() === 'GET' ? respond(r, 'leads', PAYLOADS.leads()) : r.fulfill(json({ ok: true, item: { ...leads[0], _id: 'LNEW' } }))));
   await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', PAYLOADS.orders()) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
-  await page.route('**/api/admin/concept-packs**', r => (r.request().method() === 'GET' ? respond(r, 'packs', PAYLOADS.packs()) : r.fulfill(json({ ok: true, item: { ...packs[0], _id: 'KNEW' } }))));
+  await page.route('**/api/admin/concept-packs**', r => respond(r, 'packs', PAYLOADS.packs()));
+  await page.route('**/api/admin/concept-sets**', (r) => {
+    const m = r.request().method();
+    if (m === 'GET') return respond(r, 'sets', PAYLOADS.sets());
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    if (m === 'POST') return r.fulfill(json({ ok: true, item: { ...sets[1], ...body, _id: 'SNEW', status: 'draft', token: 'cncpNEWtoken0123456789abcdef', feedback: [], createdAt: NOW_ISO, updatedAt: NOW_ISO } }));
+    const cur = sets.find(x => String(x._id) === String(body.id)) || sets[0];
+    const { regenerate, ...set } = body.set || {};
+    return r.fulfill(json({ ok: true, item: { ...cur, ...set, ...(regenerate ? { token: 'cncpREGENtoken0123456789abcde' } : {}), ...(set.status === 'sent' && cur.status !== 'sent' ? { sentAt: NOW_ISO } : {}), updatedAt: NOW_ISO } }));
+  });
+  /* The public concepts endpoint (Concepts rebuild, Part 5): the fixture set
+     by its token, byte-identical 404s for anything else, and the client's
+     three actions against the in-memory copy. */
+  await page.route('**/api/concepts**', (r) => {
+    const url = new URL(r.request().url());
+    const token = url.searchParams.get('token') || '';
+    const s = sets.find(x => x.token === token && !x.archived && x.status !== 'draft');
+    const dead = () => r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (!s) return dead();
+    if (r.request().method() === 'POST') {
+      let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+      const d = s.directions.find(x => x.id === body.directionId);
+      if (body.action !== 'note' && !d) return dead();
+      if (s.status === 'approved') return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'This set is already decided.' }) });
+      if (body.action === 'change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'note required' }) });
+      const at = new Date().toISOString();
+      s.feedback.push({ at, directionId: d ? d.id : '', action: body.action, name: String(body.name || '').slice(0, 80), note: String(body.note || '').slice(0, 1000) });
+      if (body.action === 'approve') { s.status = 'approved'; s.approvedDirectionId = d.id; s.approvedAt = at; }
+      if (body.action === 'change') s.status = 'changes';
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: s.status }) });
+    }
+    if (s.status === 'sent') s.status = 'viewed';
+    return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(publicConceptSet(s)) });
+  });
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));

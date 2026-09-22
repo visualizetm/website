@@ -26,7 +26,7 @@ export const NAV = [
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', group: 'Clients', badge: 'planner' },
   // STUDIO
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders' },
-  { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: null },
+  { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: 'concepts' },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews' },
   { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null },
   // SYSTEM

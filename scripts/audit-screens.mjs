@@ -130,7 +130,15 @@ export const SCREENS = [
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 
-  { id: 'concepts-list', screen: 'Concepts', label: 'list', path: '/admin/concepts', resource: 'sets' },
+  { id: 'concepts-list', screen: 'Concepts', label: 'list, every status', path: '/admin/concepts', resource: 'sets' },
+  { id: 'concepts-list-filter', screen: 'Concepts', label: 'list filtered to a status with nothing in it', path: '/admin/concepts', resource: 'sets', act: (p) => click(p.getByRole('button', { name: /^Sent/ })) },
+  { id: 'concepts-editor', screen: 'Concepts editor', label: 'a viewed set, three directions, one change note', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true },
+  { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', noFit: true },
+  { id: 'concepts-editor-changes', screen: 'Concepts editor', label: 'changes requested, a note without a direction', path: '/admin/leads/L0/concepts', resource: 'sets', noFit: true },
+  { id: 'concepts-editor-approved', screen: 'Concepts editor', label: 'approved round two, archived round one', path: '/admin/leads/L3/concepts', resource: 'sets', noFit: true },
+  { id: 'concepts-editor-none', screen: 'Concepts editor', label: 'a lead with no set yet', path: '/admin/leads/L5/concepts', resource: 'sets' },
+  { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p) => { const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); } },
+  { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: (p) => click(p.getByRole('button', { name: 'Direction A actions' })) },
 
   { id: 'reviews-list', screen: 'Reviews', label: 'list', path: '/admin/reviews', resource: 'leads' },
   { id: 'reviews-sheet', screen: 'Reviews', label: 'review sheet', path: '/admin/reviews', open: 'L12', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open reviews for Lead Business 12/ })) },

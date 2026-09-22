@@ -60,6 +60,7 @@ export const COPY = {
     /* Concepts, rebuilt as a client presentation (docs/CONCEPTS-AUDIT.md). */
     'concepts.none': { title: 'No concepts out right now', description: 'Build one from a lead: open the record and tap Concepts.' },
     'concepts.filter': { title: 'Nothing in this status', description: 'Every set is under All.', action: 'Show all' },
+    'concepts.lead': { title: 'No concepts for this record yet', description: 'Start a set, add a direction or three with images, and send them the link.', action: 'Start a set' },
     /* Reviews */
     'reviews.none': { title: 'No clients yet', description: 'Reviews track per client. Win a booked meeting or add a client first.', action: 'Open Clients' },
     'reviews.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
@@ -162,6 +163,70 @@ export const COPY = {
       title: 'The planner did not load',
       body: 'Something went wrong on the way. Try again.',
       retry: 'Try again',
+    },
+  },
+  /* Concepts (the client presentation and its editor). The public page's
+   * strings are written to a business owner who is not a designer. */
+  concepts: {
+    dead: {
+      title: 'This link is not active',
+      body: 'Check with Rob for a current one.',
+      email: 'contact@visualizeclients.com',
+    },
+    intro: {
+      heading: (client) => `Concepts for ${client}`,
+      hint: 'Scroll through each direction. Pick the one that feels like you, or tell me what to change.',
+      round: (n) => `Round ${n}`,
+    },
+    direction: {
+      label: (letter, of) => `Direction ${letter} of ${of}`,
+      item: (n, of) => `${n} of ${of}`,
+      approve: 'This is the one',
+      change: 'Changes on this one',
+      picked: 'You picked this one',
+    },
+    compare: { heading: 'Side by side', hint: 'Every direction at a glance. Tap one to see it big again.' },
+    approve: {
+      heading: (letter) => `Direction ${letter} it is?`,
+      body: 'Rob starts on it from here. You can still send notes after.',
+      name: 'Your name',
+      note: 'Anything to add (optional)',
+      confirm: 'Approve this direction',
+      cancel: 'Not yet',
+      done: (letter) => `You picked Direction ${letter}. Rob will take it from here.`,
+    },
+    changes: {
+      heading: (letter) => `What should change on Direction ${letter}?`,
+      body: 'Be as plain as you like. "Bigger", "less red", "closer to the second one" all work.',
+      note: 'What to change',
+      name: 'Your name',
+      send: 'Send to Rob',
+      cancel: 'Never mind',
+      sent: 'Sent. Rob will work on it.',
+      required: 'Say what should change first.',
+    },
+    feedback: {
+      heading: 'Anything else I should know?',
+      note: 'A note for Rob',
+      name: 'Your name',
+      send: 'Send',
+      sent: 'Sent. Rob will read it.',
+      afterApproval: 'You have picked a direction. Notes still reach Rob.',
+    },
+    viewer: { close: 'Close', prev: 'Previous image', next: 'Next image' },
+    toast: {
+      decided: 'This set is already decided.',
+      tooMany: 'That is a lot at once. Give it a few minutes.',
+      failed: 'That did not send. Try again in a moment.',
+    },
+    editor: {
+      noImages: 'No images yet. Add a few, or paste a link.',
+      sendHelp: 'Sending makes their link work and stamps the time. Until then nothing is visible to them.',
+      sent: 'Sent. Their link works now; text it to them.',
+      textIt: 'Text this to them. It opens their concepts, no password and no account.',
+      previewDraft: 'Send it first. A draft never opens on the public site.',
+      feedbackDraft: 'Nothing yet. Feedback arrives here once they open the link.',
+      feedbackNone: 'Nothing yet. They have not answered.',
     },
   },
 };

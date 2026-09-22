@@ -114,6 +114,19 @@ export const revisionsMax = (p) => p.revisions?.max || REVISION_ROUNDS;
 /** True once the two included rounds are used: the next one must be logged as an extra round. */
 export const revisionsExhausted = (p) => revisionsUsed(p) >= revisionsMax(p);
 export const extraRoundFeeFor = (p) => extraRoundFee(p.kind);
+/** The $set that logs one revision round on a project (the Concepts editor's
+ * one tap and ClientWorkspace's form agree on this): the log entry, the used
+ * count, and for an extra round the fee as an unpaid schedule line. */
+export function roundLogPatch(p, { note = '', extra = false, at = new Date().toISOString() } = {}) {
+  const log = [...(p.revisions?.log || []), { at, note: String(note || '').trim(), extra: !!extra }];
+  const set = { revisions: { ...(p.revisions || {}), max: revisionsMax(p), log, used: log.filter(r => !r.extra).length } };
+  if (extra) {
+    const fee = extraRoundFeeFor(p); const n = extraRounds(p) + 1;
+    set.schedule = [...(p.schedule || []), { id: uid(), amount: fee, dueAt: today(), status: 'upcoming', ledgerId: '', label: `Extra round ${n}`, extra: true }];
+    set.total = (Number(p.total) || 0) + fee;
+  }
+  return set;
+}
 
 /* ── Delivery gate ──────────────────────────────────────────────── */
 export function deliverBlockReason(p) {

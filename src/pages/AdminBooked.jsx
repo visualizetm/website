@@ -4,11 +4,12 @@ import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { newestSet, statusOf as conceptStatusOf } from '../lib/concepts';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import LeadCard from '../components/LeadCard';
 import LeadDetail from '../components/LeadDetail';
 import { effectiveStage, meetingDate } from '../lib/booked';
-import { MEETING_TYPES } from '../shared/semantics';
+import { MEETING_TYPES, conceptSetStatusOf } from '../shared/semantics';
 import { countdownLabel, fmtDateTime } from '../shared/dates';
 
 /* Booked workspace (Prompt 8): the list of booked leads and the shared
@@ -18,26 +19,31 @@ const FILTERS = [
   ['all', 'All'], ['week', 'This week'], ['upcoming', 'Upcoming'], ['nodate', 'No date set'], ['concepts', 'Needs concepts'], ['outcome', 'Awaiting outcome'],
 ];
 const DAY = 864e5;
-function passes(l, f, now) {
+function passes(l, f, now, sets) {
   const d = meetingDate(l);
   const t = d?.getTime();
   switch (f) {
     case 'week': return !!t && t >= now - DAY && t <= now + 7 * DAY;
     case 'upcoming': return !!t && t > now;
     case 'nodate': return !t;
-    case 'concepts': return !(l.concepts || []).length || (l.concepts || []).some(c => c.status !== 'ready' && c.status !== 'shown');
+    case 'concepts': { const cs = newestSet(sets, l._id); return !cs || conceptStatusOf(cs) === 'draft'; } // nothing sent to show them yet
     case 'outcome': return !!t && t < now && !(l.bookedOutcome?.at);
     default: return true;
   }
 }
 
-function MeetingLine({ lead }) {
+function MeetingLine({ lead, sets }) {
   const d = meetingDate(lead);
+  /* The newest concept set's status (Concepts rebuild): what there is to show
+     in the meeting, or what came back from it. */
+  const cs = newestSet(sets, lead._id);
+  const cst = cs ? conceptSetStatusOf(conceptStatusOf(cs)) : null;
   return (
     <div className="bk-line">
       <Row gap={2} wrap>
         {d ? <><Pill tone={countdownLabel(d) === 'today' ? 'booked' : 'neutral'} label={countdownLabel(d)} size="sm" icon="CalendarCheck01" /><span className="bk-when">{fmtDateTime(d)}</span></> : <Pill tone="new" label="No date set" size="sm" icon={false} variant="outline" />}
         {lead.meeting?.type && <Pill tone="progress" label={MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label || lead.meeting.type} size="sm" variant="outline" icon={false} />}
+        {cst && <Pill tone={cst.tone} label={`Concepts ${cst.label.toLowerCase()}`} size="sm" icon={cst.icon} variant={cst.id === 'changes' || cst.id === 'approved' ? 'solid' : 'soft'} />}
       </Row>
     </div>
   );
@@ -54,8 +60,8 @@ export default function AdminBooked({ leads, submissions = [], loading, error, o
   const pending = loading && !showSkel;
   const now = Date.now();
   const booked = useMemo(() => leads.filter(l => effectiveStage(l) === 'booked').sort((a, b) => { const da = meetingDate(a); const db = meetingDate(b); if (da && db) return da - db; if (da) return -1; if (db) return 1; return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0); }), [leads]);
-  const counts = useMemo(() => Object.fromEntries(FILTERS.map(([id]) => [id, booked.filter(l => passes(l, id, now)).length])), [booked, now]);
-  const list = useMemo(() => booked.filter(l => passes(l, filter, now)), [booked, filter, now]);
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map(([id]) => [id, booked.filter(l => passes(l, id, now, shell?.sets)).length])), [booked, now, shell?.sets]);
+  const list = useMemo(() => booked.filter(l => passes(l, filter, now, shell?.sets)), [booked, filter, now, shell?.sets]);
   const sel = selId ? leads.find(l => l._id === selId) : null;
   const pick = (id) => { setSelId(id); onMobileOpen?.(); };
   const back = () => { setSelId(null); onMobileClose?.(); };
@@ -63,7 +69,7 @@ export default function AdminBooked({ leads, submissions = [], loading, error, o
   useTopBar(sel ? null : null);
 
   const cards = (compact) => (
-    <Stagger className="bk-stack">{list.map(l => <div key={l._id} className="bk-item"><LeadCard lead={l} compact onOpen={() => pick(l._id)} selected={sel?._id === l._id} />{!compact && <MeetingLine lead={l} />}</div>)}</Stagger>
+    <Stagger className="bk-stack">{list.map(l => <div key={l._id} className="bk-item"><LeadCard lead={l} compact onOpen={() => pick(l._id)} selected={sel?._id === l._id} />{!compact && <MeetingLine sets={shell?.sets} lead={l} />}</div>)}</Stagger>
   );
 
   const pendingOpen = !!openId?.id && loading && !sel;

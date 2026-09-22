@@ -24,7 +24,8 @@ import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
-import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
+import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
+import { newestSet, statusOf as conceptStatusOf } from '../lib/concepts';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/dates';
@@ -124,6 +125,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const plannerOn = !!lead.planner?.enabled;
   const plannerWaiting = postsOf(posts, lead._id).filter(p => p.status === 'review').length;
   const plannerLabel = !plannerOn ? 'Off' : plannerWaiting ? `${plannerWaiting} in review` : 'On';
+  /* Concepts (Concepts rebuild): any stage, the newest set's status. */
+  const conceptSet = newestSet(shell?.sets, lead._id);
+  const conceptSt = conceptSet ? conceptSetStatusOf(conceptStatusOf(conceptSet)) : null;
   const booked = !clientMode && (stage === 'booked' || stage === 'won' || stage === 'client');
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
@@ -234,6 +238,16 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           <Button variant="secondary" icon="Calendar" onClick={() => shell.openPlanner(lead)} className="dt-showcase-btn">
             Planner
             <Pill tone={!plannerOn ? 'neutral' : plannerWaiting ? 'new' : 'booked'} label={plannerLabel} size="sm" variant={plannerOn && !plannerWaiting ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
+          </Button>
+        )}
+        {/* Concepts (Concepts rebuild, Part 3): a lead at any stage can be
+            shown directions, so the button is here for every record, and
+            the pill is the newest set's status. */}
+        {shell?.openConcepts && (
+          <Button variant="secondary" icon="LayersThree01" onClick={() => shell.openConcepts(lead)} className="dt-showcase-btn">
+            Concepts
+            <Pill tone={conceptSt ? conceptSt.tone : 'neutral'} label={conceptSt ? conceptSt.label : 'None'} size="sm"
+              variant={conceptSt && (conceptSt.id === 'approved' || conceptSt.id === 'changes') ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
           </Button>
         )}
       </Row>

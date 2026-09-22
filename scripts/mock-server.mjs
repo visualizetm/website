@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, packs, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, packs, sets, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -49,7 +49,18 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/calendly')) return get('calendly');
   if (p.startsWith('/api/admin/call-leads')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('leads')) : json(res, { ok: true, item: { ...leads[0], _id: 'LNEW' } });
   if (p.startsWith('/api/admin/orders')) return m === 'GET' ? get('orders') : json(res, { ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } });
-  if (p.startsWith('/api/admin/concept-packs')) return m === 'GET' ? get('packs') : json(res, { ok: true, item: { ...packs[0], _id: 'KNEW' } });
+  if (p.startsWith('/api/admin/concept-packs')) return get('packs');
+  if (p.startsWith('/api/admin/concept-sets')) return m === 'GET' ? get('sets') : json(res, { ok: true, item: { ...sets[0], _id: 'SNEW' } });
+  /* The public concepts page (Concepts rebuild), so Lighthouse and the scene
+     audit see the fixture set by its token. Reads only; a POST answers ok. */
+  if (p === '/api/concepts') {
+    const token = url.searchParams.get('token') || '';
+    const s = sets.find(x => x.token === token && !x.archived && x.status !== 'draft');
+    if (!s) { res.writeHead(404, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ error: 'not found' })); }
+    if (m === 'POST') return json(res, { ok: true, status: s.status });
+    res.setHeader('Cache-Control', 'no-store');
+    return json(res, publicConceptSet(s));
+  }
   if (p.startsWith('/api/admin/projects')) return m === 'GET' ? get('projects') : json(res, { ok: true, item: { ...projects[0], _id: 'PNEW' } });
   if (p === '/api/showcase') {
     if (SHOWCASE_EMPTY) return json(res, { clients: [], landing: { logoStrip: [], work: [], testimonials: [], stats: {} } });

@@ -13,6 +13,7 @@ import BootFrame from '../shell/BootFrame';
 import { applyAppearance, setBootHint } from '../shell/appearance';
 import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
+import { conceptsBadge } from '../lib/concepts';
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
@@ -27,6 +28,7 @@ const loaders = {
   submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
   planner: () => import('./AdminPlanner'),
+  conceptsEditor: () => import('./AdminConceptsEditor'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -42,6 +44,7 @@ const AdminDesign = lazy(loaders.design);
 const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
+const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -189,6 +192,34 @@ export default function AdminApp() {
     return false;
   }, []);
 
+  /* Concept sets (Concepts rebuild), loaded at the shell level like posts:
+   * the record's pill, the meeting card, the Studio list and the badge all
+   * read the one list. Creating is immediate; every other edit is drafted
+   * in the editor and saved through patchSet. */
+  const [sets, setSets] = useState([]);
+  const [setsLoading, setSetsLoading] = useState(true);
+  const loadSets = useCallback(async () => {
+    const r = await apiFetch('/api/admin/concept-sets');
+    if (r.ok) { setSets(r.data?.items || []); setErr('sets', false); } else setErr('sets', true);
+    setSetsLoading(false);
+  }, [setErr]);
+  const createSet = useCallback(async (doc) => {
+    const r = await apiFetch('/api/admin/concept-sets', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setSets(ss => [r.data.item, ...ss]);
+    return r.data?.item || null;
+  }, []);
+  /* The server answers with the stored document (a send stamps sentAt, a
+   * regenerate mints the token), so the local copy takes that answer. */
+  const patchSet = useCallback(async (id, set) => {
+    const r = await apiFetch('/api/admin/concept-sets', { method: 'PATCH', body: { id, set } });
+    if (!r.ok) return false;
+    if (r.data?.item) setSets(ss => ss.map(s => (String(s._id) === String(id) ? r.data.item : s)));
+    else setSets(ss => ss.map(s => (String(s._id) === String(id) ? { ...s, ...set } : s)));
+    return true;
+  }, []);
+  useEffect(() => { if (authed) loadSets(); }, [authed, loadSets]);
+
   // Print orders (Prompt 11), loaded at the shell level like projects.
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -224,6 +255,7 @@ export default function AdminApp() {
     if (p.startsWith('/submissions')) return 'submissions';
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
+    if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/calendar')) return 'calendar';
@@ -244,8 +276,10 @@ export default function AdminApp() {
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
   // /clients/:id/planner (planner prompt 2), the same shape.
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
+  // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
+  const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
-  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [] } : { leads: callLeads, items, projects, orders, posts };
+  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [], sets: [] } : { leads: callLeads, items, projects, orders, posts, sets };
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
   const go = useCallback((sec, itemId) => {
@@ -267,6 +301,7 @@ export default function AdminApp() {
   // The Showcase editor for one client (Site Prompt 7, Part 3).
   const openShowcase = useCallback((lead) => { navigate(`${BASE}/clients/${lead._id}/showcase`); }, [navigate]);
   const openPlanner = useCallback((lead, month) => { navigate(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`); }, [navigate]);
+  const openConcepts = useCallback((lead, setId) => { navigate(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`); }, [navigate]);
   // Open a lead in whichever screen owns its stage.
   const openLead = useCallback((lead) => {
     const stage = effectiveStage(lead);
@@ -426,7 +461,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients };
+  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -434,7 +469,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -477,6 +512,17 @@ export default function AdminApp() {
           onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
         />
       )}
+      {section === 'conceptsEditor' && (
+        <AdminConceptsEditor
+          lead={V.leads.find(l => String(l._id) === conceptsLeadId) || null}
+          sets={V.sets} projects={V.projects}
+          loading={callLeadsLoading || setsLoading || forceLoading}
+          error={errors.sets} onRetry={loadSets}
+          onCreate={createSet} onPatch={patchSet} onPatchProject={patchProject}
+          setId={new URLSearchParams(location.search).get('set') || ''}
+          onBack={() => { const l = V.leads.find(x => String(x._id) === conceptsLeadId); if (l) openLead(l); else navigate(`${BASE}/concepts`); }}
+        />
+      )}
       {section === 'showcase' && (
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
@@ -495,7 +541,7 @@ export default function AdminApp() {
           openId={reqFor('orders')} createPreset={createFor('orders')} />
       )}
       {section === 'concepts' && (
-        <AdminConcepts leads={V.leads} loading={callLeadsLoading || forceLoading} />
+        <AdminConcepts sets={V.sets} leads={V.leads} loading={setsLoading || callLeadsLoading || forceLoading} error={errors.sets} onRetry={loadSets} />
       )}
       {section === 'reviews' && (
         <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />

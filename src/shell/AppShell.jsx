@@ -37,7 +37,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, funnel, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], posts = [], styles, children,
+  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], posts = [], sets = [], onOpenConcepts, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
@@ -135,8 +135,9 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, posts, health, profile, setProfile, appearance, saveAppearance,
-  }), [go, openLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, posts, health, profile, appearance, saveAppearance]);
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
+    openConcepts: onOpenConcepts,
+  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
