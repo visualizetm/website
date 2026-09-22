@@ -38,6 +38,7 @@ export default function Manifesto({ tone = 'b' }) {
         }
         .mf-n { font-size: clamp(1.2rem, 3.2vh, 2rem); line-height: 1.2; color: var(--brand-text); white-space: nowrap; min-width: 2.2ch; font-variant-numeric: tabular-nums; }
         .mf-line p { font-size: clamp(1rem, 2.5vh, 1.85rem); line-height: 1.38; color: var(--text); max-width: 40ch; }
+        @media (max-width: 767px) and (max-height: 560px) { .mf-line { padding: 4px 0; } .mf-line p { font-size: 0.875rem; line-height: 1.3; } .mf-n { font-size: 1.1rem; } .mf-title { font-size: 1.4rem; } .mf-col { gap: 6px; } }
       `}</style>
     </Scene>
   );

@@ -636,6 +636,14 @@ h1, h2, h3, h4, h5, h6 {
   inherits: true;
   initial-value: 1;
 }
+/* A card's move out of the centre slot (the business types row, the
+   tiers' settle), registered so the audit can read it and treat a card
+   mid-move as a transition frame rather than a dead band. */
+@property --done {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
 .m-scene {
   position: relative;
 }

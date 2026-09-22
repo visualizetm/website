@@ -111,12 +111,14 @@ export default function Packages({ tone = 'b' }) {
            under the navbar and the button under the indicator). Under
            780px the chip list goes; under 600px the pills and the intro go
            too. The tier's name, line and step line always stay. */
-        @media (max-width: 767px) and (max-height: 780px) {
+        @media (max-width: 767px) and (max-height: 820px) {
           .pk-contents { display: none; }
           .pk-tier { gap: 4px; }
         }
         @media (max-width: 767px) and (max-height: 600px) {
-          .pk-pills, .pk-intro { display: none; }
+          .pk-pills, .pk-intro, .pk-note { display: none; }
+          .pk-tier { padding: 10px; }
+          .pk-col { gap: 6px; }
         }
       `}</style>
     </Scene>

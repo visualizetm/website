@@ -54,7 +54,7 @@ export default function HowItWorks({ tone = 'a' }) {
         .hiw-list { list-style: none; display: flex; flex-direction: column; }
         .hiw-step {
           display: grid; grid-template-columns: auto 1fr; gap: var(--space-4); align-items: center;
-          padding: clamp(10px, 3.6vh, 36px) 0; border-top: 1px solid var(--border);
+          padding: clamp(10px, 4.2vh, 44px) 0; border-top: 1px solid var(--border);
         }
         /* One glyph, never a ghost stacked behind it: before its step the
            colour reads as muted text (5.4:1 on the ground, the reserved
@@ -64,7 +64,7 @@ export default function HowItWorks({ tone = 'a' }) {
            browser that does not know color-mix keeps the muted colour
            rather than showing nothing. */
         .hiw-n {
-          font-size: clamp(2.6rem, 8.5vh, 5rem); line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 2.2ch;
+          font-size: clamp(2.6rem, 9.5vh, 5.5rem); line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 2.2ch;
           color: var(--brand-text);
         }
         .m-scene--pinned .hiw-n { opacity: var(--sr, 1); }

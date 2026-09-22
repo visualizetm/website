@@ -90,7 +90,7 @@ export default function BusinessTypes({ tone = 'a' }) {
         .m-scene--static .bt-zone { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--space-4); }
         .m-scene--static .bt-zone > * { grid-area: auto; width: auto; align-self: stretch; }
         .m-scene--static .bt-card { transform: none; opacity: 1; box-shadow: none; }
-        @media (max-width: 767px) and (max-height: 600px) { .bt-intro { display: none; } .bt-card { gap: 4px; } }
+        @media (max-width: 767px) and (max-height: 600px) { .bt-intro { display: none; } .bt-card { gap: 3px; padding: 10px; } .bt-needs li, .bt-does { font-size: 0.8125rem; line-height: 1.3; } .bt-needs { gap: 1px; } .bt-link { min-height: 36px; font-size: 0.875rem; } .bt-icon { width: 28px; height: 28px; } .bt-type { font-size: 1rem; } .bt-title { font-size: 1.4rem; } }
         .bt-icon { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: var(--radius); background: var(--glass-bg-brand); color: var(--brand-text); }
         .bt-type { font-size: clamp(1.0625rem, 2.4vh, 1.5rem); font-weight: 700; color: var(--text); }
         .bt-needs { list-style: none; display: flex; flex-direction: column; gap: clamp(2px, 0.8vh, 10px); }

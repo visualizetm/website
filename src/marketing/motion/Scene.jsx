@@ -148,7 +148,11 @@ export function Scene({
       const q = p + 0.35 * REVEAL_SPAN;
       let visible = H[0];
       for (let n = 1; n <= steps; n++) visible += stepReveal(q, n) * (H[n] - H[n - 1]);
-      const want = Math.min(cap, Math.max(0, (B - visible) / 2));
+      /* No lower than the cap, and never lower than where the fully
+       * revealed block will sit, so the block is centred once everything
+       * has arrived even on a tall viewport where that is below the cap. */
+      const floor = Math.max(cap, Math.max(0, (B - Hwrap) / 2));
+      const want = Math.min(floor, Math.max(0, (B - visible) / 2));
       const k = Math.max(0, Math.min(1, (entry - 0.9) / 0.1));
       const total = want - (B - Hwrap) / 2 - (1 - k) * padTop;
       body.style.setProperty('--scene-shift', `${total.toFixed(1)}px`);

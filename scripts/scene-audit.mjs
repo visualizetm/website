@@ -107,7 +107,7 @@ const SAMPLE = () => {
     const names = [...root.querySelectorAll('.hero-cover-name')].filter(el => alpha(el) > 0.02).length;
     // Something mid-fade: the block's extent is not settled, so its centring is not judged this frame.
     let settling = false;
-    if (body) for (const el of body.querySelectorAll('[data-step]')) { const a = alpha(el); if (a > 0.05 && a < 0.95) { settling = true; break; } }
+    if (body) for (const el of body.querySelectorAll('[data-step], [data-step] *')) { const cs = getComputedStyle(el); const o = +cs.opacity; const d = Number(cs.getPropertyValue('--done')); if ((o > 0.05 && o < 0.95) || (Number.isFinite(d) && d > 0.02 && d < 0.98)) { settling = true; break; } }
     const backdrop = !!stage.querySelector(':scope > .m-scene-backdrop');
     return { i, label: stage.getAttribute('aria-label') || '', steps, pinned, held, p: p === '' ? null : Number(p), top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height), onScreen: r.bottom > 0 && r.top < vh, reveal, fits, bodyH: body ? body.scrollHeight : 0, bodyBox: body ? body.clientHeight : 0,
       bodyTop: Math.round(br.top), bodyBottom: Math.round(br.bottom), contentTop: cTop === Infinity ? null : Math.round(cTop), contentBottom: cBottom === -Infinity ? null : Math.round(cBottom),
@@ -145,8 +145,9 @@ const SAMPLE = () => {
   for (const L of leaves) {
     // A single word whose text occupies more than one line box has broken across lines (a numeral in a column too narrow for it).
     if (!L.oneWord) continue;
-    const range = document.createRange(); range.selectNodeContents(L.el);
-    const tops = new Set([...range.getClientRects()].filter(r => r.width > 1).map(r => Math.round(r.top)));
+    // The element's own text nodes only: an icon beside the text sits on a different line box top.
+    const tops = new Set();
+    for (const node of L.el.childNodes) { if (node.nodeType !== 3 || !node.textContent.trim()) continue; const range = document.createRange(); range.selectNodeContents(node); for (const r of range.getClientRects()) if (r.width > 1) tops.add(Math.round(r.top)); }
     if (tops.size > 1) wrapped.push(`${L.name} breaks across ${tops.size} lines at ${Math.round(L.fontPx)}px: a single word wrapped`);
   }
   for (let i = 0; i < leaves.length && overlaps.length < 12; i++) for (let j = i + 1; j < leaves.length && overlaps.length < 12; j++) {
@@ -267,13 +268,14 @@ async function walk(width) {
            the block and so can never look off centre. */
         const rectAbove = sc.contentTop - s.navBottom, rectBelow = lower - sc.contentBottom;
         const full = sc.p !== null && sc.p >= sc.steps - 1 - 0.01;
-        if (!sc.backdrop && inner > MAX_BAND * s.vh) bad.push(`${at}: scene ${sc.i} "${sc.label}" has a ${inner}px dead band inside its content (${Math.round(100 * inner / s.vh)}% of the viewport, limit ${MAX_BAND * 100})`);
+        if (!sc.backdrop && !sc.settling && inner > MAX_BAND * s.vh) bad.push(`${at}: scene ${sc.i} "${sc.label}" has a ${inner}px dead band inside its content (${Math.round(100 * inner / s.vh)}% of the viewport, limit ${MAX_BAND * 100})`);
         /* Placement: the block is centred (bands within 32px of each other)
            or, when it is too short to centre without a band over 15
            percent above it, it sits at that cap and builds downward.
            Never lower than the cap; never both off the cap and off centre. */
         const cap = MAX_BAND * s.vh;
-        if (!sc.settling && rectAbove > cap + CENTRE_TOL) bad.push(`${at}: scene ${sc.i} "${sc.label}" block sits ${rectAbove}px below the navbar (limit ${Math.round(cap)})`);
+        // A block is placed at the cap, centred, or (once fully revealed on a tall viewport) centred below the cap.
+        if (!sc.settling && !full && rectAbove > cap + CENTRE_TOL && Math.abs(rectAbove - rectBelow) > CENTRE_TOL) bad.push(`${at}: scene ${sc.i} "${sc.label}" block sits ${rectAbove}px below the navbar (limit ${Math.round(cap)})`);
         if (!sc.settling && rectAbove < cap - CENTRE_TOL && Math.abs(rectAbove - rectBelow) > CENTRE_TOL) bad.push(`${at}: scene ${sc.i} "${sc.label}" is neither centred nor at the cap: ${rectAbove}px above the visible block, ${rectBelow}px below (tolerance ${CENTRE_TOL})`);
         if (full && !sc.backdrop && (above > MAX_BAND * s.vh || below > MAX_BAND * s.vh)) bad.push(`${at}: scene ${sc.i} "${sc.label}" fully revealed with ${above}px empty above and ${below}px below the block (limit ${Math.round(MAX_BAND * s.vh)})`);
         if (full && sc.backdrop && (rectAbove > MAX_BAND * s.vh || rectBelow > MAX_BAND * s.vh)) bad.push(`${at}: scene ${sc.i} "${sc.label}" fully revealed with its block ${rectAbove}px from the navbar and ${rectBelow}px from the bottom (limit ${Math.round(MAX_BAND * s.vh)})`);

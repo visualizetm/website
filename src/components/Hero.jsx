@@ -114,6 +114,8 @@ export default function Hero({ items, tone = 'a' }) {
         .hero-sub { max-width: 34ch; font-size: clamp(1.0625rem, 2.8vh, 1.375rem); line-height: 1.5; color: var(--text-secondary); }
         .hero-cta { display: flex; flex-wrap: wrap; gap: var(--space-3); }
         @media (max-width: 767px) { .hero-cta .btn { flex: 1 1 100%; justify-content: center; } }
+        /* A short phone (under 560px tall) puts the two buttons side by side. */
+        @media (max-width: 767px) and (max-height: 560px) { .hero-cta .btn { flex: 1 1 40%; min-height: 40px; } .hero-sub { font-size: 0.9375rem; max-width: 40ch; } .hero-title { font-size: 1.85rem; } .hero-copy { gap: 8px; } .hero-mark .wordmark { font-size: 26px; } }
       `}</style>
     </Scene>
   );
