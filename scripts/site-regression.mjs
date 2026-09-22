@@ -453,6 +453,88 @@ await step('13. Content planner: open a month, approve one, ask for a change on 
   return 'the month, a panel measured on screen before each action, an approval with the counts moving, and a change request with the note in the body';
 });
 
+/* The Concepts rebuild: the presentation a client opens with their token,
+ * scrolled through, one direction sent back for changes, another approved,
+ * and the two notifications then showing in the admin's drawer. */
+await step('14. Concepts: open a set by token, scroll, request changes on one direction, approve another, see both in the admin', async () => {
+  const TOKEN = 'cncpREGRESSIONtoken0123456';
+  const bodies = [];
+  const set = {
+    _id: 'SRG1', leadId: 'SITECHECK', title: 'Two ways', round: 1, intro: 'Two directions from the call.', status: 'sent', archived: false,
+    directions: [
+      { id: 'rA', name: 'Warm', rationale: 'Friendlier.', order: 0, items: [{ id: 'rA1', kind: 'logo', image: '/showcase/fixtures/square.svg', caption: 'Mark', order: 0 }] },
+      { id: 'rB', name: 'Clean', rationale: 'Sharper.', order: 1, items: [{ id: 'rB1', kind: 'logo', image: '/showcase/fixtures/wide.svg', caption: 'Wordmark', order: 0 }, { id: 'rB2', kind: 'board', image: '/showcase/fixtures/portrait.svg', caption: 'Board', order: 1 }] },
+    ],
+    feedback: [], approvedDirectionId: '', approvedAt: '', projectId: '', token: TOKEN, tokenCreatedAt: new Date().toISOString(), sentAt: new Date().toISOString(), lastViewedAt: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  };
+  const pub = () => ({ client: { displayName: 'Site Check Co' }, set: { title: set.title, round: set.round, intro: set.intro, status: set.status, approvedDirectionId: set.approvedDirectionId }, directions: set.directions.map(d => ({ id: d.id, name: d.name, rationale: d.rationale, items: d.items.map(i => ({ id: i.id, kind: i.kind, image: i.image, caption: i.caption })) })), feedback: set.feedback.map(f => ({ at: f.at, directionId: f.directionId, action: f.action, name: f.name })) });
+  await page.route('**/api/concepts**', (r) => {
+    const u = new URL(r.request().url());
+    if (u.searchParams.get('token') !== TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (r.request().method() === 'POST') {
+      const body = JSON.parse(r.request().postData() || '{}'); bodies.push(body);
+      const d = set.directions.find(x => x.id === body.directionId);
+      if (body.action !== 'note' && !d) return r.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"not found"}' });
+      if (set.status === 'approved') return r.fulfill({ status: 409, contentType: 'application/json', body: '{"error":"This set is already decided."}' });
+      const at = new Date().toISOString();
+      set.feedback.push({ at, directionId: d ? d.id : '', action: body.action, name: body.name || '', note: body.note || '' });
+      if (body.action === 'approve') { set.status = 'approved'; set.approvedDirectionId = d.id; set.approvedAt = at; }
+      if (body.action === 'change') set.status = 'changes';
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: set.status }) });
+    }
+    if (set.status === 'sent') { set.status = 'viewed'; set.lastViewedAt = new Date().toISOString(); }
+    return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(pub()) });
+  });
+
+  await page.goto(`${BASE}/concepts/${TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(1600);
+  if (!/Two ways/i.test(await page.locator('.cp-h1').innerText())) throw new Error('the set title is not the heading');
+  if (await page.locator('.cp-dir').count() !== 2) throw new Error('two direction scenes expected');
+  // Scroll through every scene, the way a client does, and land on the first decision beat.
+  const docH = await page.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0; y < docH; y += 400) { await page.evaluate((t) => window.scrollTo(0, t), y); await page.waitForTimeout(60); } // eslint-disable-line no-await-in-loop
+  await page.locator('.cp-beat').first().scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  await page.locator('.cp-beat').first().getByRole('button', { name: 'Changes on this one' }).click();
+  await page.waitForTimeout(400);
+  const note = page.locator('.cp-panel textarea').first();
+  if (!await note.isVisible()) throw new Error('the change request box is not visible');
+  await note.fill('Warmer still, and drop the outline.');
+  await page.locator('.cp-panel').getByRole('button', { name: 'Send to Rob' }).click();
+  await page.waitForTimeout(900);
+  const change = bodies.at(-1);
+  if (change?.action !== 'change' || change?.directionId !== 'rA' || change?.note !== 'Warmer still, and drop the outline.') throw new Error(`the change body was ${JSON.stringify(change)}`);
+  if (!/Sent/i.test(await page.locator('.cp-toast').innerText().catch(() => ''))) throw new Error('no confirmation after the change request');
+  await page.waitForTimeout(3000);
+  await page.locator('.cp-beat').nth(1).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  await page.locator('.cp-beat').nth(1).getByRole('button', { name: 'This is the one' }).click();
+  await page.waitForTimeout(400);
+  await page.locator('.cp-panel').getByRole('button', { name: 'Approve this direction' }).click();
+  await page.waitForTimeout(900);
+  const approve = bodies.at(-1);
+  if (approve?.action !== 'approve' || approve?.directionId !== 'rB') throw new Error(`the approve body was ${JSON.stringify(approve)}`);
+  if (!await page.locator('.cp-banner').count()) throw new Error('no approved banner after approving');
+  if (await page.locator('.cp-beat .cp-btn').count()) throw new Error('decision buttons still showing after approval');
+
+  // The admin: the two actions as notifications, and the set opens from the drawer.
+  await mockRoutes(page, {});
+  await page.route('**/api/admin/concept-sets**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [set] }) }));
+  await page.route('**/api/admin/call-leads**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [{ _id: 'SITECHECK', business: 'Site Check Co', stage: 'booked', callStatus: 'booked', industry: 'Testing', socials: {}, links: {}, meeting: { date: '', time: '', type: 'call', location: '' } }] }) }));
+  await page.goto(`${BASE}/admin`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(1600);
+  await page.locator('.sh-bell').first().click();
+  await page.waitForTimeout(600);
+  const drawer = await page.locator('[role="dialog"]').innerText();
+  if (!/asked for changes on Direction A/i.test(drawer)) throw new Error('the change request is not in the notifications');
+  if (!/picked Direction B/i.test(drawer)) throw new Error('the approval is not in the notifications');
+  await page.locator('[role="dialog"]').getByText(/picked Direction B/i).first().click();
+  await page.waitForTimeout(1200);
+  if (!/\/admin\/leads\/SITECHECK\/concepts/.test(page.url())) throw new Error(`the notification opened ${page.url()} instead of the editor`);
+  if (!await page.locator('.ce-approved').count()) throw new Error('the editor does not pin the approved direction');
+  return 'the set by token, every scene scrolled, a change request on A and an approval on B with their bodies, both in the admin drawer, the drawer opening the editor';
+});
+
 await browser.close();
 
 const failing = rows.filter(r => !r.ok).length;

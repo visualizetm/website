@@ -97,7 +97,8 @@ export default function BusinessTypes({ tone = 'a' }) {
         .bt-needs li { position: relative; padding-left: var(--space-4); font-size: clamp(0.9rem, 2vh, 1.125rem); color: var(--text-secondary); line-height: 1.45; }
         .bt-needs li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 5px; height: 5px; border-radius: 50%; background: var(--brand); }
         .bt-does { font-size: clamp(0.9rem, 2vh, 1.125rem); color: var(--text); line-height: 1.5; }
-        .bt-link { display: inline-flex; align-items: center; align-self: flex-start; min-height: 44px; font-size: 0.9375rem; font-weight: 600; color: var(--brand-text); }
+        /* 46, not 44: the card arrives at scale 0.97, and 44 times 0.97 is a 43px target while it lands. */
+        .bt-link { display: inline-flex; align-items: center; align-self: flex-start; min-height: 46px; font-size: 0.9375rem; font-weight: 600; color: var(--brand-text); }
         .bt-link::after { content: ''; position: absolute; inset: 0; }
         .bt-link:hover { text-decoration: underline; }
         .bt-link:focus-visible { outline: none; }

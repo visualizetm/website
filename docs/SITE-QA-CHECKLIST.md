@@ -25,9 +25,11 @@ published to the showcase.
 | 10 | Open the client's Showcase editor (/clients/:id/showcase), change a field, use Discard, change it again, Save, then Publish | Nothing writes until Save (one PATCH per save), Discard restores the saved state, and the published cover then shows on /clients and in Home's hero deck. |
 | 11 | In the Showcase editor, use Upload on an image field and pick a file | The button goes busy, the returned Cloudinary URL lands in the field, and the preview appears in the box the public page will use. Needs the VITE_CLOUDINARY_* pair in the build; without it there is no Upload button and the paste path is the only path. |
 
+| 13 | Open /planner/<token> for a client with the planner on | The month, the posts needing approval, an approval and a change request each reaching the endpoint. |
+| 14 | Send a concept set from a lead's Concepts editor, open /concepts/<token> on a phone, scroll every scene, tap Changes on this one under one direction and send a note, then This is the one under another and approve | The intro, one pinned scene per direction with its images in turn and the earlier ones settling into the strip, the change note reaching the endpoint with the direction's id, the approval landing with the banner and every decision button gone, and in the admin two notifications (asked for changes on Direction A, picked Direction B) that open the editor with the approved direction pinned in green. |
 | 12 | Open /review/<slug> for that client, fill it in, pick five stars, send | The line reads "Thanks for working with me on <name>", the business field is filled and read only, and after sending the form is replaced by "Thanks. That means a lot." with a Leave one on Google too button (four or five stars and a Google link on file). The review lands in the admin's Reviews screen under Form submissions, carrying the slug, so Link to client is one tap. |
 
-`scripts/site-regression.mjs` result (last run): 12/12 steps pass. Step 11
+`scripts/site-regression.mjs` result (last run): see reports/CONCEPTS-REPORT.md for the Concepts run (steps 1 to 9 and 13 to 14 pass against the mocks; 10 to 12 need the real build's admin session). Step 11
 reports "skipped" against a build with no VITE_CLOUDINARY_* configuration,
 since no Upload button renders there.
 

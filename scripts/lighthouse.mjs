@@ -39,6 +39,8 @@ const TARGETS = [
   { id: 'contact', label: 'Contact', path: '/contact' },
   // planner prompt 3: the page a client opens, with its month mocked.
   { id: 'planner', label: 'Planner (client facing)', path: '/planner/plnrTESTtoken0123456789abcdEF' },
+  // Concepts rebuild: the presentation a client opens, with its set mocked.
+  { id: 'concepts', label: 'Concepts (client facing)', path: '/concepts/cncpTESTtoken0123456789abcdEF' },
 ];
 if (OUT) mkdirSync(OUT, { recursive: true });
 

@@ -117,6 +117,14 @@ export const SCREENS = [
      paths is the audit fixture's, answered by the mocked /api/planner. */
   { id: 'mkt-planner-cal', screen: 'Planner (marketing)', label: 'calendar view', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true },
   { id: 'mkt-planner-dead', screen: 'Planner (marketing)', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000', session: false, static: true, marketing: true },
+  // Concepts (Concepts rebuild, Part 7): the client presentation and its states.
+  { id: 'mkt-concepts', screen: 'Concepts (marketing)', label: 'the presentation, three directions', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, noFit: true },
+  { id: 'mkt-concepts-present', screen: 'Concepts (marketing)', label: 'present mode, no controls', path: '/concepts/cncpTESTtoken0123456789abcdEF?present=1', session: false, static: true, marketing: true, noFit: true },
+  { id: 'mkt-concepts-approved', screen: 'Concepts (marketing)', label: 'a decided set, the banner and the dimmed others', path: '/concepts/cncpAPPROVEDtoken0123456789a', session: false, static: true, marketing: true, noFit: true },
+  { id: 'mkt-concepts-dead', screen: 'Concepts (marketing)', label: 'a link that is not active', path: '/concepts/notarealtokenatall000000000', session: false, static: true, marketing: true },
+  { id: 'mkt-concepts-viewer', screen: 'Concepts (marketing)', label: 'the full screen viewer', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true, region: '.cp-viewer', act: (p) => click(p.locator('.cp-card-pic').first()) },
+  { id: 'mkt-concepts-approve', screen: 'Concepts (marketing)', label: 'the approve confirm panel', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true, region: '.cp-panel', act: (p) => click(p.locator('.cp-card .cp-btn').first()) },
+  { id: 'mkt-concepts-changes', screen: 'Concepts (marketing)', label: 'the change request form', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true, region: '.cp-panel', act: (p) => click(p.locator('.cp-beat .cp-btn--ghost').first()) },
   /* The expanded image: a dialog, so it gets its own axe row. */
   { id: 'mkt-planner-zoom', screen: 'Planner (marketing)', label: 'the whole image, expanded', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true,
     act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' })); await p.waitForTimeout(400); await click(p.locator('.pl-row').first()); await p.waitForTimeout(500); await click(p.locator('button.pl-img--whole').first()); } },
