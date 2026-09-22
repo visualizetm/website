@@ -68,6 +68,10 @@
       "destination": "/api/admin/index?r=concept-sets"
     },
     {
+      "source": "/api/concepts",
+      "destination": "/api/showcase?r=concepts"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },

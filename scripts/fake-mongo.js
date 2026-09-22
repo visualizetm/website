@@ -8,7 +8,10 @@ export const _reset = () => { for (const k of Object.keys(_stores)) delete _stor
 const store = (n) => (_stores[n] = _stores[n] || []);
 const isPlain = (v) => v && typeof v === 'object' && !Array.isArray(v) && !(v instanceof Date) && !(v instanceof RegExp) && v.constructor && (v.constructor.name === 'Object');
 const norm = (v) => (v instanceof Date ? v.getTime() : (v && typeof v === 'object' && typeof v.toHexString === 'function') ? v.toHexString() : v);
-const getPath = (o, k) => k.split('.').reduce((x, p) => (x == null ? undefined : x[p]), o);
+/* A dotted path walks into an array the way MongoDB does: 'directions.id'
+ * on { directions: [{ id }] } is every element's id, and cmp() then asks
+ * whether any of them matches. */
+const getPath = (o, k) => k.split('.').reduce((x, p) => { if (x == null) return undefined; if (Array.isArray(x) && !/^\d+$/.test(p)) return x.map(e => (e == null ? undefined : e[p])); return x[p]; }, o);
 function setPath(o, k, v) { const parts = k.split('.'); let cur = o; for (let i = 0; i < parts.length - 1; i++) { cur[parts[i]] = cur[parts[i]] || {}; cur = cur[parts[i]]; } cur[parts[parts.length - 1]] = v; }
 function delPath(o, k) { const parts = k.split('.'); let cur = o; for (let i = 0; i < parts.length - 1; i++) { if (!cur[parts[i]]) return; cur = cur[parts[i]]; } delete cur[parts[parts.length - 1]]; }
 function cmp(actual, v) {

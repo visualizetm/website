@@ -62,7 +62,7 @@ const submissions = (await load('submissions.js')).default;
 const login = (await load('admin/login.js')).default;
 const adminIndex = (await load('admin/index.js')).default;
 const routes = {};
-for (const n of ['call-leads', 'submissions', 'posts', 'projects', 'concept-packs', 'orders', 'export', 'stripe-reconcile', 'settings']) routes[n] = (await load(`_routes/${n}.js`)).handler;
+for (const n of ['call-leads', 'submissions', 'posts', 'projects', 'concept-packs', 'concept-sets', 'orders', 'export', 'stripe-reconcile', 'settings']) routes[n] = (await load(`_routes/${n}.js`)).handler;
 const { signSession, sessionCookie } = await load('_lib/auth.js');
 const { rateKey } = await load('_lib/limit.js');
 
@@ -103,6 +103,11 @@ const LEAD_ON = '507f1f77bcf86cd799439031';
 const LEAD_OFF = '507f1f77bcf86cd799439032';
 const POST_MINE = '607f1f77bcf86cd799439001';
 const POST_THEIRS = '607f1f77bcf86cd799439006';
+const CN_ON = 'cncp_live_token_abcdefghijklmn';
+const CN_DRAFT = 'cncp_draft_token_abcdefghijkl';
+const CN_OTHER = 'cncp_other_token_abcdefghijklm';
+/* The public concepts endpoint rides on the showcase function with r=concepts (the vercel.json rewrite). */
+const concepts = (req, res) => showcase({ ...req, query: { r: 'concepts', ...(req.query || {}) } }, res);
 function seed() {
   _reset();
   _stores.call_leads = [
@@ -122,6 +127,11 @@ function seed() {
   _stores.concept_packs = [{ _id: '907f1f77bcf86cd799439001', title: 'Pack', leadId: '', industryKey: '', kind: 'logo', prompts: [], images: [], tags: [], notes: '', usedFor: [], archived: false }];
   _stores.orders = [{ _id: 'a07f1f77bcf86cd799439001', source: 'walk-in', status: 'new', items: [], subtotal: 0, archived: false, createdAt: new Date() }];
   _stores.stripe_events = [{ _id: 'b07f1f77bcf86cd799439001', id: 'evt_1', type: 'charge.succeeded', amount: 10, at: '2026-09-01T00:00:00Z', description: 'x', matchedLeadId: '', ledgerId: '' }];
+  _stores.concept_sets = [
+    { _id: 'c07f1f77bcf86cd799439001', token: CN_ON, leadId: LEAD_ON, title: 'Three ways', round: 1, intro: '', status: 'sent', directions: [{ id: 'dA', name: 'A', rationale: '', order: 0, items: [{ id: 'iA1', kind: 'logo', image: 'https://img.example/a.png', caption: '', order: 0 }] }], feedback: [{ at: '2026-09-01T10:00:00Z', directionId: 'dA', action: 'note', name: 'Kim', note: 'private words' }], approvedDirectionId: '', approvedAt: '', projectId: '', archived: false, tokenCreatedAt: '2026-09-01T00:00:00Z', sentAt: '2026-09-01T00:00:00Z', lastViewedAt: '', createdAt: new Date(), updatedAt: new Date() },
+    { _id: 'c07f1f77bcf86cd799439002', token: CN_DRAFT, leadId: LEAD_ON, title: 'Draft', round: 1, intro: '', status: 'draft', directions: [{ id: 'dD', name: 'D', rationale: '', order: 0, items: [] }], feedback: [], approvedDirectionId: '', approvedAt: '', projectId: '', archived: false, tokenCreatedAt: '', sentAt: '', lastViewedAt: '', createdAt: new Date(), updatedAt: new Date() },
+    { _id: 'c07f1f77bcf86cd799439003', token: CN_OTHER, leadId: LEAD_OFF, title: 'Theirs', round: 1, intro: '', status: 'viewed', directions: [{ id: 'dZ', name: 'Z', rationale: '', order: 0, items: [{ id: 'iZ1', kind: 'logo', image: 'https://img.example/z.png', caption: '', order: 0 }] }], feedback: [], approvedDirectionId: '', approvedAt: '', projectId: '', archived: false, tokenCreatedAt: '', sentAt: '2026-09-01T00:00:00Z', lastViewedAt: '', createdAt: new Date(), updatedAt: new Date() },
+  ];
   _stores.settings = [];
 }
 
@@ -148,6 +158,13 @@ await injection('planner ?month', planner, 'GET', { query: { token: ON, month: '
 await injection('planner POST postId', planner, 'POST', { query: { token: ON }, body: { postId: '__OP__', action: 'approve' } }, [404]);
 await injection('planner POST action', planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: '__OP__' } }, [400]);
 await injection('planner POST note', planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'request-change', note: '__OP__' } }, [200, 400]);
+await injection('concepts ?token', concepts, 'GET', { query: { token: '__OP__' } }, [404]);
+await injection('concepts POST directionId', concepts, 'POST', { query: { token: CN_ON }, body: { action: 'approve', directionId: '__OP__' } }, [404]);
+await injection('concepts POST action', concepts, 'POST', { query: { token: CN_ON }, body: { action: '__OP__', directionId: 'dA' } }, [400]);
+await injection('concepts POST note', concepts, 'POST', { query: { token: CN_ON }, body: { action: 'change', directionId: 'dA', note: '__OP__' } }, [200, 400]);
+await injection('concepts POST name', concepts, 'POST', { query: { token: CN_ON }, body: { action: 'note', directionId: '', note: 'hi', name: '__OP__' } }, [200]);
+await injection('concept-sets GET leadId', routes['concept-sets'], 'GET', { query: { leadId: '__OP__' } }, [200]);
+await injection('concept-sets PATCH id', routes['concept-sets'], 'PATCH', { body: { id: '__OP__', set: { title: 'x' } } }, [400, 404]);
 await injection('login password', login, 'POST', { body: { password: '__OP__' } }, [401]);
 await injection('submissions POST fields', submissions, 'POST', { body: { type: 'contact', name: 'A', email: 'a@b.co', fields: { k: '__OP__' } } }, [200]);
 await injection('submissions POST type', submissions, 'POST', { body: { type: '__OP__', name: 'A', email: 'a@b.co' } }, [200]);
@@ -290,6 +307,51 @@ section('4. the planner token');
   const thirtyFirst = await call(planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'approve' } });
   ok(thirtyFirst._status === 429 && thirtyFirst._headers['Retry-After'], `the 31st action in an hour is 429 with Retry-After (${thirtyFirst._status})`);
   ok(_stores.settings.every(s => !String(s._id).includes(ON)), `the limiter key never carries the token (${_stores.settings.map(s => s._id).join(', ')})`);
+}
+
+/* ── 4b. The concepts token ─────────────────────────────────────────── */
+section('4b. the concepts token');
+{
+  seed(); _log.length = 0;
+  const dead = [
+    await call(concepts, 'GET', {}),
+    await call(concepts, 'GET', { query: { token: 'short' } }),
+    await call(concepts, 'GET', { query: { token: 'has spaces and $ signs in it!' } }),
+    await call(concepts, 'GET', { query: { token: 'cncp_unknown_abcdefghijklmnop' } }),
+    await call(concepts, 'GET', { query: { token: CN_DRAFT } }),
+    await call(concepts, 'GET', { query: { token: [CN_ON, CN_ON] } }),
+  ].map(bytes);
+  ok(dead.every(b => b === dead[0]) && dead[0].startsWith('404'), `no token, malformed, unknown, a draft and an array all answer the same bytes (${[...new Set(dead)].join(' | ')})`);
+  ok(!_log.some(e => e.op === 'updateOne'), 'a miss writes nothing');
+  const live = await call(concepts, 'GET', { query: { token: CN_ON } });
+  ok(live._status === 200 && live._headers['Cache-Control'] === 'no-store', 'a live token answers 200 with no-store');
+  const dump = JSON.stringify(live._json);
+  ok(!dump.includes('private words') && !dump.includes('"note":') && !dump.includes(CN_ON) && !dump.includes('555-0100') && !dump.includes('leadId'), `the answer carries no note, no token, no lead field (${dump.slice(0, 400)})`);
+  const cross = await call(concepts, 'POST', { query: { token: CN_ON }, body: { action: 'approve', directionId: 'dZ' } });
+  ok(bytes(cross) === dead[0], `a directionId from another set is the same 404 (${bytes(cross)})`);
+  ok(_stores.concept_sets[0].status === 'viewed' && _stores.concept_sets[2].status === 'viewed' && !_stores.concept_sets[0].approvedDirectionId, 'and neither set changed');
+  const upd = _log.find(e => e.op === 'updateOne' && e.collection === 'concept_sets' && e.filter?.['directions.id']);
+  ok(upd && String(upd.filter._id) === 'c07f1f77bcf86cd799439001' && upd.filter['directions.id'] === 'dZ', `the direction check is inside the update's own filter (${JSON.stringify(upd?.filter)})`);
+  const mine = await call(concepts, 'POST', { query: { token: CN_ON }, body: { action: 'approve', directionId: 'dA', name: 'Kim' } });
+  ok(mine._status === 200 && _stores.concept_sets[0].status === 'approved' && _stores.concept_sets[0].approvedDirectionId === 'dA', 'their own direction approves');
+  const again = await call(concepts, 'POST', { query: { token: CN_ON }, body: { action: 'change', directionId: 'dA', note: 'wait' } });
+  ok(again._status === 409, `a change after approval is a 409 (${again._status})`);
+  // the admin side: the token is minted, never accepted; a javascript: image is stored empty
+  const made = await call(routes['concept-sets'], 'POST', { body: { leadId: LEAD_ON, title: 'New', token: 'cncp_mine_now_abcdefghijklmnop', status: 'approved', directions: [{ id: 'd1', name: 'x', rationale: '', order: 0, items: [{ id: 'i1', kind: 'logo', image: 'javascript:alert(1)', caption: 'x', order: 0 }] }] } });
+  const item = made._json?.item;
+  ok(made._status === 200 && item && item.token !== 'cncp_mine_now_abcdefghijklmnop' && /^[A-Za-z0-9_-]{32}$/.test(item.token) && item.status === 'draft', `a new set gets a minted token and is a draft (${item?.token}, ${item?.status})`);
+  ok(item.directions[0].items[0].image === '', 'a javascript: image is stored empty');
+  ok(bytes(await call(concepts, 'GET', { query: { token: item.token } })) === dead[0], 'a draft never resolves publicly');
+  const patched = await call(routes['concept-sets'], 'PATCH', { body: { id: item._id, set: { token: 'cncp_mine_now_abcdefghijklmnop', lastViewedAt: '2030-01-01', sentAt: '2030-01-01', feedback: [{ at: 'x', action: 'approve', directionId: 'd1', name: 'Rob', note: 'fake' }] } } });
+  const doc = _stores.concept_sets.find(x => String(x._id) === String(item._id));
+  ok(patched._status === 200 && doc.token === item.token && !doc.lastViewedAt && !doc.sentAt, 'a PATCH cannot set the token, lastViewedAt or sentAt');
+  // the limiter: 30 in an hour, the 31st is 429, reads never limited, the key a hash
+  seed();
+  for (let i = 0; i < 30; i++) await call(concepts, 'POST', { query: { token: CN_ON }, body: { action: 'note', directionId: '', note: 'n' } });
+  const thirtyFirst = await call(concepts, 'POST', { query: { token: CN_ON }, body: { action: 'note', directionId: '', note: 'n' } });
+  ok(thirtyFirst._status === 429 && thirtyFirst._headers['Retry-After'], `the 31st action in an hour is 429 with Retry-After (${thirtyFirst._status})`);
+  ok((await call(concepts, 'GET', { query: { token: CN_ON } }))._status === 200, 'reads are never limited');
+  ok(_stores.settings.every(s => !String(s._id).includes(CN_ON)), 'the limiter key never carries the token');
 }
 
 /* ── 5. The admin guard and the login limiter ───────────────────────── */

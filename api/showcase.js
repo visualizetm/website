@@ -8,12 +8,14 @@
  *
  * /api/showcase           -> { clients: [...], landing: {...} }
  * /api/showcase?slug=x    -> one client's full object, or 404
+ * /api/concepts?token=x   -> api/_routes/concepts-public.js, by the rewrite (r=concepts)
  *
  * brand.palette and brand.typography are never stored on showcase.brand;
  * they are read from the lead's own top-level brand block at serve time
  * (never duplicated into a second, driftable copy).
  */
 import { getDb } from './_lib/mongo.js';
+import conceptsPublic from './_routes/concepts-public.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
 // Mirror of src/lib/socials.js instagramHandle(): the handle inside an Instagram URL, or ''.
@@ -191,6 +193,11 @@ async function buildLanding(db, published) {
 }
 
 export default async function handler(req, res) {
+  /* /api/concepts (Concepts rebuild): vercel.json rewrites it here with
+   * r=concepts, so the client presentation's endpoint rides on this function
+   * and the count stays at ten. Its own route() wrapper carries its methods,
+   * body cap and try/catch. */
+  if (req.query?.r === 'concepts') return conceptsPublic(req, res);
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });
