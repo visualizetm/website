@@ -130,8 +130,7 @@ export const SCREENS = [
   { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 
-  { id: 'concepts-grid', screen: 'Concepts', label: 'grid', path: '/admin/concepts', resource: 'packs' },
-  { id: 'concepts-detail', screen: 'Concepts', label: 'pack detail (panel or sheet)', path: '/admin/concepts', open: 'K1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'packs', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Universal logo directions/ })) },
+  { id: 'concepts-list', screen: 'Concepts', label: 'list', path: '/admin/concepts', resource: 'sets' },
 
   { id: 'reviews-list', screen: 'Reviews', label: 'list', path: '/admin/reviews', resource: 'leads' },
   { id: 'reviews-sheet', screen: 'Reviews', label: 'review sheet', path: '/admin/reviews', open: 'L12', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open reviews for Lead Business 12/ })) },

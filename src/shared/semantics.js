@@ -152,7 +152,7 @@ export const SCHEDULE_STATUS_IDS = SCHEDULE_STATUSES.map(s => s.id);
 export const RETAINER_STATUS_IDS = RETAINER_STATUSES.map(s => s.id);
 export const CLIENT_STATUS_IDS = CLIENT_STATUSES.map(s => s.id);
 
-/* ── Studio enums (Prompt 11): print orders, concept packs, reviews ── */
+/* ── Studio enums (Prompt 11): print orders, the retired concept packs, reviews ── */
 export const PRINT_ORDER_STATUSES = [
   { id: 'new',       label: 'New',       icon: 'Bell01',    order: 0, ...tone('new') },
   { id: 'designed',  label: 'Designed',  icon: 'Palette',   order: 1, ...tone('progress') },

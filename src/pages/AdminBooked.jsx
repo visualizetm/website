@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, ProgressBar, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -33,15 +33,12 @@ function passes(l, f, now) {
 
 function MeetingLine({ lead }) {
   const d = meetingDate(lead);
-  const concepts = lead.concepts || [];
-  const ready = concepts.filter(c => c.status === 'ready' || c.status === 'shown').length;
   return (
     <div className="bk-line">
       <Row gap={2} wrap>
         {d ? <><Pill tone={countdownLabel(d) === 'today' ? 'booked' : 'neutral'} label={countdownLabel(d)} size="sm" icon="CalendarCheck01" /><span className="bk-when">{fmtDateTime(d)}</span></> : <Pill tone="new" label="No date set" size="sm" icon={false} variant="outline" />}
         {lead.meeting?.type && <Pill tone="progress" label={MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label || lead.meeting.type} size="sm" variant="outline" icon={false} />}
       </Row>
-      {concepts.length > 0 && <Row gap={2}><ProgressBar value={Math.round((ready / concepts.length) * 100)} tone="booked" size="sm" /><span className="bk-cn">{ready}/{concepts.length}</span></Row>}
     </div>
   );
 }
@@ -124,7 +121,6 @@ const bkStyles = `
   .bk-item .lc { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   .bk-line { display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-2) var(--v-space-3); background: var(--v-surface-2); border: 1px solid var(--v-border); border-top: 0; border-radius: 0 0 var(--v-radius-md) var(--v-radius-md); }
   .bk-when { font-size: var(--v-text-sm); color: var(--v-text-2); font-weight: var(--v-weight-semibold); }
-  .bk-cn { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .bk-muted { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .bk-panel { padding: var(--v-space-3); }
   .bk-panel-scroll { padding: 0; }

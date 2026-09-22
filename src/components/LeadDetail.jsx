@@ -24,8 +24,7 @@ import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
-import { PackPicker } from '../pages/AdminConcepts';
-import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CONCEPT_STATUSES, CONCEPT_PRESETS, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
+import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry } from '../shared/semantics';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/dates';
@@ -133,7 +132,6 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [cbOpen, setCbOpen] = useState(false);
   const [resched, setResched] = useState(false);
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
-  const [packFor, setPackFor] = useState(null); // concept id picking a pack (Prompt 11)
   const [outcomeNote, setOutcomeNote] = useState('');
   const [wonPulse, setWonPulse] = useState(false); // the profile card pulses in the won tone before the detail closes
   const [pulseTab, setPulseTab] = useState(null); // 'retainer' after a retainer starts
@@ -161,8 +159,6 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const mDate = meetingDate(lead);
   const legacyMeeting = !lead.meeting?.date && lead.afterCall?.meeting;
   const saveMeeting = (m) => patch({ meeting: { date: '', time: '', type: 'call', location: '', ...(lead.meeting || {}), ...m } });
-  const concepts = lead.concepts || [];
-  const conceptsReady = concepts.filter(c => c.status === 'ready' || c.status === 'shown').length;
   const gamePlan = lead.gamePlan || [];
   const gp = (id) => gamePlan.find(g => g.serviceId === id) || { serviceId: id, checked: false, note: '' };
   const setGp = (id, patchG) => patch({ gamePlan: gamePlan.some(g => g.serviceId === id) ? gamePlan.map(g => (g.serviceId === id ? { ...g, ...patchG } : g)) : [...gamePlan, { ...gp(id), ...patchG }] });
@@ -310,25 +306,6 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
             </Grid>
           ) : <EmptyState size="sm" icon="CurrencyDollar" title={COPY.empty['leads.detail.pricing'].title} description={COPY.empty['leads.detail.pricing'].description} action={!readOnly ? { label: COPY.empty['leads.detail.pricing'].action, icon: Plus, onClick: () => writeOptions([{ id: uid(), packageId: PACKAGES[2].id, addonIds: [], retainerId: defaultRetainer(PACKAGES[2].id), recommended: true, note: '' }]) } : undefined} />}
         </Block>
-        <Block title="Concepts" summary={`${conceptsReady} of ${concepts.length} ready`} callMode={callMode} action={!readOnly && <Row gap={1}>{!concepts.length && <Button variant="ghost" onClick={() => patch({ concepts: CONCEPT_PRESETS.map(l => ({ id: uid(), label: l, status: 'planned', link: '' })) })}>Add the usual five</Button>}<Button variant="ghost" icon={Plus} onClick={() => patch({ concepts: [...concepts, { id: uid(), label: 'New concept', status: 'planned', link: '' }] })}>Add</Button></Row>}>
-          <Stack gap={2}>
-            {concepts.length > 0 && <ProgressBar value={Math.round((conceptsReady / concepts.length) * 100)} tone="booked" size="sm" />}
-            {concepts.map(c => (
-              <Card key={c.id} level={2} padding={3} className="dt-concept">
-                <Row gap={2} wrap>
-                  <IconTile icon="Image01" tone={CONCEPT_STATUSES.find(s => s.id === c.status) ? c.status === 'planned' ? 'neutral' : c.status === 'generating' ? 'progress' : c.status === 'ready' ? 'booked' : 'won' : 'neutral'} size="sm" glow={false} />
-                  <InlineEdit value={c.label} onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, label: v } : x)) })} label="Concept" className="dt-concept-label" />
-                  <span style={{ flex: 1 }} />
-                  <Menu label="Status" trigger={<button type="button" className="dt-pillbtn"><Pill id={c.status} list={CONCEPT_STATUSES} size="sm" /></button>} items={[...CONCEPT_STATUSES.map(s => ({ id: s.id, label: s.label, disabled: s.id === c.status, onSelect: () => patch({ concepts: concepts.map(x => (x.id === c.id ? { ...x, status: s.id } : x)) }) })), 'divider', { id: 'lib', label: c.packId ? 'Change library pack' : 'From library', icon: 'Image01', onSelect: () => setPackFor(c.id) }, 'divider', { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => patch({ concepts: concepts.filter(x => x.id !== c.id) }) }]} />
-                </Row>
-                {c.packId && <Row gap={1} align="center"><Pill tone="callback" label={(shell?.packs || []).find(pk => String(pk._id) === String(c.packId))?.title || 'Library pack'} size="sm" icon="Image01" variant="outline" className="dt-concept-pack" /><Button variant="ghost" size="md" onClick={() => shell?.go('concepts')}>Open library</Button></Row>}
-                {!readOnly && !c.link && !c.packId && <Button variant="ghost" size="md" icon="Image01" onClick={() => setPackFor(c.id)} className="dt-from-library">From library</Button>}
-                {safeHref(c.link) ? <Button variant="secondary" full href={safeHref(c.link)} target="_blank" rel="noopener noreferrer" iconEnd="ArrowRight" className="dt-concept-link">Open {c.label}</Button> : <InlineEdit value="" onSave={(v) => patchRaw({ concepts: concepts.map(x => (x.id === c.id ? { ...x, link: v } : x)) })} placeholder="Paste a link" label={`${c.label} link`} />}
-              </Card>
-            ))}
-            {!concepts.length && <EmptyState size="sm" icon="Image01" title={COPY.empty['leads.detail.concepts'].title} description={COPY.empty['leads.detail.concepts'].description} action={!readOnly ? { label: COPY.empty['leads.detail.concepts'].action, onClick: () => patch({ concepts: CONCEPT_PRESETS.map(l => ({ id: uid(), label: l, status: 'planned', link: '' })) }) } : undefined} />}
-          </Stack>
-        </Block>
         <Block title="Prep notes" summary={(lead.prepNotes || '').split('\n')[0] || 'Empty'} callMode={callMode}>
           <LeadNotes lead={lead} field="prepNotes" onSave={(id, v) => onPatch(id, { prepNotes: v })} placeholder="What to show, what to ask, what to avoid." />
         </Block>
@@ -380,7 +357,6 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           <Input label={linkSheet.label} value={linkDraft} onChange={(e) => setLinkDraft(e.target.value)} placeholder={linkSheet.social ? 'Handle or URL' : ''} inputMode={linkSheet.key === 'phone' ? 'tel' : linkSheet.key === 'email' ? 'email' : undefined} data-autofocus />
         </Modal>
       )}
-      {packFor && <PackPicker packs={shell?.packs || []} industry={lead.industry} onClose={() => setPackFor(null)} onPick={(pk) => { const first = (pk.images || []).find(i => i.link)?.link || ''; patch({ concepts: concepts.map(x => (x.id === packFor ? { ...x, packId: String(pk._id), link: x.link || first } : x)) }); setPackFor(null); toast.success(`${pk.title} linked.`); }} />}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       {resched && <RescheduleSheet lead={lead} onClose={() => setResched(false)} onSave={async (m) => { const ok = await saveMeeting(m); if (ok) { setResched(false); toast.success('Meeting updated.'); } }} />}
       <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} as won?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'They become a client now, with everything here kept.' : 'They leave Booked. Undo is available for six seconds.'}

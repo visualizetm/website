@@ -336,7 +336,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       </Card>
       <Card className="st-card">
         <Row gap={2} justify="between" align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Backup</p><Button icon="Download04" onClick={backup} className="st-backup">Download backup</Button></Row>
-        <p className="dt-muted">One JSON file of every collection (leads, submissions, projects, orders, concept packs, settings, Stripe events without raw payloads). Last backup {health?.lastBackupAt ? fmtDateTime(health.lastBackupAt) : 'never'}. Restore is out of scope: keep the file safe, and ask for a restore by hand if it is ever needed.</p>
+        <p className="dt-muted">One JSON file of every collection (leads, submissions, projects, orders, concept sets, settings, Stripe events without raw payloads). Last backup {health?.lastBackupAt ? fmtDateTime(health.lastBackupAt) : 'never'}. Restore is out of scope: keep the file safe, and ask for a restore by hand if it is ever needed.</p>
       </Card>
     </Stagger>
   ) : (

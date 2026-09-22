@@ -23,7 +23,6 @@ export const COPY = {
     'leads.dupes': { title: 'No duplicates found', description: 'No two leads share a phone number or a business name in the same industry.', action: 'Back to all leads' },
     'leads.column': { title: 'Nothing waiting here', description: 'Leads land in this column as their status changes.' },
     'leads.detail.pricing': { title: 'No pricing options yet', description: 'Build up to three from the packages. Anything over $750 shows its payment plan.', action: 'Add option' },
-    'leads.detail.concepts': { title: 'No concepts tracked', description: 'Add the usual five before the meeting so the tracker fills as they get made.', action: 'Add the usual five' },
     'leads.detail.script': { title: 'No script yet', description: 'Add the opener, value, and ask on the lead.' },
     'leads.detail.objections': { title: 'No objections listed', description: 'Return to the ask after every one.' },
     'leads.detail.close': { title: 'No close lines yet', description: 'Lock it, if no, and no answer lines live here.' },
@@ -58,11 +57,9 @@ export const COPY = {
     'orders.import.device': { title: 'Nothing saved on this device', description: 'The old print dashboard left no orders in this browser.' },
     'orders.import.csv': { title: 'Nothing to import yet', description: 'Add a header row and at least one order row.' },
     /* Concepts */
-    'concepts.none': { title: 'No packs yet', description: 'A pack is a set of prompts and image links for one kind of concept. Start with the logo directions.', action: 'New pack' },
-    'concepts.filter': { title: 'No packs in this filter', description: 'Every pack is under All.', action: 'Show all' },
-    'concepts.prompts': { title: 'No prompts yet', description: 'The first prompt is the one you paste into ChatGPT before the meeting.', action: 'Add prompt' },
-    'concepts.images': { title: 'No image links yet', description: 'Paste Drive or hosted links; images show as thumbnails on the card.', action: 'Add image link' },
-    'concepts.picker': { title: 'No pack matches', description: 'Build one in Concepts first.' },
+    /* Concepts, rebuilt as a client presentation (docs/CONCEPTS-AUDIT.md). */
+    'concepts.none': { title: 'No concepts out right now', description: 'Build one from a lead: open the record and tap Concepts.' },
+    'concepts.filter': { title: 'Nothing in this status', description: 'Every set is under All.', action: 'Show all' },
     /* Reviews */
     'reviews.none': { title: 'No clients yet', description: 'Reviews track per client. Win a booked meeting or add a client first.', action: 'Open Clients' },
     'reviews.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
@@ -87,7 +84,7 @@ export const COPY = {
     leads: { title: 'Could not load your leads', description: 'The call_leads list did not come back. Try again; nothing was changed.' },
     submissions: { title: 'Could not load submissions', description: 'The website submissions did not come back. Try again.' },
     orders: { title: 'Could not load print orders', description: 'The orders list did not come back. Try again.' },
-    packs: { title: 'Could not load the concept library', description: 'The packs did not come back. Try again.' },
+    sets: { title: 'The concepts did not load', description: 'The concept sets could not be fetched. Try again.', action: 'Try again' },
     projects: { title: 'Could not load client projects', description: 'The projects did not come back, so payments and retainers are missing. Try again.' },
     settings: { title: 'Could not load settings', description: 'The settings document did not come back. Try again.' },
     calendar: { title: 'Could not load the calendar', description: 'Meetings and callbacks come from your leads, and those did not load. Try again.' },

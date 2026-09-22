@@ -3,13 +3,14 @@ import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { CONCEPT_KIND_IDS } from '../_semantics.js';
 
-/* Concept packs (Prompt 11): the library of prompts and images Rob copies into
- * ChatGPT before a meeting.
+/* Concept packs (Prompt 11): the prompt library, retired as a UI by the
+ * Concepts rebuild (docs/CONCEPTS-AUDIT.md). The route and its sanitize()
+ * stay so the stored packs remain readable and scripts/migrate-concepts.mjs
+ * has something to read; the admin no longer loads it, and the seed pack
+ * that a first read used to insert is gone (a read that wrote).
  *   GET   /api/admin/concept-packs?leadId&industryKey&kind     { items }
  *   POST  { ...pack }                                          { ok, item }
- *   PATCH { id, set }                                          $set only
- * The first GET on an empty collection seeds one pack so the screen is never
- * empty: "Universal logo directions" with three prompt stubs to edit. */
+ *   PATCH { id, set }                                          $set only */
 
 const str = (v, max = 400) => String(v ?? '').slice(0, max);
 const oid = (v) => { try { return new ObjectId(String(v)); } catch { return null; } };
@@ -32,22 +33,11 @@ function sanitize(b) {
 }
 const compact = (o) => { for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k]; return o; };
 
-const SEED = {
-  title: 'Universal logo directions', leadId: '', industryKey: '', kind: 'logo', tags: ['seed', 'logo'],
-  prompts: [
-    { id: 'p1', label: 'Direction 1: wordmark', text: 'A clean, confident wordmark for [business], a [industry] in [city]. Bold condensed sans serif, tight letter spacing, one accent mark that hints at [what they do]. Flat vector, black on white, no gradients, no mockup, presented on a plain background.' },
-    { id: 'p2', label: 'Direction 2: mark and lockup', text: 'A simple geometric brand mark for [business] built from [one shape that says what they do], paired with a lowercase wordmark. Two color system: [primary] and off white. Flat vector, centered, plenty of margin, no mockup.' },
-    { id: 'p3', label: 'Direction 3: badge', text: 'A circular badge logo for [business], [industry], established [year]. Hand set condensed type around the ring, a single line icon in the center, one color on a dark background. Flat vector, print ready feel, no mockup.' },
-  ],
-  images: [], notes: 'Edit these three stubs. Swap the brackets for the lead, then copy the prompt.', usedFor: [], archived: false,
-};
-
 export async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('concept_packs');
 
   if (req.method === 'GET') {
-    if ((await col.countDocuments({})) === 0) await col.insertOne({ ...SEED, createdAt: new Date(), updatedAt: new Date() });
     const q = { archived: { $ne: true } };
     if (req.query?.leadId) q.leadId = String(req.query.leadId);
     if (req.query?.industryKey) q.industryKey = String(req.query.industryKey).trim().toLowerCase();

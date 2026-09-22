@@ -98,7 +98,7 @@ function Maintenance() {
 // check always, the five lists and settings when this device was signed in last time (vz_boot).
 if (IS_ADMIN_HOST || (IS_DEV_HOST && window.location.pathname.startsWith('/admin'))) {
   let hinted = false; try { hinted = localStorage.getItem('vz_boot') === '1'; } catch { /* private mode */ }
-  warm(['/api/admin/session', ...(hinted ? ['/api/admin/call-leads', '/api/admin/submissions', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-packs', '/api/admin/settings'] : [])]);
+  warm(['/api/admin/session', ...(hinted ? ['/api/admin/call-leads', '/api/admin/submissions', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-sets', '/api/admin/settings'] : [])]);
 }
 
 const maintenanceMode = import.meta.env.VITE_MAINTENANCE_MODE === 'true';

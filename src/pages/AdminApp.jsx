@@ -189,7 +189,7 @@ export default function AdminApp() {
     return false;
   }, []);
 
-  // Print orders and concept packs (Prompt 11), loaded at the shell level like projects.
+  // Print orders (Prompt 11), loaded at the shell level like projects.
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [unimported, setUnimported] = useState(0);
@@ -218,27 +218,6 @@ export default function AdminApp() {
     await loadOrders();
     return r.data?.created || 0;
   }, [loadOrders]);
-  const [packs, setPacks] = useState([]);
-  const [packsLoading, setPacksLoading] = useState(true);
-  const loadPacks = useCallback(async () => {
-    const r = await apiFetch('/api/admin/concept-packs');
-    if (r.ok) { setPacks(r.data?.items || []); setErr('packs', false); } else setErr('packs', true);
-    setPacksLoading(false);
-  }, [setErr]);
-  const createPack = useCallback(async (doc) => {
-    const r = await apiFetch('/api/admin/concept-packs', { method: 'POST', body: doc });
-    if (!r.ok) return null;
-    if (r.data?.item) setPacks(ps => [r.data.item, ...ps]);
-    return r.data?.item || null;
-  }, []);
-  const patchPack = useCallback(async (id, set) => {
-    let prev;
-    setPacks(ps => ps.map(x => { if (String(x._id) === String(id)) { prev = x; return { ...x, ...set }; } return x; }));
-    const r = await apiFetch('/api/admin/concept-packs', { method: 'PATCH', body: { id, set } });
-    if (r.ok) return true;
-    if (prev) setPacks(ps => ps.map(x => String(x._id) === String(id) ? prev : x));
-    return false;
-  }, []);
 
   const section = useMemo(() => {
     const p = location.pathname.slice(BASE.length) || '/';
@@ -266,7 +245,7 @@ export default function AdminApp() {
   // /clients/:id/planner (planner prompt 2), the same shape.
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
-  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], packs: [], posts: [] } : { leads: callLeads, items, projects, orders, packs, posts };
+  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [] } : { leads: callLeads, items, projects, orders, posts };
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
   const go = useCallback((sec, itemId) => {
@@ -330,7 +309,7 @@ export default function AdminApp() {
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
   useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
   useEffect(() => { if (authed) loadPosts(); }, [authed, loadPosts]);
-  useEffect(() => { if (authed) { loadOrders(); loadPacks(); } }, [authed, loadOrders, loadPacks]);
+  useEffect(() => { if (authed) loadOrders(); }, [authed, loadOrders]);
 
   const stageCounts = useMemo(() => {
     const c = { lead: 0, booked: 0, won: 0, client: 0, toCall: 0 };
@@ -455,7 +434,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} packs={packs} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -516,7 +495,7 @@ export default function AdminApp() {
           openId={reqFor('orders')} createPreset={createFor('orders')} />
       )}
       {section === 'concepts' && (
-        <AdminConcepts packs={V.packs} loading={packsLoading || callLeadsLoading || forceLoading} error={errors.packs} onRetry={loadPacks} leads={V.leads} onCreate={createPack} onPatch={patchPack} onPatchLead={patchCallLead} onRefresh={loadPacks} openId={reqFor('concepts')} />
+        <AdminConcepts leads={V.leads} loading={callLeadsLoading || forceLoading} />
       )}
       {section === 'reviews' && (
         <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
