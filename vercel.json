@@ -64,6 +64,10 @@
       "destination": "/api/admin/index?r=concept-packs"
     },
     {
+      "source": "/api/admin/concept-sets",
+      "destination": "/api/admin/index?r=concept-sets"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },

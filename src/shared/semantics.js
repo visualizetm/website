@@ -183,6 +183,36 @@ export const CONCEPT_KINDS = [
   { id: 'other',       label: 'Other',       icon: 'Image01',    order: 9, ...tone('neutral') },
 ];
 export const CONCEPT_KIND_IDS = CONCEPT_KINDS.map(k => k.id);
+/* Concepts, rebuilt as a client presentation: a set is one presentation
+ * sent to a client (docs/CONCEPTS-AUDIT.md, docs/ARCHITECTURE.md). */
+export const CONCEPT_SET_STATUSES = [
+  { id: 'draft',    label: 'Draft',             icon: 'Edit02',        order: 0, ...tone('neutral') },
+  { id: 'sent',     label: 'Sent',              icon: 'Send01',        order: 1, ...tone('progress') },
+  { id: 'viewed',   label: 'Viewed',            icon: 'Eye',           order: 2, ...tone('callback') },
+  { id: 'changes',  label: 'Changes requested', icon: 'Edit02',        order: 3, ...tone('danger') },
+  { id: 'approved', label: 'Approved',          icon: 'Check',         order: 4, ...tone('booked') },
+  { id: 'archived', label: 'Archived',          icon: 'Archive',       order: 5, ...tone('neutral') },
+];
+export const CONCEPT_SET_STATUS_IDS = CONCEPT_SET_STATUSES.map(s => s.id);
+export const conceptSetStatusOf = (id) => CONCEPT_SET_STATUSES.find(s => s.id === id) || CONCEPT_SET_STATUSES[0];
+export const CONCEPT_ITEM_KINDS = [
+  { id: 'logo',   label: 'Logo',        icon: 'Palette',  order: 0 },
+  { id: 'board',  label: 'Brand board', icon: 'Colors',   order: 1 },
+  { id: 'mockup', label: 'Mockup',      icon: 'Image01',  order: 2 },
+  { id: 'social', label: 'Social',      icon: 'Camera01', order: 3 },
+  { id: 'web',    label: 'Website',     icon: 'Globe01',  order: 4 },
+  { id: 'print',  label: 'Print',       icon: 'Package',  order: 5 },
+  { id: 'other',  label: 'Other',       icon: 'Image01',  order: 6 },
+];
+export const CONCEPT_ITEM_KIND_IDS = CONCEPT_ITEM_KINDS.map(k => k.id);
+export const conceptItemKindOf = (id) => CONCEPT_ITEM_KINDS.find(k => k.id === id) || CONCEPT_ITEM_KINDS[CONCEPT_ITEM_KINDS.length - 1];
+export const CONCEPT_FEEDBACK_ACTIONS = [
+  { id: 'approve', label: 'Approved',          icon: 'Check',  order: 0, ...tone('booked') },
+  { id: 'change',  label: 'Changes requested', icon: 'Edit02', order: 1, ...tone('danger') },
+  { id: 'note',    label: 'Note',              icon: 'MessageCircle01', order: 2, ...tone('neutral') },
+];
+export const CONCEPT_FEEDBACK_ACTION_IDS = CONCEPT_FEEDBACK_ACTIONS.map(a => a.id);
+export const conceptFeedbackActionOf = (id) => CONCEPT_FEEDBACK_ACTIONS.find(a => a.id === id) || CONCEPT_FEEDBACK_ACTIONS[2];
 export const REVIEW_CHANNELS = [
   { id: 'nfc',       label: 'NFC card',  icon: 'CreditCard01',    order: 0 },
   { id: 'text',      label: 'Text',      icon: 'MessageCircle01', order: 1 },

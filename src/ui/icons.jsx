@@ -71,6 +71,8 @@ import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import File06 from '@untitled-ui/icons-react/build/esm/File06';
 import Key01 from '@untitled-ui/icons-react/build/esm/Key01';
 import Archive from '@untitled-ui/icons-react/build/esm/Archive';
+import Eye from '@untitled-ui/icons-react/build/esm/Eye';
+import LayersThree01 from '@untitled-ui/icons-react/build/esm/LayersThree01';
 import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Database01 from '@untitled-ui/icons-react/build/esm/Database01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
@@ -101,6 +103,8 @@ export const ICONS = {
   Moon01, Monitor01, WifiOff,
   /* landing */
   Browser,
+  /* concepts (the presentation rebuild): a set viewed, and a set of directions */
+  Eye, LayersThree01,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */
