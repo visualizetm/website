@@ -107,7 +107,7 @@ export default function AppShell({
   const toggleCollapsed = () => setCollapsed(c => { writeJSON(KEYS.collapsed, !c); return !c; });
   const setTopBar = useCallback((v) => setTopBarState(v), []);
 
-  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, posts, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, posts, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
+  const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, posts, sets, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, posts, sets, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
   const events = useMemo(() => buildEvents(leads || [], calendly.events, Date.now(), projects), [leads, calendly.events, projects]);
   const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
   const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
@@ -178,7 +178,7 @@ export default function AppShell({
           /* A planner item wants the client's planner editor, which arrives in
              prompt 2. Until onOpenPlanner is passed in, it opens the client
              record, which is where that editor will live. */
-          onOpenItem={(item) => { markRead([item.id]); if (item.openPlanner && item.lead && onOpenPlanner) onOpenPlanner(item.lead); else if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
+          onOpenItem={(item) => { markRead([item.id]); if (item.openConcepts && item.lead && onOpenConcepts) onOpenConcepts(item.lead, item.setId); else if (item.openPlanner && item.lead && onOpenPlanner) onOpenPlanner(item.lead); else if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
           onMarkAllRead={() => markRead(notifications.map(n => n.id))} onSnooze={snooze} onDone={(item) => markRead([item.id])} onGoCalls={() => go('calls')} />
         <style>{styles}</style>
       </div>

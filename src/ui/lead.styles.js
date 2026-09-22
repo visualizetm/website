@@ -86,6 +86,8 @@ export const leadDetailStyles = `
      pill is the piece that truncates. The gap is stated rather than left to
      .v-btn-inner's default so icon, label and pill can never sit flush. */
   .dt-showcase-btn { max-width: 100%; flex-shrink: 1; min-width: 0; }
+  /* Concepts, Part 6: the one-tap suggestion after a booked lead picks a direction. */
+  .dt-suggest { display: flex; align-items: center; gap: var(--v-space-3); flex-wrap: wrap; padding: var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-status-booked-soft); color: var(--v-status-booked-text); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
   .dt-showcase-btn .v-btn-inner { gap: var(--v-space-2); min-width: 0; }
   .dt-showcase-pill { flex-shrink: 1; min-width: 0; margin-left: var(--v-space-1); }
   .dt-gp { display: flex; flex-direction: column; gap: 0; min-width: 0; }

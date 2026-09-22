@@ -25,7 +25,7 @@ import CallbackPicker from './CallbackPicker';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
-import { newestSet, statusOf as conceptStatusOf } from '../lib/concepts';
+import { newestSet, statusOf as conceptStatusOf, directionLabel } from '../lib/concepts';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/dates';
@@ -251,6 +251,17 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           </Button>
         )}
       </Row>
+      {/* Concepts, Part 6: a booked lead that picked a direction is a lead
+          that said yes to something. One tap opens the same Mark as won
+          confirm as the outcome buttons; nothing here changes the stage by
+          itself (the stage guard stays). */}
+      {booked && !clientMode && conceptSet && conceptSt?.id === 'approved' && !lead.bookedOutcome?.at && !readOnly && (
+        <div className="dt-suggest" role="status">
+          <Icon icon="Check" size={16} />
+          <span>They approved {directionLabel(conceptSet, conceptSet.approvedDirectionId, false)}. Mark as won?</span>
+          <Button size="md" icon={Trophy01} onClick={() => { setOutcomeNote(''); setOutcome('won'); }}>Mark as won</Button>
+        </div>
+      )}
       <Stack gap={1} className="dt-facts">
         <Fact label="Phone" value={formatPhone(lead.phone) || ''} onSave={save('phone')} inputMode="tel" placeholder="Add phone" readOnly={readOnly} />
         <Fact label="Contact" value={lead.askFor} onSave={save('askFor')} placeholder="Who to ask for" readOnly={readOnly} />

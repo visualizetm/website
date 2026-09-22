@@ -8,6 +8,7 @@ import { projectsOf, scheduleStatus, localDate, money } from '../lib/projects';
 import { reviewAskDue } from '../lib/reviews';
 import { recentClientActions, postLabel, postDateLabel } from '../lib/posts';
 import { healItems } from '../lib/heals';
+import { recentConceptActions, directionLabel } from '../lib/concepts';
 
 const H = 3600e3;
 export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
@@ -16,7 +17,7 @@ const ICON = { meeting: 'CalendarCheck01', callback: 'PhoneIncoming01', calendly
 
 /**
  * @param {Array} leads
- * @param {{ calendly?: Array, projects?: Array, health?: object, lastSeenAt?: string|null, snoozedUntil?: object, now?: number }} opts
+ * @param {{ calendly?: Array, projects?: Array, posts?: Array, sets?: Array, health?: object, lastSeenAt?: string|null, snoozedUntil?: object, now?: number }} opts
  */
 export function buildNotifications(leads, opts = {}) {
   const now = opts.now || Date.now();
@@ -77,6 +78,21 @@ export function buildNotifications(leads, opts = {}) {
         title: `${who} asked for a change on the ${postDateLabel(a.post.date) || 'untitled'} post`,
         detail: a.post.clientNote, at: a.at, lead: a.lead });
     }
+  }
+  /* Concepts (Concepts rebuild, Part 6): what a client did with a concept
+   * set in the last 48 hours, computed from the sets themselves. Opening is
+   * neutral news, a pick is good news, a change request is the one that
+   * needs Rob and carries their words. All three open the editor. */
+  const leadOf = new Map(leads.map(l => [String(l._id), l]));
+  for (const a of recentConceptActions(opts.sets || [], { now })) {
+    const lead = leadOf.get(String(a.set.leadId)); if (!lead) continue;
+    const id = a.kind === 'changes' ? `concepts:change:${a.set._id}:${a.at}` : `concepts:${a.kind}:${a.set._id}`;
+    const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
+    const who = lead.showcase?.displayName || lead.business;
+    const at = new Date(a.at).getTime();
+    if (a.kind === 'opened') items.push({ id, kind: 'concepts-opened', group: 'system', tone: 'neutral', icon: 'Eye', openConcepts: true, setId: a.set._id, title: `${who} opened your concepts`, detail: `${a.set.title || 'Concepts'}, round ${a.set.round || 1}. No answer yet.`, at, lead });
+    else if (a.kind === 'picked') items.push({ id, kind: 'concepts-picked', group: 'system', tone: 'booked', icon: 'Check', openConcepts: true, setId: a.set._id, title: `${who} picked ${directionLabel(a.set, a.directionId, false)}`, detail: `${directionLabel(a.set, a.directionId)}${a.name ? `, by ${a.name}` : ''}. Rob takes it from here.`, at, lead });
+    else items.push({ id, kind: 'concepts-change', group: 'system', tone: 'danger', icon: 'Edit02', openConcepts: true, setId: a.set._id, title: `${who} asked for changes on ${directionLabel(a.set, a.directionId, false)}`, detail: a.note || directionLabel(a.set, a.directionId), at, lead });
   }
 
   // Prompt 12: task health. The enrichment scan or the scraper going quiet for 36 hours is a System item.
