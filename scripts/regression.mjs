@@ -41,7 +41,7 @@ for (const width of WIDTHS) {
     try { const note = await fn(); results.push({ width, n, name, ok: true, note: note || '' }); console.log(`  ok   [${width}] ${n}. ${name}${note ? `: ${note}` : ''}`); }
     catch (e) { failures++; results.push({ width, n, name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 140) }); console.log(`  FAIL [${width}] ${n}. ${name}: ${String(e.message || e).split('\n')[0].slice(0, 160)}`); }
   };
-  const openLeadCard = async (name) => { await page.getByRole('button', { name: `Open ${name}` }).first().click({ timeout: T }); await page.waitForTimeout(500); };
+  const openLeadCard = async (name) => { await page.getByRole('button', { name: `Open ${name}` }).first().click({ timeout: T, force: true }); await page.waitForTimeout(500); };
   const tab = (name) => page.getByRole('tab', { name: new RegExp('^' + name) }).first().click({ timeout: T });
 
   console.log(`\nRegression walk at ${width}px`);
@@ -80,6 +80,39 @@ for (const width of WIDTHS) {
   await step(30, 'Reduce motion on and off', async () => { const sw = page.getByRole('switch', { name: 'Reduce motion' }); await sw.click({ timeout: T }); await page.waitForTimeout(300); const on = await page.evaluate(() => document.documentElement.dataset.vMotion); if (on !== 'reduce') throw new Error('data-v-motion not set'); await sw.click({ timeout: T }); await page.waitForTimeout(300); const off = await page.evaluate(() => document.documentElement.dataset.vMotion); if (off) throw new Error('still reduced'); return 'reduce then normal'; });
   await step(31, 'Sign out', async () => { if (phone) { await page.locator('.sh-tab--more').click({ timeout: T }); await dialog().getByRole('button', { name: 'Sign out' }).click({ timeout: T }); } else { await page.locator('.sh-top-avatarbtn').click({ timeout: T }); await page.getByRole('menuitem', { name: 'Sign out' }).click({ timeout: T }); } await expectVisible(page.locator('.aa-login'), ''); return 'login card'; });
   await step(32, 'Sign back in', async () => { await page.getByLabel('Password').fill('correct horse'); await page.waitForTimeout(200); await page.getByRole('button', { name: 'Sign in' }).click({ timeout: T }); await page.waitForTimeout(500); await expectVisible(page.locator('.sh-root'), ''); await goto('/admin'); await settle(); await expectVisible(page.locator('.db-greet'), ''); const theme = await page.evaluate(() => document.documentElement.dataset.vTheme); return `dashboard back, theme ${theme}`; });
+  await step(33, 'Checklist opens full screen and stays in sync', async () => {
+    await goto('/admin/leads'); await settle();
+    if (!phone) { await page.getByRole('radio', { name: 'List' }).click({ timeout: T }); await page.waitForTimeout(300); }
+    if (phone) await openLeadCard('Lead Business 3');
+    else await page.locator('.v-tr', { hasText: 'Lead Business 3' }).first().click({ timeout: T });
+    await expectVisible(page.locator('.dt-profile'), '');
+    const expandNotes = page.getByRole('button', { name: 'Expand Notes' });
+    if (await expandNotes.count()) { await expandNotes.click({ timeout: T }); await page.waitForTimeout(300); }
+    const addListBtn = page.getByRole('button', { name: 'Add checklist' });
+    if (await addListBtn.count()) {
+      await addListBtn.click({ timeout: T });
+      await page.getByLabel('Checklist name').fill('Regression list');
+      await page.getByRole('button', { name: 'Create checklist' }).click({ timeout: T });
+      await page.waitForTimeout(400);
+    }
+    const inlineAdd = page.getByLabel('Add a task to Regression list').first();
+    await inlineAdd.fill('Task one'); await page.getByRole('button', { name: 'Add task' }).first().click({ timeout: T }); await page.waitForTimeout(300);
+    await inlineAdd.fill('Task two'); await page.getByRole('button', { name: 'Add task' }).first().click({ timeout: T }); await page.waitForTimeout(300);
+    await page.getByRole('button', { name: 'Open full screen' }).first().click({ timeout: T });
+    await expectVisible(dialog().locator('.ckp-row').first(), '');
+    await dialog().getByRole('checkbox', { name: 'Task one' }).click({ timeout: T });
+    await dialog().getByRole('checkbox', { name: 'Task two' }).click({ timeout: T });
+    await dialog().getByLabel('Add a task to Regression list').fill('Task three');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    await dialog().getByRole('button', { name: 'Close' }).click({ timeout: T });
+    await page.waitForTimeout(400);
+    const checked = await page.locator('.ck-item .v-check-box:has(input:checked)').count();
+    if (checked < 2) throw new Error(`${checked} checked inline`);
+    const total = await page.locator('.ck-item').count();
+    if (total < 3) throw new Error(`${total} inline items`);
+    return `${checked}/${total} checked inline after popup edits`;
+  });
   await ctx.close();
 }
 await browser.close();

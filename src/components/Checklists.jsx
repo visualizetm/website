@@ -1,32 +1,83 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
-import { Card, Stack, Row, Input, Button, IconButton, Checkbox, Pill, useConfirm } from '../ui';
+import Maximize02 from '@untitled-ui/icons-react/build/esm/Maximize02';
+import { Card, Stack, Row, Input, Button, IconButton, Checkbox, Pill, useConfirm, useMediaQuery, DESKTOP_QUERY } from '../ui';
+import ChecklistPopup from './ChecklistPopup';
 
-/* Named task lists for a lead, booked, or client record (kit build, Prompt 13).
- *
- * Optional by design: with no lists the whole UI is one Add checklist button.
- * Every mutation patches the additive `checklists` field through the caller's
- * optimistic onPatch. Props { lead, onPatch } are unchanged. */
+/** URL-safe id for a checklist: its name, slugified. Collisions (two lists with
+ * the same name) resolve to the first match, same as an anchor link would. */
+export const ckSlug = (name) => (name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'list';
+
+/* Every mutation to a lead's checklists in one place, so the inline card and
+ * the full screen popup (Prompt: Checklists full screen) read and write the
+ * exact same state through the exact same optimistic save. Neither keeps a
+ * second copy: both call this hook with the same (lead, onPatch) and rerender
+ * off the same lead.checklists prop. */
+export function useChecklistActions(lead, onPatch) {
+  const lists = lead.checklists || [];
+  const save = (next) => onPatch(lead._id, { checklists: next });
+  const addList = (n) => { const name = (n || '').trim(); if (!name) return; save([...lists, { name, items: [] }]); };
+  const removeList = (li) => save(lists.filter((_, j) => j !== li));
+  const addItem = (li, text) => { const t = (text || '').trim(); if (!t) return; save(lists.map((l, j) => (j === li ? { ...l, items: [...(l.items || []), { text: t, done: false }] } : l))); };
+  const toggleItem = (li, ii, v) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.map((it, k) => (k === ii ? { ...it, done: v } : it)) } : l)));
+  const removeItem = (li, ii) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.filter((_, k) => k !== ii) } : l)));
+  const editItem = (li, ii, text) => { const t = (text || '').trim(); if (!t) return; save(lists.map((l, j) => (j === li ? { ...l, items: l.items.map((it, k) => (k === ii ? { ...it, text: t } : it)) } : l))); };
+  const moveItem = (li, ii, dir) => {
+    const items = lists[li]?.items || [];
+    const jj = ii + dir;
+    if (jj < 0 || jj >= items.length) return;
+    const next = items.slice();
+    [next[ii], next[jj]] = [next[jj], next[ii]];
+    save(lists.map((l, j) => (j === li ? { ...l, items: next } : l)));
+  };
+  return { lists, save, addList, removeList, addItem, toggleItem, removeItem, editItem, moveItem };
+}
+
+/* Named task lists for a lead, booked, or client record (kit build, Prompt 13;
+ * full screen popup added in a later prompt). Optional by design: with no
+ * lists the whole UI is one Add checklist button. Every mutation patches the
+ * additive `checklists` field through the caller's optimistic onPatch. */
 export default function Checklists({ lead, onPatch }) {
   const [confirm, confirmDialog] = useConfirm();
-  const lists = lead.checklists || [];
+  const desktop = useMediaQuery(DESKTOP_QUERY);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const actions = useChecklistActions(lead, onPatch);
+  const { lists } = actions;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
   const [drafts, setDrafts] = useState({}); // per-list new task text
+  const [openIndex, setOpenIndex] = useState(null);
 
-  const save = (next) => onPatch(lead._id, { checklists: next });
-  const addList = () => { const n = name.trim(); if (!n) return; save([...lists, { name: n, items: [] }]); setName(''); setNaming(false); };
+  // ?checklist=<slug> deep links a list open, same shape as the ?open= record
+  // deep link (leads, booked, and client routes all carry it the same way).
+  const slugs = useMemo(() => lists.map(l => ckSlug(l.name)), [lists]);
+  useEffect(() => {
+    const wanted = new URLSearchParams(location.search).get('checklist');
+    if (!wanted) return;
+    const i = slugs.indexOf(wanted);
+    if (i !== -1) setOpenIndex(i);
+  }, [location.search, slugs]);
+
+  const setParam = (slug) => {
+    const params = new URLSearchParams(location.search);
+    if (slug) params.set('checklist', slug); else params.delete('checklist');
+    navigate({ pathname: location.pathname, search: params.toString() ? `?${params.toString()}` : '' }, { replace: true });
+  };
+  const openPopup = (li) => { setOpenIndex(li); setParam(slugs[li]); };
+  const closePopup = () => { setOpenIndex(null); setParam(null); };
+
+  const addList = () => { actions.addList(name); setName(''); setNaming(false); };
   const removeList = async (li) => {
     const l = lists[li]; const count = l.items?.length || 0;
     if (count && !(await confirm({ title: `Delete "${l.name}"?`, body: `Its ${count} task${count === 1 ? '' : 's'} go with it.`, danger: true, confirmLabel: 'Delete' }))) return;
-    save(lists.filter((_, j) => j !== li));
+    actions.removeList(li);
   };
-  const addItem = (li) => { const text = (drafts[li] || '').trim(); if (!text) return; save(lists.map((l, j) => (j === li ? { ...l, items: [...(l.items || []), { text, done: false }] } : l))); setDrafts(d => ({ ...d, [li]: '' })); };
-  const toggleItem = (li, ii, v) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.map((it, k) => (k === ii ? { ...it, done: v } : it)) } : l)));
-  const removeItem = (li, ii) => save(lists.map((l, j) => (j === li ? { ...l, items: l.items.filter((_, k) => k !== ii) } : l)));
+  const addItem = (li) => { actions.addItem(li, drafts[li]); setDrafts(d => ({ ...d, [li]: '' })); };
 
   return (
     <Stack gap={3} className="ck-wrap">
@@ -36,16 +87,21 @@ export default function Checklists({ lead, onPatch }) {
         return (
           <Card key={li} level={2} padding={3} className="ck-list">
             <Row gap={2} align="center">
-              <span className="ck-list-name">{l.name}</span>
+              {!desktop ? (
+                <button type="button" className="ck-list-name ck-list-name--tap" onClick={() => openPopup(li)}>{l.name}</button>
+              ) : (
+                <span className="ck-list-name">{l.name}</span>
+              )}
               {l.items?.length > 0 && <Pill tone={done === l.items.length ? 'booked' : 'neutral'} label={`${done}/${l.items.length}`} size="sm" icon={false} variant="outline" />}
               <span style={{ flex: 1 }} />
+              <IconButton icon={Maximize02} label="Open full screen" variant="ghost" onClick={() => openPopup(li)} className="ck-list-expand" />
               <IconButton icon={Trash01} label={`Delete ${l.name}`} variant="ghost" onClick={() => removeList(li)} className="ck-list-del" />
             </Row>
             <Stack gap={0}>
               {(l.items || []).map((it, ii) => (
                 <Row key={ii} gap={1} align="center" className="ck-item">
-                  <Checkbox checked={!!it.done} onChange={(v) => toggleItem(li, ii, v)} label={it.text} className={`ck-check${it.done ? ' is-done' : ''}`} />
-                  <IconButton icon={XClose} label="Remove task" variant="ghost" onClick={() => removeItem(li, ii)} className="ck-item-del" />
+                  <Checkbox checked={!!it.done} onChange={(v) => actions.toggleItem(li, ii, v)} label={it.text} className={`ck-check${it.done ? ' is-done' : ''}`} />
+                  <IconButton icon={XClose} label="Remove task" variant="ghost" onClick={() => actions.removeItem(li, ii)} className="ck-item-del" />
                 </Row>
               ))}
             </Stack>
@@ -69,6 +125,16 @@ export default function Checklists({ lead, onPatch }) {
       ) : (
         <Row gap={2}><Button variant="secondary" size="md" icon={Plus} onClick={() => setNaming(true)} className="ck-new">Add checklist</Button></Row>
       )}
+      {openIndex != null && lists[openIndex] && (
+        <ChecklistPopup
+          lead={lead}
+          listIndex={openIndex}
+          list={lists[openIndex]}
+          actions={actions}
+          contextName={lead.business}
+          onClose={closePopup}
+        />
+      )}
       <style>{ckStyles}</style>
     </Stack>
   );
@@ -78,14 +144,16 @@ const ckStyles = `
   .ck-wrap { min-width: 0; }
   .ck-list { gap: var(--v-space-2); }
   .ck-list-name { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; overflow-wrap: anywhere; }
+  .ck-list-name--tap { display: inline-block; text-align: left; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; min-height: var(--v-tap); }
+  .ck-list-name--tap:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .ck-item { min-width: 0; }
   .ck-item .v-check { flex: 1; min-width: 0; }
   .ck-item .v-check-label { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
   .ck-check.is-done .v-check-label { color: var(--v-text-3); text-decoration: line-through; }
   .ck-check.is-done .v-check-box { animation: ck-pop var(--v-dur-base) var(--v-ease-spring) 1; }
   @keyframes ck-pop { 0% { transform: scale(1); } 45% { transform: scale(1.18); } 100% { transform: scale(1); } }
-  .ck-item-del, .ck-list-del { opacity: 0.5; }
-  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible, .ck-list:hover .ck-list-del, .ck-list-del:focus-visible { opacity: 1; }
+  .ck-item-del, .ck-list-del, .ck-list-expand { opacity: 0.5; }
+  .ck-item:hover .ck-item-del, .ck-item-del:focus-visible, .ck-list:hover .ck-list-del, .ck-list-del:focus-visible, .ck-list:hover .ck-list-expand, .ck-list-expand:focus-visible { opacity: 1; }
   .ck-add { min-width: 0; }
   .ck-add-input { flex: 1; min-width: 0; }
 `;
