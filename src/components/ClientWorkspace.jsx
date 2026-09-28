@@ -2,6 +2,8 @@ import { safeHref } from '../lib/safeUrl';
 import FoldSection from './DetailFold';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COPY } from '../shared/copy';
+import InvoicesCard from './Invoices';
+import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
 import { durationMs } from '../ui/motion';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
@@ -136,7 +138,7 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
           <Row gap={2} justify="between" align="center"><span className="pb-card-h" style={{ margin: 0 }}>{preview.name || 'Project'}</span><Pill id={preview.kind} list={PROJECT_KINDS} size="sm" /></Row>
           <span className="dt-opt-n">{money(preview.total)}</span>
           <p className="dt-muted">{preview.plan ? planLine({ ...preview.plan, total: preview.total, alt: null }) : 'One payment, due at the start.'}</p>
-          <Stack gap={0}>{preview.schedule.map(s => <Row key={s.id} gap={2} justify="between" className="cw-preview-row"><span>{s.label}</span><span>{money(s.amount)}, {fmtDayShort(s.dueAt)}</span></Row>)}</Stack>
+          <Stack gap={0}>{preview.invoices.map(s => <Row key={s.id} gap={2} justify="between" className="cw-preview-row"><span>{s.label}</span><span>{money(s.amount)}, {fmtDayShort(s.dueAt)}</span></Row>)}</Stack>
         </Card>
         <Input label="Drive folder (optional)" value={drive} onChange={(e) => setDrive(e.target.value)} placeholder="https://drive.google.com/..." />
       </Stack>
@@ -164,7 +166,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   // from the planner when the client has one.
   const posts = shell?.posts || [];
   const plannerOn = !!lead.planner?.enabled;
-  const [paidPulse, setPaidPulse] = useState(null); // schedule item id that just got paid
+  const [paidPulse, setPaidPulse] = useState(null); // invoice id that just got paid
   const [retPulse, setRetPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
   const wide = useMediaQuery('(min-width: 1440px)'); // the detail column is narrow below this; the schedule stacks
@@ -229,34 +231,36 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
     const set = { revisions: rev };
     if (round.extra) {
       const fee = extraRoundFeeFor(p); const n = extraRounds(p) + 1;
-      set.schedule = [...(p.schedule || []), { id: uid(), amount: fee, dueAt: today(), status: 'upcoming', ledgerId: '', label: `Extra round ${n}`, extra: true }];
+      set.invoices = [...invoicesOf(p), { ...newInvoice({ label: `Extra round ${n}`, amount: fee, dueAt: today(), status: 'sent' }), ledgerId: '', extra: true }];
       set.total = (Number(p.total) || 0) + fee;
     }
     setBusy(true);
     const ok = await pp(p, set);
     setBusy(false);
-    if (ok) { toast.success(round.extra ? `Extra round logged, ${money(extraRoundFeeFor(p))} added to the schedule.` : `Round ${rev.used} of ${rev.max} logged.`); setRound(null); setRoundNote(''); }
+    if (ok) { toast.success(round.extra ? `Extra round logged, ${money(extraRoundFeeFor(p))} added as an invoice.` : `Round ${rev.used} of ${rev.max} logged.`); setRound(null); setRoundNote(''); }
   };
 
-  /* Mark paid: append to the ledger, then point the schedule item at it. */
-  const openPay = (p, item) => { setPay({ project: p, item }); setPayForm({ amount: String(item.amount), at: today(), label: `${p.name}: ${item.label || 'payment'}` }); };
-  const savePay = async () => {
-    const { project: p, item } = pay; const amount = Number(payForm.amount) || 0; if (!(amount >= 0)) return;
+  /* Mark paid (CRM revamp, step 5): the ledger entry as today (or the day given), then the invoice paid and pointed at it. */
+  const payInvoice = async (p, item, { paidAt = '', note = '' } = {}) => {
+    const amount = Number(item.amount) || 0;
     const ledgerId = uid();
     setBusy(true);
-    const ok1 = await patch({ purchases: [...(lead.purchases || []), { id: ledgerId, label: payForm.label.trim() || item.label || 'Payment', amount, at: payForm.at || today(), notes: '', projectId: String(p._id) }] });
-    if (!ok1) { setBusy(false); return; }
-    let schedule = (p.schedule || []).map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: new Date().toISOString(), amount } : s));
-    const set = { schedule };
+    const ok1 = await patch({ purchases: [...(lead.purchases || []), { id: ledgerId, label: `${p.name}: ${item.label || 'payment'}`, amount, at: paidAt || today(), notes: note || '', projectId: String(p._id) }] });
+    if (!ok1) { setBusy(false); return false; }
+    let invoices = replaceInvoice(invoicesOf(p), markInvoicePaid(item, { paidAt: paidAt ? new Date(`${paidAt}T12:00:00`).toISOString() : '', note, ledgerId }));
+    const set = { invoices };
     if (p.kind === 'retainer') {
-      const future = schedule.filter(s => scheduleStatus(s) !== 'paid');
-      if (future.length < 6) { const last = schedule[schedule.length - 1]; schedule = [...schedule, ...retainerSchedule(item.amount, addMonths(last.dueAt, 1, p.retainer?.billDay), p.retainer?.billDay, 6).map((s, i) => ({ ...s, label: `Month ${schedule.length + i + 1}` }))]; set.schedule = schedule; }
+      const future = invoices.filter(s => scheduleStatus(s) !== 'paid');
+      if (future.length < 6) { const last = invoices[invoices.length - 1]; invoices = [...invoices, ...retainerSchedule(item.amount, addMonths(last.dueAt, 1, p.retainer?.billDay), p.retainer?.billDay, 6).map((s, i) => ({ ...s, label: `Month ${invoices.length + i + 1}` }))]; set.invoices = invoices; }
     }
     const ok2 = await pp(p, set);
-    if (ok2 && p.kind === 'retainer' && lead.retainer) { const nx = nextUnpaid({ schedule }); patch({ retainer: { ...lead.retainer, nextBillAt: nx?.dueAt || '' } }); }
+    if (ok2 && p.kind === 'retainer' && lead.retainer) { const nx = nextUnpaid({ invoices }); patch({ retainer: { ...lead.retainer, nextBillAt: nx?.dueAt || '' } }); }
     setBusy(false);
-    if (ok2) { toast.success(`${money(amount)} recorded.`); setPay(null); setPaidPulse(item.id); setTimeout(() => setPaidPulse(null), durationMs('--v-dur-slow') * 2 + 60); }
+    if (ok2) { toast.success(`${money(amount)} recorded.`); setPaidPulse(item.id); setTimeout(() => setPaidPulse(null), durationMs('--v-dur-slow') * 2 + 60); }
+    return ok2;
   };
+  const openPay = (p, item) => { setPay({ project: p, item }); setPayForm({ amount: String(item.amount), at: today(), label: `${p.name}: ${item.label || 'payment'}` }); };
+  const savePay = async () => { const { project: p, item } = pay; const ok = await payInvoice({ ...p }, { ...item, amount: Number(payForm.amount) || item.amount }, { paidAt: payForm.at, note: '' }); if (ok) setPay(null); };
   const saveManual = async () => {
     const amount = Number(manualForm.amount) || 0; if (!manualForm.label.trim()) return;
     setBusy(true);
@@ -374,11 +378,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   /* ── Payments ── */
   const ledger = useMemo(() => (lead.purchases || []).map((x, i) => ({ ...x, _i: i })).sort((a, b) => String(b.at).localeCompare(String(a.at))), [lead.purchases]);
   const projectPicker = work.length > 1 && <Select label="Project" value={String(current?._id || '')} onChange={(e) => setProjId(e.target.value)} options={work.map(p => ({ id: String(p._id), label: p.name }))} className="cw-picker" />;
-  const scheduleRows = current ? [...(current.schedule || [])].sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt))) : [];
-  const statusPill = (s) => <Pill id={scheduleStatus(s)} list={SCHEDULE_STATUSES} size="sm" />;
-  const payAction = (s) => (scheduleStatus(s) === 'paid'
-    ? <Button variant="ghost" size="md" onClick={() => document.getElementById(`ledger-${s.ledgerId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}>Ledger</Button>
-    : !readOnly && <Button variant="secondary" size="md" icon={Check} onClick={() => openPay(current, s)} className="cw-mark-paid">Mark paid</Button>);
+  const writeInvoices = (p) => (invoices) => pp(p, { invoices });
   const planBlock = current?.plan && (() => {
     const m = planMonth(current); const nx = nextUnpaid(current); const remind = planReminderDue(current) || current.plan.stripeCancelled;
     return (
@@ -409,17 +409,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
         {current ? (
           <Stack gap={3}>
             <ProgressBar value={paidPct(current)} tone={isFullyPaid(current) ? 'booked' : 'progress'} size="sm" label={isFullyPaid(current) ? 'Paid in full' : `${money(owedTotal(current))} still owed`} />
-            {wide ? (
-              <Table aria-label="Payment schedule" density="sm" columnChooser={false} rows={scheduleRows} rowKey={(r) => r.id}
-                columns={[
-                  { id: 'label', label: 'Item', render: (r) => r.label || 'Payment', always: true },
-                  { id: 'amount', label: 'Amount', align: 'end', render: (r) => money(r.amount) },
-                  { id: 'due', label: 'Due', render: (r) => fmtDay(r.dueAt) },
-                  { id: 'status', label: 'Status', render: statusPill },
-                ]} rowActions={payAction} rowClassName={(r) => (r.id === paidPulse ? 'cw-row-paid' : '')} empty={<EmptyState size="sm" icon="CreditCard01" title={E('clients.schedule').title} description={E('clients.schedule').description} />} />
-            ) : (
-              <Stack gap={2}>{scheduleRows.map(s => <ListRow key={s.id} title={s.label || 'Payment'} subtitle={`${money(s.amount)}, due ${fmtDay(s.dueAt)}`} trailing={<Row gap={1}>{statusPill(s)}{payAction(s)}</Row>} chevron={false} className={`cw-sched-row${s.id === paidPulse ? ' v-pulse-won' : ''}`} />)}</Stack>
-            )}
+            <InvoicesCard invoices={invoicesOf(current)} onChange={writeInvoices(current)} onMarkPaid={(inv, form) => payInvoice(current, inv, form)} defaults={current.plan ? { label: `Month ${planMonth(current) || 1} of ${current.plan.months}`, amount: current.plan.monthly } : { label: current.name, amount: owedTotal(current) }} readOnly={readOnly} title="Invoices" pulseId={paidPulse} emptyKey="clients.schedule" level={2} />
             {planBlock}
           </Stack>
         ) : <Card><EmptyState size="sm" icon="CreditCard01" title={E('clients.payments').title} description={E('clients.payments').description} action={!readOnly ? { label: E('clients.payments').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}

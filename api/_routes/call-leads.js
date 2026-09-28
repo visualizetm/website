@@ -3,6 +3,8 @@ import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
+import { sanitizeInvoices } from '../_lib/invoices.js';
+import { DEAL_CHECKPOINT_IDS } from '../_semantics.js';
 
 import {
   CONCEPT_STATUS_IDS,
@@ -354,6 +356,17 @@ function sanitize(b) {
       result: ['won', 'lost'].includes(b.bookedOutcome.result) ? b.bookedOutcome.result : 'lost',
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
+    } : undefined,
+    // CRM revamp, step 5: the deal, from the meeting to the first payment; null clears it.
+    deal: b.deal === null ? null : b.deal && typeof b.deal === 'object' ? {
+      checkpoints: Object.fromEntries(DEAL_CHECKPOINT_IDS.map(id => { const c = b.deal.checkpoints?.[id]; return [id, c && typeof c === 'object' && c.at ? { at: str(c.at, 40), by: c.by === 'auto' ? 'auto' : 'rob' } : null]; })),
+      packageId: str(b.deal.packageId, 40),
+      addonIds: Array.isArray(b.deal.addonIds) ? b.deal.addonIds.slice(0, 12).map(x => str(x, 40)).filter(Boolean) : [],
+      plan: b.deal.plan && typeof b.deal.plan === 'object' && Number(b.deal.plan.months) >= 1 ? { months: Math.max(1, Math.min(60, Math.round(Number(b.deal.plan.months)))), monthly: Math.max(0, Math.min(100000, Number(b.deal.plan.monthly) || 0)) } : null,
+      invoices: sanitizeInvoices(b.deal.invoices) || [],
+      contractLink: link(b.deal.contractLink),
+      metAt: str(b.deal.metAt, 40),
+      stalledSince: str(b.deal.stalledSince, 40),
     } : undefined,
     // CRM revamp, step 4: parked until a day, with why; null clears it. And the score the rules computed.
     nurture: b.nurture === null ? null : b.nurture && typeof b.nurture === 'object' ? { until: /^\d{4}-\d{2}-\d{2}$/.test(String(b.nurture.until || '')) ? String(b.nurture.until) : '', reason: str(b.nurture.reason, 120) } : undefined,

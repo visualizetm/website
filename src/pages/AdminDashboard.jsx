@@ -65,7 +65,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     if (stage !== 'lost' && stage !== 'declined' && stage !== 'triage') {
       s.funnel.leads++;
       if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) s.funnel.contacted++;
-      if (stage === 'booked' || stage === 'won' || stage === 'client') s.funnel.booked++;
+      if (stage === 'booked' || stage === 'deal' || stage === 'won' || stage === 'client') s.funnel.booked++;
       if (stage === 'won' || stage === 'client') s.funnel.clients++;
     }
     if (stage === 'lead' && (l.callStatus || 'not-called') === 'not-called') s.notCalled++;

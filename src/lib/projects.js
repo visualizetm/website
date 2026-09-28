@@ -2,7 +2,9 @@
  *
  * A client IS the call_leads document with stage 'client'. Projects live in
  * the projects collection and reference the lead by leadId. Money stays on
- * the lead's purchases[] ledger; a project's schedule items point at ledger
+ * the lead's purchases[] ledger; a project's invoices (CRM revamp, step 5:
+ * invoices[] replaced schedule[], src/lib/invoices.js; invoicesOf() reads
+ * either until scripts/migrate-invoices.mjs has run) point at ledger
  * entries by ledgerId, so nothing is counted twice.
  *
  * Rules enforced here (each cited in reports/PROMPT-10-REPORT.md section 5):
@@ -13,9 +15,11 @@
  *   - payment plans remind from month 5 of 6 (or 11 of 12) to cancel Stripe
  *   - cancelling a retainer gives 30 days notice (CANCEL_NOTICE_DAYS)
  */
-import { PACKAGES, RETAINERS, ADDONS, REVISION_ROUNDS, planFor, packageOf, retainerOf, extraRoundFee } from '../shared/pricing';
-import { normalizeStage } from '../shared/semantics';
-import { parseDate, dayKey as dayKeyOf } from '../shared/dates';
+import { PACKAGES, RETAINERS, ADDONS, REVISION_ROUNDS, planFor, packageOf, retainerOf, extraRoundFee } from '../shared/pricing.js';
+import { normalizeStage } from '../shared/semantics.js';
+import { parseDate, dayKey as dayKeyOf } from '../shared/dates.js';
+import { invoicesOf, invoiceStatus, newInvoice } from './invoices.js';
+export { invoicesOf };
 
 export const CANCEL_NOTICE_DAYS = 30;
 export const FOLLOW_UP_DAYS = 3;
@@ -53,13 +57,13 @@ export const kindOfPackage = (pkg) => (pkg?.kind === 'web' ? (['launch-plan', 'b
 /** One payment under the cap; the plan's monthly payments over it, the first one starting the project. */
 export function scheduleFor(total, packageId, startDate = today(), planOverride) {
   const plan = planOverride || planFor(total, packageId);
-  if (!plan) return { plan: null, items: [{ id: uid(), amount: total, dueAt: startDate, status: 'upcoming', ledgerId: '', label: 'Full payment' }] };
+  if (!plan) return { plan: null, items: [{ ...newInvoice({ label: 'Full payment', amount: total, dueAt: startDate, status: 'sent' }), ledgerId: '' }] };
   const items = [];
   let left = total;
   for (let i = 0; i < plan.months; i++) {
     const amount = i === plan.months - 1 ? left : Math.min(plan.monthly, left);
     left -= amount;
-    items.push({ id: uid(), amount, dueAt: addMonths(startDate, i), status: 'upcoming', ledgerId: '', label: `Month ${i + 1} of ${plan.months}` });
+    items.push({ ...newInvoice({ label: `Month ${i + 1} of ${plan.months}`, amount, dueAt: addMonths(startDate, i), status: 'sent' }), ledgerId: '' });
   }
   return { plan: { months: plan.months, monthly: plan.monthly, stripeCancelled: false }, items };
 }
@@ -71,41 +75,33 @@ export function retainerSchedule(amount, startDate, billDay, months = 12, from =
   for (let i = from; i < from + months; i++) {
     const due = addMonths(anchor, i, billDay);
     const dueAt = i === 0 && due < startDate ? startDate : due;
-    out.push({ id: uid(), amount, dueAt, status: 'upcoming', ledgerId: '', label: `Month ${i + 1}` });
+    out.push({ ...newInvoice({ label: `Month ${i + 1}`, amount, dueAt, status: 'sent' }), ledgerId: '' });
   }
   return out;
 }
-/** Display status: paid stays paid; otherwise past due, due (within 7 days), or upcoming. */
-export function scheduleStatus(item, now = Date.now()) {
-  if (item.status === 'paid' || item.ledgerId) return 'paid';
-  const t = localDate(item.dueAt)?.getTime();
-  if (!t) return 'upcoming';
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  if (t < startOfToday.getTime()) return 'past-due';
-  if (t <= now + 7 * DAY) return 'due';
-  return 'upcoming';
-}
-export const scheduleTotal = (p) => (p.schedule || []).reduce((n, s) => n + (Number(s.amount) || 0), 0);
-export const paidTotal = (p) => (p.schedule || []).filter(s => scheduleStatus(s) === 'paid').reduce((n, s) => n + (Number(s.amount) || 0), 0);
+/** Display status (src/lib/invoices.js invoiceStatus): paid stays paid; a sent line is past due, due (within 7 days) or sent; a draft is a draft. */
+export const scheduleStatus = (item, now = Date.now()) => invoiceStatus(item, now);
+export const scheduleTotal = (p) => invoicesOf(p).reduce((n, s) => n + (Number(s.amount) || 0), 0);
+export const paidTotal = (p) => invoicesOf(p).filter(s => scheduleStatus(s) === 'paid').reduce((n, s) => n + (Number(s.amount) || 0), 0);
 export const owedTotal = (p) => Math.max(0, scheduleTotal(p) - paidTotal(p));
-export const isFullyPaid = (p) => (p.schedule || []).length > 0 && (p.schedule || []).every(s => scheduleStatus(s) === 'paid');
-export const hasPastDue = (p, now = Date.now()) => !p.archived && (p.schedule || []).some(s => scheduleStatus(s, now) === 'past-due');
-export const nextUnpaid = (p, now = Date.now()) => (p.schedule || []).filter(s => scheduleStatus(s, now) !== 'paid').sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0] || null;
+export const isFullyPaid = (p) => invoicesOf(p).length > 0 && invoicesOf(p).every(s => scheduleStatus(s) === 'paid');
+export const hasPastDue = (p, now = Date.now()) => !p.archived && invoicesOf(p).some(s => scheduleStatus(s, now) === 'past-due');
+export const nextUnpaid = (p, now = Date.now()) => invoicesOf(p).filter(s => scheduleStatus(s, now) !== 'paid').sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0] || null;
 export const paidPct = (p) => { const t = scheduleTotal(p); return t ? Math.round((paidTotal(p) / t) * 100) : 0; };
 
 /* ── Payment plans ──────────────────────────────────────────────── */
 /** "Month 3 of 6": the month whose payment is in progress (paid count plus one, clamped). */
 export function planMonth(p, now = Date.now()) {
   if (!p.plan?.months) return null;
-  const items = (p.schedule || []).filter(s => !s.extra);
+  const items = invoicesOf(p).filter(s => !s.extra);
   const paid = items.filter(s => scheduleStatus(s, now) === 'paid').length;
   const started = items.filter(s => (localDate(s.dueAt)?.getTime() || 0) <= now).length;
   return Math.max(1, Math.min(p.plan.months, Math.max(paid + 1, started)));
 }
-export const planRemaining = (p) => (p.schedule || []).filter(s => !s.extra && scheduleStatus(s) !== 'paid').reduce((n, s) => n + (Number(s.amount) || 0), 0);
+export const planRemaining = (p) => invoicesOf(p).filter(s => !s.extra && scheduleStatus(s) !== 'paid').reduce((n, s) => n + (Number(s.amount) || 0), 0);
 /** The hard Stripe reminder shows from month 5 of 6, or month 11 of 12. */
 export const planReminderDue = (p, now = Date.now()) => { const m = planMonth(p, now); return !!p.plan?.months && m != null && m >= p.plan.months - 1 && !p.plan.stripeCancelled; };
-export const planFinalItem = (p) => { const items = (p.schedule || []).filter(s => !s.extra); return p.plan?.months ? items[items.length - 1] || null : null; };
+export const planFinalItem = (p) => { const items = invoicesOf(p).filter(s => !s.extra); return p.plan?.months ? items[items.length - 1] || null : null; };
 
 /* ── Revisions ──────────────────────────────────────────────────── */
 export const revisionsUsed = (p) => (p.revisions?.log || []).filter(r => !r.extra).length;
@@ -122,7 +118,7 @@ export function roundLogPatch(p, { note = '', extra = false, at = new Date().toI
   const set = { revisions: { ...(p.revisions || {}), max: revisionsMax(p), log, used: log.filter(r => !r.extra).length } };
   if (extra) {
     const fee = extraRoundFeeFor(p); const n = extraRounds(p) + 1;
-    set.schedule = [...(p.schedule || []), { id: uid(), amount: fee, dueAt: today(), status: 'upcoming', ledgerId: '', label: `Extra round ${n}`, extra: true }];
+    set.invoices = [...invoicesOf(p), { ...newInvoice({ label: `Extra round ${n}`, amount: fee, dueAt: today(), status: 'sent' }), ledgerId: '', extra: true }];
     set.total = (Number(p.total) || 0) + fee;
   }
   return set;
@@ -130,9 +126,9 @@ export function roundLogPatch(p, { note = '', extra = false, at = new Date().toI
 
 /* ── Delivery gate ──────────────────────────────────────────────── */
 export function deliverBlockReason(p) {
-  if (!(p.schedule || []).length) return null;
+  if (!invoicesOf(p).length) return null;
   const owed = owedTotal(p);
-  if (owed > 0) { const n = (p.schedule || []).filter(s => scheduleStatus(s) !== 'paid').length; return `${money(owed)} is still owed across ${n} schedule item${n === 1 ? '' : 's'}. Files release only at full payment, so Delivered waits until the last payment lands.`; }
+  if (owed > 0) { const n = invoicesOf(p).filter(s => scheduleStatus(s) !== 'paid').length; return `${money(owed)} is still owed across ${n} invoice${n === 1 ? '' : 's'}. Files release only at full payment, so Delivered waits until the last payment lands.`; }
   return null;
 }
 export const releaseBlockReason = (p) => (isFullyPaid(p) ? null : `Files release only at full payment. ${money(owedTotal(p))} is still owed.`);
@@ -238,7 +234,7 @@ export function buildProject(leadId, pick, opts = {}) {
   else if (pick.custom) { name = pick.custom.name; total = Number(pick.custom.total) || 0; kind = pick.custom.kind || 'brand'; custom = { name, total }; }
   const { plan, items } = scheduleFor(total, packageId, start);
   return {
-    leadId, name, kind, packageId, custom, stage: 'kickoff', stages: stagesFor(kind), total, schedule: items,
+    leadId, name, kind, packageId, custom, stage: 'kickoff', stages: stagesFor(kind), total, invoices: items,
     revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan, links: { drive: opts.drive || '' },
     deliverables: deliverablesFor(kind), delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
   };
@@ -247,7 +243,7 @@ export function buildRetainerProject(leadId, planId, startDate, billDay) {
   const r = retainerOf(planId);
   return {
     leadId, name: `${r.label} retainer`, kind: 'retainer', packageId: r.id, stage: 'kickoff', stages: stagesFor('retainer'), total: 0,
-    schedule: retainerSchedule(r.price, startDate, billDay), revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan: null, links: { drive: '' },
+    invoices: retainerSchedule(r.price, startDate, billDay), revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan: null, links: { drive: '' },
     deliverables: [], delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
     retainer: { planId: r.id, billDay, startedAt: startDate },
   };

@@ -19,6 +19,7 @@ import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead
 import ListPicker from '../components/ListPicker';
 import CaptureSheet from '../components/CaptureSheet';
 import { withScore, topClientIndustries, briefedLeadIds } from '../lib/score';
+import { withDeal, dealAutoPatch, tickPatch, dealOf, isTicked, isStalled } from '../lib/deal';
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
@@ -28,7 +29,7 @@ import { apiFetch } from '../shared/api';
  * Leads and the Call Console are prefetched after first paint since they are
  * the next taps. The xlsx chunk stays behind its own dynamic import. */
 const loaders = {
-  leads: () => import('./AdminLeads'), calls: () => import('./AdminCalls'), booked: () => import('./AdminBooked'), clients: () => import('./AdminClients'),
+  leads: () => import('./AdminLeads'), calls: () => import('./AdminCalls'), deals: () => import('./AdminDeals'), clients: () => import('./AdminClients'),
   calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
   submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
@@ -39,7 +40,7 @@ const loaders = {
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
-const AdminBooked = lazy(loaders.booked);
+const AdminDeals = lazy(loaders.deals);
 const AdminClients = lazy(loaders.clients);
 const AdminCalendar = lazy(loaders.calendar);
 const AdminOrders = lazy(loaders.orders);
@@ -144,7 +145,9 @@ export default function AdminApp() {
        action on the same PATCH (src/lib/nextAction.js), so the record and
        the Next up queue never disagree. A manual action is kept. */
     const cur = callLeadsRef.current.find(l => l._id === id);
-    const set1 = cur ? withNextAction(cur, set0, { projects: projectsRef.current, sets: setsRef.current }) : set0;
+    /* CRM revamp, step 5: a write that touches the stage, the meeting or the deal carries what moves on its own (src/lib/deal.js), then the next action. */
+    const setD = cur ? withDeal(cur, set0, { sets: setsRef.current }) : set0;
+    const set1 = cur ? withNextAction(cur, setD, { projects: projectsRef.current, sets: setsRef.current }) : setD;
     /* CRM revamp, step 4: a write that touches the phone, the socials, the intel or the industry carries the recomputed score (src/lib/score.js). */
     const set = cur ? withScore(cur, set1, { topIndustries: topClientIndustries(callLeadsRef.current), briefed: briefedLeadIds(itemsRef.current) }) : set1;
     let prev;
@@ -231,6 +234,9 @@ export default function AdminApp() {
     const r = await apiFetch('/api/admin/concept-sets', { method: 'POST', body: doc });
     if (!r.ok) return null;
     if (r.data?.item) setSets(ss => [r.data.item, ...ss]);
+    /* CRM revamp, step 5: a concept set for a booked or deal record ticks its Concepts checkpoint. */
+    const lead = r.data?.item ? callLeadsRef.current.find(l => String(l._id) === String(r.data.item.leadId)) : null;
+    if (lead && ['booked', 'deal'].includes(effectiveStage(lead)) && !isTicked(dealOf(lead), 'concepts')) patchCallLeadRef.current?.(lead._id, tickPatch(lead, 'concepts', 'auto'));
     return r.data?.item || null;
   }, []);
   /* The server answers with the stored document (a send stamps sentAt, a
@@ -323,6 +329,8 @@ export default function AdminApp() {
     },
   }), [createList, patchList, loadLists, syncCallbacksDue, patchCallLead]);
   const reconcileRef = useRef(null); reconcileRef.current = reconcileLists;
+  const patchCallLeadRef = useRef(null); patchCallLeadRef.current = patchCallLead;
+  const projectOps = useMemo(() => ({ create: createProject, patch: patchProject }), [createProject, patchProject]);
   const [pickerLeads, setPickerLeads] = useState(null);
   // Capture a lead (CRM revamp, step 4): the Quick add sheet and Triage's empty state open it.
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -371,7 +379,7 @@ export default function AdminApp() {
     if (p.startsWith('/calls')) return 'calls';
     if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
     if (p.startsWith('/leads')) return 'leads';
-    if (p.startsWith('/booked')) return 'booked';
+    if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     if (p.startsWith('/lists')) return 'lists';
     if (p.startsWith('/triage')) return 'triage';
     if (p.startsWith('/calendar')) return 'calendar';
@@ -387,6 +395,8 @@ export default function AdminApp() {
   }, [location.pathname]);
 
   const relPath = location.pathname.slice(BASE.length) || '/';
+  // /booked became /deals (CRM revamp, step 5); the old link still lands.
+  useEffect(() => { if (relPath.startsWith('/booked')) navigate(`${BASE}/deals${relPath.slice(7)}${location.search || ''}`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
@@ -421,7 +431,7 @@ export default function AdminApp() {
   // Open a lead in whichever screen owns its stage.
   const openLead = useCallback((lead, intent) => {
     const stage = effectiveStage(lead);
-    const sec = stage === 'booked' ? 'booked' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
+    const sec = (stage === 'booked' || stage === 'deal') ? 'deals' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
     go(sec);
     // intent (CRM revamp, step 2): which fold the record opens on ('outcome', 'payments').
     setOpenReq({ section: sec, id: lead._id, n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null });
@@ -463,6 +473,24 @@ export default function AdminApp() {
   useEffect(() => { if (authed) loadPosts(); }, [authed, loadPosts]);
   useEffect(() => { if (authed) loadOrders(); }, [authed, loadOrders]);
 
+  /* The deal sweep (CRM revamp, step 5): on load, a booked record past its
+     meeting becomes a deal, concepts and a past Calendly call tick, and a
+     stall is set or cleared, the same rules the cron runs (src/lib/deal.js).
+     Each record is swept once per shape so a failed write does not loop. */
+  const sweptRef = useRef(new Set());
+  useEffect(() => {
+    if (!authed || callLeadsLoading || setsLoading) return;
+    for (const l of callLeads) {
+      if (!['booked', 'deal'].includes(effectiveStage(l))) continue;
+      const auto = dealAutoPatch(l, { sets });
+      if (!auto) continue;
+      const key = `${l._id}:${JSON.stringify(auto)}`;
+      if (sweptRef.current.has(key)) continue;
+      sweptRef.current.add(key);
+      patchCallLead(l._id, auto);
+    }
+  }, [authed, callLeads, sets, callLeadsLoading, setsLoading, patchCallLead]);
+
   const stageCounts = useMemo(() => {
     const c = { triage: 0, lead: 0, booked: 0, deal: 0, won: 0, client: 0, nurture: 0, declined: 0, toCall: 0 };
     for (const l of callLeads) {
@@ -473,6 +501,8 @@ export default function AdminApp() {
     return c;
   }, [callLeads]);
   const bookedCount = stageCounts.booked;
+  // Deals (CRM revamp, step 5): the badge counts stalled deals.
+  const stalledDeals = useMemo(() => callLeads.filter(l => ['booked', 'deal'].includes(effectiveStage(l)) && isStalled(l)).length, [callLeads]);
   const funnel = useMemo(() => pipelineFunnel(callLeads), [callLeads]);
   const openProjects = useMemo(() => (projects || []).filter(p => !p.archived && p.stage !== 'delivered' && p.kind !== 'retainer').length, [projects]);
   // Callbacks due: every open callback (the console stores no due date, so an
@@ -572,13 +602,19 @@ export default function AdminApp() {
   if (authed === null) return <BootFrame />;
   if (!authed) return <Login />;
 
-  const hasDetail = (section === 'booked' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
-  const linkSubmission = (subId, leadId) => patch(subId, { linkedLeadId: leadId });
+  const hasDetail = (section === 'deals' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
+  /* Link a submission: a start brief linked to a deal ticks Form received (CRM revamp, step 5). */
+  const linkSubmission = async (subId, leadId) => {
+    const ok = await patch(subId, { linkedLeadId: leadId });
+    const sub = items.find(s => s._id === subId); const lead = leadId ? callLeads.find(l => l._id === leadId) : null;
+    if (ok && sub?.type === 'start' && lead && ['booked', 'deal'].includes(effectiveStage(lead)) && !isTicked(dealOf(lead), 'formReceived')) patchCallLead(leadId, tickPatch(lead, 'formReceived', 'auto'));
+    return ok;
+  };
   /* Part 2: the Clients badge counts clients (stage client or won; the list
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
+  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -586,7 +622,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -679,8 +715,8 @@ export default function AdminApp() {
       )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
       {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}
-      {section === 'booked' && (
-        <AdminBooked
+      {section === 'deals' && (
+        <AdminDeals
           leads={V.leads}
           submissions={V.items}
           loading={callLeadsLoading || forceLoading}
@@ -691,7 +727,7 @@ export default function AdminApp() {
           onMobileOpen={() => setBookedOpen(true)}
           onMobileClose={() => setBookedOpen(false)}
           onGo={go}
-          openId={reqFor('booked')}
+          openId={reqFor('deals')}
         />
       )}
       {section === 'calendar' && (

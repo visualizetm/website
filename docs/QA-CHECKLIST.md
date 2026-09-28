@@ -26,10 +26,10 @@ off, theme Dark.
 | 11b | Tap the plus button, Capture a lead, type @thebakeryco, tap Capture | The toast reads "Captured. It is waiting in Triage." and the pile gains a card with only the Instagram filled. |
 | 11c | Open Leads, open a lead's menu and tap Decline, pick Out of area, tap Decline | The sheet closes, the lead leaves the list with a six second undo toast, and the Leads badge drops by one. |
 | 11d | On Leads switch the Pool control to Declined | The declined lead is in the table with its reason and the date; the line above reads the reason counts; Bring back returns it to triage and it leaves the table. |
-| 12 | Open Booked | The list shows the booked leads with the meeting date; the one you just booked is there. |
-| 13 | Open the booked lead | The detail opens on Overview with the meeting block and the Pricing options block. |
+| 12 | Open Deals | A desktop shows the board, Booked to Invoice sent, a card in the column of its newest tick with the package, the days here and the next action; a phone shows the same as one grouped list. The one you just booked sits under Booked. |
+| 13 | Open the booked lead | The detail opens with the Checkpoints fold on top (nine steps), the Meeting fold below it, and Met them in the bar. |
 | 14 | Tap Add option twice in Pricing options | Two option cards appear with a package, a total, and the plan line. |
-| 15 | Tap Mark as won, then Won, convert to client | The profile pulses red, the detail closes, and the Clients badge ticks up. |
+| 15 | On Checkpoints tap Met them, then Add invoice (keep the prefilled package line), Mark sent on it, Mark paid on it, then Mark paid in the confirm | Call done ticks and the record is a deal; the invoice row reads Sent; the confirm names the package, the total and the plan; the profile pulses red, the toast says they are a client and the project started (Undo for six seconds), and the Clients badge ticks up. Mark won without payment sits in the bar's menu for pro bono. |
 | 16 | Open Clients and tap the client | The client detail opens with Projects, Payments, Retainer, and Deliverables tabs. |
 | 17 | On Projects tap New project, keep the package, tap Create | The sheet closes and the project card shows its stage and schedule. |
 | 18 | On Payments tap Mark paid on the first due line, confirm | The row pulses and its pill reads Paid; the ledger gains the entry. |

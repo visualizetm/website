@@ -44,6 +44,10 @@ export const COPY = {
     'calls.builder': { title: 'No leads to dial', description: 'Add leads on the Leads page or import the notepads.', action: 'Import the notepads', secondary: 'Add a lead' },
     'calls.room': { title: 'Nothing left in this session', description: 'Every lead in this block has an outcome.', action: 'See the summary' },
     /* Booked */
+    /* Deals (CRM revamp, step 5) */
+    'deals.none': { title: 'No deals yet', description: 'Book a meeting from the Call Console and it lands here. The checkpoints carry it from the call to the first payment.', action: 'Open Call Console' },
+    'deals.column': { title: 'Nothing here', description: 'A deal moves into this column when its checkpoint ticks.' },
+    'deals.invoices': { title: 'No invoices yet', description: 'Add the first one from the package or the plan. Mark paid on it makes the client and the project.', action: 'Add invoice' },
     'booked.none': { title: 'No booked leads yet', description: 'Book one from the Call Console. A booked outcome lands it here for meeting prep.', action: 'Open Call Console' },
     'booked.filter': { title: 'Nothing booked in this filter', description: 'Every booked lead is under All.', action: 'Show all' },
     /* Calendar */
@@ -54,7 +58,7 @@ export const COPY = {
     'clients.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
     'clients.projects': { title: 'No projects yet', description: 'Start one from a package, an add-on set, or a custom total. The payment schedule fills itself in.', action: 'New project' },
     'clients.payments': { title: 'No project to bill', description: 'Create a project and its schedule shows up here.', action: 'New project' },
-    'clients.schedule': { title: 'No schedule', description: 'This project has no payment lines.' },
+    'clients.schedule': { title: 'No invoices', description: 'This project has no invoice lines. Add one.' , action: 'Add invoice' },
     'clients.ledger': { title: 'Nothing paid yet', description: 'The first payment you record lands here, with the Stripe ones that match on their own.', action: 'Add manual payment' },
     'clients.retainer': { title: 'No retainer yet', description: 'Site Care for web work, Content Kit for everything else. Pitch it with the delivery.', action: 'Start a retainer' },
     'clients.retainer.cancelled': { title: 'Retainer cancelled', description: 'Start a new one when they are ready.', action: 'Start a retainer' },

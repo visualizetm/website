@@ -25,7 +25,11 @@ export const CONCEPT_STATUS_IDS = ['planned', 'generating', 'ready', 'shown'];
 // Prompt 10: Clients module enums.
 export const PROJECT_KIND_IDS = ['brand', 'web', 'combined', 'print', 'retainer'];
 export const PROJECT_STAGE_IDS = ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'];
-export const SCHEDULE_STATUS_IDS = ['paid', 'due', 'past-due', 'upcoming'];
+export const SCHEDULE_STATUS_IDS = ['paid', 'due', 'past-due', 'sent', 'draft', 'upcoming'];
+// CRM revamp, step 5: the stored invoice statuses and the deal's checkpoints.
+export const INVOICE_STATUS_IDS = ['draft', 'sent', 'paid'];
+export const DEAL_CHECKPOINT_IDS = ['concepts', 'introSent', 'callDone', 'onboardingSent', 'formReceived', 'contractSent', 'contractAgreed', 'invoiceSent', 'paid'];
+export const DEAL_COLUMN_IDS = ['booked', 'concepts', 'introSent', 'callDone', 'formReceived', 'contractSent', 'invoiceSent'];
 export const RETAINER_STATUS_IDS = ['active', 'paused', 'ending', 'cancelled'];
 export const CLIENT_STATUS_IDS = ['active', 'paused', 'delivered'];
 // Prompt 11: Studio enums.

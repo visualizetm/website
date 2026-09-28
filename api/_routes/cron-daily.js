@@ -6,6 +6,8 @@ import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline
 import { nextActionFor, resolveNextAction, sameAction } from '../_lib/nextAction.js';
 import { syncCallbacksDue } from '../_lib/lists.js';
 import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js';
+import { dealAutoPatch } from '../_lib/deal.js';
+import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } from '../_lib/invoices.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
@@ -21,6 +23,10 @@ import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js'
  *  1f. Nurture resurface (CRM revamp, step 4): parked records past their
  *     day go back to triage with a note.
  *  1g. Score recompute (CRM revamp, step 4) on every live lead.
+ *  1d0 and 1d1 (CRM revamp, step 5): the deal moves (booked to deal an hour
+ *     past the meeting, Concepts and Call done tick, stalledSince) and the
+ *     next plan month drafted on its bill day; a retainer's next month is
+ *     drafted on its bill day in step 1.
  *  2. Task health: write the settings 'health' document (enrichment, scraper,
  *     crons, stripe) the Integrations cards and the drawer read. */
 const pad = (n) => String(n).padStart(2, '0');
@@ -53,16 +59,16 @@ export async function handler(req, res) {
     const pid = r.projectId && ObjectId.isValid(r.projectId) ? new ObjectId(r.projectId) : null;
     const p = pid ? await projects.findOne({ _id: pid }) : null;
     if (p) {
-      let schedule = p.schedule || [];
-      const unpaidFuture = schedule.filter(s => s.status !== 'paid' && !s.ledgerId && String(s.dueAt) >= today);
-      if (unpaidFuture.length < 6 && schedule.length) {
-        const last = schedule[schedule.length - 1];
+      /* CRM revamp, step 5: the lines are invoices. On the bill day the next month is drafted when no line exists for it. */
+      let invoices = invoicesOf(p);
+      const last = invoices[invoices.length - 1];
+      const billDay = Number(r.billDay) || Number(String(last?.dueAt || '').slice(8, 10)) || 1;
+      if (invoices.length && addMonthsKey(last.dueAt, 1, billDay) === today && !hasMonthLine(invoices, invoices.length + 1)) {
         const amount = Number(r.amount) || Number(last.amount) || 0;
-        const more = Array.from({ length: 6 - unpaidFuture.length }, (_, i) => ({ id: uid(), amount, dueAt: addMonths(last.dueAt, i + 1, r.billDay), status: 'upcoming', ledgerId: '', label: `Month ${schedule.length + i + 1}` }));
-        schedule = [...schedule, ...more];
-        await projects.updateOne({ _id: p._id }, { $set: { schedule, updatedAt: new Date() } }); extended++;
+        invoices = [...invoices, { ...newInvoice({ label: monthLineLabel(invoices.length + 1), amount, dueAt: today, status: 'draft' }), ledgerId: '' }];
+        await projects.updateOne({ _id: p._id }, { $set: { invoices, updatedAt: new Date() } }); extended++;
       }
-      const next = schedule.filter(s => s.status !== 'paid' && !s.ledgerId && String(s.dueAt) >= today).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
+      const next = invoices.filter(s => s.status !== 'paid' && !s.ledgerId && String(s.dueAt) >= today).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
       const target = next?.dueAt || '';
       if (target && target !== r.nextBillAt && (!r.nextBillAt || String(r.nextBillAt) < today)) { await leads.updateOne({ _id: l._id }, { $set: { 'retainer.nextBillAt': target, updatedAt: new Date() } }); rolled++; }
     } else if (r.nextBillAt && String(r.nextBillAt) < today) {
@@ -118,9 +124,35 @@ export async function handler(req, res) {
      the server mirror of the rules (api/_lib/nextAction.js). A manual
      action (auto false) and a done one for the same due are kept. */
   let nextActions = 0;
-  const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1 }).toArray();
-  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, delivery: 1, releasedAt: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
   const liveSets = await db.collection('concept_sets').find({ deleted: { $ne: true }, archived: { $ne: true } }).project({ leadId: 1 }).toArray();
+
+  /* 1d0. The deal (CRM revamp, step 5), before the next action reads it: a
+     booked record an hour past its meeting becomes a deal, Concepts ticks
+     when a set exists, Call done when a linked Calendly call is past, and
+     stalledSince is set after seven quiet days or cleared by a move. */
+  let dealsMoved = 0;
+  const inPlay = await leads.find({ deleted: { $ne: true }, $or: [{ stage: 'booked' }, { stage: 'deal' }] }).project({ stage: 1, callStatus: 1, meeting: 1, deal: 1, calendlyEventUri: 1, updatedAt: 1 }).toArray();
+  for (const l of inPlay) {
+    const auto = dealAutoPatch(l, { sets: liveSets }, Date.now());
+    if (!auto) continue;
+    await leads.updateOne({ _id: l._id }, { $set: { ...auto, updatedAt: new Date() } }); dealsMoved++;
+  }
+  /* 1d1. Plan invoices: on a plan project's bill day the next month is drafted as "Month N of M" when no line exists for it. */
+  let drafted = 0;
+  const planProjects = await projects.find({ archived: { $ne: true }, 'plan.months': { $gte: 1 } }).project({ plan: 1, invoices: 1, schedule: 1, createdAt: 1 }).toArray();
+  for (const p of planProjects) {
+    const lines = invoicesOf(p); const months = lines.filter(s => !s.extra);
+    const first = months[0]; if (!first?.dueAt) continue;
+    const n = months.length + 1; const M = Number(p.plan.months) || 0;
+    if (n > M) continue;
+    const billDay = Number(String(first.dueAt).slice(8, 10)) || 1;
+    const dueAt = addMonthsKey(first.dueAt, n - 1, billDay);
+    if (dueAt !== today || hasMonthLine(lines, n, M)) continue;
+    await projects.updateOne({ _id: p._id }, { $set: { invoices: [...lines, { ...newInvoice({ label: monthLineLabel(n, M), amount: Number(p.plan.monthly) || 0, dueAt, status: 'draft' }), ledgerId: '' }], updatedAt: new Date() } }); drafted++;
+  }
+
+  const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1, deal: 1, calendlyEventUri: 1 }).toArray();
+  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
   const ctx = { projects: liveProjects, sets: liveSets };
   for (const l of liveLeads) {
     const next = resolveNextAction(l, nextActionFor(l, ctx, Date.now()));
@@ -178,12 +210,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored,
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted,
       // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
       healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, health });
 }

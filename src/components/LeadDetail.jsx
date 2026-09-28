@@ -11,7 +11,7 @@ import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState, IconTile,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, useConfirm, ProgressBar, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState, IconTile,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { postsOf } from '../lib/posts';
@@ -26,6 +26,11 @@ import { useDecline } from './DeclineSheet';
 import { liveNextAction, nextActionFor } from '../lib/nextAction';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
+import DealCheckpoints, { dealCheckpointsStyles } from './DealCheckpoints';
+import InvoicesCard, { invoicesStyles } from './Invoices';
+import { dealOf, isTicked, metPatch } from '../lib/deal';
+import { markPaidConversion, purchasesWithProject, undoConversionSet, wonWithoutPayment, dealPackageLabel, dealPlanLine, dealTotal, firstInvoiceDefaults } from '../lib/dealConvert';
+import { invoiceStatus, markPaid, replaceInvoice } from '../lib/invoices';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
 import { newestSet, statusOf as conceptStatusOf, directionLabel } from '../lib/concepts';
 import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
@@ -130,7 +135,11 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   /* Concepts (Concepts rebuild): any stage, the newest set's status. */
   const conceptSet = newestSet(shell?.sets, lead._id);
   const conceptSt = conceptSet ? conceptSetStatusOf(conceptStatusOf(conceptSet)) : null;
-  const booked = !clientMode && (stage === 'booked' || stage === 'won' || stage === 'client');
+  const booked = !clientMode && (stage === 'booked' || stage === 'deal' || stage === 'won' || stage === 'client');
+  /* The deal (CRM revamp, step 5): a booked or deal record carries the checkpoints and the invoices. */
+  const dealMode = !clientMode && (stage === 'booked' || stage === 'deal');
+  const deal = dealOf(lead);
+  const [confirm, confirmDialog] = useConfirm();
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
   const [linkSheet, setLinkSheet] = useState(null); // { key, label }
@@ -150,7 +159,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   /* UX audit, item 6: the record opens on the section for its stage and
      every other section is one line until asked for. The tab strip opens
      a section as it jumps to it. */
-  const defaultSection = clientMode ? 'projects' : booked ? 'meeting' : 'overview';
+  const defaultSection = clientMode ? 'projects' : stage === 'deal' ? 'checkpoints' : booked ? 'meeting' : 'overview';
   const [openIds, setOpenIds] = useState(() => new Set([defaultSection]));
   useEffect(() => { setTab(defaultSection); setOpenIds(new Set([defaultSection])); setCallModeState(LS(`vz_callmode_${lead._id}`, false)); }, [lead._id, defaultSection]);
   const foldOpen = (id) => openIds.has(id);
@@ -167,7 +176,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
      log-outcome, Payments for chase-invoice. */
   useEffect(() => {
     if (!intent?.kind) return;
-    const t = setTimeout(() => { if (intent.kind === 'outcome') jump('meeting'); else if (intent.kind === 'payments') jump('payments'); }, 60);
+    const t = setTimeout(() => { if (intent.kind === 'outcome') jump(dealMode ? 'checkpoints' : 'meeting'); else if (intent.kind === 'payments') jump(dealMode ? 'checkpoints' : 'payments'); else if (intent.kind === 'checkpoints') jump('checkpoints'); }, 60);
     return () => clearTimeout(t);
   }, [intent?.n, intent?.kind, lead._id]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Set next action: a manual action (auto false) the nightly recompute
@@ -200,8 +209,11 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     const at = new Date().toISOString();
     const prevStage = lead.stage;
     if (outcome === 'won') {
-      const ok = await patch({ stage: 'client', clientSince: at, bookedOutcome: { result: 'won', reason: outcomeNote.trim(), at } });
+      /* Mark won without payment (CRM revamp, step 5): the conversion with no invoice and no ledger entry; the project starts too. */
+      const conv = wonWithoutPayment(lead);
+      const ok = await patch({ ...conv.leadSet, bookedOutcome: { ...conv.leadSet.bookedOutcome, reason: outcomeNote.trim() || 'Pro bono' } });
       if (ok) {
+        if (shell?.projectOps?.create) shell.projectOps.create(conv.projectDoc);
         // Success moment: the profile pulses in the won tone, the Clients badge ticks up in the shell, then the detail closes.
         setOutcome(null); setWonPulse(true);
         toast.success(`${lead.business} is a client.`, { action: { label: 'Open in Clients', onClick: () => shell?.go('clients') } });
@@ -307,7 +319,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
 
   const tabs = clientMode
     ? [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: (client.projects || []).filter(p => String(p.leadId) === String(lead._id) && !p.archived && p.kind !== 'retainer').length || undefined }, { id: 'payments', label: 'Payments' }, { id: 'retainer', label: 'Retainer' }, { id: 'deliverables', label: 'Deliverables' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }]
-    : [{ id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
+    : [...(dealMode ? [{ id: 'checkpoints', label: 'Checkpoints', count: Object.values(deal.checkpoints).filter(Boolean).length || undefined }] : []), { id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
   const sec = (id) => ({ ref: (el) => { refs.current[id] = el; }, id: `dt-${id}`, className: 'dt-sec' });
 
   const overview = (
@@ -380,7 +392,35 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   );
   const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} fold={{ open: foldOpen, toggle: foldToggle }} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
   const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
-  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
+  /* The deal's money (CRM revamp, step 5): the invoices live on deal.invoices; the first Mark paid runs the conversion. */
+  const dealInvoices = deal.invoices || [];
+  const anyPaid = dealInvoices.some(i => invoiceStatus(i) === 'paid') || isTicked(deal, 'paid');
+  const writeInvoices = (invoices) => patch({ deal: { ...deal, invoices } });
+  const markDealPaid = async (inv, form) => {
+    if (anyPaid || !shell?.projectOps?.create) return patch({ deal: { ...deal, invoices: replaceInvoice(dealInvoices, markPaid(inv, { paidAt: form.paidAt ? new Date(`${form.paidAt}T12:00:00`).toISOString() : '', note: form.note })) } });
+    const conv = markPaidConversion(lead, inv.id, form);
+    if (!conv) return false;
+    const yes = await confirm({ title: 'Mark paid and start the project?', body: `${dealPackageLabel(deal) || 'No package'}, ${fmtMoney(dealTotal(deal) || inv.amount)}, ${dealPlanLine(deal).toLowerCase()}. ${lead.business} becomes a client and the project starts with this invoice paid.`, confirmLabel: 'Mark paid', icon: 'CurrencyDollar' });
+    if (!yes) return false;
+    const before = lead;
+    const ok = await patch(conv.leadSet);
+    if (!ok) return false;
+    const item = await shell.projectOps.create(conv.projectDoc);
+    if (item) patch({ purchases: purchasesWithProject(conv.leadSet.purchases, conv.purchaseId, item._id) });
+    setWonPulse(true);
+    toast.undo(`${lead.business} is a client. ${conv.projectDoc.name} started.`, async () => { await onPatch(before._id, undoConversionSet(before)); if (item) shell.projectOps.patch?.(item._id, { archived: true }); }, { seconds: 6 });
+    setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60);
+    return true;
+  };
+  const checkpoints = dealMode && (
+    <section {...sec('checkpoints')}>
+      <FoldSection id="checkpoints" title="Checkpoints" open={foldOpen('checkpoints')} onToggle={foldToggle} summary={`${Object.values(deal.checkpoints).filter(Boolean).length} of 9 ticked${deal.stalledSince ? ', stalled' : ''}`} description={stage === 'deal' ? 'From the call to the first payment. Mark paid on the first invoice makes the client and the project.' : 'The meeting first. Met them starts the deal.'}>
+        <DealCheckpoints lead={lead} patch={patch} readOnly={readOnly} onOpenConcepts={shell?.openConcepts ? () => shell.openConcepts(lead) : undefined} />
+        <InvoicesCard invoices={dealInvoices} onChange={writeInvoices} onMarkPaid={markDealPaid} defaults={firstInvoiceDefaults(deal)} readOnly={readOnly} description={anyPaid ? undefined : dealInvoices.length ? 'Mark paid on the first one makes the client and the project.' : undefined} />
+      </FoldSection>
+    </section>
+  );
+  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{checkpoints}{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
   const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditSocials={() => setEditAll(true)} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditShowcase={shell?.openShowcase ? () => shell.openShowcase(lead) : undefined} /></> : profile;
 
   return (
@@ -394,15 +434,20 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           )}
         </div>
       </ScrollArea>
-      {stage === 'booked' && !readOnly && (
+      {dealMode && !readOnly && (
         <StickyFooterBar className="dt-outbar">
           <Row gap={2} className="dt-outbar-row">
-            <Button icon={Trophy01} onClick={() => { setOutcomeNote(''); setOutcome('won'); }} className="dt-won">Mark as won</Button>
+            {!isTicked(deal, 'callDone')
+              ? <Button icon="Check" onClick={async () => { const ok = await patch(metPatch(lead)); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); jump('checkpoints'); } }} className="dt-met">Met them</Button>
+              : <Button icon="CurrencyDollar" onClick={() => jump('checkpoints')} className="dt-toinv">Invoices</Button>}
             <Button variant="danger" icon={XClose} onClick={() => { setOutcomeNote(''); setOutcome('lost'); }}>Mark as lost</Button>
             <Button variant="secondary" icon={Calendar} onClick={() => setResched(true)}>Reschedule</Button>
+            <Menu label="More outcomes" align="end" items={[{ id: 'won', label: 'Mark won without payment', icon: 'Trophy01', onSelect: () => { setOutcomeNote(''); setOutcome('won'); } }]} />
           </Row>
         </StickyFooterBar>
       )}
+      {confirmDialog}
+      <style>{dealCheckpointsStyles + invoicesStyles}</style>
       {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(lead._id, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
       {linkSheet && (
         <Modal open onClose={() => setLinkSheet(null)} title={`Add ${linkSheet.label}`} footer={<><Button variant="ghost" onClick={() => setLinkSheet(null)}>Cancel</Button><Button onClick={async () => { const v = linkDraft.trim(); if (!v) return; const ok = linkSheet.social ? await saveSocial(linkSheet.key)(v) : await patch({ [linkSheet.key]: v }); if (ok) { setLinkSheet(null); setLinkDraft(''); } }}>Save</Button></>}>
@@ -412,8 +457,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       {resched && <RescheduleSheet lead={lead} onClose={() => setResched(false)} onSave={async (m) => { const ok = await saveMeeting(m); if (ok) { setResched(false); toast.success('Meeting updated.'); } }} />}
       {decline.sheet}
-      <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} as won?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'They become a client now, with everything here kept.' : 'They leave Booked. Undo is available for six seconds.'}
-        footer={<><Button variant="ghost" onClick={() => setOutcome(null)}>Cancel</Button><Button variant={outcome === 'lost' ? 'danger' : 'primary'} icon={outcome === 'won' ? Trophy01 : XClose} onClick={closeOut}>{outcome === 'won' ? 'Won, convert to client' : 'Mark lost'}</Button></>}>
+      <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} won without payment?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'Pro bono: they become a client now and the project starts with no invoice and nothing on the ledger.' : 'They leave Booked. Undo is available for six seconds.'}
+        footer={<><Button variant="ghost" onClick={() => setOutcome(null)}>Cancel</Button><Button variant={outcome === 'lost' ? 'danger' : 'primary'} icon={outcome === 'won' ? Trophy01 : XClose} onClick={closeOut}>{outcome === 'won' ? 'Won, no payment' : 'Mark lost'}</Button></>}>
         <Textarea label="Note (optional)" rows={2} value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder={outcome === 'won' ? 'Went with Web Complete plus Site Care.' : 'Chose their nephew.'} data-autofocus />
       </Modal>
     </PageShell>
@@ -424,7 +469,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
 /* Shaped to the real header's minimum (Prompt 15): the name capped to one 3xl line over the 44px descriptor
  * field, the pill row at its 44px tap height, the seven action buttons wrapping like the real row, the two
  * buttons, and the eleven facts. Long names make the real header taller; nothing else moves. */
-LeadDetail.Skeleton = function LeadDetailSkeleton() {
+LeadDetail.Skeleton = function LeadDetailSkeleton({ deal = false }) {
   const desktop = useMediaQuery('(min-width: 1024px)');
   const profile = (
     <Card className="dt-profile" aria-busy="true" aria-hidden="true">
@@ -439,8 +484,9 @@ LeadDetail.Skeleton = function LeadDetailSkeleton() {
   const sections = (
     <Stack gap={2} className="v-recskel" aria-busy="true" aria-hidden="true">
       <div className="v-tabs v-recskel-tabs" style={{ minHeight: 49 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>
-      <div className="v-section-head" style={{ marginTop: 8, minHeight: 20 }}><SkeletonBlock width={120} height={16} /></div>
-      {[292, 106, 106, 110, 162].map((h, i) => <Card key={i} style={{ height: h, boxSizing: 'border-box', overflow: 'hidden' }}><SkeletonBlock width={120} height={12} /><SkeletonText lines={i === 0 ? 3 : 1} /></Card>)}
+      <div className="v-section-head" style={{ marginTop: 8, minHeight: deal ? 74 : 20 }}><Stack gap={1}><SkeletonBlock width={120} height={16} />{deal && <SkeletonBlock width={260} height={14} />}</Stack></div>
+      {/* A deal (CRM revamp, step 5) opens on the Checkpoints fold: the package card, the nine step rows, the invoices card, then the folded sections. */}
+      {(deal ? [368, 716, 150, 106, 106, 106, 110, 162] : [292, 106, 106, 110, 162]).map((h, i) => <Card key={i} style={{ height: h, boxSizing: 'border-box', overflow: 'hidden' }}><SkeletonBlock width={120} height={12} /><SkeletonText lines={!deal && i === 0 ? 3 : deal && i === 1 ? 9 : 1} /></Card>)}
     </Stack>
   );
   return (

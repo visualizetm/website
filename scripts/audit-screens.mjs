@@ -66,8 +66,11 @@ export const SCREENS = [
   { id: 'lists-detail', screen: 'Lists', label: 'one list, its leads in order', path: '/admin/lists', resource: 'lists', region: '.ls-shell', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Tuesday morning/ })) },
   { id: 'lists-fill', screen: 'Lists', label: 'Fill from filters', path: '/admin/lists', resource: 'lists', region: '.v-sheet', detail: true, act: async (p) => { await click(p.getByRole('button', { name: /^Tuesday morning .* actions$/ })); await click(p.getByRole('menuitem', { name: 'Fill from filters' })); } },
   { id: 'lists-picker', screen: 'Lists', label: 'Add to list from a record', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'lists', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: /^(Add to list|Move list)$/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
-  { id: 'booked-list', screen: 'Booked', label: 'list', path: '/admin/booked', resource: 'leads' },
-  { id: 'booked-detail', screen: 'Booked', label: 'detail', path: '/admin/booked', open: 'L8', region: '.aa-main.bk-main', resource: 'leads', detail: true, act: (p) => click(p.locator('.lc')) },
+  // Deals (CRM revamp, step 5): the board on a desktop, the grouped list on a phone, the record's Checkpoints fold, the Mark paid modal.
+  { id: 'deals-board', screen: 'Deals', label: 'the board', path: '/admin/deals', resource: 'leads', minWidth: 1024 },
+  { id: 'deals-list', screen: 'Deals', label: 'the grouped list', path: '/admin/deals', resource: 'leads', maxWidth: 1023 },
+  { id: 'deals-detail', screen: 'Deals', label: 'the record with the Checkpoints fold', path: '/admin/deals', open: 'L9', region: '.aa-main.dl-main', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Lead Business 9/ })) },
+  { id: 'deals-markpaid', screen: 'Deals', label: 'the Mark paid modal', path: '/admin/deals', open: 'L9', region: '.v-modal', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.locator('.iv-paid')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
 
   { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'day') },
   { id: 'calendar-week', screen: 'Calendar', label: 'week', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'week') },

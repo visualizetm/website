@@ -1,12 +1,16 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
-import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, SCHEDULE_STATUS_IDS } from '../_semantics.js';
+import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS } from '../_semantics.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
+import { sanitizeInvoices, legacyToInvoice } from '../_lib/invoices.js';
 
 /* Projects (Prompt 10): one client (a call_leads doc with stage 'client') has
  * many projects over time. Money lives on the lead's purchases[] ledger; a
- * schedule item points at its ledger entry through ledgerId.
+ * invoice (CRM revamp, step 5: invoices[] replaced schedule[], the shape in
+ * api/_lib/invoices.js; a write that still says schedule is accepted and
+ * stored as invoices until scripts/migrate-invoices.mjs has run) points at
+ * its ledger entry through ledgerId.
  *
  *   GET   /api/admin/projects?leadId=<id>      { items } for one client
  *   GET   /api/admin/projects                  { items } every live project (limit 1000)
@@ -30,19 +34,15 @@ function sanitize(b) {
     stage: b.stage !== undefined ? (PROJECT_STAGE_IDS.includes(b.stage) ? b.stage : 'kickoff') : undefined,
     stages: Array.isArray(b.stages) ? b.stages.filter(s => PROJECT_STAGE_IDS.includes(s)).slice(0, 8) : undefined,
     total: b.total !== undefined ? num(b.total) : undefined,
-    schedule: Array.isArray(b.schedule)
-      ? b.schedule.slice(0, 120).map(s => ({
-          id: str(s?.id, 40), amount: num(s?.amount), dueAt: str(s?.dueAt, 10),
-          status: SCHEDULE_STATUS_IDS.includes(s?.status) ? s.status : 'upcoming',
-          ledgerId: str(s?.ledgerId, 40), label: str(s?.label, 120), paidAt: str(s?.paidAt, 40), extra: !!s?.extra,
-        })) : undefined,
+    // CRM revamp, step 5: invoices[] (api/_lib/invoices.js). An old schedule[] write lands here too, mapped (paid stays paid, the rest sent).
+    invoices: Array.isArray(b.invoices) ? sanitizeInvoices(b.invoices) : Array.isArray(b.schedule) ? b.schedule.slice(0, 120).map(legacyToInvoice) : undefined,
     revisions: b.revisions && typeof b.revisions === 'object' ? {
       max: Math.max(0, Math.min(20, Math.round(num(b.revisions.max, 20)))),
       used: Math.max(0, Math.min(50, Math.round(num(b.revisions.used, 50)))),
       log: Array.isArray(b.revisions.log) ? b.revisions.log.slice(-50).map(r => ({ at: str(r?.at, 40), note: str(r?.note, 600), extra: !!r?.extra })) : [],
     } : undefined,
     plan: b.plan && typeof b.plan === 'object' ? { months: Math.round(num(b.plan.months, 60)), monthly: num(b.plan.monthly), stripeCancelled: !!b.plan.stripeCancelled, stripeSubscriptionId: str(b.plan.stripeSubscriptionId, 80), stripeCancelledAt: str(b.plan.stripeCancelledAt, 40) } : b.plan === null ? null : undefined,
-    links: b.links && typeof b.links === 'object' ? { drive: safeUrl(b.links.drive, 400) } : undefined,
+    links: b.links && typeof b.links === 'object' ? { drive: safeUrl(b.links.drive, 400), ...(b.links.contract !== undefined ? { contract: safeUrl(b.links.contract, 400) } : {}) } : undefined,
     deliverables: Array.isArray(b.deliverables)
       ? b.deliverables.slice(0, 60).map(d => ({ id: str(d?.id, 40), group: str(d?.group, 8), label: str(d?.label, 120), done: !!d?.done, link: safeUrl(d?.link, 400) })) : undefined,
     delivery: b.delivery && typeof b.delivery === 'object' ? { driveShared: !!b.delivery.driveShared, emailSent: !!b.delivery.emailSent, pitchSent: !!b.delivery.pitchSent, reviewLinkSent: !!b.delivery.reviewLinkSent, followUpLeadCallbackAt: str(b.delivery.followUpLeadCallbackAt, 40) } : undefined,
@@ -76,7 +76,7 @@ export async function handler(req, res) {
     const doc = compact(sanitize(req.body || {}));
     if (!doc.leadId || !doc.name) return res.status(400).json({ error: 'leadId and name required' });
     const now = new Date();
-    const item = { stage: 'kickoff', schedule: [], deliverables: [], monthly: [], archived: false, ...doc, createdAt: now, updatedAt: now };
+    const item = { stage: 'kickoff', invoices: [], deliverables: [], monthly: [], archived: false, ...doc, createdAt: now, updatedAt: now };
     const r = await col.insertOne(item);
     return res.status(200).json({ ok: true, item: { ...item, _id: r.insertedId } });
   }
@@ -87,7 +87,7 @@ export async function handler(req, res) {
     if (!_id || !set || typeof set !== 'object') return res.status(400).json({ error: 'id and set required' });
     const clean = sanitize(set);
     const allowed = {};
-    for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
+    for (const key of Object.keys(clean)) if ((key in set || (key === 'invoices' && 'schedule' in set)) && clean[key] !== undefined) allowed[key] = clean[key];
     delete allowed.leadId; // a project never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();

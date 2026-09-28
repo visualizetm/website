@@ -28,6 +28,8 @@ import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/L
 import { normalizeSocials } from '../lib/socials';
 import { effectiveStage } from '../lib/booked';
 import { saidNoPatch } from '../lib/nurture';
+import { emptyDeal } from '../lib/deal';
+import { dealFromOptions } from '../lib/dealConvert';
 import { industryFacets } from '../lib/leads';
 import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine, quickCallbacks, toLocalInput } from '../lib/calls';
 import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, MEETING_TYPES, industryKey, displayIndustry } from '../shared/semantics';
@@ -456,7 +458,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     const prevList = session?.listId ? lists.find(l => String(l._id) === String(session.listId)) : null;
     const prevIndex = prevList ? (prevList.leadIds || []).map(String).indexOf(String(lead._id)) : -1;
     const set = { callStatus: outcome, callLog: [...(lead.callLog || []), entry] };
-    if (outcome === 'booked') { set.stage = 'booked'; if (extra.meeting) set.meeting = extra.meeting; if (entry.email || entry.meeting) set.afterCall = { ...(lead.afterCall || {}), meeting: entry.meeting || lead.afterCall?.meeting || '', email: entry.email || lead.afterCall?.email || '' }; }
+    // CRM revamp, step 5: a booking starts the deal, the package from the recommended pricing option.
+    if (outcome === 'booked') { set.stage = 'booked'; if (!lead.deal) set.deal = { ...emptyDeal(), ...dealFromOptions(lead.pricingOptions) }; if (extra.meeting) set.meeting = extra.meeting; if (entry.email || entry.meeting) set.afterCall = { ...(lead.afterCall || {}), meeting: entry.meeting || lead.afterCall?.meeting || '', email: entry.email || lead.afterCall?.email || '' }; }
     if (outcome === 'callback') set.callbackAt = extra.callbackAt || '';
     if (outcome === 'wrong-number') set.phoneNote = `Wrong number (${fmtDate(at)})`;
     // CRM revamp, step 4: a no parks the lead in nurture for 90 days instead of deleting it.

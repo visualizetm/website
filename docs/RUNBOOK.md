@@ -76,7 +76,10 @@ dedupes on one key per day, so a manual rerun the same day sends nothing.
 `/api/cron/daily` is unchanged, at 06:00 UTC; since CRM revamp step 4 it also
 moves nurture records past their `until` day back to triage (with a
 "Back from nurture" note) and recomputes every live lead's score, and reports
-both as `resurfaced` and `scored`.
+both as `resurfaced` and `scored`. Since step 5 it also moves a booked
+record an hour past its meeting to stage deal, ticks Concepts and Call done
+on their own, sets and clears `deal.stalledSince`, and drafts the next plan
+or retainer month on its bill day (`dealsMoved`, `drafted`).
 
 If the account moves to the Pro plan, near-real-time reminders (a push the
 moment a callback or meeting is due) can come back with two changes: set
@@ -189,7 +192,8 @@ node scripts/fetch-fonts.mjs                   # refresh the self hosted latin f
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)
 node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
-node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, against the real handlers
+node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, against the real handlers
+MONGODB_URI=... node scripts/migrate-invoices.mjs [--apply]   # CRM revamp, step 5: every project's schedule[] becomes invoices[] (paid stays paid, the rest sent; report first)
 MONGODB_URI=... node scripts/backfill-triage.mjs [--apply]   # CRM revamp, step 4: move untouched stage lead records into triage and write the first score (report first)
 OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry
 PRERENDER_SHOWCASE_URL=http://127.0.0.1:4350/api/showcase node scripts/prerender-clients.mjs   # test against the mock server instead of production

@@ -158,7 +158,7 @@ export function pipelineFunnel(leads) {
     if (stage === 'lost' || stage === 'declined' || stage === 'triage') continue;
     f.leads++;
     if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) f.contacted++;
-    if (stage === 'booked' || stage === 'won' || stage === 'client') f.booked++;
+    if (stage === 'booked' || stage === 'deal' || stage === 'won' || stage === 'client') f.booked++;
     if (stage === 'won' || stage === 'client') f.clients++;
   }
   return f;

@@ -3,6 +3,7 @@ import { sendPush, sendEmail } from './_lib/notify.js';
 import { orderFromSubmission } from './_lib/orders.js';
 import { route, clientIp } from './_lib/handler.js';
 import { rateKey, rateState, rateHit } from './_lib/limit.js';
+import { tickFormReceived } from './_lib/deal-tick.js';
 
 // Public endpoint: receives every form submission on the site
 // (/start briefs, shop orders, and the review form at /review).
@@ -132,6 +133,7 @@ async function handler(req, res) {
         lead = { _id: r.insertedId };
       }
       await db.collection('submissions').updateOne({ _id: insertedId }, { $set: { linkedLeadId: String(lead._id) } });
+      if (doc.type === 'start') await tickFormReceived(leadsCol, lead._id);
     } catch { /* the submission is the record; the link is a convenience */ }
   }
 

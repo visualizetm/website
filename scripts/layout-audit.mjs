@@ -784,19 +784,24 @@ for (const width of WIDTHS) {
   await goto('/admin/calendar?loading=1');
   await check('calendar skeleton');
 
-  await goto('/admin/booked');
-  await check('booked list');
-  for (const f of ['This week', 'Upcoming', 'No date set', 'Needs concepts', 'Awaiting outcome']) {
-    await page.locator('.bk-chips .v-chip', { hasText: f }).first().click({ timeout: 3000 }).catch(() => {});
-    await check(`booked list: ${f.toLowerCase()}`);
-  }
-  await page.locator('.bk-chips .v-chip', { hasText: 'All' }).first().click({ timeout: 3000 }).catch(() => {});
-  await goto('/admin/booked?loading=1');
-  await check('booked skeleton');
-  await goto('/admin/booked');
-  await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
+  /* Deals (CRM revamp, step 5): the board or the grouped list, the record with its Checkpoints fold, the invoices. */
+  await goto('/admin/deals');
+  await check('deals board');
+  await goto('/admin/deals?loading=1');
+  await check('deals skeleton');
+  await goto('/admin/deals');
+  await page.getByRole('button', { name: /^Open Lead Business 9/ }).first().click({ timeout: 4000 }).catch(() => {});
+  await check('deal detail (checkpoints)');
+  await page.locator('.iv-add').first().click({ timeout: 3000 }).catch(() => {});
+  await check('deal detail: add invoice');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.iv-paid').first().click({ timeout: 3000 }).catch(() => {});
+  await check('deal detail: mark paid');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/deals');
+  await page.getByRole('button', { name: /^Open Lead Business 8/ }).first().click({ timeout: 4000 }).catch(() => {});
   await check('booked detail (overview)');
-  for (const t of ['Playbook', 'Meeting', 'Notes', 'History']) {
+  for (const t of ['Checkpoints', 'Playbook', 'Meeting', 'Notes', 'History']) {
     await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
     await check(`booked detail (${t.toLowerCase()})`);
   }
@@ -809,8 +814,9 @@ for (const width of WIDTHS) {
   await page.locator('.dt-resched').first().click({ timeout: 3000 }).catch(() => {});
   await check('reschedule sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await page.locator('.dt-won').first().click({ timeout: 3000 }).catch(() => {});
-  await check('won dialog');
+  await page.getByRole('button', { name: 'More outcomes' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('menuitem', { name: 'Mark won without payment' }).first().click({ timeout: 3000 }).catch(() => {});
+  await check('won without payment dialog');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.locator('.dt-editall').first().click({ timeout: 3000 }).catch(() => {});
   await check('edit all sheet');

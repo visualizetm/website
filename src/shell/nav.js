@@ -18,7 +18,7 @@ export const NAV = [
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      group: 'Pipeline', badge: 'leads',     tab: true },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabLabel: 'Call' },
   { id: 'lists',       label: 'Lists',            icon: 'Rows01',          path: '/lists',      group: 'Pipeline', badge: 'lists',     tab: true },
-  { id: 'booked',      label: 'Booked',           icon: 'CalendarCheck01', path: '/booked',     group: 'Pipeline', badge: 'booked' },
+  { id: 'deals',       label: 'Deals',            icon: 'Zap',             path: '/deals',      group: 'Pipeline', badge: 'deals' },
   { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   group: 'Pipeline', badge: 'calendar' },
   // CLIENTS: the work after they say yes. Projects and Planner are the
   // Clients screen with a filter applied (href carries the query; path is

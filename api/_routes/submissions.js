@@ -1,5 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
+import { tickFormReceived } from '../_lib/deal-tick.js';
 import { LEAD_STATUS_IDS, ORDER_STATUS_IDS } from '../_semantics.js';
 
 // Lead pipeline + shop-order pipeline share one status field; the UI shows the
@@ -132,6 +133,8 @@ export async function handler(req, res) {
     if (typeof set.linkedLeadId === 'string') allowed.linkedLeadId = set.linkedLeadId.slice(0, 64);
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     await col.updateOne({ _id }, { $set: allowed });
+    // CRM revamp, step 5: a start brief linked to a booked or deal record ticks Form received.
+    if (allowed.linkedLeadId) { const sub = await col.findOne({ _id }, { projection: { type: 1 } }); if (sub?.type === 'start') await tickFormReceived(db.collection('call_leads'), allowed.linkedLeadId); }
     return res.status(200).json({ ok: true });
   }
 

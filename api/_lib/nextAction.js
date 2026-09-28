@@ -4,8 +4,11 @@
  * a record that drifted (a write that skipped the shared helper) is put
  * right overnight. Keep the two files' rules identical. */
 import { NEXT_ACTION_KIND_IDS, normalizeStage } from '../_semantics.js';
+import { invoicesOf, invoiceStatus, invoicesPastDue } from './invoices.js';
+import { dealOf } from './deal.js';
 
 const DAY = 864e5;
+const HOUR = 3600e3;
 const ASK_AFTER_DAYS = 3;
 const PITCH_AFTER_DAYS = 3;
 const LABELS = { call: 'Call', callback: 'Call back', 'build-concepts': 'Build concepts', 'log-outcome': 'Log the outcome', 'send-onboarding': 'Send onboarding', 'chase-form': 'Chase the form', 'send-contract': 'Send the contract', 'chase-contract': 'Chase the contract', 'send-invoice': 'Send the invoice', 'chase-invoice': 'Chase the invoice', kickoff: 'Kick off', revision: 'Revision round', deliver: 'Deliver', 'retainer-pitch': 'Pitch the retainer', 'review-ask': 'Ask for a review', custom: 'Custom' };
@@ -20,7 +23,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 const iso = (t) => new Date(t).toISOString();
-const act = (kind, dueAt) => ({ kind, label: LABELS[kind] || kind, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });
+const act = (kind, dueAt, label) => ({ kind, label: label || LABELS[kind] || kind, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });
 export const isProject = (r) => !!r && typeof r === 'object' && 'leadId' in r && !('business' in r);
 const ctxOf = (ctx) => (Array.isArray(ctx) ? { projects: ctx } : (ctx || {}));
 export function dayBeforeAt9(meetingIso) { const m = parseDate(meetingIso); if (!m) return null; return new Date(m.getFullYear(), m.getMonth(), m.getDate() - 1, 9, 0, 0, 0).getTime(); }
@@ -29,6 +32,25 @@ function leadAction(lead, ctx, now) {
   const stage = normalizeStage(lead);
   if (stage === 'declined' || stage === 'nurture') return null;
   if (stage === 'lead' && lead.callStatus === 'callback' && lead.callbackAt) { const at = parseDate(lead.callbackAt); if (at) return act('callback', at.getTime()); }
+  if (stage === 'booked' || stage === 'deal') {
+    /* The deal (CRM revamp, step 5): the checkpoints say what comes next. */
+    const d = dealOf(lead);
+    const cp = (id) => d.checkpoints[id];
+    const at = (id) => (cp(id)?.at ? parseDate(cp(id).at)?.getTime() || 0 : 0);
+    const md = meetingDate(lead);
+    if (!cp('callDone') && at('introSent') && at('introSent') + 2 * DAY <= now && !lead.calendlyEventUri) return act('custom', now, 'Confirm the call');
+    if (stage === 'deal') {
+      const late = invoicesPastDue(d.invoices || [], now);
+      if (!cp('callDone')) return act('log-outcome', md ? Math.max(md.getTime() + HOUR, Math.min(now, md.getTime() + HOUR)) : now, 'Log the call');
+      if (!cp('onboardingSent')) return act('send-onboarding', at('callDone'));
+      if (!cp('formReceived') && at('onboardingSent') + 3 * DAY <= now) return act('chase-form', at('onboardingSent') + 3 * DAY);
+      if (cp('formReceived') && !cp('contractSent')) return act('send-contract', at('formReceived') + DAY);
+      if (cp('contractSent') && !cp('contractAgreed') && at('contractSent') + 3 * DAY <= now) return act('chase-contract', at('contractSent') + 3 * DAY);
+      if (cp('contractAgreed') && !cp('invoiceSent')) return act('send-invoice', at('contractAgreed'));
+      if (late.length) return act('chase-invoice', now);
+      return null;
+    }
+  }
   if (stage === 'booked') {
     const md = meetingDate(lead);
     if (md) {
@@ -47,8 +69,7 @@ function leadAction(lead, ctx, now) {
 }
 function projectAction(p, ctx, now) {
   if (p.archived) return null;
-  const today = dayKey(new Date(now));
-  const late = (p.schedule || []).filter(s => s.status !== 'paid' && s.dueAt && String(s.dueAt).slice(0, 10) < today);
+  const late = invoicesOf(p).filter(s => invoiceStatus(s, now) === 'past-due');
   if (late.length) return act('chase-invoice', now);
   if (p.stage === 'delivered' && p.delivery && p.delivery.pitchSent === false) {
     const base = parseDate(p.releasedAt) || parseDate(p.deliveredAt) || parseDate(p.updatedAt) || new Date(now);

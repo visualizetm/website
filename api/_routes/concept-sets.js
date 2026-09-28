@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
+import { tickCheckpoint } from '../_lib/deal-tick.js';
 import { safeUrl } from '../_lib/url.js';
 import { CONCEPT_SET_STATUS_IDS, CONCEPT_ITEM_KIND_IDS, CONCEPT_FEEDBACK_ACTION_IDS } from '../_semantics.js';
 
@@ -100,6 +101,8 @@ export async function handler(req, res) {
       createdAt: now, updatedAt: now,
     };
     const r = await col.insertOne(item);
+    // CRM revamp, step 5: a set for a booked or deal record ticks its Concepts checkpoint.
+    await tickCheckpoint(db.collection('call_leads'), item.leadId, 'concepts');
     return res.status(200).json({ ok: true, item: { ...item, _id: r.insertedId } });
   }
 

@@ -175,12 +175,18 @@ export const PROJECT_STAGES = [
   { id: 'delivered', label: 'Delivered', icon: 'Check',      order: 5, ...tone('booked') },
 ];
 export const projectStageOf = (id) => PROJECT_STAGES.find(s => s.id === id) || PROJECT_STAGES[0];
+/* Invoice statuses (CRM revamp, step 5): draft and sent are stored, due and
+   past due are computed on read from a sent line's day (src/lib/invoices.js
+   invoiceStatus), paid is stored. upcoming is the shape from before step 5. */
 export const SCHEDULE_STATUSES = [
   { id: 'paid',     label: 'Paid',     icon: 'Check',          order: 0, ...tone('booked') },
   { id: 'due',      label: 'Due',      icon: 'Clock',          order: 1, ...tone('new') },
   { id: 'past-due', label: 'Past due', icon: 'ClockRewind',    order: 2, ...tone('danger') },
-  { id: 'upcoming', label: 'Upcoming', icon: 'Calendar',       order: 3, ...tone('neutral') },
+  { id: 'sent',     label: 'Sent',     icon: 'Send01',         order: 3, ...tone('progress') },
+  { id: 'draft',    label: 'Draft',    icon: 'File06',         order: 4, ...tone('neutral') },
+  { id: 'upcoming', label: 'Upcoming', icon: 'Calendar',       order: 5, ...tone('neutral') },
 ];
+export const INVOICE_STATUSES = SCHEDULE_STATUSES;
 export const RETAINER_STATUSES = [
   { id: 'active',    label: 'Active',    icon: 'RefreshCw01', order: 0, ...tone('booked') },
   { id: 'paused',    label: 'Paused',    icon: 'Clock',       order: 1, ...tone('new') },

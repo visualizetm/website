@@ -380,6 +380,31 @@ section('8. triage (CRM revamp, step 4): every new lead lands there, nurture com
   ok(r._status === 200 && cap?.stage === 'triage' && cap.source === 'capture' && cap.socials?.instagram === 'https://instagram.com/captured', 'the capture lands in triage with the handle');
 }
 
+section('9. deals and invoices (CRM revamp, step 5): the whitelist and the migration mapping');
+{
+  const projects = (await load('_routes/projects.js')).handler;
+  const { plan: migrate } = await import(pathToFileURL(path.join(repoRoot, 'scripts', 'migrate-invoices.mjs')).href);
+  seed();
+  let r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { deal: { checkpoints: { introSent: { at: '2026-09-01T00:00:00Z', by: 'rob' } }, packageId: 'web-complete', addonIds: ['rush'], plan: { months: 6, monthly: 125 }, invoices: [{ id: 'i1', label: 'Deposit', amount: 300, dueAt: '2026-10-01', status: 'draft', note: 'x'.repeat(400) }], contractLink: 'https://example.com/c', metAt: '', stalledSince: '' } } } });
+  const d = lead(LEAD).deal;
+  ok(r._status === 200 && d.checkpoints.introSent.by === 'rob' && d.checkpoints.paid === null && d.packageId === 'web-complete' && d.plan.months === 6 && d.invoices[0].note.length === 300 && d.contractLink === 'https://example.com/c', 'the deal is whitelisted field by field');
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { deal: { checkpoints: {}, invoices: 'nope', plan: { months: 0 }, contractLink: 'javascript:x', junk: 1 } } } });
+  const d2 = lead(LEAD).deal;
+  ok(r._status === 200 && d2.invoices.length === 0 && d2.plan === null && d2.contractLink === '' && !('junk' in d2) && Object.keys(d2.checkpoints).length === 9, 'bad shapes fall back: no invoices, no plan, no link, nothing unknown');
+  // the migration mapping, through the script's own plan()
+  const p = migrate([
+    { _id: 'p1', name: 'Old', schedule: [{ id: 's1', amount: 100, dueAt: '2026-01-01', status: 'paid', ledgerId: 'lg1' }, { id: 's2', amount: 100, dueAt: '2026-02-01', status: 'past-due', ledgerId: '' }, { id: 's3', amount: 100, dueAt: '2026-03-01', status: 'upcoming', ledgerId: '', extra: true }] },
+    { _id: 'p2', name: 'New', invoices: [], schedule: [{ id: 's9', amount: 1, dueAt: '2026-01-01', status: 'paid' }] },
+    { _id: 'p3', name: 'Empty', schedule: [] },
+  ]);
+  ok(p.projects.length === 1 && p.skipped.length === 2, 'only a project with a schedule and no invoices migrates');
+  const inv = p.projects[0].invoices;
+  ok(inv[0].status === 'paid' && inv[0].ledgerId === 'lg1' && inv[1].status === 'sent' && inv[1].dueAt === '2026-02-01' && inv[2].status === 'sent' && inv[2].extra === true && !('ledgerId' in inv[1]), 'paid stays paid with its ledgerId, the rest become sent with the old dueAt, extra carries');
+  // the route reads the old name and stores the new one
+  r = await call(projects, 'POST', { body: { leadId: LEAD, name: 'From old client code', schedule: [{ id: 's1', amount: 50, dueAt: '2026-10-01', status: 'upcoming' }] } });
+  ok(r._status === 200 && r._json.item.invoices?.[0]?.status === 'sent' && !('schedule' in r._json.item), 'a project POST that says schedule stores invoices');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} checks passed, ${fails} failed.`);
 if (fails) { console.log('Pipeline tests FAILED.'); process.exit(1); }

@@ -96,7 +96,8 @@ export function normalizeEvent(ev) {
 export const PAYMENT_TYPES = ['charge.succeeded', 'invoice.paid', 'checkout.session.completed'];
 export const ALL_TYPES = [...PAYMENT_TYPES, 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'];
 
-/** Append the payment to the client's ledger and mark a matching schedule item paid. Idempotent per event id. */
+import { invoicesOf } from './invoices.js';
+/** Append the payment to the client's ledger and mark a matching invoice paid. Idempotent per event id. */
 export async function applyPayment(db, row, lead) {
   const leads = db.collection('call_leads');
   const fresh = await leads.findOne({ _id: lead._id });
@@ -109,13 +110,14 @@ export async function applyPayment(db, row, lead) {
   const today = dayKey(new Date());
   let marked = null;
   for (const p of mine) {
-    const item = (p.schedule || []).find(s => s.status !== 'paid' && !s.ledgerId && Math.abs(Number(s.amount) - row.amount) < 0.01 && String(s.dueAt) <= today);
+    const lines = invoicesOf(p);
+    const item = lines.find(s => s.status !== 'paid' && !s.ledgerId && Math.abs(Number(s.amount) - row.amount) < 0.01 && String(s.dueAt) <= today);
     if (item) {
       entry.projectId = String(p._id);
-      await projects.updateOne({ _id: p._id }, { $set: { schedule: p.schedule.map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: row.at } : s)), updatedAt: new Date() } });
+      await projects.updateOne({ _id: p._id }, { $set: { invoices: lines.map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: row.at } : s)), updatedAt: new Date() } });
       marked = { projectId: String(p._id), itemId: item.id };
       if (p.kind === 'retainer' && fresh.retainer) {
-        const next = p.schedule.filter(s => s.id !== item.id && s.status !== 'paid' && !s.ledgerId).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
+        const next = lines.filter(s => s.id !== item.id && s.status !== 'paid' && !s.ledgerId).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
         await leads.updateOne({ _id: lead._id }, { $set: { 'retainer.nextBillAt': next?.dueAt || '' } });
       }
       break;
