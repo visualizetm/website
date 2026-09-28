@@ -2,9 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input,
-  Stagger, SkeletonBlock, SkeletonText, ListRow, useDelayedLoading, useMediaQuery, useRetry, useToast,
-  Icon, Collapsible,
+  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, Collapsible,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONTACTED_STATUSES } from '../lib/leads';

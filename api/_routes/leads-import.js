@@ -2,7 +2,6 @@ import { getDb } from '../_lib/mongo.js';
 
 /* ── Normalizers (self-contained; serverless can't import from src/) ── */
 
-const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
 function normalizeSocial(key, raw) {
   let v = String(raw ?? '').trim().replace(/^[<"'\s]+|[>"'\s]+$/g, '').trim();

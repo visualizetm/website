@@ -45,7 +45,7 @@ function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
   );
 }
 
-export default function AdminCalendar({ leads, loading, error, onRetry, onPatch, onCreate, onRefresh, openId }) {
+export default function AdminCalendar({ leads, loading, error, onRetry, onPatch, onCreate, onRefresh }) {
   const shell = useShell();
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
@@ -96,7 +96,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
       else if (e.key === 'd' || e.key === 'D') setMode('day'); else if (e.key === 'w' || e.key === 'W') setMode('week'); else if (e.key === 'm' || e.key === 'M') setMode('month');
     };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  });  
 
   /* A post opens its own month in the planner editor, not the lead. */
   const openLead = (e) => { if (e.kind === 'post' && e.lead && shell?.openPlanner) shell.openPlanner(e.lead, e.month); else if (e.lead) shell?.openRecord(e.lead); };

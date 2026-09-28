@@ -19,8 +19,6 @@ export function parseDate(v) {
   if (typeof v === 'string' && DATE_ONLY.test(v)) { const [y, m, d] = v.split('-').map(Number); const local = new Date(y, m - 1, d); return Number.isNaN(local.getTime()) ? null : local; }
   const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d;
 }
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 const iso = (t) => new Date(t).toISOString();
 const act = (kind, dueAt, label) => ({ kind, label: label || LABELS[kind] || kind, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });

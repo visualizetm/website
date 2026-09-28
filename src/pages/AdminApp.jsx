@@ -409,7 +409,7 @@ export default function AdminApp() {
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
   const go = useCallback((sec, itemId) => {
-    navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}` || '/');
+    navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}`);
     if (itemId && sec === 'submissions') setOpenReq({ section: 'submissions', id: itemId, n: Date.now() });
   }, [navigate, items]);
 
@@ -439,7 +439,6 @@ export default function AdminApp() {
   const newLead = useCallback((preset) => { go('leads'); setCreateReq({ section: 'leads', preset: preset || {}, n: Date.now() }); }, [go]);
   const newClient = useCallback(() => { go('clients'); setCreateReq({ section: 'clients', preset: {}, n: Date.now() }); }, [go]);
   const newOrder = useCallback((preset) => { go('orders'); setCreateReq({ section: 'orders', preset: preset || {}, n: Date.now() }); }, [go]);
-  const openOrder = useCallback((order) => { go('orders'); setOpenReq({ section: 'orders', id: order._id, n: Date.now() }); }, [go]);
 
   useEffect(() => {
     applyAppearance();

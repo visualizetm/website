@@ -7,6 +7,7 @@
  *   node scripts/regression.mjs
  *   AUDIT_WIDTHS=390 node scripts/regression.mjs
  */
+import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright-core';
 import { mockRoutes } from './audit-fixtures.mjs';
 
@@ -18,6 +19,17 @@ const T = 6000;
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 const results = [];
 let failures = 0;
+/* Step 0 (CRM revamp, step 6): ESLint first, so a missing import (the
+   kind of crash the fixtures never reach) fails the audit before the walk. */
+{
+  const r = spawnSync('npx', ['eslint', 'src', 'api', 'scripts'], { encoding: 'utf8' });
+  const out = `${r.stdout || ''}${r.stderr || ''}`;
+  const errors = (out.match(/(\d+) errors?/) || [])[1];
+  const ok = r.status === 0;
+  if (!ok) { failures++; console.log(out.split('\n').filter(l => /error/.test(l)).slice(0, 40).join('\n')); }
+  for (const width of [390, 1280]) results.push({ width, n: 0, name: 'ESLint: no undefined identifier, no unused import', ok, note: ok ? 'clean' : `${errors || '?'} errors` });
+  console.log(`  ${ok ? 'ok  ' : 'FAIL'} 0. ESLint: no undefined identifier, no unused import${ok ? '' : ` (${errors || '?'} errors)`}`);
+}
 
 for (const width of WIDTHS) {
   const phone = width < 768;
@@ -48,12 +60,26 @@ for (const width of WIDTHS) {
   await step(1, 'Open the app', async () => { await goto('/admin'); await expectVisible(page.locator('.sh-root'), ''); return 'shell up'; });
   await step(2, 'Next up greets Rob', async () => { await settle(); await expectVisible(page.locator('.db-greet'), ''); const t = await page.locator('.db-greet').textContent(); if (!/Good (morning|afternoon|evening), Rob/.test(t)) throw new Error(`greeting was "${t}"`); return t.trim(); });
   await step(3, 'Next up is filled', async () => { await expectVisible(page.locator('.nu-row, .db-panel .v-empty, .db-next .v-empty'), ''); const rows = await page.locator('.nu-row').count(); await page.getByRole('button', { name: /^Stats/ }).first().click({ timeout: T }); await page.waitForTimeout(500); await expectVisible(page.locator('.db-funnel .db-step'), ''); const n = await page.locator('.v-stat').count(); if (n < 4) throw new Error(`${n} stat cards`); return `${rows} next up rows, ${n} stats`; });
+  /* CRM revamp, step 6: the lead card's row menu on Leads, Lists and the Call tab renders without an ErrorBoundary (the production crash was a missing import in leadMenuItems). */
+  const noBoundary = async () => { const n = await page.locator('.v-boundary').count(); if (n) throw new Error('an ErrorBoundary rendered'); };
+  await step('3a', 'A lead card row menu opens on Leads and Lists without a crash', async () => {
+    await page.evaluate(() => localStorage.setItem('vz_leads_view', JSON.stringify('list')));
+    await goto('/admin/leads'); await settle();
+    await page.getByRole('button', { name: /^Actions for Lead Business/ }).first().click({ timeout: T }); await page.waitForTimeout(300);
+    const items = await page.getByRole('menuitem').count(); if (!items) throw new Error('no menu items on Leads'); await noBoundary(); await esc();
+    await goto('/admin/lists'); await settle(); await page.getByRole('button', { name: /^Open Tuesday morning/ }).click({ timeout: T }); await settle();
+    const rowMenu = page.locator('.ls-item').first().getByRole('button', { name: /actions|Remove|More/i }).first();
+    if (await rowMenu.count()) { await rowMenu.click({ timeout: T }); await page.waitForTimeout(300); await noBoundary(); await esc(); }
+    await goto('/admin'); await settle();
+    return `${items} items on Leads, Lists rows open`;
+  });
   await step(4, 'Start call session opens the lists, Quick session opens the builder', async () => { await page.getByRole('button', { name: 'Start call session' }).first().click({ timeout: T }); await expectVisible(page.locator('.ls-card, .cc-quick'), ''); const cards = await page.locator('.ls-card').count(); await page.getByRole('button', { name: 'Quick session' }).first().click({ timeout: T }); await expectVisible(page.locator('.cc-start'), ''); return `${cards} lists, then ${(await page.locator('.cc-start').textContent()).trim()}`; });
   await step(5, 'Start in the builder opens the queue or room', async () => { await page.locator('.cc-start').click({ timeout: T }); await page.waitForTimeout(600); const room = await page.locator('.cc-head').count(); const queue = await page.locator('.cc-qlist .lc').count(); if (!room && !queue) throw new Error('neither queue nor room'); return room ? 'room' : `queue with ${queue} leads`; });
   await step(6, 'The room shows the first lead', async () => { if (!(await page.locator('.cc-head').count())) { await page.locator('.cc-qlist .lc-open').first().click({ timeout: T }); } await expectVisible(page.locator('.cc-head .cc-biz'), ''); return (await page.locator('.cc-pos').first().textContent().catch(() => '')).trim(); });
   // The undo toast sits over the outcome bar on a phone for six seconds; dismiss it the way a thumb would before the next outcome.
   const dismissToasts = async () => { for (const x of await page.locator('.v-toast-x').all()) await x.click({ timeout: 1000 }).catch(() => {}); await page.waitForTimeout(250); };
   const outcome = async (label, action) => { await dismissToasts(); await page.locator('.cc-outs button', { hasText: label }).first().click({ timeout: T }); await expectVisible(dialog(), ''); if (action) await action(); await dialog().getByRole('button', { name: /^(Log|Set callback|Book it)$/ }).click({ timeout: T }); await page.waitForFunction(() => !document.querySelector('[role="dialog"]'), null, { timeout: T }); await page.waitForTimeout(400); return (await page.locator('.cc-pos').first().textContent().catch(() => '')).trim(); };
+  await step('6a', 'The call room lead menu opens without a crash', async () => { await page.getByRole('button', { name: 'Lead actions' }).first().click({ timeout: T }); await page.waitForTimeout(300); const items = await page.getByRole('menuitem').count(); if (!items) throw new Error('no menu items'); await noBoundary(); await esc(); return `${items} items`; });
   await step(7, 'Log No answer', async () => `position ${await outcome('No answer')}`);
   await step(8, 'Log Callback with a quick time', async () => `position ${await outcome('Callback', async () => { await dialog().locator('.v-chip').first().click({ timeout: T }); })}`);
   await step(9, 'Log Wrong number', async () => `position ${await outcome('Wrong number')}`);

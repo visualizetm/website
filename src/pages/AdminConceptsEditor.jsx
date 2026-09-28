@@ -10,8 +10,7 @@ import { projectsOf, activeProject, revisionsUsed, revisionsMax, extraRoundFeeFo
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { safeHref } from '../lib/safeUrl';
 import {
-  MAX_DIRECTIONS, MAX_ITEMS, letterOf, statusOf, setsOf, directionsOf, itemsOf, sendBlockReason, publicUrl, timelineOf,
-  directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
+  MAX_DIRECTIONS, MAX_ITEMS, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
 } from '../lib/concepts';
 import { useTopBar } from '../shell/ShellContext';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
@@ -92,7 +91,7 @@ function DirectionCard({ d, index, count, readOnly, desktop, onWrite, onMove, on
     const urls = [];
     for (let i = 0; i < batch.length; i += 1) {
       setProgress({ done: i, total: batch.length });
-      const res = await uploadToCloudinary(batch[i]); // eslint-disable-line no-await-in-loop
+      const res = await uploadToCloudinary(batch[i]);  
       if (res.url) urls.push(res.url); else toast.error(res.error);
     }
     setProgress(null);
@@ -188,7 +187,6 @@ export default function AdminConceptsEditor({
   dirtyRef.current = dirty;
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
-  const dragDir = useRef(null);
 
   /* Re-seed against the set the draft was seeded FROM (the Planner's
      lesson): a switch of set, or a record that changed underneath with no

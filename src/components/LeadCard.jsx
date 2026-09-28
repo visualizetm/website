@@ -4,7 +4,7 @@ import ThumbsUp from '@untitled-ui/icons-react/build/esm/ThumbsUp';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import { memo } from 'react';
 import { Avatar, Pill, Menu, Tooltip, Checkbox, SkeletonBlock, SkeletonCircle } from '../ui';
-import { CALL_STATUSES, PRIORITIES, displayIndustry } from '../shared/semantics';
+import { CALL_STATUSES, PRIORITIES, displayIndustry, normalizeStage } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
 import { relativeTime, fmtDate } from '../shared/dates';
 import { isNewLead, lastCall, lastTouchAt, scanAgeDays, normalizeLead } from '../lib/leads';

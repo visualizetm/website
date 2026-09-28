@@ -196,7 +196,7 @@ function Skeleton() {
 }
 
 /* ── The post detail: a Sheet on a phone, a side panel on a desktop ── */
-function PostDetail({ post, client, token, onClose, onApprove, onChange, busy, formError }) {
+function PostDetail({ post, token, onClose, onApprove, onChange, busy, formError }) {
   const [asking, setAsking] = useState(false);
   const draftKey = `${DRAFT_PREFIX}:${token}:${post.id}`;
   const [note, setNote] = useState(() => { try { return sessionStorage.getItem(draftKey) || ''; } catch { return ''; } });

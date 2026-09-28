@@ -492,7 +492,7 @@ await step('14. Concepts: open a set by token, scroll, request changes on one di
   if (await page.locator('.cp-dir').count() !== 2) throw new Error('two direction scenes expected');
   // Scroll through every scene, the way a client does, and land on the first decision beat.
   const docH = await page.evaluate(() => document.documentElement.scrollHeight);
-  for (let y = 0; y < docH; y += 400) { await page.evaluate((t) => window.scrollTo(0, t), y); await page.waitForTimeout(60); } // eslint-disable-line no-await-in-loop
+  for (let y = 0; y < docH; y += 400) { await page.evaluate((t) => window.scrollTo(0, t), y); await page.waitForTimeout(60); }  
   await page.locator('.cp-beat').first().scrollIntoViewIfNeeded();
   await page.waitForTimeout(400);
   await page.locator('.cp-beat').first().getByRole('button', { name: 'Changes on this one' }).click();

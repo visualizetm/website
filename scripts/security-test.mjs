@@ -63,7 +63,7 @@ const login = (await load('admin/login.js')).default;
 const adminIndex = (await load('admin/index.js')).default;
 const routes = {};
 for (const n of ['call-leads', 'submissions', 'posts', 'projects', 'concept-packs', 'concept-sets', 'orders', 'export', 'stripe-reconcile', 'settings']) routes[n] = (await load(`_routes/${n}.js`)).handler;
-const { signSession, sessionCookie } = await load('_lib/auth.js');
+const { signSession } = await load('_lib/auth.js');
 const { rateKey } = await load('_lib/limit.js');
 
 /* Capture every outbound fetch (the Web3Forms notification). */
@@ -203,7 +203,6 @@ await injection('admin settings PATCH profile', routes.settings, 'PATCH', { body
 section('2. every image and link field: javascript:, data:, //host and a newline store as empty');
 const BAD_URLS = ['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', '//evil.example/x', 'https://ok.example/x\nhttps://evil', ' javascript:alert(1)', 'JAVASCRIPT:alert(1)'];
 const GOOD_URLS = ['https://res.cloudinary.com/x/image/upload/v1/a.jpg', '/showcase/fixtures/square.svg', 'http://kims.example/menu'];
-const get = (o, p) => p.split('.').reduce((x, k) => (x == null ? undefined : x[k]), o);
 async function urlField(name, fn, method, mk, read) {
   for (const u of BAD_URLS) {
     seed();

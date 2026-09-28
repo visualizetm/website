@@ -1,6 +1,6 @@
 import { safeHref } from '../lib/safeUrl';
 import FoldSection from './DetailFold';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { COPY } from '../shared/copy';
 import InvoicesCard from './Invoices';
 import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
@@ -10,18 +10,16 @@ import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import {
-  Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, ProgressBar, EmptyState, IconTile, Table, Icon, useToast, useConfirm, useMediaQuery,
+  Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, ProgressBar, EmptyState, IconTile, useToast, useConfirm,
 } from '../ui';
-import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, projectStageOf, industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
+import { PROJECT_STAGES, PROJECT_KINDS, SCHEDULE_STATUSES, RETAINER_STATUSES, projectStageOf } from '../shared/semantics';
 import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
 import { postsOf } from '../lib/posts';
 import { useShell } from '../shell/ShellContext';
 import {
-  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct,
-  planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject,
-  DELIVERABLE_GROUPS, deliverablesFor, DELIVERY_STEPS, FOLLOW_UP_DAYS, retainerMonthly, isOnRetainer, cancelAtFor, monthRecord, projectsOf, brandText, isHex, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
+  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct, planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject, DELIVERABLE_GROUPS, deliverablesFor, DELIVERY_STEPS, FOLLOW_UP_DAYS, retainerMonthly, cancelAtFor, monthRecord, projectsOf, brandText, isHex, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
 } from '../lib/projects';
 
 /* Client workspace (Prompt 10): the blocks LeadDetail renders in client mode.
@@ -169,7 +167,6 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   const [paidPulse, setPaidPulse] = useState(null); // invoice id that just got paid
   const [retPulse, setRetPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
-  const wide = useMediaQuery('(min-width: 1440px)'); // the detail column is narrow below this; the schedule stacks
   const mine = useMemo(() => projectsOf(projects, lead._id), [projects, lead._id]);
   const work = useMemo(() => mine.filter(p => p.kind !== 'retainer'), [mine]);
   const [projId, setProjId] = useState(null);

@@ -19,7 +19,7 @@ const SHOTS = process.env.AUDIT_SHOTS || ''; // directory: save a screenshot per
 const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): the admin theme under test
 const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
-import { LONG, UNBROKEN, leads, items, orders, json, mockRoutes } from './audit-fixtures.mjs';
+import { LONG, mockRoutes } from './audit-fixtures.mjs';
 
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
@@ -382,7 +382,7 @@ for (const width of WIDTHS) {
   };
 
   // A layout check that also requires some text on the page (end to end proof).
-  const checkText = async (label, text) => {
+  const _checkText = async (label, text) => {
     await check(label);
     const found = await page.getByText(text, { exact: false }).count().catch(() => 0);
     if (!found) { failures++; console.log(`  FAIL [${width}px] ${label}: expected text "${text}" not found`); }

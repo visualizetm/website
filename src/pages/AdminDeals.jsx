@@ -44,7 +44,7 @@ function DealCard({ lead, action, onOpen, onAct, phone, selected }) {
   );
 }
 
-export default function AdminDeals({ leads, submissions = [], loading, error, onRetry, onPatch, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
+export default function AdminDeals({ leads, submissions = [], loading, error, onRetry, onPatch, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
   const shell = useShell();
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);

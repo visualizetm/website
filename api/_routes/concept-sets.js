@@ -93,8 +93,7 @@ export async function handler(req, res) {
     if (!doc.leadId) return res.status(400).json({ error: 'leadId required' });
     const now = new Date();
     const item = {
-      title: 'Brand directions', round: 1, intro: '', status: 'draft', directions: [], feedback: [],
-      approvedDirectionId: '', approvedAt: '', projectId: '', archived: false,
+      title: 'Brand directions', round: 1, intro: '', directions: [], projectId: '', archived: false,
       ...doc,
       status: 'draft', feedback: [], approvedDirectionId: '', approvedAt: '',
       token: mint(), tokenCreatedAt: now.toISOString(), lastViewedAt: '', sentAt: '',

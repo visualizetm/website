@@ -29,7 +29,6 @@ export const asObject = (v) => {
   if (typeof v === 'string' && v.trim().startsWith('{')) { const p = parseJson(v); if (p && typeof p === 'object' && !Array.isArray(p)) return p; }
   return {};
 };
-const asEnum = (v, ids, fallback) => (ids.includes(v) ? v : fallback);
 const STRING_FIELDS = ['business', 'industry', 'descriptor', 'phone', 'phoneNote', 'email', 'area', 'askFor', 'bestWindow', 'angle', 'notes', 'prepNotes', 'address', 'serviceInterest', 'callbackAt', 'clientSince', 'sourceId', 'source', 'mergedInto', 'calendlyEventUri', 'listId'];
 const ARRAY_FIELDS = ['beforeYouDial', 'objections', 'callLog', 'contactLog', 'concepts', 'purchases', 'checklists', 'gamePlan', 'servicesPlanned', 'pricingOptions'];
 const OBJECT_FIELDS = ['script', 'close', 'afterCall', 'intel', 'socials', 'meeting', 'brand', 'links', 'reviews', 'showcase', 'planner', 'retainer', 'enrichment', 'conceptsTracker', 'bookedOutcome', 'declined', 'nextAction', 'nurture'];

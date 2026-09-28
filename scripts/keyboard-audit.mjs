@@ -23,7 +23,6 @@ const url = (s) => `${BASE}${s.path}${s.open ? `?open=${s.open}` : ''}`;
 const focusInfo = () => {
   const el = document.activeElement;
   if (!el || el === document.body) return { tag: 'body' };
-  const cs = getComputedStyle(el);
   // The kit draws rings with outline on :focus-visible, or on a parent through :has() for stretched buttons.
   const ringOn = (n) => { const c = getComputedStyle(n); return (c.outlineStyle !== 'none' && parseFloat(c.outlineWidth) > 0) || /rgb|#/.test(c.boxShadow) && c.boxShadow !== 'none'; };
   let ring = ringOn(el); let p = el.parentElement; let hops = 0;

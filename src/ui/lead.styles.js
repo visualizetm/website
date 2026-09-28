@@ -104,6 +104,8 @@ export const leadDetailStyles = `
   .dt-concept-label { font-weight: var(--v-weight-semibold); }
   .dt-outbar-row { width: 100%; max-width: 760px; flex-wrap: wrap; }
   .dt-outbar-row > .v-btn { flex: 1 1 140px; }
+  /* CRM revamp, step 6: under 420px the four controls wrap into two rows instead of truncating their labels. */
+  @media (max-width: 419px) { .dt-outbar-row > .v-btn { flex: 1 1 calc(50% - var(--v-space-2)); min-width: 0; } .dt-outbar-row > .v-btn .v-btn-inner { min-width: 0; } }
 `;
 
 /* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-).

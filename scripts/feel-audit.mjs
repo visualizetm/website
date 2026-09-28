@@ -40,7 +40,7 @@ const BOXES = !!process.env.AUDIT_BOXES; // print the skeleton and loaded block 
 const FIT_PX = 4;
 const VIEW_H = 844;
 
-import { SCREENS, setLS, rmLS, click } from './audit-screens.mjs';
+import { SCREENS } from './audit-screens.mjs';
 
 /* Outermost blocks in a region: what a skeleton has to line up with. */
 const BLOCKS = '.v-card, .lc, .v-lrow, .v-table-wrap, .v-section-head, .ld-col, .cal-strip, .cal-week, .cal-month, .cc-head, .v-tabs, .v-seg, .v-chip, .v-skel, .v-btn, .v-field, .v-empty, .v-error, .dt-profile, .cc-preview, .sh-side-label, .v-toggle, .ds-sec, .ds-hero';

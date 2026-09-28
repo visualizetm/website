@@ -83,6 +83,7 @@ function setPath(obj, key, value) {
   for (let i = 0; i < parts.length - 1; i++) { cur[parts[i]] = cur[parts[i]] || {}; cur = cur[parts[i]]; }
   cur[parts[parts.length - 1]] = value;
 }
+/* global postsStore, settingsStore, leadsStore */ // defined in the fake module this function is serialized into
 function collection(name) {
   const list = name === 'posts' ? postsStore : name === 'settings' ? settingsStore : leadsStore;
   return {

@@ -1,4 +1,3 @@
-import { safeHref } from '../lib/safeUrl';
 import { normalizeLead } from '../lib/leads';
 import FoldSection from './DetailFold';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -11,7 +10,7 @@ import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, Tooltip, InlineEdit, ListRow, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, useConfirm, ProgressBar, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState, IconTile,
+  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, InlineEdit, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, useConfirm, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { postsOf } from '../lib/posts';

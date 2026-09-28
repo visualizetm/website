@@ -35,6 +35,7 @@ is in reports/PROMPT-NN-REPORT.md and reports/SITE-NN-REPORT.md.
 ## Scripts (run before committing)
 
 ```
+npm run lint                                    # ESLint (eslint.config.js): no-undef and no-unused-vars are errors, the hooks rules; regression.mjs runs it first
 npm run build                                   # vite build, pins the CSP hash in vercel.json, prerenders published clients, writes the sitemap
 npx vite preview --port 4330 &
 node scripts/layout-audit.mjs                   # overflow and 44px targets, 5 widths, admin and marketing

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
-import { Input, Popover, Sheet, Pill, Icon, IconButton, Avatar, SegmentedControl, ListRow, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
+import { Input, Popover, Sheet, Pill, Icon, IconButton, Avatar, SegmentedControl, ListRow, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
 import { formatPhone, digitsOf } from '../shared/phone';
 import { CALL_STATUSES } from '../shared/semantics';
 import { serviceLabel } from '../lib/booked';

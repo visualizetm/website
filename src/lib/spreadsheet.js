@@ -39,7 +39,7 @@ const ALIASES = {
   note: 'notes', comments: 'notes',
 };
 
-export const normHeader = (h) => String(h ?? '').replace(/^﻿/, '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+export const normHeader = (h) => String(h ?? '').replace(/^\uFEFF/, '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 
 // Auto-map: returns { fieldKey: columnIndex } best guess from the header row.
 export function autoMap(headers) {

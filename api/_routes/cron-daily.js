@@ -32,7 +32,6 @@ import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } fr
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
 const addMonths = (dateStr, n, dayOfMonth) => { const [y, m, d] = String(dateStr).split('-').map(Number); const want = dayOfMonth || d; const last = new Date(y, m - 1 + n + 1, 0).getDate(); return dayKey(new Date(y, m - 1 + n, Math.min(want, last))); };
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;

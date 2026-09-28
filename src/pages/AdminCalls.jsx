@@ -8,10 +8,8 @@ import SkipForward from '@untitled-ui/icons-react/build/esm/SkipForward';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
-import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, Input, Textarea, SegmentedControl, Tabs, Pill, Avatar, Badge, IconTile, Menu, Popover, Checkbox,
-  Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, Reveal, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, Input, SegmentedControl, Tabs, Pill, Avatar, Badge, Menu, Popover, Checkbox, Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
@@ -25,16 +23,16 @@ import LeadForm from '../components/LeadForm';
 import LeadHistory from '../components/LeadHistory';
 import LeadNotes from '../components/LeadNotes';
 import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/LeadPlaybook';
-import { normalizeSocials } from '../lib/socials';
 import { effectiveStage } from '../lib/booked';
 import { saidNoPatch } from '../lib/nurture';
+import { defaultLead } from '../lib/defaultLead';
 import { emptyDeal } from '../lib/deal';
 import { dealFromOptions } from '../lib/dealConvert';
 import { industryFacets } from '../lib/leads';
 import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine, quickCallbacks, toLocalInput } from '../lib/calls';
 import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, MEETING_TYPES, industryKey, displayIndustry } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
-import { fmtMins, relativeTime, fmtDate } from '../shared/dates';
+import { fmtMins, fmtDate } from '../shared/dates';
 import { ADMIN_HOME } from '../lib/adminPaths';
 import { durationMs } from '../ui/motion';
 import IMPORT_LEADS from '../data/call-leads-import.json';
@@ -307,7 +305,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setMode('builder'); setQuick(!p.listId && (!!p.status || !!p.prio || !!p.ids));
     if (p.autostart && Array.isArray(p.ids) && p.ids.length) setAutostart(p.ids);
     if (p.listId) setStartList(p.listId);
-  }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [builderPreset]);  
 
   useEffect(() => {
     if (embedded) { setAuthed(true); return; }

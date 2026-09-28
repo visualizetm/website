@@ -4,7 +4,7 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';

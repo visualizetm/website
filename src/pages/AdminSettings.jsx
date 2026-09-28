@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
-import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
@@ -98,7 +97,7 @@ function PasswordCard() {
   );
 }
 
-export default function AdminSettings({ leads = [], projects = [], orders = [], submissions = [], initialTab, onCreateOrder, onLeadsImported, onDataChanged, onRestoreLeads, onLogout, loading }) {
+export default function AdminSettings({ leads = [], projects = [], orders = [], initialTab, onCreateOrder, onLeadsImported, onDataChanged, onRestoreLeads, onLogout, loading }) {
   const shell = useShell();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -179,7 +178,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
   const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
-  const narrow = !desktop && !useMediaQuery('(min-width: 768px)'); // descriptions wrap to two lines under 768
+  const tablet = useMediaQuery('(min-width: 768px)');
+  const narrow = !desktop && !tablet; // descriptions wrap to two lines under 768
   const desc = (w) => line(w, narrow ? 36 : 18);
   const PROFILE_CARDS = [
     <Card key="name" className="st-card"><Row gap={3} align="center"><SkeletonBlock width={72} height={72} radius="var(--v-radius-pill)" /><Stack gap={1} style={{ flex: 1 }}>{line(40, 16)}{line('30%', 44)}{desc('60%')}</Stack></Row></Card>,

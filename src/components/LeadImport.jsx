@@ -50,7 +50,7 @@ export default function LeadImport({ existingLeads, onClose, onImported }) {
       const sheet = wb.Sheets[wb.SheetNames[0]];
       if (!sheet) throw new Error('The file has no sheets.');
       const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false, defval: '' });
-      const headerRow = (aoa[0] || []).map(h => String(h ?? '').replace(/^﻿/, '').trim());
+      const headerRow = (aoa[0] || []).map(h => String(h ?? '').replace(/^\uFEFF/, '').trim());
       setFileName(name || 'pasted data');
       ingest(headerRow, aoa.slice(1));
     } catch (e) {

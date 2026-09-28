@@ -13,7 +13,7 @@ import LeadPicker from '../components/LeadPicker';
 import LeadCard from '../components/LeadCard';
 import { PRINT_ORDER_STATUSES, ORDER_SOURCES, printOrderStatusOf } from '../shared/semantics';
 import { money } from '../shared/format';
-import { fmtDate, fmtDateTime, countdownLabel } from '../shared/dates';
+import { fmtDateTime, countdownLabel } from '../shared/dates';
 import { formatPhone, telHref } from '../shared/phone';
 import { buildProject, localDate, today, uid } from '../lib/projects';
 import {

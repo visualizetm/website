@@ -1,17 +1,12 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
-import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
-import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
-import Phone from '@untitled-ui/icons-react/build/esm/Phone';
 import {
-  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Input, Select, Chip, SegmentedControl,
-  Pill, Pill as UiPill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
+  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -25,11 +20,10 @@ import { apiFetch } from '../shared/api';
 import LeadImport from '../components/LeadImport';
 import { useDecline } from '../components/DeclineSheet';
 import { DECLINE_REASONS, declineReasonOf } from '../shared/semantics';
-import { normalizeSocials } from '../lib/socials';
 import { declinedLeads, nurtureLeads } from '../lib/leads';
 import { formatPhone } from '../shared/phone';
-import { effectiveStage, checklistProgress, deleteBlockReason } from '../lib/booked';
-import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, callStatusOf, industryKey, displayIndustry } from '../shared/semantics';
+import { effectiveStage, deleteBlockReason } from '../lib/booked';
+import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, industryKey, displayIndustry } from '../shared/semantics';
 import { fmtDateTime, fmtDate, relativeTime, todayInput } from '../shared/dates';
 import { telHref } from '../shared/phone';
 import { defaultLead } from '../lib/defaultLead';
@@ -137,7 +131,7 @@ function MergeModal({ group, onClose, onMerge }) {
 
 export default function AdminLeads({
   leads, submissions, loading, error, onRetry, onPatch, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
-  onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset, filterPreset,
+  onLinkSubmission, onMobileOpen, onMobileClose, openId, createPreset, filterPreset,
 }) {
   const shell = useShell();
   const toast = useToast();

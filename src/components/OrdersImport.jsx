@@ -4,7 +4,7 @@ import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { Sheet, Stack, Row, Grid, Select, Button, Table, Pill, Textarea, EmptyState } from '../ui';
 import { PRINT_ORDER_STATUSES, PRINT_ORDER_STATUS_IDS } from '../shared/semantics';
 import { money } from '../shared/format';
-import { fmtDate, dayKey } from '../shared/dates';
+import { fmtDate } from '../shared/dates';
 import { parseItemsString, importKey, dueDateFor, itemSummary, orderSubtotal, uid } from '../lib/orders';
 
 /* Orders CSV import (Prompt 12): the same preview and dedupe pattern as the

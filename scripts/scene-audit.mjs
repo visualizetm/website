@@ -55,12 +55,12 @@ const WIDTHS = (process.env.SCENE_WIDTHS || '390,1280').split(',').map(Number);
 const REDUCE = process.env.SCENE_MOTION === 'reduce';
 const OUT = process.env.SCENE_OUT || path.join(process.cwd(), '.tmp-verify', 'scene-audit');
 const STEP_PCT = Number(process.env.SCENE_STEP || 5);
-const MAX_EMPTY = 0.25;
+const _MAX_EMPTY = 0.25;
 const HEIGHTS = { 320: 500, 390: 720, 430: 800, 768: 1024, 1280: 800 };
 for (const pair of (process.env.SCENE_HEIGHTS || '').split(',').filter(Boolean)) { const [w, h] = pair.split(':').map(Number); if (w && h) HEIGHTS[w] = h; }
 const MAX_BAND = 0.15;
 const CENTRE_TOL = 32;
-const INDICATOR_GAP = 16;
+const _INDICATOR_GAP = 16;
 const isHome = PATH === '/';
 
 fs.mkdirSync(OUT, { recursive: true });
@@ -231,7 +231,7 @@ async function walk(width) {
     s.empty = emptyShare;
     const at = `${Math.round((y / Math.max(1, max)) * 100)}% (y=${s.y})`;
     const heldScene = s.scenes.find(sc => sc.held);
-    const fully = heldScene && heldScene.p !== null && heldScene.p >= heldScene.steps - 1 - 0.01;
+    const _fully = heldScene && heldScene.p !== null && heldScene.p >= heldScene.steps - 1 - 0.01;
     /* The whole-viewport limit applies where a person expects a full
        screen: a held stage that has finished revealing. A stage still
        revealing one step at a time, or a footer of short links, is

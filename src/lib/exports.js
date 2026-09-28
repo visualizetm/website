@@ -12,7 +12,7 @@ const cell = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? `"$
 export const toCsv = (columns, rows) => [columns.map(c => cell(c.label)).join(','), ...rows.map(r => columns.map(c => cell(c.get(r))).join(','))].join('\r\n');
 
 export function downloadText(name, text, type = 'text/csv') {
-  const blob = new Blob([type === 'text/csv' ? `﻿${text}` : text], { type: `${type};charset=utf-8` });
+  const blob = new Blob([type === 'text/csv' ? `\uFEFF${text}` : text], { type: `${type};charset=utf-8` });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

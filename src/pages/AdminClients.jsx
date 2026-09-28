@@ -4,7 +4,7 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, ProgressBar, Table, Sheet, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, ProgressBar, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -58,7 +58,7 @@ export default function AdminClients({
   const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
   const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
   useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (createPreset) { setCreating(true); } }, [createPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (createPreset) { setCreating(true); } }, [createPreset]);  
   useTopBar(null);
   const clientProps = { projects, onCreateProject, onPatchProject };
 

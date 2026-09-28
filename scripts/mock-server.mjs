@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, packs, sets, lists, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, sets, lists, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -93,7 +93,7 @@ const server = http.createServer((req, res) => {
   currentReq = req;
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname.startsWith('/api/')) {
-    let raw = ''; req.on('data', c => { raw += c; }); req.on('end', () => api(req, res, url));
+    req.on('data', () => {}); req.on('end', () => api(req, res, url));
     return;
   }
   let file = join(DIST, decodeURIComponent(url.pathname));

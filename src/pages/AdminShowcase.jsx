@@ -103,7 +103,7 @@ function UploadMany({ label, count, cap, onUploaded, readOnly }) {
     const failed = [];
     for (let i = 0; i < list.length; i++) {
       setProgress({ at: i + 1, of: list.length });
-      const res = await uploadToCloudinary(list[i]); // eslint-disable-line no-await-in-loop
+      const res = await uploadToCloudinary(list[i]);  
       if (res.url) urls.push(res.url); else failed.push(res.error);
     }
     setProgress(null);
