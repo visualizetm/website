@@ -72,6 +72,10 @@
       "destination": "/api/admin/index?r=lists"
     },
     {
+      "source": "/api/admin/send-email",
+      "destination": "/api/admin/index?r=send-email"
+    },
+    {
       "source": "/api/concepts",
       "destination": "/api/showcase?r=concepts"
     },

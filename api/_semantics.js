@@ -29,6 +29,9 @@ export const SCHEDULE_STATUS_IDS = ['paid', 'due', 'past-due', 'sent', 'draft', 
 // CRM revamp, step 5: the stored invoice statuses and the deal's checkpoints.
 export const INVOICE_STATUS_IDS = ['draft', 'sent', 'paid'];
 export const DEAL_CHECKPOINT_IDS = ['concepts', 'introSent', 'callDone', 'onboardingSent', 'formReceived', 'contractSent', 'contractAgreed', 'invoiceSent', 'paid'];
+// CRM revamp, step 6: the four branded emails and the onboarding variants.
+export const EMAIL_KIND_IDS = ['intro', 'onboarding', 'invoice', 'delivery'];
+export const EMAIL_VARIANT_IDS = ['brand', 'web', 'combined', 'general'];
 export const DEAL_COLUMN_IDS = ['booked', 'concepts', 'introSent', 'callDone', 'formReceived', 'contractSent', 'invoiceSent'];
 export const RETAINER_STATUS_IDS = ['active', 'paused', 'ending', 'cancelled'];
 export const CLIENT_STATUS_IDS = ['active', 'paused', 'delivered'];

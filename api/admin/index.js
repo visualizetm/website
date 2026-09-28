@@ -23,6 +23,7 @@ import { handler as orders } from '../_routes/orders.js';
 import { handler as posts } from '../_routes/posts.js';
 import { handler as projects } from '../_routes/projects.js';
 import { handler as pushSubscribe } from '../_routes/push-subscribe.js';
+import { handler as sendEmail } from '../_routes/send-email.js';
 import { handler as settings } from '../_routes/settings.js';
 import { handler as stripeEvents } from '../_routes/stripe-events.js';
 import { handler as stripeReconcile } from '../_routes/stripe-reconcile.js';
@@ -38,6 +39,7 @@ const ROUTES = {
   'lists': route(lists, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'leads-import': route(leadsImport, { methods: ['POST'], maxBody: 2 * 1024 * 1024 }),
   'log': route(log, { methods: ['GET', 'POST', 'DELETE'], maxBody: 16 * 1024 }),
+  'send-email': route(sendEmail, { methods: ['POST'], maxBody: 16 * 1024 }),
   'orders': route(orders, { methods: ['GET', 'POST', 'PATCH'] }),
   'posts': route(posts, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'projects': route(projects, { methods: ['GET', 'POST', 'PATCH'] }),

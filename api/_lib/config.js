@@ -13,6 +13,9 @@
  * docs/RUNBOOK.md, "Rotate SESSION_SECRET". */
 
 export const ADMIN_PASSWORD = 'VISLIVE';
+// The studio meeting link the emails carry (CRM revamp, step 6); CALENDLY_MEETING_LINK in Vercel overrides it. Mirrors src/marketing/links.js CALENDLY_URL.
+export const MEETING_LINK = 'https://calendly.com/contactvisualize/studio-meeting';
+export const meetingLink = () => process.env.CALENDLY_MEETING_LINK || MEETING_LINK;
 export const SESSION_DAYS = 30;
 const DEV_ONLY_SESSION_SECRET = 'visualize-admin-local-dev-only';
 

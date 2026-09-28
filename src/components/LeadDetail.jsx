@@ -26,6 +26,7 @@ import { liveNextAction, nextActionFor } from '../lib/nextAction';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
 import DealCheckpoints, { dealCheckpointsStyles } from './DealCheckpoints';
+import { useSendEmail } from './SendEmailModal';
 import InvoicesCard, { invoicesStyles } from './Invoices';
 import { dealOf, isTicked, metPatch } from '../lib/deal';
 import { markPaidConversion, purchasesWithProject, undoConversionSet, wonWithoutPayment, dealPackageLabel, dealPlanLine, dealTotal, firstInvoiceDefaults } from '../lib/dealConvert';
@@ -139,6 +140,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const dealMode = !clientMode && (stage === 'booked' || stage === 'deal');
   const deal = dealOf(lead);
   const [confirm, confirmDialog] = useConfirm();
+  /* The invoice email (CRM revamp, step 6) goes from an Invoices row through the send modal; the server marks the line sent. */
+  const email = useSendEmail({ lead, patch: (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set)), onSent: () => shell?.refreshLeads?.() });
   const [tab, setTab] = useState('overview');
   const [editAll, setEditAll] = useState(false);
   const [linkSheet, setLinkSheet] = useState(null); // { key, label }
@@ -415,7 +418,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     <section {...sec('checkpoints')}>
       <FoldSection id="checkpoints" title="Checkpoints" open={foldOpen('checkpoints')} onToggle={foldToggle} summary={`${Object.values(deal.checkpoints).filter(Boolean).length} of 9 ticked${deal.stalledSince ? ', stalled' : ''}`} description={stage === 'deal' ? 'From the call to the first payment. Mark paid on the first invoice makes the client and the project.' : 'The meeting first. Met them starts the deal.'}>
         <DealCheckpoints lead={lead} patch={patch} readOnly={readOnly} onOpenConcepts={shell?.openConcepts ? () => shell.openConcepts(lead) : undefined} />
-        <InvoicesCard invoices={dealInvoices} onChange={writeInvoices} onMarkPaid={markDealPaid} defaults={firstInvoiceDefaults(deal)} readOnly={readOnly} description={anyPaid ? undefined : dealInvoices.length ? 'Mark paid on the first one makes the client and the project.' : undefined} />
+        <InvoicesCard invoices={dealInvoices} onChange={writeInvoices} onMarkPaid={markDealPaid} onSendEmail={(inv) => email.open('invoice', { invoice: inv })} emailConnected={email.connected('invoice')} defaults={firstInvoiceDefaults(deal)} readOnly={readOnly} description={anyPaid ? undefined : dealInvoices.length ? 'Mark paid on the first one makes the client and the project.' : undefined} />
       </FoldSection>
     </section>
   );
@@ -435,7 +438,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       </ScrollArea>
       {dealMode && !readOnly && (
         <StickyFooterBar className="dt-outbar">
-          <Row gap={2} className="dt-outbar-row">
+          <Row gap={2} wrap className="dt-outbar-row">
             {!isTicked(deal, 'callDone')
               ? <Button icon="Check" onClick={async () => { const ok = await patch(metPatch(lead)); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); jump('checkpoints'); } }} className="dt-met">Met them</Button>
               : <Button icon="CurrencyDollar" onClick={() => jump('checkpoints')} className="dt-toinv">Invoices</Button>}
@@ -446,6 +449,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
         </StickyFooterBar>
       )}
       {confirmDialog}
+      {email.modal}
       <style>{dealCheckpointsStyles + invoicesStyles}</style>
       {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(lead._id, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
       {linkSheet && (

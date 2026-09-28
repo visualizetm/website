@@ -136,6 +136,12 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   /* Integrations */
   const health = data?.health || null;
   const stripe = data?.stripe || { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
+  /* Emails (CRM revamp, step 6): four Zapier catch hooks, one per kind. The settings GET says which variables exist; Send test posts a fixed sample flagged test: true. */
+  const EMAIL_KINDS = [['intro', 'Intro'], ['onboarding', 'Onboarding'], ['invoice', 'Invoice'], ['delivery', 'Delivery']];
+  const emails = data?.emails || {};
+  const emailsOn = EMAIL_KINDS.filter(([k]) => emails[k]).length;
+  const [testing, setTesting] = useState('');
+  const testEmail = async (kind, label) => { setTesting(kind); const r = await apiFetch('/api/admin/send-email', { method: 'POST', body: { kind, test: true } }); setTesting(''); if (r.ok) toast.success(`${label} test sent. It carries test: true, so the zap can skip it.`); else toast.error(r.data?.error || 'The test did not go out.'); };
   const [reconcile, setReconcile] = useState(null); // rows
   const [linkEv, setLinkEv] = useState(null);
   const openReconcile = async () => { const r = await apiFetch('/api/admin/stripe/events?stored=1&unmatched=1'); setReconcile(r.ok ? (r.data?.items || []) : []); };
@@ -270,6 +276,20 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <Row gap={2} wrap><Button variant="secondary" size="md" onClick={openReconcile} className="st-reconcile">Reconcile{stripe.unmatched ? ` (${stripe.unmatched})` : ''}</Button></Row>
         </Stack></Row>
       </Card>
+      <Card className="st-card st-integration st-emails">
+        <Row gap={3} align="start"><IconTile icon="Mail01" tone={emailsOn === 4 ? 'booked' : emailsOn ? 'new' : 'neutral'} size="md" /><Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
+          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Emails</p>{statusPill(emailsOn === 4, 'Connected', emailsOn ? `${emailsOn} of 4 connected` : 'Not connected', emailsOn > 0)}</Row>
+          <Stack gap={1}>
+            {EMAIL_KINDS.map(([k, label]) => (
+              <Row key={k} gap={2} align="center" justify="between" wrap className="st-email-row">
+                <Row gap={2} align="center" wrap><span className="st-email-label">{label}</span>{statusPill(!!emails[k], 'Connected', 'Not connected')}</Row>
+                {emails[k] && <Button variant="secondary" size="md" icon="Send01" loading={testing === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
+              </Row>
+            ))}
+          </Stack>
+          <p className="dt-muted">Each email is a Zapier catch hook. The hook URL goes in Vercel as an environment variable (ZAPIER_HOOK_INTRO, ZAPIER_HOOK_ONBOARDING, ZAPIER_HOOK_INVOICE, ZAPIER_HOOK_DELIVERY).</p>
+        </Stack></Row>
+      </Card>
       <Card className="st-card st-integration">
         <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Scheduled tasks</p>{statusPill(cronArmed, 'Armed', 'CRON_SECRET missing')}</Row>
@@ -398,6 +418,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 }
 
 const stStyles = `
+  .st-email-row { min-height: var(--v-tap); }
+  .st-email-label { font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 96px; }
   .st-log-row { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); min-width: 0; }
   .st-log-row:last-child { border-bottom: 0; }
   .st-log-msg { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text); overflow-wrap: anywhere; }

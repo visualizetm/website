@@ -6,23 +6,28 @@ import { PACKAGES, planFor } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
+import { useSendEmail } from './SendEmailModal';
+import { useShell } from '../shell/ShellContext';
 
 /* The Checkpoints fold (CRM revamp, step 5): the nine steps of a deal as a
  * vertical stepper with a check and a date on each, Tick on the manual
  * ones, Untick in the row menu, Met them on Call done, and Send on Intro,
  * Onboarding and Invoice that for now tick the step and say emails come
  * in the next step. Above it the package line and the contract link. */
-const SEND_TOAST = 'Emails connect in the next step.';
+const SEND_KIND = { introSent: 'intro', onboardingSent: 'onboarding' };
 
 export default function DealCheckpoints({ lead, patch, readOnly = false, onOpenConcepts }) {
   const toast = useToast();
+  const shell = useShell();
   const deal = dealOf(lead);
   const [busy, setBusy] = useState('');
+  /* Send (CRM revamp, step 6): the intro and onboarding emails go out through the send modal; the server stamps the checkpoint. */
+  const email = useSendEmail({ lead, patch, onSent: () => shell?.refreshLeads?.() });
   const write = async (id, set, msg) => { setBusy(id); const ok = await patch(set); setBusy(''); if (!ok) toast.error(COPY.error.save); else if (msg) toast.success(msg); return ok; };
   const tick = (id) => write(id, tickPatch(lead, id), `${CHECKPOINTS.find(c => c.id === id).label} ticked.`);
   const untick = (id) => write(id, untickPatch(lead, id), `${CHECKPOINTS.find(c => c.id === id).label} unticked.`);
   const met = () => write('callDone', metPatch(lead), `Met them. ${lead.business} is a deal.`);
-  const send = (id) => write(id, tickPatch(lead, id), SEND_TOAST);
+  const send = (id) => email.open(SEND_KIND[id]);
   const setPackage = (packageId) => { const p = packageId ? planFor(PACKAGES.find(x => x.id === packageId)?.price || 0, packageId) : null; return patch({ deal: { ...deal, packageId, plan: p ? { months: p.months, monthly: p.monthly } : null } }); };
   const stalled = isStalled(lead);
   return (
@@ -69,6 +74,7 @@ export default function DealCheckpoints({ lead, patch, readOnly = false, onOpenC
           })}
         </ol>
       </Card>
+      {email.modal}
     </Stack>
   );
 }

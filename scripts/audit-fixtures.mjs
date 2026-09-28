@@ -304,6 +304,7 @@ export const leads = Array.from({ length: 19 }, (_, i) => ({
   sourceId: i > 9 && i < 16 ? 'gm:' + i : undefined,
   listId: ({ L0: 'LS1', L3: 'LS1', L4: 'LS1', L7: 'LS2', L1: 'LS2' })['L' + i] || '', // the dial list each lead is on
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
+  email: i === 8 || i % 2 ? `owner${i}@example.com` : '', // CRM revamp, step 6: the send modal needs one; the even ones show the add-an-email path
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
   angle: 'Their reviews carry them but the site is a dead link, show them what they lose. '.repeat(3),
   notes: i === 1 ? 'WARNING do not mention the old owner ' + UNBROKEN : 'Friendly front desk.',
@@ -395,7 +396,7 @@ export const SHOWCASE_PAYLOAD = {
 
 // Site Prompt 2 (Part 3): the landing settings document, same shape api/_routes/settings.js's landingShape() returns.
 export const LANDING_DOC = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: { years: 3 } } };
-export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
+export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, emails: { intro: true, onboarding: true, invoice: true, delivery: false }, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
 /** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
 export const PAYLOADS = {
   submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),
@@ -411,6 +412,7 @@ export const PAYLOADS = {
   posts: () => ({ items: posts }),
 };
 export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, delivery: false };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
@@ -431,6 +433,8 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/stripe/**', r => respond(r, 'stripe', PAYLOADS.stripe()));
   await page.route('**/api/admin/calendly/events**', r => respond(r, 'calendly', PAYLOADS.calendly()));
   await page.route('**/api/admin/log', r => r.fulfill(json({ ok: true, items: [] })));
+  // CRM revamp, step 6: every send answers ok; the record's stamps come from the server in production.
+  await page.route('**/api/admin/send-email', r => r.fulfill(json({ ok: true, sentAt: NOW_ISO })));
   await page.route('**/api/admin/call-leads**', r => (r.request().method() === 'GET' ? respond(r, 'leads', PAYLOADS.leads()) : r.fulfill(json({ ok: true, item: { ...leads[0], _id: 'LNEW' } }))));
   await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', PAYLOADS.orders()) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
   await page.route('**/api/admin/concept-packs**', r => respond(r, 'packs', PAYLOADS.packs()));

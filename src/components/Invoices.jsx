@@ -17,7 +17,7 @@ import { localDate } from '../lib/projects';
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
 const blank = (defaults) => ({ label: defaults.label || '', amount: defaults.amount != null ? String(defaults.amount) : '', dueAt: invDayKey(new Date(Date.now() + 7 * 864e5)), note: '' });
 
-export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, defaults = {}, readOnly = false, title = 'Invoices', description, className = '', pulseId = null, emptyKey = 'deals.invoices', level = 1 }) {
+export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSendEmail = null, emailConnected = false, defaults = {}, readOnly = false, title = 'Invoices', description, className = '', pulseId = null, emptyKey = 'deals.invoices', level = 1 }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const wide = useMediaQuery('(min-width: 1440px)'); // the detail column is narrow below this; the rows stack
@@ -51,7 +51,8 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, defa
   };
   const remove = async (inv) => { if (!(await confirm({ title: `Delete ${inv.label || 'this invoice'}?`, body: 'The line goes. A paid line keeps its ledger entry on the client.', danger: true, confirmLabel: 'Delete' }))) return; await write(withoutInvoice(invoices, inv.id), () => toast.success('Invoice deleted.')); };
   const menuFor = (inv) => { const st = invoiceStatus(inv); return [
-    ...(st === 'draft' ? [{ id: 'sent', label: 'Mark sent', icon: 'Send01', onSelect: () => sent(inv) }] : []),
+    ...(st === 'draft' ? [{ id: 'sent', label: 'Mark sent', icon: 'Check', onSelect: () => sent(inv) }] : []),
+    ...(st !== 'paid' && onSendEmail ? [{ id: 'email', label: st === 'draft' ? 'Send the invoice email' : 'Send the invoice email again', icon: 'Send01', onSelect: () => onSendEmail(inv) }] : []),
     ...(st !== 'paid' ? [{ id: 'paid', label: 'Mark paid', icon: 'Check', onSelect: () => setPay({ inv, paidAt: invDayKey(), note: '' }) }] : []),
     { id: 'edit', label: 'Edit', icon: 'Edit02', onSelect: () => setForm({ mode: 'edit', id: inv.id, values: { label: inv.label || '', amount: String(inv.amount ?? ''), dueAt: inv.dueAt || '', note: inv.note || '' } }) },
     'divider',
@@ -59,7 +60,9 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, defa
   ]; };
   const pill = (inv) => <Pill id={invoiceStatus(inv)} list={INVOICE_STATUSES} size="sm" />;
   const primary = (inv) => { const st = invoiceStatus(inv); if (readOnly || st === 'paid') return null; return st === 'draft'
-    ? <Button variant="secondary" size="md" icon="Send01" onClick={() => sent(inv)} className="iv-sent">Mark sent</Button>
+    ? (onSendEmail && emailConnected
+      ? <Button variant="secondary" size="md" icon="Send01" onClick={() => onSendEmail(inv)} className="iv-email">Send</Button>
+      : <Button variant="secondary" size="md" icon="Check" onClick={() => sent(inv)} className="iv-sent">Mark sent</Button>)
     : <Button variant="secondary" size="md" icon="Check" onClick={() => setPay({ inv, paidAt: invDayKey(), note: '' })} className="iv-paid">Mark paid</Button>; };
   const addBtn = !readOnly && <Button variant="secondary" size="md" icon="Plus" onClick={() => setForm({ mode: 'add', values: blank(defaults) })} className="iv-add">Add invoice</Button>;
   return (

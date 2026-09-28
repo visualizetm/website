@@ -1,4 +1,5 @@
 import { getDb } from '../_lib/mongo.js';
+import { emailsConfigured } from '../_lib/email.js';
 import { sendPush } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
 
@@ -77,6 +78,8 @@ export async function handler(req, res) {
       cron: { configured: !!process.env.CRON_SECRET },
       calendly: { configured: !!(process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT) },
       reminders: { configured: !!process.env.CRON_SECRET, push: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) },
+      // CRM revamp, step 6: which email hooks exist. Only whether the variable is set, never its value.
+      emails: emailsConfigured(),
       prefs: {
         pushEnabled: prefs?.pushEnabled !== false,
         emailEnabled: prefs?.emailEnabled !== false,

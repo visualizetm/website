@@ -87,6 +87,60 @@ moment a callback or meeting is due) can come back with two changes: set
 change the reminders schedule in vercel.json back to every 15 minutes. The
 file keeps the old per-event logic behind that flag for exactly this.
 
+## Emails
+
+The four branded emails (CRM revamp, step 6) go out through Zapier: one
+catch hook per email, its URL in a Vercel environment variable, nothing
+else stored anywhere. The admin POSTs JSON to the hook and the zap builds
+and sends the email from the studio address.
+
+| Kind | Variable | Sent from |
+|---|---|---|
+| intro | `ZAPIER_HOOK_INTRO` | the record's Checkpoints fold, Send on Intro sent |
+| onboarding | `ZAPIER_HOOK_ONBOARDING` | the Checkpoints fold, Send on Onboarding sent |
+| invoice | `ZAPIER_HOOK_INVOICE` | an Invoices row (a deal's or a client project's), Send |
+| delivery | `ZAPIER_HOOK_DELIVERY` | the client project's Send delivery card, Send beside "Delivery email sent" |
+
+Set the variable, redeploy, and Settings, Integrations, Emails shows that
+kind as Connected (the settings GET reports only whether the variable
+exists, never its value). Send test on a connected kind posts the fixed
+sample below with `test: true`, so the zap should skip (or route to
+yourself) any payload where `test` is true. Once each hook is tested the
+old Google Form triggers can be turned off.
+
+Every payload carries these fields:
+
+```
+kind            "intro" | "onboarding" | "invoice" | "delivery"
+test            true on a Send test, false on a real send
+name            the contact (askFor), else the business name
+business        the business name
+email           the recipient
+packageLabel    the package (or the add-ons), "" when none
+packageIncluded what the package includes, plus the add-ons, as a list
+planLine        "$1,200 as $200 a month for 6 months, first payment starts the project", or "$750, one payment", or ""
+calendlyLink    the studio meeting link (CALENDLY_MEETING_LINK overrides the default)
+sentAt          ISO timestamp
+```
+
+Plus, per kind:
+
+```
+onboarding      variant   "brand" | "web" | "combined" | "general", from the package kind
+invoice         invoice   { label, amount, dueAt }   the row Rob picked
+delivery        driveLink the project's Drive folder, else the lead's links.drive, else ""
+```
+
+What a successful send stamps: the deal checkpoint (introSent,
+onboardingSent, invoiceSent) as `{ at, by: "auto" }`, or
+`delivery.emailSent` on the project; the invoice row `status: "sent"` with
+`sentAt`; a `contactLog` entry `{ type: "email", at, note: "Sent the intro
+email" }`; and the next action recomputed. A missing variable answers 503
+"That email is not connected yet." and a hook that does not answer 2xx
+answers 502; neither stamps anything, and the manual Tick or Mark sent
+stays available. Sixty sends an hour through the shared limiter. Test:
+`node scripts/send-email-test.mjs`.
+
 ## Take a backup
 
 Settings, Data, Download backup saves visualize-backup-YYYY-MM-DD.json (every
@@ -192,7 +246,8 @@ node scripts/fetch-fonts.mjs                   # refresh the self hosted latin f
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)
 node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
-node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, against the real handlers
+node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs; node scripts/send-email-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, the four emails, against the real handlers
+npm run lint                                   # ESLint: no-undef and no-unused-vars as errors, the hooks rules; regression.mjs runs it as step 0
 MONGODB_URI=... node scripts/migrate-invoices.mjs [--apply]   # CRM revamp, step 5: every project's schedule[] becomes invoices[] (paid stays paid, the rest sent; report first)
 MONGODB_URI=... node scripts/backfill-triage.mjs [--apply]   # CRM revamp, step 4: move untouched stage lead records into triage and write the first score (report first)
 OLD_MONGODB_URI=... NEW_MONGODB_URI=... node scripts/migrate-mongo.mjs --dry

@@ -3,6 +3,7 @@ import FoldSection from './DetailFold';
 import { useEffect, useMemo, useState } from 'react';
 import { COPY } from '../shared/copy';
 import InvoicesCard from './Invoices';
+import { useSendEmail } from './SendEmailModal';
 import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
 import { durationMs } from '../ui/motion';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
@@ -167,6 +168,8 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   const [paidPulse, setPaidPulse] = useState(null); // invoice id that just got paid
   const [retPulse, setRetPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  /* The invoice and delivery emails (CRM revamp, step 6): the server stamps the project, so it reloads after a send. */
+  const email = useSendEmail({ lead, patch, onSent: () => { shell?.refreshLeads?.(); shell?.projectOps?.reload?.(); } });
   const mine = useMemo(() => projectsOf(projects, lead._id), [projects, lead._id]);
   const work = useMemo(() => mine.filter(p => p.kind !== 'retainer'), [mine]);
   const [projId, setProjId] = useState(null);
@@ -355,7 +358,12 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
           <Card level={2} padding={3} className="cw-delivery">
             <p className="pb-card-h">Send delivery</p>
             <Stack gap={0}>
-              {DELIVERY_STEPS.map(st => <Checkbox key={st.id} label={st.id === 'followUp' && p.delivery?.followUpLeadCallbackAt ? `${st.label} (${fmtDateTime(p.delivery.followUpLeadCallbackAt)})` : st.label} checked={st.id === 'followUp' ? !!p.delivery?.followUpLeadCallbackAt : !!p.delivery?.[st.id]} onChange={(v) => setDelivery(p, st.id, v)} disabled={readOnly} />)}
+              {DELIVERY_STEPS.map(st => st.id === 'emailSent' ? (
+                <Row key={st.id} gap={2} align="center" justify="between" wrap className="cw-deliv-email">
+                  <Checkbox label={st.label} checked={!!p.delivery?.emailSent} onChange={(v) => setDelivery(p, st.id, v)} disabled={readOnly} />
+                  {!readOnly && <Button variant="secondary" size="md" icon="Send01" onClick={() => email.open('delivery', { project: p })} className="cw-send-delivery">Send</Button>}
+                </Row>
+              ) : <Checkbox key={st.id} label={st.id === 'followUp' && p.delivery?.followUpLeadCallbackAt ? `${st.label} (${fmtDateTime(p.delivery.followUpLeadCallbackAt)})` : st.label} checked={st.id === 'followUp' ? !!p.delivery?.followUpLeadCallbackAt : !!p.delivery?.[st.id]} onChange={(v) => setDelivery(p, st.id, v)} disabled={readOnly} />)}
             </Stack>
             <p className="dt-muted">Files release only at full payment. Every delivery ends with a retainer pitch.</p>
           </Card>
@@ -406,7 +414,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
         {current ? (
           <Stack gap={3}>
             <ProgressBar value={paidPct(current)} tone={isFullyPaid(current) ? 'booked' : 'progress'} size="sm" label={isFullyPaid(current) ? 'Paid in full' : `${money(owedTotal(current))} still owed`} />
-            <InvoicesCard invoices={invoicesOf(current)} onChange={writeInvoices(current)} onMarkPaid={(inv, form) => payInvoice(current, inv, form)} defaults={current.plan ? { label: `Month ${planMonth(current) || 1} of ${current.plan.months}`, amount: current.plan.monthly } : { label: current.name, amount: owedTotal(current) }} readOnly={readOnly} title="Invoices" pulseId={paidPulse} emptyKey="clients.schedule" level={2} />
+            <InvoicesCard invoices={invoicesOf(current)} onChange={writeInvoices(current)} onMarkPaid={(inv, form) => payInvoice(current, inv, form)} onSendEmail={(inv) => email.open('invoice', { invoice: inv, project: current })} emailConnected={email.connected('invoice')} defaults={current.plan ? { label: `Month ${planMonth(current) || 1} of ${current.plan.months}`, amount: current.plan.monthly } : { label: current.name, amount: owedTotal(current) }} readOnly={readOnly} title="Invoices" pulseId={paidPulse} emptyKey="clients.schedule" level={2} />
             {planBlock}
           </Stack>
         ) : <Card><EmptyState size="sm" icon="CreditCard01" title={E('clients.payments').title} description={E('clients.payments').description} action={!readOnly ? { label: E('clients.payments').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
@@ -514,6 +522,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
     <>
       {projectsSection}{paymentsSection}{retainerSection}{deliverablesSection}
       {confirmDialog}
+      {email.modal}
       {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if (doc.links?.drive && !lead.links?.drive) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: doc.links.drive } }); } else toast.error(COPY.error.create); }} />}
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>

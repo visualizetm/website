@@ -8,7 +8,7 @@ export const CHECKPOINTS = [
   { id: 'formReceived',   label: 'Form received',    column: 'formReceived', auto: true },
   { id: 'contractSent',   label: 'Contract sent',    column: 'contractSent', auto: false },
   { id: 'contractAgreed', label: 'Contract agreed',  column: 'contractSent', auto: false },
-  { id: 'invoiceSent',    label: 'Invoice sent',     column: 'invoiceSent',  auto: false, send: true },
+  { id: 'invoiceSent',    label: 'Invoice sent',     column: 'invoiceSent',  auto: false },
   { id: 'paid',           label: 'Paid',             column: 'invoiceSent',  auto: false },
 ];
 export const CHECKPOINT_IDS = CHECKPOINTS.map(c => c.id);

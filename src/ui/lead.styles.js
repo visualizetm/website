@@ -105,6 +105,7 @@ export const leadDetailStyles = `
   .dt-outbar-row { width: 100%; max-width: 760px; flex-wrap: wrap; }
   .dt-outbar-row > .v-btn { flex: 1 1 140px; }
   /* CRM revamp, step 6: under 420px the four controls wrap into two rows instead of truncating their labels. */
+  .dt-outbar-row > .v-menu { flex: 0 0 auto; }
   @media (max-width: 419px) { .dt-outbar-row > .v-btn { flex: 1 1 calc(50% - var(--v-space-2)); min-width: 0; } .dt-outbar-row > .v-btn .v-btn-inner { min-width: 0; } }
 `;
 

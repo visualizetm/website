@@ -330,7 +330,7 @@ export default function AdminApp() {
   }), [createList, patchList, loadLists, syncCallbacksDue, patchCallLead]);
   const reconcileRef = useRef(null); reconcileRef.current = reconcileLists;
   const patchCallLeadRef = useRef(null); patchCallLeadRef.current = patchCallLead;
-  const projectOps = useMemo(() => ({ create: createProject, patch: patchProject }), [createProject, patchProject]);
+  const projectOps = useMemo(() => ({ create: createProject, patch: patchProject, reload: loadProjects }), [createProject, patchProject, loadProjects]);
   const [pickerLeads, setPickerLeads] = useState(null);
   // Capture a lead (CRM revamp, step 4): the Quick add sheet and Triage's empty state open it.
   const [captureOpen, setCaptureOpen] = useState(false);

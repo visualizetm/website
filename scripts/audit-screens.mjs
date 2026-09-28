@@ -70,6 +70,7 @@ export const SCREENS = [
   { id: 'deals-board', screen: 'Deals', label: 'the board', path: '/admin/deals', resource: 'leads', minWidth: 1024 },
   { id: 'deals-list', screen: 'Deals', label: 'the grouped list', path: '/admin/deals', resource: 'leads', maxWidth: 1023 },
   { id: 'deals-detail', screen: 'Deals', label: 'the record with the Checkpoints fold', path: '/admin/deals', open: 'L9', region: '.aa-main.dl-main', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Lead Business 9/ })) },
+  { id: 'deals-send', screen: 'Deals', label: 'the send email modal', path: '/admin/deals', open: 'L8', region: '.v-modal', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('tab', { name: /^Checkpoints/ })); await click(p.locator('.dc-send')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
   { id: 'deals-markpaid', screen: 'Deals', label: 'the Mark paid modal', path: '/admin/deals', open: 'L9', region: '.v-modal', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.locator('.iv-paid')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
 
   { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'day') },
@@ -184,6 +185,8 @@ export const SCREENS = [
   // Site Prompt 2 (Part 3): the Landing screen (logo strip, featured work, testimonials, stats).
   { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
 
+  // The Emails card on Settings, Integrations (CRM revamp, step 6): three hooks connected in the fixtures, one not.
+  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, region: '.st-emails', detail: true, act: async (p) => { await click(p.getByRole('tab', { name: /^Integrations/ })); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   /* The sidebar rebuild: the groups are disclosure widgets, the rail's groups are menus. */
   { id: 'side-groups', screen: 'Shell', label: 'sidebar, every group open', path: '/admin', minWidth: 768, resource: 'leads', static: true, act: async (p) => { for (const b of await p.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {}); } },

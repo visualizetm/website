@@ -42,6 +42,7 @@ function api(req, res, url) {
   if (p === '/api/admin/session') return json(res, { authed: true });
   if (p === '/api/admin/login' || p === '/api/admin/logout') return json(res, { ok: true });
   if (p === '/api/admin/log') return json(res, { ok: true, items: [] });
+  if (p === '/api/admin/send-email') return json(res, { ok: true, sentAt: new Date().toISOString() });
   if (p === '/api/push-key') return json(res, { key: null });
   if (p.startsWith('/api/admin/submissions')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('submissions')) : json(res, { ok: true });
   if (p.startsWith('/api/admin/settings')) return m === 'GET' ? get('settings') : json(res, { ok: true });

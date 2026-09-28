@@ -54,6 +54,7 @@ export default function AppShell({
   const [notifDoc, setNotifDoc] = useState(() => ({ readIds: readJSON(KEYS.notifRead, []), lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }));
   const [calendly, setCalendly] = useState({ configured: null, events: [] });
   const [health, setHealth] = useState(null);
+  const [emails, setEmails] = useState(null); // CRM revamp, step 6: which email hooks are connected (booleans from the settings GET)
   const [profile, setProfile] = useState(null);
   const appearance = useAppearance();
   const toast = useToast();
@@ -72,7 +73,7 @@ export default function AppShell({
     apiFetch('/api/admin/settings').then(r => {
       if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications);
       if (r.ok && r.data) {
-        setHealth(r.data.health || null); setProfile(r.data.profile || null);
+        setHealth(r.data.health || null); setProfile(r.data.profile || null); setEmails(r.data.emails || null);
         // Another device may have changed the appearance; the document wins over the local mirror.
         const p = r.data.profile || {};
         if (p.theme && p.theme !== appearance.mode) setThemeMode(p.theme);
@@ -135,10 +136,10 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, emails, refreshLeads: onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts,
     lists, openListPicker: onOpenListPicker, listOps,
-  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
