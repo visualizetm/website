@@ -261,6 +261,14 @@ section('6. declined: a re-import leaves it alone, a decline writes the reason, 
   ok(bad._status === 200 && lead(LEAD).declined.reason === 'other' && lead(LEAD).declined.note.length === 300 && !('$where' in lead(LEAD).declined), 'an unknown reason reads as other, the note caps at 300, nothing else is written');
   const back = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'triage', declined: null }, explicit: true } });
   ok(back._status === 200 && lead(LEAD).stage === 'triage' && lead(LEAD).declined === null, `Bring back sets triage and clears declined (${back._status}, ${lead(LEAD).stage})`);
+  // step 3: the decline write clears the dial list membership, and the route stores it
+  const { declinePatch } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'decline.js')).href);
+  lead(LEAD).listId = 'list-abc';
+  const dset = declinePatch(lead(LEAD), 'not-fit', 'no');
+  ok(dset.listId === '' && dset.nextAction === null, 'declinePatch clears listId and nextAction');
+  const { explicit: _e, ...dsetBody } = dset;
+  const declined2 = await call(callLeads, 'PATCH', { body: { id: LEAD, set: dsetBody, explicit: true } });
+  ok(declined2._status === 200 && lead(LEAD).listId === '' && lead(LEAD).stage === 'declined', `the route stores the cleared listId (${lead(LEAD).listId})`);
   const guard = await call(callLeads, 'PATCH', { body: { id: CLIENT, set: { stage: 'declined', declined: { reason: 'other', note: '', at: '' } } } });
   ok(guard._status === 409 && lead(CLIENT).stage === 'client', 'a client cannot be declined without the explicit flag');
 }

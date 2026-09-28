@@ -37,6 +37,8 @@ export function leadMenuItems(lead, actions) {
   if (actions.onStatus) items.push('divider', ...CALL_STATUSES.filter(s => s.id !== 'booked').map(s => ({ id: `s:${s.id}`, label: `Status: ${s.label}${(lead.callStatus || 'not-called') === s.id ? ' (current)' : ''}`, icon: s.icon, disabled: (lead.callStatus || 'not-called') === s.id, onSelect: () => actions.onStatus(s.id) })));
   const firstSocial = SOCIALS.map(([k]) => lead.socials?.[k]).find(Boolean);
   if (firstSocial) items.push('divider', { id: 'social', label: 'Open socials', icon: 'ArrowRight', onSelect: () => { window.open(firstSocial, '_blank', 'noopener'); actions.onOpenSocials?.(); } });
+  if (actions.onAddToList && normalizeStage(lead) === 'lead') items.push('divider', { id: 'list', label: lead.listId ? 'Move to another list' : 'Add to list', icon: 'Rows01', onSelect: () => actions.onAddToList() });
+  if (actions.onRemoveFromList) items.push({ id: 'unlist', label: 'Remove from this list', icon: 'XClose', onSelect: () => actions.onRemoveFromList() });
   if (actions.onDecline && !['declined', 'client', 'won'].includes(lead.stage)) items.push('divider', { id: 'decline', label: 'Decline', icon: 'SlashCircle01', danger: true, onSelect: () => actions.onDecline() });
   if (actions.onDelete) items.push('divider', { id: 'del', label: block ? `Delete: ${block.split(', ')[0].toLowerCase()}` : 'Delete', icon: 'Trash01', danger: true, disabled: !!block, onSelect: () => actions.onDelete() });
   return items;

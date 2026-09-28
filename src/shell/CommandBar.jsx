@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
-import { Input, Popover, Sheet, Pill, Icon, Avatar, SegmentedControl, ListRow, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
+import { Input, Popover, Sheet, Pill, Icon, IconButton, Avatar, SegmentedControl, ListRow, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
 import { formatPhone, digitsOf } from '../shared/phone';
 import { CALL_STATUSES } from '../shared/semantics';
 import { serviceLabel } from '../lib/booked';
@@ -18,13 +18,13 @@ import { KEYS, readJSON, writeJSON } from './storage';
  */
 const MAX_RECENT = 8;
 
-function ResultRow({ item, active, onPick, onHover }) {
+function ResultRow({ item, active, onPick, onHover, onAddToList }) {
   const l = item.lead;
   const common = { onClick: () => onPick(item), onMouseEnter: onHover, className: `sh-cmd-row${active ? ' is-active' : ''}`, chevron: false, role: 'option', 'aria-selected': active };
   if (item.type === 'lead') {
     return <ListRow {...common} leading={<Avatar name={l.business} size="sm" />} title={l.business}
       subtitle={<span className="sh-cmd-sub">{l.industry && <Pill tone="neutral" label={l.industry} icon={false} size="sm" variant="outline" />}<span>{formatPhone(l.phone) || 'No phone'}</span></span>}
-      trailing={<Pill id={l.callStatus} list={CALL_STATUSES} size="sm" />} />;
+      trailing={<span className="sh-cmd-trail"><Pill id={l.callStatus} list={CALL_STATUSES} size="sm" />{onAddToList && <IconButton icon="Rows01" label={`Add ${l.business} to a list`} variant="ghost" onClick={(e) => { e.stopPropagation(); onAddToList(l); }} />}</span>} />;
   }
   if (item.type === 'client') {
     const pkg = l.servicesPlanned?.length ? l.servicesPlanned.slice(0, 2).map(serviceLabel).join(', ') + (l.servicesPlanned.length > 2 ? ` +${l.servicesPlanned.length - 2}` : '') : 'No package yet';
@@ -42,7 +42,7 @@ function ResultRow({ item, active, onPick, onHover }) {
   return <ListRow {...common} leading={<span className="sh-cmd-jumpicon sh-cmd-jumpicon--add"><UserPlus01 width={18} height={18} /></span>} title="Add as new lead" subtitle={`Start a lead with ${item.pretty}`} />;
 }
 
-export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onOpenPlanner, onJump, onNewLead }) {
+export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onOpenPlanner, onJump, onNewLead, onAddToList }) {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const [q, setQ] = useState('');
   const [mode, setMode] = useState('text');
@@ -124,7 +124,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
       {flat.map((item, i) => (
         <div key={item.key} className="sh-cmd-item">
           {groupLabel(i) && <p className="sh-cmd-group">{groupLabel(i)}</p>}
-          <ResultRow item={item} active={i === idx} onPick={pick} onHover={() => setIdx(i)} />
+          <ResultRow item={item} active={i === idx} onPick={pick} onHover={() => setIdx(i)} onAddToList={onAddToList ? (l) => { onOpenChange(false); onAddToList(l); } : undefined} />
         </div>
       ))}
     </div>
@@ -174,6 +174,7 @@ export const commandBarStyles = `
   .sh-cmd-row { border-color: transparent; background: transparent; min-height: var(--v-tap-lg); }
   .sh-cmd-row.is-active, .sh-cmd-row:hover { background: var(--v-surface-3); border-color: var(--v-border); }
   .sh-cmd-sub { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 0; }
+  .sh-cmd-trail { display: inline-flex; align-items: center; gap: var(--v-space-1); }
   .sh-cmd-jumpicon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: var(--v-radius-md); background: var(--v-surface-3); color: var(--v-text-2); }
   .sh-cmd-jumpicon--add { background: var(--v-red-soft); color: var(--v-red-highlight); }
   .sh-cmd-hint { margin: 0; padding: var(--v-space-4) var(--v-space-3); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }

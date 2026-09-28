@@ -21,6 +21,11 @@ export const COPY = {
     /* Leads */
     'leads.none': { title: 'No open leads', description: 'Add one, import a spreadsheet, or check Booked and Clients. Everyone might just be further down the pipeline.', action: 'Add lead', secondary: 'Import spreadsheet' },
     'leads.filter': { title: 'Nothing matches', description: 'Loosen a filter or clear the search.', action: 'Clear all' },
+    /* Dial lists (CRM revamp, step 3) */
+    'lists.none': { title: 'No lists yet', description: 'Build one from the leads you want to call this week, then start when it is full.', action: 'New list' },
+    'lists.empty': { title: 'Nothing on this list', description: 'Add leads from their cards, or fill it from the filters.', action: 'Fill from filters' },
+    'lists.picker': { title: 'No open lists', description: 'Make one below and this lead goes on it.' },
+    'calls.lists': { title: 'No lists to run', description: 'Build a list on Lists, or run a quick session from the filters.', action: 'Quick session' },
     'leads.declined': { title: 'Nothing declined', description: 'Decline a lead from its menu when it is not worth a call. It lands here with the reason, and Bring back returns it to triage.' },
     'leads.nurture': { title: 'Nobody in nurture', description: 'A lead that is not ready now sits here until you bring it back to triage.' },
     'leads.dupes': { title: 'No duplicates found', description: 'No two leads share a phone number or a business name in the same industry.', action: 'Back to all leads' },
@@ -88,6 +93,7 @@ export const COPY = {
     leads: { title: 'Could not load your leads', description: 'The call_leads list did not come back. Try again; nothing was changed.' },
     submissions: { title: 'Could not load submissions', description: 'The website submissions did not come back. Try again.' },
     orders: { title: 'Could not load print orders', description: 'The orders list did not come back. Try again.' },
+    lists: { title: 'The lists did not load', description: 'The dial lists could not be fetched. Try again.', action: 'Try again' },
     sets: { title: 'The concepts did not load', description: 'The concept sets could not be fetched. Try again.', action: 'Try again' },
     projects: { title: 'Could not load client projects', description: 'The projects did not come back, so payments and retainers are missing. Try again.' },
     settings: { title: 'Could not load settings', description: 'The settings document did not come back. Try again.' },

@@ -17,6 +17,7 @@ import { handler as conceptPacks } from '../_routes/concept-packs.js';
 import { handler as conceptSets } from '../_routes/concept-sets.js';
 import { handler as exportHandler } from '../_routes/export.js';
 import { handler as leadsImport } from '../_routes/leads-import.js';
+import { handler as lists } from '../_routes/lists.js';
 import { handler as log } from '../_routes/log.js';
 import { handler as orders } from '../_routes/orders.js';
 import { handler as posts } from '../_routes/posts.js';
@@ -34,6 +35,7 @@ const ROUTES = {
   'concept-packs': route(conceptPacks, { methods: ['GET', 'POST', 'PATCH'] }),
   'concept-sets': route(conceptSets, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 512 * 1024 }),
   'export': route(exportHandler, { methods: ['GET'] }),
+  'lists': route(lists, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'leads-import': route(leadsImport, { methods: ['POST'], maxBody: 2 * 1024 * 1024 }),
   'log': route(log, { methods: ['GET', 'POST', 'DELETE'], maxBody: 16 * 1024 }),
   'orders': route(orders, { methods: ['GET', 'POST', 'PATCH'] }),

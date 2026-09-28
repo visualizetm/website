@@ -207,7 +207,7 @@ export default function AdminLeads({
   // onStatusStep is the keyboard path on the kanban (Shift+ArrowLeft, Shift+ArrowRight on a focused card): one column over.
   const stepStatus = (l, dir) => { const ids = BOARD_STATUSES.map(s => s.id); const i = ids.indexOf(l.callStatus || 'not-called'); const next = ids[i + dir]; if (next) { patch(l._id, { callStatus: next }); toast.info(`${l.business} moved to ${BOARD_STATUSES.find(s => s.id === next)?.label || next}.`); } };
   const decline = useDecline({ onPatch: patch, onDeclined: (l) => { if (sel?._id === l._id) back(); } });
-  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onStatusStep: (dir) => stepStatus(l, dir), onDecline: () => decline.open(l), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
+  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onStatusStep: (dir) => stepStatus(l, dir), onDecline: () => decline.open(l), onAddToList: shell?.openListPicker ? () => shell.openListPicker([l]) : undefined, onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
   const toggleCheck = (id, on) => setChecked(prev => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
   const cardProps = (l) => ({ onOpen: () => pick(l._id), selected: sel?._id === l._id, selectable: selectMode || checked.size > 0, checked: checked.has(l._id), onCheck: (v) => toggleCheck(l._id, v), actions: cardActions(l) });
 
@@ -453,6 +453,7 @@ export default function AdminLeads({
           <Row gap={2} wrap justify="center" className="ld-bulk-row">
             <span className="ld-bulk-n">{checked.size} selected{blockedCount ? `, ${blockedCount} protected` : ''}</span>
             <Menu label="Change priority" align="start" trigger={<Button variant="secondary" iconEnd="ChevronDown">Priority</Button>} items={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, onSelect: () => bulkPatch([...checked], { priority: p.id }, `set to ${p.label.toLowerCase()}`) }))} />
+            {shell?.openListPicker && <Button variant="secondary" icon="Rows01" onClick={() => shell.openListPicker(checkedLeads.filter(l => effectiveStage(l) === 'lead'))} disabled={!checkedLeads.some(l => effectiveStage(l) === 'lead')}>Add to list</Button>}
             <Menu label="Change status" align="start" trigger={<Button variant="secondary" iconEnd="ChevronDown">Status</Button>} items={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon, onSelect: () => bulkPatch([...checked], { callStatus: s.id }, `marked ${s.label.toLowerCase()}`) }))} />
             <Button variant="secondary" icon="PhoneCall01" onClick={addToSession}>Add to session</Button>
             <Button variant="secondary" icon={Download01} onClick={exportCsv}>Export CSV</Button>

@@ -51,11 +51,17 @@ export const SCREENS = [
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },
   { id: 'leads-detail', screen: 'Leads', label: 'lead detail', path: '/admin/leads', open: 'L0', region: '.aa-main.ld-main', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: (p, w) => click(p.locator(w >= 1024 ? '.v-tr' : '.lc')) },
 
-  { id: 'calls-builder', screen: 'Call Console', label: 'builder', path: '/admin/calls', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session') },
+  { id: 'calls-lists', screen: 'Call Console', label: 'the lists to run', path: '/admin/calls', resource: 'lists', prep: (p) => rmLS(p, 'vz_call_session') },
+  { id: 'calls-builder', screen: 'Call Console', label: 'quick session builder', path: '/admin/calls', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.getByRole('button', { name: 'Quick session' })); await p.mouse.move(0, 0); } }, // the pointer leaves the sticky Start button, so axe reads it at rest and not on hover
   { id: 'calls-queue', screen: 'Call Console', label: 'queue', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('queue')) },
   { id: 'calls-room', screen: 'Call Console', label: 'room', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('room')) },
   { id: 'calls-summary', screen: 'Call Console', label: 'summary', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('summary')) },
 
+  // Dial lists (CRM revamp, step 3).
+  { id: 'lists-grid', screen: 'Lists', label: 'the open lists', path: '/admin/lists', resource: 'lists' },
+  { id: 'lists-detail', screen: 'Lists', label: 'one list, its leads in order', path: '/admin/lists', resource: 'lists', region: '.ls-shell', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Tuesday morning/ })) },
+  { id: 'lists-fill', screen: 'Lists', label: 'Fill from filters', path: '/admin/lists', resource: 'lists', region: '.v-sheet', detail: true, act: async (p) => { await click(p.getByRole('button', { name: /^Tuesday morning .* actions$/ })); await click(p.getByRole('menuitem', { name: 'Fill from filters' })); } },
+  { id: 'lists-picker', screen: 'Lists', label: 'Add to list from a record', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'lists', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: /^(Add to list|Move list)$/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'booked-list', screen: 'Booked', label: 'list', path: '/admin/booked', resource: 'leads' },
   { id: 'booked-detail', screen: 'Booked', label: 'detail', path: '/admin/booked', open: 'L8', region: '.aa-main.bk-main', resource: 'leads', detail: true, act: (p) => click(p.locator('.lc')) },
 

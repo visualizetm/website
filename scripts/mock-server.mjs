@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, packs, sets, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, packs, sets, lists, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -51,6 +51,7 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/orders')) return m === 'GET' ? get('orders') : json(res, { ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } });
   if (p.startsWith('/api/admin/concept-packs')) return get('packs');
   if (p.startsWith('/api/admin/concept-sets')) return m === 'GET' ? get('sets') : json(res, { ok: true, item: { ...sets[0], _id: 'SNEW' } });
+  if (p.startsWith('/api/admin/lists')) return m === 'GET' ? get('lists') : json(res, { ok: true, item: { ...lists[1], _id: 'LSNEW' } });
   /* The public concepts page (Concepts rebuild), so Lighthouse and the scene
      audit see the fixture set by its token. Reads only; a POST answers ok. */
   if (p === '/api/concepts') {

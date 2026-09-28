@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Sheet, Stack, Row, Button, Textarea, Icon, useToast } from '../ui';
 import { DECLINE_REASONS } from '../shared/semantics';
 import { COPY } from '../shared/copy';
+import { declinePatch, undoDeclinePatch } from '../lib/decline';
+
+export { declinePatch, undoDeclinePatch };
 
 /* Decline a lead (CRM revamp, step 1): one sheet, reached from the lead
  * card's menu, the record's action row and the call room. Six reasons as a
@@ -14,15 +17,6 @@ import { COPY } from '../shared/copy';
  *   const decline = useDecline({ onPatch, onDeclined });
  *   ... onSelect: () => decline.open(lead) ...
  *   {decline.sheet} */
-export function declinePatch(lead, reason, note) {
-  const set = { stage: 'declined', declined: { reason, note: String(note || '').trim().slice(0, 300), at: new Date().toISOString() }, callbackAt: '', nextAction: null, explicit: true };
-  if (lead?.afterCall && typeof lead.afterCall === 'object' && lead.afterCall.nextAction) set.afterCall = { ...lead.afterCall, nextAction: '' };
-  return set;
-}
-export function undoDeclinePatch(lead) {
-  return { stage: lead?.stage && lead.stage !== 'declined' ? lead.stage : 'lead', declined: null, callbackAt: lead?.callbackAt || '', nextAction: lead?.nextAction || null, explicit: true, ...(lead?.afterCall && typeof lead.afterCall === 'object' ? { afterCall: lead.afterCall } : {}) };
-}
-
 export function useDecline({ onPatch, onDeclined }) {
   const toast = useToast();
   const [lead, setLead] = useState(null);

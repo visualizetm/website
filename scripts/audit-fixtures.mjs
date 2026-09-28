@@ -294,6 +294,7 @@ export const leads = Array.from({ length: 16 }, (_, i) => ({
   enrichment: i % 2 ? { lastScanAt: new Date(Date.now() - (i > 6 ? 20 : 2) * 864e5).toISOString(), scanCount: i } : undefined,
   callbackAt: i === 1 ? new Date(Date.now() + 2 * 3600e3).toISOString() : i === 6 ? new Date(Date.now() - 26 * 3600e3).toISOString() : undefined,
   sourceId: i > 9 ? 'gm:' + i : undefined,
+  listId: ({ L0: 'LS1', L3: 'LS1', L4: 'LS1', L7: 'LS2', L1: 'LS2' })['L' + i] || '', // the dial list each lead is on
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
   angle: 'Their reviews carry them but the site is a dead link, show them what they lose. '.repeat(3),
@@ -306,6 +307,16 @@ export const leads = Array.from({ length: 16 }, (_, i) => ({
   callLog: [{ at: '2026-08-05T14:22:00Z', outcome: 'no-answer', note: 'Rang out ' + UNBROKEN.slice(0, 60), meeting: '', email: '' }],
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
 }));
+
+/* Dial lists (CRM revamp, step 3): the system list from the callbacks due
+ * (L6 overdue, L1 today), a morning list part filled, a full list, and one
+ * done yesterday. The leads on a hand list carry its id. */
+export const lists = [
+  { _id: 'LS0', name: 'Callbacks due', target: 500, window: 'any', leadIds: ['L6', 'L1'], status: 'open', system: true, scheduledFor: '', createdAt: daysFrom(-30), updatedAt: NOW_ISO },
+  { _id: 'LS1', name: 'Tuesday morning ' + UNBROKEN.slice(0, 12), target: 5, window: 'morning', leadIds: ['L0', 'L3', 'L4'], status: 'open', system: false, scheduledFor: '', createdAt: daysFrom(-2), updatedAt: NOW_ISO },
+  { _id: 'LS2', name: 'Detailers, hot', target: 2, window: 'any', leadIds: ['L7', 'L1'], status: 'open', system: false, scheduledFor: daysFrom(1).slice(0, 10), createdAt: daysFrom(-1), updatedAt: NOW_ISO },
+  { _id: 'LS3', name: 'Last week', target: 10, window: 'evening', leadIds: ['L3'], status: 'done', system: false, scheduledFor: '', createdAt: daysFrom(-9), updatedAt: daysFrom(-1) },
+];
 
 export const items = Array.from({ length: 13 }, (_, i) => ({
   _id: 'id' + i,
@@ -386,10 +397,11 @@ export const PAYLOADS = {
   orders: () => ({ items: orders, unimported: 2 }),
   packs: () => ({ items: packs }),
   sets: () => ({ items: sets }),
+  lists: () => ({ items: lists }),
   projects: () => ({ items: projects }),
   posts: () => ({ items: posts }),
 };
-export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
@@ -445,6 +457,15 @@ export async function mockRoutes(page, opts = {}) {
     }
     if (s.status === 'sent') s.status = 'viewed';
     return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(publicConceptSet(s)) });
+  });
+  await page.route('**/api/admin/lists**', (r) => {
+    const m = r.request().method();
+    if (m === 'GET') return respond(r, 'lists', PAYLOADS.lists());
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    if (m === 'POST') return r.fulfill(json({ ok: true, item: { _id: 'LSNEW', target: 25, window: 'any', leadIds: [], status: 'open', system: false, scheduledFor: '', ...body, createdAt: NOW_ISO, updatedAt: NOW_ISO } }));
+    if (m === 'DELETE') return r.fulfill(json({ ok: true }));
+    const cur = lists.find(x => String(x._id) === String(body.id)) || lists[1];
+    return r.fulfill(json({ ok: true, item: { ...cur, ...(body.set || {}), updatedAt: NOW_ISO } }));
   });
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));

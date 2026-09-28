@@ -18,6 +18,8 @@ import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useDecline } from '../components/DeclineSheet';
 import { withNextAction } from '../lib/nextAction';
+import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey } from '../lib/lists';
+import ListCard, { listCardStyles } from '../components/ListCard';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
 import LeadHistory from '../components/LeadHistory';
@@ -211,7 +213,7 @@ function OutcomeBar({ current, position, total, onOutcome, onSkip, desktop, onKe
 }
 
 /* ── Summary ─────────────────────────────────────────────────── */
-function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
+function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = null, onRoll, onDone }) {
   const toast = useToast();
   const s = session.stats;
   const connects = connectsOf(s);
@@ -234,6 +236,15 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
         {booked.length > 0 && (
           <Card><Section title="Booked this session"><Stack gap={2}>{booked.map(l => <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={l.meeting?.date ? `${l.meeting.date} ${l.meeting.time || ''}` : 'Meeting set'} onClick={() => onOpenLead(l)} />)}</Stack></Section></Card>
         )}
+        {list && (
+          <Card><Section title={list.name} description={`${listCount(list)} left on the list`}>
+            <Row gap={2} wrap>
+              {!list.system && <Button icon="Calendar" onClick={() => onRoll(list)} disabled={!listCount(list)}>Roll into tomorrow</Button>}
+              {!list.system && <Button variant="secondary" icon="Check" onClick={() => onDone(list)}>Mark done</Button>}
+              {list.system && <span className="cc-hint">Callbacks due fills itself; what is left comes back tomorrow.</span>}
+            </Row>
+          </Section></Card>
+        )}
         <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to Next up</Button></Row>
       </Stagger>
     </ScrollArea>
@@ -241,7 +252,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
 }
 
 /* ── Main ────────────────────────────────────────────────────── */
-export default function AdminCalls({ embedded = false, onDataChanged, builderPreset, forceLoading = false }) {
+export default function AdminCalls({ embedded = false, onDataChanged, builderPreset, forceLoading = false, lists = [], listsLoading = false, listsError = false, onRetryLists, listOps = null }) {
   const shell = useShell();
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
@@ -269,6 +280,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
 
   // Flow
   const [mode, setMode] = useState('builder'); // builder | queue | room | summary
+  const [quick, setQuick] = useState(false); // builder mode shows the lists first; Quick session is the old builder (CRM revamp, step 3)
   const [session, setSession] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [tab, setTab] = useState(() => readLS(TAB_KEY, 'script'));
@@ -289,8 +301,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     const p = builderPreset.preset || {};
     setSelStatus(new Set(p.status || [])); setSelPrio(new Set(p.prio || [])); setSelInd(new Set()); setSelWin(new Set()); setRightNow(false);
     setPresetIds(Array.isArray(p.ids) && p.ids.length ? p.ids : null);
-    setMode('builder');
+    setMode('builder'); setQuick(!p.listId && (!!p.status || !!p.prio || !!p.ids));
     if (p.autostart && Array.isArray(p.ids) && p.ids.length) setAutostart(p.ids);
+    if (p.listId) setStartList(p.listId);
   }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -304,13 +317,14 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   }, []);
   useEffect(() => { if (authed) load(); }, [authed, load]);
   const [retry, retrying] = useRetry(load);
+  const [listsRetry, listsRetrying] = useRetry(onRetryLists || (() => {})); // the lists view's Try again (CRM revamp, step 3), a hook, so above the early return
   const loadFailed = loadError && !loaded && <Card><ErrorState title={COPY.error.calls.title} description={COPY.error.calls.description} onRetry={retry} retrying={retrying} /></Card>;
 
   // Persisted session survives a phone call or a reload.
   useEffect(() => {
     const s = readLS(SESSION_KEY, null);
     if (Array.isArray(s?.ids) && s.ids.length) {
-      setSession({ ids: s.ids, idx: Math.min(Math.max(0, s.idx || 0), s.ids.length - 1), stats: { ...EMPTY_STATS, ...(s.stats || {}) }, logged: s.logged || {}, startedAt: s.startedAt || Date.now(), size: s.size || s.ids.length });
+      setSession({ ids: s.ids, idx: Math.min(Math.max(0, s.idx || 0), s.ids.length - 1), stats: { ...EMPTY_STATS, ...(s.stats || {}) }, logged: s.logged || {}, startedAt: s.startedAt || Date.now(), size: s.size || s.ids.length, listId: s.listId || '' });
       setMode(s.mode === 'summary' ? 'summary' : s.mode === 'room' ? 'room' : 'queue');
     }
   }, []);
@@ -392,6 +406,19 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length });
     setPredial({}); setTimer(null); setSheet(null); setMode('room');
   }, [autostart, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* A list session (CRM revamp, step 3): the list's leads in its order, the
+     list remembered on the session so every outcome updates it. */
+  const [startList, setStartList] = useState(null);
+  useEffect(() => {
+    if (!startList || !loaded) return;
+    const list = lists.find(l => String(l._id) === String(startList));
+    setStartList(null);
+    if (!list) return;
+    const ids = (list.leadIds || []).map(String).filter(id => leadsById.has(id));
+    if (!ids.length) { toast.info(`${list.name} has nobody to call.`); return; }
+    setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length, listId: String(list._id) });
+    setPredial({}); setTimer(null); setSheet(null); setMode(desktop ? 'room' : 'queue');
+  }, [startList, loaded, lists]); // eslint-disable-line react-hooks/exhaustive-deps
   const startSession = (startId) => {
     let ids = sized.map(l => l._id);
     if (startId && !ids.includes(startId)) ids = callable.map(l => l._id);
@@ -401,7 +428,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setMode(startId || desktop ? 'room' : 'queue');
   };
   const endSession = () => { setSheet(null); setTimer(null); setMode('summary'); };
-  const newSession = () => { setSession(null); setSheet(null); setTimer(null); setMode('builder'); };
+  const newSession = () => { setSession(null); setSheet(null); setTimer(null); setMode('builder'); setQuick(false); };
   const goTo = (i) => { setSession(s => (s ? { ...s, idx: i } : s)); setPredial({}); setTimer(null); setMode('room'); };
   const advance = useCallback((d = 1) => {
     setSheet(null); setPredial({}); setTimer(null);
@@ -439,6 +466,16 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       return false;
     }
     onDataChanged?.();
+    /* The list rule on the same beat (CRM revamp, step 3): booked, no,
+       wrong-number and callback take the lead off the list and clear its
+       listId; no-answer moves it to the bottom for next time. A callback
+       lands on Callbacks due through the sync. */
+    if (session?.listId && listOps) {
+      const list = lists.find(l => String(l._id) === String(session.listId));
+      const next = list ? applyOutcome(list.leadIds, lead._id, outcome) : null;
+      if (next) listOps.applyOutcome(session.listId, lead._id, next, outcomeRemoves(outcome));
+      if (outcome === 'callback') listOps.syncCallbacksDue(leads.map(l => (l._id === lead._id ? { ...l, ...set } : l)));
+    }
     setPulse(outcome); setTimeout(() => setPulse(null), durationMs('--v-dur-slow') + 80);
     let removed = false;
     if (outcome === 'no') { removed = true; removeFromLists(lead._id); apiFetch(`/api/admin/call-leads?id=${encodeURIComponent(lead._id)}`, { method: 'DELETE' }); }
@@ -495,6 +532,34 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   if (authed === null) return <div className="cc-page lay-root"><style>{uiStyles + ccStyles}</style></div>;
 
   /* ── Views ── */
+  /* The Call tab opens on the lists (CRM revamp, step 3): every open list as
+     a card with Start, and Quick session for the old builder. */
+  const openListsNow = openLists(lists);
+  const listsView = (
+    <PageShell className="cc-shell">
+      <ScrollArea className="cc-builder">
+        {pending ? null : loadFailed ? loadFailed : showSkel || listsLoading ? (
+          <Stack gap={5} aria-busy="true">
+            <Stack gap={1}><SkeletonBlock width={140} height={16} /><SkeletonText lines={desktop ? 1 : 2} lineHeight={desktop ? 38 : 30} gap={1} width="70%" /><SkeletonText lines={1} lineHeight={18} width="60%" /></Stack>
+            <div className="ls-grid">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4}><Stack gap={3}><Row gap={2} justify="between"><SkeletonBlock width={140} height={18} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</div>
+          </Stack>
+        ) : listsError && !lists.length ? (
+          <Card><ErrorState title={COPY.error.lists.title} description={COPY.error.lists.description} onRetry={listsRetry} retrying={listsRetrying} /></Card>
+        ) : (
+          <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
+            <Stack gap={1}><p className="cc-kicker">Pick a list</p><h2 className="cc-title">What are we running?</h2><p className="cc-sub">Start a list you built, or run a quick session from the filters.</p></Stack>
+            {openListsNow.length ? (
+              <div className="ls-grid">{openListsNow.map(l => <ListCard key={l._id} list={l} onOpen={() => setStartList(l._id)} onStart={(x) => setStartList(x._id)} onMenu={(x) => [{ id: 'start', label: 'Start', icon: 'Play', onSelect: () => setStartList(x._id), disabled: !listCount(x) }, { id: 'open', label: 'Open on Lists', icon: 'Rows01', onSelect: () => shell?.go('lists') }]} />)}</div>
+            ) : (
+              <Card><EmptyState icon="Rows01" title={COPY.empty['calls.lists'].title} description={COPY.empty['calls.lists'].description} action={{ label: COPY.empty['calls.lists'].action, icon: Play, onClick: () => setQuick(true) }} secondary={{ label: 'Open Lists', onClick: () => shell?.go('lists') }} /></Card>
+            )}
+            {openListsNow.length > 0 && <Row gap={2} wrap><Button variant="secondary" icon={Play} onClick={() => setQuick(true)} className="cc-quick">Quick session</Button><Button variant="ghost" icon="Rows01" onClick={() => shell?.go('lists')}>Open Lists</Button></Row>}
+          </Stagger>
+        )}
+      </ScrollArea>
+      <style>{listCardStyles}</style>
+    </PageShell>
+  );
   const builderView = (
     <PageShell className="cc-shell">
       <ScrollArea className="cc-builder">
@@ -512,6 +577,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
         ) : (
           <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
             <Stack gap={1}><p className="cc-kicker">Build your session</p><h2 className="cc-title">Who are we dialing?</h2><p className="cc-sub">Pick the kind of leads for this block of calls. Nothing selected in a group means all of them.</p></Stack>
+            {openListsNow.length > 0 && <Row gap={2}><Button variant="ghost" icon="ArrowLeft" onClick={() => setQuick(false)}>Back to the lists</Button></Row>}
             {presetIds && <Section title="Picked from Leads"><Row gap={2} wrap><Chip label={`${presetIds.length} selected lead${presetIds.length === 1 ? '' : 's'}`} count={presetIds.length} selected onClick={() => setPresetIds(null)} /><span className="cc-hint">Tap to clear and build from filters instead.</span></Row></Section>}
             <Section title="Priority"><ChipGroup label="Priority" value={selPrio} onChange={setSelPrio} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, count: count('prio', l => (l.priority || 'warm') === p.id) }))} /></Section>
             <Section title="Call status"><ChipGroup label="Call status" value={selStatus} onChange={setSelStatus} options={BOARD.map(s => ({ id: s.id, label: s.label, icon: s.icon, count: count('status', l => (l.callStatus || 'not-called') === s.id) }))} /></Section>
@@ -625,8 +691,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
 
   return (
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
-      {mode === 'builder' && builderView}
-      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} />)}
+      {mode === 'builder' && (quick ? builderView : listsView)}
+      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} list={session.listId ? lists.find(l => String(l._id) === String(session.listId)) : null} onRoll={async (l) => { const ok = await listOps?.patchList(l._id, { scheduledFor: tomorrowKey() }); if (ok) { toast.success(`${l.name} rolls into tomorrow, ${listCount(l)} left.`); newSession(); } else toast.error(COPY.error.save); }} onDone={async (l) => { const ok = await listOps?.finishList(l._id); if (ok) { toast.success(`${l.name} done.`); newSession(); } else toast.error(COPY.error.save); }} />)}
       {(mode === 'queue' || mode === 'room') && session && (desktop ? (
         <div className="cc-desk">
           <aside className="cc-desk-left" aria-label="Queue"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>

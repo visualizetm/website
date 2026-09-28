@@ -15,6 +15,8 @@ import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { conceptsBadge } from '../lib/concepts';
 import { withNextAction, nextUpBadge } from '../lib/nextAction';
+import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead, listsBadge } from '../lib/lists';
+import ListPicker from '../components/ListPicker';
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
@@ -30,6 +32,7 @@ const loaders = {
   showcase: () => import('./AdminShowcase'),
   planner: () => import('./AdminPlanner'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
+  lists: () => import('./AdminLists'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -46,6 +49,7 @@ const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
+const AdminLists = lazy(loaders.lists);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -140,7 +144,7 @@ export default function AdminApp() {
     let prev;
     setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } });
-    if (r.ok) return true;
+    if (r.ok) { if (cur) reconcileRef.current?.(id, { ...cur, ...set }, callLeadsRef.current.map(l => (l._id === id ? { ...l, ...set } : l)), set); return true; }
     if (prev) setCallLeads(ls => ls.map(l => l._id === id ? prev : l));
     return false;
   }, []);
@@ -233,6 +237,88 @@ export default function AdminApp() {
     return true;
   }, []);
   useEffect(() => { if (authed) loadSets(); }, [authed, loadSets]);
+  /* Dial lists (CRM revamp, step 3), loaded at the shell level like the
+     other collections. The ops below are the one place a list is written
+     from a screen: the picker, the Lists screen and the Call Console all
+     go through them, so the list's members and each lead's listId move
+     together, and the system list Callbacks due is kept in step on every
+     write that touches a callback (reconcileLists, below). */
+  const [lists, setLists] = useState([]);
+  const [listsLoading, setListsLoading] = useState(true);
+  const listsRef = useRef([]); listsRef.current = lists;
+  const loadLists = useCallback(async () => {
+    const r = await apiFetch('/api/admin/lists');
+    if (r.ok) { setLists(r.data?.items || []); setErr('lists', false); } else setErr('lists', true);
+    setListsLoading(false);
+  }, [setErr]);
+  useEffect(() => { if (authed) loadLists(); }, [authed, loadLists]);
+  const createList = useCallback(async (doc) => {
+    const r = await apiFetch('/api/admin/lists', { method: 'POST', body: doc });
+    if (!r.ok) return null;
+    if (r.data?.item) setLists(ls => [r.data.item, ...ls]);
+    return r.data?.item || null;
+  }, []);
+  const patchList = useCallback(async (id, set, opts = {}) => {
+    let prev;
+    setLists(ls => ls.map(l => { if (String(l._id) === String(id)) { prev = l; return { ...l, ...set }; } return l; }));
+    const r = await apiFetch('/api/admin/lists', { method: 'PATCH', body: { id, set, ...(opts.sync ? { sync: true } : {}) } });
+    if (r.ok) { if (r.data?.item) setLists(ls => ls.map(l => (String(l._id) === String(id) ? r.data.item : l))); return true; }
+    if (prev) setLists(ls => ls.map(l => (String(l._id) === String(id) ? prev : l)));
+    return false;
+  }, []);
+  /* After a lead write: a lead that left stage lead or had its listId
+     cleared leaves any open hand list; the system list follows the
+     callbacks. Best effort, never blocks the write that caused it. */
+  const reconcileLists = useCallback((id, merged, allLeads, set) => {
+    const touched = ['stage', 'callStatus', 'callbackAt', 'listId', 'deleted'].some(k => k in set);
+    if (!touched) return;
+    const left = effectiveStage(merged) !== 'lead' || set.listId === '' || merged.deleted;
+    if (left) for (const l of openLists(listsRef.current)) if (!l.system && (l.leadIds || []).map(String).includes(String(id))) patchList(l._id, { leadIds: withoutLead(l.leadIds, id) });
+    const sys = systemList(listsRef.current);
+    if (sys) { const ids = callbacksDueIds(allLeads); if (!sameIds(ids, sys.leadIds || [])) patchList(sys._id, { leadIds: ids }, { sync: true }); }
+  }, [patchList]);
+  const syncCallbacksDue = useCallback((leadsOverride) => {
+    const sys = systemList(listsRef.current); if (!sys) return;
+    const ids = callbacksDueIds(leadsOverride || callLeadsRef.current);
+    if (!sameIds(ids, sys.leadIds || [])) patchList(sys._id, { leadIds: ids }, { sync: true });
+  }, [patchList]);
+  const listOps = useMemo(() => ({
+    createList, patchList, loadLists, syncCallbacksDue,
+    /* Add leads to one list: the list gains them (unique, capped), every other open hand list loses them, each lead's listId points at it. */
+    addToList: async (ids, listId) => {
+      const target = listsRef.current.find(l => String(l._id) === String(listId)); if (!target || target.system) return null;
+      const ok = await patchList(target._id, { leadIds: withLeads(target.leadIds, ids) }); if (!ok) return null;
+      for (const l of openLists(listsRef.current)) if (!l.system && String(l._id) !== String(listId) && (l.leadIds || []).some(x => ids.map(String).includes(String(x)))) patchList(l._id, { leadIds: (l.leadIds || []).filter(x => !ids.map(String).includes(String(x))) });
+      for (const id of ids) { const lead = callLeadsRef.current.find(l => l._id === id); if (lead && lead.listId !== String(listId)) patchCallLead(id, { listId: String(listId) }); }
+      return { count: withLeads(target.leadIds, ids).length };
+    },
+    removeFromList: async (id, listId) => {
+      const l = listsRef.current.find(x => String(x._id) === String(listId)); if (!l) return false;
+      const ok = await patchList(l._id, { leadIds: withoutLead(l.leadIds, id) });
+      const lead = callLeadsRef.current.find(x => x._id === id);
+      if (ok && lead && String(lead.listId) === String(listId)) patchCallLead(id, { listId: '' });
+      return ok;
+    },
+    /* Done or deleted: the list closes and its leads are free again. */
+    finishList: async (listId, remove = false) => {
+      const l = listsRef.current.find(x => String(x._id) === String(listId)); if (!l || l.system) return false;
+      let ok;
+      if (remove) { const r = await apiFetch(`/api/admin/lists?id=${encodeURIComponent(listId)}`, { method: 'DELETE' }); ok = r.ok; if (ok) setLists(ls => ls.map(x => (String(x._id) === String(listId) ? { ...x, status: 'done' } : x))); }
+      else ok = await patchList(l._id, { status: 'done' });
+      if (ok) for (const id of (l.leadIds || [])) { const lead = callLeadsRef.current.find(x => x._id === String(id)); if (lead && String(lead.listId) === String(listId)) patchCallLead(String(id), { listId: '' }); }
+      return ok;
+    },
+    /* An outcome from the Call Console: the list rule on the same beat. */
+    applyOutcome: async (listId, leadId, nextIds, removes) => {
+      const l = listsRef.current.find(x => String(x._id) === String(listId)); if (!l || !nextIds) return false;
+      const ok = await patchList(l._id, { leadIds: nextIds }, l.system ? { sync: true } : {});
+      if (ok && removes) { const lead = callLeadsRef.current.find(x => x._id === String(leadId)); if (lead && String(lead.listId) === String(listId)) patchCallLead(String(leadId), { listId: '' }); }
+      return ok;
+    },
+  }), [createList, patchList, loadLists, syncCallbacksDue, patchCallLead]);
+  const reconcileRef = useRef(null); reconcileRef.current = reconcileLists;
+  const [pickerLeads, setPickerLeads] = useState(null);
+  const openListPicker = useCallback((leads) => { const ls = (Array.isArray(leads) ? leads : [leads]).filter(Boolean); if (ls.length) setPickerLeads(ls); }, []);
   // The latest lists for the write helpers above, which are memoised once.
   const callLeadsRef = useRef([]); callLeadsRef.current = callLeads;
   const projectsRef = useRef([]); projectsRef.current = projects;
@@ -276,6 +362,7 @@ export default function AdminApp() {
     if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/booked')) return 'booked';
+    if (p.startsWith('/lists')) return 'lists';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
@@ -297,7 +384,7 @@ export default function AdminApp() {
   // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
   const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
-  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [], sets: [] } : { leads: callLeads, items, projects, orders, posts, sets };
+  const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [], sets: [], lists: [] } : { leads: callLeads, items, projects, orders, posts, sets, lists };
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
   const go = useCallback((sec, itemId) => {
@@ -480,7 +567,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets) };
+  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -488,7 +575,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -569,8 +656,13 @@ export default function AdminApp() {
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
       )}
       {section === 'calls' && (
-        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} /></div>
+        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} lists={V.lists} listsLoading={listsLoading} listsError={errors.lists} onRetryLists={loadLists} listOps={listOps} /></div>
       )}
+      {section === 'lists' && (
+        <AdminLists lists={V.lists} leads={V.leads} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists} onRetry={loadLists} ops={listOps} onPatchLead={patchCallLead} onOpenLead={openLead}
+          onStart={(list) => { navigate(`${BASE}/calls`); setPresetReq({ section: 'calls', preset: { listId: String(list._id) }, n: Date.now() }); }} openId={reqFor('lists')} />
+      )}
+      {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
       {section === 'booked' && (
         <AdminBooked
           leads={V.leads}

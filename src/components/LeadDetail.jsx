@@ -240,6 +240,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       <Row gap={2} wrap>
         <Button icon={PhoneCall01} onClick={() => shell?.go('calls', { ids: [lead._id], autostart: true })} disabled={!lead.phone}>Start call</Button>
         {!readOnly && <Button variant="secondary" icon={Edit02} onClick={() => setEditAll(true)} className="dt-editall">Edit all</Button>}
+        {!readOnly && stage === 'lead' && shell?.openListPicker && <Button variant="secondary" icon="Rows01" onClick={() => shell.openListPicker([lead])}>{lead.listId ? 'Move list' : 'Add to list'}</Button>}
         {!readOnly && !clientMode && !['declined', 'won', 'client'].includes(stage) && <Button variant="ghost" icon="SlashCircle01" onClick={() => decline.open(lead)} className="dt-decline">Decline</Button>}
         {stage === 'client' && !clientMode && <Button variant="ghost" onClick={() => shell?.openRecord(lead)}>Open client record</Button>}
         {/* Site Prompt 7, Part 3: the Showcase tab became its own page, so

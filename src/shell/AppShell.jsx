@@ -37,7 +37,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, funnel, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], posts = [], sets = [], onOpenConcepts, styles, children,
+  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onLogout, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenListPicker, listOps = null, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
@@ -137,7 +137,8 @@ export default function AppShell({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
     newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts,
-  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+    lists, openListPicker: onOpenListPicker, listOps,
+  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
@@ -165,7 +166,7 @@ export default function AppShell({
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} funnel={funnel} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
           <TopBar title={title} onBack={topBar?.back || null}
-            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead} />}
+            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
           {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}
           <div className={`sh-offline${online ? ' is-hidden' : ''}`} role="status" aria-live="polite">{!online && <><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></>}</div>

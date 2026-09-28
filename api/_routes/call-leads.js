@@ -353,6 +353,8 @@ function sanitize(b) {
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
     } : undefined,
+    // CRM revamp, step 3: the one open dial list this lead is on ('' when none).
+    listId: b.listId !== undefined ? (b.listId === null ? '' : str(b.listId, 64)) : undefined,
     // CRM revamp, step 2: the one thing to do next (api/_lib/nextAction.js). null clears it.
     nextAction: sanitizeNextAction(b.nextAction, str),
     /* CRM revamp, step 1: why a lead was declined. null clears it (Bring

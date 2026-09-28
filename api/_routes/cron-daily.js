@@ -4,6 +4,7 @@ import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
 import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline.js';
 import { nextActionFor, resolveNextAction, sameAction } from '../_lib/nextAction.js';
+import { syncCallbacksDue } from '../_lib/lists.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
@@ -127,6 +128,10 @@ export async function handler(req, res) {
     await projects.updateOne({ _id: p._id }, { $set: { nextAction: next, updatedAt: new Date() } }); nextActions++;
   }
 
+  /* 1e. The Callbacks due dial list (CRM revamp, step 3): its members are
+     recomputed from every callback due today or earlier. */
+  const callbacksDue = await syncCallbacksDue(db);
+
   // 2. Health.
   const since24 = new Date(Date.now() - 24 * 3600e3); const since7 = new Date(Date.now() - 7 * 864e5);
   const scanned = await leads.find({ deleted: { $ne: true }, 'enrichment.lastScanAt': { $exists: true, $ne: '' } }).project({ enrichment: 1, descriptor: 1, industry: 1, phone: 1, email: 1, socials: 1, intel: 1 }).toArray();
@@ -143,12 +148,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions,
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length,
       // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
       healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, health });
 }
