@@ -5,7 +5,7 @@ import { safeUrl } from '../_lib/url.js';
 
 import {
   CONCEPT_STATUS_IDS,
-  CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES,
+  CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES, DECLINE_REASON_IDS,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
   RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
   TESTIMONIAL_SOURCE_IDS,
@@ -296,7 +296,7 @@ function sanitize(b) {
       : undefined,
     // ── Prompt 10 client fields (all additive) ──
     links: b.links && typeof b.links === 'object' ? {
-      website: link(b.links.website), drive: link(b.links.drive), clickup: link(b.links.clickup), instagram: link(b.links.instagram),
+      website: link(b.links.website), drive: link(b.links.drive), instagram: link(b.links.instagram),
     } : undefined,
     brand: b.brand && typeof b.brand === 'object' ? {
       primary: str(b.brand.primary, 20),
@@ -352,6 +352,13 @@ function sanitize(b) {
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
     } : undefined,
+    /* CRM revamp, step 1: why a lead was declined. null clears it (Bring
+       back); an unknown reason reads as other. */
+    declined: b.declined === null ? null : b.declined && typeof b.declined === 'object' ? {
+      reason: DECLINE_REASON_IDS.includes(b.declined.reason) ? b.declined.reason : 'other',
+      note: str(b.declined.note, 300),
+      at: str(b.declined.at, 40),
+    } : undefined,
   };
 }
 
@@ -387,24 +394,29 @@ export async function handler(req, res) {
       });
     if (!docs.length) return res.status(400).json({ error: 'business name required' });
 
-    // Idempotent import: skip leads whose business name already exists.
-    const existing = new Set(
-      (await col.find({}, { projection: { business: 1 } }).toArray()).map(d => d.business)
-    );
-    const fresh = docs.filter(d => !existing.has(d.business));
+    // Idempotent import: skip leads whose business name already exists, and
+    // never revive a declined record, by name or by phone (step 1 of the revamp).
+    const stored = await col.find({}, { projection: { business: 1, phone: 1, stage: 1 } }).toArray();
+    const existing = new Set(stored.map(d => d.business));
+    const tenDigits = (v) => { const x = String(v ?? '').replace(/\D/g, ''); return x.length === 11 && x.startsWith('1') ? x.slice(1) : x.slice(-10); };
+    const declinedNames = new Set(stored.filter(d => d.stage === 'declined').map(d => String(d.business || '').trim().toLowerCase()));
+    const declinedPhones = new Set(stored.filter(d => d.stage === 'declined' && tenDigits(d.phone)).map(d => tenDigits(d.phone)));
+    const isDeclined = (d) => declinedNames.has(String(d.business || '').trim().toLowerCase()) || (tenDigits(d.phone) && declinedPhones.has(tenDigits(d.phone)));
+    const declined = docs.filter(isDeclined).length;
+    const fresh = docs.filter(d => !existing.has(d.business) && !isDeclined(d));
     if (fresh.length) await col.insertMany(fresh);
 
     // Backfill: an existing lead with no socials yet gets them from a re-import.
     let backfilled = 0;
     for (const d of docs) {
-      if (!existing.has(d.business) || !Object.keys(d.socials || {}).length) continue;
+      if (!existing.has(d.business) || isDeclined(d) || !Object.keys(d.socials || {}).length) continue;
       const r = await col.updateOne(
         { business: d.business, $or: [{ socials: { $exists: false } }, { socials: {} }] },
         { $set: { socials: d.socials, updatedAt: new Date() } },
       );
       backfilled += r.modifiedCount;
     }
-    return res.status(200).json({ ok: true, inserted: fresh.length, backfilled, skipped: docs.length - fresh.length - backfilled });
+    return res.status(200).json({ ok: true, inserted: fresh.length, backfilled, skipped: docs.length - fresh.length - backfilled, declined, skippedReasons: declined ? [{ count: declined, reason: 'declined, left alone' }] : [] });
   }
 
   if (req.method === 'PATCH') {

@@ -239,7 +239,7 @@ export function buildProject(leadId, pick, opts = {}) {
   const { plan, items } = scheduleFor(total, packageId, start);
   return {
     leadId, name, kind, packageId, custom, stage: 'kickoff', stages: stagesFor(kind), total, schedule: items,
-    revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan, links: { drive: opts.drive || '', clickup: opts.clickup || '' },
+    revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan, links: { drive: opts.drive || '' },
     deliverables: deliverablesFor(kind), delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
   };
 }
@@ -247,7 +247,7 @@ export function buildRetainerProject(leadId, planId, startDate, billDay) {
   const r = retainerOf(planId);
   return {
     leadId, name: `${r.label} retainer`, kind: 'retainer', packageId: r.id, stage: 'kickoff', stages: stagesFor('retainer'), total: 0,
-    schedule: retainerSchedule(r.price, startDate, billDay), revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan: null, links: { drive: '', clickup: '' },
+    schedule: retainerSchedule(r.price, startDate, billDay), revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan: null, links: { drive: '' },
     deliverables: [], delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
     retainer: { planId: r.id, billDay, startedAt: startDate },
   };

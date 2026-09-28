@@ -100,7 +100,7 @@ Fields empty across every record, and features with zero usage:
 - `address`: 0 of 432 (a fact on the detail card, no form input) -> fact removed, sanitize kept
 - `brand.logoLink`: 0 of 432 (superseded by the showcase logo) -> removed from the Brand card, sanitize kept
 - `links.website`, `links.instagram`: 0 of 432, duplicates of socials -> derived (D3, D4), sanitize kept
-- `links.drive`, `links.clickup`: 0 of 432 today, but the project flow prefills and reads them (the new project sheet, the Drive button on release) and there is one project so far -> kept, they are workflow fields not dead ones
+- `links.drive`: 0 of 432 today, but the project flow prefills and reads it (the new project sheet, the Drive button on release) and there is one project so far -> kept, a workflow field not a dead one (the task tool link that sat beside it was removed in the CRM revamp, step 1)
 - `showcase.year`: 0 of 5 -> removed from the editor, sanitize and the public page kept (a record with one still shows it)
 - `conceptsTracker`: 2 of 432 and no screen reads it at all (grep: only the sanitize) -> nothing renders it, nothing to remove from a screen; noted
 - `intel.accomplishments/gaps/dropLines`: 0 of 432 -> the three cards fold into one collapsed "Intel" block

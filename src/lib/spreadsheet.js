@@ -3,9 +3,9 @@
 // pure column-mapping / normalization logic so it can be unit-tested.
 import { last10 } from '../shared/phone';
 
-// The 16 canonical columns Rob's sheet uses, in display order.
+// The 15 canonical columns Rob's sheet uses, in display order. sourceId is
+// never mapped from a sheet; only the scraper writes it.
 export const LEAD_FIELDS = [
-  { key: 'id',               label: 'ID (ClickUp task id)' },
   { key: 'business',         label: 'Business name', required: true },
   { key: 'owner',            label: 'Owner' },
   { key: 'phone',            label: 'Phone' },
@@ -25,7 +25,6 @@ export const LEAD_FIELDS = [
 
 // Header aliases → canonical key (all compared after stripping non-alphanumerics).
 const ALIASES = {
-  taskid: 'id', clickupid: 'id', leadid: 'id',
   company: 'business', businessname: 'business', name: 'business',
   ownername: 'owner', contact: 'owner', contactname: 'owner',
   phonenumber: 'phone', tel: 'phone', mobile: 'phone',

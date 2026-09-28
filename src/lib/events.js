@@ -66,7 +66,7 @@ export function buildEvents(leads = [], extras = [], now = Date.now(), projects 
 
   for (const l of leads) {
     const stage = normalizeStage(l);
-    if (stage === 'lost') continue;
+    if (stage === 'lost' || stage === 'declined') continue;
     // Retainer bill dates: the next bill and the two after it, all day, tone won. A bill day is also the retainer month start.
     if (isOnRetainer(l)) {
       const plan = retainerOf(l.retainer.planId);

@@ -3,7 +3,8 @@
 // purpose and must be kept identical to the client module.
 export const CALL_STATUS_IDS = ['not-called', 'callback', 'no-answer', 'booked', 'no', 'wrong-number'];
 export const PRIORITY_IDS = ['hot', 'warm', 'cold'];
-export const STAGE_IDS = ['lead', 'booked', 'won', 'client', 'lost'];
+export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
+export const DECLINE_REASON_IDS = ['well-branded', 'not-fit', 'out-of-area', 'budget', 'shady', 'other'];
 export const MEETING_TYPE_IDS = ['call', 'video', 'in-person'];
 export const PLAN_IDS = ['full', '6mo', '12mo'];
 export const CONTACT_TYPE_IDS = ['call', 'meeting', 'email', 'text', 'other'];

@@ -13,6 +13,9 @@
  *   - every path to client stamps clientSince
  *   - normalizeLead turns every shape that crashed a screen into the shape
  *     the screen expects, and leaves a well formed record identical
+ *   - a declined record (CRM revamp, step 1) is never revived by a sheet or
+ *     a bulk import, by name or by phone; a decline writes the reason and
+ *     clears the callback; Bring back clears it; an unknown reason reads as other
  *
  *   node scripts/pipeline-test.mjs
  */
@@ -62,6 +65,7 @@ function seed() {
 const lead = (id) => _stores.call_leads.find(l => String(l._id) === id);
 
 section('1. normalizeStage reads the stage field and nothing else');
+for (const s of ['triage', 'deal', 'nurture', 'declined']) ok(normalizeStage({ stage: s }) === s, `${s} is a stage`);
 ok(normalizeStage({ stage: 'client', callStatus: 'not-called' }) === 'client', 'client with callStatus not-called is a client');
 ok(normalizeStage({ stage: 'won', callStatus: 'no' }) === 'won', 'won with callStatus no is won');
 ok(normalizeStage({ stage: 'client', callLog: [] }) === 'client', 'a client with no call history is a client');
@@ -231,6 +235,34 @@ section('6. normalizeLead turns every crashing shape into the expected one');
   const same = normalizeLead(good);
   ok(JSON.stringify(same) === JSON.stringify(good), 'a well formed record comes back identical');
   ok(normalizeLead(null) === null && normalizeLead(undefined) === undefined, 'nothing in, nothing out');
+}
+
+section('6. declined: a re-import leaves it alone, a decline writes the reason, Bring back clears it');
+{
+  seed();
+  const DECL = '507f1f77bcf86cd799439034';
+  _stores.call_leads.push({ _id: DECL, business: 'Nope Detailing', phone: '(302) 555-0400', stage: 'declined', callStatus: 'not-called', priority: 'warm', declined: { reason: 'well-branded', note: '', at: '2026-09-01T00:00:00Z' }, socials: {}, callLog: [] });
+  const r = await call(leadsImport, 'POST', { body: { rows: [
+    { business: 'Nope Detailing', phone: '302-555-0400', priority: 'hot', status: 'callback', notes: 'from the sheet' },
+    { business: 'Nope Detailing LLC', phone: '+1 302 555 0400', priority: 'hot' },
+    { business: 'Brand New Co', phone: '302-555-0500' },
+  ] } });
+  ok(r._status === 200 && r._json.created === 1 && r._json.updated === 0, `the sheet creates one and updates nothing (${JSON.stringify(r._json)})`);
+  ok(r._json.skipped.length === 2 && r._json.skipped.every(x => x.reason === 'declined, left alone'), `both rows for the declined record are skipped with the reason (${JSON.stringify(r._json.skipped)})`);
+  ok(lead(DECL).stage === 'declined' && lead(DECL).priority === 'warm' && lead(DECL).callStatus === 'not-called' && !lead(DECL).notes, 'the declined record is untouched');
+  const post = await call(callLeads, 'POST', { body: { leads: [{ business: 'nope detailing', phone: '3025550400', socials: { website: 'https://nope.example' } }, { business: 'Other Name', phone: '(302) 555-0400' }, { business: 'Fresh Two', phone: '302-555-0600' }] } });
+  ok(post._status === 200 && post._json.inserted === 1 && post._json.declined === 2, `a bulk POST inserts one and skips two declined matches, by name and by phone (${JSON.stringify(post._json)})`);
+  ok(!lead(DECL).socials?.website, 'the declined record gains nothing from the backfill');
+  ok(post._json.skippedReasons?.[0]?.reason === 'declined, left alone', 'the POST names the reason');
+
+  const dec = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'declined', declined: { reason: 'out-of-area', note: 'Two hours away.', at: '2026-09-28T10:00:00Z' }, callbackAt: '' }, explicit: true } });
+  ok(dec._status === 200 && lead(LEAD).stage === 'declined' && lead(LEAD).declined?.reason === 'out-of-area' && lead(LEAD).declined?.note === 'Two hours away.' && lead(LEAD).callbackAt === '', `a decline writes stage, the reason, the note and clears the callback (${dec._status})`);
+  const bad = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { declined: { reason: 'made-up', note: 'x'.repeat(400), at: 'now', $where: '1' } } } });
+  ok(bad._status === 200 && lead(LEAD).declined.reason === 'other' && lead(LEAD).declined.note.length === 300 && !('$where' in lead(LEAD).declined), 'an unknown reason reads as other, the note caps at 300, nothing else is written');
+  const back = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'triage', declined: null }, explicit: true } });
+  ok(back._status === 200 && lead(LEAD).stage === 'triage' && lead(LEAD).declined === null, `Bring back sets triage and clears declined (${back._status}, ${lead(LEAD).stage})`);
+  const guard = await call(callLeads, 'PATCH', { body: { id: CLIENT, set: { stage: 'declined', declined: { reason: 'other', note: '', at: '' } } } });
+  ok(guard._status === 409 && lead(CLIENT).stage === 'client', 'a client cannot be declined without the explicit flag');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

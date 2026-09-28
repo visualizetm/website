@@ -120,7 +120,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
     if (ok) { toast.success(`Linked to ${lead.business}.`); setLinkEv(null); setQ(''); } else toast.error(COPY.error.save);
   };
   const createFromEv = async (values) => { const ok = await onCreate(defaultLead(values)); if (ok) { toast.success(`Added ${values.business}.`); setCreateEv(null); onRefresh?.(); } else toast.error(COPY.error.create); };
-  const searchLeads = (query) => leads.filter(l => normalizeStage(l) !== 'lost' && matchesSearch(l, query)).slice(0, 12);
+  const searchLeads = (query) => leads.filter(l => !['lost', 'declined'].includes(normalizeStage(l)) && matchesSearch(l, query)).slice(0, 12);
 
   /* Views */
   const dayStrip = (

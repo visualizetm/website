@@ -85,7 +85,6 @@ function rowToFields(row) {
   }
   const descriptorBits = [row.industry, row.area, row.service_interest].map(x => str(x)).filter(Boolean);
   return {
-    sourceId: str(row.id, 120) || null,
     business: str(row.business, 200),
     askFor: str(row.owner, 200),
     phone: str(row.phone, 40),
@@ -111,18 +110,20 @@ export async function handler(req, res) {
   const db = await getDb();
   const col = db.collection('call_leads');
 
-  // Load existing (incl. soft-deleted) once for matching.
+  // Load existing (incl. soft-deleted) once for matching. sourceId is the
+  // scraper's own key; a sheet never carries one, so a row matches on the
+  // business name and the phone.
   const existing = await col.find({}, {
-    projection: { business: 1, phone: 1, sourceId: 1, deleted: 1, socials: 1, stage: 1 },
+    projection: { business: 1, phone: 1, deleted: 1, socials: 1, stage: 1 },
   }).toArray();
-  const byId = new Map();
-  for (const l of existing) if (l.sourceId) byId.set(String(l.sourceId), l);
 
   const findMatch = (f) => {
-    if (f.sourceId && byId.has(String(f.sourceId))) return byId.get(String(f.sourceId));
     const b = lower(f.business); const p = digits(f.phone);
     if (!b) return null;
-    return existing.find(l => lower(l.business) === b && (!p || !digits(l.phone) || digits(l.phone) === p)) || null;
+    return existing.find(l => lower(l.business) === b && (!p || !digits(l.phone) || digits(l.phone) === p))
+      /* A declined record is matched on the phone alone too: the same business
+         under a slightly different name must not come back in through a sheet. */
+      || (p ? existing.find(l => l.stage === 'declined' && digits(l.phone) === p) : null) || null;
   };
 
   let created = 0, updated = 0;
@@ -139,6 +140,12 @@ export async function handler(req, res) {
       skipped.push({ business: f.business, reason: 'previously deleted, left alone' });
       continue;
     }
+    /* Declined means Rob looked and said no: a re-import never revives it, and
+       never touches it either. Bring back on the Declined view is the only way back. */
+    if (match && match.stage === 'declined') {
+      skipped.push({ business: f.business, reason: 'declined, left alone' });
+      continue;
+    }
 
     if (match) {
       // Update: overwrite only fields the row actually provided; merge socials.
@@ -152,7 +159,6 @@ export async function handler(req, res) {
          the work is done. */
       const settled = match.stage === 'client' || match.stage === 'won';
       if (!settled) { set.priority = f.priority; set.callStatus = f.callStatus; }
-      if (f.sourceId) set.sourceId = f.sourceId;
       if (Object.keys(f.socials).length) set.socials = { ...(match.socials || {}), ...f.socials };
       await col.updateOne({ _id: match._id }, { $set: set });
       updated++;
@@ -160,8 +166,7 @@ export async function handler(req, res) {
       const doc = { ...f, ...buildSkeleton(f), createdAt: now, updatedAt: now };
       const r = await col.insertOne(doc);
       // Track so two rows for the same new business in one file don't double-insert.
-      existing.push({ _id: r.insertedId, business: doc.business, phone: doc.phone, sourceId: doc.sourceId, deleted: false, socials: doc.socials });
-      if (doc.sourceId) byId.set(String(doc.sourceId), existing[existing.length - 1]);
+      existing.push({ _id: r.insertedId, business: doc.business, phone: doc.phone, deleted: false, socials: doc.socials });
       created++;
     }
   }

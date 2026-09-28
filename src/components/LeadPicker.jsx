@@ -20,7 +20,7 @@ import { formatPhone } from '../shared/phone';
 export default function LeadPicker({ leads = [], onPick, onClose, title = 'Pick a lead', description, filter, sort }) {
   const [q, setQ] = useState('');
   const list = useMemo(() => {
-    const keep = filter || ((l) => normalizeStage(l) !== 'lost');
+    const keep = filter || ((l) => normalizeStage(l) !== 'lost' && normalizeStage(l) !== 'declined');
     const pool = leads.filter(l => keep(l) && matchesSearch(l, q));
     const ordered = sort ? [...pool].sort(sort) : pool.sort((a, b) => { const sa = normalizeStage(a) === 'client' ? 0 : 1; const sb = normalizeStage(b) === 'client' ? 0 : 1; return sa - sb || String(a.business).localeCompare(String(b.business)); });
     return ordered.slice(0, 40);

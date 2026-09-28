@@ -16,6 +16,7 @@ import {
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useDecline } from '../components/DeclineSheet';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
 import LeadHistory from '../components/LeadHistory';
@@ -110,7 +111,7 @@ function ShortcutsModal({ open, onClose }) {
 }
 
 /* ── Room pieces ─────────────────────────────────────────────── */
-function RoomHeader({ lead, pulse, onEdit, timerMs, onCallTap, desktop, onCopy }) {
+function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, desktop, onCopy }) {
   const win = currentWindow();
   const winsOf = windowsOf(lead.bestWindow);
   const scan = lead.enrichment?.lastScanAt ? (Date.now() - new Date(lead.enrichment.lastScanAt).getTime()) / 864e5 : null;
@@ -131,6 +132,7 @@ function RoomHeader({ lead, pulse, onEdit, timerMs, onCallTap, desktop, onCopy }
           </Row>
         </Stack>
         <IconButton icon={Edit02} label="Edit lead" variant="secondary" onClick={onEdit} className="cc-edit-btn" />
+        <Menu label="Lead actions" items={[{ id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
       </Row>
       {lead.descriptor && <p className="cc-desc">{lead.descriptor}</p>}
       {lead.askFor && <p className="cc-askfor">Ask for <strong>{lead.askFor.replace(/^Ask for /i, '')}</strong></p>}
@@ -316,7 +318,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   useEffect(() => { if (!timer) return undefined; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [timer]);
 
   /* ── Data ops ── */
-  const patch = useCallback(async (id, set) => (await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set } })).ok, []);
+  // explicit: true (a decline) rides on the body, never into the record; see AdminApp.patchCallLead.
+  const patch = useCallback(async (id, rawSet) => { const { explicit, ...set } = rawSet || {}; return (await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } })).ok; }, []);
   const patchLead = useCallback(async (id, set) => {
     let prev; setLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const ok = await patch(id, set);
@@ -325,6 +328,12 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     return ok;
   }, [patch, onDataChanged, toast]);
   const saveNotes = useCallback((id, notes) => patchLead(id, { notes }), [patchLead]);
+  /* Decline from the room (CRM revamp, step 1): the lead leaves the queue and the
+     room moves on; the undo puts it back through a reload. */
+  const decline = useDecline({
+    onPatch: async (id, set) => { const ok = await patchLead(id, set); if (ok && set.declined === null) await load(); return ok; },
+    onDeclined: (l) => { removeFromLists(l._id); if (mode === 'room' && !desktop) setMode('queue'); },
+  });
   const createLead = async (values) => {
     const r = await apiFetch('/api/admin/call-leads', { method: 'POST', body: defaultLead(values) });
     if (r.ok) { setNewOpen(false); await load(); onDataChanged?.(); toast.success(`Added ${values.business}.`); } else toast.error(COPY.error.create);
@@ -590,7 +599,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const roomCenter = pending ? <div className="cc-room" /> : loadFailed ? <div className="cc-room cc-room--empty">{loadFailed}</div> : showSkel ? roomSkeleton : current ? (
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
       <Stagger className="cc-room-inner lay-content" cap={3}>
-        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} />
+        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} />
         {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
       </Stagger>
@@ -604,6 +613,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     <>
       {sheet && current && <OutcomeSheet key={`${current._id}-${sheet.outcome}`} outcome={sheet.outcome} lead={current} onLog={applyLog} onClose={() => setSheet(null)} />}
       <ShortcutsModal open={keysOpen} onClose={() => setKeysOpen(false)} />
+      {decline.sheet}
       {editOpen && current && <Sheet open onClose={() => setEditOpen(false)} title="Edit lead" description={current.business} tall width={640}><LeadForm lead={current} onSave={async (v) => { const ok = await patchLead(current._id, v); if (ok) setEditOpen(false); }} onCancel={() => setEditOpen(false)} onDelete={deleteLead} /></Sheet>}
       {newOpen && <Sheet open onClose={() => setNewOpen(false)} title="New lead" tall width={640}><LeadForm creating lead={typeof newOpen === 'object' ? newOpen : undefined} onSave={createLead} onCancel={() => setNewOpen(false)} /></Sheet>}
     </>

@@ -20,6 +20,8 @@ export const COPY = {
     /* Leads */
     'leads.none': { title: 'No open leads', description: 'Add one, import a spreadsheet, or check Booked and Clients. Everyone might just be further down the pipeline.', action: 'Add lead', secondary: 'Import spreadsheet' },
     'leads.filter': { title: 'Nothing matches', description: 'Loosen a filter or clear the search.', action: 'Clear all' },
+    'leads.declined': { title: 'Nothing declined', description: 'Decline a lead from its menu when it is not worth a call. It lands here with the reason, and Bring back returns it to triage.' },
+    'leads.nurture': { title: 'Nobody in nurture', description: 'A lead that is not ready now sits here until you bring it back to triage.' },
     'leads.dupes': { title: 'No duplicates found', description: 'No two leads share a phone number or a business name in the same industry.', action: 'Back to all leads' },
     'leads.column': { title: 'Nothing waiting here', description: 'Leads land in this column as their status changes.' },
     'leads.detail.pricing': { title: 'No pricing options yet', description: 'Build up to three from the packages. Anything over $750 shows its payment plan.', action: 'Add option' },

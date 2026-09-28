@@ -22,6 +22,8 @@ off, theme Dark.
 | 9 | Tap Wrong number, then Log | The sheet closes and the phone note on that lead reads Wrong number with today's date. |
 | 10 | Tap Booked, set a date and time, then Book it | The header pulses green, the sheet closes, the lead moves to Booked. |
 | 11 | On the last lead tap Said no, then Log | The lead leaves the console with an undo toast for six seconds, and the session summary appears. |
+| 11b | Open Leads, open a lead's menu and tap Decline, pick Out of area, tap Decline | The sheet closes, the lead leaves the list with a six second undo toast, and the Leads badge drops by one. |
+| 11c | On Leads switch the Pool control to Declined | The declined lead is in the table with its reason and the date; the line above reads the reason counts; Bring back returns it to triage and it leaves the table. |
 | 12 | Open Booked | The list shows the booked leads with the meeting date; the one you just booked is there. |
 | 13 | Open the booked lead | The detail opens on Overview with the meeting block and the Pricing options block. |
 | 14 | Tap Add option twice in Pricing options | Two option cards appear with a package, a total, and the plan line. |

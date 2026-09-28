@@ -239,12 +239,12 @@ await urlField('showcase.instagram.highlights[].link', routes['call-leads'], 'PA
 await urlField('concepts[].link', routes['call-leads'], 'PATCH', u => patchLead({ concepts: [{ id: 'c', label: 'L', status: 'ready', link: u }] }), () => lead().concepts[0].link);
 await urlField('conceptsTracker.demoUrl', routes['call-leads'], 'PATCH', u => patchLead({ conceptsTracker: { items: [], demoUrl: u, driveUrl: '' } }), () => lead().conceptsTracker.demoUrl);
 await urlField('conceptsTracker.driveUrl', routes['call-leads'], 'PATCH', u => patchLead({ conceptsTracker: { items: [], demoUrl: '', driveUrl: u } }), () => lead().conceptsTracker.driveUrl);
-for (const k of ['website', 'drive', 'clickup', 'instagram']) await urlField(`links.${k}`, routes['call-leads'], 'PATCH', u => patchLead({ links: { [k]: u } }), () => lead().links[k]);
+for (const k of ['website', 'drive', 'instagram']) await urlField(`links.${k}`, routes['call-leads'], 'PATCH', u => patchLead({ links: { [k]: u } }), () => lead().links[k]);
 await urlField('brand.logoLink', routes['call-leads'], 'PATCH', u => patchLead({ brand: { logoLink: u } }), () => lead().brand.logoLink);
 await urlField('reviews.googleLink', routes['call-leads'], 'PATCH', u => patchLead({ reviews: { ...lead().reviews, googleLink: u } }), () => lead().reviews.googleLink);
 await urlField('posts.imageUrl', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { imageUrl: u } } }), () => _stores.posts[0].imageUrl);
 await urlField('concept-packs.images[].link', routes['concept-packs'], 'PATCH', u => ({ body: { id: '907f1f77bcf86cd799439001', set: { images: [{ id: 'i', label: 'l', link: u }] } } }), () => _stores.concept_packs[0].images[0].link);
-await urlField('projects.links.drive', routes.projects, 'PATCH', u => ({ body: { id: '807f1f77bcf86cd799439001', set: { links: { drive: u, clickup: '' } } } }), () => _stores.projects[0].links.drive);
+await urlField('projects.links.drive', routes.projects, 'PATCH', u => ({ body: { id: '807f1f77bcf86cd799439001', set: { links: { drive: u } } } }), () => _stores.projects[0].links.drive);
 await urlField('projects.deliverables[].link', routes.projects, 'PATCH', u => ({ body: { id: '807f1f77bcf86cd799439001', set: { deliverables: [{ id: 'd', group: 'a', label: 'L', done: false, link: u }] } } }), () => _stores.projects[0].deliverables[0].link);
 await urlField('orders.items[].artworkLink', routes.orders, 'PATCH', u => ({ body: { id: 'a07f1f77bcf86cd799439001', set: { items: [{ id: 'i', name: 'n', qty: 1, artworkLink: u }] } } }), () => _stores.orders[0].items[0].artworkLink);
 

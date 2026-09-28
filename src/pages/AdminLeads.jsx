@@ -23,7 +23,10 @@ import {
 } from '../lib/leads';
 import { apiFetch } from '../shared/api';
 import LeadImport from '../components/LeadImport';
+import { useDecline } from '../components/DeclineSheet';
+import { DECLINE_REASONS, declineReasonOf } from '../shared/semantics';
 import { normalizeSocials } from '../lib/socials';
+import { declinedLeads, nurtureLeads } from '../lib/leads';
 import { formatPhone } from '../shared/phone';
 import { effectiveStage, checklistProgress, deleteBlockReason } from '../lib/booked';
 import { CALL_STATUSES as SEM_CALL_STATUSES, PRIORITIES, callStatusOf, industryKey, displayIndustry } from '../shared/semantics';
@@ -38,6 +41,7 @@ const CALL_STATUSES = SEM_CALL_STATUSES.filter(x => x.id !== 'booked');
 /* ── Leads list screen (Prompt 6): kanban, table, cards, filters, bulk, duplicates ── */
 
 const VIEW_KEY = 'vz_leads_view';
+const POOL_KEY = 'vz_leads_pool'; // open | declined | nurture (CRM revamp, step 1)
 const VIEWS_KEY = 'vz_leads_views';
 const DEFAULT_VIEWS = [
   { id: 'v-tocall', name: 'To call', filters: { ...EMPTY_FILTERS, status: ['not-called'] }, q: '', sort: { id: 'priority', dir: 'asc' } },
@@ -165,7 +169,12 @@ export default function AdminLeads({
   const mode = view || (desktop ? 'kanban' : 'list');
   const setMode = (m) => { setView(m); writeLS(VIEW_KEY, m); };
 
+  const [poolView, setPoolView] = useState(() => readLS(POOL_KEY, 'open') || 'open');
+  const setPool = (v) => { setPoolView(v); writeLS(POOL_KEY, v); setSelId(null); setChecked(new Set()); };
   const pool = useMemo(() => openLeads(leads), [leads]);
+  const parked = useMemo(() => (poolView === 'declined' ? declinedLeads(leads) : poolView === 'nurture' ? nurtureLeads(leads) : []).sort((a, b) => String(b.declined?.at || b.updatedAt || '').localeCompare(String(a.declined?.at || a.updatedAt || ''))), [leads, poolView]);
+  const reasonLine = useMemo(() => { const c = new Map(); for (const l of parked) { const k = l.declined?.reason; if (k) c.set(k, (c.get(k) || 0) + 1); } return DECLINE_REASONS.filter(r => c.get(r.id)).map(r => `${r.label} ${c.get(r.id)}`).join(', '); }, [parked]);
+  const bringBack = async (l) => { const ok = await patch(l._id, { stage: 'triage', declined: null, explicit: true }); if (ok) toast.success(`${l.business} is back in triage.`); };
   const dupes = useMemo(() => findDuplicates(pool), [pool]);
   const filtered = useMemo(() => applyFilters(pool, filters, q, dupes.ids), [pool, filters, q, dupes]);
   const sorted = useMemo(() => sortLeads(filtered, sort), [filtered, sort]);
@@ -177,7 +186,8 @@ export default function AdminLeads({
   const setGroup = (g) => (vals) => setFilters(f => ({ ...f, [g]: vals }));
   const clearAll = () => { setFilters(EMPTY_FILTERS); setQ(''); };
 
-  const sel = selId ? pool.find(l => l._id === selId) : null;
+  // The record can be a declined or nurture lead opened from those views, a notification or the search.
+  const sel = selId ? (pool.find(l => l._id === selId) || leads.find(l => l._id === selId && ['declined', 'nurture', 'triage'].includes(effectiveStage(l)))) || null : null;
   const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
   const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
   useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -196,7 +206,8 @@ export default function AdminLeads({
   const bulkPatch = async (ids, set, label) => { const rs = await Promise.all(ids.map(id => onPatch(id, set))); const bad = rs.filter(r => !r).length; if (bad) toast.error(`${bad} of ${ids.length} could not be ${label}. Those were undone.`); else toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} ${label}.`); };
   // onStatusStep is the keyboard path on the kanban (Shift+ArrowLeft, Shift+ArrowRight on a focused card): one column over.
   const stepStatus = (l, dir) => { const ids = BOARD_STATUSES.map(s => s.id); const i = ids.indexOf(l.callStatus || 'not-called'); const next = ids[i + dir]; if (next) { patch(l._id, { callStatus: next }); toast.info(`${l.business} moved to ${BOARD_STATUSES.find(s => s.id === next)?.label || next}.`); } };
-  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onStatusStep: (dir) => stepStatus(l, dir), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
+  const decline = useDecline({ onPatch: patch, onDeclined: (l) => { if (sel?._id === l._id) back(); } });
+  const cardActions = (l) => ({ onPriority: (p) => patch(l._id, { priority: p }), onStatus: (s) => patch(l._id, { callStatus: s }), onStatusStep: (dir) => stepStatus(l, dir), onDecline: () => decline.open(l), onDelete: () => { setChecked(new Set([l._id])); setBulkConfirm(true); } });
   const toggleCheck = (id, on) => setChecked(prev => { const n = new Set(prev); on ? n.add(id) : n.delete(id); return n; });
   const cardProps = (l) => ({ onOpen: () => pick(l._id), selected: sel?._id === l._id, selectable: selectMode || checked.size > 0, checked: checked.has(l._id), onCheck: (v) => toggleCheck(l._id, v), actions: cardActions(l) });
 
@@ -331,18 +342,23 @@ export default function AdminLeads({
       <ScrollArea wide className="ld-page">
         <Section title="Leads" loading={loading} description={loading ? undefined : summary}
           action={<Row gap={2} wrap>
-            <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />
+            <SegmentedControl size="sm" label="Pool" options={[{ id: 'open', label: 'Open' }, { id: 'declined', label: 'Declined' }, { id: 'nurture', label: 'Nurture' }]} value={poolView} onChange={setPool} />
+            {poolView === 'open' && <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />}
             <Button variant="secondary" icon={Upload01} onClick={() => setImportOpen(true)}>Import</Button>
             <Button icon={Plus} onClick={() => { setCreating(true); setSelId(null); onMobileOpen?.(); }}>Add lead</Button>
           </Row>}>
-          <Row gap={2} wrap>
+          {poolView === 'open' && <Row gap={2} wrap>
             <Input className="ld-search" placeholder="Search business, contact, phone, industry" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads"
               trailing={q ? <button type="button" className="ld-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
             {!desktop && <Button variant={selectMode ? 'primary' : 'secondary'} size="md" onClick={() => { setSelectMode(v => !v); if (selectMode) setChecked(new Set()); }}>{selectMode ? 'Done' : 'Select'}</Button>}
-          </Row>
+          </Row>}
         </Section>
 
-        {pending ? null : showSkel ? (
+        {pending ? null : error && !leads.length ? (
+          <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
+        ) : poolView !== 'open' ? (
+          <ParkedList kind={poolView} leads={parked} loading={showSkel} reasonLine={reasonLine} desktop={desktop} onOpen={pick} onBringBack={bringBack} E={E} />
+        ) : showSkel ? (
           <Stack gap={4} aria-busy="true">
             {/* The chrome is real while the list loads: saved views and the static filter rows, disabled, with skeleton chips where the counts and facets go. */}
             <div className="ld-views"><div className="ld-frow-chips" style={{ overflow: 'hidden' }}>{views.map(v => <Chip key={v.id} label={v.name} disabled />)}<Button variant="ghost" icon="Plus" disabled>Save view</Button></div></div>
@@ -446,6 +462,8 @@ export default function AdminLeads({
         </StickyFooterBar>
       )}
 
+      {decline.sheet}
+
       <ConfirmDialog open={bulkConfirm} danger confirmLabel="Delete"
         title={`Delete ${deletable.length} lead${deletable.length === 1 ? '' : 's'}?`}
         body={`They move to Recently deleted in Settings and can be restored for 30 days.${blockedCount ? ` ${blockedCount} protected lead${blockedCount === 1 ? '' : 's'} with call history will be skipped.` : ''}`}
@@ -469,8 +487,56 @@ function LeadSocials({ lead }) {
 }
 
 
+/* Declined and Nurture (CRM revamp, step 1): the parked pools. A table on a
+ * desktop (Business, Industry, Reason, when), rows on a phone, one action
+ * per row that returns the lead to triage. The reason line above the table
+ * is the breakdown Rob reads before deciding whether the scraper's filters
+ * need tightening. */
+function ParkedList({ kind, leads, loading, reasonLine, desktop, onOpen, onBringBack, E }) {
+  const declined = kind === 'declined';
+  const action = declined ? 'Bring back' : 'Back to triage';
+  const when = (l) => (declined ? l.declined?.at : l.updatedAt);
+  const cols = [
+    { id: 'business', label: 'Business', always: true, width: 260, render: (l) => <span className="ld-cell-biz"><Avatar name={l.business} size="xs" /><span className="lay-truncate">{l.business}</span></span> },
+    { id: 'industry', label: 'Industry', render: (l) => (l.industry ? displayIndustry(l.industry) : '') },
+    { id: 'reason', label: 'Reason', render: (l) => (l.declined?.reason ? <span title={l.declined.note || undefined}>{declineReasonOf(l.declined.reason).label}</span> : <span className="ld-muted">none</span>) },
+    { id: 'when', label: declined ? 'Declined on' : 'Since', render: (l) => (when(l) ? fmtDate(when(l)) : '') },
+  ];
+  const empty = E(declined ? 'leads.declined' : 'leads.nurture');
+  if (loading) return <Stack gap={3} aria-busy="true"><SkeletonBlock width={220} height={18} />{desktop ? <Table.Skeleton rows={3} cols={4} /> : <Stack gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} height={68} radius="var(--v-radius-md)" />)}</Stack>}</Stack>;
+  if (!leads.length) return <Card><EmptyState size="sm" icon={declined ? 'SlashCircle01' : 'Clock'} title={empty.title} description={empty.description} /></Card>;
+  return (
+    <Stack gap={3}>
+      <p className="ld-breakdown" role="status">{declined ? (reasonLine || `${leads.length} declined`) : `${leads.length} in nurture`}</p>
+      {desktop ? (
+        <Table aria-label={declined ? 'Declined leads' : 'Nurture leads'} columns={cols} rows={leads} density="md" columnChooser={false} onRowClick={(l) => onOpen(l._id)}
+          rowActions={(l) => <Menu label={`Actions for ${l.business}`} items={[{ id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => onOpen(l._id) }, { id: 'back', label: action, icon: 'ClockRewind', onSelect: () => onBringBack(l) }]} />} />
+      ) : (
+        <Stagger className="ld-stack">
+          {leads.map(l => (
+            <Card key={l._id} as="div" padding={3} interactive className="ld-parked">
+              <button type="button" className="v-stretch" onClick={() => onOpen(l._id)} aria-label={`Open ${l.business}`}>{`Open ${l.business}`}</button>
+              <Row gap={3} align="center" wrap={false}>
+                <Avatar name={l.business} size="sm" />
+                <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+                  <span className="lc-name lay-truncate">{l.business}</span>
+                  <span className="ld-muted lay-truncate">{[l.industry ? displayIndustry(l.industry) : '', l.declined?.reason ? declineReasonOf(l.declined.reason).label : '', when(l) ? fmtDate(when(l)) : ''].filter(Boolean).join(', ')}</span>
+                </Stack>
+                <span className="v-above"><Button size="md" variant="secondary" onClick={() => onBringBack(l)}>{action}</Button></span>
+              </Row>
+            </Card>
+          ))}
+        </Stagger>
+      )}
+    </Stack>
+  );
+}
+
 const ldStyles = `
   /* ── List screen ── */
+  .ld-breakdown { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .ld-parked { gap: 0; text-align: left; align-items: stretch; }
+  .ld-parked:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .ld-shell.aa-main { display: flex; flex-direction: column; }
   .ld-page { --v-content-w-wide: 1400px; --v-stack-gap: var(--v-space-4); }
   .ld-page .lay-content--wide { max-width: var(--v-content-w-wide); }

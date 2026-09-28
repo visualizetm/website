@@ -143,16 +143,18 @@ export function leadsToCsv(leads, columns) {
 }
 
 export const openLeads = (leads) => leads.filter(l => normalizeStage(l) === 'lead');
+export const declinedLeads = (leads) => leads.filter(l => normalizeStage(l) === 'declined');
+export const nurtureLeads = (leads) => leads.filter(l => normalizeStage(l) === 'nurture');
 
 /* The pipeline funnel, one definition for the Dashboard strip and the
- * sidebar strip: every live record that is not lost, how many of those have
+ * sidebar strip: every live record that is not lost or declined, how many of those have
  * been reached, how many booked or beyond, how many are clients. */
 export const CONTACTED_STATUSES = ['callback', 'no-answer', 'no'];
 export function pipelineFunnel(leads) {
   const f = { leads: 0, contacted: 0, booked: 0, clients: 0 };
   for (const l of leads || []) {
     const stage = normalizeStage(l);
-    if (stage === 'lost') continue;
+    if (stage === 'lost' || stage === 'declined') continue;
     f.leads++;
     if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) f.contacted++;
     if (stage === 'booked' || stage === 'won' || stage === 'client') f.booked++;

@@ -10,7 +10,7 @@
  * client: the moment it was won, a won outcome, a published showcase, a
  * project, a payment, a planner switched on, a testimonial. A lead with none
  * of these is a lead, whatever else is on it. */
-export const STAGE_IDS = ['lead', 'booked', 'won', 'client', 'lost'];
+export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
 
 const nonEmpty = (v) => typeof v === 'string' && v.trim() !== '';
 const list = (v) => (Array.isArray(v) ? v : []);
@@ -32,7 +32,7 @@ export function clientEvidence(lead, projectCount = 0) {
   return CLIENT_EVIDENCE.filter(r => { try { return !!r.test(lead, projectCount); } catch { return false; } }).map(r => r.id);
 }
 
-/** True when the stored stage is not one of the five stages (the enricher leaves ''). */
+/** True when the stored stage is not one of the stages (the enricher leaves ''). */
 export const stageWiped = (lead) => !STAGE_IDS.includes(lead?.stage);
 
 const ms = (v) => { const t = new Date(v || '').getTime(); return Number.isFinite(t) && t > 0 ? t : null; };

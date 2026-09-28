@@ -139,6 +139,9 @@ export const SCREENS = [
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 
   { id: 'concepts-list', screen: 'Concepts', label: 'list, every status', path: '/admin/concepts', resource: 'sets' },
+  { id: 'leads-declined', screen: 'Leads', label: 'the Declined pool', path: '/admin/leads', resource: 'leads', act: (p) => click(p.getByRole('radio', { name: 'Declined' })) },
+  { id: 'leads-nurture', screen: 'Leads', label: 'the Nurture pool', path: '/admin/leads', resource: 'leads', act: (p) => click(p.getByRole('radio', { name: 'Nurture' })) },
+  { id: 'leads-decline-sheet', screen: 'Leads', label: 'the Decline sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: 'Decline', exact: true })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'concepts-list-filter', screen: 'Concepts', label: 'list filtered to a status with nothing in it', path: '/admin/concepts', resource: 'sets', act: (p) => click(p.getByRole('button', { name: /^Sent/ })) },
   { id: 'concepts-editor', screen: 'Concepts editor', label: 'a viewed set, three directions, one change note', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true },
   { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', noFit: true },

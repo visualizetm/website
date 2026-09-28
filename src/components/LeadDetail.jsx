@@ -22,6 +22,7 @@ import { ScriptSteps, Objections, CloseCards, IntelCards } from './LeadPlaybook'
 import Checklists from './Checklists';
 import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
+import { useDecline } from './DeclineSheet';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
@@ -136,6 +137,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [cbOpen, setCbOpen] = useState(false);
   const [resched, setResched] = useState(false);
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
+  /* Decline (CRM revamp, step 1): the same sheet the card menu and the call room open. */
+  const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => onClose?.() });
   const [outcomeNote, setOutcomeNote] = useState('');
   const [wonPulse, setWonPulse] = useState(false); // the profile card pulses in the won tone before the detail closes
   const [pulseTab, setPulseTab] = useState(null); // 'retainer' after a retainer starts
@@ -185,8 +188,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
         setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60);
       }
     } else {
-      const ok = await patch({ stage: 'lost', bookedOutcome: { result: 'lost', reason: outcomeNote.trim(), at } });
-      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(lead._id, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' } }), { seconds: 6 }); setOutcome(null); onClose?.(); }
+      // explicit: true, because a booked, won or client record leaving its stage is the guard's business.
+      const ok = await patch({ stage: 'lost', bookedOutcome: { result: 'lost', reason: outcomeNote.trim(), at }, explicit: true });
+      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(lead._id, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); onClose?.(); }
     }
   };
 
@@ -216,6 +220,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       <Row gap={2} wrap>
         <Button icon={PhoneCall01} onClick={() => shell?.go('calls', { ids: [lead._id], autostart: true })} disabled={!lead.phone}>Start call</Button>
         {!readOnly && <Button variant="secondary" icon={Edit02} onClick={() => setEditAll(true)} className="dt-editall">Edit all</Button>}
+        {!readOnly && !clientMode && !['declined', 'won', 'client'].includes(stage) && <Button variant="ghost" icon="SlashCircle01" onClick={() => decline.open(lead)} className="dt-decline">Decline</Button>}
         {stage === 'client' && !clientMode && <Button variant="ghost" onClick={() => shell?.openRecord(lead)}>Open client record</Button>}
         {/* Site Prompt 7, Part 3: the Showcase tab became its own page, so
             this is the way in, with what the public site currently shows. */}
@@ -384,6 +389,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       )}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       {resched && <RescheduleSheet lead={lead} onClose={() => setResched(false)} onSave={async (m) => { const ok = await saveMeeting(m); if (ok) { setResched(false); toast.success('Meeting updated.'); } }} />}
+      {decline.sheet}
       <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} as won?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'They become a client now, with everything here kept.' : 'They leave Booked. Undo is available for six seconds.'}
         footer={<><Button variant="ghost" onClick={() => setOutcome(null)}>Cancel</Button><Button variant={outcome === 'lost' ? 'danger' : 'primary'} icon={outcome === 'won' ? Trophy01 : XClose} onClick={closeOut}>{outcome === 'won' ? 'Won, convert to client' : 'Mark lost'}</Button></>}>
         <Textarea label="Note (optional)" rows={2} value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder={outcome === 'won' ? 'Went with Web Complete plus Site Care.' : 'Chose their nephew.'} data-autofocus />

@@ -55,14 +55,35 @@ export const PRIORITIES = [
 export const priorityOf = (id) => PRIORITIES.find(p => p.id === id) || PRIORITIES[1];
 
 /* ── Pipeline stage (call_leads.stage) ─────────────────────────── */
+/* CRM revamp, step 1: triage (a scraped record Rob has not looked at), lead
+ * (today's calling pool), booked, deal (a proposal out), client, nurture
+ * (not now, keep warm), declined (Rob looked and said no, with a reason).
+ * won and lost stay for the records that carry them; nothing new writes
+ * them. */
 export const STAGES = [
-  { id: 'lead',   label: 'Lead',   icon: 'Users01',         order: 0, ...tone('neutral') },
-  { id: 'booked', label: 'Booked', icon: 'CalendarCheck01', order: 1, ...tone('booked') },
-  { id: 'won',    label: 'Won',    icon: 'Trophy01',        order: 2, ...tone('won') },
-  { id: 'client', label: 'Client', icon: 'Briefcase01',     order: 3, ...tone('booked') },
-  { id: 'lost',   label: 'Lost',   icon: 'XClose',          order: 4, ...tone('danger') },
+  { id: 'triage',   label: 'Triage',   icon: 'Inbox01',         order: 0, ...tone('new') },
+  { id: 'lead',     label: 'Lead',     icon: 'Users01',         order: 1, ...tone('neutral') },
+  { id: 'booked',   label: 'Booked',   icon: 'CalendarCheck01', order: 2, ...tone('booked') },
+  { id: 'deal',     label: 'Deal',     icon: 'Zap',             order: 3, ...tone('won') },
+  { id: 'client',   label: 'Client',   icon: 'Briefcase01',     order: 4, ...tone('booked') },
+  { id: 'nurture',  label: 'Nurture',  icon: 'Clock',           order: 5, ...tone('progress') },
+  { id: 'declined', label: 'Declined', icon: 'SlashCircle01',   order: 6, ...tone('neutral') },
+  { id: 'won',      label: 'Won',      icon: 'Trophy01',        order: 7, ...tone('won') },
+  { id: 'lost',     label: 'Lost',     icon: 'XClose',          order: 8, ...tone('danger') },
 ];
 export const STAGE_IDS = STAGES.map(s => s.id);
+export const stageOf = (id) => STAGES.find(s => s.id === id) || STAGES[1];
+/* Why a lead was declined (lead.declined.reason). */
+export const DECLINE_REASONS = [
+  { id: 'well-branded', label: 'Already well branded', icon: 'Check',          order: 0 },
+  { id: 'not-fit',      label: 'Not a fit',            icon: 'UserX01',        order: 1 },
+  { id: 'out-of-area',  label: 'Out of area',          icon: 'MarkerPin01',    order: 2 },
+  { id: 'budget',       label: 'No budget',            icon: 'CurrencyDollar', order: 3 },
+  { id: 'shady',        label: 'Seems shady',          icon: 'AlertTriangle',  order: 4 },
+  { id: 'other',        label: 'Other',                icon: 'Edit02',         order: 5 },
+];
+export const DECLINE_REASON_IDS = DECLINE_REASONS.map(r => r.id);
+export const declineReasonOf = (id) => DECLINE_REASONS.find(r => r.id === id) || DECLINE_REASONS[DECLINE_REASONS.length - 1];
 /** Stage as stored can be missing OR "" (the nightly enricher writes an
  *  empty string on 249 docs). Anything unknown reads as 'lead'; a legacy
  *  callStatus of 'booked' with no stage reads as 'booked'. */

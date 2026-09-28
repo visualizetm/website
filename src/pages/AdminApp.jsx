@@ -124,10 +124,15 @@ export default function AdminApp() {
   }, [setErr]);
 
   // Optimistic patch for booked-workspace edits, with rollback on failure.
-  const patchCallLead = useCallback(async (id, set) => {
+  const patchCallLead = useCallback(async (id, rawSet) => {
+    /* explicit: true is the pipeline guard's flag (a client or won record
+       leaving its stage, a decline): it travels on the body, never into the
+       record. Whatever screen asks for it puts it in the set and it is
+       lifted out here. */
+    const { explicit, ...set } = rawSet || {};
     let prev;
     setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
-    const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set } });
+    const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } });
     if (r.ok) return true;
     if (prev) setCallLeads(ls => ls.map(l => l._id === id ? prev : l));
     return false;
@@ -347,7 +352,7 @@ export default function AdminApp() {
   useEffect(() => { if (authed) loadOrders(); }, [authed, loadOrders]);
 
   const stageCounts = useMemo(() => {
-    const c = { lead: 0, booked: 0, won: 0, client: 0, toCall: 0 };
+    const c = { triage: 0, lead: 0, booked: 0, deal: 0, won: 0, client: 0, nurture: 0, declined: 0, toCall: 0 };
     for (const l of callLeads) {
       const s = effectiveStage(l);
       if (s in c) c[s]++;
@@ -461,7 +466,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { leads: stageCounts.toCall, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets) };
+  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);

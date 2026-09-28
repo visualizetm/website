@@ -36,17 +36,17 @@ const copyText = async (toast, text, what) => { try { await navigator.clipboard.
 const E = (k) => COPY.empty[k];
 
 /* ── Links block ─────────────────────────────────────────────────── */
-const LINKS = [['website', 'Website', 'Globe01'], ['drive', 'Google Drive', 'Folder'], ['clickup', 'ClickUp', 'Columns03'], ['instagram', 'Instagram', 'Camera01']];
+const LINKS = [['website', 'Website', 'Globe01'], ['drive', 'Google Drive', 'Folder'], ['instagram', 'Instagram', 'Camera01']];
 /* Website and Instagram are the lead's socials (UX audit, D3 and D4): they
  * show here read only with the way to the place they are edited, never a
- * second input. Drive and ClickUp are the client's own and stay editable. */
+ * second input. Drive is the client's own and stays editable. */
 const DERIVED = new Set(['website', 'instagram']);
 export function ClientLinks({ lead, patch, patchRaw, readOnly, onEditSocials }) {
   const toast = useToast();
   const write = patchRaw || patch;
   const links = lead.links || {};
   const valueOf = (k) => links[k] || (k === 'website' ? lead.socials?.website : k === 'instagram' ? lead.socials?.instagram : '') || '';
-  const save = (k) => (v) => write({ links: { website: '', drive: '', clickup: '', instagram: '', ...links, [k]: v } });
+  const save = (k) => (v) => write({ links: { website: '', drive: '', instagram: '', ...links, [k]: v } });
   return (
     <Card className="cw-links">
       <p className="pb-card-h">Links</p>
@@ -119,10 +119,9 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
   const [custom, setCustom] = useState({ name: '', total: '', kind: 'brand' });
   const [start, setStart] = useState(today());
   const [drive, setDrive] = useState(lead.links?.drive || '');
-  const [clickup, setClickup] = useState(lead.links?.clickup || '');
   const [busy, setBusy] = useState(false);
   const pick = mode === 'package' ? { packageId } : mode === 'addons' ? { addonIds } : { custom: { ...custom, total: Number(custom.total) || 0 } };
-  const preview = useMemo(() => buildProject(lead._id, pick, { startDate: start, drive, clickup }), [lead._id, mode, packageId, addonIds, custom, start, drive, clickup]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => buildProject(lead._id, pick, { startDate: start, drive }), [lead._id, mode, packageId, addonIds, custom, start, drive]); // eslint-disable-line react-hooks/exhaustive-deps
   const valid = mode === 'package' ? !!packageId : mode === 'addons' ? addonIds.length > 0 : !!custom.name.trim() && Number(custom.total) > 0;
   return (
     <Sheet open onClose={onClose} title="New project" description={lead.business} tall width={560} className="cw-sheet"
@@ -139,7 +138,7 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
           <p className="dt-muted">{preview.plan ? planLine({ ...preview.plan, total: preview.total, alt: null }) : 'One payment, due at the start.'}</p>
           <Stack gap={0}>{preview.schedule.map(s => <Row key={s.id} gap={2} justify="between" className="cw-preview-row"><span>{s.label}</span><span>{money(s.amount)}, {fmtDayShort(s.dueAt)}</span></Row>)}</Stack>
         </Card>
-        <Grid minColumnWidth={200} gap={2}><Input label="Drive folder (optional)" value={drive} onChange={(e) => setDrive(e.target.value)} placeholder="https://drive.google.com/..." /><Input label="ClickUp folder (optional)" value={clickup} onChange={(e) => setClickup(e.target.value)} placeholder="https://app.clickup.com/..." /></Grid>
+        <Input label="Drive folder (optional)" value={drive} onChange={(e) => setDrive(e.target.value)} placeholder="https://drive.google.com/..." />
       </Stack>
     </Sheet>
   );
@@ -528,7 +527,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
     <>
       {projectsSection}{paymentsSection}{retainerSection}{deliverablesSection}
       {confirmDialog}
-      {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if ((doc.links?.drive || doc.links?.clickup) && !(lead.links?.drive || lead.links?.clickup)) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: lead.links?.drive || doc.links.drive, clickup: lead.links?.clickup || doc.links.clickup } }); } else toast.error(COPY.error.create); }} />}
+      {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if (doc.links?.drive && !lead.links?.drive) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: doc.links.drive } }); } else toast.error(COPY.error.create); }} />}
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>
         <Textarea label={round?.extra ? 'Reason' : 'What changed'} rows={3} value={roundNote} onChange={(e) => setRoundNote(e.target.value)} placeholder={round?.extra ? 'They want the mark reworked after approving it.' : 'Tightened the wordmark spacing, swapped the secondary color.'} data-autofocus />

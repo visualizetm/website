@@ -59,7 +59,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
       if (t) events.push({ id: `call:${l._id}:${e.at}`, kind: 'call', at: t, lead: l, outcome: e.outcome, title: `Called ${l.business}`, detail: e.note || '' });
     }
     for (const e of (l.contactLog || [])) if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
-    if (stage !== 'lost') {
+    if (stage !== 'lost' && stage !== 'declined') {
       s.funnel.leads++;
       if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) s.funnel.contacted++;
       if (stage === 'booked' || stage === 'won' || stage === 'client') s.funnel.booked++;
@@ -67,7 +67,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     }
     if (stage === 'lead' && (l.callStatus || 'not-called') === 'not-called') s.notCalled++;
     if (stage === 'booked') s.booked++;
-    if (l.callStatus === 'callback' && stage !== 'lost') s.callbacks++;
+    if (l.callStatus === 'callback' && stage !== 'lost' && stage !== 'declined') s.callbacks++;
     if (created >= P.now - 2 * DAY) s.newLeads48h++;
     for (const p of (l.purchases || [])) {
       const amt = Number(p.amount) || 0;
