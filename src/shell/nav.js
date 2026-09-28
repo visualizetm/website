@@ -13,7 +13,7 @@
  */
 export const NAV = [
   // PIPELINE: the work of landing someone.
-  { id: 'dashboard',   label: 'Dashboard',        icon: 'LayoutAlt01',     path: '',            group: 'Pipeline', badge: null,        tab: true },
+  { id: 'dashboard',   label: 'Next up',          icon: 'LayoutAlt01',     path: '',            group: 'Pipeline', badge: 'dashboard', tab: true },
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      group: 'Pipeline', badge: 'leads',     tab: true },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabLabel: 'Call' },
   { id: 'booked',      label: 'Booked',           icon: 'CalendarCheck01', path: '/booked',     group: 'Pipeline', badge: 'booked',    tab: true },

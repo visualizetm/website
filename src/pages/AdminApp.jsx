@@ -14,6 +14,7 @@ import { applyAppearance, setBootHint } from '../shell/appearance';
 import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { conceptsBadge } from '../lib/concepts';
+import { withNextAction, nextUpBadge } from '../lib/nextAction';
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
@@ -129,7 +130,13 @@ export default function AdminApp() {
        leaving its stage, a decline): it travels on the body, never into the
        record. Whatever screen asks for it puts it in the set and it is
        lifted out here. */
-    const { explicit, ...set } = rawSet || {};
+    const { explicit, ...set0 } = rawSet || {};
+    /* CRM revamp, step 2: a write that touches stage, the call status, the
+       callback, the meeting or the outcome carries the recomputed next
+       action on the same PATCH (src/lib/nextAction.js), so the record and
+       the Next up queue never disagree. A manual action is kept. */
+    const cur = callLeadsRef.current.find(l => l._id === id);
+    const set = cur ? withNextAction(cur, set0, { projects: projectsRef.current, sets: setsRef.current }) : set0;
     let prev;
     setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } });
@@ -188,7 +195,9 @@ export default function AdminApp() {
     if (r.data?.item) setProjects(ps => [r.data.item, ...ps]);
     return r.data?.item || null;
   }, []);
-  const patchProject = useCallback(async (id, set) => {
+  const patchProject = useCallback(async (id, set0) => {
+    const curP = projectsRef.current.find(p => String(p._id) === String(id));
+    const set = curP ? withNextAction(curP, set0, { projects: projectsRef.current, sets: setsRef.current }) : set0;
     let prev;
     setProjects(ps => ps.map(p => { if (String(p._id) === String(id)) { prev = p; return { ...p, ...set }; } return p; }));
     const r = await apiFetch('/api/admin/projects', { method: 'PATCH', body: { id, set } });
@@ -224,6 +233,10 @@ export default function AdminApp() {
     return true;
   }, []);
   useEffect(() => { if (authed) loadSets(); }, [authed, loadSets]);
+  // The latest lists for the write helpers above, which are memoised once.
+  const callLeadsRef = useRef([]); callLeadsRef.current = callLeads;
+  const projectsRef = useRef([]); projectsRef.current = projects;
+  const setsRef = useRef([]); setsRef.current = sets;
 
   // Print orders (Prompt 11), loaded at the shell level like projects.
   const [orders, setOrders] = useState([]);
@@ -308,11 +321,12 @@ export default function AdminApp() {
   const openPlanner = useCallback((lead, month) => { navigate(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`); }, [navigate]);
   const openConcepts = useCallback((lead, setId) => { navigate(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`); }, [navigate]);
   // Open a lead in whichever screen owns its stage.
-  const openLead = useCallback((lead) => {
+  const openLead = useCallback((lead, intent) => {
     const stage = effectiveStage(lead);
     const sec = stage === 'booked' ? 'booked' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
     go(sec);
-    setOpenReq({ section: sec, id: lead._id, n: Date.now() });
+    // intent (CRM revamp, step 2): which fold the record opens on ('outcome', 'payments').
+    setOpenReq({ section: sec, id: lead._id, n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null });
   }, [go]);
   const newLead = useCallback((preset) => { go('leads'); setCreateReq({ section: 'leads', preset: preset || {}, n: Date.now() }); }, [go]);
   const newClient = useCallback(() => { go('clients'); setCreateReq({ section: 'clients', preset: {}, n: Date.now() }); }, [go]);
@@ -466,7 +480,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets) };
+  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -479,7 +493,7 @@ export default function AdminApp() {
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
       {section === 'dashboard' && (
-        <AdminDashboard leads={V.leads} projects={V.projects} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onOpenSubmission={(it) => go('submissions', it._id)} onOpenOrder={openOrder} />
+        <AdminDashboard leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
       )}
       {section === 'leads' && (
         <AdminLeads

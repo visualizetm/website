@@ -41,7 +41,11 @@ export const SCREENS = [
 
   // The Today card's skeleton draws the last known row count (vz_dash_today, written by every loaded render), so the prep is a
   // previous visit: let the dashboard land its data once before the forced loading state reads the key.
-  { id: 'dashboard', screen: 'Dashboard', label: 'dashboard', path: '/admin', resource: 'leads', prep: async (p) => { await rmLS(p, 'vz_call_session'); await p.waitForSelector('.db-today .v-lrow, .db-today .v-empty', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'dashboard', screen: 'Next up', label: 'the queue', path: '/admin', resource: 'leads', prep: async (p) => { await rmLS(p, 'vz_call_session'); await p.waitForSelector('.nu-row, .v-empty', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'dashboard-later', screen: 'Next up', label: 'Later this week open', path: '/admin', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.getByRole('button', { name: /^Later this week/ })) },
+  { id: 'dashboard-stats', screen: 'Next up', label: 'Stats open', path: '/admin', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.getByRole('button', { name: /^Stats/ })) },
+  { id: 'dashboard-record', screen: 'Next up', label: 'a tapped record beside the queue', path: '/admin', resource: 'leads', minWidth: 1024, region: '.db-main', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.locator('.nu-row .v-stretch').first()) },
+  { id: 'dashboard-snooze', screen: 'Next up', label: 'the snooze picker', path: '/admin', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.locator('.nu-row button[aria-haspopup]').first()); await click(p.getByRole('menuitem', { name: 'Snooze until' })); } },
 
   { id: 'leads-kanban', screen: 'Leads', label: 'list, kanban', path: '/admin/leads', resource: 'leads', minWidth: 1024, prep: (p) => setLS(p, 'vz_leads_view', 'kanban') },
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },

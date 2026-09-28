@@ -12,8 +12,8 @@ off, theme Dark.
 | # | Do | Expect |
 |---|---|---|
 | 1 | Open admin.visualizeclients.com on the phone | The shell frame paints at once, the login card appears, no blank screen. |
-| 2 | Sign in with the password | The Dashboard greets you by name with today's date and the context line. |
-| 3 | Read the Dashboard | Funnel strip, the stats, and the Today card are filled; no skeleton lingers. |
+| 2 | Sign in with the password | Next up greets you by name with today's date and the context line (how many overdue and due today). |
+| 3 | Read Next up | The overdue rows come first in red, then today, then Later this week folded; each row's control does the action (a callback dials, an outcome opens the record on the meeting fold). Swipe a row right to mark it done and undo from the toast; open Stats and the funnel strip and the numbers are filled; no skeleton lingers. |
 | 4 | Tap Start call session | The Call Console builder opens with the status and priority chips and a lead count on the Start button. |
 | 5 | Tap Start call session in the builder | The queue (phone) or the room (desktop) opens with the first lead's card. |
 | 6 | Tap the first lead in the queue (phone) | The call room shows the name, pills, the phone button, and the script tab. |
@@ -44,7 +44,7 @@ off, theme Dark.
 | 29 | Settings, Profile, Appearance: tap Light | The whole admin turns light at once; the sidebar stays black. Tap Dark to return. |
 | 30 | Settings, Profile, Appearance: turn Reduce motion on | Skeleton shimmer, entrances, and pulses stop; turn it off again. |
 | 31 | More (phone) or the avatar (desktop), Sign out | The login card returns. |
-| 32 | Sign in again | The Dashboard returns with the same data and the theme you left. |
+| 32 | Sign in again | Next up returns with the same data and the theme you left. |
 
 Also once per release, by hand:
 

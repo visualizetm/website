@@ -83,6 +83,27 @@ export const DECLINE_REASONS = [
   { id: 'other',        label: 'Other',                icon: 'Edit02',         order: 5 },
 ];
 export const DECLINE_REASON_IDS = DECLINE_REASONS.map(r => r.id);
+/* The next action a record carries (CRM revamp, step 2; src/lib/nextAction.js). */
+export const NEXT_ACTION_KINDS = [
+  { id: 'call',            label: 'Call',               icon: 'PhoneCall01',     order: 0 },
+  { id: 'callback',        label: 'Call back',          icon: 'PhoneIncoming01', order: 1 },
+  { id: 'build-concepts',  label: 'Build concepts',     icon: 'LayersThree01',   order: 2 },
+  { id: 'log-outcome',     label: 'Log the outcome',    icon: 'CheckCircle',     order: 3 },
+  { id: 'send-onboarding', label: 'Send onboarding',    icon: 'Send01',          order: 4 },
+  { id: 'chase-form',      label: 'Chase the form',     icon: 'Inbox01',         order: 5 },
+  { id: 'send-contract',   label: 'Send the contract',  icon: 'File06',          order: 6 },
+  { id: 'chase-contract',  label: 'Chase the contract', icon: 'File06',          order: 7 },
+  { id: 'send-invoice',    label: 'Send the invoice',   icon: 'CurrencyDollar',  order: 8 },
+  { id: 'chase-invoice',   label: 'Chase the invoice',  icon: 'CurrencyDollar',  order: 9 },
+  { id: 'kickoff',         label: 'Kick off',           icon: 'Play',            order: 10 },
+  { id: 'revision',        label: 'Revision round',     icon: 'Edit02',          order: 11 },
+  { id: 'deliver',         label: 'Deliver',            icon: 'Package',         order: 12 },
+  { id: 'retainer-pitch',  label: 'Pitch the retainer', icon: 'RefreshCw01',     order: 13 },
+  { id: 'review-ask',      label: 'Ask for a review',   icon: 'Star01',          order: 14 },
+  { id: 'custom',          label: 'Custom',             icon: 'Edit02',          order: 15 },
+];
+export const NEXT_ACTION_KIND_IDS = NEXT_ACTION_KINDS.map(k => k.id);
+export const nextActionKindOf = (id) => NEXT_ACTION_KINDS.find(k => k.id === id) || NEXT_ACTION_KINDS[NEXT_ACTION_KINDS.length - 1];
 export const declineReasonOf = (id) => DECLINE_REASONS.find(r => r.id === id) || DECLINE_REASONS[DECLINE_REASONS.length - 1];
 /** Stage as stored can be missing OR "" (the nightly enricher writes an
  *  empty string on 249 docs). Anything unknown reads as 'lead'; a legacy

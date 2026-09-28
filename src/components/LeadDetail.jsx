@@ -23,6 +23,7 @@ import Checklists from './Checklists';
 import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
 import { useDecline } from './DeclineSheet';
+import { liveNextAction, nextActionFor } from '../lib/nextAction';
 import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
 import { lifetimeValue } from '../lib/projects';
 import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
@@ -106,7 +107,7 @@ function Block({ title, summary, callMode, action, children }) {
   );
 }
 
-export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null }) {
+export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null, intent = null }) {
   // The shape guard (src/lib/leads.js): every field this screen maps or reads keys from is the type it expects.
   const lead = normalizeLead(rawLead);
   const shell = useShell();
@@ -161,6 +162,25 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const save = (key) => async (v) => patchRaw({ [key]: v });
   const saveSocial = (key) => async (v) => patchRaw({ socials: { ...(lead.socials || {}), [key]: v } });
   const jump = (id) => { setTab(id); setOpenIds(prev => (prev.has(id) ? prev : new Set([...prev, id]))); requestAnimationFrame(() => refs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })); };
+  /* Next up (CRM revamp, step 2): a row's control opens the record on the
+     fold that does the thing: the meeting fold with the outcome bar for
+     log-outcome, Payments for chase-invoice. */
+  useEffect(() => {
+    if (!intent?.kind) return;
+    const t = setTimeout(() => { if (intent.kind === 'outcome') jump('meeting'); else if (intent.kind === 'payments') jump('payments'); }, 60);
+    return () => clearTimeout(t);
+  }, [intent?.n, intent?.kind, lead._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* Set next action: a manual action (auto false) the nightly recompute
+     never overwrites; clearing it hands the field back to the rules. */
+  const actionCtx = { projects: shell?.projects || [], sets: shell?.sets || [] };
+  const nextNow = liveNextAction(lead, actionCtx);
+  const nextText = nextNow && !nextNow.doneAt ? `${nextNow.label}${nextNow.dueAt ? `, ${fmtDateTime(nextNow.dueAt)}` : ''}${nextNow.auto === false ? '' : ' (auto)'}` : '';
+  const saveNextAction = async (v) => {
+    const label = String(v || '').trim().slice(0, 120);
+    if (!label) return patchRaw({ nextAction: nextActionFor(lead, actionCtx) });
+    const dueAt = nextNow?.dueAt || new Date(Date.now() + 864e5).toISOString();
+    return patchRaw({ nextAction: { kind: 'custom', label, dueAt, auto: false, doneAt: '' } });
+  };
 
   /* Meeting */
   const mDate = meetingDate(lead);
@@ -278,6 +298,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
         <Fact label="Source" value={lead.sourceId ? 'Nightly scraper' : 'Added by hand'} readOnly />
         <Fact label="Added" value={fmtDate(lead.createdAt) || ''} readOnly />
         <Fact label="Last scanned" value={lead.enrichment?.lastScanAt ? `${relativeTime(lead.enrichment.lastScanAt)}, ${lead.enrichment.scanCount || 1} scan${(lead.enrichment.scanCount || 1) === 1 ? '' : 's'}` : 'Never'} readOnly />
+        <Fact label="Next action" value={nextText} onSave={saveNextAction} placeholder="Set next action" readOnly={readOnly} />
         <Fact label="Callback due" value={lead.callbackAt ? fmtDateTime(lead.callbackAt) : ''} placeholder={readOnly ? 'None' : 'Set a time'} onClick={readOnly ? undefined : () => setCbOpen(true)} />
       </Stack>
     </Card>

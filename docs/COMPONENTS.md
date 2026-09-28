@@ -334,7 +334,7 @@ crossfade lives in PageShell (`.lay-view` on the shell's content region,
 ### Success moments
 `.v-pulse-won` (Card styles) is the one shot ring and lift in the won tone;
 Badge ticks (scale bounce) when its count grows; Checkbox marks pop; the
-Dashboard ring pulses red once when the target is hit.
+The call target ring (now under Stats on Next up) pulses red once when the target is hit.
 
 ### useOptimisticPatch
 ```js

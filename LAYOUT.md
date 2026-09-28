@@ -1,6 +1,6 @@
 # Admin layout system
 
-One layout system for every admin surface (Dashboard, Submissions, Orders,
+One layout system for every admin surface (Next up, Submissions, Orders,
 Call Console, Settings, detail views, modals, forms). It exists so three bug
 classes are impossible by construction:
 
@@ -133,7 +133,7 @@ being a splash and become a scrim.
 
 `AUDIT_ONLY=a11y` adds the 200 percent zoom pass (a viewport of half the
 CSS pixels at twice the device scale, which is what browser zoom does) and
-the WCAG text spacing overrides on the Dashboard, Leads, and the call room.
+the WCAG text spacing overrides on Next up, Leads, and the call room.
 Zero offenders is the bar. Intended horizontal scrollers are listed in
 HSCROLL_OK; the calendar strip, week, and month are there because they keep
 44px columns and scroll on the narrowest phones instead of shrinking targets.

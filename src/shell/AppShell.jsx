@@ -131,7 +131,7 @@ export default function AppShell({
   }, []);
 
   const go = useCallback((navId, preset) => { setMoreOpen(false); setNotifOpen(false); onGo(navId, preset); }, [onGo]);
-  const openLead = useCallback((lead) => { setNotifOpen(false); onOpenLead(lead); }, [onOpenLead]);
+  const openLead = useCallback((lead, intent) => { setNotifOpen(false); onOpenLead(lead, intent); }, [onOpenLead]);
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
@@ -178,7 +178,7 @@ export default function AppShell({
           /* A planner item wants the client's planner editor, which arrives in
              prompt 2. Until onOpenPlanner is passed in, it opens the client
              record, which is where that editor will live. */
-          onOpenItem={(item) => { markRead([item.id]); if (item.openConcepts && item.lead && onOpenConcepts) onOpenConcepts(item.lead, item.setId); else if (item.openPlanner && item.lead && onOpenPlanner) onOpenPlanner(item.lead); else if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
+          onOpenItem={(item) => { markRead([item.id]); if (item.openNext && item.lead) openLead(item.lead, item.intent); else if (item.openConcepts && item.lead && onOpenConcepts) onOpenConcepts(item.lead, item.setId); else if (item.openPlanner && item.lead && onOpenPlanner) onOpenPlanner(item.lead); else if (item.lead) openLead(item.lead); else if (item.event?.link) window.open(item.event.link, '_blank', 'noopener'); else go('calendar'); }}
           onMarkAllRead={() => markRead(notifications.map(n => n.id))} onSnooze={snooze} onDone={(item) => markRead([item.id])} onGoCalls={() => go('calls')} />
         <style>{styles}</style>
       </div>

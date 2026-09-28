@@ -15,12 +15,12 @@ import { COPY } from '../shared/copy';
  *   ... onSelect: () => decline.open(lead) ...
  *   {decline.sheet} */
 export function declinePatch(lead, reason, note) {
-  const set = { stage: 'declined', declined: { reason, note: String(note || '').trim().slice(0, 300), at: new Date().toISOString() }, callbackAt: '', explicit: true };
+  const set = { stage: 'declined', declined: { reason, note: String(note || '').trim().slice(0, 300), at: new Date().toISOString() }, callbackAt: '', nextAction: null, explicit: true };
   if (lead?.afterCall && typeof lead.afterCall === 'object' && lead.afterCall.nextAction) set.afterCall = { ...lead.afterCall, nextAction: '' };
   return set;
 }
 export function undoDeclinePatch(lead) {
-  return { stage: lead?.stage && lead.stage !== 'declined' ? lead.stage : 'lead', declined: null, callbackAt: lead?.callbackAt || '', explicit: true, ...(lead?.afterCall && typeof lead.afterCall === 'object' ? { afterCall: lead.afterCall } : {}) };
+  return { stage: lead?.stage && lead.stage !== 'declined' ? lead.stage : 'lead', declined: null, callbackAt: lead?.callbackAt || '', nextAction: lead?.nextAction || null, explicit: true, ...(lead?.afterCall && typeof lead.afterCall === 'object' ? { afterCall: lead.afterCall } : {}) };
 }
 
 export function useDecline({ onPatch, onDeclined }) {

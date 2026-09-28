@@ -90,7 +90,7 @@ export default function AdminBooked({ leads, submissions = [], loading, error, o
           <ScrollArea bare className="bk-panel-scroll"><Stack gap={2}><p className="bk-muted">{list.length} booked</p>{cards(true)}</Stack></ScrollArea>
         </aside>
         <div className="aa-main bk-main">
-          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} />
+          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} />
         </div>
         <style>{bkStyles}</style>
       </>

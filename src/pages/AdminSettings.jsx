@@ -170,7 +170,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   const crons = [
-    { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, and review asks due, with a deep link to the Dashboard.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
+    { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, and review asks due, with a deep link to Next up.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
     { id: 'daily', label: 'Daily', every: 'Once a day, 06:00 UTC', what: 'Rolls retainer bill dates forward, extends retainer schedules, cancels retainers past their notice, and writes task health.', last: health?.crons?.daily?.lastRunAt, next: nextRun(health?.crons?.daily?.lastRunAt, 24 * 60), extra: health?.crons?.daily ? `${health.crons.daily.rolled || 0} rolled, ${health.crons.daily.cancelled || 0} cancelled` : '' },
   ];
   const cronArmed = !!(data?.cron?.configured ?? data?.reminders?.configured);
@@ -209,7 +209,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       </Card>
       <Card className="st-card">
         <p className="pb-card-h">Daily call target</p>
-        <Row gap={2} align="baseline"><InlineEdit value={String(data?.dashboard?.dailyCallTarget || 25)} onSave={saveTarget} type="number" inputMode="numeric" label="Daily call target" format={(v) => `${v} calls`} className="st-target" /><span className="dt-muted">The same number the Dashboard ring counts against.</span></Row>
+        <Row gap={2} align="baseline"><InlineEdit value={String(data?.dashboard?.dailyCallTarget || 25)} onSave={saveTarget} type="number" inputMode="numeric" label="Daily call target" format={(v) => `${v} calls`} className="st-target" /><span className="dt-muted">The same number the call session counts against.</span></Row>
       </Card>
       <Card className="st-card st-appearance">
         <p className="pb-card-h">Appearance</p>
@@ -219,7 +219,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       </Card>
       <Card className="st-card">
         <p className="pb-card-h">Business hours</p>
-        <p className="dt-muted">The Dashboard says when you are outside them and the best window reads against them.</p>
+        <p className="dt-muted">Next up says when you are outside them and the best window reads against them.</p>
         <Grid minColumnWidth={140} gap={2}><Input label="Start" type="time" value={profile.businessHours?.start || '09:00'} onChange={(e) => saveProfile({ businessHours: { start: e.target.value } })} /><Input label="End" type="time" value={profile.businessHours?.end || '17:00'} onChange={(e) => saveProfile({ businessHours: { end: e.target.value } })} /></Grid>
       </Card>
       <PasswordCard />

@@ -77,7 +77,7 @@ export default function Sidebar({ collapsed, canToggle = true, onToggle, activeI
 
   return (
     <nav className={`sh-side${collapsed ? ' is-collapsed' : ''}`} aria-label="Admin sections">
-      <button type="button" className="sh-side-brand" onClick={() => onGo('dashboard')} aria-label="Dashboard">
+      <button type="button" className="sh-side-brand" onClick={() => onGo('dashboard')} aria-label="Next up">
         <span className="img-fit img-fit--1x1 img-fit--contain sh-side-mark">
           <img src="/logo.svg" alt="" width="28" height="28" />
         </span>

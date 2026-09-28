@@ -71,7 +71,7 @@ schedules (a schedule that fires more than once a day fails the Vercel
 deploy). `/api/cron/reminders` runs at 13:00 UTC (9am Eastern) and sends one
 morning digest push instead of a push per event: every callback due today or
 overdue, every meeting today, retainer bills due today, and review asks due,
-as one notification with a deep link to the Dashboard. `sentReminderKeys`
+as one notification with a deep link to Next up. `sentReminderKeys`
 dedupes on one key per day, so a manual rerun the same day sends nothing.
 `/api/cron/daily` is unchanged, at 06:00 UTC.
 
@@ -171,7 +171,7 @@ npx vite preview --port 4330                   # serve dist/ for the audits
 node scripts/layout-audit.mjs                  # every route at 5 widths, mocked APIs, 44px targets, stuck overlays
 AUDIT_ONLY=settings AUDIT_WIDTHS=390,1280 AUDIT_SHOTS=./shots node scripts/layout-audit.mjs   # also clients, studio, design, dashboard
 AUDIT_THEME=light AUDIT_MOTION=reduce node scripts/layout-audit.mjs   # the other theme, motion off
-AUDIT_ONLY=a11y AUDIT_WIDTHS=390,1280 node scripts/layout-audit.mjs   # 200 percent zoom and text spacing on Dashboard, Leads, call room
+AUDIT_ONLY=a11y AUDIT_WIDTHS=390,1280 node scripts/layout-audit.mjs   # 200 percent zoom and text spacing on Next up, Leads, call room
 node scripts/feel-audit.mjs                    # skeleton, fit, entrance, empty, error, layout shift per screen
 AUDIT_THEME=both AUDIT_MOTION=both AUDIT_OUT=/tmp/feel.json node scripts/feel-audit.mjs
 node scripts/feel-audit.mjs --boot             # time to first shell paint on a throttled network
@@ -180,7 +180,7 @@ node scripts/regression.mjs                    # docs/QA-CHECKLIST.md as a Playw
 node scripts/site-regression.mjs               # docs/SITE-QA-CHECKLIST.md as a Playwright walk against the marketing site
 node scripts/render-profile.mjs                # kanban with 400 leads, month with 60 events
 DIST=dist PORT=4350 node scripts/mock-server.mjs &   # fixture backed server for Lighthouse (MOCK_HOST=admin adds the CSP, MOCK_SHOWCASE_EMPTY=1 serves an empty showcase)
-LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Dashboard, Leads, call room, Clients, Home, Contact, Services, both themes
+LH_BASE=http://127.0.0.1:4350 node scripts/lighthouse.mjs   # mobile preset, Next up, Leads, call room, Clients, Home, Contact, Services, both themes
 LH_BASE=http://127.0.0.1:4350 LH_FORM=desktop node scripts/lighthouse.mjs   # the 1280-equivalent desktop preset
 node scripts/fetch-fonts.mjs                   # refresh the self hosted latin font subsets
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)

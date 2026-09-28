@@ -17,6 +17,7 @@ import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useDecline } from '../components/DeclineSheet';
+import { withNextAction } from '../lib/nextAction';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
 import LeadHistory from '../components/LeadHistory';
@@ -233,7 +234,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead }) {
         {booked.length > 0 && (
           <Card><Section title="Booked this session"><Stack gap={2}>{booked.map(l => <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={l.meeting?.date ? `${l.meeting.date} ${l.meeting.time || ''}` : 'Meeting set'} onClick={() => onOpenLead(l)} />)}</Stack></Section></Card>
         )}
-        <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to dashboard</Button></Row>
+        <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to Next up</Button></Row>
       </Stagger>
     </ScrollArea>
   );
@@ -320,13 +321,16 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   /* ── Data ops ── */
   // explicit: true (a decline) rides on the body, never into the record; see AdminApp.patchCallLead.
   const patch = useCallback(async (id, rawSet) => { const { explicit, ...set } = rawSet || {}; return (await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } })).ok; }, []);
-  const patchLead = useCallback(async (id, set) => {
+  const patchLead = useCallback(async (id, set0) => {
+    // CRM revamp, step 2: the same recompute the shell's helper does, so a callback logged here carries its next action.
+    const cur = leads.find(l => l._id === id);
+    const set = cur ? withNextAction(cur, set0, { projects: shell?.projects || [], sets: shell?.sets || [] }) : set0;
     let prev; setLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const ok = await patch(id, set);
     if (!ok && prev) { setLeads(ls => ls.map(l => (l._id === id ? prev : l))); toast.error(COPY.error.save); }
     else onDataChanged?.();
     return ok;
-  }, [patch, onDataChanged, toast]);
+  }, [patch, onDataChanged, toast, leads, shell?.projects, shell?.sets]);
   const saveNotes = useCallback((id, notes) => patchLead(id, { notes }), [patchLead]);
   /* Decline from the room (CRM revamp, step 1): the lead leaves the queue and the
      room moves on; the undo puts it back through a reload. */

@@ -3,6 +3,7 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
 import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline.js';
+import { nextActionFor, resolveNextAction, sameAction } from '../_lib/nextAction.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
@@ -12,6 +13,8 @@ import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline
  *  1b. Stage heal: a live record whose stage was wiped by a background job and
  *     that carries client evidence goes back to client (api/_lib/pipeline.js).
  *  1c. clientSince backfill for any client or won record missing it.
+ *  1d. nextAction recompute (CRM revamp, step 2) on every live lead and
+ *     project, so a write that skipped the shared helper is repaired.
  *  2. Task health: write the settings 'health' document (enrichment, scraper,
  *     crons, stripe) the Integrations cards and the drawer read. */
 const pad = (n) => String(n).padStart(2, '0');
@@ -105,6 +108,25 @@ export async function handler(req, res) {
     await leads.updateOne({ _id: l._id }, { $set: { clientSince: since, updatedAt: new Date() } }); stamped++;
   }
 
+  /* 1d. The next action, recomputed for every live lead and project with
+     the server mirror of the rules (api/_lib/nextAction.js). A manual
+     action (auto false) and a done one for the same due are kept. */
+  let nextActions = 0;
+  const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1 }).toArray();
+  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, delivery: 1, releasedAt: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
+  const liveSets = await db.collection('concept_sets').find({ deleted: { $ne: true }, archived: { $ne: true } }).project({ leadId: 1 }).toArray();
+  const ctx = { projects: liveProjects, sets: liveSets };
+  for (const l of liveLeads) {
+    const next = resolveNextAction(l, nextActionFor(l, ctx, Date.now()));
+    if (sameAction(next, l.nextAction || null)) continue;
+    await leads.updateOne({ _id: l._id }, { $set: { nextAction: next, updatedAt: new Date() } }); nextActions++;
+  }
+  for (const p of liveProjects) {
+    const next = resolveNextAction(p, nextActionFor(p, ctx, Date.now()));
+    if (sameAction(next, p.nextAction || null)) continue;
+    await projects.updateOne({ _id: p._id }, { $set: { nextAction: next, updatedAt: new Date() } }); nextActions++;
+  }
+
   // 2. Health.
   const since24 = new Date(Date.now() - 24 * 3600e3); const since7 = new Date(Date.now() - 7 * 864e5);
   const scanned = await leads.find({ deleted: { $ne: true }, 'enrichment.lastScanAt': { $exists: true, $ne: '' } }).project({ enrichment: 1, descriptor: 1, industry: 1, phone: 1, email: 1, socials: 1, intel: 1 }).toArray();
@@ -121,12 +143,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped,
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions,
       // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
       healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, health });
 }

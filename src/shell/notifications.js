@@ -4,11 +4,10 @@
  * (next 7 days), new (leads created in the last 48h), system. */
 import { normalizeStage } from '../shared/semantics';
 import { buildEvents, sameDay } from '../lib/events';
-import { projectsOf, scheduleStatus, localDate, money } from '../lib/projects';
-import { reviewAskDue } from '../lib/reviews';
 import { recentClientActions, postLabel, postDateLabel } from '../lib/posts';
 import { healItems } from '../lib/heals';
 import { recentConceptActions, directionLabel } from '../lib/concepts';
+import { nextUpItems } from '../lib/nextAction';
 
 const H = 3600e3;
 export const GROUP_LABELS = { overdue: 'Overdue', today: 'Today', upcoming: 'Upcoming', new: 'New leads', system: 'System' };
@@ -25,7 +24,8 @@ export function buildNotifications(leads, opts = {}) {
   const items = [];
   const events = buildEvents(leads, opts.calendly || [], now, opts.projects || []);
   for (const e of events) {
-    if (e.kind === 'scraper') continue;
+    // Callbacks and meetings are next actions now (CRM revamp, step 2): one source below.
+    if (e.kind === 'scraper' || e.kind === 'callback' || e.kind === 'meeting') continue;
     const s = snoozed[e.id]; if (s && new Date(s).getTime() > now) continue;
     let group;
     // Prompt 10: the final month of a payment plan is a System item for the 31 days before it.
@@ -41,24 +41,21 @@ export function buildNotifications(leads, opts = {}) {
     if (e.kind === 'calendly' && !e.leadId && !(e.calendly?.createdAt ? new Date(e.calendly.createdAt).getTime() > lastSeen : true)) continue;
     items.push({ id: e.id, kind: e.kind, group, tone: e.tone, icon: ICON[e.kind] || 'Bell01', title: e.title, detail: e.kind === 'callback' || e.kind === 'meeting' || e.kind === 'calendly' ? `${new Date(e.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${e.subtitle ? `, ${e.subtitle}` : ''}` : e.subtitle, at: e.at, lead: e.lead, event: e });
   }
-  // Past due schedule items on client projects (Prompt 10).
-  for (const l of leads) {
-    if (normalizeStage(l) !== 'client') continue;
-    for (const p of projectsOf(opts.projects || [], l._id)) {
-      for (const s of (p.schedule || [])) {
-        if (scheduleStatus(s, now) !== 'past-due') continue;
-        const id = `pay:${p._id}:${s.id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
-        const at = localDate(s.dueAt)?.getTime() || now;
-        items.push({ id, kind: 'payment', group: 'overdue', tone: 'danger', icon: ICON.payment, title: `Payment past due: ${l.business}`, detail: `${money(s.amount)} for ${p.name}, ${s.label || 'schedule item'}, was due ${new Date(at).toLocaleDateString([], { month: 'short', day: 'numeric' })}.`, at, lead: l });
-      }
-    }
-  }
-  // Prompt 11: ask for a review 3 days after a release with zero asks (System).
-  for (const l of leads) {
-    const due = reviewAskDue(l, opts.projects || [], now);
-    if (!due) continue;
-    const id = `review:${l._id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
-    items.push({ id, kind: 'review', group: 'system', tone: 'won', icon: 'Star01', title: `Ask ${l.business} for a review`, detail: `${due.project.name} was released ${new Date(due.project.releasedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} and nobody has asked yet.`, at: due.at, lead: l });
+  /* Next up (CRM revamp, step 2): every lead and project next action is a
+   * row here too, the one source the drawer, the badge and the first
+   * screen share. Overdue is the Overdue group, today is Today, the next
+   * seven days are Upcoming; a snooze here hides the row, a snooze on Next
+   * up moves the action. The old callback, meeting, payment and review
+   * items were this list under four names. */
+  for (const it of nextUpItems(leads, opts.projects || [], opts.sets || [], now).all) {
+    const id = `next:${it.id}`; const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
+    const k = it.action.kind;
+    const intent = k === 'log-outcome' ? 'outcome' : k === 'chase-invoice' ? 'payments' : undefined;
+    const tone = it.bucket === 'overdue' ? 'danger' : it.tone;
+    items.push({ id, kind: 'next', group: it.bucket === 'overdue' ? 'overdue' : it.bucket === 'today' ? 'today' : 'upcoming', tone, icon: it.icon, openNext: true, intent,
+      title: `${it.action.label}: ${it.lead.business}`,
+      detail: `${it.project ? `${it.project.name}, ` : ''}${it.bucket === 'overdue' ? 'was due ' : 'due '}${new Date(it.due).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`,
+      at: it.due, lead: it.lead });
   }
   /* Content Planner (planner prompt 1, part 4): what a client did in their
    * planner in the last 48 hours, computed from the posts themselves rather

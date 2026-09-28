@@ -1,24 +1,29 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
-import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import {
-  Stack, Row, Grid, Section, Card, StatCard, IconTile, Pill, ListRow, EmptyState, ErrorState, Button, InlineEdit, ProgressRing,
-  Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useRetry, durationMs,
+  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input,
+  Stagger, SkeletonBlock, SkeletonText, ListRow, useDelayedLoading, useMediaQuery, useRetry, useToast,
   Icon, Collapsible,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONTACTED_STATUSES } from '../lib/leads';
 import { useShell, useTopBar } from '../shell/ShellContext';
-import { buildNotifications } from '../shell/notifications';
-import { normalizeStage, CALL_STATUSES } from '../shared/semantics';
-import { relativeTime, fmtDate, toMs } from '../shared/dates';
+import { normalizeStage } from '../shared/semantics';
+import { fmtDateTime, relativeTime, toMs, dayKey } from '../shared/dates';
 import { money } from '../shared/format';
-import { apiFetch } from '../shared/api';
+import { telHref } from '../shared/phone';
+import { nextUpItems } from '../lib/nextAction';
+import LeadDetail from '../components/LeadDetail';
 
-/* Dashboard: what to do right now, then how the business is going.
- * Everything is computed from the call_leads list AdminApp already loads
- * plus the submissions list; the only fetch is the daily call target. */
+/* Next up (CRM revamp, step 2): the one list of what to do, first. Every
+ * lead and project carries its next action (src/lib/nextAction.js); this
+ * screen lays them out overdue first, then today, then the next seven days
+ * folded under Later this week, each row with the one control that does
+ * the thing. Swipe right on a phone marks it done, swipe left snoozes it a
+ * day, a long press picks the snooze. On a desktop the queue is the left
+ * panel and the tapped record opens beside it. The greeting and the
+ * numbers stay, the numbers folded under Stats. */
 
 const DAY = 864e5;
 const CONTACTED = new Set(CONTACTED_STATUSES);
@@ -41,7 +46,6 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     funnel: { leads: 0, contacted: 0, booked: 0, clients: 0 },
     revenue: 0, revenueMonth: 0, retainerClients: 0, clients: 0, mrr: 0,
   };
-  const events = [];
   const bump = (t) => {
     if (!t) return;
     if (t >= P.dayStart) s.callsToday++;
@@ -56,7 +60,6 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
       bump(t);
       if (t >= P.monthStart) { s.logMonth++; if (e.outcome !== 'no-answer') s.logMonthConnected++; }
       else if (t >= P.lastMonthStart) { s.logLastMonth++; if (e.outcome !== 'no-answer') s.logLastMonthConnected++; }
-      if (t) events.push({ id: `call:${l._id}:${e.at}`, kind: 'call', at: t, lead: l, outcome: e.outcome, title: `Called ${l.business}`, detail: e.note || '' });
     }
     for (const e of (l.contactLog || [])) if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
     if (stage !== 'lost' && stage !== 'declined') {
@@ -72,149 +75,227 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
     for (const p of (l.purchases || [])) {
       const amt = Number(p.amount) || 0;
       s.revenue += amt;
-      const t = toMs(p.at); // date-only strings are local days since Prompt 12
+      const t = toMs(p.at);
       if (t && t >= P.monthStart) s.revenueMonth += amt;
-      if (t) events.push({ id: `buy:${l._id}:${p.at}:${p.label}`, kind: 'purchase', at: t, lead: l, title: `${l.business} paid ${money(amt)}`, detail: p.label || 'Purchase recorded' });
     }
-    // Prompt 10: the retainer field replaces the label regex. Active and ending retainers count; paused and cancelled do not.
     const onRetainer = stage === 'client' && ['active', 'ending'].includes(l.retainer?.status);
     if (stage === 'client') { s.clients++; if (onRetainer) { s.retainerClients++; s.mrr += Number(l.retainer.amount) || 0; } }
-    if (l.bookedOutcome?.result === 'won' && l.bookedOutcome.at) events.push({ id: `won:${l._id}`, kind: 'won', at: new Date(l.bookedOutcome.at).getTime(), lead: l, title: `${l.business} said yes`, detail: 'Lead won' });
-    if (l.clientSince) events.push({ id: `client:${l._id}`, kind: 'client', at: new Date(l.clientSince).getTime(), lead: l, title: `${l.business} became a client`, detail: 'First invoice paid' });
-    if (created) events.push({ id: `new:${l._id}`, kind: l.sourceId ? 'scraper' : 'lead', at: created, lead: l, title: `New lead: ${l.business}`, detail: [l.industry, l.area].filter(Boolean).join(', ') || 'Added by hand' });
-  }
-  for (const it of (subs || [])) {
-    const t = new Date(it.createdAt).getTime();
-    if (t) events.push({ id: `sub:${it._id}`, kind: 'submission', at: t, item: it, title: `Brief from ${it.business || it.name || 'the site'}`, detail: 'Submission received' });
-  }
-  // Prompt 11: print orders come from the orders collection.
-  for (const o of (orders || [])) {
-    const t = new Date(o.createdAt).getTime();
-    if (t) events.push({ id: `order:${o._id}`, kind: 'order', at: t, order: o, title: `Order from ${o.customer?.name || 'a walk in'}`, detail: (o.items || []).length ? `${(o.items || []).length} item${(o.items || []).length === 1 ? '' : 's'}, ${o.source === 'shop' ? 'from the shop' : o.source}` : 'Print order' });
-  }
-  events.sort((a, b) => b.at - a.at);
-  // Consecutive scraper inserts collapse into one row.
-  const feed = [];
-  for (const e of events) {
-    const last = feed[feed.length - 1];
-    if (e.kind === 'scraper' && last?.kind === 'scraper' && last.at - e.at < 12 * 3600e3) { last.count++; last.at = Math.max(last.at, e.at); last.title = `${last.count} new leads added overnight`; last.detail = 'From the nightly scraper'; continue; }
-    feed.push(e.kind === 'scraper' ? { ...e, count: 1, title: `New lead: ${e.lead.business}`, detail: 'From the nightly scraper' } : { ...e });
-    if (feed.length >= 20) break;
   }
   s.connectRate = s.logMonth ? Math.round((s.logMonthConnected / s.logMonth) * 100) : null;
   s.connectRateLast = s.logLastMonth ? Math.round((s.logLastMonthConnected / s.logLastMonth) * 100) : null;
-  s.feed = feed;
   return s;
 }
 
 const greetingFor = (h, name = 'Rob') => (h < 12 ? `Good morning, ${name}.` : h < 17 ? `Good afternoon, ${name}.` : `Good evening, ${name}.`);
 const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return true; const m = d.getHours() * 60 + d.getMinutes(); const [a, b] = [bh.start, bh.end].map(t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }); return m >= a && m < b; };
 const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cur - prev >= 0 ? '+' : ''}${cur - prev} vs ${label}`, direction: cur > prev ? 'up' : cur < prev ? 'down' : 'flat' });
-const EVENT_TONE = { call: 'progress', purchase: 'won', won: 'won', client: 'booked', lead: 'new', scraper: 'new', submission: 'callback', order: 'callback' };
-const EVENT_ICON = { call: 'PhoneCall01', purchase: 'CurrencyDollar', won: 'Trophy01', client: 'Briefcase01', lead: 'Users01', scraper: 'Users01', submission: 'Inbox01', order: 'Package' };
+const timeOf = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const dueLabel = (item, now = Date.now()) => (item.bucket === 'overdue' ? relativeTime(item.due, now) : item.bucket === 'today' ? timeOf(item.due) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
+const at9 = (d) => { const x = new Date(d); x.setHours(9, 0, 0, 0); return x; };
+const SNOOZES = [
+  { id: 'tomorrow', label: 'Tomorrow 9am', at: (now) => at9(now + DAY) },
+  { id: 'three', label: 'In 3 days', at: (now) => at9(now + 3 * DAY) },
+  { id: 'week', label: 'Next week', at: (now) => at9(now + 7 * DAY) },
+];
 
-/* The Today card's row count follows the data, so the skeleton reads the last
- * known count from localStorage (written on every loaded render) and draws
- * that many rows; a zero draws the small empty state's height (Prompt 15). */
-const TODAY_KEY = 'vz_dash_today';
-const readTodayCount = () => { try { const n = Number(localStorage.getItem(TODAY_KEY)); return Number.isFinite(n) && n >= 0 ? Math.min(n, 12) : 3; } catch { return 3; } };
-function DashboardSkeleton({ desktop, wide }) {
-  const todayRows = readTodayCount();
-  // The greeting is text, so its skeleton is text lines (under 40px each): one display-md line between 1024 and 1279, three in the narrow column at 1280 and up.
-  const left = (
-    <Stack gap={5}>
-      <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 3 : 1} lineHeight={wide ? 39 : 39} gap={1} width={300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
-      <Grid minColumnWidth={120}>{Array.from({ length: 4 }, (_, i) => <StatCard.Skeleton key={i} />)}</Grid>
-      <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
-      <Card><SkeletonBlock width={90} height={14} /></Card>
-    </Stack>
-  );
-  const right = (
-    <Stack gap={5}>
-      <Card><Stack gap={1} style={{ minHeight: 94 }}><SkeletonBlock width={60} height={16} /><SkeletonBlock width={120} height={18} /><SkeletonBlock width={150} height={44} radius="var(--v-radius-md)" /></Stack><Row gap={4}><SkeletonCircle size={88} /><Stack gap={2} style={{ flex: 1 }}><SkeletonBlock width="70%" height={14} /><SkeletonBlock width="50%" height={12} /></Stack></Row>{todayRows ? <Stack gap={2}>{Array.from({ length: todayRows }, (_, i) => <ListRow.Skeleton key={i} trailing={false} />)}</Stack> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Card>
-      <Card><SkeletonBlock width={120} height={14} /><Stack gap={2}>{[1, 2, 3, 4, 5].map(i => <ListRow.Skeleton key={i} trailing={false} />)}</Stack></Card>
-    </Stack>
-  );
-  if (desktop) return <div className="db-layout">{left}{right}</div>;
+/* The row count follows the data, so the skeleton reads the last known
+   count from localStorage (written on every loaded render). */
+const NEXT_KEY = 'vz_dash_next';
+const readNextCounts = () => { try { const [o, t] = String(localStorage.getItem(NEXT_KEY) || '').split(',').map(Number); return { overdue: Number.isFinite(o) && o >= 0 ? Math.min(o, 8) : 0, today: Number.isFinite(t) && t >= 0 ? Math.min(t, 8) : 3 }; } catch { return { overdue: 0, today: 3 }; } };
+
+/* ── Swipe: right is done, left is snooze, a long press picks the snooze ── */
+function useSwipe({ onRight, onLeft, onHold, enabled }) {
+  const st = useRef(null);
+  const [dx, setDx] = useState(0);
+  const end = () => { const s = st.current; st.current = null; if (!s) return; clearTimeout(s.timer); };
+  if (!enabled) return { dx: 0, handlers: {} };
+  return {
+    dx,
+    handlers: {
+      onTouchStart: (e) => { const t = e.touches[0]; st.current = { x: t.clientX, y: t.clientY, moved: false, timer: setTimeout(() => { if (st.current && !st.current.moved) { st.current = null; setDx(0); onHold?.(); } }, 550) }; },
+      onTouchMove: (e) => { const s = st.current; if (!s) return; const t = e.touches[0]; const ddx = t.clientX - s.x; const ddy = t.clientY - s.y; if (!s.moved && Math.abs(ddy) > Math.abs(ddx)) { end(); setDx(0); return; } if (Math.abs(ddx) > 8) { s.moved = true; clearTimeout(s.timer); } setDx(Math.max(-120, Math.min(120, ddx))); },
+      onTouchEnd: () => { const moved = st.current?.moved; end(); const d = dx; setDx(0); if (!moved) return; if (d > 72) onRight?.(); else if (d < -72) onLeft?.(); },
+      onTouchCancel: () => { end(); setDx(0); },
+    },
+  };
+}
+
+function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) {
+  const { action, lead } = item;
+  const swipe = useSwipe({ enabled: phone, onRight: onDone, onLeft: onSnooze, onHold: onPick });
+  const kind = action.kind;
+  const primary = kind === 'call' || kind === 'callback'
+    ? (lead.phone ? { icon: 'Phone', label: `Call ${lead.business}`, href: telHref(lead.phone) } : { icon: 'Phone', label: `Open ${lead.business}, no phone on file` })
+    : kind === 'log-outcome' ? { icon: 'CheckCircle', label: `Log the outcome for ${lead.business}` }
+    : kind === 'build-concepts' ? { icon: 'LayersThree01', label: `Build concepts for ${lead.business}` }
+    : kind === 'chase-invoice' ? { icon: 'CurrencyDollar', label: `Open payments for ${lead.business}` }
+    : { icon: 'ArrowRight', label: `Open ${lead.business}` };
+  const menu = [
+    { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
+    { id: 'snooze', label: 'Snooze a day', icon: 'Clock', onSelect: onSnooze },
+    { id: 'pick', label: 'Snooze until', icon: 'Calendar', onSelect: onPick },
+    'divider',
+    { id: 'open', label: 'Open the record', icon: 'ArrowRight', onSelect: onOpen },
+  ];
   return (
-    <Stack gap={5}>
-      <div className="db-head"><Stack gap={1}><SkeletonText lines={2} lineHeight={32} gap={0} width="80%" /><SkeletonBlock width="60%" height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 45%' }} /></Row></div>
-      {right}
-      <Grid minColumnWidth={120}>{Array.from({ length: 4 }, (_, i) => <StatCard.Skeleton key={i} />)}</Grid>
-      <div className="db-funnel">{[1, 2, 3, 4].map(i => <Card.Skeleton key={i} lines={2} height={92} className="db-step" />)}</div>
-      <Card><SkeletonText lines={1} width={90} /></Card>
+    <div className={`nu-swipe${swipe.dx ? ' is-moving' : ''}`}>
+      <span className={`nu-hint nu-hint--done${swipe.dx > 72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Check" size={16} /> Done</span>
+      <span className={`nu-hint nu-hint--snooze${swipe.dx < -72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Clock" size={16} /> Snooze</span>
+      <Card as="div" padding={3} interactive className={`nu-row lay-card${item.bucket === 'overdue' ? ' is-overdue' : ''}`} style={swipe.dx ? { transform: `translate3d(${swipe.dx}px, 0, 0)`, transition: 'none' } : undefined} {...swipe.handlers}>
+        <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${lead.business}, ${action.label}`}>{`Open ${lead.business}`}</button>
+        <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
+          <IconTile icon={item.icon} tone={item.tone} size="sm" />
+          <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+            <span className="nu-biz lay-truncate">{lead.business}</span>
+            <span className="nu-what lay-truncate">{action.label}{item.project ? `, ${item.project.name}` : ''}</span>
+            <Row gap={2} align="center" wrap>
+              {item.bucket === 'overdue' && <Pill tone="danger" label="Overdue" size="sm" icon={false} variant="solid" />}
+              <span className="nu-due">{dueLabel(item, now)}</span>
+            </Row>
+          </Stack>
+          <span className="v-above nu-ctl">
+            <IconButton icon={primary.icon} label={primary.label} variant="secondary" onClick={primary.href ? () => { window.location.href = primary.href; } : onAct} />
+            <Menu label={`${lead.business} actions`} items={menu} />
+          </span>
+        </Row>
+      </Card>
+    </div>
+  );
+}
+
+function NextUpList({ q, phone, now, laterOpen, onLater, act, empty }) {
+  const group = (label, items, tone) => (
+    <Stack gap={2} key={label}>
+      <Row gap={2} align="center"><span className={`nu-group nu-group--${tone}`}>{label}</span><span className="nu-count">{items.length}</span></Row>
+      <Stack gap={2}>{items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />)}</Stack>
+    </Stack>
+  );
+  if (!q.all.length) return <Card><EmptyState size="sm" icon="CheckCircle" title={empty.title} description={empty.description} action={{ label: empty.action, icon: PhoneCall01, onClick: () => act('calls') }} /></Card>;
+  return (
+    <Stack gap={4} className="nu-list">
+      {q.overdue.length > 0 && group('Overdue', q.overdue, 'danger')}
+      {q.today.length > 0 && group('Today', q.today, 'today')}
+      {!q.overdue.length && !q.today.length && <p className="nu-clear" role="status">Nothing due today. {q.later.length} coming up this week.</p>}
+      {q.later.length > 0 && (
+        <Card padding={0} className="nu-later">
+          <button type="button" className="nu-later-btn" onClick={onLater} aria-expanded={laterOpen} aria-controls="nu-later-body">
+            <span className="nu-group">Later this week</span><span className="nu-count">{q.later.length}</span>
+            <span style={{ flex: 1 }} /><span className={`db-chev${laterOpen ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
+          </button>
+          <Collapsible open={laterOpen}><div id="nu-later-body" className="nu-later-body"><Stack gap={2}>{q.later.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />)}</Stack></div></Collapsible>
+        </Card>
+      )}
     </Stack>
   );
 }
 
-export default function AdminDashboard({ leads, projects = [], loading, error, onRetry, subs, orders, onOpenSubmission, onOpenOrder }) {
+function NextUpSkeleton({ counts }) {
+  const rowSkel = (i) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={18} /><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="30%" height={22} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  const group = (n, key) => (n ? <Stack gap={2} key={key}><Row gap={2}><SkeletonBlock width={70} height={16} /><SkeletonBlock width={20} height={16} /></Row>{Array.from({ length: n }, (_, i) => rowSkel(i))}</Stack> : null);
+  return <Stack gap={4} aria-busy="true">{group(counts.overdue, 'o')}{group(counts.today, 't')}</Stack>;
+}
+
+export default function AdminDashboard({ leads, projects = [], sets = [], loading, error, onRetry, subs, orders, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
   const shell = useShell();
+  const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1024px)');
+  const phone = useMediaQuery('(max-width: 767px)');
   const wide = useMediaQuery('(min-width: 1280px)');
-  useTopBar(null);
   const showSkel = useDelayedLoading(loading);
-  const [target, setTarget] = useState(25);
-  useEffect(() => { apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data?.dashboard?.dailyCallTarget) setTarget(r.data.dashboard.dailyCallTarget); }); }, []);
-  // Optimistic with rollback; InlineEdit shows the failure toast, success is the number itself.
-  const saveTarget = async (v) => {
-    const n = Math.max(1, Math.min(500, Math.round(Number(v)) || 0));
-    if (!n) return false;
-    const prev = target; setTarget(n);
-    const r = await apiFetch('/api/admin/settings', { method: 'PATCH', body: { set: { dailyCallTarget: n } } });
-    if (!r.ok) setTarget(prev);
-    return r.ok;
-  };
+  const [selId, setSelId] = useState(null);
+  const [intent, setIntent] = useState(null);
+  const [laterOpen, setLaterOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [more, setMore] = useState(false);
+  const [pick, setPick] = useState(null); // the item a snooze picker is open for
+  const [pickDate, setPickDate] = useState('');
+  const now = Date.now();
+  const sel = selId ? (leads || []).find(l => String(l._id) === String(selId)) || null : null;
+  useTopBar(sel && !desktop ? { title: sel.business, back: () => setSelId(null) } : null);
 
   const s = useMemo(() => computeDashboard(leads || [], subs, orders), [leads, subs, orders]);
-  const notes = useMemo(() => buildNotifications(leads || [], { projects }), [leads, projects]);
-  const today = useMemo(() => {
-    const cbs = notes.filter(n => n.kind === 'callback').sort((a, b) => (a.tone === 'danger' ? -1 : 1) - (b.tone === 'danger' ? -1 : 1) || a.at - b.at);
-    const mts = notes.filter(n => n.kind === 'meeting' && n.group === 'today');
-    const nw = notes.filter(n => n.kind === 'new').slice(0, 5);
-    return [...cbs, ...mts, ...nw];
-  }, [notes]);
+  const q = useMemo(() => nextUpItems(leads || [], projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!loading) { try { localStorage.setItem(NEXT_KEY, `${q.overdue.length},${q.today.length}`); } catch { /* private mode */ } } }, [loading, q.overdue.length, q.today.length]);
 
-  useEffect(() => { if (!loading) { try { localStorage.setItem(TODAY_KEY, String(today.length)); } catch { /* private mode */ } } }, [loading, today.length]);
   const hour = new Date().getHours();
   const name = (shell?.profile?.name || 'Rob').split(' ')[0];
   const outside = !inHours(shell?.profile?.businessHours);
   const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  const mtToday = notes.filter(n => n.kind === 'meeting' && n.group === 'today').length;
-  const ringPct = target ? Math.min(100, Math.round((s.callsToday / target) * 100)) : 0;
-  // Target hit (Prompt 14): one red pulse the moment the ring crosses 100 in this session, and the context line for the rest of the day.
-  const [hit, setHit] = useState(false);
-  const [more, setMore] = useState(false);
-  const hitRef = useRef(null);
-  useEffect(() => {
-    if (loading) return undefined;
-    if (hitRef.current === null) { hitRef.current = ringPct >= 100; return undefined; }
-    if (ringPct >= 100 && !hitRef.current) { hitRef.current = true; setHit(true); const t = setTimeout(() => setHit(false), durationMs('--v-dur-slow') * 2 + 100); return () => clearTimeout(t); }
-    if (ringPct < 100) hitRef.current = false;
-    return undefined;
-  }, [ringPct, loading]);
-  const context = ringPct >= 100 ? COPY.success.targetHit
-    : s.callbacks > 0 ? `${s.callbacks} callback${s.callbacks === 1 ? '' : 's'} due`
-    : mtToday > 0 ? `${mtToday} meeting${mtToday === 1 ? '' : 's'} today`
-    : s.newLeads48h > 0 ? `${s.newLeads48h} new lead${s.newLeads48h === 1 ? '' : 's'} since yesterday`
+  const context = q.overdue.length ? `${q.overdue.length} overdue, ${q.today.length} due today.`
+    : q.today.length ? `${q.today.length} due today.`
+    : s.newLeads48h > 0 ? `${s.newLeads48h} new lead${s.newLeads48h === 1 ? '' : 's'} since yesterday.`
     : outside ? 'Outside business hours. Plan tomorrow or prep concepts.' : 'Queue is clear. Good day to dial.';
 
-  // Loading: nothing for the first 150ms (useDelayedLoading), then the skeleton; never the empty numbers.
+  /* The writes: done stamps doneAt, a snooze moves dueAt and makes the
+     action manual so the recompute leaves it be. Both optimistic through
+     the shell's helpers, with a toast on failure. */
+  const writeAction = async (item, next) => {
+    const ok = item.project ? await onPatchProject(item.project._id, { nextAction: next }) : await onPatchLead(item.lead._id, { nextAction: next });
+    if (!ok) toast.error(COPY.error.save);
+    return ok;
+  };
+  const openRecord = (item, why) => {
+    if (desktop) { setSelId(item.lead._id); setIntent(why ? { kind: why, n: Date.now() } : null); }
+    else onOpenLead(item.lead, why);
+  };
+  const act = async (what, item) => {
+    if (what === 'calls') { shell.go('calls'); return; }
+    if (what === 'open') { openRecord(item); return; }
+    if (what === 'act') {
+      const k = item.action.kind;
+      if (k === 'build-concepts' && shell?.openConcepts) shell.openConcepts(item.lead);
+      else if (k === 'log-outcome') openRecord(item, 'outcome');
+      else if (k === 'chase-invoice') openRecord(item, 'payments');
+      else if ((k === 'call' || k === 'callback') && item.lead.phone) window.location.href = telHref(item.lead.phone);
+      else openRecord(item);
+      return;
+    }
+    if (what === 'done') {
+      const ok = await writeAction(item, { ...item.action, doneAt: new Date().toISOString() });
+      if (ok) toast.undo(`${item.action.label} done for ${item.lead.business}.`, () => writeAction(item, { ...item.action, doneAt: '' }), { seconds: 6 });
+      return;
+    }
+    if (what === 'snooze') {
+      const ok = await writeAction(item, { ...item.action, dueAt: new Date(Math.max(item.due, now) + DAY).toISOString(), auto: false });
+      if (ok) toast.undo(`${item.lead.business} snoozed a day.`, () => writeAction(item, item.action), { seconds: 6 });
+      return;
+    }
+    if (what === 'pick') { setPick(item); setPickDate(''); }
+  };
+  const snoozeUntil = async (when) => {
+    if (!pick || !when) return;
+    const item = pick; setPick(null);
+    const ok = await writeAction(item, { ...item.action, dueAt: new Date(when).toISOString(), auto: false });
+    if (ok) toast.undo(`${item.lead.business} snoozed until ${fmtDateTime(when)}.`, () => writeAction(item, item.action), { seconds: 6 });
+  };
+
   if (loading) {
-    return (
-      <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true">
-        <div className="lay-content lay-content--wide">{showSkel && <DashboardSkeleton desktop={desktop} wide={wide} />}</div>
-        <style>{dbStyles}</style>
-      </div>
+    const counts = readNextCounts(); const rows = counts.overdue + counts.today;
+    const body = (
+      <Stack gap={5}>
+        <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 2 : 1} lineHeight={phone ? 32 : 39} gap={1} width={phone ? '80%' : 300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
+        {!desktop && <Card className="db-next"><Stack gap={3}><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock width={180} height={18} /></Stack>{rows ? <NextUpSkeleton counts={counts} /> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Stack></Card>}
+        <Card><Row gap={2} align="center" style={{ minHeight: 44 }}><SkeletonBlock width={50} height={14} /><SkeletonBlock width={200} height={14} /></Row></Card>
+      </Stack>
+    );
+    return desktop ? (
+      <>
+        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={16} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton counts={rows ? counts : { overdue: 0, today: 3 }} />}</ScrollArea></aside>
+        <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
+      </>
+    ) : (
+      <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
     );
   }
   if (error && !(leads || []).length) {
-    return (
-      <div className="aa-main aa-main--wide lay-scroll db-page">
-        <div className="lay-content lay-content--wide"><Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card></div>
-        <style>{dbStyles}</style>
-      </div>
-    );
+    const err = <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>;
+    return desktop ? (
+      <>
+        <aside className="aa-panel db-panel" aria-label="Next up"><ScrollArea bare className="db-panel-scroll">{err}</ScrollArea></aside>
+        <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide" /><style>{dbStyles}</style></div>
+      </>
+    ) : <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide">{err}</div><style>{dbStyles}</style></div>;
   }
 
   const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : null);
@@ -224,17 +305,13 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
     { id: 'booked', label: 'Booked', n: s.funnel.booked, tone: 'booked', pct: pct(s.funnel.booked, s.funnel.contacted), go: () => shell.go('booked') },
     { id: 'clients', label: 'Clients', n: s.funnel.clients, tone: 'won', pct: pct(s.funnel.clients, s.funnel.booked), go: () => shell.go('clients') },
   ];
-  /* UX audit, item 5: four numbers answer "what now" (today's calls against
-     the target, the callbacks that slip, the meetings that pay, the leads
-     that go cold). Everything else keeps its trend and its link, one tap
-     away behind More stats. */
   const keyStats = [
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsToday, label: 'Calls today', go: () => shell.go('calls') },
     { icon: 'PhoneIncoming01', tone: 'callback', value: s.callbacks, label: 'Callbacks pending', go: () => shell.go('calls', { status: ['callback'] }) },
     { icon: 'CalendarCheck01', tone: 'booked', value: s.booked, label: 'Booked', go: () => shell.go('booked') },
     { icon: 'Zap', tone: 'new', value: s.newLeads48h, label: 'New leads 48h', go: () => shell.go('leads', {}) },
   ];
-  const stats = [
+  const moreStats = [
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsWeek, label: 'Calls this week', trend: trendOf(s.callsWeek, s.callsLastWeek, 'last week'), go: () => shell.go('calls') },
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsMonth, label: 'Calls this month', trend: trendOf(s.callsMonth, s.callsLastMonth, 'last month'), go: () => shell.go('calls') },
     { icon: 'Users01', tone: 'new', value: s.notCalled, label: 'Not yet called', go: () => shell.go('leads', { status: ['not-called'] }) },
@@ -255,106 +332,99 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
       </Row>
     </div>
   );
-  const strip = (
-    <div className="db-funnel" role="group" aria-label="Pipeline">
-      {funnel.map((f, i) => (
-        <Card key={f.id} level={1} padding={3} interactive glow={f.tone} onClick={f.go} className="db-step">
-          {i > 0 && f.pct && <span className="db-step-pct" title="Conversion from the previous step">{f.pct}</span>}
-          <span className="db-step-n">{f.n}</span>
-          <span className="db-step-label">{f.label}</span>
-        </Card>
-      ))}
-    </div>
-  );
-  const keyGrid = (
-    <Grid minColumnWidth={120} className="db-key">
-      {keyStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}
-    </Grid>
-  );
-  const moreStats = stats.filter(c => c.label !== 'Calls today');
-  const moreBlock = (
-    <Card className="db-more">
-      <button type="button" className="db-more-btn" onClick={() => setMore(m => !m)} aria-expanded={more} aria-controls="db-more-body">
-        <span className="pb-card-h" style={{ margin: 0 }}>More stats</span>
-        <span className="db-more-sum">{more ? 'Hide' : `Calls this week and month, connect rate, not yet called, revenue`}</span>
-        <Icon icon={more ? 'ChevronUp' : 'ChevronDown'} size={16} />
+  const statsBlock = (
+    <Card className="db-more db-stats">
+      <button type="button" className="db-more-btn" onClick={() => setStatsOpen(m => !m)} aria-expanded={statsOpen} aria-controls="db-stats-body">
+        <span className="pb-card-h" style={{ margin: 0 }}>Stats</span>
+        <span className="db-more-sum">{statsOpen ? 'Hide' : `${s.callsToday} call${s.callsToday === 1 ? '' : 's'} today, ${s.funnel.leads} leads, ${s.funnel.clients} clients`}</span>
+        <span className={`db-chev${statsOpen ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
       </button>
-      <Collapsible open={more}>
-        <div id="db-more-body">
+      <Collapsible open={statsOpen}>
+        <div id="db-stats-body">
           <Stack gap={4}>
-            <Grid minColumnWidth={120}>
-              {moreStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}
+            <Grid minColumnWidth={120} className="db-key">
+              {keyStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} onClick={c.go} />)}
             </Grid>
-            <Section title="Revenue" description={s.retainerClients || s.clients ? `${s.retainerClients} of ${s.clients} client${s.clients === 1 ? '' : 's'} on retainer` : undefined}>
-              <Grid minColumnWidth={150}>
-                <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
-                <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
-                <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
-                <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
-              </Grid>
-            </Section>
+            <div className="db-funnel" role="group" aria-label="Pipeline">
+              {funnel.map((f, i) => (
+                <Card key={f.id} level={1} padding={3} interactive glow={f.tone} onClick={f.go} className="db-step">
+                  {i > 0 && f.pct && <span className="db-step-pct" title="Conversion from the previous step">{f.pct}</span>}
+                  <span className="db-step-n">{f.n}</span>
+                  <span className="db-step-label">{f.label}</span>
+                </Card>
+              ))}
+            </div>
+            <button type="button" className="db-more-btn" onClick={() => setMore(m => !m)} aria-expanded={more} aria-controls="db-more-body">
+              <span className="pb-card-h" style={{ margin: 0 }}>More stats</span>
+              <span className="db-more-sum">{more ? 'Hide' : 'Calls this week and month, connect rate, not yet called, revenue'}</span>
+              <span className={`db-chev${more ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
+            </button>
+            <Collapsible open={more}>
+              <div id="db-more-body">
+                <Stack gap={4}>
+                  <Grid minColumnWidth={120}>{moreStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}</Grid>
+                  <Section title="Revenue" description={s.retainerClients || s.clients ? `${s.retainerClients} of ${s.clients} client${s.clients === 1 ? '' : 's'} on retainer` : undefined}>
+                    <Grid minColumnWidth={150}>
+                      <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
+                      <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
+                      <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
+                      <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
+                    </Grid>
+                  </Section>
+                </Stack>
+              </div>
+            </Collapsible>
           </Stack>
         </div>
       </Collapsible>
     </Card>
   );
-  const todayPanel = (
-    <Card className="db-today">
-      <Section title="Today" description={`${s.callsToday} of ${target} calls`} action={<Button variant="ghost" icon="Calendar" onClick={() => shell.go('calendar')}>Open calendar</Button>}>
-        <Row gap={4} align="center">
-          <ProgressRing value={ringPct} size={88} thickness={8} tone={ringPct >= 100 ? 'booked' : 'won'} label="Calls today against target" className={`db-ring${hit ? ' is-hit' : ''}`}>
-            <span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.callsToday}</span>
-          </ProgressRing>
-          <Stack gap={0}>
-            <Row gap={1} align="baseline"><span className="db-target-label">Daily target</span><InlineEdit value={String(target)} onSave={saveTarget} type="number" inputMode="numeric" label="Daily call target" format={(v) => `${v} calls`} /></Row>
-            <span className="db-target-sub">{ringPct >= 100 ? 'Target hit. Keep the streak.' : `${Math.max(0, target - s.callsToday)} to go`}</span>
-          </Stack>
-        </Row>
-        {today.length ? (
-          <Stack gap={2}>
-            {today.map(item => (
-              <ListRow key={item.id} leading={<IconTile icon={item.icon} tone={item.tone} size="sm" />} title={item.title} subtitle={item.detail} meta={relativeTime(item.at)} onClick={() => shell.openRecord(item.lead)} chevron={false} />
-            ))}
-          </Stack>
-        ) : (
-          <EmptyState size="sm" icon={PhoneCall01} title={COPY.empty['dashboard.today'].title} description={COPY.empty['dashboard.today'].description} action={{ label: COPY.empty['dashboard.today'].action, icon: PhoneCall01, onClick: () => shell.go('calls') }} />
-        )}
-      </Section>
-    </Card>
-  );
-  const activity = (
-    <Card>
-      <Section title="Recent activity" action={<Button variant="ghost" iconEnd={ArrowUpRight} onClick={() => shell.go('submissions')}>Open submissions</Button>}>
-        {s.feed.length ? (
-          <Stack gap={2}>
-            {s.feed.map(e => (
-              <ListRow key={e.id} leading={<IconTile icon={EVENT_ICON[e.kind]} tone={EVENT_TONE[e.kind]} size="sm" glow={false} />} title={e.title} subtitle={e.detail || undefined} meta={relativeTime(e.at)} chevron={false}
-                trailing={e.kind === 'call' && e.outcome ? <Pill id={e.outcome} list={CALL_STATUSES} size="sm" /> : undefined}
-                onClick={e.lead ? () => shell.openRecord(e.lead) : e.item ? () => onOpenSubmission?.(e.item) : e.order ? () => onOpenOrder?.(e.order) : undefined} />
-            ))}
-          </Stack>
-        ) : (
-          <EmptyState size="sm" icon="Zap" title={COPY.empty['dashboard.activity'].title} description={COPY.empty['dashboard.activity'].description} action={{ label: COPY.empty['dashboard.activity'].action, icon: PhoneCall01, onClick: () => shell.go('calls') }} />
-        )}
-      </Section>
-    </Card>
+  const E = COPY.empty['dashboard.next'];
+  const list = <NextUpList q={q} phone={phone} now={now} laterOpen={laterOpen} onLater={() => setLaterOpen(v => !v)} act={act} empty={E} />;
+  const picker = pick && (
+    <Sheet open onClose={() => setPick(null)} title="Snooze until" description={`${pick.action.label}, ${pick.lead.business}`} label="Snooze until"
+      footer={<Row gap={2} justify="end" wrap><Button variant="ghost" onClick={() => setPick(null)}>Cancel</Button><Button onClick={() => snoozeUntil(pickDate ? new Date(`${pickDate}T09:00`).getTime() : null)} disabled={!pickDate}>Snooze</Button></Row>}>
+      <Stack gap={3}>
+        <Stack gap={2}>{SNOOZES.map(o => <Button key={o.id} variant="secondary" full onClick={() => snoozeUntil(o.at(now).getTime())}>{o.label}</Button>)}</Stack>
+        <Input label="Or pick a day (9am)" type="date" value={pickDate} min={dayKey(new Date())} onChange={(e) => setPickDate(e.target.value)} />
+      </Stack>
+    </Sheet>
   );
 
+  if (desktop) {
+    const clientProps = onCreateProject ? { projects, onCreateProject, onPatchProject } : null;
+    return (
+      <>
+        <aside className="aa-panel db-panel" aria-label="Next up">
+          <div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Next up</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>
+          <ScrollArea bare className="db-panel-scroll">{list}</ScrollArea>
+        </aside>
+        {sel ? (
+          <PageShell className="aa-main db-main" label="the record">
+            <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatchLead} onLinkSubmission={onLinkSubmission} onClose={() => setSelId(null)} client={clientProps} intent={intent} />
+          </PageShell>
+        ) : (
+          <div className="aa-main aa-main--wide lay-scroll db-page">
+            <div className="lay-content lay-content--wide">
+              <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{statsBlock}</Stagger>
+            </div>
+          </div>
+        )}
+        {picker}
+        <style>{dbStyles}</style>
+      </>
+    );
+  }
   return (
     <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
-        {/* UX audit, item 5: Today first (top right beside the greeting on a
-            desktop, straight under it on a phone), then the four numbers,
-            then the pipeline strip, then everything else behind one tap. */}
-        {desktop ? (
-          <div className="db-layout">
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{keyGrid}{strip}{moreBlock}{activity}</Stagger>
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }} offset={4}>{todayPanel}</Stagger>
-          </div>
-        ) : (
-          <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{todayPanel}{keyGrid}{strip}{moreBlock}{activity}</Stagger>
-        )}
+        <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
+          {header}
+          <Card className="db-next"><Section title="Next up" description={q.all.length ? `${q.overdue.length} overdue, ${q.today.length} today, ${q.later.length} this week` : undefined}>{list}</Section></Card>
+          {statsBlock}
+        </Stagger>
       </div>
+      {picker}
       <style>{dbStyles}</style>
     </div>
   );
@@ -363,9 +433,9 @@ export default function AdminDashboard({ leads, projects = [], loading, error, o
 const dbStyles = `
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
-  .db-layout { display: grid; grid-template-columns: minmax(0, 1fr) var(--v-panel-w); gap: var(--v-space-5); align-items: start; min-width: 0; }
-  @media (min-width: 1280px) { .db-layout { grid-template-columns: minmax(0, 1fr) 360px; } }
-  .db-layout > * { min-width: 0; }
+  .db-panel { gap: var(--v-space-3); }
+  .db-panel-head { display: flex; align-items: center; gap: var(--v-space-2); padding: 0 var(--v-space-1); }
+  .db-panel-scroll { padding: 2px; }
   .db-head { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
   @media (min-width: 1280px) { .db-head { flex-direction: row; align-items: flex-start; justify-content: space-between; } }
   .db-greet { margin: 0; font-family: var(--v-font-display); font-size: var(--v-display-md); line-height: var(--v-lh-display-md); letter-spacing: var(--v-ls-display-md); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); }
@@ -383,12 +453,29 @@ const dbStyles = `
   .db-step-pct { position: absolute; top: var(--v-space-3); right: var(--v-space-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-2); border: 1px solid var(--v-border); border-radius: var(--v-radius-pill); padding: 2px 8px; font-variant-numeric: tabular-nums; }
   .db-more-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0; background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }
   .db-more-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
+  .db-chev { display: inline-flex; transition: transform var(--v-dur-base) var(--v-ease-out); }
+  .db-chev.is-open { transform: rotate(180deg); }
   .db-more-sum { flex: 1; min-width: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .db-target-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
-  .db-target-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
-  .db-today .v-inline { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); }
-  .db-ring.is-hit { animation: db-ring-pop calc(var(--v-dur-slow) * 2) var(--v-ease-spring) 1; }
-  .db-ring.is-hit .v-ring-fill { animation: db-ring-glow calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
-  @keyframes db-ring-pop { 0% { transform: scale(1); } 35% { transform: scale(1.06); } 100% { transform: scale(1); } }
-  @keyframes db-ring-glow { 0% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--v-red) 45%, transparent)); } 40% { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--v-red) 85%, transparent)); } 100% { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--v-ring-c) 45%, transparent)); } }
+  /* Next up rows */
+  .nu-group { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .nu-group--danger { color: var(--v-status-danger-text); }
+  .nu-count { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-3); border-radius: var(--v-radius-pill); padding: 1px 8px; }
+  .nu-clear { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .nu-swipe { position: relative; }
+  .nu-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: var(--v-space-1); padding: 0 var(--v-space-4); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); border-radius: var(--v-radius-lg); opacity: 0; transition: opacity var(--v-dur-fast) var(--v-ease-out); }
+  .nu-swipe.is-moving .nu-hint { opacity: 0.6; }
+  .nu-hint.is-armed { opacity: 1; }
+  .nu-hint--done { left: 0; right: 40%; justify-content: flex-start; background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
+  .nu-hint--snooze { right: 0; left: 40%; justify-content: flex-end; background: var(--v-status-callback-soft); color: var(--v-status-callback-text); }
+  .nu-row { gap: 0; text-align: left; align-items: stretch; transition: transform var(--v-dur-base) var(--v-ease-out); touch-action: pan-y; }
+  .nu-row.is-overdue { border-color: var(--v-status-danger-text); }
+  .nu-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .nu-biz { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text); }
+  .nu-what { font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .nu-due { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; }
+  .nu-ctl { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
+  .nu-later { overflow: hidden; }
+  .nu-later-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0 var(--v-space-4); background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }
+  .nu-later-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
+  .nu-later-body { padding: 0 var(--v-space-3) var(--v-space-3); }
 `;

@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, SCHEDULE_STATUS_IDS } from '../_semantics.js';
+import { sanitizeNextAction } from '../_lib/nextAction.js';
 
 /* Projects (Prompt 10): one client (a call_leads doc with stage 'client') has
  * many projects over time. Money lives on the lead's purchases[] ledger; a
@@ -54,6 +55,8 @@ function sanitize(b) {
     // Retainer projects: which plan and when it bills.
     retainer: b.retainer && typeof b.retainer === 'object' ? { planId: str(b.retainer.planId, 40), billDay: Math.max(1, Math.min(28, Math.round(num(b.retainer.billDay, 28)) || 1)), startedAt: str(b.retainer.startedAt, 40) } : undefined,
     archived: b.archived !== undefined ? !!b.archived : undefined,
+    // CRM revamp, step 2: the project's own next action (chase an invoice, pitch the retainer).
+    nextAction: sanitizeNextAction(b.nextAction, str),
   };
 }
 const compact = (o) => { for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k]; return o; };

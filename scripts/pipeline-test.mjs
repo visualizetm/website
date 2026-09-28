@@ -265,6 +265,31 @@ section('6. declined: a re-import leaves it alone, a decline writes the reason, 
   ok(guard._status === 409 && lead(CLIENT).stage === 'client', 'a client cannot be declined without the explicit flag');
 }
 
+section('7. the next action (CRM revamp, step 2): a stage change recomputes it, the cron repairs it');
+{
+  const { withNextAction, nextActionFor } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nextAction.js')).href);
+  const day = 864e5;
+  const soon = new Date(Date.now() + 2 * day); const mdate = `${soon.getFullYear()}-${String(soon.getMonth() + 1).padStart(2, '0')}-${String(soon.getDate()).padStart(2, '0')}`;
+  const set = withNextAction({ _id: LEAD, business: 'Fresh Lead Co', stage: 'lead', callStatus: 'not-called' }, { stage: 'booked', meeting: { date: mdate, time: '10:00', type: 'call', location: '' } }, { sets: [] });
+  ok(set.nextAction?.kind === 'build-concepts', `booking a lead puts build-concepts on the same set (${set.nextAction?.kind})`);
+  const back = withNextAction({ _id: LEAD, business: 'Fresh Lead Co', stage: 'booked', meeting: { date: mdate, time: '10:00' }, nextAction: set.nextAction }, { stage: 'nurture' }, { sets: [] });
+  ok(back.nextAction === null, 'moving it to nurture clears the action on the same set');
+  seed();
+  const r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { stage: 'booked', meeting: { date: mdate, time: '10:00', type: 'call', location: '' }, nextAction: set.nextAction } } });
+  ok(r._status === 200 && lead(LEAD).nextAction?.kind === 'build-concepts' && lead(LEAD).nextAction.auto === true, 'the route stores the whitelisted action');
+  const junk = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { nextAction: { kind: 'made-up', label: 'x'.repeat(200), dueAt: 'now', auto: 'yes', doneAt: '', $where: '1' } } } });
+  ok(junk._status === 200 && lead(LEAD).nextAction.kind === 'custom' && lead(LEAD).nextAction.label.length === 120 && !('$where' in lead(LEAD).nextAction), 'an unknown kind reads as custom, the label caps at 120, nothing else is written');
+  // the cron: a stale action is put right, a manual one is kept
+  lead(LEAD).nextAction = { kind: 'callback', label: 'Call back', dueAt: '2026-01-01T00:00:00Z', auto: true, doneAt: '' };
+  lead(WON).nextAction = { kind: 'custom', label: 'Drop off the samples', dueAt: '2027-01-01T00:00:00Z', auto: false, doneAt: '' };
+  _stores.concept_sets = [];
+  const cron = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
+  ok(cron._status === 200 && cron._json.nextActions >= 1, `the cron reports what it recomputed (${cron._json?.nextActions})`);
+  ok(lead(LEAD).nextAction?.kind === 'build-concepts', `the stale callback became build-concepts overnight (${lead(LEAD).nextAction?.kind})`);
+  ok(lead(WON).nextAction?.label === 'Drop off the samples' && lead(WON).nextAction.auto === false, 'a manual action survives the cron');
+  ok(nextActionFor(lead(CLIENT), { projects: _stores.projects, sets: [] }) === null && (lead(CLIENT).nextAction == null), 'a client with nothing due carries nothing');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} checks passed, ${fails} failed.`);
 if (fails) { console.log('Pipeline tests FAILED.'); process.exit(1); }

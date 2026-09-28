@@ -328,7 +328,7 @@ export default function AdminLeads({
           {creating ? (
             <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { const ok = await onCreate(defaultLead(f)); if (ok) back(); else toast.error(COPY.error.create); }} onCancel={back} /></Section></Card></ScrollArea>
           ) : (
-            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} />
+            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} />
           )}
         </div>
         <style>{ldStyles}</style>

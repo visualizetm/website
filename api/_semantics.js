@@ -4,6 +4,7 @@
 export const CALL_STATUS_IDS = ['not-called', 'callback', 'no-answer', 'booked', 'no', 'wrong-number'];
 export const PRIORITY_IDS = ['hot', 'warm', 'cold'];
 export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
+export const NEXT_ACTION_KIND_IDS = ['call', 'callback', 'build-concepts', 'log-outcome', 'send-onboarding', 'chase-form', 'send-contract', 'chase-contract', 'send-invoice', 'chase-invoice', 'kickoff', 'revision', 'deliver', 'retainer-pitch', 'review-ask', 'custom'];
 export const DECLINE_REASON_IDS = ['well-branded', 'not-fit', 'out-of-area', 'budget', 'shady', 'other'];
 export const MEETING_TYPE_IDS = ['call', 'video', 'in-person'];
 export const PLAN_IDS = ['full', '6mo', '12mo'];

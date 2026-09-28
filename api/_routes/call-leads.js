@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
+import { sanitizeNextAction } from '../_lib/nextAction.js';
 
 import {
   CONCEPT_STATUS_IDS,
@@ -352,6 +353,8 @@ function sanitize(b) {
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
     } : undefined,
+    // CRM revamp, step 2: the one thing to do next (api/_lib/nextAction.js). null clears it.
+    nextAction: sanitizeNextAction(b.nextAction, str),
     /* CRM revamp, step 1: why a lead was declined. null clears it (Bring
        back); an unknown reason reads as other. */
     declined: b.declined === null ? null : b.declined && typeof b.declined === 'object' ? {

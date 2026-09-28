@@ -11,7 +11,8 @@
  */
 export const COPY = {
   empty: {
-    /* Dashboard */
+    /* Next up (the first screen) */
+    'dashboard.next': { title: 'Nothing next', description: 'No callbacks, meetings, invoices or reviews waiting. Start a call session.', action: 'Start call session' },
     'dashboard.today': { title: 'All caught up', description: 'No callbacks, meetings, or new leads waiting. Start a call session.', action: 'Start call session' },
     'dashboard.activity': { title: 'Nothing yet', description: 'Calls, briefs, wins, and orders show up here the moment they land.', action: 'Start call session' },
     /* Content Planner (planner prompt 2) */
