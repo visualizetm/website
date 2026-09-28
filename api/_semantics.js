@@ -3,6 +3,14 @@
 // purpose and must be kept identical to the client module.
 export const CALL_STATUS_IDS = ['not-called', 'callback', 'no-answer', 'booked', 'no', 'wrong-number'];
 export const PRIORITY_IDS = ['hot', 'warm', 'cold'];
+/** Mirror of src/shared/semantics.js normalizeStage: the stage field, else booked from the call, else triage for an untouched record, else lead. */
+export function normalizeStage(lead) {
+  const s = lead?.stage;
+  if (s && STAGE_IDS.includes(s)) return s;
+  if (lead?.callStatus === 'booked') return 'booked';
+  if ((lead?.callStatus || 'not-called') === 'not-called' && !(Array.isArray(lead?.callLog) && lead.callLog.length)) return 'triage';
+  return 'lead';
+}
 export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
 export const NEXT_ACTION_KIND_IDS = ['call', 'callback', 'build-concepts', 'log-outcome', 'send-onboarding', 'chase-form', 'send-contract', 'chase-contract', 'send-invoice', 'chase-invoice', 'kickoff', 'revision', 'deliver', 'retainer-pitch', 'review-ask', 'custom'];
 export const LIST_WINDOW_IDS = ['any', 'morning', 'midday', 'afternoon', 'evening'];

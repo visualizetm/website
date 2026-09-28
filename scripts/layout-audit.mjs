@@ -1001,6 +1001,23 @@ for (const width of WIDTHS) {
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
 
+  /* Triage (CRM revamp, step 4): the pile, its skeleton, the Keep sheet and the Capture sheet. */
+  await goto('/admin/triage');
+  await check('triage pile');
+  await goto('/admin/triage?loading=1');
+  await check('triage skeleton');
+  await goto('/admin/triage');
+  if (width >= 768) { await page.getByRole('button', { name: /^Lead Business 16 actions$/ }).first().click({ timeout: 3000 }).catch(() => {}); await page.getByRole('menuitem', { name: 'Keep' }).first().click({ timeout: 3000 }).catch(() => {}); }
+  else await page.getByRole('button', { name: /^Keep Lead Business 16/ }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('triage: Keep sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.getByRole('button', { name: 'Quick add' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('menuitem', { name: 'Capture a lead' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('triage: Capture sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+
   await goto('/admin/concepts');
   await check('concepts grid');
   await page.locator('.cp-kinds .v-chip', { hasText: /^Social/ }).first().click({ timeout: 3000 }).catch(() => {});

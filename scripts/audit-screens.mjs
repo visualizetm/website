@@ -57,6 +57,10 @@ export const SCREENS = [
   { id: 'calls-room', screen: 'Call Console', label: 'room', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('room')) },
   { id: 'calls-summary', screen: 'Call Console', label: 'summary', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('summary')) },
 
+  // Triage (CRM revamp, step 4): the stack on a phone, the table on a desktop, the Keep sheet, the Capture sheet.
+  { id: 'triage-pile', screen: 'Triage', label: 'the pile (stack on a phone, table on a desktop)', path: '/admin/triage', resource: 'leads', region: '.tr-shell' },
+  { id: 'triage-keep', screen: 'Triage', label: 'the Keep sheet', path: '/admin/triage', resource: 'leads', region: '.v-sheet', detail: true, act: async (p, w) => { if (w >= 768) { await click(p.getByRole('button', { name: /^Lead Business 16 actions$/ })); await click(p.getByRole('menuitem', { name: 'Keep' })); } else await click(p.getByRole('button', { name: /^Keep Lead Business 16/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'triage-capture', screen: 'Triage', label: 'Capture a lead', path: '/admin/triage', resource: 'leads', region: '.v-sheet', detail: true, act: async (p) => { await click(p.getByRole('button', { name: 'Quick add' })); await click(p.getByRole('menuitem', { name: 'Capture a lead' })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   // Dial lists (CRM revamp, step 3).
   { id: 'lists-grid', screen: 'Lists', label: 'the open lists', path: '/admin/lists', resource: 'lists' },
   { id: 'lists-detail', screen: 'Lists', label: 'one list, its leads in order', path: '/admin/lists', resource: 'lists', region: '.ls-shell', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Tuesday morning/ })) },

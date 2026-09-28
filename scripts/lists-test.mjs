@@ -132,6 +132,30 @@ section('3. the outcome rules (src/lib/lists.js applyOutcome)');
   ok(d.listId === '' && d.stage === 'declined', 'a decline clears the listId on the same write');
 }
 
+section('9. the undo on a call outcome puts the lead back on its list, in its old place (CRM revamp, step 4)');
+{
+  ok(lib.restoreLead(['a', 'c', 'd'], 'b', 1).join(',') === 'a,b,c,d', 'restored to index 1');
+  ok(lib.restoreLead(['a', 'c', 'd'], 'b', 0).join(',') === 'b,a,c,d', 'restored to the front');
+  ok(lib.restoreLead(['a', 'c', 'd'], 'b', 9).join(',') === 'a,c,d,b', 'an index past the end goes last');
+  ok(lib.restoreLead(['a', 'c', 'd'], 'b', -1).join(',') === 'a,c,d,b', 'no known index goes last');
+  ok(lib.restoreLead(['a', 'b', 'c'], 'b', 0).join(',') === 'b,a,c', 'a lead still on the list moves instead of doubling');
+  // the whole beat against the route: the outcome takes it off, the undo puts it back where it was
+  const [L1, L2, L3, LS] = [L(81), L(82), L(83), L(90)];
+  _reset(); _stores.call_leads = [{ _id: L1, business: 'One', stage: 'lead', callStatus: 'not-called', listId: LS }, { _id: L2, business: 'Two', stage: 'lead', callStatus: 'not-called', listId: LS }, { _id: L3, business: 'Three', stage: 'lead', callStatus: 'not-called', listId: LS }];
+  _stores.lists = [{ _id: LS, name: 'Tuesday', status: 'open', target: 25, window: 'any', leadIds: [L1, L2, L3], createdAt: new Date() }];
+  const list = () => _stores.lists.find(l => String(l._id) === LS);
+  const before = list().leadIds.indexOf(L2);
+  const said = lib.applyOutcome(list().leadIds, L2, 'no');
+  await call(lists, 'PATCH', { body: { id: LS, set: { leadIds: said } } });
+  const { saidNoPatch } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nurture.js')).href);
+  await call(callLeads, 'PATCH', { body: { id: L2, set: { callStatus: 'no', ...saidNoPatch() } } });
+  const two = () => _stores.call_leads.find(l => String(l._id) === L2);
+  ok(list().leadIds.join(',') === [L1, L3].join(',') && two().stage === 'nurture' && two().listId === '', 'Said no takes the lead off the list and parks it');
+  await call(callLeads, 'PATCH', { body: { id: L2, set: { callStatus: 'not-called', stage: 'lead', nurture: null, listId: LS } } });
+  await call(lists, 'PATCH', { body: { id: LS, set: { leadIds: lib.restoreLead(list().leadIds, L2, before) } } });
+  ok(list().leadIds.join(',') === [L1, L2, L3].join(',') && two().stage === 'lead' && two().listId === LS && two().nurture === null, 'the undo restores the stage, the listId and the position');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} checks passed, ${fails} failed.`);
 console.log(fails ? 'Lists tests FAILED.' : 'All lists tests pass.');

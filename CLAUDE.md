@@ -47,9 +47,10 @@ node scripts/hex-count.js                       # 90 or lower
 node scripts/css-orphans.mjs                    # 0
 TZ=America/New_York node scripts/dates-test.mjs
 node scripts/security-test.mjs                  # operator injection, javascript: URLs, script tags, the planner token, the login and form limiters, against the real handlers
-node scripts/pipeline-test.mjs                  # a client stays a client: the stage guard, the import, the cron heal, the lead shape guard, declined records, the next action recompute
+node scripts/pipeline-test.mjs                  # a client stays a client: the stage guard, the import, the cron heal, the lead shape guard, declined records, the next action recompute, triage and nurture
 node scripts/next-action-test.mjs               # the next action rules (src/lib/nextAction.js and its server mirror) in America/New_York
 node scripts/lists-test.mjs                     # dial lists: the route whitelist, the Callbacks due system list rules, every outcome rule
+node scripts/score-test.mjs                     # the lead score: every rule, the cap, the server mirror byte for byte, the cron and the backfill (scripts/backfill-triage.mjs)
 node scripts/planner-endpoint-test.mjs; node scripts/showcase-endpoint-test.mjs; node scripts/concepts-endpoint-test.mjs   # the three public doors: exact whitelists, identical 404s, the limiters
 SCENE_PATH=/concepts/cncpTESTtoken0123456789abcdEF SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # the concepts presentation on the same gate as Home (and SCENE_MOTION=reduce)
 ```

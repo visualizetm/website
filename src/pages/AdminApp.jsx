@@ -17,6 +17,8 @@ import { conceptsBadge } from '../lib/concepts';
 import { withNextAction, nextUpBadge } from '../lib/nextAction';
 import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead, listsBadge } from '../lib/lists';
 import ListPicker from '../components/ListPicker';
+import CaptureSheet from '../components/CaptureSheet';
+import { withScore, topClientIndustries, briefedLeadIds } from '../lib/score';
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
@@ -33,6 +35,7 @@ const loaders = {
   planner: () => import('./AdminPlanner'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
+  triage: () => import('./AdminTriage'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -50,6 +53,7 @@ const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
+const AdminTriage = lazy(loaders.triage);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -140,7 +144,9 @@ export default function AdminApp() {
        action on the same PATCH (src/lib/nextAction.js), so the record and
        the Next up queue never disagree. A manual action is kept. */
     const cur = callLeadsRef.current.find(l => l._id === id);
-    const set = cur ? withNextAction(cur, set0, { projects: projectsRef.current, sets: setsRef.current }) : set0;
+    const set1 = cur ? withNextAction(cur, set0, { projects: projectsRef.current, sets: setsRef.current }) : set0;
+    /* CRM revamp, step 4: a write that touches the phone, the socials, the intel or the industry carries the recomputed score (src/lib/score.js). */
+    const set = cur ? withScore(cur, set1, { topIndustries: topClientIndustries(callLeadsRef.current), briefed: briefedLeadIds(itemsRef.current) }) : set1;
     let prev;
     setCallLeads(ls => ls.map(l => { if (l._id === id) { prev = l; return { ...l, ...set }; } return l; }));
     const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { id, set, ...(explicit === true ? { explicit: true } : {}) } });
@@ -318,9 +324,13 @@ export default function AdminApp() {
   }), [createList, patchList, loadLists, syncCallbacksDue, patchCallLead]);
   const reconcileRef = useRef(null); reconcileRef.current = reconcileLists;
   const [pickerLeads, setPickerLeads] = useState(null);
+  // Capture a lead (CRM revamp, step 4): the Quick add sheet and Triage's empty state open it.
+  const [captureOpen, setCaptureOpen] = useState(false);
+  const openCapture = useCallback(() => setCaptureOpen(true), []);
   const openListPicker = useCallback((leads) => { const ls = (Array.isArray(leads) ? leads : [leads]).filter(Boolean); if (ls.length) setPickerLeads(ls); }, []);
   // The latest lists for the write helpers above, which are memoised once.
   const callLeadsRef = useRef([]); callLeadsRef.current = callLeads;
+  const itemsRef = useRef([]); itemsRef.current = items;
   const projectsRef = useRef([]); projectsRef.current = projects;
   const setsRef = useRef([]); setsRef.current = sets;
 
@@ -363,6 +373,7 @@ export default function AdminApp() {
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/booked')) return 'booked';
     if (p.startsWith('/lists')) return 'lists';
+    if (p.startsWith('/triage')) return 'triage';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
@@ -567,7 +578,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
+  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
   const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
@@ -575,7 +586,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -662,7 +673,12 @@ export default function AdminApp() {
         <AdminLists lists={V.lists} leads={V.leads} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists} onRetry={loadLists} ops={listOps} onPatchLead={patchCallLead} onOpenLead={openLead}
           onStart={(list) => { navigate(`${BASE}/calls`); setPresetReq({ section: 'calls', preset: { listId: String(list._id) }, n: Date.now() }); }} openId={reqFor('lists')} />
       )}
+      {section === 'triage' && (
+        <AdminTriage leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
+          onPatch={patchCallLead} onDelete={deleteCallLead} onRestore={restoreCallLeads} onOpenLead={openLead} onCapture={openCapture} />
+      )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
+      {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}
       {section === 'booked' && (
         <AdminBooked
           leads={V.leads}

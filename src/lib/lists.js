@@ -45,6 +45,8 @@ export const outcomeRemoves = (outcome) => ['booked', 'no', 'wrong-number', 'dec
 /** The members after adding leads: unique, capped, in the order given. */
 export const withLeads = (leadIds, ids) => [...new Set([...(leadIds || []).map(String), ...ids.map(String)])].slice(0, MAX_LIST_LEADS);
 export const withoutLead = (leadIds, id) => (leadIds || []).map(String).filter(x => x !== String(id));
+/** CRM revamp, step 4: an undo puts the lead back where it was on the list (index from before the outcome; past the end goes last). */
+export const restoreLead = (leadIds, id, index) => { const rest = withoutLead(leadIds, id); const i = Math.max(0, Math.min(rest.length, Number.isFinite(index) && index >= 0 ? index : rest.length)); return [...rest.slice(0, i), String(id), ...rest.slice(i)].slice(0, MAX_LIST_LEADS); };
 export const WINDOWS = [
   { id: 'any', label: 'Any time' }, { id: 'morning', label: 'Morning' }, { id: 'midday', label: 'Midday' }, { id: 'afternoon', label: 'Afternoon' }, { id: 'evening', label: 'Evening' },
 ];

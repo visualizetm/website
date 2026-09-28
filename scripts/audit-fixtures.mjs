@@ -41,7 +41,11 @@ export const NOW_ISO = new Date().toISOString();
 export const PIPE_EXTRA = {
   /* CRM revamp, step 1: one declined and one nurture record for the parked pools. */
   2: { stage: 'declined', callStatus: 'no', declined: { reason: 'well-branded', note: 'Their site is new and it is good.', at: daysFrom(-3) } },
-  5: { stage: 'nurture', callStatus: 'callback' },
+  5: { stage: 'nurture', callStatus: 'callback', nurture: { until: daysFrom(23).slice(0, 10), reason: 'Later' } },
+  /* CRM revamp, step 4: three triage records for the pile. L16 from the scraper (top score), L17 an import with a dead site, L18 captured by hand with only a handle. */
+  16: { stage: 'triage', callStatus: 'not-called', callLog: [], score: 80, sourceId: 'gm:16', intel: { accomplishments: ['4.9 stars on 212 reviews'], gaps: ['Website is a dead link', 'No hours listed on Google'], dropLines: [] }, socials: { instagram: 'https://instagram.com/x', website: 'https://example.com', facebook: 'https://facebook.com/x' } },
+  17: { stage: 'triage', callStatus: 'not-called', callLog: [], score: 40, source: 'import', industry: 'Bakery', area: 'Newark DE', intel: { accomplishments: [], gaps: ['Site expired ' + UNBROKEN.slice(0, 40)], dropLines: [] }, socials: {} },
+  18: { stage: 'triage', callStatus: 'not-called', callLog: [], score: 15, source: 'capture', industry: '', area: '', phone: '', intel: { accomplishments: [], gaps: [], dropLines: [] }, socials: { instagram: 'https://instagram.com/thebakeryco' } },
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
         servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
   11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
@@ -283,9 +287,8 @@ export const publicConceptSet = (s) => {
   };
 };
 
-export const leads = Array.from({ length: 16 }, (_, i) => ({
+export const leads = Array.from({ length: 19 }, (_, i) => ({
   ...(i === 8 || i === 9 ? BOOKED_EXTRA : {}),
-  ...(PIPE_EXTRA[i] || {}),
   _id: 'L' + i,
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : `Lead Business ${i}`,
   industry: 'Auto Detailing', area: 'Wilmington DE',
@@ -293,7 +296,7 @@ export const leads = Array.from({ length: 16 }, (_, i) => ({
   phone: i % 3 === 2 ? '' : i === 5 ? '(302) 555-0114' : `(302) 555-01${10 + i}`, // i=5 duplicates i=4 (merge modal)
   enrichment: i % 2 ? { lastScanAt: new Date(Date.now() - (i > 6 ? 20 : 2) * 864e5).toISOString(), scanCount: i } : undefined,
   callbackAt: i === 1 ? new Date(Date.now() + 2 * 3600e3).toISOString() : i === 6 ? new Date(Date.now() - 26 * 3600e3).toISOString() : undefined,
-  sourceId: i > 9 ? 'gm:' + i : undefined,
+  sourceId: i > 9 && i < 16 ? 'gm:' + i : undefined,
   listId: ({ L0: 'LS1', L3: 'LS1', L4: 'LS1', L7: 'LS2', L1: 'LS2' })['L' + i] || '', // the dial list each lead is on
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
@@ -306,6 +309,7 @@ export const leads = Array.from({ length: 16 }, (_, i) => ({
   afterCall: {}, intel: { accomplishments: [], gaps: [], dropLines: [] },
   callLog: [{ at: '2026-08-05T14:22:00Z', outcome: 'no-answer', note: 'Rang out ' + UNBROKEN.slice(0, 60), meeting: '', email: '' }],
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
+  ...(PIPE_EXTRA[i] || {}),
 }));
 
 /* Dial lists (CRM revamp, step 3): the system list from the callbacks due

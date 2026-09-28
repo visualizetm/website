@@ -163,7 +163,8 @@ export async function handler(req, res) {
       await col.updateOne({ _id: match._id }, { $set: set });
       updated++;
     } else {
-      const doc = { ...f, ...buildSkeleton(f), createdAt: now, updatedAt: now };
+      // CRM revamp, step 4: a new row lands in triage.
+      const doc = { ...f, ...buildSkeleton(f), stage: 'triage', source: 'import', createdAt: now, updatedAt: now };
       const r = await col.insertOne(doc);
       // Track so two rows for the same new business in one file don't double-insert.
       existing.push({ _id: r.insertedId, business: doc.business, phone: doc.phone, deleted: false, socials: doc.socials });

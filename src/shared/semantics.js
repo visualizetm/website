@@ -111,7 +111,11 @@ export const declineReasonOf = (id) => DECLINE_REASONS.find(r => r.id === id) ||
 export function normalizeStage(lead) {
   const s = lead?.stage;
   if (s && STAGE_IDS.includes(s)) return s;
-  return lead?.callStatus === 'booked' ? 'booked' : 'lead';
+  if (lead?.callStatus === 'booked') return 'booked';
+  /* CRM revamp, step 4: a record nothing has touched (no stage, never called,
+     no call log: the scraper writes no stage) is triage, waiting to be sorted. */
+  if ((lead?.callStatus || 'not-called') === 'not-called' && !(Array.isArray(lead?.callLog) && lead.callLog.length)) return 'triage';
+  return 'lead';
 }
 
 /* ── Site submissions (submissions.status) ─────────────────────── */

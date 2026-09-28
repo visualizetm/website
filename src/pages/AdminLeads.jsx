@@ -496,12 +496,13 @@ function LeadSocials({ lead }) {
 function ParkedList({ kind, leads, loading, reasonLine, desktop, onOpen, onBringBack, E }) {
   const declined = kind === 'declined';
   const action = declined ? 'Bring back' : 'Back to triage';
-  const when = (l) => (declined ? l.declined?.at : l.updatedAt);
+  // CRM revamp, step 4: a nurture record shows the day it comes back.
+  const when = (l) => (declined ? l.declined?.at : (l.nurture?.until ? `${l.nurture.until}T12:00:00` : l.updatedAt));
   const cols = [
     { id: 'business', label: 'Business', always: true, width: 260, render: (l) => <span className="ld-cell-biz"><Avatar name={l.business} size="xs" /><span className="lay-truncate">{l.business}</span></span> },
     { id: 'industry', label: 'Industry', render: (l) => (l.industry ? displayIndustry(l.industry) : '') },
     { id: 'reason', label: 'Reason', render: (l) => (l.declined?.reason ? <span title={l.declined.note || undefined}>{declineReasonOf(l.declined.reason).label}</span> : <span className="ld-muted">none</span>) },
-    { id: 'when', label: declined ? 'Declined on' : 'Since', render: (l) => (when(l) ? fmtDate(when(l)) : '') },
+    { id: 'when', label: declined ? 'Declined on' : 'Back on', render: (l) => (when(l) ? fmtDate(when(l)) : '') },
   ];
   const empty = E(declined ? 'leads.declined' : 'leads.nurture');
   if (loading) return <Stack gap={3} aria-busy="true"><SkeletonBlock width={220} height={18} />{desktop ? <Table.Skeleton rows={3} cols={4} /> : <Stack gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} height={68} radius="var(--v-radius-md)" />)}</Stack>}</Stack>;

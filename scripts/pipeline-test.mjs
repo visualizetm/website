@@ -71,7 +71,8 @@ ok(normalizeStage({ stage: 'won', callStatus: 'no' }) === 'won', 'won with callS
 ok(normalizeStage({ stage: 'client', callLog: [] }) === 'client', 'a client with no call history is a client');
 ok(normalizeStage({ stage: 'booked', callStatus: 'not-called' }) === 'booked', 'booked is booked whatever the call status');
 ok(normalizeStage({ callStatus: 'booked' }) === 'booked', 'a legacy record with no stage and a booked call reads as booked');
-ok(normalizeStage({ stage: '', callStatus: 'not-called' }) === 'lead', 'an empty stage reads as lead (which is why the cron below exists)');
+ok(normalizeStage({ stage: '', callStatus: 'not-called' }) === 'triage', 'an empty stage on an untouched record reads as triage (CRM revamp, step 4); the cron below exists for the wiped client');
+ok(normalizeStage({ stage: '', callStatus: 'no-answer' }) === 'lead' && normalizeStage({ callStatus: 'not-called', callLog: [{ outcome: 'no-answer' }] }) === 'lead', 'an empty stage on a record that has been dialed reads as lead');
 
 section('2. a client stays a client through everything but an explicit action');
 {
@@ -106,7 +107,7 @@ section('3. a spreadsheet re-import never touches a client');
   ok(lead(CLIENT).stage === 'client' && lead(CLIENT).callStatus === 'not-called' && lead(CLIENT).priority === 'warm' && lead(CLIENT).notes === 'from the sheet', `the client keeps stage, callStatus and priority, takes the notes (${lead(CLIENT).stage}, ${lead(CLIENT).callStatus}, ${lead(CLIENT).priority})`);
   ok(lead(LEAD).stage === 'lead' && lead(LEAD).callStatus === 'callback' && lead(LEAD).priority === 'hot', 'a lead row still updates status and priority');
   const fresh = _stores.call_leads.find(l => l.business === 'Brand New Place');
-  ok(fresh && !('stage' in fresh) && normalizeStage(fresh) === 'lead', 'a new row is a lead');
+  ok(fresh && fresh.stage === 'triage' && fresh.source === 'import' && normalizeStage(fresh) === 'triage', 'a new row lands in triage, marked as an import (CRM revamp, step 4)');
 }
 
 section('4. a bulk re-import through call-leads POST skips what exists');
@@ -296,6 +297,87 @@ section('7. the next action (CRM revamp, step 2): a stage change recomputes it, 
   ok(lead(LEAD).nextAction?.kind === 'build-concepts', `the stale callback became build-concepts overnight (${lead(LEAD).nextAction?.kind})`);
   ok(lead(WON).nextAction?.label === 'Drop off the samples' && lead(WON).nextAction.auto === false, 'a manual action survives the cron');
   ok(nextActionFor(lead(CLIENT), { projects: _stores.projects, sets: [] }) === null && (lead(CLIENT).nextAction == null), 'a client with nothing due carries nothing');
+}
+
+section('8. triage (CRM revamp, step 4): every new lead lands there, nurture comes back through it');
+{
+  const submissions = (await load('submissions.js')).default;
+  const { saidNoPatch } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nurture.js')).href);
+  const { keepPatch, undoKeepPatch, laterPatch, undoLaterPatch, sourceOf, triageLeads } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'triage.js')).href);
+  const { parseCapture, captureLead } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'capture.js')).href);
+  seed(); _stores.submissions = []; _stores.rate_limits = [];
+  // POST, single and bulk
+  let r = await call(callLeads, 'POST', { body: { business: 'Single New' } });
+  ok(r._status === 200 && _stores.call_leads.find(l => l.business === 'Single New')?.stage === 'triage', 'a single POST lands in triage');
+  r = await call(callLeads, 'POST', { body: { leads: [{ business: 'Bulk A' }, { business: 'Bulk B', stage: 'lead' }] } });
+  ok(_stores.call_leads.find(l => l.business === 'Bulk A')?.stage === 'triage' && _stores.call_leads.find(l => l.business === 'Bulk B')?.stage === 'lead', 'a bulk POST defaults to triage and keeps a stage the row names');
+  r = await call(callLeads, 'POST', { body: { business: 'Added client', stage: 'client' } });
+  ok(_stores.call_leads.find(l => l.business === 'Added client')?.stage === 'client', 'Add client still makes a client');
+  // the public submission: match by email, then phone, else a triage lead
+  const sub = (b) => call(submissions, 'POST', { body: { type: 'start', name: 'Sam', ...b } });
+  r = await sub({ business: 'Fresh Lead Co', email: 'x@y.com', phone: '(302) 555-0300' });
+  let s = _stores.submissions[_stores.submissions.length - 1];
+  ok(r._status === 200 && s.linkedLeadId === LEAD, `a brief with a matching phone links to the existing lead (${s?.linkedLeadId})`);
+  lead(LEAD).email = 'owner@fresh.example';
+  r = await sub({ business: 'Someone', email: 'Owner@Fresh.example', phone: '' });
+  s = _stores.submissions[_stores.submissions.length - 1];
+  ok(s.linkedLeadId === LEAD, 'a brief with a matching email (any case) links to the existing lead');
+  lead(WON).email = ''; lead(WON).phone = '302-555-0200'; lead(WON).stage = 'nurture'; lead(WON).nurture = { until: '2099-01-01', reason: 'Later' };
+  r = await sub({ business: 'Nibble', email: 'other@nibble.example', phone: '13025550200' });
+  s = _stores.submissions[_stores.submissions.length - 1];
+  ok(s.linkedLeadId === WON && lead(WON).stage === 'nurture', 'a brief that matches a nurture record links it and leaves the stage alone');
+  const before = _stores.call_leads.length;
+  r = await sub({ business: 'Brand New Brief', email: 'new@brief.example', phone: '302-555-0999' });
+  s = _stores.submissions[_stores.submissions.length - 1];
+  const made = _stores.call_leads.find(l => l.business === 'Brand New Brief');
+  ok(_stores.call_leads.length === before + 1 && made?.stage === 'triage' && s.linkedLeadId === String(made._id), 'a brief with no match makes a triage lead and links it');
+  ok(sourceOf(made, new Set([String(made._id)])).id === 'brief' && sourceOf({ sourceId: 'r1' }).id === 'scraper' && sourceOf({ source: 'import' }).id === 'import' && sourceOf({}).id === 'hand', 'the source pill: brief, scraper, import, by hand');
+  r = await sub({ business: 'Empty mail', email: 'nobody@nowhere.example', phone: '' });
+  s = _stores.submissions[_stores.submissions.length - 1];
+  ok(s.linkedLeadId && s.linkedLeadId !== LEAD && s.linkedLeadId !== WON && lead(WON).email === '', 'a brief with an unknown email and no phone never matches a record with an empty email');
+  r = await sub({ business: 'No brief', email: 'x', phone: '302-555-0300' });
+  ok(r._status === 400, 'a brief without a valid email is refused before any lead is touched');
+  // the pools
+  ok(triageLeads([{ stage: 'triage', score: 10, createdAt: '2026-01-01' }, { stage: 'lead' }, { stage: 'triage', score: 90 }, { stage: 'triage', score: 10, createdAt: '2026-02-01' }]).map(l => l.score + (l.createdAt || '')).join(',') === '90,102026-02-01,102026-01-01', 'the pile sorts by score, then newest');
+  ok(triageLeads([{ stage: 'lead' }, { callStatus: 'not-called' }]).length === 1, 'a record with no stage and no call is in the pile');
+  // keep, later, bin and the nurture field
+  seed(); lead(LEAD).stage = 'triage';
+  const kp = keepPatch(lead(LEAD), { priority: 'hot', bestWindow: 'Morning' });
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: kp } });
+  ok(r._status === 200 && lead(LEAD).stage === 'lead' && lead(LEAD).priority === 'hot' && lead(LEAD).bestWindow === 'Morning' && lead(LEAD).nurture === null, 'Keep writes stage lead with the priority and the window');
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: undoKeepPatch({ ...lead(LEAD), priority: 'warm', bestWindow: '' }) } });
+  ok(lead(LEAD).stage === 'triage' && lead(LEAD).priority === 'warm', 'the undo puts it back in triage with what it had');
+  const lp = laterPatch(lead(LEAD), Date.parse('2026-09-28T12:00:00-04:00'));
+  ok(lp.stage === 'nurture' && lp.nurture.until === '2026-10-28' && lp.nurture.reason === 'Later', `Later parks 30 days out (${lp.nurture.until})`);
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: lp } });
+  ok(r._status === 200 && lead(LEAD).stage === 'nurture' && lead(LEAD).nurture.until === '2026-10-28', 'the route stores the nurture field');
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { nurture: { until: 'soon', reason: 'x'.repeat(300), $where: '1' } } } });
+  ok(lead(LEAD).nurture.until === '' && lead(LEAD).nurture.reason.length === 120 && !('$where' in lead(LEAD).nurture), 'a bad until reads as empty, the reason caps at 120, nothing else is written');
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: undoLaterPatch({ nurture: null }) } });
+  ok(lead(LEAD).stage === 'triage' && lead(LEAD).nurture === null, 'the Later undo returns it to triage and clears the parking');
+  const sn = saidNoPatch(Date.parse('2026-09-28T12:00:00-04:00'));
+  ok(sn.stage === 'nurture' && sn.nurture.until === '2026-12-27' && sn.nurture.reason === 'Said no' && sn.listId === '', `Said no parks 90 days out and leaves the list (${sn.nurture.until})`);
+  r = await call(callLeads, 'DELETE', { query: { id: LEAD } });
+  ok(r._status === 200 && lead(LEAD).deleted === true, 'Bin soft deletes');
+  r = await call(callLeads, 'PATCH', { body: { action: 'restore', ids: [LEAD] } });
+  ok(r._status === 200 && !lead(LEAD).deleted, 'and the undo restores');
+  r = await call(callLeads, 'PATCH', { body: { id: LEAD, set: { score: 250 } } });
+  ok(lead(LEAD).score === 100, 'the score is clamped to 100');
+  // the cron resurfaces nurture
+  seed(); _stores.submissions = []; _stores.concept_sets = []; _stores.lists = [];
+  lead(LEAD).stage = 'nurture'; lead(LEAD).nurture = { until: '2020-01-01', reason: 'Said no' }; lead(LEAD).notes = 'Old note';
+  lead(WON).stage = 'nurture'; lead(WON).nurture = { until: '2099-01-01', reason: 'Later' };
+  const cron = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
+  ok(cron._status === 200 && cron._json.resurfaced === 1, `the cron resurfaces the one past its day (${cron._json?.resurfaced})`);
+  ok(lead(LEAD).stage === 'triage' && lead(LEAD).nurture === null && lead(LEAD).notes === 'Back from nurture (Said no)\nOld note', `back in triage, parking cleared, the note prepended (${JSON.stringify(lead(LEAD).notes)})`);
+  ok(lead(WON).stage === 'nurture' && lead(WON).nurture.until === '2099-01-01', 'one whose day has not come stays parked');
+  // quick capture
+  ok(parseCapture('@the.bakery.co').kind === 'instagram' && captureLead(parseCapture('@the.bakery.co')).socials.instagram === 'https://instagram.com/the.bakery.co' && captureLead(parseCapture('@the.bakery.co')).business === 'the.bakery.co', 'a leading @ is a handle and fills socials.instagram');
+  ok(parseCapture('302 555 0100').kind === 'phone' && captureLead(parseCapture('302 555 0100')).phone === '(302) 555-0100', 'digits are a phone');
+  ok(parseCapture('Bay Ridge Bakery').kind === 'name' && captureLead(parseCapture('Bay Ridge Bakery')).stage === 'triage' && !parseCapture(''), 'anything else is a name, headed for triage; nothing is nothing');
+  r = await call(callLeads, 'POST', { body: captureLead(parseCapture('@captured')) });
+  const cap = _stores.call_leads.find(l => l.business === 'captured');
+  ok(r._status === 200 && cap?.stage === 'triage' && cap.source === 'capture' && cap.socials?.instagram === 'https://instagram.com/captured', 'the capture lands in triage with the handle');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

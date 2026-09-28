@@ -4,12 +4,11 @@
  * every read, by the daily cron, and by the client's shared patch helper
  * on every write that touches a callback (src/lib/lists.js mirrors
  * callbacksDueIds). It cannot be deleted, renamed, or filled by hand. */
-import { STAGE_IDS } from '../_semantics.js';
+import { normalizeStage } from '../_semantics.js';
 
 export const CALLBACKS_DUE_NAME = 'Callbacks due';
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
-const normalizeStage = (lead) => { const s = lead?.stage; if (s && STAGE_IDS.includes(s)) return s; return lead?.callStatus === 'booked' ? 'booked' : 'lead'; };
 
 /** Every stage lead with callStatus callback and a callbackAt today or earlier, sorted by callbackAt. */
 export function callbacksDueIds(leads, now = Date.now()) {

@@ -27,7 +27,9 @@ export const COPY = {
     'lists.picker': { title: 'No open lists', description: 'Make one below and this lead goes on it.' },
     'calls.lists': { title: 'No lists to run', description: 'Build a list on Lists, or run a quick session from the filters.', action: 'Quick session' },
     'leads.declined': { title: 'Nothing declined', description: 'Decline a lead from its menu when it is not worth a call. It lands here with the reason, and Bring back returns it to triage.' },
-    'leads.nurture': { title: 'Nobody in nurture', description: 'A lead that is not ready now sits here until you bring it back to triage.' },
+    'leads.nurture': { title: 'Nobody in nurture', description: 'A lead that is not ready now sits here until its day comes or you bring it back to triage.' },
+    /* Triage (CRM revamp, step 4) */
+    'triage.none': { title: 'Triage is clear', description: 'New leads from the scraper, the site and imports land here. Capture one from the plus button.', action: 'Capture a lead' },
     'leads.dupes': { title: 'No duplicates found', description: 'No two leads share a phone number or a business name in the same industry.', action: 'Back to all leads' },
     'leads.column': { title: 'Nothing waiting here', description: 'Leads land in this column as their status changes.' },
     'leads.detail.pricing': { title: 'No pricing options yet', description: 'Build up to three from the packages. Anything over $750 shows its payment plan.', action: 'Add option' },

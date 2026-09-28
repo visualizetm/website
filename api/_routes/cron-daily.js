@@ -5,6 +5,7 @@ import { stripeHealth } from '../_lib/stripe.js';
 import { STAGE_IDS, clientEvidence, earliestClientSince } from '../_lib/pipeline.js';
 import { nextActionFor, resolveNextAction, sameAction } from '../_lib/nextAction.js';
 import { syncCallbacksDue } from '../_lib/lists.js';
+import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
  *  1. Retainers: roll retainer.nextBillAt forward once a bill date passes,
@@ -16,6 +17,10 @@ import { syncCallbacksDue } from '../_lib/lists.js';
  *  1c. clientSince backfill for any client or won record missing it.
  *  1d. nextAction recompute (CRM revamp, step 2) on every live lead and
  *     project, so a write that skipped the shared helper is repaired.
+ *  1e. The Callbacks due dial list resynced (CRM revamp, step 3).
+ *  1f. Nurture resurface (CRM revamp, step 4): parked records past their
+ *     day go back to triage with a note.
+ *  1g. Score recompute (CRM revamp, step 4) on every live lead.
  *  2. Task health: write the settings 'health' document (enrichment, scraper,
  *     crons, stripe) the Integrations cards and the drawer read. */
 const pad = (n) => String(n).padStart(2, '0');
@@ -132,6 +137,31 @@ export async function handler(req, res) {
      recomputed from every callback due today or earlier. */
   const callbacksDue = await syncCallbacksDue(db);
 
+  /* 1f. Nurture (CRM revamp, step 4): a parked record whose day has come
+     goes back to triage to be sorted again, the parking is cleared, and
+     the notes say where it came from. */
+  let resurfaced = 0;
+  const parked = await leads.find({ deleted: { $ne: true }, stage: 'nurture', 'nurture.until': { $lte: today } }).project({ nurture: 1, notes: 1 }).toArray();
+  for (const l of parked) {
+    const reason = String(l.nurture?.reason || '').trim();
+    const line = `Back from nurture${reason ? ` (${reason})` : ''}`;
+    const notes = [line, String(l.notes || '').trim()].filter(Boolean).join('\n');
+    await leads.updateOne({ _id: l._id }, { $set: { stage: 'triage', nurture: null, notes, nextAction: null, updatedAt: new Date() } }); resurfaced++;
+  }
+
+  /* 1g. The score (CRM revamp, step 4), recomputed for every live lead from
+     the one set of rules in api/_lib/score.js, so the pile in Triage sorts
+     on what the scan found overnight. */
+  let scored = 0;
+  const scoreRows = await leads.find({ deleted: { $ne: true } }).project({ phone: 1, socials: 1, intel: 1, industry: 1, stage: 1, score: 1 }).toArray();
+  const briefs = await db.collection('submissions').find({ deleted: { $ne: true }, type: { $in: ['start', 'contact'] }, linkedLeadId: { $exists: true, $ne: '' } }).project({ type: 1, linkedLeadId: 1 }).toArray();
+  const scoreCtx = { topIndustries: topClientIndustries(scoreRows), briefed: briefedLeadIds(briefs) };
+  for (const l of scoreRows) {
+    const score = scoreFor(l, scoreCtx);
+    if (score === Number(l.score)) continue;
+    await leads.updateOne({ _id: l._id }, { $set: { score, updatedAt: new Date() } }); scored++;
+  }
+
   // 2. Health.
   const since24 = new Date(Date.now() - 24 * 3600e3); const since7 = new Date(Date.now() - 7 * 864e5);
   const scanned = await leads.find({ deleted: { $ne: true }, 'enrichment.lastScanAt': { $exists: true, $ne: '' } }).project({ enrichment: 1, descriptor: 1, industry: 1, phone: 1, email: 1, socials: 1, intel: 1 }).toArray();
@@ -148,12 +178,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length,
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored,
       // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
       healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, health });
 }

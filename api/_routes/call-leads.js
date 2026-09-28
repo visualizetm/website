@@ -181,6 +181,8 @@ function sanitize(b) {
     area: str(b.area, 160),
     serviceInterest: str(b.serviceInterest, 200),
     sourceId: b.sourceId ? str(b.sourceId, 120) : undefined,
+    // CRM revamp, step 4: how the record arrived ('import', 'capture'; the scraper has sourceId, a brief has a linked submission).
+    source: b.source !== undefined ? (['import', 'capture', 'hand'].includes(b.source) ? b.source : 'hand') : undefined,
     notes: str(b.notes, 3000),
     askFor: str(b.askFor, 200),
     bestWindow: str(b.bestWindow, 300),
@@ -353,6 +355,9 @@ function sanitize(b) {
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
     } : undefined,
+    // CRM revamp, step 4: parked until a day, with why; null clears it. And the score the rules computed.
+    nurture: b.nurture === null ? null : b.nurture && typeof b.nurture === 'object' ? { until: /^\d{4}-\d{2}-\d{2}$/.test(String(b.nurture.until || '')) ? String(b.nurture.until) : '', reason: str(b.nurture.reason, 120) } : undefined,
+    score: b.score !== undefined ? Math.max(0, Math.min(100, Math.round(Number(b.score)) || 0)) : undefined,
     // CRM revamp, step 3: the one open dial list this lead is on ('' when none).
     listId: b.listId !== undefined ? (b.listId === null ? '' : str(b.listId, 64)) : undefined,
     // CRM revamp, step 2: the one thing to do next (api/_lib/nextAction.js). null clears it.
@@ -395,7 +400,8 @@ export async function handler(req, res) {
         const now = new Date();
         // Created straight as a client (the Add client flow): clientSince is stamped here too.
         if ((d.stage === 'client' || d.stage === 'won') && !(typeof d.clientSince === 'string' && d.clientSince.trim())) d.clientSince = now.toISOString();
-        return { ...d, createdAt: now, updatedAt: now };
+        // CRM revamp, step 4: every new lead lands in triage unless the caller says otherwise (Add client says client).
+        return { stage: 'triage', ...d, createdAt: now, updatedAt: now };
       });
     if (!docs.length) return res.status(400).json({ error: 'business name required' });
 

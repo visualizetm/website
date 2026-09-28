@@ -24,7 +24,7 @@ import { deleteBlockReason } from '../lib/booked';
  * @param {boolean} [props.dragging] visual lift while dragged
  * @param {boolean} [props.compact] hide row 4
  */
-const SOCIALS = [
+export const SOCIALS = [
   ['website', Globe01, 'Website'], ['instagram', Camera01, 'Instagram'], ['facebook', ThumbsUp, 'Facebook'], ['google', MarkerPin01, 'Google Maps'],
 ];
 

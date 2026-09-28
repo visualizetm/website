@@ -18,7 +18,7 @@ import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useDecline } from '../components/DeclineSheet';
 import { withNextAction } from '../lib/nextAction';
-import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey } from '../lib/lists';
+import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey, restoreLead } from '../lib/lists';
 import ListCard, { listCardStyles } from '../components/ListCard';
 import LeadCard from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
@@ -27,6 +27,7 @@ import LeadNotes from '../components/LeadNotes';
 import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/LeadPlaybook';
 import { normalizeSocials } from '../lib/socials';
 import { effectiveStage } from '../lib/booked';
+import { saidNoPatch } from '../lib/nurture';
 import { industryFacets } from '../lib/leads';
 import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine, quickCallbacks, toLocalInput } from '../lib/calls';
 import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, MEETING_TYPES, industryKey, displayIndustry } from '../shared/semantics';
@@ -97,7 +98,7 @@ function OutcomeSheet({ outcome, lead, onLog, onClose }) {
         )}
         <Input label={outcome === 'booked' ? 'What they said' : 'Note'} value={note} onChange={(e) => setNote(e.target.value)} placeholder={outcome === 'callback' ? 'Ask for the owner after 5' : 'Optional, one line'} autoComplete="off" data-autofocus={outcome !== 'booked' && outcome !== 'callback'} />
         {outcome === 'wrong-number' && <p className="cc-hint">The phone note gets stamped "Wrong number ({fmtDate(new Date().toISOString())})". Nothing else changes.</p>}
-        {outcome === 'no' && <p className="cc-hint">A no removes them from the console and the Leads list. Undo for six seconds, then 30 days in Recently deleted.</p>}
+        {outcome === 'no' && <p className="cc-hint">A no parks them in Nurture for 90 days, then they come back through Triage. Undo for six seconds.</p>}
         <button type="submit" hidden aria-hidden="true" />
       </form>
     </Sheet>
@@ -450,11 +451,16 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     const lead = current; if (!lead) return false;
     const at = new Date().toISOString();
     const entry = { at, outcome, note: (extra.note || '').trim(), meeting: outcome === 'booked' && extra.meeting ? `${extra.meeting.date} ${extra.meeting.time}` : '', email: outcome === 'booked' ? (extra.email || '').trim() : '' };
-    const prev = { _id: lead._id, callStatus: lead.callStatus || 'not-called', callLog: lead.callLog || [], stage: lead.stage, callbackAt: lead.callbackAt || '', phoneNote: lead.phoneNote || '', meeting: lead.meeting, afterCall: lead.afterCall };
+    const prev = { _id: lead._id, callStatus: lead.callStatus || 'not-called', callLog: lead.callLog || [], stage: lead.stage, callbackAt: lead.callbackAt || '', phoneNote: lead.phoneNote || '', meeting: lead.meeting, afterCall: lead.afterCall, nurture: lead.nurture || null, listId: lead.listId || '' };
+    // CRM revamp, step 4: where the lead sat on the list it came from, so an undo puts it back there.
+    const prevList = session?.listId ? lists.find(l => String(l._id) === String(session.listId)) : null;
+    const prevIndex = prevList ? (prevList.leadIds || []).map(String).indexOf(String(lead._id)) : -1;
     const set = { callStatus: outcome, callLog: [...(lead.callLog || []), entry] };
     if (outcome === 'booked') { set.stage = 'booked'; if (extra.meeting) set.meeting = extra.meeting; if (entry.email || entry.meeting) set.afterCall = { ...(lead.afterCall || {}), meeting: entry.meeting || lead.afterCall?.meeting || '', email: entry.email || lead.afterCall?.email || '' }; }
     if (outcome === 'callback') set.callbackAt = extra.callbackAt || '';
     if (outcome === 'wrong-number') set.phoneNote = `Wrong number (${fmtDate(at)})`;
+    // CRM revamp, step 4: a no parks the lead in nurture for 90 days instead of deleting it.
+    if (outcome === 'no') Object.assign(set, saidNoPatch());
     setLeads(ls => ls.map(l => (l._id === lead._id ? { ...l, ...set } : l)));
     setSession(s => (s ? { ...s, stats: { ...s.stats, calls: s.stats.calls + 1, [STAT_KEY[outcome]]: (s.stats[STAT_KEY[outcome]] || 0) + 1 }, logged: { ...s.logged, [lead._id]: outcome } } : s));
     setSheet(null); setTimer(null);
@@ -477,13 +483,14 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       if (outcome === 'callback') listOps.syncCallbacksDue(leads.map(l => (l._id === lead._id ? { ...l, ...set } : l)));
     }
     setPulse(outcome); setTimeout(() => setPulse(null), durationMs('--v-dur-slow') + 80);
-    let removed = false;
-    if (outcome === 'no') { removed = true; removeFromLists(lead._id); apiFetch(`/api/admin/call-leads?id=${encodeURIComponent(lead._id)}`, { method: 'DELETE' }); }
+    if (outcome === 'no') removeFromLists(lead._id);
     const label = OUTCOMES.find(o => o.id === outcome)?.label || outcome;
     toast.undo(`${label}: ${lead.business}`, async () => {
-      if (removed) { await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids: [lead._id] } }); }
-      const back = await patch(lead._id, { callStatus: prev.callStatus, callLog: prev.callLog, stage: prev.stage, callbackAt: prev.callbackAt, phoneNote: prev.phoneNote, ...(prev.meeting ? { meeting: prev.meeting } : {}), ...(prev.afterCall ? { afterCall: prev.afterCall } : {}) });
+      const back = await patch(lead._id, { callStatus: prev.callStatus, callLog: prev.callLog, stage: prev.stage, callbackAt: prev.callbackAt, phoneNote: prev.phoneNote, nurture: prev.nurture, listId: prev.listId, ...(prev.meeting ? { meeting: prev.meeting } : {}), ...(prev.afterCall ? { afterCall: prev.afterCall } : {}) });
       if (!back) { toast.error('Undo failed. Fix it on the lead.'); return; }
+      /* CRM revamp, step 4: back on the list it came from, in its old place, and the callbacks list follows. */
+      if (prevList && prevIndex >= 0 && listOps) { const cur = lists.find(l => String(l._id) === String(prevList._id)) || prevList; await listOps.patchList(prevList._id, { leadIds: restoreLead(cur.leadIds, lead._id, prevIndex) }); }
+      if (listOps) listOps.syncCallbacksDue(leads.map(l => (l._id === lead._id ? { ...l, ...prev } : l)));
       await load(); onDataChanged?.();
       setSession(s => (s ? { ...s, ids: s.ids.includes(lead._id) ? s.ids : [...s.ids.slice(0, s.idx), lead._id, ...s.ids.slice(s.idx)], stats: { ...s.stats, calls: Math.max(0, s.stats.calls - 1), [STAT_KEY[outcome]]: Math.max(0, (s.stats[STAT_KEY[outcome]] || 1) - 1) }, logged: { ...s.logged, [lead._id]: undefined } } : s));
       toast.success(`Undid ${label.toLowerCase()} for ${lead.business}.`);

@@ -110,6 +110,31 @@ async function handler(req, res) {
   const { insertedId } = await db.collection('submissions').insertOne(doc);
   const id = insertedId.toString();
 
+  /* CRM revamp, step 4: a brief or a contact is a lead. Match an existing
+     record by email, then by the last ten digits of the phone; link the
+     submission to it and leave its stage alone (a nurture or a declined
+     record stays where Rob put it). No match: a new record in triage, with
+     the submission linked, so the pile sorts it like any other. */
+  if (doc.type === 'start' || doc.type === 'contact') {
+    try {
+      const leadsCol = db.collection('call_leads');
+      const digits = String(doc.phone || '').replace(/\D/g, '');
+      const last10 = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits.slice(-10);
+      const emailRx = doc.email ? new RegExp(`^${doc.email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') : null;
+      let lead = emailRx ? await leadsCol.findOne({ deleted: { $ne: true }, $or: [{ email: emailRx }, { 'afterCall.email': emailRx }] }, { projection: { _id: 1 } }) : null;
+      if (!lead && last10.length === 10) {
+        const byPhone = await leadsCol.find({ deleted: { $ne: true }, phone: { $regex: last10.slice(-4) + '$' } }).project({ _id: 1, phone: 1 }).limit(50).toArray();
+        lead = byPhone.find(l => { const d = String(l.phone || '').replace(/\D/g, ''); return (d.length === 11 && d.startsWith('1') ? d.slice(1) : d.slice(-10)) === last10; }) || null;
+      }
+      if (!lead) {
+        const now = new Date();
+        const r = await leadsCol.insertOne({ business: doc.business || doc.name, askFor: doc.name, email: doc.email, phone: doc.phone, stage: 'triage', callStatus: 'not-called', priority: 'warm', socials: {}, callLog: [], notes: '', createdAt: now, updatedAt: now });
+        lead = { _id: r.insertedId };
+      }
+      await db.collection('submissions').updateOne({ _id: insertedId }, { $set: { linkedLeadId: String(lead._id) } });
+    } catch { /* the submission is the record; the link is a convenience */ }
+  }
+
   // Prompt 11: a shop order is also a print order (orders collection), so the
   // Print Orders screen fills itself in. Best effort; the submission is the record.
   if (doc.type === 'shop-order') {

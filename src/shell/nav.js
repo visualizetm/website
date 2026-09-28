@@ -14,6 +14,7 @@
 export const NAV = [
   // PIPELINE: the work of landing someone.
   { id: 'dashboard',   label: 'Next up',          icon: 'LayoutAlt01',     path: '',            group: 'Pipeline', badge: 'dashboard', tab: true },
+  { id: 'triage',      label: 'Triage',           icon: 'Inbox01',         path: '/triage',     group: 'Pipeline', badge: 'triage' },
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      group: 'Pipeline', badge: 'leads',     tab: true },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabLabel: 'Call' },
   { id: 'lists',       label: 'Lists',            icon: 'Rows01',          path: '/lists',      group: 'Pipeline', badge: 'lists',     tab: true },

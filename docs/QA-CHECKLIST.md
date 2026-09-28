@@ -21,9 +21,11 @@ off, theme Dark.
 | 8 | Tap Callback, pick a quick time, then Set callback | The sheet closes, the next lead shows, the callback lands on the Calendar and the drawer. |
 | 9 | Tap Wrong number, then Log | The sheet closes and the phone note on that lead reads Wrong number with today's date. |
 | 10 | Tap Booked, set a date and time, then Book it | The header pulses green, the sheet closes, the lead moves to Booked. |
-| 11 | On the last lead tap Said no, then Log | The lead leaves the console with an undo toast for six seconds, and the session summary appears. |
-| 11b | Open Leads, open a lead's menu and tap Decline, pick Out of area, tap Decline | The sheet closes, the lead leaves the list with a six second undo toast, and the Leads badge drops by one. |
-| 11c | On Leads switch the Pool control to Declined | The declined lead is in the table with its reason and the date; the line above reads the reason counts; Bring back returns it to triage and it leaves the table. |
+| 11 | On the last lead tap Said no, then Log | The lead leaves the console with an undo toast for six seconds, and the session summary appears. It is parked in Nurture for 90 days (Leads, Pool: Nurture shows the day it comes back), not deleted; Undo puts it back on the list it came from, in its old place. |
+| 11a | Open Triage; on a phone swipe the top card right, or tap the red check; on a desktop press K on the focused row | The Keep sheet opens with priority and best window; tap Hot, then Done. The card leaves with a "kept" undo toast and the lead is in Leads Open. Swipe left or X bins it (undo restores); the clock or L parks it 30 days; swipe down or D opens Decline. |
+| 11b | Tap the plus button, Capture a lead, type @thebakeryco, tap Capture | The toast reads "Captured. It is waiting in Triage." and the pile gains a card with only the Instagram filled. |
+| 11c | Open Leads, open a lead's menu and tap Decline, pick Out of area, tap Decline | The sheet closes, the lead leaves the list with a six second undo toast, and the Leads badge drops by one. |
+| 11d | On Leads switch the Pool control to Declined | The declined lead is in the table with its reason and the date; the line above reads the reason counts; Bring back returns it to triage and it leaves the table. |
 | 12 | Open Booked | The list shows the booked leads with the meeting date; the one you just booked is there. |
 | 13 | Open the booked lead | The detail opens on Overview with the meeting block and the Pricing options block. |
 | 14 | Tap Add option twice in Pricing options | Two option cards appear with a package, a total, and the plan line. |

@@ -62,7 +62,7 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
       else if (t >= P.lastMonthStart) { s.logLastMonth++; if (e.outcome !== 'no-answer') s.logLastMonthConnected++; }
     }
     for (const e of (l.contactLog || [])) if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
-    if (stage !== 'lost' && stage !== 'declined') {
+    if (stage !== 'lost' && stage !== 'declined' && stage !== 'triage') {
       s.funnel.leads++;
       if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) s.funnel.contacted++;
       if (stage === 'booked' || stage === 'won' || stage === 'client') s.funnel.booked++;

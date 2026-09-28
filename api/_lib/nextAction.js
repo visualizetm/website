@@ -3,7 +3,7 @@
  * src/. The daily cron recomputes every live lead and project with this so
  * a record that drifted (a write that skipped the shared helper) is put
  * right overnight. Keep the two files' rules identical. */
-import { STAGE_IDS, NEXT_ACTION_KIND_IDS } from '../_semantics.js';
+import { NEXT_ACTION_KIND_IDS, normalizeStage } from '../_semantics.js';
 
 const DAY = 864e5;
 const ASK_AFTER_DAYS = 3;
@@ -18,7 +18,6 @@ export function parseDate(v) {
 }
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
-const normalizeStage = (lead) => { const s = lead?.stage; if (s && STAGE_IDS.includes(s)) return s; return lead?.callStatus === 'booked' ? 'booked' : 'lead'; };
 const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 const iso = (t) => new Date(t).toISOString();
 const act = (kind, dueAt) => ({ kind, label: LABELS[kind] || kind, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });
