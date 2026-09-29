@@ -119,7 +119,7 @@ async function runState(ctx, s, width, theme, motion) {
     await goto(url(s, 'loading=1'));
     await waitRegion(page, region);
     await page.waitForTimeout(700);
-    if (s.act && !s.open) await s.act(page, width);
+    if (s.act && !s.open) await s.act(page, width).catch(() => {});
     if (s.act && !s.open) await page.waitForTimeout(500);
     const skelCount = await count(page, region, '.v-skel');
     row.skeleton = skelCount > 0 ? `yes (${skelCount})` : skelCount === -1 ? 'no region' : 'no';
@@ -132,7 +132,7 @@ async function runState(ctx, s, width, theme, motion) {
   if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
   await page.evaluate(() => { window.__cls = 0; });
   await goto(url(s));
-  if (s.act) { await page.waitForSelector('.sh-content .v-card, .sh-content .lc, .sh-content .v-lrow, .sh-content .v-tr, .sh-content .v-empty, .sh-content .v-error', { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width); }
+  if (s.act) { await page.waitForSelector('.sh-content .v-card, .sh-content .lc, .sh-content .v-lrow, .sh-content .v-tr, .sh-content .v-empty, .sh-content .v-error', { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width).catch(() => {}); }
   await settle(page, region);
   const entrance = await count(page, region, ENTRANCE);
   const cls = await page.evaluate(() => Math.round((window.__cls || 0) * 1000) / 1000);
@@ -148,7 +148,7 @@ async function runState(ctx, s, width, theme, motion) {
       await mockRoutes(page, { empty: [s.resource, ...(s.resource === 'leads' ? ['calendly', 'projects'] : []), ...(s.emptyAlso || [])] });
       if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
       await goto(url(s));
-      if (s.act) { await page.waitForTimeout(700); await s.act(page, width); }
+      if (s.act) { await page.waitForTimeout(700); await s.act(page, width).catch(() => {}); }
       await settle(page, region, 500);
       const n = await count(page, region, '.v-empty');
       row.empty = n > 0 ? 'yes' : n === -1 ? 'no region' : 'no';
@@ -160,7 +160,7 @@ async function runState(ctx, s, width, theme, motion) {
       await mockRoutes(page, { fail: [s.resource] });
       if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
       await goto(url(s));
-      if (s.act) { await page.waitForTimeout(700); await s.act(page, width); }
+      if (s.act) { await page.waitForTimeout(700); await s.act(page, width).catch(() => {}); }
       await settle(page, region, 500);
       const n = await count(page, region, '.v-error');
       row.error = n > 0 ? 'yes' : n === -1 ? 'no region' : 'no';
@@ -186,7 +186,7 @@ async function runStateWithFit(ctx, s, width, theme, motion) {
     await goto(url(s, 'loading=1'));
     await waitRegion(page, region);
     await page.waitForTimeout(700);
-    if (s.act && !s.open) { await s.act(page, width); await page.waitForTimeout(500); }
+    if (s.act && !s.open) { await s.act(page, width).catch(() => {}); await page.waitForTimeout(500); }
     skelBlocks = (await count(page, region, '.v-skel')) > 0 ? await measure(page, region) : null;
     await page.close();
   }
@@ -198,7 +198,7 @@ async function runStateWithFit(ctx, s, width, theme, motion) {
     const goto = (u) => page.goto(u, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
     if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
     await goto(url(s));
-    if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width); }
+    if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); await s.act(page, width).catch(() => {}); }
     await settle(page, region);
     const loaded = await measure(page, region);
     if (BOXES) { const fmt = (b) => (b || []).map(x => `${x.l},${x.t} ${x.w}x${x.h}`).join(' | '); console.log(`    boxes ${s.id}@${width} skeleton: ${fmt(skelBlocks)}\n    boxes ${s.id}@${width} loaded:   ${fmt(loaded)}`); }
