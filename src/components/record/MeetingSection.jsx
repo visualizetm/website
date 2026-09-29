@@ -32,7 +32,7 @@ export default function MeetingSection({ rec }) {
   const setGp = (id, next) => patch({ gamePlan: gamePlan.some(g => g.serviceId === id) ? gamePlan.map(g => (g.serviceId === id ? { ...g, ...next } : g)) : [...gamePlan, { ...gp(id), ...next }] });
   return (
     <div className="rc-meeting">
-      <div className="rc-fact rc-fact--wide">
+      <div className="rc-fact rc-fact--wide rc-fact--stack">
         <span className="rc-fact-label">When</span>
         <span className="rc-fact-val">{mDate ? <><span className="dt-when">{fmtWeekdayDateTime(mDate)}</span><span className="rc-muted"> · {countdownLabel(mDate)}{typeLabel(lead) ? ` · ${typeLabel(lead).toLowerCase()}` : ''}</span></> : <span className="rc-fact-ro">{legacy ? `Logged as "${lead.afterCall.meeting}". Set the date to get a countdown and a calendar file.` : 'No date yet'}</span>}</span>
         {!readOnly && <Row gap={1} className="rc-fact-act"><Button variant="secondary" size="md" icon={Calendar} onClick={() => setResched(true)} className="dt-resched">{mDate ? 'Reschedule' : 'Set date'}</Button>{mDate && <IconButton icon={Download01} label="Add to calendar (.ics)" variant="secondary" onClick={() => { if (!downloadIcs(lead)) toast.error('Set a date first.'); }} />}</Row>}

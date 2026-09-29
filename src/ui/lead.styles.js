@@ -136,8 +136,8 @@ export const leadDetailStyles = `
   .rc-row-body { display: flex; flex-direction: column; gap: var(--v-space-4); padding: 0 var(--v-space-3) var(--v-space-3); min-width: 0; }
   @media (max-width: 767px) {
     .rc-facts { grid-template-columns: minmax(0, 1fr); }
-    .rc-fact--wide { grid-template-columns: 88px minmax(0, 1fr); }
-    .rc-fact--wide .rc-fact-act { grid-column: 2; justify-self: start; padding-bottom: var(--v-space-2); }
+    .rc-fact--stack { grid-template-columns: 88px minmax(0, 1fr); }
+    .rc-fact--stack .rc-fact-act { grid-column: 2; justify-self: start; padding-bottom: var(--v-space-2); }
     .rc-money-n { font-size: var(--v-text-xl); }
   }
   /* The checkpoints stepper (CRM revamp, step 5), a plain list now. */
