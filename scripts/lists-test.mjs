@@ -41,7 +41,8 @@ function seed() {
   _reset();
   _stores.call_leads = [
     { _id: L(1), business: 'Late Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(NOW - 2 * DAY), socials: {}, callLog: [] },
-    { _id: L(2), business: 'Today Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(NOW + 2 * H), socials: {}, callLog: [] },
+    // Due ten minutes ago: today at any hour of the day. Two hours ahead used to cross midnight in New York on a late run.
+    { _id: L(2), business: 'Today Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(NOW - 10 * 60e3), socials: {}, callLog: [] },
     { _id: L(3), business: 'Tomorrow Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(NOW + 2 * DAY), socials: {}, callLog: [] },
     { _id: L(4), business: 'Booked Co', stage: 'booked', callStatus: 'callback', callbackAt: iso(NOW - DAY), socials: {}, callLog: [] },
     { _id: L(5), business: 'No Time Co', stage: 'lead', callStatus: 'callback', callbackAt: '', socials: {}, callLog: [] },
