@@ -8,7 +8,7 @@ import { COPY } from '../shared/copy';
 import { CONTACTED_STATUSES } from '../lib/leads';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { normalizeStage } from '../shared/semantics';
-import { fmtDateTime, relativeTime, toMs, dayKey } from '../shared/dates';
+import { fmtDateTime, toMs, dayKey } from '../shared/dates';
 import { money } from '../shared/format';
 import { telHref } from '../shared/phone';
 import { nextUpItems } from '../lib/nextAction';
@@ -88,7 +88,8 @@ const greetingFor = (h, name = 'Rob') => (h < 12 ? `Good morning, ${name}.` : h 
 const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return true; const m = d.getHours() * 60 + d.getMinutes(); const [a, b] = [bh.start, bh.end].map(t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }); return m >= a && m < b; };
 const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cur - prev >= 0 ? '+' : ''}${cur - prev} vs ${label}`, direction: cur > prev ? 'up' : cur < prev ? 'down' : 'flat' });
 const timeOf = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const dueLabel = (item, now = Date.now()) => (item.bucket === 'overdue' ? relativeTime(item.due, now) : item.bucket === 'today' ? timeOf(item.due) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
+/* UI simplification, part B: the due time shows, never a relative time beside it; an overdue row from another day names the day. */
+const dueLabel = (item, now = Date.now()) => (item.bucket === 'today' || (item.bucket === 'overdue' && dayKey(item.due) === dayKey(now)) ? timeOf(item.due) : item.bucket === 'overdue' ? new Date(item.due).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeOf(item.due) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
 const at9 = (d) => { const x = new Date(d); x.setHours(9, 0, 0, 0); return x; };
 const SNOOZES = [
   { id: 'tomorrow', label: 'Tomorrow 9am', at: (now) => at9(now + DAY) },
@@ -434,7 +435,9 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 const dbStyles = `
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
+  /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */
   .db-panel { gap: var(--v-space-3); }
+  @media (min-width: 768px) { .db-panel { width: 340px; } }
   .db-panel-head { display: flex; align-items: center; gap: var(--v-space-2); padding: 0 var(--v-space-1); }
   .db-panel-scroll { padding: 2px; }
   .db-head { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }

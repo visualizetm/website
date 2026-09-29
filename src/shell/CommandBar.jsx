@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import UserPlus01 from '@untitled-ui/icons-react/build/esm/UserPlus01';
-import { Input, Popover, Sheet, Pill, Icon, IconButton, Avatar, SegmentedControl, ListRow, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
+import { Input, Popover, Sheet, Pill, Icon, IconButton, SegmentedControl, ListRow, useDelayedLoading, useMediaQuery, DESKTOP_QUERY } from '../ui';
 import { formatPhone, digitsOf } from '../shared/phone';
 import { CALL_STATUSES } from '../shared/semantics';
 import { serviceLabel } from '../lib/booked';
@@ -22,13 +22,14 @@ function ResultRow({ item, active, onPick, onHover, onAddToList }) {
   const l = item.lead;
   const common = { onClick: () => onPick(item), onMouseEnter: onHover, className: `sh-cmd-row${active ? ' is-active' : ''}`, chevron: false, role: 'option', 'aria-selected': active };
   if (item.type === 'lead') {
-    return <ListRow {...common} leading={<Avatar name={l.business} size="sm" />} title={l.business}
-      subtitle={<span className="sh-cmd-sub">{l.industry && <Pill tone="neutral" label={l.industry} icon={false} size="sm" variant="outline" />}<span>{formatPhone(l.phone) || 'No phone'}</span></span>}
+    // UI simplification, part B: two lines and one pill, like every row. The industry, the area and the phone are the context line.
+    return <ListRow {...common} title={l.business}
+      subtitle={<span className="sh-cmd-sub">{[l.industry, l.area, formatPhone(l.phone) || 'No phone'].filter(Boolean).join(' · ')}</span>}
       trailing={<span className="sh-cmd-trail"><Pill id={l.callStatus} list={CALL_STATUSES} size="sm" />{onAddToList && <IconButton icon="Rows01" label={`Add ${l.business} to a list`} variant="ghost" onClick={(e) => { e.stopPropagation(); onAddToList(l); }} />}</span>} />;
   }
   if (item.type === 'client') {
     const pkg = l.servicesPlanned?.length ? l.servicesPlanned.slice(0, 2).map(serviceLabel).join(', ') + (l.servicesPlanned.length > 2 ? ` +${l.servicesPlanned.length - 2}` : '') : 'No package yet';
-    return <ListRow {...common} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={pkg} trailing={<Pill id="client" size="sm" />} />;
+    return <ListRow {...common} title={l.business} subtitle={pkg} trailing={<Pill id="client" size="sm" />} />;
   }
   if (item.type === 'showcase') {
     return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon="Image01" size="var(--v-icon-md)" /></span>} title={`Showcase: ${l.business}`} subtitle="Edit the public page" />;

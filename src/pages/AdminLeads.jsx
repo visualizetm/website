@@ -5,8 +5,9 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
+import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Popover, Checkbox, Modal, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
+  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Badge, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Modal, Sheet, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -152,8 +153,7 @@ export default function AdminLeads({
   const [bulkConfirm, setBulkConfirm] = useState(false);
   const [collapsed, setCollapsed] = useState(() => new Set());
   const [shown, setShown] = useState({});
-  const [industryMore, setIndustryMore] = useState(false);
-  const industryMoreRef = useRef(null);
+  const [filtersOpen, setFiltersOpen] = useState(false); // UI simplification, part B: every group but Status lives in a sheet
   const [mergeGroup, setMergeGroup] = useState(null);
   const [drag, setDrag] = useState(null); // { id, x, y, over }
   const dragTimer = useRef(null);
@@ -180,6 +180,7 @@ export default function AdminLeads({
   const count = useMemo(() => { const cache = new Map(); return (g, v) => { const k = `${g}:${v}`; if (!cache.has(k)) cache.set(k, countFor(pool, filters, q, dupes.ids, g, v)); return cache.get(k); }; }, [pool, filters, q, dupes.ids]);
   const toCall = pool.filter(l => (l.callStatus || 'not-called') === 'not-called').length;
   const activeCount = filters.status.length + filters.prio.length + filters.industry.length + filters.data.length + (q ? 1 : 0);
+  const sheetCount = filters.prio.length + filters.industry.length + filters.data.length;
   const setGroup = (g) => (vals) => setFilters(f => ({ ...f, [g]: vals }));
   const clearAll = () => { setFilters(EMPTY_FILTERS); setQ(''); };
 
@@ -360,10 +361,7 @@ export default function AdminLeads({
             {/* The chrome is real while the list loads: saved views and the static filter rows, disabled, with skeleton chips where the counts and facets go. */}
             <div className="ld-views"><div className="ld-frow-chips" style={{ overflow: 'hidden' }}>{views.map(v => <Chip key={v.id} label={v.name} disabled />)}<Button variant="ghost" icon="Plus" disabled>Save view</Button></div></div>
             <div className="ld-filters">
-              <FilterRow label="Status" values={[]} onChange={() => {}} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon }))} />
-              <FilterRow label="Priority" values={[]} onChange={() => {}} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon }))} />
-              <div className="ld-frow"><span className="ld-frow-label">Industry</span><div className="ld-frow-chips" style={{ overflow: 'hidden' }}>{[1, 2, 3].map(i => <SkeletonBlock key={i} width={120} height={44} radius="var(--v-radius-pill)" />)}</div></div>
-              <FilterRow label="Data" values={[]} onChange={() => {}} options={DATA_CHIPS.map(([id, label]) => ({ id, label }))} />
+              <FilterRow label="Status" values={[]} onChange={() => {}} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon }))} more={<Button variant="secondary" size="md" icon={FilterLines} disabled className="ld-filters-btn">Filters</Button>} />
             </div>
             {mode === 'kanban' && desktop ? (
               <div className="ld-board">{BOARD_STATUSES.map(s => <section key={s.id} className="ld-col"><header className="ld-col-head"><SkeletonBlock width={80} height={22} radius="var(--v-radius-pill)" /></header><div className="ld-col-body"><div className="ld-col-stack">{[1, 2, 3].map(i => <LeadCard.Skeleton key={i} />)}</div></div></section>)}</div>
@@ -383,23 +381,13 @@ export default function AdminLeads({
                     <Menu label={`${v.name} view`} items={viewMenu(v)} />
                   </span>
                 ))}
-                <span ref={industryMoreRef} />
                 <Button variant="ghost" icon="Plus" onClick={() => setSaveOpen(true)}>Save view</Button>
               </div>
             </div>
             <div className="ld-filters">
-              <FilterRow label="Status" values={filters.status} onChange={setGroup('status')} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon, count: count('status', s.id) }))} />
-              <FilterRow label="Priority" values={filters.prio} onChange={setGroup('prio')} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, count: count('prio', p.id) }))} />
-              <FilterRow label="Industry" values={filters.industry} onChange={setGroup('industry')} options={facets.slice(0, 8).map(f => ({ id: f.key, label: f.label, count: f.count }))}
-                more={facets.length > 8 && (
-                  <span ref={industryMoreRef}>
-                    <Chip label={`More (${facets.length - 8})`} onClick={() => setIndustryMore(o => !o)} aria-expanded={industryMore} />
-                    <Popover open={industryMore} onClose={() => setIndustryMore(false)} anchorRef={industryMoreRef} width={280} trap label="More industries">
-                      <div className="ld-more">{facets.slice(8).map(f => <Checkbox key={f.key} label={`${f.label} (${f.count})`} checked={filters.industry.includes(f.key)} onChange={(v) => setGroup('industry')(v ? [...filters.industry, f.key] : filters.industry.filter(x => x !== f.key))} />)}</div>
-                    </Popover>
-                  </span>
-                )} />
-              <FilterRow label="Data" values={filters.data} onChange={setGroup('data')} options={DATA_CHIPS.map(([id, label]) => ({ id, label, count: id === 'dupes' ? dupes.ids.size : count('data', id) }))} />
+              {/* UI simplification, part B: Status stays in view; Priority, Industry and Data wait behind one Filters button with the count of what is set. */}
+              <FilterRow label="Status" values={filters.status} onChange={setGroup('status')} options={BOARD_STATUSES.map(s => ({ id: s.id, label: s.label, icon: s.icon, count: count('status', s.id) }))}
+                more={<Badge count={sheetCount} aria-label={`${sheetCount} set`}><Button variant="secondary" size="md" icon={FilterLines} onClick={() => setFiltersOpen(true)} className="ld-filters-btn" aria-expanded={filtersOpen}>Filters</Button></Badge>} />
               {activeCount > 0 && (
                 <p className="ld-summary">{sorted.length} of {pool.length} match {activeCount} filter{activeCount === 1 ? '' : 's'}{q ? ` and "${q}"` : ''}. <button type="button" className="ld-link" onClick={clearAll}>Clear all</button></p>
               )}
@@ -461,6 +449,16 @@ export default function AdminLeads({
       )}
 
       {decline.sheet}
+      {filtersOpen && (
+        <Sheet open onClose={() => setFiltersOpen(false)} title="Filters" description={sheetCount ? `${sheetCount} set` : 'Priority, industry and data'} label="Filters" tall width={480}
+          footer={<><Button variant="ghost" onClick={() => setFilters(f => ({ ...f, prio: [], industry: [], data: [] }))} disabled={!sheetCount}>Clear these</Button><Button onClick={() => setFiltersOpen(false)}>Done</Button></>}>
+          <div className="ld-filters ld-filters--sheet">
+            <FilterRow label="Priority" values={filters.prio} onChange={setGroup('prio')} options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, count: count('prio', p.id) }))} />
+            <FilterRow label="Industry" values={filters.industry} onChange={setGroup('industry')} options={facets.map(f => ({ id: f.key, label: f.label, count: f.count }))} />
+            <FilterRow label="Data" values={filters.data} onChange={setGroup('data')} options={DATA_CHIPS.map(([id, label]) => ({ id, label, count: id === 'dupes' ? dupes.ids.size : count('data', id) }))} />
+          </div>
+        </Sheet>
+      )}
 
       <ConfirmDialog open={bulkConfirm} danger confirmLabel="Delete"
         title={`Delete ${deletable.length} lead${deletable.length === 1 ? '' : 's'}?`}
@@ -551,7 +549,12 @@ const ldStyles = `
   .ld-frow-chips { display: flex; gap: var(--v-space-2); min-width: 0; flex: 1; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; }
   .ld-frow-chips::-webkit-scrollbar { display: none; }
   @media (min-width: 768px) { .ld-frow-chips { flex-wrap: wrap; overflow: visible; } }
-  .ld-more { display: flex; flex-direction: column; padding: var(--v-space-1) var(--v-space-3); max-height: 320px; overflow-y: auto; }
+  .ld-filters-btn { flex-shrink: 0; }
+  .ld-frow-chips > .v-badge-anchor { flex-shrink: 0; margin-left: auto; }
+  /* In the sheet every row wraps and the labels sit above their chips. */
+  .ld-filters--sheet { gap: var(--v-space-4); }
+  .ld-filters--sheet .ld-frow { flex-direction: column; align-items: stretch; gap: var(--v-space-2); }
+  .ld-filters--sheet .ld-frow-chips { flex-wrap: wrap; overflow: visible; }
   .ld-summary { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .ld-link { border: 0; background: transparent; color: var(--v-red-highlight); font: inherit; font-weight: var(--v-weight-bold); cursor: pointer; padding: 0; min-height: var(--v-tap); }
   .ld-link:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Menu, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { PROJECT_STAGES, INVOICE_STATUSES } from '../shared/semantics';
@@ -68,21 +68,25 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
     { id: 'stage', label: 'Stage', width: 150, render: (r) => <Row gap={1} align="center">{stagePill(r.p)}{r.p.archived && <Pill tone="neutral" label="Archived" size="sm" icon={false} />}</Row> },
     { id: 'action', label: 'Next action', render: actionCell },
     { id: 'invoice', label: 'Next invoice', render: invoiceCell },
-    { id: 'touch', label: 'Last touch', render: (r) => (r.touch ? relativeTime(r.touch) : '') },
+    { id: 'touch', label: 'Last touch', hidden: true, render: (r) => (r.touch ? relativeTime(r.touch) : '') },
+  ];
+  const rowMenu = (r) => [
+    { id: 'open', label: 'Open the client', icon: 'ArrowRight', disabled: !r.lead, onSelect: () => open(r) },
+    { id: 'money', label: 'Open Money', icon: 'CurrencyDollar', disabled: !r.lead, onSelect: () => { if (r.lead) onOpen?.(r.lead, 'payments'); } },
   ];
   const E = COPY.empty['projects.none'];
   const strip = showSkel ? <p className="pj-strip" aria-hidden="true"><SkeletonBlock width={300} height={27} /></p> : (
     <p className="pj-strip" role="status">{summary.open} open, {money(summary.dueWeek)} due this week, {summary.pastDue} past due</p>
   );
   const body = showSkel ? (
-    desktop ? <div aria-busy="true"><Table.Skeleton rows={4} cols={6} /></div>
+    desktop ? <div aria-busy="true"><Table.Skeleton rows={4} cols={5} /></div>
       : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} as="div" padding={3}><Stack gap={2}><Row gap={2} justify="between" align="start"><SkeletonBlock width="55%" height={22} /><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="70%" height={18} /><Row gap={2} align="center"><SkeletonBlock width={110} height={18} /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={14} /></Stack></Card>)}</Stack>
   ) : error && !projects.length ? (
     <Card><ErrorState title={COPY.error.projects.title} description={COPY.error.projects.description} onRetry={retry} retrying={retrying} /></Card>
   ) : !rows.length ? (
     <Card><EmptyState icon="Folder" title={E.title} description={E.description} action={{ label: E.action, icon: 'Briefcase01', onClick: () => shell?.go('clients') }} /></Card>
   ) : desktop ? (
-    <Table aria-label="Projects" columns={columns} rows={rows} rowKey={(r) => String(r.p._id)} storageKey="vz_projects_cols" onRowClick={open} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
+    <Table aria-label="Projects" columns={columns} rows={rows} rowKey={(r) => String(r.p._id)} storageKey="vz_projects_cols" onRowClick={open} rowActions={(r) => <Menu label={`Actions for ${r.lead?.business || 'project'}`} items={rowMenu(r)} />} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
   ) : (
     <Stagger className="pj-stack" cap={6}>
       {rows.map(r => (

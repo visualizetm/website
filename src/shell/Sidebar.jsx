@@ -46,18 +46,22 @@ function PipelineStrip({ funnel, onGo }) {
   );
 }
 
+/* UI simplification, part B: badges only where a count is a to do list (Next up, Triage, Lists, Deals, Projects). */
+const SIDEBAR_BADGES = new Set(['dashboard', 'triage', 'lists', 'deals', 'projects']);
+const OPEN_BY_DEFAULT = new Set(['Pipeline', 'Clients']);
+
 export default function Sidebar({ collapsed, canToggle = true, onToggle, activeId, counts, countsLoading, funnel, onGo, menuItems }) {
   const groups = navGroups();
   const activeGroup = groups.find(g => g.items.some(n => n.id === activeId))?.group;
-  /* Persisted per device. First time: only the active screen's group is open. */
+  /* Persisted per device. First time: Pipeline and Clients open, Studio and System closed (UI simplification, part B), plus the active screen's group. */
   const [open, setOpen] = useState(() => {
     const saved = readJSON(KEYS.sideGroups, null);
     if (saved && typeof saved === 'object') return saved;
-    return Object.fromEntries(groups.map(g => [g.group, g.group === activeGroup]));
+    return Object.fromEntries(groups.map(g => [g.group, g.group === activeGroup || OPEN_BY_DEFAULT.has(g.group)]));
   });
   useEffect(() => { if (activeGroup && !open[activeGroup]) setOpen(o => { const n = { ...o, [activeGroup]: true }; writeJSON(KEYS.sideGroups, n); return n; }); }, [activeGroup]); // eslint-disable-line react-hooks/exhaustive-deps
   const toggle = useCallback((g) => setOpen(o => { const n = { ...o, [g]: !o[g] }; writeJSON(KEYS.sideGroups, n); return n; }), []);
-  const countOf = (n) => (n.badge ? counts?.[n.badge] || 0 : 0);
+  const countOf = (n) => (n.badge && SIDEBAR_BADGES.has(n.id) ? counts?.[n.badge] || 0 : 0);
   const groupCount = useMemo(() => Object.fromEntries(groups.map(g => [g.group, g.items.reduce((s, n) => s + countOf(n), 0)])), [groups, counts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const item = (n) => {
@@ -70,7 +74,7 @@ export default function Sidebar({ collapsed, canToggle = true, onToggle, activeI
         <span className="sh-nav-icon"><Icon icon={n.icon} size="var(--v-icon-md)" /></span>
         <span className="sh-nav-label">{n.label}</span>
         {n.soon && <span className="sh-nav-soon">Soon</span>}
-        {!n.soon && n.badge && (countsLoading ? <SkeletonBlock width={22} height={18} radius="var(--v-radius-pill)" /> : count > 0 && <Badge count={count} inline tone={active ? 'won' : 'neutral'} />)}
+        {!n.soon && n.badge && SIDEBAR_BADGES.has(n.id) && (countsLoading ? <SkeletonBlock width={22} height={18} radius="var(--v-radius-pill)" /> : count > 0 && <Badge count={count} inline tone={active ? 'won' : 'neutral'} />)}
       </button>
     );
   };

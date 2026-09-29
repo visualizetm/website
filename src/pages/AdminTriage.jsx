@@ -185,7 +185,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
     { id: 'area', label: 'Area', render: (l) => l.area || '' },
     { id: 'score', label: 'Score', align: 'end', render: (l) => <ScoreBadge score={scoreOf(l)} /> },
     { id: 'source', label: 'Source', render: (l) => <Pill label={srcOf(l).label} tone={SOURCE_TONE[srcOf(l).id] || 'neutral'} icon={false} size="sm" /> },
-    { id: 'socials', label: 'Socials', render: (l) => <SocialRow lead={l} /> },
+    { id: 'socials', label: 'Socials', hidden: true, render: (l) => <SocialRow lead={l} /> },
   ];
   const E = COPY.empty['triage.none'];
 

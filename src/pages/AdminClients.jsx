@@ -3,8 +3,9 @@ import { useLocation } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Input, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Input, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -24,6 +25,8 @@ import { formatPhone, telHref } from '../shared/phone';
  * deliverables render through LeadDetail's client mode. */
 
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
+/* UI simplification, part B: the status chips stay in view; the rest wait behind one Filters button. */
+const FIRST_CHIPS = new Set(['all', 'active', 'delivered', 'paused']);
 
 export default function AdminClients({
   leads, submissions = [], loading, error, onRetry, projects = [], posts = [], onCreateProject, onPatchProject, onRefreshProjects,
@@ -43,6 +46,7 @@ export default function AdminClients({
   const [filter, setFilter] = useState(CLIENT_FILTERS.some(([id]) => id === urlFilter) ? urlFilter : 'all');
   useEffect(() => { if (CLIENT_FILTERS.some(([id]) => id === urlFilter)) setFilter(urlFilter); else if (urlFilter === null) setFilter('all'); }, [urlFilter]);
   const [q, setQ] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const showSkel = useDelayedLoading(loading); // projects load after leads, and the counts need both
   const pending = loading && !showSkel;
   const now = Date.now();
@@ -122,7 +126,7 @@ export default function AdminClients({
           <Stack gap={2}>
             <Input className="cl-search" placeholder="Search clients" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search clients"
               trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
-            <Row gap={2} wrap className="cl-chips">{CLIENT_FILTERS.map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
+            <Row gap={2} wrap className="cl-chips">{CLIENT_FILTERS.filter(([id]) => FIRST_CHIPS.has(id)).map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}<Badge count={FIRST_CHIPS.has(filter) ? 0 : 1} aria-label="1 set"><Button variant="secondary" size="md" icon={FilterLines} onClick={() => setFiltersOpen(true)} className="cl-filters-btn" aria-expanded={filtersOpen}>Filters</Button></Badge></Row>
           </Stack>
         </Section>
         {pending ? null : showSkel ? (
@@ -141,6 +145,12 @@ export default function AdminClients({
         {loading ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
       </ScrollArea>
       {addSheet}
+      {filtersOpen && (
+        <Sheet open onClose={() => setFiltersOpen(false)} title="Filters" description="Money, retainers and delivery" label="Filters" width={440}
+          footer={<><Button variant="ghost" onClick={() => setFilter('all')} disabled={FIRST_CHIPS.has(filter)}>Clear</Button><Button onClick={() => setFiltersOpen(false)}>Done</Button></>}>
+          <Row gap={2} wrap className="cl-chips">{CLIENT_FILTERS.filter(([id]) => !FIRST_CHIPS.has(id)).map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(filter === id ? 'all' : id)} />)}</Row>
+        </Sheet>
+      )}
       <style>{clStyles}</style>
     </PageShell>
   );
@@ -149,6 +159,7 @@ export default function AdminClients({
 const clStyles = `
   /* The list page rules (.cl-shell, .cl-page, .cl-search, .cl-clear, .cl-stack, .cl-muted, .cl-cell-biz) ship in uiStyles (src/ui/lead.styles.js). */
   .cl-cell-pay { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .cl-filters-btn { flex-shrink: 0; }
   .cl-table .v-td { max-width: 260px; }
   .cl-table .v-td .v-pill { max-width: none; }
   .cl-panel { padding: var(--v-space-3); }
