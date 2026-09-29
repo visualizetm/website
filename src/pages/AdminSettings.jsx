@@ -206,7 +206,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   ];
   // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
   const TAB_HEIGHTS = {
-    notifications: { n: [190, 318, 114, 150], d: [158, 302, 114, 74] },
+    notifications: { n: [190, 612, 114, 150], d: [158, 424, 114, 74] },
     integrations: { n: [96, 222, 144, 276, 260, 260, 142], d: [78, 126, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },

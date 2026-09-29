@@ -541,8 +541,6 @@ const ldStyles = `
   .ld-page { --v-content-w-wide: 1400px; --v-stack-gap: var(--v-space-4); }
   .ld-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   .ld-search { max-width: 480px; flex: 1; }
-  .ld-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
-  .ld-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
   .ld-views .ld-frow-chips { align-items: center; }
   .ld-view { display: inline-flex; align-items: center; gap: 2px; }
   .ld-view .v-ibtn { width: var(--v-tap); height: var(--v-tap); }

@@ -92,9 +92,9 @@ async function collectScrollProblems(page) {
     const prevTop = main.scrollTop;
     const prevBehavior = main.style.scrollBehavior;
     main.style.scrollBehavior = 'auto';
-    main.scrollTop = main.scrollHeight;
-    await frame();
-    const reached = main.scrollTop + main.clientHeight >= main.scrollHeight - 4;
+    /* Content can grow as it scrolls into view (lazy images, reveals), so the bottom gets three tries. */
+    let reached = false;
+    for (let i = 0; i < 3 && !reached; i++) { main.scrollTop = main.scrollHeight; await frame(); await new Promise(res => setTimeout(res, 250)); reached = main.scrollTop + main.clientHeight >= main.scrollHeight - 4; }
     if (!reached) {
       out.push({ kind: 'stuck', el: name, h: Math.round(main.clientHeight), sh: Math.round(main.scrollHeight), top: Math.round(main.scrollTop) });
     }

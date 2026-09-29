@@ -120,7 +120,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
         <Section title="Projects" loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(rows.length, 'projects', shown.length) : `${rows.filter(r => !r.p.archived).length} in the list`}
           action={<Row gap={2} wrap><Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />{onNew && <Button icon="Plus" onClick={onNew} className="pj-new">New project</Button>}</Row>} />
         {strip}
-        <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />
+        {showSkel ? <div aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /></div> : <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />}
         {body}
       </ScrollArea>
       {taskFor && <TaskSheet business={`${taskFor.lead?.business || 'Project'}, ${taskFor.p.name}`} task={isTask(taskFor.action) && !taskFor.action.doneAt ? taskFor.action : null} onClose={() => setTaskFor(null)} onSave={(na) => onPatch(taskFor.p._id, { nextAction: na })} onDone={isTask(taskFor.action) && !taskFor.action.doneAt ? () => onPatch(taskFor.p._id, { nextAction: { ...taskFor.action, doneAt: new Date().toISOString() } }) : null} />}

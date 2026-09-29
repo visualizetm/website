@@ -47,6 +47,21 @@ export const SCREENS = [
   { id: 'dashboard-record', screen: 'Next up', label: 'a tapped record beside the queue', path: '/admin', resource: 'leads', minWidth: 1024, region: '.db-main', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.locator('.nu-row .v-stretch').first()) },
   { id: 'dashboard-snooze', screen: 'Next up', label: 'the snooze picker', path: '/admin', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.locator('.nu-row button[aria-haspopup]').first()); await click(p.getByRole('menuitem', { name: 'Snooze until' })); } },
 
+
+  /* Back, done once: one back state per section. The third row opens, Back (the top bar, or a phone sheet's Close) returns to the list with the row lit (.nav-restored). */
+  ...[['leads', '/admin/leads', { vz_leads_view: 'list' }], ['triage', '/admin/triage', null], ['lists', '/admin/lists', null], ['deals', '/admin/deals', null], ['clients', '/admin/clients', null], ['projects', '/admin/projects', null], ['orders', '/admin/orders', null], ['reviews', '/admin/reviews', null], ['submissions', '/admin/submissions', null], ['dashboard', '/admin', null]].map(([id, path, ls]) => ({
+    id: `back-${id}`, screen: 'Back', label: `${id}: the list after Back, the row lit`, path, resource: id === 'orders' ? 'orders' : id === 'submissions' ? 'submissions' : id === 'lists' ? 'lists' : id === 'projects' ? 'projects' : 'leads', detail: true, noFit: true,
+    prep: ls ? (p) => Promise.all(Object.entries(ls).map(([k, v]) => setLS(p, k, v))) : undefined,
+    act: async (p) => {
+      const rows = p.locator('.sh-content [data-row-id]:visible'); const n = await rows.count(); if (!n) return;
+      const row = rows.nth(Math.min(2, n - 1)); const s = row.locator('.v-stretch');
+      if (await s.count()) await s.first().evaluate(el => el.click()); else await row.click({ timeout: 4000 }).catch(() => {});
+      await p.waitForTimeout(700);
+      const x = p.locator('[role="dialog"] .v-sheet-x');
+      if (await x.count() && await x.first().isVisible().catch(() => false)) await click(x); else await click(p.locator('.sh-top-back'));
+      await p.locator('.sh-content .nav-restored').first().waitFor({ state: 'attached', timeout: 4000 }).catch(() => {});
+    },
+  })),
   { id: 'leads-kanban', screen: 'Leads', label: 'list, kanban', path: '/admin/leads', resource: 'leads', minWidth: 1024, prep: (p) => setLS(p, 'vz_leads_view', 'kanban') },
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },
   { id: 'leads-filters', screen: 'Leads', label: 'the Filters sheet', path: '/admin/leads', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await click(p.locator('.ld-filters-btn')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
@@ -60,6 +75,9 @@ export const SCREENS = [
 
   // Triage (CRM revamp, step 4): the stack on a phone, the table on a desktop, the Keep sheet, the Capture sheet.
   { id: 'triage-pile', screen: 'Triage', label: 'the pile (stack on a phone, table on a desktop)', path: '/admin/triage', resource: 'leads', region: '.tr-shell' },
+  /* Look before you decide: the record opened from the stack or the table, the search and a chip on. */
+  { id: 'triage-record', screen: 'Triage', label: 'the record with the decision bar', path: '/admin/triage', open: 'L16', resource: 'leads', region: '.tr-main', detail: true },
+  { id: 'triage-search', screen: 'Triage', label: 'a search and a chip on', path: '/admin/triage', resource: 'leads', region: '.tr-shell', detail: true, act: async (p) => { await p.getByLabel('Search triage').fill('Lead'); await click(p.getByRole('button', { name: /^Has phone/ })); } },
   { id: 'triage-keep', screen: 'Triage', label: 'the Keep sheet', path: '/admin/triage', resource: 'leads', region: '.v-sheet', detail: true, act: async (p, w) => { if (w >= 768) { await click(p.getByRole('button', { name: /^Lead Business 16 actions$/ })); await click(p.getByRole('menuitem', { name: 'Keep' })); } else await click(p.getByRole('button', { name: /^Keep Lead Business 16/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'triage-capture', screen: 'Triage', label: 'Capture a lead', path: '/admin/triage', resource: 'leads', region: '.v-sheet', detail: true, act: async (p) => { await click(p.getByRole('button', { name: 'Quick add' })); await click(p.getByRole('menuitem', { name: 'Capture a lead' })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   // Dial lists (CRM revamp, step 3).
@@ -82,6 +100,7 @@ export const SCREENS = [
   { id: 'clients-filters', screen: 'Clients', label: 'the Filters sheet', path: '/admin/clients', resource: 'leads', region: '.v-sheet', detail: true, act: async (p) => { await click(p.locator('.cl-filters-btn')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'clients-detail', screen: 'Clients', label: 'client detail (the Project tab, the rows on a phone)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
   // UI simplification, part A: the record in lead, deal and client modes at both widths is leads-detail, deals-detail and clients-detail; these are its Money section and the Add a detail sheet.
+  { id: 'task-sheet', screen: 'Clients', label: 'the Set task sheet', path: '/admin/clients', open: 'L11', region: '.v-sheet', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: 'More actions' })); await click(p.getByRole('menuitem', { name: /^Set task|^Edit task/ })); } },
   { id: 'clients-money', screen: 'Clients', label: 'client detail, Money', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, noFit: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Money'); } },
   { id: 'record-add-detail', screen: 'Leads', label: 'the Add a detail sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); if (w < 768) await openSection(p, w, 'Details'); await click(p.locator('.rc-add-detail')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   /* Site Prompt 7 moved the Showcase editor out of the client record into

@@ -46,7 +46,7 @@ for (const width of WIDTHS) {
   await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('vz_boot', '1'); localStorage.setItem('vz_theme', 'dark'); } catch {} });
   await page.route('**/api/admin/session', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authed: true }) }));
   await mockRoutes(page);
-  const goto = (p) => page.goto(BASE + p, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  const goto = async (p) => { await page.evaluate(() => { try { history.replaceState(null, ''); } catch {} }).catch(() => {}); return page.goto(BASE + p, { waitUntil: 'domcontentloaded', timeout: 15000 }); };
   const settle = async () => { await page.waitForFunction(() => { const c = document.querySelector('.sh-content'); return c && c.querySelector('.v-card, .lc, .v-lrow, .v-empty, .v-error, .v-tr, [data-row-id]') && !c.querySelector('.v-skel'); }, null, { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(350); };
   /* The init script clears storage on every load, so a screen's storage rides in an init script of its own (they accumulate, later keys win). */
   const setLS = (kv) => page.addInitScript((o) => { try { for (const [k, v] of Object.entries(o)) localStorage.setItem(k, JSON.stringify(v)); } catch {} }, kv);
@@ -74,9 +74,11 @@ for (const width of WIDTHS) {
         if (s.ls) await setLS(s.ls);
         await goto(s.path); await settle();
         if (s.open) { await page.locator(`[data-row-id="${s.open}"] .v-stretch`).first().click({ timeout: T }); await settle(); }
-        const chip = page.locator('.sh-content .v-chip').filter({ hasNot: page.locator('[role="dialog"] *') }).nth(1);
+        /* The second chip in the main area that still leaves rows (a chip counting 0 would empty the list). */
+        const chipIdx = await page.evaluate(() => { const cs = [...document.querySelectorAll('.sh-content .v-chip')].filter(c => !c.closest('[role="dialog"]')); const ok = cs.map((c, i) => ({ i, n: c.querySelector('.v-chip-count')?.textContent.trim() })).filter(x => x.n !== '0'); return ok.length ? ok[0].i : -1; });
+        const chip = chipIdx >= 0 ? page.locator('.sh-content .v-chip').nth(chipIdx) : null;
         let chipNote = 'no chip';
-        if (await chip.count() && await chip.isVisible().catch(() => false)) { await chip.click({ timeout: T }); await page.waitForTimeout(300); chipNote = `chip ${(await chip.textContent()).trim().slice(0, 18)}`; }
+        if (chip && await chip.isVisible().catch(() => false)) { await chip.click({ timeout: T }); await page.waitForTimeout(300); chipNote = `chip ${(await chip.textContent()).trim().slice(0, 18)}`; }
         const wantChips = await chipsOn();
         const path0 = await pathOf();
         await scrollMain(240);

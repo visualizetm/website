@@ -206,10 +206,9 @@ export const clientStyles = `
   .ts-date { flex: 1 1 160px; }
   .ts-time { flex: 1 1 120px; }
   .lsr { max-width: 520px; flex: 1; min-width: 0; }
+  .lsr-skel { display: block; max-width: 520px; }
   .lsr-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
   .lsr-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
-  .cl-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; border-radius: var(--v-radius-sm); }
-  .cl-clear:hover { color: var(--v-text); }
   .cl-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .cl-stack > .v-stagger-item { display: contents; }
   .cl-muted { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
