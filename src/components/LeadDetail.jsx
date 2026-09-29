@@ -1,55 +1,50 @@
-import { normalizeLead } from '../lib/leads';
-import FoldSection from './DetailFold';
-import { useEffect, useMemo, useRef, useState } from 'react';
+/* LeadDetail: ONE record for Leads, Deals and Clients (UI simplification,
+ * part A). Laws that hold in every mode at every width:
+ *   1. One number, one place. "$150 paid of $350" renders exactly once, in the Money section's header.
+ *   2. One way into a section: a tab on the computer, a row on the phone. No folds, no subnav plus accordion, no section buttons on cards.
+ *   3. Empty facts do not render. One "Add a detail" ghost button opens a sheet of InlineEdits for the empty ones.
+ *   4. At most two pills in the header: one status pill (stage; client status when a client; the newest deal checkpoint when a deal) and priority. Industry is text.
+ *   5. At most three controls in the header: one primary, one secondary, one overflow menu.
+ *   6. Every section has a one line empty state with one action, never a card per empty thing.
+ * The pieces live in src/components/record: RecordHeader, NextActionStrip,
+ * FactsGrid, one component per section, and the registry that lists the
+ * sections by mode (lead, deal, client). Everything renders from one `rec`
+ * object built here from the props this component always had. */
+import { useEffect, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
-import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
-import Plus from '@untitled-ui/icons-react/build/esm/Plus';
-import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
-import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
-import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
-import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Card, Button, IconButton, Pill, Avatar, Menu, Tabs, InlineEdit, Sheet, Modal, Input, Select, Textarea, Checkbox, Toggle, Collapsible, useConfirm, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery, EmptyState,
+  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, useConfirm, SkeletonBlock, SkeletonCircle, useToast,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { normalizeLead } from '../lib/leads';
 import { postsOf } from '../lib/posts';
 import LeadForm from './LeadForm';
-import LeadHistory from './LeadHistory';
-import LeadNotes from './LeadNotes';
-import { ScriptSteps, Objections, CloseCards, IntelCards } from './LeadPlaybook';
-import Checklists from './Checklists';
-import LinkedSubmissions from './LinkedSubmissions';
 import CallbackPicker from './CallbackPicker';
 import { useDecline } from './DeclineSheet';
-import { liveNextAction, nextActionFor } from '../lib/nextAction';
-import { ClientLinks, ClientBrand, ClientSections } from './ClientWorkspace';
-import { lifetimeValue } from '../lib/projects';
-import DealCheckpoints, { dealCheckpointsStyles } from './DealCheckpoints';
 import { useSendEmail } from './SendEmailModal';
-import InvoicesCard, { invoicesStyles } from './Invoices';
-import { dealOf, isTicked, metPatch } from '../lib/deal';
-import { markPaidConversion, purchasesWithProject, undoConversionSet, wonWithoutPayment, dealPackageLabel, dealPlanLine, dealTotal, firstInvoiceDefaults } from '../lib/dealConvert';
-import { invoiceStatus, markPaid, replaceInvoice } from '../lib/invoices';
-import { normalizeStage, CALL_STATUSES, PRIORITIES, STAGES, MEETING_TYPES, CLIENT_STATUSES, displayIndustry, conceptSetStatusOf } from '../shared/semantics';
-import { newestSet, statusOf as conceptStatusOf, directionLabel } from '../lib/concepts';
-import { PACKAGES, RETAINERS, ADDONS, priceOption, planLine, defaultRetainer, money as fmtMoney } from '../shared/pricing';
-import { formatPhone, telHref } from '../shared/phone';
-import { fmtDate, fmtDateTime, relativeTime, countdownLabel } from '../shared/dates';
-import { meetingDate } from '../lib/booked';
-import { isNewLead } from '../lib/leads';
-import { downloadIcs } from '../lib/ics';
+import { useClientWorkspace, copyText } from './ClientWorkspace';
+import { usePhone } from './ComputerOnly';
+import { liveNextAction, nextActionFor } from '../lib/nextAction';
+import { dealOf, metPatch, tickPatch, checkpointOf } from '../lib/deal';
+import { wonWithoutPayment } from '../lib/dealConvert';
+import { invoiceStatus } from '../lib/invoices';
+import { nextUnpaid, brandText } from '../lib/projects';
+import { newestSet, statusOf as conceptStatusOf } from '../lib/concepts';
+import { normalizeStage, PRIORITIES, CLIENT_STATUSES, conceptSetStatusOf } from '../shared/semantics';
+import { formatPhone } from '../shared/phone';
+import { fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
+import { RecordHeader, NextActionStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor } from './record';
+
+const FIRST = { lead: 'playbook', deal: 'checkpoints', client: 'project' };
+/* Next up (CRM revamp, step 2): a row's control opens the record on the section that does the thing. */
+const INTENT_TAB = { outcome: 'checkpoints', payments: 'money', checkpoints: 'checkpoints', projects: 'project' };
+const tidy = (items) => items.filter((it, i, all) => it !== 'divider' || (i > 0 && i < all.length - 1 && all[i - 1] !== 'divider'));
 
 /**
- * LeadDetail: ONE detail for Leads, Booked, and Clients. Stage aware: a lead
- * shows the pipeline blocks; booked adds the meeting workspace and the outcome
- * bar; a client opened from the Clients screen (the `client` prop) swaps the
- * Playbook and Meeting sections for Projects, Payments, Retainer, and
- * Deliverables (src/components/ClientWorkspace.jsx) and adds the Links and
- * Brand blocks to the profile column. Opened anywhere else, a client shows the
- * lead view plus a link to its client record.
  * @param {object} props
  * @param {object} props.lead
  * @param {Array} [props.submissions]
@@ -58,155 +53,73 @@ import { durationMs } from '../ui/motion';
  * @param {Function} [props.onLinkSubmission]
  * @param {Function} props.onClose back to the list
  * @param {boolean} [props.readOnly]
- * @param {{ projects: Array, onCreateProject: Function, onPatchProject: Function }} [props.client] client mode (Prompt 10)
+ * @param {{ projects: Array, onCreateProject: Function, onPatchProject: Function }} [props.client] client mode
+ * @param {{ kind: string, n: number }} [props.intent] opens a section on arrival
  */
-const LS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
-const SOCIAL_ACTIONS = [['instagram', 'Camera01', 'Instagram'], ['facebook', 'ThumbsUp', 'Facebook'], ['website', 'Globe01', 'Website'], ['google', 'MarkerPin01', 'Maps']];
-const uid = () => Math.random().toString(36).slice(2, 10);
-const MEETING_SERVICES = [...PACKAGES.map(p => ({ id: p.id, label: p.label, price: p.price })), ...RETAINERS.map(r => ({ id: r.id, label: `${r.label} retainer`, price: r.price }))];
-
-/* Editable list of strings with add, edit, remove, reorder (drag on desktop, menu on mobile). */
-function ListEditor({ items, onChange, placeholder = 'Add a line' }) {
-  const [draft, setDraft] = useState('');
-  const drag = useRef(null);
-  const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
-  const move = (i, d) => { const n = [...items]; const j = i + d; if (j < 0 || j >= n.length) return; [n[i], n[j]] = [n[j], n[i]]; onChange(n); };
-  const add = () => { const v = draft.trim(); if (!v) return; onChange([...items, v]); setDraft(''); };
-  return (
-    <div className="dt-list">
-      {items.map((t, i) => (
-        <div key={i} className="dt-list-row" draggable={desktop} onDragStart={() => { drag.current = i; }} onDragOver={(e) => e.preventDefault()} onDrop={() => { if (drag.current == null || drag.current === i) return; const n = [...items]; const [x] = n.splice(drag.current, 1); n.splice(i, 0, x); drag.current = null; onChange(n); }}>
-          <InlineEdit value={t} onSave={(v) => onChange(items.map((x, j) => (j === i ? v : x)))} label="Line" className="dt-list-text" />
-          <Menu label="Line actions" items={[{ id: 'up', label: 'Move up', icon: 'ChevronLeft', disabled: i === 0, onSelect: () => move(i, -1) }, { id: 'down', label: 'Move down', icon: 'ChevronDown', disabled: i === items.length - 1, onSelect: () => move(i, 1) }, 'divider', { id: 'rm', label: 'Remove', icon: 'Trash01', danger: true, onSelect: () => onChange(items.filter((_, j) => j !== i)) }]} />
-        </div>
-      ))}
-      <Row gap={1}><Input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} aria-label={placeholder} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} /><IconButton icon={Plus} label="Add" variant="secondary" onClick={add} /></Row>
-    </div>
-  );
-}
-
-function Fact({ label, value, onSave, placeholder = 'Add', inputMode, type, format, readOnly, onClick }) {
-  const Tag = onClick ? 'button' : 'div';
-  return (
-    <Tag className={`dt-fact${onClick ? ' dt-fact--btn' : ''}`} type={onClick ? 'button' : undefined} onClick={onClick}>
-      <span className="dt-fact-label">{label}</span>
-      {readOnly || onClick ? <span className="dt-fact-ro lay-truncate">{value || placeholder}</span> : <InlineEdit value={value || ''} onSave={onSave} placeholder={placeholder} inputMode={inputMode} type={type} format={format} label={label} className="dt-fact-edit" />}
-    </Tag>
-  );
-}
-
-function CallMode({ on, onChange }) { return <Toggle size="sm" checked={on} onChange={onChange} label="Call mode" />; }
-
-/* A block that collapses to its one line summary in Call Mode. */
-function Block({ title, summary, callMode, action, children }) {
-  const [open, setOpen] = useState(true);
-  useEffect(() => { setOpen(!callMode); }, [callMode]);
-  return (
-    <Card className="dt-block">
-      <Row gap={2} align="center" className="dt-block-head">
-        <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}><span className="pb-card-h" style={{ margin: 0 }}>{title}</span>{!open && summary && <span className="dt-block-sum lay-truncate">{summary}</span>}</button>
-        {action}
-      </Row>
-      <Collapsible open={open}>{children}</Collapsible>
-    </Card>
-  );
-}
-
 export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null, intent = null }) {
-  // The shape guard (src/lib/leads.js): every field this screen maps or reads keys from is the type it expects.
   const lead = normalizeLead(rawLead);
+  const leadId = lead._id;
   const shell = useShell();
-  const posts = shell?.posts || [];
   const toast = useToast();
-  const desktop = useMediaQuery('(min-width: 1024px)');
+  const phone = usePhone();
   const stage = normalizeStage(lead);
   const clientMode = !!client && (stage === 'client' || stage === 'won');
-  /* The showcase status shown on the Showcase button. One source: the saved
-     record's own showcase.published. A record that exists is Draft or
-     Published; no record at all is neither, and shows no pill. */
-  const hasShowcase = !!lead.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0;
-  const published = !!lead.showcase?.published;
-  /* The Content Planner's status, read the same way: the saved record only.
-     Off when it is switched off (or was never switched on), the count while
-     posts are sitting with the client, otherwise just On. */
-  const plannerOn = !!lead.planner?.enabled;
-  const plannerWaiting = postsOf(posts, lead._id).filter(p => p.status === 'review').length;
-  const plannerLabel = !plannerOn ? 'Off' : plannerWaiting ? `${plannerWaiting} in review` : 'On';
-  /* Concepts (Concepts rebuild): any stage, the newest set's status. */
-  const conceptSet = newestSet(shell?.sets, lead._id);
-  const conceptSt = conceptSet ? conceptSetStatusOf(conceptStatusOf(conceptSet)) : null;
-  const booked = !clientMode && (stage === 'booked' || stage === 'deal' || stage === 'won' || stage === 'client');
-  /* The deal (CRM revamp, step 5): a booked or deal record carries the checkpoints and the invoices. */
   const dealMode = !clientMode && (stage === 'booked' || stage === 'deal');
+  const mode = clientMode ? 'client' : dealMode ? 'deal' : 'lead';
+  const ids = SECTIONS_BY_MODE[mode];
   const deal = dealOf(lead);
   const [confirm, confirmDialog] = useConfirm();
-  /* The invoice email (CRM revamp, step 6) goes from an Invoices row through the send modal; the server marks the line sent. */
-  const email = useSendEmail({ lead, patch: (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set)), onSent: () => shell?.refreshLeads?.() });
-  const [tab, setTab] = useState('overview');
-  const [editAll, setEditAll] = useState(false);
-  const [linkSheet, setLinkSheet] = useState(null); // { key, label }
-  const [linkDraft, setLinkDraft] = useState('');
-  const [cbOpen, setCbOpen] = useState(false);
-  const [resched, setResched] = useState(false);
-  const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
-  /* Decline (CRM revamp, step 1): the same sheet the card menu and the call room open. */
-  const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => onClose?.() });
-  const [outcomeNote, setOutcomeNote] = useState('');
-  const [wonPulse, setWonPulse] = useState(false); // the profile card pulses in the won tone before the detail closes
-  const [pulseTab, setPulseTab] = useState(null); // 'retainer' after a retainer starts
-  const [callMode, setCallModeState] = useState(() => LS(`vz_callmode_${lead._id}`, false));
-  const setCallMode = (v) => { setCallModeState(v); try { localStorage.setItem(`vz_callmode_${lead._id}`, JSON.stringify(v)); } catch { /* fine */ } };
-  const refs = useRef({});
   useTopBar({ title: lead.business, back: onClose });
-  /* UX audit, item 6: the record opens on the section for its stage and
-     every other section is one line until asked for. The tab strip opens
-     a section as it jumps to it. */
-  const defaultSection = clientMode ? 'projects' : stage === 'deal' ? 'checkpoints' : booked ? 'meeting' : 'overview';
-  const [openIds, setOpenIds] = useState(() => new Set([defaultSection]));
-  useEffect(() => { setTab(defaultSection); setOpenIds(new Set([defaultSection])); setCallModeState(LS(`vz_callmode_${lead._id}`, false)); }, [lead._id, defaultSection]);
-  const foldOpen = (id) => openIds.has(id);
-  const foldToggle = (id) => setOpenIds(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   // Two write paths: `patch` toasts on failure (buttons, menus, checkboxes); `patchRaw` is for InlineEdit, which shows its own failure toast.
-  const patchRaw = (set) => (readOnly ? Promise.resolve(false) : onPatch(lead._id, set));
+  const patchRaw = (set) => (readOnly ? Promise.resolve(false) : onPatch(leadId, set));
   const patch = async (set) => { const ok = await patchRaw(set); if (!ok && !readOnly) toast.error(COPY.error.save); return ok; };
-  const save = (key) => async (v) => patchRaw({ [key]: v });
-  const saveSocial = (key) => async (v) => patchRaw({ socials: { ...(lead.socials || {}), [key]: v } });
-  const jump = (id) => { setTab(id); setOpenIds(prev => (prev.has(id) ? prev : new Set([...prev, id]))); requestAnimationFrame(() => refs.current[id]?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })); };
-  /* Next up (CRM revamp, step 2): a row's control opens the record on the
-     fold that does the thing: the meeting fold with the outcome bar for
-     log-outcome, Payments for chase-invoice. */
+
+  /* The section that is open: the tab on a computer, the row on a phone (none until tapped). */
+  const first = FIRST[mode];
+  const [tab, setTab] = useState(phone ? null : first);
+  useEffect(() => { setTab(phone ? null : first); }, [leadId, first, phone]);
+  const openTab = (id) => { if (ids.includes(id)) setTab(id); };
+  const intentN = intent?.n; const intentKind = intent?.kind;
   useEffect(() => {
-    if (!intent?.kind) return;
-    const t = setTimeout(() => { if (intent.kind === 'outcome') jump(dealMode ? 'checkpoints' : 'meeting'); else if (intent.kind === 'payments') jump(dealMode ? 'checkpoints' : 'payments'); else if (intent.kind === 'checkpoints') jump('checkpoints'); else if (intent.kind === 'projects') jump(clientMode ? 'projects' : 'overview'); }, 60);
+    const target = intentKind ? INTENT_TAB[intentKind] : null;
+    if (!target || !ids.includes(target)) return undefined;
+    const t = setTimeout(() => setTab(target), 60);
     return () => clearTimeout(t);
-  }, [intent?.n, intent?.kind, lead._id]); // eslint-disable-line react-hooks/exhaustive-deps
-  /* Set next action: a manual action (auto false) the nightly recompute
-     never overwrites; clearing it hands the field back to the rules. */
+  }, [intentN, intentKind, ids, leadId]);
+
+  const email = useSendEmail({ lead, patch: patchRaw, onSent: () => shell?.refreshLeads?.() });
+  const cw = useClientWorkspace({ lead, projects: client?.projects || [], patch, patchRaw, onCreateProject: client?.onCreateProject, onPatchProject: client?.onPatchProject, readOnly, openTab });
+  const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => onClose?.() });
+  const [editAll, setEditAll] = useState(false);
+  const [cbOpen, setCbOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [nextOpen, setNextOpen] = useState(false);
+  const [nextDraft, setNextDraft] = useState('');
+  const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
+  const [outcomeNote, setOutcomeNote] = useState('');
+  const [wonPulse, setWonPulse] = useState(false);
+  const [busy, setBusy] = useState('');
+  const [invoiceReq, setInvoiceReq] = useState(null); // { n, kind, inv } for the Money tab's card
+  const wonClose = () => { setWonPulse(true); setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60); };
+
   const actionCtx = { projects: shell?.projects || [], sets: shell?.sets || [] };
-  const nextNow = liveNextAction(lead, actionCtx);
-  const nextText = nextNow && !nextNow.doneAt ? `${nextNow.label}${nextNow.dueAt ? `, ${fmtDateTime(nextNow.dueAt)}` : ''}${nextNow.auto === false ? '' : ' (auto)'}` : '';
-  const saveNextAction = async (v) => {
-    const label = String(v || '').trim().slice(0, 120);
-    if (!label) return patchRaw({ nextAction: nextActionFor(lead, actionCtx) });
-    const dueAt = nextNow?.dueAt || new Date(Date.now() + 864e5).toISOString();
-    return patchRaw({ nextAction: { kind: 'custom', label, dueAt, auto: false, doneAt: '' } });
+  const next = liveNextAction(lead, actionCtx);
+  /* One runner for every action button on the record: the strip, the header's primary, the outcome bar and the Checkpoints rows. */
+  const run = async (what) => {
+    const [kind, arg] = String(what).split(':');
+    if (kind === 'call') { if (lead.phone) shell?.go('calls', { ids: [leadId], autostart: true }); return; }
+    if (kind === 'build') { shell?.openConcepts?.(lead); return; }
+    if (kind === 'tab') { openTab(arg); return; }
+    if (kind === 'email') { email.open(arg); return; }
+    if (kind === 'clear') { await patchRaw({ nextAction: nextActionFor(lead, actionCtx) }); return; }
+    if (kind === 'met') { setBusy(what); const ok = await patch(metPatch(lead)); setBusy(''); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); openTab('checkpoints'); } return; }
+    if (kind === 'tick') { setBusy(what); const ok = await patch(tickPatch(lead, arg)); setBusy(''); if (ok) toast.success(`${checkpointOf(arg)?.label || 'Step'} ticked.`); }
   };
-
-  /* Meeting */
-  const mDate = meetingDate(lead);
-  const legacyMeeting = !lead.meeting?.date && lead.afterCall?.meeting;
-  const saveMeeting = (m) => patch({ meeting: { date: '', time: '', type: 'call', location: '', ...(lead.meeting || {}), ...m } });
-  const gamePlan = lead.gamePlan || [];
-  const gp = (id) => gamePlan.find(g => g.serviceId === id) || { serviceId: id, checked: false, note: '' };
-  const setGp = (id, patchG) => patch({ gamePlan: gamePlan.some(g => g.serviceId === id) ? gamePlan.map(g => (g.serviceId === id ? { ...g, ...patchG } : g)) : [...gamePlan, { ...gp(id), ...patchG }] });
-
-  /* Pricing options: builder shape, migrating old free-text options once. */
-  const options = useMemo(() => (lead.pricingOptions || []).map(o => (o.packageId ? o : { id: o.id || uid(), packageId: '', addonIds: [], retainerId: '', recommended: false, note: [o.label, o.price ? fmtMoney(o.price) : '', o.retainer, o.notes].filter(Boolean).join(', ') })), [lead.pricingOptions]);
-  const writeOptions = (next) => patch({ pricingOptions: next.slice(0, 3).map(o => { const p = priceOption(o); return { ...o, label: p.pkg?.label || o.label || '', price: p.total, plan: p.plan ? (p.plan.months === 12 ? '12mo' : '6mo') : 'full', retainer: p.retainer ? `${p.retainer.label} ${fmtMoney(p.retainer.price)}/mo` : '', notes: o.note || '' }; }) });
-  const setOpt = (id, patchO) => writeOptions(options.map(o => (o.id === id ? { ...o, ...patchO, ...(patchO.packageId && !o.retainerId ? { retainerId: defaultRetainer(patchO.packageId) } : {}) } : patchO.recommended ? { ...o, recommended: false } : o)));
+  const requestInvoice = (kind, inv = null) => { setInvoiceReq({ n: Date.now(), kind, inv }); openTab('money'); };
 
   /* Outcomes */
+  const openOutcome = (kind) => { setOutcomeNote(''); setOutcome(kind); };
   const closeOut = async () => {
     const at = new Date().toISOString();
     const prevStage = lead.stage;
@@ -216,250 +129,132 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       const ok = await patch({ ...conv.leadSet, bookedOutcome: { ...conv.leadSet.bookedOutcome, reason: outcomeNote.trim() || 'Pro bono' } });
       if (ok) {
         if (shell?.projectOps?.create) shell.projectOps.create(conv.projectDoc);
-        // Success moment: the profile pulses in the won tone, the Clients badge ticks up in the shell, then the detail closes.
-        setOutcome(null); setWonPulse(true);
+        setOutcome(null);
         toast.success(`${lead.business} is a client.`, { action: { label: 'Open in Clients', onClick: () => shell?.go('clients') } });
-        setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60);
+        wonClose();
       }
     } else {
       // explicit: true, because a booked, won or client record leaving its stage is the guard's business.
       const ok = await patch({ stage: 'lost', bookedOutcome: { result: 'lost', reason: outcomeNote.trim(), at }, explicit: true });
-      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(lead._id, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); onClose?.(); }
+      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(leadId, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); onClose?.(); }
     }
   };
-
-  const profile = (
-    <Card className={`dt-profile${wonPulse ? ' v-pulse-won' : ''}`}>
-      <Row gap={3} align="start">
-        <Avatar name={lead.business} size="lg" status={stage === 'client' ? 'booked' : undefined} />
-        <Stack gap={1} style={{ flex: 1 }}>
-          <h2 className="dt-biz">{lead.business}</h2>
-          <InlineEdit value={lead.descriptor || ''} onSave={save('descriptor')} placeholder="Add a one-line descriptor" label="Descriptor" className="dt-desc" />
-        </Stack>
-      </Row>
-      <Row gap={1} wrap>
-        {isNewLead(lead) && <Pill tone="new" label="New" size="sm" variant="solid" icon={false} />}
-        <Pill id={stage} list={STAGES} size="sm" variant="outline" />
-        <Menu label="Change priority" trigger={<button type="button" className="dt-pillbtn" aria-label={`Priority ${lead.priority || 'warm'}, change`}><Pill id={lead.priority || 'warm'} size="sm" /></button>} items={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon, disabled: (lead.priority || 'warm') === p.id, onSelect: () => patch({ priority: p.id }) }))} />
-        {clientMode ? <Menu label="Change client status" trigger={<button type="button" className="dt-pillbtn" aria-label={`Client status ${lead.clientStatus || 'active'}, change`}><Pill id={lead.clientStatus || 'active'} list={CLIENT_STATUSES} size="sm" /></button>} items={CLIENT_STATUSES.map(c => ({ id: c.id, label: c.label, icon: c.icon, disabled: (lead.clientStatus || 'active') === c.id, onSelect: () => patch({ clientStatus: c.id }) }))} /> : <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />}
-        <InlineEdit value={lead.industry || ''} onSave={save('industry')} placeholder="Add industry" label="Industry" format={(v) => (v ? displayIndustry(v) : '')} className="dt-inline-pill" />
-      </Row>
-      <Row gap={1} wrap className="dt-actions" aria-label="Actions">
-        <IconButton icon="Phone" label={lead.phone ? `Call ${formatPhone(lead.phone)}` : 'Add a phone to call'} variant={lead.phone ? 'secondary' : 'ghost'} onClick={() => (lead.phone ? (window.location.href = telHref(lead.phone)) : setLinkSheet({ key: 'phone', label: 'Phone' }))} />
-        <IconButton icon="MessageCircle01" label={lead.phone ? 'Text' : 'Add a phone to text'} variant={lead.phone ? 'secondary' : 'ghost'} onClick={() => (lead.phone ? (window.location.href = `sms:${String(lead.phone).replace(/[^0-9+]/g, '')}`) : setLinkSheet({ key: 'phone', label: 'Phone' }))} />
-        <IconButton icon="Mail01" label={lead.email ? `Email ${lead.email}` : 'Add an email'} variant={lead.email ? 'secondary' : 'ghost'} onClick={() => (lead.email ? (window.location.href = `mailto:${lead.email}`) : setLinkSheet({ key: 'email', label: 'Email' }))} />
-        {SOCIAL_ACTIONS.map(([k, icon, label]) => <IconButton key={k} icon={icon} label={lead.socials?.[k] ? label : `Add ${label}`} variant={lead.socials?.[k] ? 'secondary' : 'ghost'} onClick={() => (lead.socials?.[k] ? window.open(lead.socials[k], '_blank', 'noopener') : setLinkSheet({ key: k, label, social: true }))} />)}
-        <IconButton icon="Copy01" label="Copy phone" variant="ghost" disabled={!lead.phone} onClick={async () => { try { await navigator.clipboard.writeText(formatPhone(lead.phone)); toast.success('Number copied.'); } catch { toast.error('Could not copy.'); } }} />
-      </Row>
-      <Row gap={2} wrap>
-        <Button icon={PhoneCall01} onClick={() => shell?.go('calls', { ids: [lead._id], autostart: true })} disabled={!lead.phone}>Start call</Button>
-        {!readOnly && <Button variant="secondary" icon={Edit02} onClick={() => setEditAll(true)} className="dt-editall">Edit all</Button>}
-        {!readOnly && stage === 'lead' && shell?.openListPicker && <Button variant="secondary" icon="Rows01" onClick={() => shell.openListPicker([lead])}>{lead.listId ? 'Move list' : 'Add to list'}</Button>}
-        {!readOnly && !clientMode && !['declined', 'won', 'client'].includes(stage) && <Button variant="ghost" icon="SlashCircle01" onClick={() => decline.open(lead)} className="dt-decline">Decline</Button>}
-        {stage === 'client' && !clientMode && <Button variant="ghost" onClick={() => shell?.openRecord(lead)}>Open client record</Button>}
-        {/* Site Prompt 7, Part 3: the Showcase tab became its own page, so
-            this is the way in, with what the public site currently shows. */}
-        {clientMode && shell?.openShowcase && (
-          <Button variant="secondary" icon="Image01" onClick={() => shell.openShowcase(lead)} className="dt-showcase-btn">
-            Showcase
-            {/* Draft and Published are the only two states, and both mean
-                "there is a showcase record". A client that has never had one
-                gets no pill at all rather than a Draft that was never
-                drafted. The value is the saved showcase.published and
-                nothing else: not the object existing, not a slug. */}
-            {hasShowcase && (
-              <Pill tone={published ? 'booked' : 'neutral'} label={published ? 'Published' : 'Draft'} size="sm" variant={published ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
-            )}
-          </Button>
-        )}
-        {/* Content Planner (planner prompt 2). Same treatment as Showcase
-            beside it: the button may shrink, the pill is what truncates. */}
-        {clientMode && shell?.openPlanner && (
-          <Button variant="secondary" icon="Calendar" onClick={() => shell.openPlanner(lead)} className="dt-showcase-btn">
-            Planner
-            <Pill tone={!plannerOn ? 'neutral' : plannerWaiting ? 'new' : 'booked'} label={plannerLabel} size="sm" variant={plannerOn && !plannerWaiting ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
-          </Button>
-        )}
-        {/* Concepts (Concepts rebuild, Part 3): a lead at any stage can be
-            shown directions, so the button is here for every record, and
-            the pill is the newest set's status. */}
-        {shell?.openConcepts && (
-          <Button variant="secondary" icon="LayersThree01" onClick={() => shell.openConcepts(lead)} className="dt-showcase-btn">
-            Concepts
-            <Pill tone={conceptSt ? conceptSt.tone : 'neutral'} label={conceptSt ? conceptSt.label : 'None'} size="sm"
-              variant={conceptSt && (conceptSt.id === 'approved' || conceptSt.id === 'changes') ? 'solid' : 'soft'} icon={false} className="dt-showcase-pill" />
-          </Button>
-        )}
-      </Row>
-      {/* Concepts, Part 6: a booked lead that picked a direction is a lead
-          that said yes to something. One tap opens the same Mark as won
-          confirm as the outcome buttons; nothing here changes the stage by
-          itself (the stage guard stays). */}
-      {booked && !clientMode && conceptSet && conceptSt?.id === 'approved' && !lead.bookedOutcome?.at && !readOnly && (
-        <div className="dt-suggest" role="status">
-          <Icon icon="Check" size={16} />
-          <span>They approved {directionLabel(conceptSet, conceptSet.approvedDirectionId, false)}. Mark as won?</span>
-          <Button size="md" icon={Trophy01} onClick={() => { setOutcomeNote(''); setOutcome('won'); }}>Mark as won</Button>
-        </div>
-      )}
-      <Stack gap={1} className="dt-facts">
-        <Fact label="Phone" value={formatPhone(lead.phone) || ''} onSave={save('phone')} inputMode="tel" placeholder="Add phone" readOnly={readOnly} />
-        <Fact label="Contact" value={lead.askFor} onSave={save('askFor')} placeholder="Who to ask for" readOnly={readOnly} />
-        <Fact label="Phone note" value={lead.phoneNote} onSave={save('phoneNote')} placeholder="Front desk, extension" readOnly={readOnly} />
-        <Fact label="Best window" value={lead.bestWindow} onSave={save('bestWindow')} placeholder="Before 8am or after 5pm" readOnly={readOnly} />
-        <Fact label="Email" value={lead.email} onSave={save('email')} inputMode="email" type="email" placeholder="Add email" readOnly={readOnly} />
-        {clientMode && <Fact label="Since" value={fmtDate(lead.clientSince) || fmtDate(lead.bookedOutcome?.at) || ''} placeholder="Unknown" readOnly />}
-        {clientMode && <Fact label="Lifetime" value={fmtMoney(lifetimeValue(lead))} readOnly />}
-        <Fact label="Source" value={lead.sourceId ? 'Nightly scraper' : 'Added by hand'} readOnly />
-        <Fact label="Added" value={fmtDate(lead.createdAt) || ''} readOnly />
-        <Fact label="Last scanned" value={lead.enrichment?.lastScanAt ? `${relativeTime(lead.enrichment.lastScanAt)}, ${lead.enrichment.scanCount || 1} scan${(lead.enrichment.scanCount || 1) === 1 ? '' : 's'}` : 'Never'} readOnly />
-        <Fact label="Next action" value={nextText} onSave={saveNextAction} placeholder="Set next action" readOnly={readOnly} />
-        <Fact label="Callback due" value={lead.callbackAt ? fmtDateTime(lead.callbackAt) : ''} placeholder={readOnly ? 'None' : 'Set a time'} onClick={readOnly ? undefined : () => setCbOpen(true)} />
-      </Stack>
-    </Card>
-  );
-
-  const tabs = clientMode
-    ? [{ id: 'overview', label: 'Overview' }, { id: 'projects', label: 'Projects', count: (client.projects || []).filter(p => String(p.leadId) === String(lead._id) && !p.archived && p.kind !== 'retainer').length || undefined }, { id: 'payments', label: 'Payments' }, { id: 'retainer', label: 'Retainer' }, { id: 'deliverables', label: 'Deliverables' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }]
-    : [...(dealMode ? [{ id: 'checkpoints', label: 'Checkpoints', count: Object.values(deal.checkpoints).filter(Boolean).length || undefined }] : []), { id: 'overview', label: 'Overview' }, { id: 'playbook', label: 'Playbook' }, ...(booked ? [{ id: 'meeting', label: 'Meeting' }] : []), { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History', count: ((lead.callLog || []).length + (lead.contactLog || []).length) || undefined }];
-  const sec = (id) => ({ ref: (el) => { refs.current[id] = el; }, id: `dt-${id}`, className: 'dt-sec' });
-
-  const overview = (
-    <section {...sec('overview')}>
-      <FoldSection id="overview" title="Overview" open={foldOpen('overview')} onToggle={foldToggle} summary={(lead.angle || '').split('\n')[0] || 'The angle'}>
-        <Card><p className="pb-card-h">The angle</p><InlineEdit value={lead.angle || ''} onSave={save('angle')} multiline placeholder="Why this lead, in your words." label="The angle" className="pb-say pb-say--edit" /></Card>
-      </FoldSection>
-    </section>
-  );
-  const playbook = !clientMode && (
-    <section {...sec('playbook')}>
-      <FoldSection id="playbook" title="Playbook" open={foldOpen('playbook')} onToggle={foldToggle} summary={'Intel, before you dial, script, objections, and the close'} description="Every line edits in place. Return to the ask after every objection.">
-        <IntelCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ intel: v })} ListEditor={ListEditor} />
-        <Card><p className="pb-card-h">Before you dial</p>{readOnly ? <ul className="pb-list">{(lead.beforeYouDial || []).map((x, i) => <li key={i}>{x}</li>)}</ul> : <ListEditor items={lead.beforeYouDial || []} onChange={(v) => patch({ beforeYouDial: v })} placeholder="Add a pre-dial check" />}</Card>
-        <Card><p className="pb-card-h">Script</p><ScriptSteps lead={lead} onChange={readOnly ? undefined : (v) => patch({ script: v })} /></Card>
-        <Card><p className="pb-card-h">Objections</p><Objections lead={lead} onChange={readOnly ? undefined : (v) => patch({ objections: v })} /></Card>
-        <Card><p className="pb-card-h">Close</p><CloseCards lead={lead} onChange={readOnly ? undefined : (v) => patch({ close: v })} /></Card>
-      </FoldSection>
-    </section>
-  );
-  const meetingSummary = mDate ? `${countdownLabel(mDate)}, ${fmtDateTime(mDate)}${lead.meeting?.type ? `, ${MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label}` : ''}` : legacyMeeting ? `${lead.afterCall.meeting} (no date set)` : 'No date set';
-  const meeting = booked && (
-    <section {...sec('meeting')}>
-      <FoldSection id="meeting" title="Meeting" open={foldOpen('meeting')} onToggle={foldToggle} summary={meetingSummary} description={callMode ? 'Call mode: every block shows its one line.' : undefined} action={<CallMode on={callMode} onChange={setCallMode} />}>
-        <Block title="When" summary={meetingSummary} callMode={callMode} action={<Row gap={1}><Button variant="secondary" icon={Calendar} onClick={() => setResched(true)} className="dt-resched">{mDate ? 'Reschedule' : 'Set date'}</Button>{mDate && <IconButton icon={Download01} label="Add to calendar (.ics)" variant="secondary" onClick={() => { if (!downloadIcs(lead)) toast.error('Set a date first.'); }} />}</Row>}>
-          <Stack gap={2}>
-            {mDate ? <Row gap={2} wrap><Pill tone={countdownLabel(mDate) === 'today' ? 'booked' : 'neutral'} label={countdownLabel(mDate)} size="sm" icon="CalendarCheck01" /><span className="dt-when">{fmtDateTime(mDate)}</span>{lead.meeting?.type && <Pill tone="progress" label={MEETING_TYPES.find(t => t.id === lead.meeting.type)?.label || lead.meeting.type} size="sm" variant="outline" icon={false} />}</Row> : <p className="dt-muted">{legacyMeeting ? `Logged as "${lead.afterCall.meeting}". Set the date to get a countdown and a calendar file.` : 'No date yet.'}</p>}
-            <Fact label="Where or link" value={lead.meeting?.location} onSave={(v) => saveMeeting({ location: v })} placeholder="Zoom link, cafe, their shop" readOnly={readOnly} />
-          </Stack>
-        </Block>
-        <Block title="Services game plan" summary={`${gamePlan.filter(g => g.checked).length} planned`} callMode={callMode}>
-          <Stack gap={1}>{MEETING_SERVICES.map(s => { const g = gp(s.id); return <div key={s.id} className="dt-gp"><Checkbox checked={g.checked} onChange={(v) => setGp(s.id, { checked: v })} label={`${s.label} (${fmtMoney(s.price)})`} disabled={readOnly} />{g.checked && <InlineEdit value={g.note || ''} onSave={(v) => setGp(s.id, { note: v })} placeholder="Note for the meeting" label={`${s.label} note`} className="dt-gp-note" />}</div>; })}</Stack>
-        </Block>
-        <Block title="Pricing options" summary={options.length ? `${options.length} option${options.length === 1 ? '' : 's'}${options.some(o => o.recommended) ? ', one recommended' : ''}` : 'None yet'} callMode={callMode} action={options.length < 3 && !readOnly && <Button variant="ghost" icon={Plus} onClick={() => writeOptions([...options, { id: uid(), packageId: PACKAGES[2].id, addonIds: [], retainerId: defaultRetainer(PACKAGES[2].id), recommended: !options.length, note: '' }])} className="dt-addopt">Add option</Button>}>
-          {options.length ? (
-            <Grid minColumnWidth={260} gap={3} className="dt-opts">
-              {options.map((o, i) => { const p = priceOption(o); return (
-                <Card key={o.id} level={2} className={`dt-opt${o.recommended ? ' is-rec' : ''}`} glow={o.recommended ? 'won' : undefined}>
-                  <Row gap={2} justify="between"><span className="pb-card-h" style={{ margin: 0 }}>Option {i + 1}</span>{o.recommended && <Pill tone="won" label="Recommended" size="sm" icon="Star01" variant="solid" />}</Row>
-                  <Select label="Package" value={o.packageId} onChange={(e) => setOpt(o.id, { packageId: e.target.value })} options={PACKAGES.map(pk => ({ id: pk.id, label: `${pk.label} (${fmtMoney(pk.price)})` }))} placeholder="Pick a package" disabled={readOnly} />
-                  {p.pkg && <ul className="pb-list">{p.included.map((x, j) => <li key={j}>{x}</li>)}</ul>}
-                  <div className="v-field"><span className="v-field-label">Add-ons</span><Stack gap={0}>{ADDONS.map(a => <Checkbox key={a.id} checked={(o.addonIds || []).includes(a.id)} onChange={(v) => setOpt(o.id, { addonIds: v ? [...(o.addonIds || []), a.id] : (o.addonIds || []).filter(x => x !== a.id) })} label={`${a.label} (${p.free.some(f => f.id === a.id) ? 'free' : fmtMoney(a.price)})`} disabled={readOnly} />)}</Stack></div>
-                  <Select label="Retainer" value={o.retainerId || defaultRetainer(o.packageId)} onChange={(e) => setOpt(o.id, { retainerId: e.target.value })} options={RETAINERS.map(r => ({ id: r.id, label: `${r.label} (${fmtMoney(r.price)} a month)` }))} disabled={readOnly} />
-                  <div className="dt-opt-total"><span className="dt-opt-n">{fmtMoney(p.total)}</span>{p.plan && <span className="dt-opt-plan">{planLine(p.plan)}</span>}{p.free.length > 0 && <span className="dt-opt-gift">Free: {p.free.map(f => f.label).join(', ')}</span>}{p.retainer && <span className="dt-opt-ret">Retainer: {p.retainer.label}, {fmtMoney(p.retainer.price)} a month</span>}</div>
-                  <InlineEdit value={o.note || ''} onSave={(v) => setOpt(o.id, { note: v })} placeholder="Add a note" label="Option note" multiline />
-                  <Row gap={2} justify="between"><Toggle size="sm" checked={!!o.recommended} onChange={(v) => setOpt(o.id, { recommended: v })} label="Recommended" disabled={readOnly} />{!readOnly && <IconButton icon={Trash01} label="Remove option" variant="danger" onClick={() => writeOptions(options.filter(x => x.id !== o.id))} />}</Row>
-                </Card>); })}
-            </Grid>
-          ) : <EmptyState size="sm" icon="CurrencyDollar" title={COPY.empty['leads.detail.pricing'].title} description={COPY.empty['leads.detail.pricing'].description} action={!readOnly ? { label: COPY.empty['leads.detail.pricing'].action, icon: Plus, onClick: () => writeOptions([{ id: uid(), packageId: PACKAGES[2].id, addonIds: [], retainerId: defaultRetainer(PACKAGES[2].id), recommended: true, note: '' }]) } : undefined} />}
-        </Block>
-        <Block title="Prep notes" summary={(lead.prepNotes || '').split('\n')[0] || 'Empty'} callMode={callMode}>
-          <LeadNotes lead={lead} field="prepNotes" onSave={(id, v) => onPatch(id, { prepNotes: v })} placeholder="What to show, what to ask, what to avoid." />
-        </Block>
-      </FoldSection>
-    </section>
-  );
-  const notes = (
-    <section {...sec('notes')}>
-      <FoldSection id="notes" title="Notes" open={foldOpen('notes')} onToggle={foldToggle} summary={(lead.notes || '').split('\n')[0] || 'Notes and checklists'}><Card><LeadNotes lead={lead} onSave={(id, v) => onPatch(id, { notes: v })} /></Card>
-        <Card><p className="pb-card-h">Checklists</p><Checklists lead={lead} onPatch={onPatch} /></Card>
-      </FoldSection>
-    </section>
-  );
-  const history = (
-    <section {...sec('history')}>
-      <FoldSection id="history" title="History" open={foldOpen('history')} onToggle={foldToggle} summary={`${(lead.callLog || []).length + (lead.contactLog || []).length} entries`}><Card><LeadHistory lead={lead} /></Card>
-        <Card><p className="pb-card-h">Their site submissions</p><LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission ? async (...a) => { const ok = await onLinkSubmission(...a); if (ok === false) toast.error(COPY.error.save); return ok; } : undefined} /></Card>
-      </FoldSection>
-    </section>
-  );
-  const clientSections = clientMode && <ClientSections lead={lead} projects={client.projects || []} fold={{ open: foldOpen, toggle: foldToggle }} patch={patch} patchRaw={patchRaw} onCreateProject={client.onCreateProject} onPatchProject={client.onPatchProject} sec={sec} jump={jump} readOnly={readOnly} onPulseTab={(id) => { setPulseTab(id); setTimeout(() => setPulseTab(null), durationMs('--v-dur-slow') * 2 + 60); }} />;
-  const subnav = <div className="dt-subnav"><Tabs label="Sections" tabs={tabs.map(t => (t.id === pulseTab ? { ...t, pulse: true } : t))} value={tab} onChange={jump} /></div>;
-  /* The deal's money (CRM revamp, step 5): the invoices live on deal.invoices; the first Mark paid runs the conversion. */
-  const dealInvoices = deal.invoices || [];
-  const anyPaid = dealInvoices.some(i => invoiceStatus(i) === 'paid') || isTicked(deal, 'paid');
-  const writeInvoices = (invoices) => patch({ deal: { ...deal, invoices } });
-  const markDealPaid = async (inv, form) => {
-    if (anyPaid || !shell?.projectOps?.create) return patch({ deal: { ...deal, invoices: replaceInvoice(dealInvoices, markPaid(inv, { paidAt: form.paidAt ? new Date(`${form.paidAt}T12:00:00`).toISOString() : '', note: form.note })) } });
-    const conv = markPaidConversion(lead, inv.id, form);
-    if (!conv) return false;
-    const yes = await confirm({ title: 'Mark paid and start the project?', body: `${dealPackageLabel(deal) || 'No package'}, ${fmtMoney(dealTotal(deal) || inv.amount)}, ${dealPlanLine(deal).toLowerCase()}. ${lead.business} becomes a client and the project starts with this invoice paid.`, confirmLabel: 'Mark paid', icon: 'CurrencyDollar' });
-    if (!yes) return false;
-    const before = lead;
-    const ok = await patch(conv.leadSet);
-    if (!ok) return false;
-    const item = await shell.projectOps.create(conv.projectDoc);
-    if (item) patch({ purchases: purchasesWithProject(conv.leadSet.purchases, conv.purchaseId, item._id) });
-    setWonPulse(true);
-    toast.undo(`${lead.business} is a client. ${conv.projectDoc.name} started.`, async () => { await onPatch(before._id, undoConversionSet(before)); if (item) shell.projectOps.patch?.(item._id, { archived: true }); }, { seconds: 6 });
-    setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60);
-    return true;
+  const saveNext = async () => {
+    const label = nextDraft.trim().slice(0, 120); if (!label) return;
+    const ok = await patch({ nextAction: { kind: 'custom', label, dueAt: next?.dueAt || new Date(Date.now() + 864e5).toISOString(), auto: false, doneAt: '' } });
+    if (ok) setNextOpen(false);
   };
-  const checkpoints = dealMode && (
-    <section {...sec('checkpoints')}>
-      <FoldSection id="checkpoints" title="Checkpoints" open={foldOpen('checkpoints')} onToggle={foldToggle} summary={`${Object.values(deal.checkpoints).filter(Boolean).length} of 9 ticked${deal.stalledSince ? ', stalled' : ''}`} description={stage === 'deal' ? 'From the call to the first payment. Mark paid on the first invoice makes the client and the project.' : 'The meeting first. Met them starts the deal.'}>
-        <DealCheckpoints lead={lead} patch={patch} readOnly={readOnly} onOpenConcepts={shell?.openConcepts ? () => shell.openConcepts(lead) : undefined} />
-        <InvoicesCard invoices={dealInvoices} onChange={writeInvoices} onMarkPaid={markDealPaid} onSendEmail={(inv) => email.open('invoice', { invoice: inv })} emailConnected={email.connected('invoice')} defaults={firstInvoiceDefaults(deal)} readOnly={readOnly} description={anyPaid ? undefined : dealInvoices.length ? 'Mark paid on the first one makes the client and the project.' : undefined} />
-      </FoldSection>
-    </section>
-  );
-  const sections = <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{checkpoints}{overview}{playbook}{meeting}{clientSections}{notes}{history}</Stagger>;
-  const profileCol = clientMode ? <>{profile}<ClientLinks lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditSocials={() => setEditAll(true)} /><ClientBrand lead={lead} patch={patch} patchRaw={patchRaw} readOnly={readOnly} onEditShowcase={shell?.openShowcase ? () => shell.openShowcase(lead) : undefined} /></> : profile;
+  const del = async () => { if (!onDelete) return; if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) await onDelete(leadId); };
+
+  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq };
+
+  /* The header's three controls by mode (law 5). */
+  const ca = dealMode ? checkpointAction(lead, { canBuild: !!shell?.openConcepts }) : null;
+  let primary = null; let secondary = null;
+  if (mode === 'lead') {
+    primary = stage === 'client' || stage === 'won'
+      ? <Button icon="User01" onClick={() => shell?.openRecord?.(lead)} className="rc-primary">Open client record</Button>
+      : <Button icon={PhoneCall01} disabled={!lead.phone} onClick={() => run('call')} className="rc-primary">Call</Button>;
+    if (!readOnly && stage === 'lead' && shell?.openListPicker) secondary = <Button variant="secondary" icon="Rows01" onClick={() => shell.openListPicker([lead])} className="rc-secondary">{lead.listId ? 'Move list' : 'Add to list'}</Button>;
+  } else if (mode === 'deal') {
+    if (ca && !readOnly) primary = <Button icon={ca.icon} loading={busy === runKeyFor(ca)} onClick={() => run(runKeyFor(ca))} className={`rc-primary${ca.kind === 'met' ? ' dt-met' : ''}`} aria-label={ca.label === 'Tick' ? `Tick ${ca.checkpoint.label.toLowerCase()}` : undefined}>{ca.label}</Button>;
+    secondary = <Button variant="secondary" icon="CurrencyDollar" onClick={() => openTab('money')} className="rc-secondary">Invoices</Button>;
+  } else {
+    const cur = cw.current; const nx = cur ? nextUnpaid(cur) : null;
+    if (!readOnly) {
+      primary = !cur ? <Button icon="Plus" onClick={cw.openNew} className="rc-primary cw-new-project">New project</Button>
+        : !nx ? <Button icon="Plus" onClick={() => requestInvoice('add')} className="rc-primary">Add invoice</Button>
+          : invoiceStatus(nx) === 'draft' ? <Button icon="Send01" onClick={() => requestInvoice('send', nx)} className="rc-primary">Send invoice</Button>
+            : <Button icon="Check" onClick={() => requestInvoice('pay', nx)} className="rc-primary">Mark paid</Button>;
+      if (cur) secondary = <Button variant="secondary" icon="Plus" onClick={() => cw.openRound(cur)} className="rc-secondary">Log a round</Button>;
+    }
+  }
+
+  /* The overflow menu, in the approved order; a group with nothing in it takes its divider with it. */
+  const social = (k) => lead.socials?.[k] || '';
+  const openUrl = (u) => window.open(u, '_blank', 'noopener');
+  const hasShowcase = !!lead.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0;
+  const plannerWaiting = postsOf(shell?.posts || [], leadId).filter(p => p.status === 'review').length;
+  const plannerLabel = !lead.planner?.enabled ? 'off' : plannerWaiting ? `${plannerWaiting} in review` : 'on';
+  const conceptSet = newestSet(shell?.sets, leadId);
+  const conceptSt = conceptSet ? conceptSetStatusOf(conceptStatusOf(conceptSet)) : null;
+  const menu = tidy([
+    ...(!readOnly ? [
+      { id: 'edit', label: 'Edit all', icon: 'Edit02', onSelect: () => setEditAll(true) },
+      { id: 'status', label: clientMode ? 'Priority and status' : 'Priority', icon: 'Zap', onSelect: () => setStatusOpen(true) },
+      { id: 'next', label: 'Set next action', icon: 'CheckCircle', onSelect: () => { setNextDraft(next && next.auto === false ? next.label : ''); setNextOpen(true); } },
+    ] : []),
+    { id: 'text', label: 'Text', icon: 'MessageCircle01', disabled: !lead.phone, onSelect: () => { window.location.href = `sms:${String(lead.phone).replace(/[^0-9+]/g, '')}`; } },
+    { id: 'mail', label: 'Email', icon: 'Mail01', disabled: !lead.email, onSelect: () => { window.location.href = `mailto:${lead.email}`; } },
+    { id: 'ig', label: 'Instagram', icon: 'Camera01', disabled: !social('instagram'), onSelect: () => openUrl(social('instagram')) },
+    { id: 'fb', label: 'Facebook', icon: 'ThumbsUp', disabled: !social('facebook'), onSelect: () => openUrl(social('facebook')) },
+    { id: 'web', label: 'Website', icon: 'Globe01', disabled: !social('website'), onSelect: () => openUrl(social('website')) },
+    { id: 'maps', label: 'Maps', icon: 'MarkerPin01', disabled: !social('google'), onSelect: () => openUrl(social('google')) },
+    { id: 'copy', label: 'Copy phone', icon: 'Copy01', disabled: !lead.phone, onSelect: () => copyText(toast, formatPhone(lead.phone), 'Number') },
+    ...(clientMode ? [{ id: 'brand', label: 'Copy brand', icon: 'Copy01', onSelect: () => copyText(toast, brandText(lead), 'Brand block') }] : []),
+    'divider',
+    ...(clientMode && shell?.openShowcase ? [{ id: 'showcase', label: `Showcase, ${hasShowcase ? (lead.showcase.published ? 'published' : 'draft') : 'none yet'}`, icon: 'Image01', onSelect: () => shell.openShowcase(lead) }] : []),
+    ...(clientMode && shell?.openPlanner ? [{ id: 'planner', label: `Planner, ${plannerLabel}`, icon: 'Calendar', onSelect: () => shell.openPlanner(lead) }] : []),
+    ...(shell?.openConcepts ? [{ id: 'concepts', label: `Concepts, ${conceptSt ? conceptSt.label.toLowerCase() : 'none'}`, icon: 'LayersThree01', onSelect: () => shell.openConcepts(lead) }] : []),
+    'divider',
+    ...(!readOnly && !clientMode && stage !== 'client' && stage !== 'won' && shell?.openListPicker ? [{ id: 'list', label: lead.listId ? 'Move list' : 'Add to list', icon: 'Rows01', onSelect: () => shell.openListPicker([lead]) }] : []),
+    ...(!readOnly ? [{ id: 'callback', label: lead.callbackAt ? `Callback, ${fmtDateTime(lead.callbackAt)}` : 'Set a callback', icon: 'PhoneIncoming01', onSelect: () => setCbOpen(true) }] : []),
+    ...(!readOnly && !clientMode && !['declined', 'won', 'client'].includes(stage) ? [{ id: 'decline', label: 'Decline', icon: 'SlashCircle01', onSelect: () => decline.open(lead) }] : []),
+    ...(dealMode && !readOnly ? [{ id: 'lost', label: 'Mark as lost', icon: 'XClose', danger: true, onSelect: () => openOutcome('lost') }, { id: 'won', label: 'Mark won without payment', icon: 'Trophy01', onSelect: () => openOutcome('won') }] : []),
+    ...(clientMode && !readOnly ? [{ id: 'newproj', label: 'New project', icon: 'Plus', onSelect: cw.openNew }, ...(!cw.ret || cw.ret.status === 'cancelled' ? [{ id: 'ret', label: 'Start a retainer', icon: 'RefreshCw01', onSelect: cw.openRet }] : [])] : []),
+    ...(stage === 'client' && !clientMode && shell?.openRecord ? [{ id: 'openclient', label: 'Open client record', icon: 'User01', onSelect: () => shell.openRecord(lead) }] : []),
+    'divider',
+    ...(onDelete && !readOnly ? [{ id: 'del', label: 'Delete', icon: 'Trash01', danger: true, onSelect: del }] : []),
+  ]);
+
+  /* The sections of this mode: one component and one summary each. */
+  const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), body: <s.Component rec={rec} /> }; });
+  const tabs = sections.filter(s => s.id !== 'details');
+  const active = tabs.find(s => s.id === tab) || tabs[0];
+  const header = <RecordHeader rec={rec} primary={primary} secondary={secondary} menu={menu} phone={phone} pulse={wonPulse} />;
 
   return (
     <PageShell className="dt">
-      <ScrollArea bare className="dt-scroll" key={lead._id}>
-        <div className="dt-inner">
-          {desktop ? (
-            <div className="dt-cols"><div className={`dt-left${clientMode ? ' dt-left--client' : ''}`}>{profileCol}</div><div className="dt-right">{subnav}{sections}</div></div>
+      <ScrollArea bare className="dt-scroll" key={leadId}>
+        <div className="rc-inner">
+          {header}
+          <NextActionStrip rec={rec} />
+          {phone ? (
+            <SectionRows sections={sections} open={tab} onToggle={setTab} />
           ) : (
-            <>{profileCol}{subnav}{sections}</>
+            <>
+              <FactsGrid rec={rec} />
+              <AnglePara rec={rec} />
+              <Tabs label="Sections" tabs={tabs.map(t => ({ id: t.id, label: t.label }))} value={active.id} onChange={setTab} className="rc-tabs" />
+              <div className="rc-panel" role="tabpanel" aria-label={active.label}>{active.body}</div>
+            </>
           )}
         </div>
       </ScrollArea>
       {dealMode && !readOnly && (
         <StickyFooterBar className="dt-outbar">
-          <Row gap={2} wrap className="dt-outbar-row">
-            {!isTicked(deal, 'callDone')
-              ? <Button icon="Check" onClick={async () => { const ok = await patch(metPatch(lead)); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); jump('checkpoints'); } }} className="dt-met">Met them</Button>
-              : <Button icon="CurrencyDollar" onClick={() => jump('checkpoints')} className="dt-toinv">Invoices</Button>}
-            <Button variant="danger" icon={XClose} onClick={() => { setOutcomeNote(''); setOutcome('lost'); }}>Mark as lost</Button>
-            <Button variant="secondary" icon={Calendar} onClick={() => setResched(true)}>Reschedule</Button>
-            <Menu label="More outcomes" align="end" items={[{ id: 'won', label: 'Mark won without payment', icon: 'Trophy01', onSelect: () => { setOutcomeNote(''); setOutcome('won'); } }]} />
+          <Row gap={2} className="dt-outbar-row">
+            {primary}
+            <Button variant="danger" icon={XClose} onClick={() => openOutcome('lost')}>Mark as lost</Button>
           </Row>
         </StickyFooterBar>
       )}
       {confirmDialog}
       {email.modal}
-      <style>{dealCheckpointsStyles + invoicesStyles}</style>
-      {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(lead._id, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
-      {linkSheet && (
-        <Modal open onClose={() => setLinkSheet(null)} title={`Add ${linkSheet.label}`} footer={<><Button variant="ghost" onClick={() => setLinkSheet(null)}>Cancel</Button><Button onClick={async () => { const v = linkDraft.trim(); if (!v) return; const ok = linkSheet.social ? await saveSocial(linkSheet.key)(v) : await patch({ [linkSheet.key]: v }); if (ok) { setLinkSheet(null); setLinkDraft(''); } }}>Save</Button></>}>
-          <Input label={linkSheet.label} value={linkDraft} onChange={(e) => setLinkDraft(e.target.value)} placeholder={linkSheet.social ? 'Handle or URL' : ''} inputMode={linkSheet.key === 'phone' ? 'tel' : linkSheet.key === 'email' ? 'email' : undefined} data-autofocus />
-        </Modal>
-      )}
-      {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
-      {resched && <RescheduleSheet lead={lead} onClose={() => setResched(false)} onSave={async (m) => { const ok = await saveMeeting(m); if (ok) { setResched(false); toast.success('Meeting updated.'); } }} />}
+      {cw.modals}
       {decline.sheet}
+      {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(leadId, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
+      {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
+      <Modal open={statusOpen} onClose={() => setStatusOpen(false)} title={clientMode ? 'Priority and status' : 'Priority'} description={lead.business} footer={<Button variant="ghost" onClick={() => setStatusOpen(false)}>Done</Button>}>
+        <Stack gap={3}>
+          <SegmentedControl label="Priority" full options={PRIORITIES.map(p => ({ id: p.id, label: p.label, icon: p.icon }))} value={lead.priority || 'warm'} onChange={(id) => patch({ priority: id })} />
+          {clientMode && <SegmentedControl label="Client status" full options={CLIENT_STATUSES.map(c => ({ id: c.id, label: c.label }))} value={lead.clientStatus || 'active'} onChange={(id) => patch({ clientStatus: id })} />}
+        </Stack>
+      </Modal>
+      <Modal open={nextOpen} onClose={() => setNextOpen(false)} title="Set next action" description="A manual action the rules never overwrite. Clear it to hand the field back to the rules."
+        footer={<><Button variant="ghost" onClick={() => setNextOpen(false)}>Cancel</Button>{next?.auto === false && <Button variant="secondary" onClick={async () => { await run('clear'); setNextOpen(false); }}>Clear</Button>}<Button onClick={saveNext} disabled={!nextDraft.trim()}>Save</Button></>}>
+        <Input label="What" value={nextDraft} onChange={(e) => setNextDraft(e.target.value)} placeholder="Drop off the proof" data-autofocus />
+      </Modal>
       <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} won without payment?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'Pro bono: they become a client now and the project starts with no invoice and nothing on the ledger.' : 'They leave Booked. Undo is available for six seconds.'}
         footer={<><Button variant="ghost" onClick={() => setOutcome(null)}>Cancel</Button><Button variant={outcome === 'lost' ? 'danger' : 'primary'} icon={outcome === 'won' ? Trophy01 : XClose} onClick={closeOut}>{outcome === 'won' ? 'Won, no payment' : 'Mark lost'}</Button></>}>
         <Textarea label="Note (optional)" rows={2} value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder={outcome === 'won' ? 'Went with Web Complete plus Site Care.' : 'Chose their nephew.'} data-autofocus />
@@ -468,56 +263,34 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   );
 }
 
-/** LeadDetail.Skeleton: the record shape while a deep link resolves (profile column, subnav, section cards). */
-/* Shaped to the real header's minimum (Prompt 15): the name capped to one 3xl line over the 44px descriptor
- * field, the pill row at its 44px tap height, the seven action buttons wrapping like the real row, the two
- * buttons, and the eleven facts. Long names make the real header taller; nothing else moves. */
+/** LeadDetail.Skeleton: the record's shape while a deep link resolves, at both widths. */
 LeadDetail.Skeleton = function LeadDetailSkeleton({ deal = false }) {
-  const desktop = useMediaQuery('(min-width: 1024px)');
-  const profile = (
-    <Card className="dt-profile" aria-busy="true" aria-hidden="true">
-      <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width="70%" height={34} /><SkeletonBlock width="50%" height={44} radius="var(--v-radius-sm)" /></Stack></Row>
-      <Row gap={1} wrap align="center" style={{ minHeight: 'var(--v-tap)' }}>{[64, 56, 72, 88].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>
-      <Row gap={1} wrap>{[1, 2, 3, 4, 5, 6, 7].map(i => <SkeletonBlock key={i} width={44} height={44} radius="var(--v-radius-md)" />)}</Row>
-      <Row gap={2}><SkeletonBlock width={128} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /></Row>
-      <Stack gap={1} className="dt-facts">{Array.from({ length: 10 }, (_, i) => <div key={i} className="dt-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</Stack>
-    </Card>
-  );
-  // The section column at its usual shape: the sticky subnav, the first section label, then the Overview card and four section cards.
-  const sections = (
-    <Stack gap={2} className="v-recskel" aria-busy="true" aria-hidden="true">
-      <div className="v-tabs v-recskel-tabs" style={{ minHeight: 49 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={72} height={16} />)}</div>
-      <div className="v-section-head" style={{ marginTop: 8, minHeight: deal ? 74 : 20 }}><Stack gap={1}><SkeletonBlock width={120} height={16} />{deal && <SkeletonBlock width={260} height={14} />}</Stack></div>
-      {/* A deal (CRM revamp, step 5) opens on the Checkpoints fold: the package card, the nine step rows, the invoices card, then the folded sections. */}
-      {(deal ? [368, 716, 150, 106, 106, 106, 110, 162] : [292, 106, 106, 110, 162]).map((h, i) => <Card key={i} style={{ height: h, boxSizing: 'border-box', overflow: 'hidden' }}><SkeletonBlock width={120} height={12} /><SkeletonText lines={!deal && i === 0 ? 3 : deal && i === 1 ? 9 : 1} /></Card>)}
-    </Stack>
-  );
+  const phone = usePhone();
+  const pills = <Row gap={1} align="center">{[72, 56].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>;
+  const strip = <SkeletonBlock width="100%" height={60} radius="var(--v-radius-md)" />;
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll">
-        <div className="dt-inner">
-          {desktop ? <div className="dt-cols"><div className="dt-left">{profile}</div><div className="dt-right">{sections}</div></div> : <>{profile}{sections}</>}
+        <div className="rc-inner" aria-busy="true" aria-hidden="true">
+          {phone ? (
+            <>
+              <Stack gap={2}><Row gap={2} align="center" style={{ minHeight: 'var(--v-tap)' }}>{pills}</Row><SkeletonBlock width="70%" height={14} /><Row gap={2}><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+              {strip}
+              <Stack gap={2}>{Array.from({ length: deal ? 8 : 4 }, (_, i) => <SkeletonBlock key={i} width="100%" height={56} radius="var(--v-radius-md)" />)}</Stack>
+            </>
+          ) : (
+            <>
+              <Row gap={3} align="center"><SkeletonCircle size={44} /><Stack gap={1} style={{ flex: 1 }}><Row gap={3} align="center"><SkeletonBlock width="40%" height={34} />{pills}</Row><SkeletonBlock width="55%" height={14} /></Stack><Row gap={2}><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row>
+              {strip}
+              <div className="rc-facts">{Array.from({ length: 6 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>
+              <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{Array.from({ length: deal ? 7 : 3 }, (_, i) => <SkeletonBlock key={i} width={72} height={16} />)}</div>
+              <Stack gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} width="100%" height={i === 1 ? 120 : 64} radius="var(--v-radius-md)" />)}</Stack>
+            </>
+          )}
         </div>
       </ScrollArea>
     </PageShell>
   );
 };
 
-function RescheduleSheet({ lead, onClose, onSave }) {
-  const m = lead.meeting || {};
-  const [date, setDate] = useState(m.date || '');
-  const [time, setTime] = useState(m.time || '09:00');
-  const [type, setType] = useState(m.type || 'call');
-  const [location, setLocation] = useState(m.location || '');
-  const [busy, setBusy] = useState(false);
-  return (
-    <Sheet open onClose={onClose} title={m.date ? 'Reschedule' : 'Set the meeting'} description={lead.business} className="dt-resched-sheet"
-      footer={<><Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button loading={busy} onClick={async () => { setBusy(true); try { await onSave({ date, time, type, location }); } finally { setBusy(false); } }} disabled={!date}>Save</Button></>}>
-      <Grid minColumnWidth={140} gap={2}><Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-autofocus /><Input label="Time" type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Grid>
-      <Select label="Type" value={type} onChange={(e) => setType(e.target.value)} options={MEETING_TYPES.map(t => ({ id: t.id, label: t.label }))} />
-      <Input label="Where or link" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Zoom link, cafe, their shop" />
-    </Sheet>
-  );
-}
-
-/* leadDetailStyles lives in src/ui/lead.styles.js (uiStyles). */
+/* recordStyles lives in src/ui/lead.styles.js (uiStyles). */

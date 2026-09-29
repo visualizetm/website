@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Card, Stack, Row, Grid, Button, Menu, Pill, Table, ListRow, Modal, Input, Textarea, EmptyState, useMediaQuery, useToast, useConfirm } from '../ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Card, Stack, Row, Grid, Button, Menu, Pill, Table, ListRow, Modal, Input, Textarea, useMediaQuery, useToast, useConfirm } from '../ui';
+import EmptyLine from './record/EmptyLine';
 import { INVOICE_STATUSES } from '../shared/semantics';
 import { money } from '../shared/format';
 import { COPY } from '../shared/copy';
-import { invoiceStatus, newInvoice, markSent, markPaid, replaceInvoice, withoutInvoice, sanitizeInvoice, invDayKey, invoicesTotal, invoicesPaid } from '../lib/invoices';
+import { invoiceStatus, newInvoice, markSent, markPaid, replaceInvoice, withoutInvoice, sanitizeInvoice, invDayKey } from '../lib/invoices';
 import { localDate } from '../lib/projects';
 
 /* The Invoices card (CRM revamp, step 5): the one card a deal and a client
@@ -13,14 +14,19 @@ import { localDate } from '../lib/projects';
  * Every write goes out as the whole list through onChange; the owner
  * decides where it lands (deal.invoices on the lead, invoices on the
  * project). onMarkPaid, when given, takes over the paid write (a deal's
- * first payment runs the conversion; a project writes the ledger). */
+ * first payment runs the conversion; a project writes the ledger).
+ * UI simplification, part A: the card holds no money figure (Money's
+ * header has the one), Add invoice is a ghost button in its header, the
+ * table shows from 1024 up, and `request` ({ n, kind: 'add' | 'pay' |
+ * 'send', inv }) lets the record's header open the add form, the Mark paid
+ * modal or the send for one line. */
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
 const blank = (defaults) => ({ label: defaults.label || '', amount: defaults.amount != null ? String(defaults.amount) : '', dueAt: invDayKey(new Date(Date.now() + 7 * 864e5)), note: '' });
 
-export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSendEmail = null, emailConnected = false, defaults = {}, readOnly = false, title = 'Invoices', description, className = '', pulseId = null, emptyKey = 'deals.invoices', level = 1 }) {
+export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSendEmail = null, emailConnected = false, defaults = {}, readOnly = false, title = 'Invoices', className = '', pulseId = null, emptyKey = 'deals.invoices', level = 1, request = null }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
-  const wide = useMediaQuery('(min-width: 1440px)'); // the detail column is narrow below this; the rows stack
+  const wide = useMediaQuery('(min-width: 1024px)'); // under this the rows stack
   const [form, setForm] = useState(null); // { mode: 'add' | 'edit', id, values }
   const [pay, setPay] = useState(null); // { inv, paidAt, note }
   const [busy, setBusy] = useState(false);
@@ -64,14 +70,23 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSe
       ? <Button variant="secondary" size="md" icon="Send01" onClick={() => onSendEmail(inv)} className="iv-email">Send</Button>
       : <Button variant="secondary" size="md" icon="Check" onClick={() => sent(inv)} className="iv-sent">Mark sent</Button>)
     : <Button variant="secondary" size="md" icon="Check" onClick={() => setPay({ inv, paidAt: invDayKey(), note: '' })} className="iv-paid">Mark paid</Button>; };
-  const addBtn = !readOnly && <Button variant="secondary" size="md" icon="Plus" onClick={() => setForm({ mode: 'add', values: blank(defaults) })} className="iv-add">Add invoice</Button>;
+  const openAdd = () => setForm({ mode: 'add', values: blank(defaults) });
+  const addBtn = !readOnly && <Button variant="ghost" size="md" icon="Plus" onClick={openAdd} className="iv-add">Add invoice</Button>;
+  /* A request from the record's header: the handler lives in a ref so the effect only runs when a new request lands. */
+  const handle = useRef(null);
+  handle.current = (r) => {
+    if (r.kind === 'add') openAdd();
+    else if (r.kind === 'pay' && r.inv) setPay({ inv: r.inv, paidAt: invDayKey(), note: '' });
+    else if (r.kind === 'send' && r.inv) { if (onSendEmail && emailConnected) onSendEmail(r.inv); else sent(r.inv); }
+  };
+  useEffect(() => { if (request?.n) handle.current(request); }, [request]);
   return (
     <Card className={`iv-card ${className}`.trim()} level={level}>
       <Row gap={2} justify="between" align="center" wrap>
-        <Stack gap={0}><p className="pb-card-h" style={{ margin: 0 }}>{title}</p>{description !== undefined ? <span className="dt-muted">{description}</span> : rows.length > 0 && <span className="dt-muted">{money(invoicesPaid(rows))} paid of {money(invoicesTotal(rows))}</span>}</Stack>
-        {addBtn}
+        <p className="rc-label">{title}</p>
+        {rows.length > 0 && addBtn}
       </Row>
-      {!rows.length ? <EmptyState size="sm" icon="CurrencyDollar" title={E.title} description={E.description} action={!readOnly && E.action ? { label: E.action, icon: 'Plus', onClick: () => setForm({ mode: 'add', values: blank(defaults) }) } : undefined} />
+      {!rows.length ? <EmptyLine text={E.title} action={!readOnly && E.action ? { label: E.action, onClick: openAdd, className: 'iv-add' } : null} />
         : wide ? (
           <Table aria-label={title} density="sm" columnChooser={false} rows={rows} rowKey={(r) => r.id} rowClassName={(r) => (r.id === pulseId ? 'cw-row-paid' : '')}
             columns={[

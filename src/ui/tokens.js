@@ -113,7 +113,7 @@ export const tokenStyles = `
     --v-inset-bottom: env(safe-area-inset-bottom, 0px);
     --v-content-w: 760px;                         /* detail / list content */
     --v-content-w-wide: 900px;                    /* dashboard-style pages */
-    --v-panel-w: 324px;                           /* desktop contextual panel */
+    --v-panel-w: 280px;                           /* desktop contextual panel (UI simplification, part A: 280 beside the record) */
 
     /* ── Prompt-1 era names kept as aliases to --v- (existing screens only) ── */
     --lay-gutter: var(--v-gutter);

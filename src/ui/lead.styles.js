@@ -45,51 +45,126 @@ export const leadFormStyles = `
 export const leadDetailStyles = `
   .dt { flex: 1; min-height: 0; min-width: 0; }
   .dt-scroll { padding: var(--v-space-4) var(--v-gutter-r) var(--v-space-4) var(--v-gutter-l); }
-  .dt-inner { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; max-width: 1200px; margin: 0 auto; }
-  .dt-cols { display: grid; grid-template-columns: calc(var(--v-panel-w) + 40px) minmax(0, 1fr); gap: var(--v-space-5); align-items: start; min-width: 0; }
-  .dt-left { position: sticky; top: 0; min-width: 0; }
-  .dt-right { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
-  .dt-profile { gap: var(--v-space-3); }
-  .dt-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
-  .dt-desc { color: var(--v-text-2); font-size: var(--v-text-md); }
-  .dt-pillbtn { border: 0; background: transparent; padding: 0; cursor: pointer; display: inline-flex; align-items: center; min-height: var(--v-tap); min-width: var(--v-tap); }
-  .dt-pillbtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-pill); }
-  .dt-inline-pill { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.04em; color: var(--v-text-2); min-height: var(--v-tap); display: inline-flex; align-items: center; }
-  .dt-actions .v-ibtn--ghost { color: var(--v-text-3); opacity: 0.6; }
-  .dt-facts { margin-top: var(--v-space-1); }
-  .dt-fact { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-1); border-bottom: 1px solid var(--v-border); background: transparent; border-left: 0; border-right: 0; border-top: 0; color: inherit; text-align: left; font: inherit; width: 100%; }
-  .dt-fact--btn { cursor: pointer; }
-  .dt-fact--btn:hover { background: var(--v-surface-2); }
-  .dt-fact--btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
-  .dt-fact-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
-  .dt-fact-ro { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
-  .dt-fact-edit { width: 100%; margin: 0; font-size: var(--v-text-sm); }
-  .dt-fact-edit .v-inline-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
-  .dt-subnav { position: sticky; top: calc(-1 * var(--v-space-4)); z-index: var(--v-z-sticky); background: var(--v-ground); padding-top: var(--v-space-1); }
-  .dt-sec { scroll-margin-top: 56px; min-width: 0; }
-  .dt-sec .v-section { gap: var(--v-space-3); }
+  /* The record (UI simplification, part A): one column, 860px at most, 20px gaps. */
+  .rc-inner { display: flex; flex-direction: column; gap: var(--v-space-5); width: 100%; max-width: 860px; margin: 0 auto; min-width: 0; }
+  .rc-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--v-space-3); min-width: 0; border-radius: var(--v-radius-md); }
+  .rc-avatar { margin-top: 2px; }
+  .rc-head-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
+  .rc-head-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-2) var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
+  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-pills { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
+  .rc-ctx { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rc-dot { margin: 0 var(--v-space-2); color: var(--v-text-3); }
+  .rc-tel { color: inherit; text-decoration: none; }
+  .rc-tel:hover { text-decoration: underline; }
+  .rc-head-actions { display: flex; align-items: center; gap: var(--v-space-2); flex-shrink: 0; margin-left: auto; }
+  .rc-head--phone { flex-wrap: wrap; }
+  .rc-head--phone .rc-head-main { flex: 1 1 100%; }
+  .rc-head--phone .rc-head-top { min-height: 0; }
+  .rc-head--phone .rc-head-actions { flex: 1 1 100%; flex-wrap: wrap; }
+  .rc-head--phone .rc-head-actions .v-btn { flex: 1 1 120px; min-width: 0; }
+  .rc-head--phone .rc-ctx { white-space: normal; }
+  /* The next action strip: red-soft, red border, one line, one button. */
+  .rc-next { display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px solid var(--v-red); border-radius: var(--v-radius-md); background: var(--v-red-soft); color: var(--v-text); min-width: 0; }
+  .rc-next-icon { color: var(--v-red-highlight); flex-shrink: 0; }
+  .rc-next-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--v-space-2); flex-wrap: wrap; }
+  .rc-next-label { font-weight: var(--v-weight-bold); }
+  .rc-next-due { font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .rc-next-btn { flex-shrink: 0; }
+  /* The facts (law 3): two columns of one line rows, the label 88px in caps, only filled values. */
+  .rc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--v-space-5); row-gap: 0; min-width: 0; }
+  .rc-fact { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); min-width: 0; }
+  .rc-fact--wide { grid-template-columns: 88px minmax(0, 1fr) auto; }
+  .rc-fact--add { border-bottom: 0; grid-template-columns: minmax(0, 1fr); }
+  .rc-fact--sheet { border-bottom: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .rc-fact-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .rc-fact-ro { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
+  .rc-fact-val { font-size: var(--v-text-sm); color: var(--v-text); min-width: 0; }
+  .rc-fact-edit { width: 100%; margin: 0; font-size: var(--v-text-sm); }
+  .rc-fact-edit .v-inline-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+  .rc-fact--sheet .rc-fact-edit .v-inline-text { white-space: normal; }
+  .rc-fact-act { flex-shrink: 0; display: inline-flex; gap: var(--v-space-1); }
+  .rc-angle { margin: 0; max-width: 68ch; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .rc-angle--edit { display: flex; width: 100%; }
+  .rc-tabs { position: sticky; top: calc(-1 * var(--v-space-4)); z-index: var(--v-z-sticky); background: var(--v-ground); }
+  .rc-panel { min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-4); }
+  /* Sections share these: a small caps label, a group, one line of text, the one line empty state (law 6). */
+  .rc-group { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .rc-label { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .rc-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
+  .rc-line--danger { color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
+  .rc-muted { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .rc-empty { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; min-height: var(--v-tap); font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .rc-empty-text { min-width: 0; }
+  .rc-picker { align-self: flex-start; max-width: 100%; }
+  .rc-cp, .rc-meeting, .rc-playbook, .rc-notes, .rc-history, .rc-money, .rc-project, .rc-files, .rc-pricing, .rc-details { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
+  .rc-cp-pkg { max-width: 360px; }
+  /* Money (law 1): the one figure, the bar, the table, the ledger behind a disclosure. */
+  .rc-money-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; min-width: 0; }
+  .rc-money-n { font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); font-variant-numeric: tabular-nums; }
+  .rc-money-side { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
+  .rc-money-bar .v-bar-track { height: 6px; }
+  .rc-money-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; }
+  .rc-disclose { display: inline-flex; align-items: center; gap: var(--v-space-1); min-height: var(--v-tap); padding: 0 var(--v-space-2); border: 0; background: transparent; color: var(--v-text-2); font: inherit; font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); cursor: pointer; border-radius: var(--v-radius-sm); }
+  .rc-disclose:hover { color: var(--v-text); background: var(--v-surface-2); }
+  .rc-disclose:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .rc-disclose-chev { transition: transform var(--v-dur-base) var(--v-ease-out); }
+  .rc-disclose.is-open .rc-disclose-chev { transform: rotate(180deg); }
+  .rc-ledger { display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-1) 0; }
+  .rc-ledger-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .rc-ledger-row { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); font-size: var(--v-text-sm); color: var(--v-text); }
+  .rc-ledger-what { display: flex; flex-direction: column; min-width: 0; }
+  .rc-ledger-amt { font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .rc-rounds { min-height: var(--v-tap); }
+  /* Retainer: the months as rows. */
+  .rc-month { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'name btn' 'bar btn' 'count btn'; align-items: center; column-gap: var(--v-space-3); row-gap: var(--v-space-1); padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); }
+  .rc-month:last-child { border-bottom: 0; }
+  .rc-month-name { grid-area: name; font-weight: var(--v-weight-bold); color: var(--v-text); }
+  .rc-month-bar { grid-area: bar; }
+  .rc-month-count { grid-area: count; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .rc-month > .v-btn { grid-area: btn; }
+  /* The phone (law 2): a stack of 56px rows, one open at a time, the chevron turns. */
+  .rc-rows { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .rc-row { overflow: hidden; }
+  .rc-row-btn { display: flex; align-items: center; gap: var(--v-space-3); width: 100%; min-height: var(--v-tap-lg); padding: var(--v-space-2) var(--v-space-3); border: 0; background: transparent; color: var(--v-text); text-align: left; font: inherit; cursor: pointer; }
+  .rc-row-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
+  .rc-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rc-row-title { font-weight: var(--v-weight-bold); }
+  .rc-row-sum { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
+  .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); transition: transform var(--v-dur-base) var(--v-ease-out); }
+  .rc-row.is-open .rc-row-chev { transform: rotate(90deg); }
+  .rc-row-body { display: flex; flex-direction: column; gap: var(--v-space-4); padding: 0 var(--v-space-3) var(--v-space-3); min-width: 0; }
+  @media (max-width: 767px) {
+    .rc-facts { grid-template-columns: minmax(0, 1fr); }
+    .rc-fact--wide { grid-template-columns: 88px minmax(0, 1fr); }
+    .rc-fact--wide .rc-fact-act { grid-column: 2; justify-self: start; padding-bottom: var(--v-space-2); }
+    .rc-money-n { font-size: var(--v-text-xl); }
+  }
+  /* The checkpoints stepper (CRM revamp, step 5), a plain list now. */
+  .dc-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; }
+  .dc-step { position: relative; display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); }
+  .dc-step:last-child { border-bottom: 0; }
+  .dc-dot { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 24px; height: 24px; border-radius: 50%; background: var(--v-surface-3); color: var(--v-text-2); font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); }
+  .dc-step.is-done .dc-dot { background: var(--v-status-booked-solid); color: var(--v-text-inverse); }
+  .dc-step.is-current .dc-dot { box-shadow: 0 0 0 2px var(--v-red); }
+  .dc-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .dc-label { font-weight: var(--v-weight-semibold); color: var(--v-text); }
+  .dc-step.is-done .dc-label { color: var(--v-status-booked-text); }
+  .dc-when { font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .dc-actions { flex-shrink: 0; display: inline-flex; align-items: center; gap: var(--v-space-1); }
+  /* Pieces that stayed as they were: the list editor, the game plan, the pricing options, the meeting line. */
   .dt-list { display: flex; flex-direction: column; gap: var(--v-space-1); }
   .dt-list-row { display: flex; align-items: center; gap: var(--v-space-1); min-width: 0; }
   .dt-list-text { flex: 1; min-width: 0; }
+  .dt-when { font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); }
+  .dt-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .dt-fact-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .dt-fact-ro { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
   .dt-block { gap: var(--v-space-2); }
   .dt-block-head { min-height: var(--v-tap); }
   .dt-block-btn { flex: 1 1 var(--v-tap); display: flex; align-items: center; gap: var(--v-space-3); min-width: var(--v-tap); min-height: var(--v-tap); border: 0; background: transparent; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; padding: 0; }
   .dt-block-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
   .dt-block-sum { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
-  .dt-when { font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); }
-  .dt-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
-
-  /* The Showcase button carries a status pill after its label. The kit's
-     button never wraps and never shrinks, so a long status used to push the
-     control past the edge of its card instead of the pill giving way. Here
-     the button may shrink inside its row, the label holds its own, and the
-     pill is the piece that truncates. The gap is stated rather than left to
-     .v-btn-inner's default so icon, label and pill can never sit flush. */
-  .dt-showcase-btn { max-width: 100%; flex-shrink: 1; min-width: 0; }
-  /* Concepts, Part 6: the one-tap suggestion after a booked lead picks a direction. */
-  .dt-suggest { display: flex; align-items: center; gap: var(--v-space-3); flex-wrap: wrap; padding: var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-status-booked-soft); color: var(--v-status-booked-text); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
-  .dt-showcase-btn .v-btn-inner { gap: var(--v-space-2); min-width: 0; }
-  .dt-showcase-pill { flex-shrink: 1; min-width: 0; margin-left: var(--v-space-1); }
   .dt-gp { display: flex; flex-direction: column; gap: 0; min-width: 0; }
   .dt-gp-note { margin-left: 34px; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .dt-opts { align-items: start; }
@@ -102,11 +177,9 @@ export const leadDetailStyles = `
   .dt-opt-ret { font-size: var(--v-text-sm); color: var(--v-text-2); }
   .dt-concept { gap: var(--v-space-2); }
   .dt-concept-label { font-weight: var(--v-weight-semibold); }
-  .dt-outbar-row { width: 100%; max-width: 760px; flex-wrap: wrap; }
-  .dt-outbar-row > .v-btn { flex: 1 1 140px; }
-  /* CRM revamp, step 6: under 420px the four controls wrap into two rows instead of truncating their labels. */
-  .dt-outbar-row > .v-menu { flex: 0 0 auto; }
-  @media (max-width: 419px) { .dt-outbar-row > .v-btn { flex: 1 1 calc(50% - var(--v-space-2)); min-width: 0; } .dt-outbar-row > .v-btn .v-btn-inner { min-width: 0; } }
+  /* The outcome bar (booked and deal): the current next action and Mark as lost. */
+  .dt-outbar-row { width: 100%; max-width: 860px; margin: 0 auto; }
+  .dt-outbar-row > .v-btn { flex: 1 1 140px; min-width: 0; }
 `;
 
 /* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-).
@@ -149,32 +222,13 @@ export const clientStyles = `
   .clc-paid { font-size: var(--v-text-xs); color: var(--v-text-2); font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
   .clc-next, .clc-muted { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
 
-  .dt-left--client { display: flex; flex-direction: column; gap: var(--v-space-4); position: static; }
-  .cw-links, .cw-brand { gap: var(--v-space-2); }
-  .cw-link { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); }
-  .cw-link:last-child { border-bottom: 0; }
-  .cw-link-btn { display: inline-flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); color: var(--v-text); text-decoration: none; font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); flex-shrink: 0; }
-  a.cw-link-btn:hover .cw-link-label { text-decoration: underline; }
-  .cw-link-edit { min-width: 0; }
-  /* A derived value is a plain span; as a grid cell it has to be a block to truncate at 320. */
-  .cw-link-edit .dt-fact-ro, .sc-derived .dt-fact-ro { display: block; min-width: 0; max-width: 100%; }
-  .cw-link-field { width: 100%; font-size: var(--v-text-sm); }
-  .cw-link-field .v-inline-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+
+  /* The showcase editor's derived rows (a value edited elsewhere, src/pages/AdminShowcase.jsx). */
   .cw-brand-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); }
-  /* UX audit: a derived row carries a third cell, the way to where the value is edited. */
-  /* UX audit, item 6: a folded detail section is one line. */
-  .dt-fold.is-closed .v-section-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .dt-fold-body { display: flex; flex-direction: column; gap: var(--v-space-3); min-width: 0; }
-  .cw-brand-logo, .sc-derived { grid-template-columns: 96px minmax(0, 1fr) auto; }
-  .cw-logo-thumb { width: 120px; }
-  .cw-logo-edit, .sc-derived-btn { justify-self: end; }
   .cw-brand-row:last-child { border-bottom: 0; }
-  .cw-swatches { display: flex; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
-  .cw-swatch { display: inline-flex; align-items: center; gap: var(--v-space-1); min-width: 0; }
-  .cw-swatch-chip { width: 22px; height: 22px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); background: var(--v-surface-3); flex-shrink: 0; position: relative; overflow: hidden; }
-  .cw-swatch-x { position: absolute; inset: 0; background: linear-gradient(135deg, transparent 46%, var(--v-text-3) 47%, var(--v-text-3) 53%, transparent 54%); }
-  .cw-swatch-edit { font-size: var(--v-text-sm); font-variant-numeric: tabular-nums; }
-  .cw-copy-brand { flex-shrink: 0; }
+  .sc-derived { grid-template-columns: 96px minmax(0, 1fr) auto; }
+  .sc-derived .dt-fact-ro { display: block; min-width: 0; max-width: 100%; }
+  .sc-derived-btn { justify-self: end; }
 
   .cw-project { gap: var(--v-space-3); }
   .cw-project.is-current { border-color: var(--v-border-strong); }
@@ -189,39 +243,22 @@ export const clientStyles = `
   .cw-step.is-done .cw-step-dot { background: var(--v-status-booked-solid); color: var(--v-text-inverse); }
   .cw-step.is-current { background: var(--v-red-soft); color: var(--v-red-highlight); }
   .cw-step.is-current .cw-step-dot { background: var(--v-red); color: var(--v-text-on-red); }
-  .cw-rev { display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-3); background: var(--v-surface-2); border-radius: var(--v-radius-md); min-width: 0; }
   .cw-rev-label { font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-2); }
   .cw-rev-log { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--v-space-1); }
   .cw-rev-log li { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; }
   .cw-rev-when { color: var(--v-text-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .cw-rev-note { min-width: 0; overflow-wrap: anywhere; }
-  .cw-project-meta { align-items: center; }
-  .cw-delivery { gap: var(--v-space-2); }
   .cw-preview { gap: var(--v-space-2); }
   .cw-preview-row { font-size: var(--v-text-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; }
-  .cw-picker { min-width: 200px; }
   .cw-sched-row .v-lrow-trail { flex-wrap: wrap; justify-content: flex-end; }
-  .cw-plan { gap: var(--v-space-3); }
   .cw-kv { display: flex; flex-direction: column; gap: 2px; font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 0; font-variant-numeric: tabular-nums; }
-  .cw-stripe { gap: var(--v-space-2); border-color: color-mix(in srgb, var(--v-status-danger-solid) 45%, transparent); background: var(--v-status-danger-soft); }
-  .cw-stripe--ok { border-color: color-mix(in srgb, var(--v-status-booked-solid) 45%, transparent); background: var(--v-status-booked-soft); }
-  .cw-stripe-h--ok { color: var(--v-status-booked-text); }
   .cw-sub-id { font-size: var(--v-text-sm); font-family: var(--v-font-mono, monospace); }
-  .cw-stripe-h { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-status-danger-text); }
-  .cw-ledger { gap: var(--v-space-3); }
-  .cw-ledger-row .v-lrow-meta { font-weight: var(--v-weight-bold); color: var(--v-text); font-variant-numeric: tabular-nums; }
   .cw-retainer { gap: var(--v-space-3); }
   .cw-ret-price { font-size: var(--v-text-2xl); }
   .cw-ret-price small { font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-3); margin-left: 2px; }
-  .cw-months { margin-top: var(--v-space-1); }
-  .cw-nextbill { gap: 0; }
+  .cw-nextbill { min-height: var(--v-tap); }
   .cw-nextbill-amt { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
-  .cw-month { gap: var(--v-space-2); }
-  .cw-month.is-current { border-color: var(--v-status-booked-solid); }
-  .cw-month-name { display: inline-flex; align-items: center; gap: var(--v-space-2); font-weight: var(--v-weight-bold); color: var(--v-text); flex-wrap: wrap; }
-  .cw-release { gap: var(--v-space-3); }
   .cw-release-toggle .v-toggle-desc { overflow-wrap: anywhere; }
-  .cw-dgroup { gap: var(--v-space-2); }
   .cw-deliv { display: flex; flex-direction: column; gap: 0; min-width: 0; border-bottom: 1px solid var(--v-border); padding-bottom: var(--v-space-1); }
   .cw-deliv:last-child { border-bottom: 0; }
   .cw-deliv-link { display: flex; align-items: center; gap: var(--v-space-1); margin-left: 34px; min-width: 0; font-size: var(--v-text-sm); }
