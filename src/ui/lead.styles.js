@@ -157,6 +157,9 @@ export const leadDetailStyles = `
   .dt-list-row { display: flex; align-items: center; gap: var(--v-space-1); min-width: 0; }
   .dt-list-text { flex: 1; min-width: 0; }
   .dt-when { font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); }
+  /* A pill that opens a menu (the Submissions detail's status pill): a 44px transparent button around the pill. */
+  .dt-pillbtn { border: 0; background: transparent; padding: 0; cursor: pointer; display: inline-flex; align-items: center; min-height: var(--v-tap); min-width: var(--v-tap); }
+  .dt-pillbtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-pill); }
   .dt-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .dt-fact-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .dt-fact-ro { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }

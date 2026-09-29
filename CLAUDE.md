@@ -25,6 +25,7 @@ is in reports/PROMPT-NN-REPORT.md and reports/SITE-NN-REPORT.md.
 - `$set` only. Every write is `updateOne({ _id }, { $set: allowed })` (plus `$push` with `$slice` for capped lists). sanitize() in each route is the schema: a field the whitelist does not know is not written.
 - Every dispatched route uses `route()` from api/_lib/handler.js (admin guard, method allow list, body cap, one try/catch); the three auth endpoints (api/admin/login.js, logout.js, session.js) are plain handlers with their own method check. Auth is the signed `vz_admin` cookie alone: no CSRF header, no rate limit, no database lookup. The admin password is the constant in api/_lib/config.js (an ADMIN_PASSWORD env var overrides it); every other secret still comes from environment variables only, and nothing but config.js may hold a password.
 - No em dashes anywhere: copy, comments, docs, reports.
+- The record (LeadDetail, UI simplification part A) keeps six laws, written at the top of src/components/LeadDetail.jsx: one number one place (the paid of figure renders once, in Money); one way into a section (a tab on a computer, a row on a phone, no folds); empty facts do not render (one Add a detail sheet); at most two pills in the header (status and priority); at most three header controls (primary, secondary, overflow); every section's empty state is one line with one action. Sections render from the one `rec` object; `checkpointAction` is the one rule the header primary, the outcome bar and the Checkpoints rows share.
 - Pipeline position is normalizeStage on the stage field and nothing else; a client or won record only leaves that stage through an explicit user action (the PATCH carries explicit: true), never an import, a background job, or a status change. Every client carries clientSince (the PATCH and POST stamp it; the daily cron heals a wiped stage from the client evidence in api/_lib/pipeline.js and names each heal in the drawer). Every lead entering the app passes normalizeLead() (src/lib/leadShape.js); a screen never assumes a field's type.
 - Security is docs/SECURITY-AUDIT.md. Every stored link or image goes through safeUrl() (api/_lib/url.js) in its sanitize() and safeHref() (src/lib/safeUrl.js) at the render; every request value in a Mongo filter is cast; every public door is behind the shared limiter (api/_lib/limit.js); SESSION_SECRET is required on Vercel. `node scripts/security-test.mjs` runs before every commit and must pass.
 - Skeletons ship with features. A new screen or region lands with its skeleton, its empty state (src/shared/copy.js), its error state with Retry, and its entrance; the feel audit checks all four.
@@ -79,7 +80,9 @@ submissions.js and push-key.js are the other two public endpoints; _lib for
 auth, config, mongo, handler, notify, stripe, orders), src/ui (the kit),
 src/shell (AppShell, nav, command bar, drawer, boot frame, appearance,
 ShellCrash), src/pages (one file per admin screen, lazy chunks; the
-marketing pages are lazy too), src/components (lead and client record
+marketing pages are lazy too), src/components/record (the record: RecordHeader,
+NextActionStrip, FactsGrid, one section component each, the registry of
+sections by mode), src/components (lead and client record
 pieces, and the marketing shell: Navbar, Footer, Wordmark, ThemeToggle, and
 Home's own sections), src/marketing (showcase.jsx, motion/, scroll.js and
 ScrollRoot.jsx (the gsap + lenis scroll engine, marketing host only),
