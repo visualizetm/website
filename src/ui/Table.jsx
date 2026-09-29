@@ -12,7 +12,7 @@ import { durationMs } from './motion';
  * density, sticky first column on horizontal scroll, empty slot.
  *
  * @param {object} props
- * @param {Array<{id: string, label: string, render: (row) => ReactNode, sortable?: boolean, width?: number|string, align?: 'start'|'end', sticky?: boolean, always?: boolean}>} props.columns
+ * @param {Array<{id: string, label: string, render: (row) => ReactNode, sortable?: boolean, width?: number|string, align?: 'start'|'end', sticky?: boolean, always?: boolean, hidden?: boolean}>} props.columns
  *   `always` columns cannot be hidden in the chooser; the first column is sticky on scroll by default.
  * @param {Array} props.rows already sorted by the parent
  * @param {Function} [props.rowKey] (row) => key, default row._id
@@ -48,8 +48,10 @@ export default function Table({
     return () => io.disconnect();
   }, [limit, rows.length, pageSize]);
   const shown = rows.length > limit ? rows.slice(0, limit) : rows;
+  // A column marked `hidden` starts hidden until the chooser says otherwise (UI simplification, part B: what left a table stays in its chooser).
   const [hidden, setHidden] = useState(() => {
-    try { return new Set(storageKey ? JSON.parse(localStorage.getItem(storageKey) || '[]') : []); } catch { return new Set(); }
+    try { const raw = storageKey ? localStorage.getItem(storageKey) : null; if (raw) return new Set(JSON.parse(raw)); } catch { /* fine */ }
+    return new Set(columns.filter(c => c.hidden).map(c => c.id));
   });
   useEffect(() => { if (storageKey) { try { localStorage.setItem(storageKey, JSON.stringify([...hidden])); } catch { /* fine */ } } }, [hidden, storageKey]);
   const [chooserOpen, setChooserOpen] = useState(false);

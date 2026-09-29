@@ -1,62 +1,29 @@
-import { Pill, ProgressBar, SkeletonBlock } from '../ui';
+import { Pill } from '../ui';
 import LeadCard from './LeadCard';
-import { PROJECT_STAGES } from '../shared/semantics';
-import { retainerOf } from '../shared/pricing';
-import { money } from '../shared/format';
-import { activeProject, paidTotal, scheduleTotal, paidPct, isFullyPaid, isOnRetainer, nextDateFor, localDate } from '../lib/projects';
-import { postsOf } from '../lib/posts';
+import { clientRowPill, clientRowLine } from '../lib/clientRowPill';
+import { activeProject, paidTotal, scheduleTotal, nextDateFor } from '../lib/projects';
 
 /**
- * ClientCard (Prompt 10): LeadCard compact plus the client line: package pill
- * for the active project, project stage, paid over total, retainer, next date.
+ * ClientCard (Prompt 10, rebuilt in UI simplification part B): LeadCard's
+ * shell with the client pill (src/lib/clientRowPill.js) on line one and the
+ * package and money on line two. No retainer pill, no planner pill, no
+ * stage pill, no progress bar.
  * @param {object} props
  * @param {object} props.lead
  * @param {Array} props.projects every project (filtered here)
  * @param {Function} [props.onOpen]
  * @param {boolean} [props.selected]
- * @param {boolean} [props.compact] hide the client line (list panel beside the detail)
  */
-const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
-
 export function clientLine(lead, projects) {
   const p = activeProject(projects, lead._id);
-  const ret = isOnRetainer(lead) ? retainerOf(lead.retainer.planId) : null;
-  const next = nextDateFor(lead, projects);
-  return { project: p, retainer: ret, retainerAmount: lead.retainer?.amount, next, paid: p ? paidTotal(p) : 0, total: p ? scheduleTotal(p) : 0, pct: p ? paidPct(p) : 0 };
+  return { project: p, next: nextDateFor(lead, projects), paid: p ? paidTotal(p) : 0, total: p ? scheduleTotal(p) : 0 };
 }
 
-export default function ClientCard({ lead, projects = [], posts = [], onOpen, selected = false, compact = false, className = '', ...rest }) {
-  const c = clientLine(lead, projects);
-  const plannerWaiting = lead.planner?.enabled ? postsOf(posts, lead._id).filter(p => p.status === 'review').length : 0;
-  return (
-    <div className={`clc${selected ? ' is-selected' : ''} ${className}`.trim()} {...rest}>
-      <LeadCard lead={lead} onOpen={onOpen} selected={selected} />
-      {!compact && (
-        <div className="clc-line">
-          <div className="clc-row">
-            {c.project ? <><Pill tone="progress" label={c.project.name} size="sm" icon="Briefcase01" variant="outline" className="clc-pkg" /><Pill id={c.project.stage} list={PROJECT_STAGES} size="sm" /></> : <span className="clc-muted">No active project</span>}
-            {c.retainer && <Pill tone="booked" label={`${c.retainer.label} ${money(c.retainerAmount)}/mo`} size="sm" icon="RefreshCw01" className="clc-ret" />}
-            {/* Planner prompt 2, part 5: the indicator, and the count when
-                posts are sitting with them, which is the version of it Rob
-                needs to act on. */}
-            {lead.planner?.enabled && (
-              <Pill tone={plannerWaiting ? 'new' : 'neutral'} size="sm" icon="Calendar" variant={plannerWaiting ? 'solid' : 'soft'}
-                label={plannerWaiting ? `${plannerWaiting} in review` : 'Planner'} className="clc-planner" />
-            )}
-          </div>
-          {c.project && <div className="clc-row clc-pay"><ProgressBar value={c.pct} tone={isFullyPaid(c.project) ? 'booked' : 'progress'} size="sm" /><span className="clc-paid">{money(c.paid)} of {money(c.total)}</span></div>}
-          {c.next && <span className="clc-next">{c.next.kind === 'bill' ? 'Next bill' : 'Next payment'} {fmtDay(c.next.dueAt)}, {money(c.next.amount)}</span>}
-        </div>
-      )}
-    </div>
-  );
+export default function ClientCard({ lead, projects = [], onOpen, selected = false, className = '', ...rest }) {
+  const pill = clientRowPill(lead, projects);
+  return <LeadCard lead={lead} onOpen={onOpen} selected={selected} pill={<Pill tone={pill.tone} label={pill.label} size="sm" icon={false} className={`clc-pill clc-pill--${pill.id}`} />} line={clientRowLine(lead, projects)} className={`clc ${className}`.trim()} {...rest} />;
 }
 
-ClientCard.Skeleton = function ClientCardSkeleton({ compact = false }) {
-  return (
-    <div className="clc" aria-busy="true">
-      <LeadCard.Skeleton menu={false} />
-      {!compact && <div className="clc-line"><div className="clc-row"><SkeletonBlock width={110} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /></div><SkeletonBlock height={4} radius="var(--v-radius-pill)" /><SkeletonBlock width={140} height={12} /></div>}
-    </div>
-  );
+ClientCard.Skeleton = function ClientCardSkeleton() {
+  return <LeadCard.Skeleton menu={false} />;
 };

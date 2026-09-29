@@ -4,20 +4,20 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, ProgressBar, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Input, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import ClientCard, { clientLine } from '../components/ClientCard';
-import { postsOf } from '../lib/posts';
+import { clientRowPill } from '../lib/clientRowPill';
 import LeadDetail from '../components/LeadDetail';
 import LeadForm from '../components/LeadForm';
 import { defaultLead } from '../lib/defaultLead';
-import { PROJECT_STAGES } from '../shared/semantics';
 import { money } from '../shared/format';
 import { fmtDate } from '../shared/dates';
 import { matchesSearch } from '../lib/leads';
-import { isClientLead, isOnRetainer, lifetimeValue, CLIENT_FILTERS, clientPasses, isFullyPaid, localDate } from '../lib/projects';
+import { isClientLead, lifetimeValue, CLIENT_FILTERS, clientPasses, localDate } from '../lib/projects';
+import { formatPhone, telHref } from '../shared/phone';
 
 /* Clients (Prompt 10): the paid side of the business. A client is a
  * call_leads document with stage 'client'; projects, payments, retainers and
@@ -87,7 +87,7 @@ export default function AdminClients({
     return (
       <>
         <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients">
-          <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} posts={posts} onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
+          <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
         </aside>
         <div className="aa-main cl-main">
           <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} client={clientProps} />
@@ -98,21 +98,22 @@ export default function AdminClients({
     );
   }
 
-  const columns = [
-    { id: 'business', label: 'Business', always: true, sortable: false, render: (r) => <span className="cl-cell-biz"><Avatar name={r.lead.business} size="sm" status={isOnRetainer(r.lead) ? 'booked' : undefined} /><span className="lay-truncate">{r.lead.business}</span></span> },
-    { id: 'package', label: 'Package', width: 150, render: (r) => r.project?.name || <span className="cl-muted-cell">None</span> },
-    { id: 'stage', label: 'Stage', width: 140, render: (r) => (r.project ? <Pill id={r.project.stage} list={PROJECT_STAGES} size="sm" /> : <Pill id={r.lead.clientStatus || 'active'} tone="neutral" label={r.lead.clientStatus || 'active'} size="sm" icon={false} variant="outline" />) },
-    { id: 'paid', label: 'Paid / Total', render: (r) => (r.project ? <span className="cl-cell-pay"><ProgressBar value={r.pct} tone={isFullyPaid(r.project) ? 'booked' : 'progress'} size="sm" /><span>{money(r.paid)} / {money(r.total)}</span></span> : <span className="cl-muted-cell">{money(lifetimeValue(r.lead))} lifetime</span>) },
-    { id: 'retainer', label: 'Retainer', render: (r) => (r.retainer ? <Pill tone="booked" label={`${r.retainer.label} ${money(r.retainerAmount)}/mo`} size="sm" icon="RefreshCw01" /> : <span className="cl-muted-cell">None</span>) },
-    /* Planner prompt 2, part 5: the same indicator the cards carry, for the
-       desktop table. The count is the version worth interrupting for. */
-    { id: 'planner', label: 'Planner', width: 130, render: (r) => (r.lead.planner?.enabled
-      ? <Pill tone={r.plannerWaiting ? 'new' : 'neutral'} size="sm" icon="Calendar" variant={r.plannerWaiting ? 'solid' : 'soft'} label={r.plannerWaiting ? `${r.plannerWaiting} in review` : 'On'} />
-      : <span className="cl-muted-cell">Off</span>) },
-    { id: 'next', label: 'Next date', render: (r) => (r.next ? `${r.next.kind === 'bill' ? 'Bill' : 'Payment'} ${fmtDay(r.next.dueAt)}` : <span className="cl-muted-cell">None</span>) },
-    { id: 'since', label: 'Since', render: (r) => fmtDate(r.lead.clientSince) || fmtDate(r.lead.bookedOutcome?.at) || <span className="cl-muted-cell">Unknown</span> },
+  /* The desktop table (UI simplification, part B): business, the one pill (the card's rule), package, paid, next date, menu. Since stays in the chooser. */
+  const rowMenu = (l) => [
+    { id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => pick(l._id) },
+    ...(l.phone ? [{ id: 'call', label: `Call ${formatPhone(l.phone)}`, icon: 'Phone', onSelect: () => { window.location.href = telHref(l.phone); } }] : []),
+    ...(shell?.openShowcase ? [{ id: 'showcase', label: 'Showcase', icon: 'Image01', onSelect: () => shell.openShowcase(l) }] : []),
+    ...(shell?.openPlanner ? [{ id: 'planner', label: 'Planner', icon: 'Calendar', onSelect: () => shell.openPlanner(l) }] : []),
   ];
-  const rows = list.map(l => ({ _id: l._id, lead: l, plannerWaiting: l.planner?.enabled ? postsOf(posts, l._id).filter(p => p.status === 'review').length : 0, ...clientLine(l, projects) }));
+  const columns = [
+    { id: 'business', label: 'Business', always: true, sortable: false, render: (r) => <span className="cl-cell-biz lay-truncate">{r.lead.business}</span> },
+    { id: 'pill', label: 'Status', width: 170, render: (r) => <Pill tone={r.pill.tone} label={r.pill.label} size="sm" icon={false} /> },
+    { id: 'package', label: 'Package', width: 150, render: (r) => r.project?.name || <span className="cl-muted-cell">None</span> },
+    { id: 'paid', label: 'Paid', render: (r) => (r.project ? <span className="cl-cell-pay">{money(r.paid)} of {money(r.total)}</span> : <span className="cl-muted-cell">No project</span>) },
+    { id: 'next', label: 'Next date', render: (r) => (r.next ? `${r.next.kind === 'bill' ? 'Bill' : 'Payment'} ${fmtDay(r.next.dueAt)}` : <span className="cl-muted-cell">None</span>) },
+    { id: 'since', label: 'Since', hidden: true, render: (r) => fmtDate(r.lead.clientSince) || fmtDate(r.lead.bookedOutcome?.at) || <span className="cl-muted-cell">Unknown</span> },
+  ];
+  const rows = list.map(l => ({ _id: l._id, lead: l, pill: clientRowPill(l, projects, now), ...clientLine(l, projects) }));
 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell">
@@ -125,7 +126,7 @@ export default function AdminClients({
           </Stack>
         </Section>
         {pending ? null : showSkel ? (
-          desktop ? <Table.Skeleton rows={5} cols={7} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <ClientCard.Skeleton key={i} />)}</Stack>
+          desktop ? <Table.Skeleton rows={5} cols={6} selectable={false} /> : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <ClientCard.Skeleton key={i} />)}</Stack>
         ) : error && !leads.length ? (
           <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
         ) : !clients.length ? (
@@ -133,9 +134,9 @@ export default function AdminClients({
         ) : !list.length ? (
           <Card><EmptyState size="sm" icon="SearchMd" title={E('clients.filter').title} description={E('clients.filter').description} action={{ label: E('clients.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
         ) : desktop ? (
-          <Table aria-label="Clients" columns={columns} rows={rows} onRowClick={(r) => pick(r._id)} storageKey="vz_clients_cols" density="md" className="cl-table" />
+          <Table aria-label="Clients" columns={columns} rows={rows} onRowClick={(r) => pick(r._id)} rowActions={(r) => <Menu label={`Actions for ${r.lead.business}`} items={rowMenu(r.lead)} />} storageKey="vz_clients_cols" density="md" className="cl-table" />
         ) : (
-          <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} posts={posts} onOpen={() => pick(l._id)} />)}</Stagger>
+          <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} />)}</Stagger>
         )}
         {loading ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
       </ScrollArea>
@@ -147,8 +148,7 @@ export default function AdminClients({
 
 const clStyles = `
   /* The list page rules (.cl-shell, .cl-page, .cl-search, .cl-clear, .cl-stack, .cl-muted, .cl-cell-biz) ship in uiStyles (src/ui/lead.styles.js). */
-  .cl-cell-pay { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 160px; font-variant-numeric: tabular-nums; }
-  .cl-cell-pay .v-bar { width: 72px; }
+  .cl-cell-pay { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .cl-table .v-td { max-width: 260px; }
   .cl-table .v-td .v-pill { max-width: none; }
   .cl-panel { padding: var(--v-space-3); }

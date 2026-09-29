@@ -185,7 +185,7 @@ export const leadDetailStyles = `
   .dt-outbar-row > .v-btn, .dt-outbar-row > .v-skel { flex: 1 1 140px; min-width: 0; }
 `;
 
-/* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-).
+/* Clients module (Prompt 10): the client rows (clc-) and ClientWorkspace (cw-).
  * Prompt 12: the list plus right panel split (po-) used by Print Orders,
  * Concepts, and Submissions lives here so every screen shares it. */
 export const clientStyles = `
@@ -202,7 +202,9 @@ export const clientStyles = `
   .cl-stack > .v-stagger-item { display: contents; }
   .cl-muted { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .cl-muted-cell { color: var(--v-text-3); }
-  .cl-cell-biz { display: inline-flex; align-items: center; gap: var(--v-space-2); min-width: 0; max-width: 200px; font-weight: var(--v-weight-semibold); }
+  .cl-cell-biz { display: inline-block; min-width: 0; max-width: 200px; font-weight: var(--v-weight-semibold); }
+  /* The client pill (src/lib/clientRowPill.js) keeps its whole label on a row. */
+  .clc-pill { max-width: 60%; }
   .po-split { display: flex; flex: 1; min-height: 0; min-width: 0; }
   .po-page { --v-stack-gap: var(--v-space-4); flex: 1; min-width: 0; }
   .po-panel { width: 440px; flex-shrink: 0; border-left: 1px solid var(--v-border); background: var(--v-surface-1); min-height: 0; display: flex; flex-direction: column; animation: po-panel-in var(--v-dur-base) var(--v-ease-out) both; }
@@ -213,17 +215,6 @@ export const clientStyles = `
   .cw-row-paid .v-td { animation: cw-row-paid calc(var(--v-dur-slow) * 2) var(--v-ease-out) 1; }
   @keyframes cw-row-paid { 0% { background: var(--v-status-won-soft); } 100% { background: var(--v-surface-1); } }
 
-  .clc { display: flex; flex-direction: column; min-width: 0; }
-  .clc .lc { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
-  .clc:has(> .lc:only-child) .lc, .clc > .lc:last-child { border-radius: var(--v-radius-md); }
-  .clc-line { display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-2) var(--v-space-3); background: var(--v-surface-2); border: 1px solid var(--v-border); border-top: 0; border-radius: 0 0 var(--v-radius-md) var(--v-radius-md); min-width: 0; }
-  .clc.is-selected .clc-line { border-color: var(--v-red); }
-  .clc-row { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; min-width: 0; }
-  .clc-pkg .v-pill-label { max-width: 160px; }
-  .clc-pay { flex-wrap: nowrap; }
-  .clc-pay .v-bar { flex: 1 1 80px; }
-  .clc-paid { font-size: var(--v-text-xs); color: var(--v-text-2); font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
-  .clc-next, .clc-muted { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
 
 
   /* The showcase editor's derived rows (a value edited elsewhere, src/pages/AdminShowcase.jsx). */
