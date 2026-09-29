@@ -56,7 +56,7 @@ export default function MeetingSection({ rec }) {
   );
 }
 
-function RescheduleSheet({ lead, onClose, onSave }) {
+export function RescheduleSheet({ lead, onClose, onSave }) {
   const m = lead.meeting || {};
   const [date, setDate] = useState(m.date || '');
   const [time, setTime] = useState(m.time || '09:00');

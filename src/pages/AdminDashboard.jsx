@@ -2,29 +2,34 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, Collapsible,
+  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
-import { CONTACTED_STATUSES } from '../lib/leads';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { normalizeStage } from '../shared/semantics';
-import { fmtDateTime, toMs, dayKey } from '../shared/dates';
+import { fmtDateTime, fmtWeekdayDateTime, toMs, dayKey } from '../shared/dates';
 import { money } from '../shared/format';
 import { telHref } from '../shared/phone';
 import { nextUpItems } from '../lib/nextAction';
+import { buildEvents } from '../lib/events';
+import { isStalled } from '../lib/deal';
+import { invoicesOf, invoiceStatus } from '../lib/invoices';
+import { openLists, isFull, listCount } from '../lib/lists';
 import LeadDetail from '../components/LeadDetail';
+import { RescheduleSheet } from '../components/record/MeetingSection';
 
-/* Next up (CRM revamp, step 2): the one list of what to do, first. Every
- * lead and project carries its next action (src/lib/nextAction.js); this
- * screen lays them out overdue first, then today, then the next seven days
- * folded under Later this week, each row with the one control that does
- * the thing. Swipe right on a phone marks it done, swipe left snoozes it a
- * day, a long press picks the snooze. On a desktop the queue is the left
- * panel and the tapped record opens beside it. The greeting and the
- * numbers stay, the numbers folded under Stats. */
+/* Next up (CRM revamp, step 2; flat since the no folds pass): the one list
+ * of what to do, first. Every lead and project carries its next action
+ * (src/lib/nextAction.js); this screen lays them out as six open sections
+ * with no fold anywhere: Overdue, Today, This week (grouped by day), Later
+ * (dated, then undated custom actions), Meetings (the Calendar's own event
+ * source, src/lib/events.js) and Lists ready (open dial lists at target).
+ * Each action row keeps its one control, its menu and the phone's swipes:
+ * right is done, left snoozes a day, a long press picks the snooze. On a
+ * desktop the queue is the left panel and the tapped record opens beside
+ * it. Four stat tiles sit under the greeting, always visible. */
 
 const DAY = 864e5;
-const CONTACTED = new Set(CONTACTED_STATUSES);
 
 function periods(now = new Date()) {
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
@@ -86,7 +91,6 @@ export function computeDashboard(leads, subs, orders, P = periods()) {
 
 const greetingFor = (h, name = 'Rob') => (h < 12 ? `Good morning, ${name}.` : h < 17 ? `Good afternoon, ${name}.` : `Good evening, ${name}.`);
 const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return true; const m = d.getHours() * 60 + d.getMinutes(); const [a, b] = [bh.start, bh.end].map(t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }); return m >= a && m < b; };
-const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cur - prev >= 0 ? '+' : ''}${cur - prev} vs ${label}`, direction: cur > prev ? 'up' : cur < prev ? 'down' : 'flat' });
 const timeOf = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 /* UI simplification, part B: the due time shows, never a relative time beside it; an overdue row from another day names the day. */
 const dueLabel = (item, now = Date.now()) => (item.bucket === 'today' || (item.bucket === 'overdue' && dayKey(item.due) === dayKey(now)) ? timeOf(item.due) : item.bucket === 'overdue' ? new Date(item.due).toLocaleDateString([], { month: 'short', day: 'numeric' }) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
@@ -163,28 +167,72 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) 
   );
 }
 
-function NextUpList({ q, phone, now, laterOpen, onLater, act, empty }) {
-  const group = (label, items, tone) => (
-    <Stack gap={2} key={label}>
-      <Row gap={2} align="center"><span className={`nu-group nu-group--${tone}`}>{label}</span><span className="nu-count">{items.length}</span></Row>
-      <Stack gap={2}>{items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />)}</Stack>
-    </Stack>
-  );
-  if (!q.all.length) return <Card><EmptyState size="sm" icon="CheckCircle" title={empty.title} description={empty.description} action={{ label: empty.action, icon: PhoneCall01, onClick: () => act('calls') }} /></Card>;
+const DAY_LABEL = (t) => { const d = new Date(t); return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}`; };
+const MEETING_TYPE = { call: 'call', video: 'video', 'in-person': 'in person' };
+
+/* A meeting row: the business, the day and time and the type, Reschedule in the menu. The same events the Calendar reads. */
+function MeetingRow({ e, onOpen, onReschedule }) {
+  const items = [
+    ...(e.kind === 'meeting' ? [{ id: 're', label: 'Reschedule', icon: 'Calendar', onSelect: onReschedule }] : []),
+    ...(e.link ? [{ id: 'join', label: 'Join link', icon: 'ArrowRight', onSelect: () => window.open(e.link, '_blank', 'noopener') }] : []),
+    { id: 'open', label: 'Open the record', icon: 'ArrowRight', onSelect: onOpen },
+  ];
+  const type = e.kind === 'calendly' ? 'calendly' : MEETING_TYPE[e.lead?.meeting?.type] || 'call';
   return (
-    <Stack gap={4} className="nu-list">
-      {q.overdue.length > 0 && group('Overdue', q.overdue, 'danger')}
-      {q.today.length > 0 && group('Today', q.today, 'today')}
-      {!q.overdue.length && !q.today.length && <p className="nu-clear" role="status">Nothing due today. {q.later.length} coming up this week.</p>}
-      {q.later.length > 0 && (
-        <Card padding={0} className="nu-later">
-          <button type="button" className="nu-later-btn" onClick={onLater} aria-expanded={laterOpen} aria-controls="nu-later-body">
-            <span className="nu-group">Later this week</span><span className="nu-count">{q.later.length}</span>
-            <span style={{ flex: 1 }} /><span className={`db-chev${laterOpen ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
-          </button>
-          <Collapsible open={laterOpen}><div id="nu-later-body" className="nu-later-body"><Stack gap={2}>{q.later.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />)}</Stack></div></Collapsible>
-        </Card>
-      )}
+    <Card as="div" padding={3} interactive className="nu-row nu-row--meet lay-card">
+      <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${e.lead.business}, meeting ${fmtWeekdayDateTime(e.at)}`}>{`Open ${e.lead.business}`}</button>
+      <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
+        <IconTile icon="CalendarCheck01" tone="booked" size="sm" />
+        <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+          <span className="nu-biz lay-truncate">{e.lead.business}</span>
+          <span className="nu-what lay-truncate">{fmtWeekdayDateTime(e.at)} · {type}</span>
+        </Stack>
+        <span className="v-above nu-ctl"><Menu label={`${e.lead.business} meeting actions`} items={items} /></span>
+      </Row>
+    </Card>
+  );
+}
+
+/* A full dial list: its count against the target and Start. */
+function ListReadyRow({ list, onStart, onOpen }) {
+  return (
+    <Card as="div" padding={3} className="nu-row nu-row--list lay-card">
+      <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
+        <IconTile icon="Rows01" tone="booked" size="sm" />
+        <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+          <span className="nu-biz lay-truncate">{list.name}</span>
+          <span className="nu-what lay-truncate">{listCount(list)} of {list.target}, ready to start</span>
+        </Stack>
+        <span className="nu-ctl">
+          <Button size="md" icon="Play" onClick={onStart} className="nu-start">Start</Button>
+          <Menu label={`${list.name} actions`} items={[{ id: 'open', label: 'Open the list', icon: 'ArrowRight', onSelect: onOpen }]} />
+        </span>
+      </Row>
+    </Card>
+  );
+}
+
+/* The six sections, every one open, an empty one a single line. */
+function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
+  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />);
+  const line = (text) => <p className="nu-clear" role="status">{text}</p>;
+  const section = (id, label, tone, count, body) => (
+    <section key={id} className="nu-sec" aria-label={label}>
+      <Row gap={2} align="center" className="nu-sec-head"><span className={`nu-group nu-group--${tone}`}>{label}</span>{count > 0 && <span className="nu-count">{count}</span>}</Row>
+      {body}
+    </section>
+  );
+  const days = [];
+  for (const it of q.later) { const k = dayKey(new Date(it.due)); let d = days.find(x => x.key === k); if (!d) { d = { key: k, label: DAY_LABEL(it.due), items: [] }; days.push(d); } d.items.push(it); }
+  const later = [...q.beyond, ...q.undated];
+  return (
+    <Stack gap={5} className="nu-list">
+      {section('overdue', 'Overdue', 'danger', q.overdue.length, q.overdue.length ? <Stack gap={2}>{rows(q.overdue)}</Stack> : line('Nothing overdue.'))}
+      {section('today', 'Today', 'today', q.today.length, q.today.length ? <Stack gap={2}>{rows(q.today)}</Stack> : line('Nothing due today.'))}
+      {section('week', 'This week', 'neutral', q.later.length, days.length ? <Stack gap={3}>{days.map(d => <Stack key={d.key} gap={2}><span className="nu-day">{d.label}</span>{rows(d.items)}</Stack>)}</Stack> : line('Nothing else this week.'))}
+      {section('later', 'Later', 'neutral', later.length, later.length ? <Stack gap={2}>{rows(later)}</Stack> : line('Nothing later.'))}
+      {section('meetings', 'Meetings', 'neutral', meetings.length, meetings.length ? <Stack gap={2}>{meetings.map(e => <MeetingRow key={e.id} e={e} onOpen={() => act('meeting', e)} onReschedule={() => onReschedule(e)} />)}</Stack> : line('No meetings booked.'))}
+      {section('lists', 'Lists ready', 'neutral', lists.length, lists.length ? <Stack gap={2}>{lists.map(l => <ListReadyRow key={l._id} list={l} onStart={() => onStartList(l)} onOpen={onOpenLists} />)}</Stack> : line('No list is full yet.'))}
     </Stack>
   );
 }
@@ -205,9 +253,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const showSkel = useDelayedLoading(loading);
   const [selId, setSelId] = useState(null);
   const [intent, setIntent] = useState(null);
-  const [laterOpen, setLaterOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
-  const [more, setMore] = useState(false);
+  const [resched, setResched] = useState(null); // the meeting event a reschedule sheet is open for
   const [pick, setPick] = useState(null); // the item a snooze picker is open for
   const [pickDate, setPickDate] = useState('');
   const now = Date.now();
@@ -216,6 +262,9 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 
   const s = useMemo(() => computeDashboard(leads || [], subs, orders), [leads, subs, orders]);
   const q = useMemo(() => nextUpItems(leads || [], projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
+  const calendlyEvents = shell?.calendly?.events; const shellPosts = shell?.posts; const shellLists = shell?.lists;
+  const meetings = useMemo(() => { const start = new Date(now); start.setHours(0, 0, 0, 0); return buildEvents(leads || [], calendlyEvents || [], now, projects, shellPosts || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= start.getTime()); }, [leads, projects, calendlyEvents, shellPosts, now]);
+  const listsReady = useMemo(() => openLists(shellLists || []).filter(isFull), [shellLists]);
   useEffect(() => { if (!loading) { try { localStorage.setItem(NEXT_KEY, `${q.overdue.length},${q.today.length}`); } catch { /* private mode */ } } }, [loading, q.overdue.length, q.today.length]);
 
   const hour = new Date().getHours();
@@ -242,6 +291,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const act = async (what, item) => {
     if (what === 'calls') { shell.go('calls'); return; }
     if (what === 'open') { openRecord(item); return; }
+    if (what === 'meeting') { openRecord({ lead: item.lead }, 'meeting'); return; }
     if (what === 'act') {
       const k = item.action.kind;
       if (k === 'build-concepts' && shell?.openConcepts) shell.openConcepts(item.lead);
@@ -300,26 +350,15 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     ) : <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide">{err}</div><style>{dbStyles}</style></div>;
   }
 
-  const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : null);
-  const funnel = [
-    { id: 'leads', label: 'Leads', n: s.funnel.leads, tone: 'neutral', go: () => shell.go('leads', {}) },
-    { id: 'contacted', label: 'Contacted', n: s.funnel.contacted, tone: 'progress', pct: pct(s.funnel.contacted, s.funnel.leads), go: () => shell.go('leads', { status: [...CONTACTED] }) },
-    { id: 'booked', label: 'Booked', n: s.funnel.booked, tone: 'booked', pct: pct(s.funnel.booked, s.funnel.contacted), go: () => shell.go('booked') },
-    { id: 'clients', label: 'Clients', n: s.funnel.clients, tone: 'won', pct: pct(s.funnel.clients, s.funnel.booked), go: () => shell.go('clients') },
-  ];
-  const keyStats = [
+  /* The four tiles (no folds pass): calls today, callbacks pending, deals stalled, the money due this week. */
+  const weekEnd = now + 7 * DAY;
+  const stalled = (leads || []).filter(l => { const st = normalizeStage(l); return (st === 'booked' || st === 'deal') && isStalled(l); }).length;
+  const dueWeek = (projects || []).filter(p => !p.archived).reduce((sum, p) => sum + invoicesOf(p).reduce((n, inv) => { const st = invoiceStatus(inv, now); if (st === 'paid' || st === 'draft' || !inv.dueAt) return n; const t = new Date(`${inv.dueAt}T12:00:00`).getTime(); return t <= weekEnd ? n + (Number(inv.amount) || 0) : n; }, 0), 0);
+  const tiles = [
     { icon: 'PhoneCall01', tone: 'progress', value: s.callsToday, label: 'Calls today', go: () => shell.go('calls') },
     { icon: 'PhoneIncoming01', tone: 'callback', value: s.callbacks, label: 'Callbacks pending', go: () => shell.go('calls', { status: ['callback'] }) },
-    { icon: 'CalendarCheck01', tone: 'booked', value: s.booked, label: 'Booked', go: () => shell.go('booked') },
-    { icon: 'Zap', tone: 'new', value: s.newLeads48h, label: 'New leads 48h', go: () => shell.go('leads', {}) },
-  ];
-  const moreStats = [
-    { icon: 'PhoneCall01', tone: 'progress', value: s.callsWeek, label: 'Calls this week', trend: trendOf(s.callsWeek, s.callsLastWeek, 'last week'), go: () => shell.go('calls') },
-    { icon: 'PhoneCall01', tone: 'progress', value: s.callsMonth, label: 'Calls this month', trend: trendOf(s.callsMonth, s.callsLastMonth, 'last month'), go: () => shell.go('calls') },
-    { icon: 'Users01', tone: 'new', value: s.notCalled, label: 'Not yet called', go: () => shell.go('leads', { status: ['not-called'] }) },
-    { icon: 'Check', tone: 'booked', value: s.connectRate == null ? 'n/a' : `${s.connectRate}%`, label: 'Connect rate this month',
-      trend: s.connectRate != null && s.connectRateLast != null ? { value: `${s.connectRate - s.connectRateLast >= 0 ? '+' : ''}${s.connectRate - s.connectRateLast} pts vs last month`, direction: s.connectRate > s.connectRateLast ? 'up' : s.connectRate < s.connectRateLast ? 'down' : 'flat' } : undefined,
-      go: () => shell.go('calls') },
+    { icon: 'Zap', tone: stalled ? 'danger' : 'neutral', value: stalled, label: 'Deals stalled', go: () => shell.go('deals') },
+    { icon: 'CurrencyDollar', tone: 'won', value: money(dueWeek), label: 'Due this week', go: () => shell.go('projects') },
   ];
 
   const header = (
@@ -334,55 +373,9 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
       </Row>
     </div>
   );
-  const statsBlock = (
-    <Card className="db-more db-stats">
-      <button type="button" className="db-more-btn" onClick={() => setStatsOpen(m => !m)} aria-expanded={statsOpen} aria-controls="db-stats-body">
-        <span className="pb-card-h" style={{ margin: 0 }}>Stats</span>
-        <span className="db-more-sum">{statsOpen ? 'Hide' : `${s.callsToday} call${s.callsToday === 1 ? '' : 's'} today, ${s.funnel.leads} leads, ${s.funnel.clients} clients`}</span>
-        <span className={`db-chev${statsOpen ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
-      </button>
-      <Collapsible open={statsOpen}>
-        <div id="db-stats-body">
-          <Stack gap={4}>
-            <Grid minColumnWidth={120} className="db-key">
-              {keyStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} onClick={c.go} />)}
-            </Grid>
-            <div className="db-funnel" role="group" aria-label="Pipeline">
-              {funnel.map((f, i) => (
-                <Card key={f.id} level={1} padding={3} interactive glow={f.tone} onClick={f.go} className="db-step">
-                  {i > 0 && f.pct && <span className="db-step-pct" title="Conversion from the previous step">{f.pct}</span>}
-                  <span className="db-step-n">{f.n}</span>
-                  <span className="db-step-label">{f.label}</span>
-                </Card>
-              ))}
-            </div>
-            <button type="button" className="db-more-btn" onClick={() => setMore(m => !m)} aria-expanded={more} aria-controls="db-more-body">
-              <span className="pb-card-h" style={{ margin: 0 }}>More stats</span>
-              <span className="db-more-sum">{more ? 'Hide' : 'Calls this week and month, connect rate, not yet called, revenue'}</span>
-              <span className={`db-chev${more ? ' is-open' : ''}`}><Icon icon="ChevronDown" size={16} /></span>
-            </button>
-            <Collapsible open={more}>
-              <div id="db-more-body">
-                <Stack gap={4}>
-                  <Grid minColumnWidth={120}>{moreStats.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} trend={c.trend} onClick={c.go} />)}</Grid>
-                  <Section title="Revenue" description={s.retainerClients || s.clients ? `${s.retainerClients} of ${s.clients} client${s.clients === 1 ? '' : 's'} on retainer` : undefined}>
-                    <Grid minColumnWidth={150}>
-                      <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenue)} label="Money made all time" onClick={() => shell.go('clients')} />
-                      <StatCard icon="CurrencyDollar" tone="won" value={money(s.revenueMonth)} label="This month" onClick={() => shell.go('clients')} />
-                      <StatCard icon="RefreshCw01" tone="booked" value={money(s.mrr)} label="Monthly recurring" onClick={() => shell.go('clients')} />
-                      <StatCard icon="Briefcase01" tone="booked" value={`${s.retainerClients} of ${s.clients}`} label="Clients on retainer" onClick={() => shell.go('clients')} />
-                    </Grid>
-                  </Section>
-                </Stack>
-              </div>
-            </Collapsible>
-          </Stack>
-        </div>
-      </Collapsible>
-    </Card>
-  );
-  const E = COPY.empty['dashboard.next'];
-  const list = <NextUpList q={q} phone={phone} now={now} laterOpen={laterOpen} onLater={() => setLaterOpen(v => !v)} act={act} empty={E} />;
+  const statsBlock = <div className="db-tiles" role="group" aria-label="Today in numbers">{tiles.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} onClick={c.go} className="db-tile" />)}</div>;
+  const list = <NextUpList q={q} meetings={meetings} lists={listsReady} phone={phone} now={now} act={act} onReschedule={setResched} onStartList={(l) => shell.go('calls', { listId: String(l._id) })} onOpenLists={() => shell.go('lists')} />;
+  const reschedSheet = resched && <RescheduleSheet lead={resched.lead} onClose={() => setResched(null)} onSave={async (m) => { const l = resched.lead; const ok = await onPatchLead(l._id, { meeting: { date: '', time: '', type: 'call', location: '', ...(l.meeting || {}), ...m } }); if (ok) { setResched(null); toast.success('Meeting updated.'); } else toast.error(COPY.error.save); }} />;
   const picker = pick && (
     <Sheet open onClose={() => setPick(null)} title="Snooze until" description={`${pick.action.label}, ${pick.lead.business}`} label="Snooze until"
       footer={<Row gap={2} justify="end" wrap><Button variant="ghost" onClick={() => setPick(null)}>Cancel</Button><Button onClick={() => snoozeUntil(pickDate ? new Date(`${pickDate}T09:00`).getTime() : null)} disabled={!pickDate}>Snooze</Button></Row>}>
@@ -413,6 +406,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
           </div>
         )}
         {picker}
+        {reschedSheet}
         <style>{dbStyles}</style>
       </>
     );
@@ -422,11 +416,12 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
       <div className="lay-content lay-content--wide">
         <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
           {header}
-          <Card className="db-next"><Section title="Next up" description={q.all.length ? `${q.overdue.length} overdue, ${q.today.length} today, ${q.later.length} this week` : undefined}>{list}</Section></Card>
           {statsBlock}
+          <div className="db-next">{list}</div>
         </Stagger>
       </div>
       {picker}
+      {reschedSheet}
       <style>{dbStyles}</style>
     </div>
   );
@@ -448,19 +443,13 @@ const dbStyles = `
   .db-context { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }
   .db-head-actions { flex-shrink: 0; }
   @media (max-width: 767px) { .db-head-actions > .v-btn { flex: 1 1 45%; } }
-  .db-funnel { display: flex; gap: var(--v-space-2); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; min-width: 0; padding: 2px; margin: -2px; }
-  .db-funnel::-webkit-scrollbar { display: none; }
-  .db-step { flex: 1 0 150px; min-height: 92px; gap: var(--v-space-1); justify-content: flex-end; }
-  .db-step:first-child { position: sticky; left: 0; z-index: 1; box-shadow: 0 0 0 1px var(--v-border), 12px 0 16px -12px var(--v-ground); }
-  @media (min-width: 768px) { .db-step { flex-basis: 0; } .db-step:first-child { position: static; box-shadow: none; } }
-  .db-step-n { font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); font-weight: var(--v-weight-bold); color: var(--v-text); font-variant-numeric: tabular-nums; }
-  .db-step-label { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-3); }
-  .db-step-pct { position: absolute; top: var(--v-space-3); right: var(--v-space-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-2); border: 1px solid var(--v-border); border-radius: var(--v-radius-pill); padding: 2px 8px; font-variant-numeric: tabular-nums; }
-  .db-more-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0; background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }
-  .db-more-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
-  .db-chev { display: inline-flex; transition: transform var(--v-dur-base) var(--v-ease-out); }
-  .db-chev.is-open { transform: rotate(180deg); }
-  .db-more-sum { flex: 1; min-width: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* Four small tiles in one row, always visible. */
+  .db-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--v-space-2); min-width: 0; }
+  .db-tiles .v-stat { min-height: 0; padding: var(--v-space-3); gap: var(--v-space-2); }
+  .db-tiles .v-stat-value { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); }
+  .db-tiles .v-stat-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); }
+  .db-tiles .v-stat-label { overflow-wrap: normal; word-break: normal; }
+  @media (max-width: 479px) { .db-tiles .v-tile { display: none; } .db-tiles .v-stat { padding: var(--v-space-2); } .db-tiles .v-stat-value { font-size: var(--v-text-xl); line-height: var(--v-lh-xl); } }
   /* Next up rows */
   .nu-group { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .nu-group--danger { color: var(--v-status-danger-text); }
@@ -479,8 +468,10 @@ const dbStyles = `
   .nu-what { font-size: var(--v-text-sm); color: var(--v-text-2); }
   .nu-due { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .nu-ctl { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
-  .nu-later { overflow: hidden; }
-  .nu-later-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0 var(--v-space-4); background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }
-  .nu-later-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
-  .nu-later-body { padding: 0 var(--v-space-3) var(--v-space-3); }
+  /* The six sections: every one open, a day label inside This week, one line when empty. */
+  .nu-sec { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .nu-sec-head { min-height: 21px; }
+  .nu-day { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-2); }
+  .nu-row--list { gap: 0; }
+  .nu-start { flex-shrink: 0; }
 `;

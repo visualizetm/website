@@ -138,22 +138,23 @@ export const liveNextAction = (record, ctx = {}, now = Date.now()) => resolveNex
 /* ── The Next up queue ───────────────────────────────────────────── */
 export const NEXT_TONE = { call: 'progress', callback: 'callback', 'build-concepts': 'progress', 'log-outcome': 'new', 'send-onboarding': 'progress', 'chase-form': 'new', 'send-contract': 'progress', 'chase-contract': 'new', 'send-invoice': 'won', 'chase-invoice': 'danger', kickoff: 'booked', revision: 'callback', deliver: 'booked', 'retainer-pitch': 'won', 'review-ask': 'won', custom: 'neutral' };
 
-/** Every open action across leads and projects, bucketed: overdue, today, later (the next seven days). */
+/** Every open action across leads and projects, bucketed: overdue, today, later (the next seven days), beyond (dated past that) and undated (a custom action with no date). `all` stays overdue, today and later, which is what the badge and the drawer read. */
 export function nextUpItems(leads = [], projects = [], sets = [], now = Date.now()) {
   const ctx = { projects, sets };
   const byId = new Map((leads || []).map(l => [String(l._id), l]));
   const items = [];
   const push = (record, lead, action) => {
     if (!action || action.doneAt || !lead || lead.deleted) return;
-    const due = parseDate(action.dueAt)?.getTime() || now;
-    const today = dayKey(new Date(now)) === dayKey(new Date(due));
-    const bucket = due < now && !today ? 'overdue' : today ? 'today' : due <= now + 7 * DAY ? 'later' : 'beyond';
-    if (bucket === 'beyond') return;
+    const dated = parseDate(action.dueAt)?.getTime() || 0;
+    const due = dated || now;
+    const today = dated && dayKey(new Date(now)) === dayKey(new Date(due));
+    const bucket = !dated ? 'undated' : due < now && !today ? 'overdue' : today ? 'today' : due <= now + 7 * DAY ? 'later' : 'beyond';
     items.push({ id: `${isProject(record) ? 'p' : 'l'}:${record._id}`, record, lead, project: isProject(record) ? record : null, action, due, bucket, tone: bucket === 'overdue' ? 'danger' : NEXT_TONE[action.kind] || 'neutral', icon: nextActionKindOf(action.kind).icon });
   };
   for (const l of leads || []) { if (l.deleted) continue; push(l, l, liveNextAction(l, ctx, now)); }
   for (const p of projects || []) { if (p.archived) continue; push(p, byId.get(String(p.leadId)), liveNextAction(p, ctx, now)); }
   items.sort((a, b) => a.due - b.due);
-  return { overdue: items.filter(i => i.bucket === 'overdue'), today: items.filter(i => i.bucket === 'today'), later: items.filter(i => i.bucket === 'later'), all: items };
+  const of = (b) => items.filter(i => i.bucket === b);
+  return { overdue: of('overdue'), today: of('today'), later: of('later'), beyond: of('beyond'), undated: of('undated'), all: items.filter(i => i.bucket === 'overdue' || i.bucket === 'today' || i.bucket === 'later') };
 }
 export const nextUpBadge = (leads, projects, sets, now = Date.now()) => { const q = nextUpItems(leads, projects, sets, now); return q.overdue.length + q.today.length; };
