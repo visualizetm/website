@@ -51,6 +51,7 @@ export const SCREENS = [
 
   { id: 'leads-kanban', screen: 'Leads', label: 'list, kanban', path: '/admin/leads', resource: 'leads', minWidth: 1024, prep: (p) => setLS(p, 'vz_leads_view', 'kanban') },
   { id: 'leads-list', screen: 'Leads', label: 'list, cards or table', path: '/admin/leads', resource: 'leads', prep: (p) => setLS(p, 'vz_leads_view', 'list') },
+  { id: 'leads-filters', screen: 'Leads', label: 'the Filters sheet', path: '/admin/leads', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await click(p.locator('.ld-filters-btn')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'leads-detail', screen: 'Leads', label: 'lead detail', path: '/admin/leads', open: 'L0', region: '.aa-main.ld-main', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: (p, w) => click(p.locator(w >= 1024 ? '.v-tr' : '.lc')) },
 
   { id: 'calls-lists', screen: 'Call Console', label: 'the lists to run', path: '/admin/calls', resource: 'lists', prep: (p) => rmLS(p, 'vz_call_session') },
@@ -80,6 +81,7 @@ export const SCREENS = [
   { id: 'calendar-month', screen: 'Calendar', label: 'month', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'month') },
 
   { id: 'clients-list', screen: 'Clients', label: 'list', path: '/admin/clients', resource: 'leads' },
+  { id: 'clients-filters', screen: 'Clients', label: 'the Filters sheet', path: '/admin/clients', resource: 'leads', region: '.v-sheet', detail: true, act: async (p) => { await click(p.locator('.cl-filters-btn')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'clients-detail', screen: 'Clients', label: 'client detail (the Project tab, the rows on a phone)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
   // UI simplification, part A: the record in lead, deal and client modes at both widths is leads-detail, deals-detail and clients-detail; these are its Money section and the Add a detail sheet.
   { id: 'clients-money', screen: 'Clients', label: 'client detail, Money', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, noFit: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Money'); } },
