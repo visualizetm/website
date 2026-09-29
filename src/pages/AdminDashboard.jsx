@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
+  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
@@ -103,8 +103,6 @@ const SNOOZES = [
 
 /* The row count follows the data, so the skeleton reads the last known
    count from localStorage (written on every loaded render). */
-const NEXT_KEY = 'vz_dash_next';
-const readNextCounts = () => { try { const [o, t] = String(localStorage.getItem(NEXT_KEY) || '').split(',').map(Number); return { overdue: Number.isFinite(o) && o >= 0 ? Math.min(o, 8) : 0, today: Number.isFinite(t) && t >= 0 ? Math.min(t, 8) : 3 }; } catch { return { overdue: 0, today: 3 }; } };
 
 /* ── Swipe: right is done, left is snooze, a long press picks the snooze ── */
 function useSwipe({ onRight, onLeft, onHold, enabled }) {
@@ -225,6 +223,10 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
   const days = [];
   for (const it of q.later) { const k = dayKey(new Date(it.due)); let d = days.find(x => x.key === k); if (!d) { d = { key: k, label: DAY_LABEL(it.due), items: [] }; days.push(d); } d.items.push(it); }
   const later = [...q.beyond, ...q.undated];
+  /* Nothing to do and nothing booked: one empty state instead of five clear lines; a full list still shows under it. */
+  const nothing = !q.all.length && !later.length && !meetings.length;
+  const listsSec = section('lists', 'Lists ready', 'neutral', lists.length, lists.length ? <Stack gap={2}>{lists.map(l => <ListReadyRow key={l._id} list={l} onStart={() => onStartList(l)} onOpen={onOpenLists} />)}</Stack> : line('No list is full yet.'));
+  if (nothing) return <Stack gap={5} className="nu-list"><Card className="nu-empty"><EmptyState size="sm" icon="CheckCircle" title={COPY.empty['dashboard.next'].title} description={COPY.empty['dashboard.next'].description} action={{ label: COPY.empty['dashboard.next'].action, icon: 'PhoneCall01', onClick: () => act('calls') }} /></Card>{lists.length > 0 && listsSec}</Stack>;
   return (
     <Stack gap={5} className="nu-list">
       {section('overdue', 'Overdue', 'danger', q.overdue.length, q.overdue.length ? <Stack gap={2}>{rows(q.overdue)}</Stack> : line('Nothing overdue.'))}
@@ -232,16 +234,27 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
       {section('week', 'This week', 'neutral', q.later.length, days.length ? <Stack gap={3}>{days.map(d => <Stack key={d.key} gap={2}><span className="nu-day">{d.label}</span>{rows(d.items)}</Stack>)}</Stack> : line('Nothing else this week.'))}
       {section('later', 'Later', 'neutral', later.length, later.length ? <Stack gap={2}>{rows(later)}</Stack> : line('Nothing later.'))}
       {section('meetings', 'Meetings', 'neutral', meetings.length, meetings.length ? <Stack gap={2}>{meetings.map(e => <MeetingRow key={e.id} e={e} onOpen={() => act('meeting', e)} onReschedule={() => onReschedule(e)} />)}</Stack> : line('No meetings booked.'))}
-      {section('lists', 'Lists ready', 'neutral', lists.length, lists.length ? <Stack gap={2}>{lists.map(l => <ListReadyRow key={l._id} list={l} onStart={() => onStartList(l)} onOpen={onOpenLists} />)}</Stack> : line('No list is full yet.'))}
+      {listsSec}
     </Stack>
   );
 }
 
-function NextUpSkeleton({ counts }) {
-  // A row at its real lines: the name (22), the action (21), then the due line, a pill (22) when overdue or the time (19).
-  const rowSkel = (i, overdue) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
-  const group = (n, key, overdue) => (n ? <Stack gap={2} key={key}><Row gap={2} align="center"><SkeletonBlock width={70} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></Row>{Array.from({ length: n }, (_, i) => rowSkel(i, overdue))}</Stack> : null);
-  return <Stack gap={4} aria-busy="true">{group(counts.overdue, 'o', true)}{group(counts.today, 't', false)}</Stack>;
+/* The six sections at fixed counts (3, 3, 4, 2, 2, 1): an action row at its real lines (the name 22, the action 21, then a pill 22 when overdue or the time 19), a meeting row and a list row at theirs. */
+const SKEL_SECTIONS = [['Overdue', 3, 'act'], ['Today', 3, 'act'], ['This week', 4, 'act'], ['Later', 2, 'act'], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
+function NextUpSkeleton() {
+  const actRow = (i, overdue) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  const twoLine = (i, wide) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="45%" height={19} /></Stack><Row gap={1}>{wide ? <SkeletonBlock width={76} height={44} radius="var(--v-radius-md)" /> : <SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  return (
+    <Stack gap={5} aria-busy="true" aria-hidden="true">
+      {SKEL_SECTIONS.map(([label, n, kind], si) => (
+        <Stack gap={2} key={label}>
+          <Row gap={2} align="center" className="nu-sec-head"><SkeletonBlock width={label.length * 8} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></Row>
+          {kind === 'act' && label === 'This week' && <SkeletonBlock width={80} height={16} />}
+          {Array.from({ length: n }, (_, i) => (kind === 'act' ? actRow(i, si === 0) : twoLine(i, kind === 'list')))}
+        </Stack>
+      ))}
+    </Stack>
+  );
 }
 
 export default function AdminDashboard({ leads, projects = [], sets = [], loading, error, onRetry, subs, orders, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
@@ -265,7 +278,6 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const calendlyEvents = shell?.calendly?.events; const shellPosts = shell?.posts; const shellLists = shell?.lists;
   const meetings = useMemo(() => { const start = new Date(now); start.setHours(0, 0, 0, 0); return buildEvents(leads || [], calendlyEvents || [], now, projects, shellPosts || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= start.getTime()); }, [leads, projects, calendlyEvents, shellPosts, now]);
   const listsReady = useMemo(() => openLists(shellLists || []).filter(isFull), [shellLists]);
-  useEffect(() => { if (!loading) { try { localStorage.setItem(NEXT_KEY, `${q.overdue.length},${q.today.length}`); } catch { /* private mode */ } } }, [loading, q.overdue.length, q.today.length]);
 
   const hour = new Date().getHours();
   const name = (shell?.profile?.name || 'Rob').split(' ')[0];
@@ -323,17 +335,16 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   };
 
   if (loading) {
-    const counts = readNextCounts(); const rows = counts.overdue + counts.today;
     const body = (
       <Stack gap={5}>
         <div className="db-head"><Stack gap={1}><h2 className="db-greet">{greetingFor(hour, name)}</h2><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
-        {!desktop && <Card className="db-next"><Stack gap={3}><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock width={180} height={18} /></Stack>{rows ? <NextUpSkeleton counts={counts} /> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Stack></Card>}
-        <Card style={{ minHeight: 90, boxSizing: 'border-box' }}><Row gap={2} align="center" style={{ minHeight: 44 }}><SkeletonBlock width={50} height={14} /><SkeletonBlock width={200} height={14} /></Row></Card>
+        <div className="db-tiles" aria-busy="true" aria-hidden="true">{[0, 1, 2, 3].map(i => <Card key={i} className="v-stat db-tile" as="div"><span className="v-tile db-tile-skel"><SkeletonBlock width={40} height={40} radius="var(--v-radius-md)" /></span><div className="v-stat-body"><SkeletonBlock width={48} height={26} style={{ marginBottom: 2 }} /><SkeletonBlock width="80%" height={16} /></div></Card>)}</div>
+        {!desktop && <div className="db-next"><NextUpSkeleton /></div>}
       </Stack>
     );
     return desktop ? (
       <>
-        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton counts={rows ? counts : { overdue: 0, today: 3 }} />}</ScrollArea></aside>
+        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea></aside>
         <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
       </>
     ) : (
@@ -455,6 +466,7 @@ const dbStyles = `
   .nu-group--danger { color: var(--v-status-danger-text); }
   .nu-count { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-3); border-radius: var(--v-radius-pill); padding: 1px 8px; }
   .nu-clear { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .db-tile-skel { display: inline-flex; background: none; border: 0; box-shadow: none; }
   .nu-swipe { position: relative; }
   .nu-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: var(--v-space-1); padding: 0 var(--v-space-4); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); border-radius: var(--v-radius-lg); opacity: 0; transition: opacity var(--v-dur-fast) var(--v-ease-out); }
   .nu-swipe.is-moving .nu-hint { opacity: 0.6; }

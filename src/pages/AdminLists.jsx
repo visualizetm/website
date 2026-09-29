@@ -107,7 +107,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
       <div className="ls-stack">{[1, 2, 3].map(i => <div key={i} className="ls-item"><span className="ls-pos" aria-hidden="true">{i}</span><LeadCard.Skeleton /></div>)}</div>
     </Stack>
   ) : showSkel ? (
-    <Grid minColumnWidth={260} gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4}><Stack gap={3}><Row gap={2} justify="between"><SkeletonBlock width={140} height={18} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</Grid>
+    <Grid minColumnWidth={260} gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4}><Stack gap={3}><Row gap={2} justify="between" align="center"><Stack gap={2}><SkeletonBlock width={140} height={24} />{i === 2 && <span className="ls-skel-pill"><SkeletonBlock width={69} height={22} radius="var(--v-radius-pill)" /></span>}</Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={21} /><div style={{ padding: '12px 0' }}><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></div></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</Grid>
   ) : error && !lists.length ? (
     <Card><ErrorState title={COPY.error.lists.title} description={COPY.error.lists.description} onRetry={retry} retrying={retrying} /></Card>
   ) : sel ? (
@@ -162,6 +162,8 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
 
 const lsStyles = `
   .ls-stack { display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .ls-skel-pill { display: none; }
+  @media (max-width: 767px) { .ls-skel-pill { display: block; } }
   .ls-item { position: relative; display: flex; align-items: stretch; gap: var(--v-space-2); transition: transform var(--v-dur-base) var(--v-ease-out), opacity var(--v-dur-fast) var(--v-ease-out); touch-action: pan-y; }
   .ls-item.is-dragging { opacity: 0.6; }
   .ls-item > .lc { flex: 1; min-width: 0; }

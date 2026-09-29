@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Card, Button, Pill, Input, Select, Checkbox, SegmentedControl, ErrorState, Stagger, SkeletonBlock, useConfirm, useDelayedLoading, useRetry, useToast,
+  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Card, Button, Pill, Input, Select, Checkbox, SegmentedControl, EmptyState, ErrorState, Stagger, SkeletonBlock, useConfirm, useDelayedLoading, useRetry, useToast,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
@@ -78,20 +78,35 @@ export default function AdminProjectNew({ lead = null, leads = [], loading = fal
   if (showSkel) {
     return (
       <PageShell className="aa-main aa-main--wide pn-shell">
-        <ScrollArea><div className="pn-inner" aria-busy="true" aria-hidden="true"><Stack gap={5}>
-          <SkeletonBlock width="60%" height={34} />
-          <SkeletonBlock height={44} radius="var(--v-radius-md)" />
-          <Stack gap={2}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={72} radius="var(--v-radius-md)" />)}</Stack>
-          <SkeletonBlock height={68} radius="var(--v-radius-md)" />
-          <SkeletonBlock height={120} radius="var(--v-radius-md)" />
-        </Stack></div></ScrollArea>
-        <StickyFooterBar className="pn-foot"><Row gap={2} className="pn-foot-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar>
+        <ScrollArea><div className="pn-inner" aria-busy="true" aria-hidden="true">
+          <Stack gap={0}><SkeletonBlock width="85%" height={32} /><span className="pn-skel-line2"><SkeletonBlock width="45%" height={32} /></span></Stack>
+          <section className="pn-sec"><SkeletonBlock width={40} height={16} /><SkeletonBlock height={50} radius="var(--v-radius-md)" /></section>
+          {mode === 'retainer' ? (
+            <>
+              <section className="pn-sec"><SkeletonBlock width={64} height={16} />
+                <div className="pn-opts">{RETAINERS.map((r, i) => <div key={r.id} className="pn-opt pn-opt--skel"><span className="pn-opt-top"><SkeletonBlock width={80 + (i % 3) * 20} height={22} /><SkeletonBlock width={96} height={18} /></span><SkeletonBlock width="92%" height={18} /><span className="pn-skel-line2"><SkeletonBlock width={i === 3 ? '90%' : '55%'} height={18} /></span>{i === 3 && <span className="pn-skel-line3"><SkeletonBlock width="40%" height="100%" /></span>}</div>)}</div>
+              </section>
+              <section className="pn-sec"><SkeletonBlock width={120} height={16} /><SkeletonBlock width={240} height={70} radius="var(--v-radius-md)" className="pn-skel-field" /></section>
+            </>
+          ) : (
+            <section className="pn-sec"><SkeletonBlock width={64} height={16} />
+              <div className="pn-opts">{PACKAGES.map((pk, i) => <div key={pk.id} className="pn-opt pn-opt--skel"><span className="pn-opt-top"><SkeletonBlock width={90 + (i % 3) * 20} height={22} /><SkeletonBlock width={i > 4 ? 150 : 40} height={18} /></span><SkeletonBlock width="92%" height={18} /><span className="pn-skel-line2"><SkeletonBlock width="55%" height={18} /></span></div>)}</div>
+            </section>
+          )}
+          <section className="pn-sec"><SkeletonBlock width={72} height={16} /><SkeletonBlock width={240} height={mode === 'retainer' ? 88 : 70} radius="var(--v-radius-md)" className="pn-skel-field" /></section>
+          {mode !== 'retainer' && <section className="pn-sec"><SkeletonBlock width={170} height={16} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></section>}
+          <section className="pn-sec pn-summary"><SkeletonBlock width={64} height={16} /><SkeletonBlock width={160} height={24} /><SkeletonBlock width={90} height={32} /><SkeletonBlock width={180} height={18} /><ul className="pn-lines"><li><SkeletonBlock width="100%" height={18} /></li>{mode === 'retainer' && [1, 2, 3].map(i => <li key={i}><SkeletonBlock width={i === 3 ? '50%' : '100%'} height={i === 3 ? 24 : 18} /></li>)}</ul></section>
+        </div></ScrollArea>
+        <StickyFooterBar className="pn-foot"><Row gap={2} className="pn-foot-row"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="pn-foot-skel" /><SkeletonBlock height={44} radius="var(--v-radius-md)" className="pn-foot-skel" /></Row></StickyFooterBar>
         <style>{pnStyles}</style>
       </PageShell>
     );
   }
-  if (error && !leads.length) {
-    return <PageShell className="aa-main aa-main--wide pn-shell"><ScrollArea><Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card></ScrollArea><style>{pnStyles}</style></PageShell>;
+  if (error && !lead) {
+    return <PageShell className="aa-main aa-main--wide pn-shell"><ScrollArea><div className="pn-inner"><Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card></div></ScrollArea><style>{pnStyles}</style></PageShell>;
+  }
+  if (!lead && !leads.some(isClientLead)) {
+    return <PageShell className="aa-main aa-main--wide pn-shell"><ScrollArea><div className="pn-inner"><Card><EmptyState size="sm" icon="Briefcase01" title="No clients yet" description="A project goes on a client record. Win a deal first, or open Clients." action={{ label: 'Open Clients', icon: 'Briefcase01', onClick: () => onCancel?.() }} /></Card></div></ScrollArea><style>{pnStyles}</style></PageShell>;
   }
   if (!lead) {
     return (
@@ -192,6 +207,13 @@ const pnStyles = `
   .pn-label { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .pn-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .pn-short { max-width: 240px; }
+  .pn-skel-line2 { display: none; }
+  .pn-skel-field { max-width: 100%; }
+  .pn-opt.pn-opt--skel { gap: 6px; }
+  .pn-skel-line3 { display: block; height: 12px; }
+  @media (max-width: 767px) { .pn-skel-line3 { height: 15px; } }
+  @media (max-width: 767px) { .pn-opt.pn-opt--skel { gap: 3px; } }
+  @media (max-width: 767px) { .pn-skel-line2 { display: block; } }
   .pn-opts { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .pn-opt { display: flex; flex-direction: column; gap: 2px; width: 100%; min-height: var(--v-tap-lg); padding: var(--v-space-3); text-align: left; font: inherit; color: var(--v-text); background: var(--v-surface-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-md); cursor: pointer; }
   .pn-opt:hover { border-color: var(--v-border-strong); }
@@ -212,5 +234,5 @@ const pnStyles = `
   .pn-lines li { display: flex; justify-content: space-between; gap: var(--v-space-3); }
   .pn-lines-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .pn-foot-row { width: 100%; max-width: 760px; }
-  .pn-foot-row > .v-btn { flex: 1 1 140px; min-width: 0; }
+  .pn-foot-row > .v-btn, .pn-foot-row > .pn-foot-skel { flex: 1 1 140px; min-width: 0; width: auto; }
 `;

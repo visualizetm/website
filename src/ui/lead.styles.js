@@ -242,8 +242,6 @@ export const clientStyles = `
   .cw-rev-log li { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; }
   .cw-rev-when { color: var(--v-text-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .cw-rev-note { min-width: 0; overflow-wrap: anywhere; }
-  .cw-preview { gap: var(--v-space-2); }
-  .cw-preview-row { font-size: var(--v-text-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; }
   .cw-sched-row .v-lrow-trail { flex-wrap: wrap; justify-content: flex-end; }
   .cw-kv { display: flex; flex-direction: column; gap: 2px; font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 0; font-variant-numeric: tabular-nums; }
   .cw-sub-id { font-size: var(--v-text-sm); font-family: var(--v-font-mono, monospace); }

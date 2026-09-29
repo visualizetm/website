@@ -43,7 +43,7 @@ const VIEW_H = 844;
 import { SCREENS } from './audit-screens.mjs';
 
 /* Outermost blocks in a region: what a skeleton has to line up with. */
-const BLOCKS = '.v-card, .lc, .v-lrow, .v-table-wrap, .v-section-head, .ld-col, .cal-strip, .cal-week, .cal-month, .cc-head, .v-tabs, .v-seg, .v-chip, .v-skel, .v-btn, .v-field, .v-empty, .v-error, .rc-head, .rc-next, .rc-facts, .cc-preview, .sh-side-label, .v-toggle, .ds-sec, .ds-hero';
+const BLOCKS = '.v-card, .lc, .v-lrow, .v-table-wrap, .v-section-head, .ld-col, .cal-strip, .cal-week, .cal-month, .cc-head, .v-tabs, .v-seg, .v-chip, .v-skel, .v-btn, .v-field, .v-empty, .v-error, .rc-head, .rc-next, .rc-facts, .cc-preview, .sh-side-label, .v-toggle, .ds-sec, .ds-hero, .pn-opt, .pn-summary';
 const ENTRANCE = '.v-stagger, .v-reveal, [data-v-enter]';
 
 async function measure(page, region) {

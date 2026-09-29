@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { PageShell, ScrollArea, StickyFooterBar, Stack, Row, Card, Button, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useRetry, useToast } from '../ui';
+import { PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Card, Button, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useRetry, useToast } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
 import FilterPicker, { useFilterMatches } from '../components/FilterPicker';
@@ -28,18 +28,26 @@ export default function AdminListFill({ list = null, leads = [], lists = [], loa
     if (r) { toast.success(`Added ${ids.length} to ${list.name}, ${r.count} of ${list.target}.`); onDone?.(list); }
     else toast.error(COPY.error.save);
   };
+  /* The picker's four sections with chips at the widths the real ones take, so they wrap the same way at every width. */
+  const chips = (ws, all) => <div className="v-chipgroup">{ws.map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}{all && <span className="v-chipgroup-all"><SkeletonBlock width={24} height={16} /></span>}</div>;
   const skel = (
-    <Stack gap={5} aria-busy="true" aria-hidden="true">
-      {[1, 2, 3, 4].map(i => <Stack key={i} gap={2}><SkeletonBlock width={90} height={14} /><Row gap={2} wrap>{[1, 2, 3].map(j => <SkeletonBlock key={j} width={110} height={44} radius="var(--v-radius-pill)" />)}</Row></Stack>)}
-    </Stack>
+    <div className="lf-stack" aria-busy="true" aria-hidden="true">
+      <Stack gap={0}><SkeletonBlock width="90%" height={22} /><span className="lf-skel-line2"><SkeletonBlock width="40%" height={22} /></span></Stack>
+      <Stack gap={4}>
+        <Section title="Priority">{chips([104, 120, 112], true)}</Section>
+        <Section title="Call status">{chips([146, 136, 150, 130, 176], true)}</Section>
+        <Section title="Industry">{chips([154], false)}</Section>
+        <Section title="Best window">{chips([146, 136, 128, 148, 134], false)}</Section>
+      </Stack>
+    </div>
   );
   return (
     <PageShell className="aa-main aa-main--wide lf-shell">
       <ScrollArea>
         <div className="lf-inner">
           {showSkel ? skel
-            : error && !leads.length ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
-            : !list ? <p className="lf-line">That list is not here any more.</p>
+            : error && !list ? <Card><ErrorState title={COPY.error.lists.title} description={COPY.error.lists.description} onRetry={retry} retrying={retrying} /></Card>
+            : !list ? <Card><EmptyState size="sm" icon="Rows01" title="That list is gone" description="It was finished or deleted. Pick another on Lists." action={{ label: 'Back to Lists', icon: 'Rows01', onClick: () => onCancel?.() }} /></Card>
             : (
               <Stagger className="lf-stack" cap={5}>
                 <p className="lf-count" role="status">{f.matches.length} match, {fillable.length} fit under the target of {list.target}{f.matches.length > fillable.length && room ? `; ${Math.max(0, f.matches.length - fillable.length)} already on a list, without a phone or past the target` : ''}</p>
@@ -66,7 +74,8 @@ const lfStyles = `
   .lf-inner { width: 100%; max-width: 760px; margin: 0 auto; min-width: 0; }
   .lf-stack { display: flex; flex-direction: column; gap: var(--v-space-5); min-width: 0; }
   .lf-count { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); }
-  .lf-line { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .lf-skel-line2 { display: none; }
+  @media (max-width: 767px) { .lf-skel-line2 { display: block; } }
   .lf-foot-row { width: 100%; max-width: 760px; }
   .lf-foot-row > .v-btn { flex: 1 1 140px; min-width: 0; }
 `;
