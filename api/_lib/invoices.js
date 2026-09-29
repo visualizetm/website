@@ -1,11 +1,13 @@
 /* Server mirror of src/lib/invoices.js (CRM revamp, step 5), the same
- * rules byte for byte below the header; scripts/deals-test.mjs checks it. */
+ * rules byte for byte below INVOICE_STATUS_IDS; scripts/deals-test.mjs
+ * checks it. The clock reads America/New_York (api/_lib/zone.js). */
+import { zoneDayKey, zoneDayMs, zoneStartOfDay } from './zone.js';
+const CLOCK = { dayKey: zoneDayKey, dayMs: zoneDayMs, startOfDay: zoneStartOfDay };
 export const INVOICE_STATUS_IDS = ['draft', 'sent', 'paid'];
 const DAY = 864e5;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const pad = (n) => String(n).padStart(2, '0');
-export const invDayKey = (d = new Date()) => { const x = d instanceof Date ? d : new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
-const localDay = (s) => { if (!DATE_ONLY.test(String(s || '').slice(0, 10))) return null; const [y, m, d] = String(s).slice(0, 10).split('-').map(Number); return new Date(y, m - 1, d); };
+export const invDayKey = (d = new Date()) => CLOCK.dayKey(d instanceof Date ? d.getTime() : new Date(d).getTime());
 export const uid = () => Math.random().toString(36).slice(2, 10);
 const num = (v, max = 100000) => (Number.isFinite(Number(v)) ? Math.max(0, Math.min(max, Number(v))) : 0);
 const str = (v, max) => String(v ?? '').slice(0, max);
@@ -37,10 +39,9 @@ export function invoiceStatus(inv, now = Date.now()) {
   if (inv.status === 'paid' || inv.ledgerId) return 'paid';
   if (inv.status === 'draft') return 'draft';
   // sent, and the shapes from before step 5 (upcoming, due, past-due, or no status at all): the day decides.
-  const due = localDay(inv.dueAt); if (!due) return 'sent';
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  if (due.getTime() < startOfToday.getTime()) return 'past-due';
-  if (due.getTime() <= now + 7 * DAY) return 'due';
+  const due = CLOCK.dayMs(inv.dueAt); if (Number.isNaN(due)) return 'sent';
+  if (due < CLOCK.startOfDay(now)) return 'past-due';
+  if (due <= now + 7 * DAY) return 'due';
   return 'sent';
 }
 export const INVOICE_STATUS_LABELS = { draft: 'Draft', sent: 'Sent', due: 'Due', 'past-due': 'Past due', paid: 'Paid' };
@@ -60,11 +61,12 @@ export const withoutInvoice = (list, id) => (list || []).filter(s => s.id !== id
 /** "Month N of M" lines exist for these months (the cron drafts the missing one on its bill day). */
 export const monthLineLabel = (n, m) => (m ? `Month ${n} of ${m}` : `Month ${n}`);
 export const hasMonthLine = (list, n, m) => (list || []).some(s => s.label === monthLineLabel(n, m));
-/** Same day of month `n` months after a YYYY-MM-DD key, clamped to the month's length. */
+/** Same day of month `n` months after a YYYY-MM-DD key, clamped to the month's length. Calendar arithmetic on the key, no zone. */
 export function addMonthsKey(dateStr, n, dayOfMonth) {
-  const d = localDay(dateStr) || new Date();
-  const y = d.getFullYear(); const m = d.getMonth() + n;
-  const want = dayOfMonth || d.getDate();
-  const last = new Date(y, m + 1, 0).getDate();
-  return invDayKey(new Date(y, m, Math.min(want, last)));
+  const key = DATE_ONLY.test(String(dateStr || '').slice(0, 10)) ? String(dateStr).slice(0, 10) : CLOCK.dayKey();
+  const [y, m, d] = key.split('-').map(Number);
+  const want = dayOfMonth || d;
+  const last = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+  const t = new Date(Date.UTC(y, m - 1 + n, Math.min(want, last)));
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
 }

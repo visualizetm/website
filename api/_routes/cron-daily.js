@@ -8,6 +8,7 @@ import { syncCallbacksDue } from '../_lib/lists.js';
 import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js';
 import { dealAutoPatch } from '../_lib/deal.js';
 import { LEAD_RULES, PROJECT_RULES, dueRules, RULE_IDS } from '../_lib/rules.js';
+import { zoneDayKey, keyAddMonths } from '../_lib/zone.js';
 import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } from '../_lib/invoices.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
@@ -32,9 +33,8 @@ import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } fr
  *     drafted on its bill day in step 1.
  *  2. Task health: write the settings 'health' document (enrichment, scraper,
  *     crons, stripe) the Integrations cards and the drawer read. */
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => { const x = new Date(d); return `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`; };
-const addMonths = (dateStr, n, dayOfMonth) => { const [y, m, d] = String(dateStr).split('-').map(Number); const want = dayOfMonth || d; const last = new Date(y, m - 1 + n + 1, 0).getDate(); return dayKey(new Date(y, m - 1 + n, Math.min(want, last))); };
+// Closeout: today and every bill day read America/New_York (api/_lib/zone.js), whatever zone the function runs in.
+const addMonths = (dateStr, n, dayOfMonth) => keyAddMonths(String(dateStr).slice(0, 10), n, dayOfMonth);
 
 export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -46,7 +46,7 @@ export async function handler(req, res) {
   const leads = db.collection('call_leads');
   const projects = db.collection('projects');
   const settings = db.collection('settings');
-  const today = dayKey(new Date());
+  const today = zoneDayKey(Date.now());
   const nowIso = new Date().toISOString();
   let rolled = 0; let cancelled = 0; let extended = 0;
 

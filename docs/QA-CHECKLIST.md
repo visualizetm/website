@@ -13,7 +13,7 @@ off, theme Dark.
 |---|---|---|
 | 1 | Open admin.visualizeclients.com on the phone | The shell frame paints at once, the login card appears, no blank screen. |
 | 2 | Sign in with the password | Next up greets you by name with today's date and the context line (how many overdue and due today). |
-| 2a | Look at the bottom of the phone | The tab bar reads Next up, Lists, Call, Deals, More. More opens Triage, Leads, Clients, Projects, Orders, Reviews, Concepts, Declined, Settings and a greyed line naming Showcase, Planner, Concepts editor and Landing as computer only. |
+| 2a | Look at the bottom of the phone | The tab bar reads Next up, Lists, Call, Deals, More. More opens Triage, Leads, Clients, Projects, Orders, Reviews, Calendar, Submissions, Recently Deleted, Concepts, Declined, Settings and a greyed line naming Showcase, Planner, Concepts editor, Landing and Design as computer only. |
 | 3 | Read Next up | The overdue rows come first in red, then today, then Later this week folded; each row's control does the action (a callback dials, an outcome opens the record on the meeting fold). Swipe a row right to mark it done and undo from the toast; open Stats and the funnel strip and the numbers are filled; no skeleton lingers. |
 | 4 | Tap Start call session | The Call Console builder opens with the status and priority chips and a lead count on the Start button. |
 | 5 | Tap Start call session in the builder | The queue (phone) or the room (desktop) opens with the first lead's card. |

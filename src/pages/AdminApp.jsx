@@ -424,7 +424,7 @@ export default function AdminApp() {
   const go = useCallback((sec, itemId) => {
     navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}`);
     if (itemId && sec === 'submissions') setOpenReq({ section: 'submissions', id: itemId, n: Date.now() });
-  }, [navigate, items]);
+  }, [navigate]);
 
   // Shell navigation by nav.js id ('deleted' is a Settings sub-view).
   const [presetReq, setPresetReq] = useState(null); // { section, preset, n } from the dashboard or the shell

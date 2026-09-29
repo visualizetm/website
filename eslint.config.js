@@ -32,7 +32,7 @@ export default [
     languageOptions: { ...shared.languageOptions, globals: { ...globals.browser, ...globals.es2021 } },
     plugins: { react, 'react-hooks': reactHooks },
     settings: { react: { version: 'detect' } },
-    rules: { ...shared.rules, 'react/jsx-uses-vars': 'error', 'react/jsx-uses-react': 'off', 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'warn' },
+    rules: { ...shared.rules, 'react/jsx-uses-vars': 'error', 'react/jsx-uses-react': 'off', 'react-hooks/rules-of-hooks': 'error', 'react-hooks/exhaustive-deps': 'error' },
   },
   {
     ...shared,

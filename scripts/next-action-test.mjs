@@ -4,21 +4,38 @@
  * two can never disagree. Dates are America/New_York: the process pins the
  * zone before the first Date is made.
  *   node scripts/next-action-test.mjs */
-process.env.TZ = 'America/New_York';
 import path from 'path';
 import { pathToFileURL } from 'url';
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+/* Closeout: this test runs itself twice, TZ=America/New_York and TZ=UTC.
+ * The server's results are digested on each run and must be identical;
+ * the client mirror (the browser's own zone) is asserted in the New York
+ * run only. */
+if (!process.env.ZONE_RUN) {
+  const { spawnSync } = await import('node:child_process');
+  const runs = ['America/New_York', 'UTC'].map(tz => { const r = spawnSync(process.execPath, [process.argv[1]], { env: { ...process.env, TZ: tz, ZONE_RUN: '1' }, encoding: 'utf8' }); const out = `${r.stdout || ''}${r.stderr || ''}`; return { tz, status: r.status, out, digest: (out.match(/^DIGEST (\S+)$/m) || [])[1] || '' }; });
+  for (const r of runs) console.log(`\n[TZ=${r.tz}]\n${r.out.trim()}`);
+  const same = !!runs[0].digest && runs[0].digest === runs[1].digest;
+  console.log(same ? '\nThe server results are identical in America/New_York and UTC.' : `\nFAIL the server results differ between America/New_York and UTC (${runs[0].digest.slice(0, 12)} vs ${runs[1].digest.slice(0, 12)}).`);
+  process.exit(runs.every(r => r.status === 0) && same ? 0 : 1);
+}
+const NY = process.env.TZ === 'America/New_York';
+import { createHash } from 'node:crypto';
+const digest = [];
+const rec = (v) => { digest.push(JSON.stringify(v)); return v; };
+const printDigest = () => console.log('DIGEST ' + createHash('sha256').update(digest.join('\n')).digest('hex'));
 const client = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nextAction.js')).href);
 const server = await import(pathToFileURL(path.join(repoRoot, 'api', '_lib', 'nextAction.js')).href);
 
 let fails = 0; let passes = 0;
-const ok = (c, m) => { if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
+const ok = (c, m) => { if (!NY) return; if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
 const section = (t) => console.log(`\n${t}`);
-const NOW = new Date(2026, 8, 28, 10, 30).getTime(); // Mon Sep 28 2026, 10:30 New York
+const NOW = Date.UTC(2026, 8, 28, 14, 30); // Mon Sep 28 2026, 10:30 New York (14:30 UTC)
 const DAY = 864e5;
 const iso = (t) => new Date(t).toISOString();
 const both = (label, record, ctx, expect) => {
-  for (const [name, mod] of [['client', client], ['server', server]]) {
+  rec(server.nextActionFor(record, ctx, NOW));
+  for (const [name, mod] of (NY ? [['client', client], ['server', server]] : [['server', server]])) {
     const got = mod.nextActionFor(record, ctx, NOW);
     if (expect === null) ok(got === null, `${name}: ${label} is null (got ${JSON.stringify(got)})`);
     else {
@@ -94,6 +111,7 @@ section('3. resolve: manual, done, and the shared write helper');
   ok(client.nextUpBadge([{ _id: 'o', business: 'O', stage: 'lead', callStatus: 'callback', callbackAt: iso(NOW - DAY) }], [], [], NOW) === 1, 'the badge counts overdue plus today');
 }
 
-console.log(`\n${passes} checks passed, ${fails} failed.`);
+printDigest();
+console.log(NY ? `\n${passes} checks passed, ${fails} failed.` : '\nUTC run: the server results recorded.');
 console.log(fails ? 'Next action tests FAILED.' : 'All next action tests pass.');
 process.exit(fails ? 1 : 0);

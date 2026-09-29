@@ -70,8 +70,9 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60e3); return () => clearInterval(t); }, []);
 
   const calendly = shell?.calendly || { configured: null, events: [] };
-  const projects = shell?.projects || [];
-  const posts = shell?.posts || [];
+  const shellProjects = shell?.projects; const shellPosts = shell?.posts;
+  const projects = useMemo(() => shellProjects || [], [shellProjects]);
+  const posts = useMemo(() => shellPosts || [], [shellPosts]);
   const all = useMemo(() => buildEvents(leads, calendly.events, now, projects, posts), [leads, calendly.events, now, projects, posts]);
   const events = useMemo(() => all.filter(e => !kinds.size || kinds.has(e.kind) || (e.kind === 'planfinal' && kinds.has('bill'))), [all, kinds]);
   // One bucket per day (Prompt 15): the strip, the week, and the 42 month cells read a Map instead of filtering every event per cell.

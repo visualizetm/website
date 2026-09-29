@@ -128,11 +128,11 @@ function getPath(obj, key) {
 /* global store */ // store, settingsStore and projectsStore exist in the fake module this function is serialized into
 function collection(name) {
   if (name === 'settings') return {
-    // eslint-disable-next-line no-undef
+     
     async findOne(filter) { return settingsStore.get(filter._id) || null; },
   };
   if (name === 'projects') return {
-    // eslint-disable-next-line no-undef
+     
     async countDocuments(filter) { return projectsStore.filter(d => matches(d, filter)).length; },
   };
   const docs = () => [...store.values()];

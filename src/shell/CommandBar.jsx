@@ -72,7 +72,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     ];
     if (res.digits && !out.length && !showSkel) out.push({ type: 'add', pretty: res.digitsPretty, digits: digitsOf(q), key: 'add' });
     return out;
-  }, [q, res, recent, leads, showSkel]);
+  }, [q, res, recent, leads, showSkel, onOpenShowcase, onOpenPlanner]);
 
   useEffect(() => { setIdx(0); }, [q]);
   useEffect(() => { if (!open) { setQ(''); setMode('text'); } else if (desktop) setTimeout(() => inputRef.current?.focus(), 0); }, [open, desktop]);
@@ -85,11 +85,11 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     return () => clearTimeout(t);
   }, [q, open, res.leads.length, res.clients.length, onRefetch]);
 
-  const remember = (item) => {
+  const remember = useCallback((item) => {
     const entry = item.type === 'jump' ? { type: 'jump', id: item.nav.id } : { type: item.type, id: item.lead._id };
     const next = [entry, ...recent.filter(r => !(r.type === entry.type && r.id === entry.id))].slice(0, MAX_RECENT);
     setRecent(next); writeJSON(KEYS.recent, next);
-  };
+  }, [recent, setRecent]);
   const pick = useCallback((item) => {
     if (!item) return;
     if (item.type === 'add') { onOpenChange(false); onNewLead({ phone: item.pretty }); return; }
@@ -99,7 +99,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     else if (item.type === 'showcase') onOpenShowcase(item.lead);
     else if (item.type === 'planner') onOpenPlanner(item.lead);
     else onOpenLead(item.lead);
-  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, recent]);
+  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, remember]);
 
   const onKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setIdx(i => Math.min(flat.length - 1, i + 1)); }

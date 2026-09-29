@@ -5,31 +5,48 @@
  * dates; all in America/New_York, and the whole thing through the real
  * daily cron with the in-memory mongo.
  *   node scripts/rules-test.mjs */
-process.env.TZ = 'America/New_York';
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+/* Closeout: this test runs itself twice, TZ=America/New_York and TZ=UTC.
+ * The server's results are digested on each run and must be identical;
+ * the client mirror (the browser's own zone) is asserted in the New York
+ * run only. */
+if (!process.env.ZONE_RUN) {
+  const { spawnSync } = await import('node:child_process');
+  const runs = ['America/New_York', 'UTC'].map(tz => { const r = spawnSync(process.execPath, [process.argv[1]], { env: { ...process.env, TZ: tz, ZONE_RUN: '1' }, encoding: 'utf8' }); const out = `${r.stdout || ''}${r.stderr || ''}`; return { tz, status: r.status, out, digest: (out.match(/^DIGEST (\S+)$/m) || [])[1] || '' }; });
+  for (const r of runs) console.log(`\n[TZ=${r.tz}]\n${r.out.trim()}`);
+  const same = !!runs[0].digest && runs[0].digest === runs[1].digest;
+  console.log(same ? '\nThe server results are identical in America/New_York and UTC.' : `\nFAIL the server results differ between America/New_York and UTC (${runs[0].digest.slice(0, 12)} vs ${runs[1].digest.slice(0, 12)}).`);
+  process.exit(runs.every(r => r.status === 0) && same ? 0 : 1);
+}
+const NY = process.env.TZ === 'America/New_York';
+import { createHash } from 'node:crypto';
+const digest = [];
+const rec = (v) => { digest.push(JSON.stringify(v)); return v; };
+const printDigest = () => console.log('DIGEST ' + createHash('sha256').update(digest.join('\n')).digest('hex'));
 let fails = 0; let passes = 0;
-const ok = (c, m) => { if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
+// Assertions with wall clock expectations hold in New York; the UTC run only records the server's results.
+const ok = (c, m) => { if (!NY) return; if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
 const section = (t) => console.log(`\n${t}`);
 const src = (rel) => import(pathToFileURL(path.join(repoRoot, rel)).href);
 const R = await src('api/_lib/rules.js');
 const NA = await src('src/lib/nextAction.js');
 const NS = await src('api/_lib/nextAction.js');
 const P = await src('src/lib/projects.js');
-const NOW = new Date(2026, 8, 28, 10, 30).getTime(); // Mon Sep 28 2026, 10:30 New York
+const NOW = Date.UTC(2026, 8, 28, 14, 30); // Mon Sep 28 2026, 10:30 New York (14:30 UTC)
 const DAY = 864e5;
 const iso = (t) => new Date(t).toISOString();
-const fire = (rules, rec, ctx = {}, now = NOW) => R.dueRules(rules, rec, ctx, now);
-const withKeys = (rec, fired) => ({ ...rec, ...Object.assign({}, ...fired.map(f => f.set)), cronRules: { ...(rec.cronRules || {}), ...Object.fromEntries(fired.map(f => [f.id, f.key])) } });
+const fire = (rules, record, ctx = {}, now = NOW) => rec(R.dueRules(rules, record, ctx, now));
+const withKeys = (record, fired) => ({ ...record, ...Object.assign({}, ...fired.map(f => f.set)), cronRules: { ...(record.cronRules || {}), ...Object.fromEntries(fired.map(f => [f.id, f.key])) } });
 
 section('1. introNoBooking');
 {
   const deal = (introAt, over = {}) => ({ _id: 'a', business: 'A', stage: 'booked', callStatus: 'booked', meeting: { date: '2026-10-05', time: '10:00' }, callLog: [], deal: { checkpoints: { introSent: { at: iso(introAt), by: 'rob' }, callDone: null }, invoices: [] }, ...over });
   let f = fire(R.LEAD_RULES, deal(NOW - 3 * DAY - 60e3));
   ok(f.length === 1 && f[0].id === 'introNoBooking', 'three days after the intro with no booking and no call it fires');
-  ok(f[0].set.callStatus === 'callback' && f[0].set.callbackAt === new Date(2026, 8, 29, 10, 0).toISOString() && f[0].set.callLog[0].note === 'Intro sent, no booking' && f[0].set.callLog[0].outcome === 'callback', 'a callback tomorrow at ten in New York, with the note');
+  ok(f[0].set.callStatus === 'callback' && f[0].set.callbackAt === '2026-09-29T14:00:00.000Z' && f[0].set.callLog[0].note === 'Intro sent, no booking' && f[0].set.callLog[0].outcome === 'callback', 'a callback tomorrow at ten in New York, with the note');
   ok(fire(R.LEAD_RULES, deal(NOW - 2 * DAY)).length === 0, 'two days is not yet');
   ok(fire(R.LEAD_RULES, deal(NOW - 4 * DAY, { calendlyEventUri: 'https://api.calendly.com/x' })).length === 0, 'a Calendly event means they booked');
   const done = deal(NOW - 4 * DAY); done.deal.checkpoints.callDone = { at: iso(NOW - DAY), by: 'rob' };
@@ -96,7 +113,7 @@ section('5. secondChase, on a deal and on a project');
 
 section('6. retainerKit');
 {
-  const the22nd = new Date(2026, 8, 22, 9).getTime(); const the15th = new Date(2026, 8, 15, 9).getTime();
+  const the22nd = Date.UTC(2026, 8, 22, 13); const the15th = Date.UTC(2026, 8, 15, 13);
   const lead = { _id: 'r', retainer: { status: 'active' }, planner: { enabled: false } };
   const p = (monthly = [], over = {}) => ({ _id: 'rp', leadId: 'r', kind: 'retainer', stage: 'kickoff', monthly, invoices: [], ...over });
   let f = fire(R.PROJECT_RULES, p(), { lead }, the22nd);
@@ -108,7 +125,7 @@ section('6. retainerKit');
   ok(fire(R.PROJECT_RULES, p(), { lead: plannerLead, posts: [{ leadId: 'r', month: '2026-09', status: 'approved' }] }, the22nd).length === 0, 'with the planner on, an approved post this month counts');
   ok(fire(R.PROJECT_RULES, p(), { lead: plannerLead, posts: [{ leadId: 'r', month: '2026-09', status: 'review' }] }, the22nd).length === 1, 'a post still in review does not');
   ok(fire(R.PROJECT_RULES, withKeys(p(), f), { lead }, the22nd).length === 0, 'it does not refire this month');
-  ok(fire(R.PROJECT_RULES, withKeys(p(), f), { lead }, new Date(2026, 9, 22, 9).getTime()).length === 1, 'next month it fires again');
+  ok(fire(R.PROJECT_RULES, withKeys(p(), f), { lead }, Date.UTC(2026, 9, 22, 13)).length === 1, 'next month it fires again');
   ok(fire(R.PROJECT_RULES, p(), { lead: { ...lead, retainer: { status: 'cancelled' } } }, the22nd).length === 0, 'a cancelled retainer is left alone');
 }
 
@@ -117,7 +134,7 @@ section('7. lastPayment');
   const lines = (last) => [{ id: 'm1', label: 'Month 1 of 3', amount: 100, dueAt: '2026-07-01', status: 'paid' }, { id: 'm2', label: 'Month 2 of 3', amount: 100, dueAt: '2026-08-01', status: 'paid' }, { id: 'm3', label: 'Month 3 of 3', amount: 100, dueAt: '2026-10-01', status: last }];
   const p = (last, over = {}) => ({ _id: 'pp', leadId: 'x', kind: 'web', stage: 'build', plan: { months: 3, monthly: 100 }, invoices: lines(last), ...over });
   let f = fire(R.PROJECT_RULES, p('sent'), { lead: { _id: 'x' } });
-  ok(f.length === 1 && f[0].id === 'lastPayment' && f[0].set.nextAction.label === 'Collect the last payment and release the files' && f[0].set.nextAction.dueAt === new Date(2026, 9, 1, 9).toISOString() && f[0].key === 'm3', 'the last month sent: collect it, due on its day, keyed by the invoice');
+  ok(f.length === 1 && f[0].id === 'lastPayment' && f[0].set.nextAction.label === 'Collect the last payment and release the files' && f[0].set.nextAction.dueAt === '2026-10-01T13:00:00.000Z' && f[0].key === 'm3', 'the last month sent: collect it, due on its day, keyed by the invoice');
   ok(fire(R.PROJECT_RULES, p('draft'), { lead: { _id: 'x' } }).length === 0, 'a draft last month is not sent yet');
   ok(fire(R.PROJECT_RULES, p('paid'), { lead: { _id: 'x' } }).length === 0, 'paid: done');
   ok(fire(R.PROJECT_RULES, { ...p('sent'), invoices: lines('sent').slice(0, 2) }, { lead: { _id: 'x' } }).length === 0, 'two of three months: not the last');
@@ -126,7 +143,8 @@ section('7. lastPayment');
 
 section('8. the project actions, client and server');
 const both = (label, record, ctx, expect, now = NOW) => {
-  for (const [name, mod] of [['client', NA], ['server', NS]]) {
+  rec(NS.nextActionFor(record, ctx, now));
+  for (const [name, mod] of (NY ? [['client', NA], ['server', NS]] : [['server', NS]])) {
     const got = mod.nextActionFor(record, ctx, now);
     if (expect === null) ok(got === null, `${name}: ${label} is null (got ${JSON.stringify(got)})`);
     else {
@@ -151,8 +169,8 @@ const both = (label, record, ctx, expect, now = NOW) => {
 }
 
 section('9. the delivery steps date themselves');
-{
-  const t = new Date(2026, 8, 28, 15).getTime();
+if (NY) {
+  const t = new Date(2026, 8, 28, 15).getTime(); // the client's own clock: local, New York in this run
   const d0 = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', steps: P.deliveryStepsAtDelivery(t) };
   ok(d0.steps.driveShared.dueAt === '2026-09-28', 'at delivery the first step is due today');
   const s1 = P.deliveryStepsAfter(d0, 'driveShared', true, t);
@@ -193,14 +211,16 @@ section('10. through the real daily cron: once, keyed, counted');
   _stores.lists = [{ _id: 'LS', name: 'Tuesday', status: 'open', target: 25, leadIds: [B, C] }];
   _stores.settings = []; _stores.stripe_events = []; _stores.concept_sets = []; _stores.submissions = []; _stores.posts = [];
   const lead = (id) => _stores.call_leads.find(l => String(l._id) === id);
+  const pj = () => _stores.projects.find(p => String(p._id) === PJ);
   let r = await run();
   const rules = Object.fromEntries((r._json.rules || []).map(x => [x.name, x.count]));
   ok(r._status === 200 && rules.introNoBooking === 1 && rules.twoNoAnswers === 1 && rules.wentQuiet === 1 && rules.stalledDeal === 1 && rules.lastPayment === 1 && rules.secondChase === 0 && rules.retainerKit === 0, `the cron counts each rule (${JSON.stringify(rules)})`);
+  rec([lead(A).callbackAt, lead(A).callLog[0]?.note, pj().nextAction?.dueAt, lead(D).nextAction?.label]);
   ok(lead(A).callStatus === 'callback' && lead(A).callLog[0]?.note === 'Intro sent, no booking' && lead(A).cronRules.introNoBooking === lead(A).deal.checkpoints.introSent.at, 'intro rule: callback written, keyed by the intro');
+  ok(/T14:00:00\.000Z$/.test(lead(A).callbackAt) || /T15:00:00\.000Z$/.test(lead(A).callbackAt), `the callback is ten in New York whatever the process zone (${lead(A).callbackAt})`);
   ok(lead(B).priority === 'cold' && lead(B).listId === '' && !_stores.lists[0].leadIds.includes(B) && _stores.lists[0].leadIds.includes(C) === false, 'no-answer rule: cold, off the list (the quiet lead left it too)');
   ok(lead(C).stage === 'triage' && lead(C).notes.startsWith('Went quiet 30 days') && lead(C).cronRules.wentQuiet, 'quiet rule: triage with the note');
   ok(lead(D).nextAction?.label === 'Move to nurture?' && lead(D).nextAction.auto === false, 'stalled rule: the question stays through the recompute');
-  const pj = () => _stores.projects.find(p => String(p._id) === PJ);
   ok(pj().nextAction?.label === 'Collect the last payment and release the files' && pj().cronRules.lastPayment === 'm2', 'last payment rule on the project, keyed by the invoice');
   const health = _stores.settings.find(s => s._id === 'health');
   ok(Array.isArray(health?.crons?.daily?.rules) && health.crons.daily.rules.find(x => x.name === 'wentQuiet')?.count === 1, 'health.crons.daily.rules carries the counts');
@@ -210,6 +230,7 @@ section('10. through the real daily cron: once, keyed, counted');
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-console.log(`\n${passes} checks passed, ${fails} failed.`);
-console.log(fails ? 'Rules tests FAILED.' : 'All rules tests pass.');
+printDigest();
+console.log(NY ? `\n${passes} checks passed, ${fails} failed.` : '\nUTC run: the server results recorded.');
+console.log(fails ? 'Rules tests FAILED.' : NY ? 'All rules tests pass.' : 'UTC run done.');
 process.exit(fails ? 1 : 0);

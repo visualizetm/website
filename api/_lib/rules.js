@@ -4,20 +4,20 @@
  * id), and the cron stores it on the record as cronRules[rule], so the
  * same condition never fires twice and a new condition (a fresh intro, a
  * later no-answer, the next month) fires again. ctx: { lead (for a
- * project), posts (the client's planner posts), retainer }. Dates are
- * local to the server's zone; the cron pins nothing, the tests pin
- * America/New_York. */
+ * project), posts (the client's planner posts), retainer }. Every date
+ * reads America/New_York through api/_lib/zone.js, whatever the server's
+ * own zone. */
 import { invoicesOf, invoiceStatus } from './invoices.js';
+import { zoneTomorrowAt, zoneMonthKey, zoneDayOfMonth, zoneDateAt } from './zone.js';
 
 const DAY = 864e5;
 const iso = (t) => new Date(t).toISOString();
 const ms = (v) => { const t = v ? new Date(v).getTime() : 0; return Number.isNaN(t) ? 0 : t; };
-const pad = (n) => String(n).padStart(2, '0');
 const custom = (label, dueAt) => ({ kind: 'custom', label, dueAt: iso(dueAt), auto: false, doneAt: '' });
 const stageOf = (l) => (l?.stage === 'deal' ? 'deal' : l?.stage === 'booked' || (!l?.stage && l?.callStatus === 'booked') ? 'booked' : l?.stage || (l?.callStatus === 'not-called' && !(l?.callLog || []).length ? 'triage' : 'lead'));
 
 /** Tomorrow at 10:00 local. */
-export const tomorrowAt10 = (now) => { const d = new Date(now); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d.toISOString(); };
+export const tomorrowAt10 = (now) => new Date(zoneTomorrowAt(now, 10)).toISOString();
 export const NURTURE_STALLED_DAYS = 90;
 
 export const LEAD_RULES = [
@@ -66,8 +66,8 @@ export const PROJECT_RULES = [
   { id: 'retainerKit', run(p, ctx, now) {
     if (p.kind !== 'retainer' || p.archived) return null;
     const lead = ctx.lead; if (!lead || !['active', 'ending'].includes(lead.retainer?.status)) return null;
-    const d = new Date(now); if (d.getDate() < 20) return null;
-    const month = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    if (zoneDayOfMonth(now) < 20) return null;
+    const month = zoneMonthKey(now);
     const plannerOn = !!lead.planner?.enabled;
     const delivered = plannerOn
       ? (ctx.posts || []).filter(x => String(x.leadId) === String(lead._id) && x.month === month && !x.deleted && !x.archived && ['approved', 'posted'].includes(x.status)).length
@@ -81,7 +81,7 @@ export const PROJECT_RULES = [
     const lines = invoicesOf(p).filter(s => !s.extra).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)));
     const last = lines[lines.length - 1]; if (!last || lines.length < p.plan.months) return null;
     if (last.status !== 'sent' || invoiceStatus(last, now) === 'paid') return null;
-    const due = last.dueAt ? new Date(`${last.dueAt}T09:00:00`).getTime() : now;
+    const due = last.dueAt ? zoneDateAt(last.dueAt, 9, 0) : now;
     return { key: last.id, set: { nextAction: custom('Collect the last payment and release the files', due) } };
   } },
 ];

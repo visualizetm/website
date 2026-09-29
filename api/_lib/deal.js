@@ -1,5 +1,8 @@
 /* Server mirror of src/lib/deal.js (CRM revamp, step 5), the same rules
- * byte for byte below the header; scripts/deals-test.mjs checks it. */
+ * byte for byte below CHECKPOINTS; scripts/deals-test.mjs checks it. The
+ * meeting's instant reads America/New_York (api/_lib/zone.js). */
+import { zoneMeetingMs } from './zone.js';
+const meetingMs = (lead) => { const m = lead?.meeting; if (!m?.date) return 0; const t = zoneMeetingMs(m.date, m.time || '09:00'); return Number.isNaN(t) ? 0 : t; };
 export const CHECKPOINTS = [
   { id: 'concepts',       label: 'Concepts built',   column: 'concepts',     auto: true },
   { id: 'introSent',      label: 'Intro sent',       column: 'introSent',    auto: false, send: true },
@@ -22,7 +25,6 @@ const DAY = 864e5;
 export const STALL_DAYS = 7;
 const iso = (t) => new Date(t).toISOString();
 const ms = (v) => { if (!v) return 0; const t = new Date(v).getTime(); return Number.isNaN(t) ? 0 : t; };
-const meetingMs = (lead) => { const m = lead?.meeting; if (!m?.date) return 0; return ms(`${m.date}T${m.time || '09:00'}`); };
 const stageOf = (lead) => (lead?.stage === 'deal' ? 'deal' : lead?.stage === 'booked' || (!lead?.stage && lead?.callStatus === 'booked') ? 'booked' : lead?.stage || '');
 
 /** A fresh deal object, the package from the recommended pricing option when there is one. */

@@ -393,7 +393,8 @@ export default function Planner() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const posts = data?.posts || [];
+  const dataPosts = data?.posts;
+  const posts = useMemo(() => dataPosts || [], [dataPosts]);
   const open = openId ? posts.find(p => p.id === openId) : null;
   const waiting = posts.filter(p => p.status === 'review').length;
   const ready = posts.filter(p => p.status === 'approved' || p.status === 'posted').length;

@@ -20,7 +20,7 @@ export const NAV = [
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      group: 'Pipeline', badge: 'calls',     tab: true, tabOrder: 2, tabLabel: 'Call' },
   { id: 'lists',       label: 'Lists',            icon: 'Rows01',          path: '/lists',      group: 'Pipeline', badge: 'lists',     tab: true, tabOrder: 1 },
   { id: 'deals',       label: 'Deals',            icon: 'Zap',             path: '/deals',      group: 'Pipeline', badge: 'deals',     tab: true, tabOrder: 3 },
-  { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   group: 'Pipeline', badge: 'calendar' },
+  { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   group: 'Pipeline', badge: 'calendar',  more: 6 },
   // CLIENTS: the work after they say yes. Projects and Planner are the
   // Clients screen with a filter applied (href carries the query; path is
   // what the active state matches on).
@@ -30,19 +30,19 @@ export const NAV = [
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', group: 'Clients', badge: 'planner' },
   // STUDIO
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders',    more: 4, moreLabel: 'Orders' },
-  { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: 'concepts',  more: 6 },
+  { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: 'concepts',  more: 9 },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews',   more: 5 },
   { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null },
   // SYSTEM
-  { id: 'submissions', label: 'Submissions',      icon: 'Inbox01',         path: '/submissions', group: 'System',  badge: 'submissions' },
-  { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null },
+  { id: 'submissions', label: 'Submissions',      icon: 'Inbox01',         path: '/submissions', group: 'System',  badge: 'submissions', more: 7 },
+  { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null, more: 8 },
   { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null },
-  { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   group: 'System',   badge: null,        more: 8 },
+  { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   group: 'System',   badge: null,        more: 11 },
   // The More sheet's Declined row: the Leads screen on its Declined pool. moreOnly keeps it out of the sidebar.
-  { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/leads',      href: '/leads?pool=declined', search: 'pool=declined', group: 'Pipeline', badge: null, more: 7, moreOnly: true },
+  { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/leads',      href: '/leads?pool=declined', search: 'pool=declined', group: 'Pipeline', badge: null, more: 10, moreOnly: true },
 ];
 /** The four screens a phone hands off to the computer (CRM revamp, step 7). */
-export const COMPUTER_ONLY = ['Showcase', 'Planner', 'Concepts editor', 'Landing'];
+export const COMPUTER_ONLY = ['Showcase', 'Planner', 'Concepts editor', 'Landing', 'Design'];
 
 /* One line per group: the icon the collapsed rail shows and the sentence
  * under the group name, so the navigation reads as the process. */

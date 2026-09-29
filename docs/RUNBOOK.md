@@ -83,7 +83,9 @@ or retainer month on its bill day (`dealsMoved`, `drafted`). Since step 7 it
 runs the follow up rules in api/_lib/rules.js before the next action
 recompute, once per record per condition, and reports each rule's count
 under `rules` and in health.crons.daily.rules (docs/ARCHITECTURE.md lists
-the seven rules).
+the seven rules). Every date the cron and its rules compute is
+America/New_York through api/_lib/zone.js; no TZ variable is needed on
+Vercel, and setting one changes nothing.
 
 If the account moves to the Pro plan, near-real-time reminders (a push the
 moment a callback or meeting is due) can come back with two changes: set

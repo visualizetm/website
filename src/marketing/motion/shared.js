@@ -7,7 +7,7 @@
 //   reduced motion -> matchMedia('(prefers-reduced-motion: reduce)')
 //   touch / coarse pointer -> matchMedia('(hover: none), (pointer: coarse)')
 //     (a media query LIST: the comma is OR, so either condition disables motion)
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 export const TOUCH_QUERY = '(hover: none), (pointer: coarse)';
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
@@ -81,14 +81,14 @@ export function useCoarsePointer() {
 /** Any media query, live-updated, with its first value computed
  * synchronously so nothing renders the wrong branch for a frame. */
 export function useMediaQuery(query) {
-  const read = () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+  const read = useCallback(() => (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia(query).matches
-    : false);
+    : false), [query]);
   const [matches, setMatches] = useState(read);
   useEffect(() => {
     setMatches(read());
     return subscribeMediaQuery(query, setMatches);
-  }, [query]);
+  }, [query, read]);
   return matches;
 }
 

@@ -15,6 +15,10 @@
  * submission links); the rest are Rob's. A card sits in the column of its
  * newest tick. stalledSince is set when the newest tick is older than
  * seven days and cleared by the next tick. */
+/* The meeting's instant (closeout): the browser reads its own zone; the
+ * server mirror reads America/New_York (api/_lib/zone.js). Everything
+ * below CHECKPOINTS is identical on both. */
+const meetingMs = (lead) => { const m = lead?.meeting; if (!m?.date) return 0; const t = new Date(`${m.date}T${m.time || '09:00'}`).getTime(); return Number.isNaN(t) ? 0 : t; };
 export const CHECKPOINTS = [
   { id: 'concepts',       label: 'Concepts built',   column: 'concepts',     auto: true },
   { id: 'introSent',      label: 'Intro sent',       column: 'introSent',    auto: false, send: true },
@@ -37,7 +41,6 @@ const DAY = 864e5;
 export const STALL_DAYS = 7;
 const iso = (t) => new Date(t).toISOString();
 const ms = (v) => { if (!v) return 0; const t = new Date(v).getTime(); return Number.isNaN(t) ? 0 : t; };
-const meetingMs = (lead) => { const m = lead?.meeting; if (!m?.date) return 0; return ms(`${m.date}T${m.time || '09:00'}`); };
 const stageOf = (lead) => (lead?.stage === 'deal' ? 'deal' : lead?.stage === 'booked' || (!lead?.stage && lead?.callStatus === 'booked') ? 'booked' : lead?.stage || '');
 
 /** A fresh deal object, the package from the recommended pricing option when there is one. */

@@ -6,6 +6,7 @@
 import { NEXT_ACTION_KIND_IDS, normalizeStage } from '../_semantics.js';
 import { invoicesOf, invoiceStatus, invoicesPastDue } from './invoices.js';
 import { dealOf } from './deal.js';
+import { zoneDayKey, zoneDayMs, zoneDateAt, zoneMeetingMs, keyAddDays } from './zone.js';
 
 const DAY = 864e5;
 const HOUR = 3600e3;
@@ -18,15 +19,15 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export function parseDate(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return Number.isNaN(v.getTime()) ? null : v;
-  if (typeof v === 'string' && DATE_ONLY.test(v)) { const [y, m, d] = v.split('-').map(Number); const local = new Date(y, m - 1, d); return Number.isNaN(local.getTime()) ? null : local; }
+  if (typeof v === 'string' && DATE_ONLY.test(v)) { const t = zoneDayMs(v); return Number.isNaN(t) ? null : new Date(t); }
   const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d;
 }
-const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
+const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const t = zoneMeetingMs(m.date, m.time || '09:00'); return Number.isNaN(t) ? null : new Date(t); };
 const iso = (t) => new Date(t).toISOString();
 const act = (kind, dueAt, label) => ({ kind, label: label || LABELS[kind] || kind, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });
 export const isProject = (r) => !!r && typeof r === 'object' && 'leadId' in r && !('business' in r);
 const ctxOf = (ctx) => (Array.isArray(ctx) ? { projects: ctx } : (ctx || {}));
-export function dayBeforeAt9(meetingIso) { const m = parseDate(meetingIso); if (!m) return null; return new Date(m.getFullYear(), m.getMonth(), m.getDate() - 1, 9, 0, 0, 0).getTime(); }
+export function dayBeforeAt9(meetingIso) { const m = parseDate(meetingIso); if (!m) return null; return zoneDateAt(keyAddDays(zoneDayKey(m.getTime()), -1), 9, 0); }
 
 function leadAction(lead, ctx, now) {
   const stage = normalizeStage(lead);

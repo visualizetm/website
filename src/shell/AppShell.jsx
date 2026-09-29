@@ -69,6 +69,8 @@ export default function AppShell({
     if (!r.ok) { if (patch.theme) setThemeMode(before.theme); if ('reduceMotion' in patch) setReduceMotion(before.reduceMotion); setProfile(p => ({ ...(p || {}), ...before })); toast.error(COPY.error.save); }
     return r.ok;
   }, [toast, appearance.mode, appearance.reduce]);
+  // The first settings read compares the document with whatever the appearance is by the time it answers, so it reads a ref, not the render's value.
+  const appearanceRef = useRef(appearance); appearanceRef.current = appearance;
   useEffect(() => {
     apiFetch('/api/admin/settings').then(r => {
       if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications);
@@ -76,8 +78,9 @@ export default function AppShell({
         setHealth(r.data.health || null); setProfile(r.data.profile || null); setEmails(r.data.emails || null);
         // Another device may have changed the appearance; the document wins over the local mirror.
         const p = r.data.profile || {};
-        if (p.theme && p.theme !== appearance.mode) setThemeMode(p.theme);
-        if (typeof p.reduceMotion === 'boolean' && p.reduceMotion !== appearance.reduce) setReduceMotion(p.reduceMotion);
+        const cur = appearanceRef.current;
+        if (p.theme && p.theme !== cur.mode) setThemeMode(p.theme);
+        if (typeof p.reduceMotion === 'boolean' && p.reduceMotion !== cur.reduce) setReduceMotion(p.reduceMotion);
       }
     });
     const from = new Date(Date.now() - 7 * 864e5).toISOString(); const to = new Date(Date.now() + 30 * 864e5).toISOString();
