@@ -1,28 +1,39 @@
+/* LeadCard: the one row for a lead (UI simplification, part B). Laws for
+ * every card and row on every screen at both widths:
+ *   1. Two lines. Line one: name, then one pill on the right. Line two: one context line in text-3, 13px.
+ *   2. One pill per row, and it is the thing that decides what you do next on that screen.
+ *   3. No avatar, no social glyphs, no scan dot, no "Touched 3d ago", no progress bar on a row.
+ *   4. The row menu keeps every action it has today, so nothing is lost.
+ *   5. Checkbox only in select mode; drag handle only inside a list; both sit outside the two lines.
+ * The shell takes a `pill`, a `line` and a `trailing` control so ClientCard
+ * and the Deals cards are the same row with their own pill and context. */
 import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
 import ThumbsUp from '@untitled-ui/icons-react/build/esm/ThumbsUp';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
+import DotsGrid from '@untitled-ui/icons-react/build/esm/DotsGrid';
 import { memo } from 'react';
-import { Avatar, Pill, Menu, Tooltip, Checkbox, SkeletonBlock, SkeletonCircle } from '../ui';
+import { Pill, Menu, Checkbox, SkeletonBlock } from '../ui';
 import { CALL_STATUSES, PRIORITIES, displayIndustry, normalizeStage } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
-import { relativeTime, fmtDate } from '../shared/dates';
-import { isNewLead, lastCall, lastTouchAt, scanAgeDays, normalizeLead } from '../lib/leads';
+import { normalizeLead } from '../lib/leads';
 import { deleteBlockReason } from '../lib/booked';
 
 /**
- * LeadCard: the shared compact lead card (kanban, mobile list, Call Console queue).
  * @param {object} props
  * @param {object} props.lead
- * @param {Function} [props.onOpen] tap anywhere opens the detail
- * @param {boolean} [props.selected] currently open in the detail column
- * @param {boolean} [props.selectable] show the checkbox (always on mobile select mode, hover on desktop)
+ * @param {Function} [props.onOpen] the stretched button opens the record
+ * @param {boolean} [props.selected] open in the detail column: a red border
  * @param {boolean} [props.checked]
- * @param {Function} [props.onCheck] (next: boolean)
- * @param {{ onPriority?: (id) => void, onStatus?: (id) => void, onStatusStep?: (dir: 1|-1) => void, onDelete?: () => void, onOpenSocials?: () => void }} [props.actions] menu handlers; omit for no menu.
+ * @param {Function} [props.onCheck] (next: boolean); the checkbox renders only in select mode (`selectable`)
+ * @param {boolean} [props.selectable] select mode is on
+ * @param {{ onPriority?, onStatus?, onStatusStep?, onDelete?, onOpenSocials?, onAddToList?, onRemoveFromList?, onDecline? }} [props.actions] menu handlers; omit for no menu.
  *   onStatusStep moves the lead one column left or right (Shift+ArrowLeft, Shift+ArrowRight on the focused card): the keyboard path for the kanban.
+ * @param {import('react').ReactNode} [props.pill] the one pill (default: the call status)
+ * @param {import('react').ReactNode} [props.line] line two (default: industry and area, or the descriptor, and the phone as a tel link)
+ * @param {import('react').ReactNode} [props.trailing] one control at the end of the row (a phone list's action button)
+ * @param {boolean} [props.handle] the drag handle, inside a list only
  * @param {boolean} [props.dragging] visual lift while dragged
- * @param {boolean} [props.compact] hide row 4
  */
 export const SOCIALS = [
   ['website', Globe01, 'Website'], ['instagram', Camera01, 'Instagram'], ['facebook', ThumbsUp, 'Facebook'], ['google', MarkerPin01, 'Google Maps'],
@@ -44,51 +55,36 @@ export function leadMenuItems(lead, actions) {
   return items;
 }
 
-function LeadCardInner({ lead: rawLead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, compact = false, className = '', ...rest }) {
+/** Line two of a lead: industry and area, or the descriptor when there is no area. */
+export const leadContext = (lead) => [lead.industry ? displayIndustry(lead.industry) : '', lead.area || lead.descriptor || ''].filter(Boolean).join(' · ');
+
+function LeadCardInner({ lead: rawLead, onOpen, selected = false, selectable = false, checked = false, onCheck, actions, dragging = false, pill, line, trailing = null, handle = false, className = '', ...rest }) {
   // The shape guard, again, so a record that skipped the loader (a fixture, a fresh insert) cannot take the list down.
   const lead = normalizeLead(rawLead);
-  const lc = lastCall(lead);
-  const touched = lastTouchAt(lead);
-  const scan = scanAgeDays(lead);
   const items = leadMenuItems(lead, actions);
+  const showCheck = !!onCheck && (selectable || checked);
   return (
-    <div className={`lc lay-card${selected ? ' is-selected' : ''}${selectable ? ' is-selectable' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''}${onOpen ? ' lc--open' : ''} ${className}`.trim()} {...rest}>
+    <div className={`lc lay-card${selected ? ' is-selected' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''}${onOpen ? ' lc--open' : ''}${items.length ? '' : ' lc--nomenu'} ${className}`.trim()} {...rest}>
       {/* One real control opens the card (Prompt 15): stretched over the surface, so the menu, checkbox, and phone link never nest inside a button. */}
       {onOpen && <button type="button" className="v-stretch lc-open" onClick={() => onOpen(lead)} aria-label={`Open ${lead.business}`}
         onKeyDown={actions?.onStatusStep ? (e) => { if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); actions.onStatusStep(e.key === 'ArrowRight' ? 1 : -1); } } : undefined}>{`Open ${lead.business}`}</button>}
-      {onCheck && <span className="lc-check v-above"><Checkbox checked={checked} onChange={onCheck} aria-label={`Select ${lead.business}`} /></span>}
-      <div className="lc-row lc-row1">
-        <Avatar name={lead.business} size="sm" />
-        <span className="lc-name lay-truncate">{lead.business}</span>
-        {isNewLead(lead) && <Pill tone="new" label="New" size="sm" variant="solid" icon={false} className="lc-new" />}
-        <Pill id={lead.priority || 'warm'} size="sm" />
-      </div>
-      <div className="lc-row lc-row2">
-        {lead.industry && <Pill tone="neutral" label={displayIndustry(lead.industry)} icon={false} size="sm" variant="outline" />}
-        <span className="lc-desc lay-truncate">{lead.descriptor || [lead.area].filter(Boolean).join('') || ''}</span>
-      </div>
-      <div className="lc-row lc-row3">
-        {lead.phone
-          ? <a className="lc-phone v-above" href={telHref(lead.phone)} aria-label={`Call ${formatPhone(lead.phone)}`}>{formatPhone(lead.phone)}</a>
-          : <span className="lc-phone lc-phone--none">No phone</span>}
-        {/* Which socials exist, as indicators: the card menu opens them and the detail has full size buttons (Prompt 15 dropped the 22px link targets). */}
-        <span className="lc-socials" role="img" aria-label={`Socials: ${SOCIALS.filter(([k]) => lead.socials?.[k]).map(([, , l]) => l).join(', ') || 'none'}`}>
-          {SOCIALS.map(([k, I]) => <span key={k} className={`lc-social${lead.socials?.[k] ? '' : ' lc-social--off'}`} aria-hidden="true"><I width={13} height={13} /></span>)}
-        </span>
-        <span style={{ flex: 1 }} />
-        <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />
-      </div>
-      {!compact && (touched || lead.callStatus === 'callback' || scan != null) && (
-        <div className="lc-row lc-row4">
-          {touched > 0 && <span>Touched {relativeTime(touched)}</span>}
-          {lead.callStatus === 'callback' && <span className="lc-next">Next: call back{lc?.note ? `, ${lc.note}` : ''}</span>}
-          {scan != null && (
-            <Tooltip label={`Scanned ${fmtDate(lead.enrichment.lastScanAt)}, ${lead.enrichment.scanCount || 1} scan${(lead.enrichment.scanCount || 1) === 1 ? '' : 's'}`}>
-              <span className={`lc-scan${scan <= 7 ? ' is-fresh' : ' is-stale'}`} role="img" aria-label={`Scanned ${relativeTime(lead.enrichment.lastScanAt)}`} />
-            </Tooltip>
-          )}
+      {handle && <span className="lc-handle" aria-hidden="true"><DotsGrid width={16} height={16} /></span>}
+      {showCheck && <span className="lc-check v-above"><Checkbox checked={checked} onChange={onCheck} aria-label={`Select ${lead.business}`} /></span>}
+      <div className="lc-main">
+        <div className="lc-l1">
+          <span className="lc-name lay-truncate">{lead.business}</span>
+          <span className="lc-pill">{pill === undefined ? <Pill id={lead.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" /> : pill}</span>
         </div>
-      )}
+        <div className="lc-l2">
+          {line === undefined ? (
+            <>
+              <span className="lc-ctx lay-truncate">{leadContext(lead)}</span>
+              {lead.phone ? <a className="lc-phone v-above" href={telHref(lead.phone)} aria-label={`Call ${formatPhone(lead.phone)}`}>{formatPhone(lead.phone)}</a> : <span className="lc-phone lc-phone--none">No phone</span>}
+            </>
+          ) : <span className="lc-ctx lay-truncate">{line}</span>}
+        </div>
+      </div>
+      {trailing && <span className="lc-trail v-above">{trailing}</span>}
       {items.length > 0 && <span className="lc-menu v-above"><Menu items={items} label={`Actions for ${lead.business}`} /></span>}
     </div>
   );
@@ -96,16 +92,17 @@ function LeadCardInner({ lead: rawLead, onOpen, selected = false, selectable = f
 
 /* Memoized (Prompt 15): the kanban re-renders a column's cards only when their own lead or flags change.
  * Callers pass stable-ish handlers; the shallow compare on `lead` (a new object only when it was patched)
- * is what skips the other 399 cards when one moves. */
-const LeadCard = memo(LeadCardInner, (a, b) => a.lead === b.lead && a.selected === b.selected && a.selectable === b.selectable && a.checked === b.checked && a.dragging === b.dragging && a.compact === b.compact && a.className === b.className && a.style === b.style && a.draggable === b.draggable);
+ * is what skips the other 399 cards when one moves. A card given its own pill, line or trailing control
+ * re-renders with its parent, which is what those callers expect. */
+const LeadCard = memo(LeadCardInner, (a, b) => a.lead === b.lead && a.selected === b.selected && a.selectable === b.selectable && a.checked === b.checked && a.dragging === b.dragging && a.className === b.className && a.style === b.style && a.draggable === b.draggable && a.pill === b.pill && a.line === b.line && a.trailing === b.trailing && a.handle === b.handle);
 export default LeadCard;
-LeadCard.Skeleton = function LeadCardSkeleton({ compact = false }) {
+LeadCard.Skeleton = function LeadCardSkeleton({ menu = true }) {
   return (
-    <div className="lc lay-card" aria-busy="true" aria-hidden="true">
-      <div className="lc-row"><SkeletonCircle size={32} /><SkeletonBlock width="55%" height={14} /><span style={{ flex: 1 }} /><SkeletonBlock width={44} height={22} radius="var(--v-radius-pill)" /></div>
-      <div className="lc-row"><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="50%" height={12} /></div>
-      <div className="lc-row"><SkeletonBlock width={110} height={44} /><span style={{ flex: 1 }} /><SkeletonBlock width={74} height={22} radius="var(--v-radius-pill)" /></div>
-      {!compact && <div className="lc-row"><SkeletonBlock width={90} height={18} /></div>}
+    <div className={`lc lay-card${menu ? '' : ' lc--nomenu'}`} aria-busy="true" aria-hidden="true">
+      <div className="lc-main">
+        <div className="lc-l1"><SkeletonBlock width="55%" height={16} style={{ margin: '3px 0' }} /><span style={{ flex: 1 }} /><SkeletonBlock width={64} height={22} radius="var(--v-radius-pill)" /></div>
+        <div className="lc-l2"><SkeletonBlock width="45%" height={12} style={{ margin: '3px 0' }} /><span style={{ flex: 1 }} /><SkeletonBlock width={90} height={12} style={{ margin: '3px 0' }} /></div>
+      </div>
     </div>
   );
 };

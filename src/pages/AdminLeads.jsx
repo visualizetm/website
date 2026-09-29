@@ -300,7 +300,7 @@ export default function AdminLeads({
   if (pendingOpen) {
     return (
       <>
-        <aside className="aa-panel ld-panel" aria-label="Leads"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
+        <aside className="aa-panel ld-panel" aria-label="Leads"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</Stack></ScrollArea></aside>
         <div className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton mode="lead" />}</div>
         <style>{ldStyles}</style>
       </>
@@ -316,7 +316,7 @@ export default function AdminLeads({
             <Stack gap={2}>
               <Input placeholder="Search leads" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads" />
               <p className="ld-muted">{sorted.length} of {pool.length}</p>
-              <div className="ld-stack">{sorted.slice(0, 80).map(l => <LeadCard key={l._id} lead={l} compact onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</div>
+              <div className="ld-stack">{sorted.slice(0, 80).map(l => <LeadCard key={l._id} lead={l} onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</div>
             </Stack>
           </ScrollArea>
         </aside>
@@ -346,7 +346,7 @@ export default function AdminLeads({
           {poolView === 'open' && <Row gap={2} wrap>
             <Input className="ld-search" placeholder="Search business, contact, phone, industry" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads"
               trailing={q ? <button type="button" className="ld-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
-            {!desktop && <Button variant={selectMode ? 'primary' : 'secondary'} size="md" onClick={() => { setSelectMode(v => !v); if (selectMode) setChecked(new Set()); }}>{selectMode ? 'Done' : 'Select'}</Button>}
+            {(!desktop || mode === 'kanban') && <Button variant={selectMode ? 'primary' : 'secondary'} size="md" onClick={() => { setSelectMode(v => !v); if (selectMode) setChecked(new Set()); }} className="ld-select">{selectMode ? 'Done' : 'Select'}</Button>}
           </Row>}
         </Section>
 
@@ -471,7 +471,7 @@ export default function AdminLeads({
       </Modal>
       {mergeGroup && <MergeModal group={mergeGroup} onClose={() => setMergeGroup(null)} onMerge={doMerge} />}
       {importOpen && <LeadImport existingLeads={leads} onClose={() => setImportOpen(false)} onImported={onRefresh} />}
-      {dragLead && <div className="ld-ghost" style={{ left: drag.x, top: drag.y }} aria-hidden="true"><LeadCard lead={dragLead} compact /></div>}
+      {dragLead && <div className="ld-ghost" style={{ left: drag.x, top: drag.y }} aria-hidden="true"><LeadCard lead={dragLead} /></div>}
       <style>{ldStyles}</style>
     </PageShell>
   );

@@ -54,7 +54,7 @@ function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead
         <div key={l._id} className={`ls-item${dragging === i ? ' is-dragging' : ''}`} data-ls-i={i} style={dx[l._id] ? { transform: `translate3d(${dx[l._id]}px, 0, 0)`, transition: 'none' } : undefined} {...rowHandlers(l, i)}>
           <span className={`ls-remove${(dx[l._id] || 0) < -72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="XClose" size={16} /> Remove</span>
           <span className="ls-pos" aria-hidden="true">{i + 1}</span>
-          <LeadCard lead={l} compact onOpen={() => onOpenLead(l)} actions={list.system ? undefined : { onRemoveFromList: () => onRemove(l) }} className="ls-lead" />
+          <LeadCard lead={l} onOpen={() => onOpenLead(l)} actions={list.system ? undefined : { onRemoveFromList: () => onRemove(l) }} handle={phone || hover} className="ls-lead" />
         </div>
       ))}
     </Stagger>

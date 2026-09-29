@@ -632,7 +632,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const queueSkeleton = (
     <div className="cc-queue" aria-busy="true">
       <Section title="Session" loading><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Section>
-      <div className="cc-qlist">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} compact />)}</div>
+      <div className="cc-qlist">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</div>
     </div>
   );
   const roomSkeleton = (
@@ -666,7 +666,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       <Stagger className="cc-qlist">
         {sessionIds.map((id, i) => { const l = leadsById.get(id); if (!l) return null; const logged = session.logged[id]; return (
           <div key={id} className={`cc-qcard${i === curIdx ? ' is-cur' : ''}${i === nextIdx ? ' is-next' : ''}${logged ? ' is-done' : ''}`} {...qSwipe(id, i)}>
-            <LeadCard lead={l} compact onOpen={() => goTo(i)} selected={i === curIdx} />
+            <LeadCard lead={l} onOpen={() => goTo(i)} selected={i === curIdx} />
             {logged && <Pill id={logged} list={CALL_STATUSES} size="sm" variant="solid" className="cc-qmark" />}
             {i === nextIdx && !logged && <span className="cc-qnext">Next</span>}
           </div>); })}

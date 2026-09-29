@@ -30,7 +30,7 @@ export default function ClientCard({ lead, projects = [], posts = [], onOpen, se
   const plannerWaiting = lead.planner?.enabled ? postsOf(posts, lead._id).filter(p => p.status === 'review').length : 0;
   return (
     <div className={`clc${selected ? ' is-selected' : ''} ${className}`.trim()} {...rest}>
-      <LeadCard lead={lead} compact onOpen={onOpen} selected={selected} />
+      <LeadCard lead={lead} onOpen={onOpen} selected={selected} />
       {!compact && (
         <div className="clc-line">
           <div className="clc-row">
@@ -55,7 +55,7 @@ export default function ClientCard({ lead, projects = [], posts = [], onOpen, se
 ClientCard.Skeleton = function ClientCardSkeleton({ compact = false }) {
   return (
     <div className="clc" aria-busy="true">
-      <LeadCard.Skeleton compact />
+      <LeadCard.Skeleton menu={false} />
       {!compact && <div className="clc-line"><div className="clc-row"><SkeletonBlock width={110} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={70} height={22} radius="var(--v-radius-pill)" /></div><SkeletonBlock height={4} radius="var(--v-radius-pill)" /><SkeletonBlock width={140} height={12} /></div>}
     </div>
   );
