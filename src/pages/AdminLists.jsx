@@ -1,25 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, ProgressBar, Menu, Sheet, Modal, Input, Select, EmptyState, ErrorState, Stagger,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, ProgressBar, Menu, Modal, Input, Select, EmptyState, ErrorState, Stagger,
   SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
-import { useTopBar } from '../shell/ShellContext';
+import { useShell, useTopBar } from '../shell/ShellContext';
 import LeadCard from '../components/LeadCard';
 import ListCard, { listCardStyles } from '../components/ListCard';
-import FilterPicker, { useFilterMatches } from '../components/FilterPicker';
-import { openLists, listCount, isFull, windowLabel, WINDOWS, onAnyOpenList } from '../lib/lists';
-import { effectiveStage } from '../lib/booked';
-import { useComputerOnly } from '../components/ComputerOnly';
+import { openLists, listCount, isFull, windowLabel, WINDOWS } from '../lib/lists';
 
 /* Lists (CRM revamp, step 3): the dial lists Rob builds for the week. A
  * card per open list with its count against the target and a Start that
  * goes primary when the list is full; a list opens to its leads in order,
  * reordered by drag on a desktop and a long press on a phone, a swipe left
  * removes one (and the card menu has Remove for the audits). Fill from
- * filters is the Call Console's chips in a sheet, appending matches up to
- * the target and skipping leads on any open list. The system list Callbacks
- * due fills itself and only offers Start. */
+ * filters is its own page (src/pages/AdminListFill.jsx), the console's
+ * chips in one column, appending matches up to the target and skipping
+ * leads on any open list. The system list Callbacks due fills itself and
+ * only offers Start. */
 
 /* One list opened: its leads, in order. */
 function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead, onFill }) {
@@ -62,6 +60,7 @@ function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead
 }
 
 export default function AdminLists({ lists = [], leads = [], loading = false, error = false, onRetry, ops, onOpenLead, onStart, openId }) {
+  const shell = useShell();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const [retry, retrying] = useRetry(onRetry);
@@ -73,19 +72,12 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const [name, setName] = useState('');
   const [target, setTarget] = useState('25');
   const [win, setWin] = useState('any');
-  const [fillFor, setFillFor] = useState(null);
-  /* CRM revamp, step 7: Fill from filters is computer only; a phone gets the card. */
-  const co = useComputerOnly();
-  const openFill = (l) => (co.phone ? co.open('Fill from filters', l.name) : setFillFor(l));
+  /* Fill from filters is a page at every width (src/pages/AdminListFill.jsx). */
+  const openFill = (l) => shell?.openListFill?.(l);
   const open = useMemo(() => openLists(lists), [lists]);
   const sel = selId ? open.find(l => String(l._id) === String(selId)) || null : null;
   useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
   useTopBar(sel ? { title: sel.name, back: () => setSelId(null) } : null);
-
-  const pool = useMemo(() => leads.filter(l => effectiveStage(l) === 'lead'), [leads]);
-  const f = useFilterMatches(pool);
-  const taken = useMemo(() => onAnyOpenList(lists), [lists]);
-  const fillable = useMemo(() => (fillFor ? f.matches.filter(l => !taken.has(String(l._id)) && l.phone).slice(0, Math.max(0, (fillFor.target || 0) - listCount(fillFor))) : []), [f.matches, taken, fillFor]);
 
   const create = async () => {
     const n = name.trim(); if (!n) return;
@@ -97,14 +89,6 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const retarget = async () => { const n = Math.max(1, Math.min(500, Math.round(Number(target)) || 0)); if (!n || !modal?.list) return; const ok = await ops.patchList(modal.list._id, { target: n }); if (ok) { setModal(null); toast.success(`Target is ${n}.`); } else toast.error(COPY.error.save); };
   const markDone = async (l) => { const yes = await confirm({ title: `Mark ${l.name} done?`, body: 'It leaves the open lists and its leads are free to join another.', confirmLabel: 'Mark done' }); if (!yes) return; const ok = await ops.finishList(l._id); if (ok) { if (String(selId) === String(l._id)) setSelId(null); toast.success(`${l.name} done.`); } else toast.error(COPY.error.save); };
   const remove = async (l) => { const yes = await confirm({ title: `Delete ${l.name}?`, body: 'The list goes; the leads stay where they are.', confirmLabel: 'Delete', danger: true }); if (!yes) return; const ok = await ops.finishList(l._id, true); if (ok) { if (String(selId) === String(l._id)) setSelId(null); toast.success(`${l.name} deleted.`); } else toast.error(COPY.error.del); };
-  const fill = async () => {
-    if (!fillFor) return;
-    const ids = fillable.map(l => l._id);
-    if (!ids.length) { toast.info('Nothing new matches. Loosen a chip.'); return; }
-    const r = await ops.addToList(ids, fillFor._id);
-    if (r) toast.success(`Added ${ids.length} to ${fillFor.name}, ${r.count} of ${fillFor.target}.`); else toast.error(COPY.error.save);
-    setFillFor(null);
-  };
   const menuFor = (l) => (l.system ? [{ id: 'start', label: 'Start', icon: 'Play', onSelect: () => onStart(l), disabled: !listCount(l) }] : [
     { id: 'start', label: 'Start', icon: 'Play', onSelect: () => onStart(l), disabled: !listCount(l) },
     { id: 'rename', label: 'Rename', icon: 'Edit02', onSelect: () => { setName(l.name); setModal({ kind: 'rename', list: l }); } },
@@ -170,14 +154,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
           </Stack>
         </Modal>
       )}
-      {fillFor && (
-        <Sheet open onClose={() => setFillFor(null)} title="Fill from filters" description={`${fillFor.name}, ${listCount(fillFor)} of ${fillFor.target}`} label="Fill from filters" tall
-          footer={<Row gap={2} justify="between" align="center" wrap><span className="ls-count" role="status">{fillable.length} to add{f.matches.length > fillable.length ? `, ${f.matches.length - fillable.length} already on a list or without a phone` : ''}</span><Row gap={2}><Button variant="ghost" onClick={() => setFillFor(null)}>Cancel</Button><Button icon="Plus" onClick={fill} disabled={!fillable.length}>Add {fillable.length}</Button></Row></Row>}>
-          <FilterPicker f={f} />
-        </Sheet>
-      )}
       {confirmDialog}
-      {co.sheet}
       <style>{listCardStyles + lsStyles}</style>
     </PageShell>
   );

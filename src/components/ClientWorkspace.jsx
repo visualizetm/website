@@ -1,22 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { COPY } from '../shared/copy';
 import { useSendEmail } from './SendEmailModal';
-import { useComputerOnly } from './ComputerOnly';
 import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
 import { durationMs } from '../ui/motion';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
-import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import {
-  Stack, Row, Grid, Card, Button, Pill, Sheet, Modal, Input, Select, Textarea, Checkbox, useToast, useConfirm,
+  Stack, Row, Grid, Card, Button, Sheet, Modal, Input, Select, Textarea, useToast, useConfirm,
 } from '../ui';
-import { PROJECT_KINDS, projectStageOf } from '../shared/semantics';
-import { PACKAGES, RETAINERS, ADDONS, retainerOf, planLine, REVISION_ROUNDS } from '../shared/pricing';
+import { projectStageOf } from '../shared/semantics';
+import { retainerOf, REVISION_ROUNDS } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDateTime } from '../shared/dates';
 import { useShell } from '../shell/ShellContext';
 import {
-  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, isActiveProject, deliveryStepsAfter, deliveryStepsAtDelivery, FOLLOW_UP_DAYS, retainerMonthly, cancelAtFor, monthRecord, projectsOf, nextUnpaid, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
+  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, isActiveProject, deliveryStepsAfter, deliveryStepsAtDelivery, FOLLOW_UP_DAYS, cancelAtFor, monthRecord, projectsOf, nextUnpaid, CANCEL_NOTICE_DAYS,
 } from '../lib/projects';
 
 /* The client workspace (Prompt 10, rebuilt in UI simplification part A):
@@ -41,41 +39,6 @@ export function Stepper({ project }) {
   );
 }
 
-/* ── New project sheet ───────────────────────────────────────────── */
-function NewProjectSheet({ lead, onClose, onCreate }) {
-  const [mode, setMode] = useState('package');
-  const [packageId, setPackageId] = useState(PACKAGES[2].id);
-  const [addonIds, setAddonIds] = useState([]);
-  const [custom, setCustom] = useState({ name: '', total: '', kind: 'brand' });
-  const [start, setStart] = useState(today());
-  const [drive, setDrive] = useState(lead.links?.drive || '');
-  const [busy, setBusy] = useState(false);
-  const preview = useMemo(() => {
-    const pick = mode === 'package' ? { packageId } : mode === 'addons' ? { addonIds } : { custom: { ...custom, total: Number(custom.total) || 0 } };
-    return buildProject(lead._id, pick, { startDate: start, drive });
-  }, [lead._id, mode, packageId, addonIds, custom, start, drive]);
-  const valid = mode === 'package' ? !!packageId : mode === 'addons' ? addonIds.length > 0 : !!custom.name.trim() && Number(custom.total) > 0;
-  return (
-    <Sheet open onClose={onClose} title="New project" description={lead.business} tall width={560} className="cw-sheet"
-      footer={<><Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button loading={busy} disabled={!valid} onClick={async () => { setBusy(true); try { await onCreate(preview); } finally { setBusy(false); } }}>Create</Button></>}>
-      <Stack gap={4}>
-        <Select label="What" value={mode} onChange={(e) => setMode(e.target.value)} options={[{ id: 'package', label: 'A package' }, { id: 'addons', label: 'An add-on set (print)' }, { id: 'custom', label: 'Custom' }]} />
-        {mode === 'package' && <Select label="Package" value={packageId} onChange={(e) => setPackageId(e.target.value)} options={PACKAGES.map(p => ({ id: p.id, label: `${p.label} (${money(p.price)})` }))} data-autofocus />}
-        {mode === 'addons' && <div className="v-field"><span className="v-field-label">Add-ons</span><Stack gap={0}>{ADDONS.map(a => <Checkbox key={a.id} label={`${a.label} (${money(a.price)})`} checked={addonIds.includes(a.id)} onChange={(v) => setAddonIds(v ? [...addonIds, a.id] : addonIds.filter(x => x !== a.id))} />)}</Stack></div>}
-        {mode === 'custom' && <Grid minColumnWidth={160} gap={2}><Input label="Name" value={custom.name} onChange={(e) => setCustom(c => ({ ...c, name: e.target.value }))} data-autofocus /><Input label="Total" type="number" inputMode="decimal" value={custom.total} onChange={(e) => setCustom(c => ({ ...c, total: e.target.value }))} /><Select label="Kind" value={custom.kind} onChange={(e) => setCustom(c => ({ ...c, kind: e.target.value }))} options={PROJECT_KINDS.filter(k => k.id !== 'retainer').map(k => ({ id: k.id, label: k.label }))} /></Grid>}
-        <Grid minColumnWidth={160} gap={2}><Input label="Start date" type="date" value={start} onChange={(e) => setStart(e.target.value)} hint="The first payment starts the project." /></Grid>
-        <Card level={2} padding={3} className="cw-preview">
-          <Row gap={2} justify="between" align="center"><span className="rc-label">{preview.name || 'Project'}</span><Pill id={preview.kind} list={PROJECT_KINDS} size="sm" /></Row>
-          <span className="dt-opt-n">{money(preview.total)}</span>
-          <p className="dt-muted">{preview.plan ? planLine({ ...preview.plan, total: preview.total, alt: null }) : 'One payment, due at the start.'}</p>
-          <Stack gap={0}>{preview.invoices.map(s => <Row key={s.id} gap={2} justify="between" className="cw-preview-row"><span>{s.label}</span><span>{money(s.amount)}, {fmtDayShort(s.dueAt)}</span></Row>)}</Stack>
-        </Card>
-        <Input label="Drive folder (optional)" value={drive} onChange={(e) => setDrive(e.target.value)} placeholder="https://drive.google.com/..." />
-      </Stack>
-    </Sheet>
-  );
-}
-
 /* ── The hook ────────────────────────────────────────────────────── */
 /**
  * @param {object} args
@@ -83,27 +46,23 @@ function NewProjectSheet({ lead, onClose, onCreate }) {
  * @param {Array} args.projects every project (filtered here)
  * @param {Function} args.patch (set) => Promise<boolean> patches the lead, toasts on failure
  * @param {Function} args.patchRaw (set) => Promise<boolean> for InlineEdit, which toasts itself
- * @param {Function} [args.onCreateProject] (doc) => Promise<item|null>
  * @param {Function} [args.onPatchProject] (id, set) => Promise<boolean>
  * @param {Function} args.openTab (id) => void opens a section of the record
  */
-export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, readOnly = false, openTab }) {
+export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchProject, readOnly = false, openTab }) {
   const toast = useToast();
   const shell = useShell();
   // Planner prompt 2, part 5: the retainer month's delivered count comes from the planner when the client has one.
   const posts = shell?.posts || [];
   const plannerOn = !!lead.planner?.enabled;
   const [paidPulse, setPaidPulse] = useState(null); // invoice id that just got paid
-  const [retPulse, setRetPulse] = useState(false);
+  const retPulse = false; // the retainer's won pulse went with the sheet; the page opens the record on its Retainer tab
   const [confirm, confirmDialog] = useConfirm();
   /* The invoice and delivery emails (CRM revamp, step 6): the server stamps the project, so it reloads after a send. */
   const email = useSendEmail({ lead, patch, onSent: () => { shell?.refreshLeads?.(); shell?.projectOps?.reload?.(); } });
-  /* CRM revamp, step 7: New project and Start a retainer are computer only; a phone gets the card. */
-  const co = useComputerOnly();
-  const [newOpen, setNewOpen] = useState(false);
-  const [retOpen, setRetOpen] = useState(false);
-  const openNew = () => (co.phone ? co.open('New project', lead.business) : setNewOpen(true));
-  const openRet = () => (co.phone ? co.open('Start a retainer', lead.business) : setRetOpen(true));
+  /* New project and Start a retainer are one page at every width (src/pages/AdminProjectNew.jsx). */
+  const openNew = () => shell?.openProjectNew?.(lead);
+  const openRet = () => shell?.openProjectNew?.(lead, 'retainer');
   const mine = useMemo(() => projectsOf(projects, lead._id), [projects, lead._id]);
   const work = useMemo(() => mine.filter(p => p.kind !== 'retainer'), [mine]);
   const [projId, setProjId] = useState(null);
@@ -115,7 +74,6 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreatePr
   const [payForm, setPayForm] = useState({ amount: '', at: today(), label: '' });
   const [manual, setManual] = useState(false);
   const [manualForm, setManualForm] = useState({ amount: '', label: '', at: today(), projectId: '' });
-  const [retForm, setRetForm] = useState({ planId: RETAINERS[1].id, start: today(), billDay: String(new Date().getDate() > 28 ? 28 : new Date().getDate()) });
   const [logDel, setLogDel] = useState(null); // { project, month }
   const [logForm, setLogForm] = useState({ count: '1', note: '' });
   const [busy, setBusy] = useState(false);
@@ -201,20 +159,6 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreatePr
   };
 
   /* Retainer. */
-  const startRetainer = async () => {
-    if (!onCreateProject) return;
-    const r = retainerOf(retForm.planId); const billDay = Math.max(1, Math.min(28, Number(retForm.billDay) || 1));
-    setBusy(true);
-    const item = await onCreateProject(buildRetainerProject(lead._id, r.id, retForm.start, billDay));
-    if (item) {
-      const first = nextUnpaid(item);
-      await patch({ retainer: { projectId: String(item._id), planId: r.id, amount: r.price, status: 'active', startedAt: retForm.start, billDay, nextBillAt: first?.dueAt || retForm.start, cancelAt: '' }, clientStatus: lead.clientStatus === 'paused' ? 'active' : (lead.clientStatus || 'active') });
-      toast.success(`${r.label} retainer started, ${money(r.price)} a month.`);
-      setRetOpen(false);
-      setRetPulse(true); openTab('retainer'); setTimeout(() => setRetPulse(false), durationMs('--v-dur-slow') * 2 + 60);
-    } else toast.error(COPY.error.create);
-    setBusy(false);
-  };
   const setRet = (next) => patch({ retainer: { ...lead.retainer, ...next } });
   const cancelRetainer = async () => {
     if (!(await confirm({ title: 'Cancel the retainer?', body: `${CANCEL_NOTICE_DAYS} days notice: it keeps billing until ${fmtDay(cancelAtFor().slice(0, 10))}, then it is cancelled by the monthly job or by hand.`, danger: true, confirmLabel: 'Give notice' }))) return;
@@ -259,8 +203,6 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreatePr
     <>
       {confirmDialog}
       {email.modal}
-      {co.sheet}
-      {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = onCreateProject ? await onCreateProject(doc) : null; if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if (doc.links?.drive && !lead.links?.drive) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: doc.links.drive } }); } else toast.error(COPY.error.create); }} />}
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>
         <Textarea label={round?.extra ? 'Reason' : 'What changed'} rows={3} value={roundNote} onChange={(e) => setRoundNote(e.target.value)} placeholder={round?.extra ? 'They want the mark reworked after approving it.' : 'Tightened the wordmark spacing, swapped the secondary color.'} data-autofocus />
@@ -288,14 +230,6 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreatePr
           <Select label="Project (optional)" value={manualForm.projectId} onChange={(e) => setManualForm(f => ({ ...f, projectId: e.target.value }))} options={mine.map(p => ({ id: String(p._id), label: p.name }))} placeholder="Not tied to a project" />
         </Stack>
       </Sheet>}
-      {retOpen && <Sheet open onClose={() => setRetOpen(false)} title="Start a retainer" description={lead.business} width={460} className="cw-sheet"
-        footer={<><Button variant="ghost" onClick={() => setRetOpen(false)}>Cancel</Button><Button loading={busy} icon={RefreshCw01} onClick={startRetainer}>Create</Button></>}>
-        <Stack gap={3}>
-          <Select label="Plan" value={retForm.planId} onChange={(e) => setRetForm(f => ({ ...f, planId: e.target.value }))} options={RETAINERS.map(r => ({ id: r.id, label: `${r.label} (${money(r.price)} a month)` }))} data-autofocus />
-          <ul className="pb-list">{retainerOf(retForm.planId)?.included.map((x, i) => <li key={i}>{x}</li>)}<li>{retainerMonthly(retForm.planId).label}</li></ul>
-          <Grid minColumnWidth={140} gap={2}><Input label="Start date" type="date" value={retForm.start} onChange={(e) => setRetForm(f => ({ ...f, start: e.target.value }))} /><Input label="Bill day of month" type="number" inputMode="numeric" min={1} max={28} value={retForm.billDay} onChange={(e) => setRetForm(f => ({ ...f, billDay: e.target.value }))} hint="1 to 28" /></Grid>
-        </Stack>
-      </Sheet>}
       <Modal open={!!logDel} onClose={() => setLogDel(null)} title="Log delivery" description={logDel ? monthLabel(logDel.month) : ''}
         footer={<><Button variant="ghost" onClick={() => setLogDel(null)}>Cancel</Button><Button loading={busy} icon={Check} onClick={saveDelivery}>Log</Button></>}>
         <Grid minColumnWidth={120} gap={2}><Input label="How many" type="number" inputMode="numeric" min={0} value={logForm.count} onChange={(e) => setLogForm(f => ({ ...f, count: e.target.value }))} data-autofocus /></Grid>
@@ -305,7 +239,7 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onCreatePr
   );
 
   return {
-    lead, readOnly, patch, patchRaw, toast, confirm, email, co, busy,
+    lead, readOnly, patch, patchRaw, toast, confirm, email, busy,
     mine, work, current, setProjId, ret, retPlan, retProject, months, ledger, posts, plannerOn, paidPulse, retPulse,
     openNew, openRet, openRound, openPay, openManual, openLogDel,
     pp, ppRaw, setStage, advance, archive, payInvoice, setRet, cancelRetainer, cancelNow, setDelivery, writeInvoices,

@@ -32,17 +32,15 @@ export const NAV = [
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders',    more: 4, moreLabel: 'Orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   group: 'Studio',   badge: 'concepts',  more: 9 },
   { id: 'reviews',     label: 'Reviews',          icon: 'Star01',          path: '/reviews',    group: 'Studio',   badge: 'reviews',   more: 5 },
-  { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null },
+  { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    group: 'Studio',   badge: null,        more: 12 },
   // SYSTEM
   { id: 'submissions', label: 'Submissions',      icon: 'Inbox01',         path: '/submissions', group: 'System',  badge: 'submissions', more: 7 },
   { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null, more: 8 },
-  { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null },
+  { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null,        more: 13 },
   { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   group: 'System',   badge: null,        more: 11 },
   // The More sheet's Declined row: the Leads screen on its Declined pool. moreOnly keeps it out of the sidebar.
   { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/leads',      href: '/leads?pool=declined', search: 'pool=declined', group: 'Pipeline', badge: null, more: 10, moreOnly: true },
 ];
-/** The four screens a phone hands off to the computer (CRM revamp, step 7). */
-export const COMPUTER_ONLY = ['Showcase', 'Planner', 'Concepts editor', 'Landing', 'Design'];
 
 /* One line per group: the icon the collapsed rail shows and the sentence
  * under the group name, so the navigation reads as the process. */

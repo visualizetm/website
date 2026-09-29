@@ -54,6 +54,12 @@ export default function MoneySection({ rec }) {
     const before = lead;
     const ok = await patch(conv.leadSet);
     if (!ok) return false;
+    /* Nothing to build from (no package, no add-ons): Rob sets the project up by hand on the new project page. */
+    if (!deal.packageId && !(deal.addonIds || []).length && shell?.openProjectNew) {
+      toast.undo(`${lead.business} is a client. Set the project up.`, () => onPatch(before._id, undoConversionSet(before)), { seconds: 6 });
+      shell.openProjectNew(lead);
+      return true;
+    }
     const item = await shell.projectOps.create(conv.projectDoc);
     if (item) patch({ purchases: purchasesWithProject(conv.leadSet.purchases, conv.purchaseId, item._id) });
     toast.undo(`${lead.business} is a client. ${conv.projectDoc.name} started.`, async () => { await onPatch(before._id, undoConversionSet(before)); if (item) shell.projectOps.patch?.(item._id, { archived: true }); }, { seconds: 6 });

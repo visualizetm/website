@@ -449,7 +449,7 @@ const dbStyles = `
   .db-tiles .v-stat-value { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); }
   .db-tiles .v-stat-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); }
   .db-tiles .v-stat-label { overflow-wrap: normal; word-break: normal; }
-  @media (max-width: 479px) { .db-tiles .v-tile { display: none; } .db-tiles .v-stat { padding: var(--v-space-2); } .db-tiles .v-stat-value { font-size: var(--v-text-xl); line-height: var(--v-lh-xl); } }
+  @media (max-width: 479px) { .db-tiles .v-tile { display: none; } .db-tiles .v-stat { padding: var(--v-space-2); } .db-tiles .v-stat-value { font-size: var(--v-text-lg); line-height: var(--v-lh-lg); letter-spacing: var(--v-ls-lg); white-space: nowrap; } }
   /* Next up rows */
   .nu-group { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .nu-group--danger { color: var(--v-status-danger-text); }

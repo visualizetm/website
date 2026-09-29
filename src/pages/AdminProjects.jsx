@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Menu, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Menu, Button, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { PROJECT_STAGES, INVOICE_STATUSES } from '../shared/semantics';
@@ -24,7 +24,7 @@ export const projectIsOverdue = (p, ctx, now = Date.now()) => { const a = liveNe
 export const overdueProjects = (projects, ctx, now = Date.now()) => (projects || []).filter(p => !p.archived && projectIsOverdue(p, ctx, now)).length;
 const lastTouchOf = (p) => [p.updatedAt, p.createdAt, ...(p.revisions?.log || []).map(r => r.at), ...invoicesOf(p).map(i => i.paidAt)].filter(Boolean).map(v => new Date(v).getTime()).filter(t => !Number.isNaN(t)).sort((a, b) => b - a)[0] || 0;
 
-export default function AdminProjects({ projects = [], leads = [], loading = false, error = false, onRetry, onOpen }) {
+export default function AdminProjects({ projects = [], leads = [], loading = false, error = false, onRetry, onOpen, onNew }) {
   const shell = useShell();
   const [retry, retrying] = useRetry(onRetry);
   const showSkel = useDelayedLoading(loading);
@@ -107,7 +107,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
     <PageShell className="aa-main aa-main--wide pj-shell">
       <ScrollArea wide>
         <Section title="Projects" loading={showSkel} description={showSkel ? undefined : `${rows.filter(r => !r.p.archived).length} in the list`}
-          action={<Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />} />
+          action={<Row gap={2} wrap><Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />{onNew && <Button icon="Plus" onClick={onNew} className="pj-new">New project</Button>}</Row>} />
         {strip}
         {body}
       </ScrollArea>

@@ -1,8 +1,7 @@
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import { Sheet, Icon, Badge, Avatar, Button, Stagger } from '../ui';
-import Monitor01 from '@untitled-ui/icons-react/build/esm/Monitor01';
-import { MORE_NAV, COMPUTER_ONLY } from './nav';
-/** Mobile More sheet (CRM revamp, step 7): Triage, Leads, Clients, Projects, Orders, Reviews, Concepts, Declined, Settings in one grid, the greyed computer-only row, and the account row. */
+import { MORE_NAV } from './nav';
+/** Mobile More sheet (CRM revamp, step 7): every screen that is not a thumb tab in one grid, then the account row. Nothing is computer only. */
 export default function MoreSheet({ open, onClose, activeId, counts, onGo, onLogout }) {
   const groups = [{ group: 'Everything else', items: MORE_NAV }];
   return (
@@ -26,10 +25,6 @@ export default function MoreSheet({ open, onClose, activeId, counts, onGo, onLog
             </div>
           </div>
         ))}
-        <div className="sh-more-computer" role="note" aria-label={`Open on your computer: ${COMPUTER_ONLY.join(', ')}`}>
-          <Monitor01 width={18} height={18} aria-hidden="true" />
-          <span><strong>Open on your computer:</strong> {COMPUTER_ONLY.join(', ')}</span>
-        </div>
         <div className="sh-more-user">
           <Avatar name="Rob" size="md" />
           <span className="sh-side-user-text"><strong>Rob</strong><span>Visualize Studio</span></span>
@@ -57,8 +52,6 @@ export const moreSheetStyles = `
   .sh-more-btn.is-soon { opacity: 0.5; cursor: not-allowed; }
   .sh-more-icon { position: relative; display: inline-flex; }
   .sh-more-label { line-height: 1.2; }
-  .sh-more-computer { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px dashed var(--v-border); border-radius: var(--v-radius-md); color: var(--v-text-3); font-size: var(--v-text-xs); }
-  .sh-more-computer strong { color: var(--v-text-2); font-weight: var(--v-weight-semibold); }
   .sh-more-user { display: flex; align-items: center; gap: var(--v-space-3); padding-top: var(--v-space-4); border-top: 1px solid var(--v-border); }
   .sh-more-user .sh-side-user-text strong { color: var(--v-text); }
   .sh-more-user .sh-side-user-text span { color: var(--v-text-3); }

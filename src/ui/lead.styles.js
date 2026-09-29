@@ -270,6 +270,7 @@ export const clientStyles = `
   .sc-objrow[draggable="true"] { cursor: grab; }
   .sc-url { display: inline-flex; align-items: center; min-height: var(--v-tap); color: var(--v-status-progress-text); text-decoration: none; }
   .sc-url:hover { text-decoration: underline; }
+  .sc-url--min { flex: 1 1 0; min-width: 0; max-width: 100%; }
   .sc-chip { display: inline-block; width: 22px; height: 22px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-strong); flex-shrink: 0; }
   .sc-testi-quote { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text); overflow-wrap: anywhere; }
   .sc-testi-author { font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-2); }

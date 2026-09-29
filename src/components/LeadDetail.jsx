@@ -15,7 +15,7 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast,
+  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { normalizeLead } from '../lib/leads';
@@ -25,7 +25,6 @@ import CallbackPicker from './CallbackPicker';
 import { useDecline } from './DeclineSheet';
 import { useSendEmail } from './SendEmailModal';
 import { useClientWorkspace, copyText } from './ClientWorkspace';
-import { usePhone } from './ComputerOnly';
 import { liveNextAction, nextActionFor } from '../lib/nextAction';
 import { dealOf, metPatch, tickPatch, checkpointOf } from '../lib/deal';
 import { wonWithoutPayment } from '../lib/dealConvert';
@@ -41,7 +40,7 @@ import { RecordHeader, NextActionStrip, FactsGrid, AnglePara, SectionRows, SECTI
 
 const FIRST = { lead: 'playbook', deal: 'checkpoints', client: 'project' };
 /* Next up (CRM revamp, step 2): a row's control opens the record on the section that does the thing. */
-const INTENT_TAB = { outcome: 'checkpoints', payments: 'money', checkpoints: 'checkpoints', projects: 'project' };
+const INTENT_TAB = { outcome: 'checkpoints', payments: 'money', checkpoints: 'checkpoints', projects: 'project', retainer: 'retainer', meeting: 'meeting' };
 const tidy = (items) => items.filter((it, i, all) => it !== 'divider' || (i > 0 && i < all.length - 1 && all[i - 1] !== 'divider'));
 
 /**
@@ -61,7 +60,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const leadId = lead._id;
   const shell = useShell();
   const toast = useToast();
-  const phone = usePhone();
+  const phone = useMediaQuery('(max-width: 767px)');
   const stage = normalizeStage(lead);
   const clientMode = !!client && (stage === 'client' || stage === 'won');
   const dealMode = !clientMode && (stage === 'booked' || stage === 'deal');
@@ -268,7 +267,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
 const SKELETON_FACTS = { lead: 4, deal: 5, client: 8 };
 LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false }) {
   const m = deal ? 'deal' : mode;
-  const phone = usePhone();
+  const phone = useMediaQuery('(max-width: 767px)');
   const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
   const head = (
     <header className={`rc-head${phone ? ' rc-head--phone' : ''}`}>

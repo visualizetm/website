@@ -18,7 +18,6 @@ import { withNextAction, nextUpBadge } from '../lib/nextAction';
 import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead, listsBadge } from '../lib/lists';
 import ListPicker from '../components/ListPicker';
 import CaptureSheet from '../components/CaptureSheet';
-import ComputerOnly, { usePhone } from '../components/ComputerOnly';
 import { overdueProjects } from './AdminProjects';
 import { withScore, topClientIndustries, briefedLeadIds } from '../lib/score';
 import { withDeal, dealAutoPatch, tickPatch, dealOf, isTicked, isStalled } from '../lib/deal';
@@ -40,6 +39,7 @@ const loaders = {
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
   projects: () => import('./AdminProjects'),
+  projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -59,6 +59,8 @@ const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
 const AdminProjects = lazy(loaders.projects);
+const AdminProjectNew = lazy(loaders.projectNew);
+const AdminListFill = lazy(loaders.listFill);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -386,6 +388,8 @@ export default function AdminApp() {
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
     if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
+    if (/^\/clients\/[^/]+\/projects\/new$/.test(p) || p === '/projects/new') return 'projectNew';
+    if (/^\/lists\/[^/]+\/fill$/.test(p)) return 'listFill';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     if (p.startsWith('/lists')) return 'lists';
@@ -408,13 +412,14 @@ export default function AdminApp() {
   useEffect(() => { if (relPath.startsWith('/booked')) navigate(`${BASE}/deals${relPath.slice(7)}${location.search || ''}`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
   // /clients?filter=active became /projects (CRM revamp, step 7); the old link still lands.
   useEffect(() => { if (relPath === '/clients' && new URLSearchParams(location.search).get('filter') === 'active') navigate(`${BASE}/projects`, { replace: true }); }, [relPath, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Under 768px the editors hand off to the computer (CRM revamp, step 7).
-  const phone = usePhone();
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
   // /clients/:id/planner (planner prompt 2), the same shape.
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
+  // /clients/:id/projects/new and /projects/new (nothing computer only): the new project page; /lists/:id/fill: fill from filters.
+  const projectNewLeadId = (relPath.match(/^\/clients\/([^/]+)\/projects\/new$/) || [])[1] || '';
+  const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
   // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
   const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
@@ -441,6 +446,8 @@ export default function AdminApp() {
   const openShowcase = useCallback((lead) => { navigate(`${BASE}/clients/${lead._id}/showcase`); }, [navigate]);
   const openPlanner = useCallback((lead, month) => { navigate(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`); }, [navigate]);
   const openConcepts = useCallback((lead, setId) => { navigate(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`); }, [navigate]);
+  const openProjectNew = useCallback((lead, mode) => { navigate(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`); }, [navigate]);
+  const openListFill = useCallback((list) => { navigate(`${BASE}/lists/${list._id}/fill`); }, [navigate]);
   // Open a lead in whichever screen owns its stage.
   const openLead = useCallback((lead, intent) => {
     const stage = effectiveStage(lead);
@@ -635,7 +642,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -663,10 +670,18 @@ export default function AdminApp() {
         />
       )}
       {section === 'projects' && (
-        <AdminProjects projects={V.projects} leads={V.leads} loading={projectsLoading || callLeadsLoading || forceLoading} error={errors.projects} onRetry={loadProjects} onOpen={openLead} />
+        <AdminProjects projects={V.projects} leads={V.leads} loading={projectsLoading || callLeadsLoading || forceLoading} error={errors.projects} onRetry={loadProjects} onOpen={openLead} onNew={() => openProjectNew(null)} />
       )}
-      {section === 'planner' && phone && <ComputerOnly page what="The Planner" name={V.leads.find(l => String(l._id) === plannerId)?.business || ''} />}
-      {section === 'planner' && !phone && (
+      {section === 'projectNew' && (
+        <AdminProjectNew key={projectNewLeadId || 'pick'} lead={V.leads.find(l => String(l._id) === projectNewLeadId) || null} leads={V.leads} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
+          onCreateProject={createProject} onPatchLead={patchCallLead} mode={new URLSearchParams(location.search).get('mode') || 'package'}
+          onPick={(l) => openProjectNew(l)} onCancel={() => { const l = V.leads.find(x => String(x._id) === projectNewLeadId); if (l) openLead(l, 'projects'); else go('projects'); }} onDone={(l, item, intent) => openLead(l, intent)} />
+      )}
+      {section === 'listFill' && (
+        <AdminListFill list={V.lists.find(l => String(l._id) === listFillId) || null} leads={V.leads} lists={V.lists} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists || errors.leads} onRetry={loadLists} ops={listOps}
+          onDone={(l) => { navigate(`${BASE}/lists`); setOpenReq({ section: 'lists', id: l._id, n: Date.now() }); }} onCancel={() => { navigate(`${BASE}/lists`); if (listFillId) setOpenReq({ section: 'lists', id: listFillId, n: Date.now() }); }} />
+      )}
+      {section === 'planner' && (
         <AdminPlanner
           lead={V.leads.find(l => String(l._id) === plannerId) || null}
           posts={V.posts}
@@ -682,8 +697,7 @@ export default function AdminApp() {
           onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
         />
       )}
-      {section === 'conceptsEditor' && phone && <ComputerOnly page what="The Concepts editor" name={V.leads.find(l => String(l._id) === conceptsLeadId)?.business || ''} />}
-      {section === 'conceptsEditor' && !phone && (
+      {section === 'conceptsEditor' && (
         <AdminConceptsEditor
           lead={V.leads.find(l => String(l._id) === conceptsLeadId) || null}
           sets={V.sets} projects={V.projects}
@@ -694,8 +708,7 @@ export default function AdminApp() {
           onBack={() => { const l = V.leads.find(x => String(x._id) === conceptsLeadId); if (l) openLead(l); else navigate(`${BASE}/concepts`); }}
         />
       )}
-      {section === 'showcase' && phone && <ComputerOnly page what="The Showcase editor" name={V.leads.find(l => String(l._id) === showcaseId)?.business || ''} />}
-      {section === 'showcase' && !phone && (
+      {section === 'showcase' && (
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
           loading={callLeadsLoading || forceLoading}
@@ -718,8 +731,7 @@ export default function AdminApp() {
       {section === 'reviews' && (
         <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
       )}
-      {section === 'landing' && phone && <ComputerOnly page what="The Landing screen" />}
-      {section === 'landing' && !phone && (
+      {section === 'landing' && (
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
       )}
       {section === 'calls' && (

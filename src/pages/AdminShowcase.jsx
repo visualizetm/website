@@ -285,7 +285,7 @@ function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
         <EditableText value={sh.slug} onSave={(v) => writeRaw({ slug: v })} placeholder="Auto-generated on publish" label="Slug" readOnly={readOnly} className="sc-slug-edit" />
         {url && (
           <Row gap={1} align="center" wrap>
-            <a href={url} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate">{url}</a>
+            <a href={url} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate sc-url--min">{url}</a>
             <IconButton icon="Copy01" label="Copy showcase URL" variant="ghost" onClick={() => copyText(toast, url, 'Showcase URL')} />
           </Row>
         )}
@@ -295,7 +295,7 @@ function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
         {reviewUrl ? (
           <>
             <Row gap={1} align="center" wrap>
-              <a href={reviewUrl} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate">{reviewUrl}</a>
+              <a href={reviewUrl} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate sc-url--min">{reviewUrl}</a>
               <IconButton icon="Copy01" label="Copy review link" variant="ghost" onClick={() => copyText(toast, reviewUrl, 'Review link')} />
             </Row>
             <p className="sc-review-note">Text this to them once the work is delivered. Their name and business are filled in for them.</p>
