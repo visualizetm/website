@@ -19,8 +19,8 @@ const warmStore = new Map();
 /** Start a GET now and hand it to the first apiFetch for the same URL (see src/shared/warm.js). */
 export function warm(urls) { for (const url of urls) if (!warmStore.has(url)) warmStore.set(url, apiFetch(url, { silent: true })); }
 
-export async function apiFetch(url, { method = 'GET', body, headers, silent = false } = {}) {
-  if (method === 'GET' && warmStore.has(url)) { const p = warmStore.get(url); warmStore.delete(url); return p; }
+export async function apiFetch(url, { method = 'GET', body, headers, silent = false, fresh = false } = {}) {
+  if (method === 'GET' && !fresh && warmStore.has(url)) { const p = warmStore.get(url); warmStore.delete(url); return p; }
   if (method !== 'GET' && isOffline()) {
     // Prompt 14: offline writes are blocked, not queued (see reports/PROMPT-14-REPORT.md section 10).
     emit('vz:offline-write', { url, method });
@@ -29,8 +29,10 @@ export async function apiFetch(url, { method = 'GET', body, headers, silent = fa
   try {
     const res = await fetch(url, {
       method,
-      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(headers || {}) },
+      // fresh (CRM revamp, step 7): the refetch after a send skips every cache; the service worker sees the header and neither serves nor stores it.
+      headers: { ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}), ...(fresh ? { 'x-vz-fresh': '1' } : {}), ...(headers || {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...(fresh ? { cache: 'no-store' } : {}),
     });
     let data = null;
     try { data = await res.json(); } catch { /* empty or non-JSON body */ }

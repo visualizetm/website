@@ -127,6 +127,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) 
     : kind === 'log-outcome' ? { icon: 'CheckCircle', label: `Log the outcome for ${lead.business}` }
     : kind === 'build-concepts' ? { icon: 'LayersThree01', label: `Build concepts for ${lead.business}` }
     : kind === 'chase-invoice' ? { icon: 'CurrencyDollar', label: `Open payments for ${lead.business}` }
+    : kind === 'custom' && action.label === 'Move to nurture?' ? { icon: 'Clock', label: `Move ${lead.business} to nurture` }
     : { icon: 'ArrowRight', label: `Open ${lead.business}` };
   const menu = [
     { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
@@ -245,6 +246,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
       if (k === 'build-concepts' && shell?.openConcepts) shell.openConcepts(item.lead);
       else if (k === 'log-outcome') openRecord(item, 'outcome');
       else if (k === 'chase-invoice') openRecord(item, 'payments');
+      /* The stalled deal rule (CRM revamp, step 7) asks; the answer parks the deal for ninety days. */
+      else if (k === 'custom' && item.action.label === 'Move to nurture?' && !item.project) { const ok = await onPatchLead(item.lead._id, { stage: 'nurture', nurture: { until: new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10), reason: 'Stalled deal' }, nextAction: null, listId: '' }); if (ok) toast.success(`${item.lead.business} is in nurture for 90 days.`); else toast.error(COPY.error.save); }
       else if ((k === 'call' || k === 'callback') && item.lead.phone) window.location.href = telHref(item.lead.phone);
       else openRecord(item);
       return;

@@ -32,6 +32,9 @@ export const DEAL_CHECKPOINT_IDS = ['concepts', 'introSent', 'callDone', 'onboar
 // CRM revamp, step 6: the four branded emails and the onboarding variants.
 export const EMAIL_KIND_IDS = ['intro', 'onboarding', 'invoice', 'delivery'];
 export const EMAIL_VARIANT_IDS = ['brand', 'web', 'combined', 'general'];
+// CRM revamp, step 7: the delivery checklist steps (each with dueAt and doneAt) and the daily cron's rule keys.
+export const DELIVERY_STEP_IDS = ['driveShared', 'emailSent', 'pitchSent', 'reviewLinkSent', 'followUp'];
+export const CRON_RULE_IDS = ['introNoBooking', 'twoNoAnswers', 'wentQuiet', 'stalledDeal', 'secondChase', 'retainerKit', 'lastPayment'];
 export const DEAL_COLUMN_IDS = ['booked', 'concepts', 'introSent', 'callDone', 'formReceived', 'contractSent', 'invoiceSent'];
 export const RETAINER_STATUS_IDS = ['active', 'paused', 'ending', 'cancelled'];
 export const CLIENT_STATUS_IDS = ['active', 'paused', 'delivered'];

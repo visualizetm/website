@@ -3,6 +3,7 @@ import { Modal, Stack, Row, Button, InlineEdit, Pill, Tooltip, useToast } from '
 import { apiFetch } from '../shared/api';
 import { useShell } from '../shell/ShellContext';
 import { buildEmailPayload } from '../lib/emailPayload';
+import { applySendResult } from '../lib/emailSend';
 import { money } from '../shared/format';
 import { fmtDate } from '../shared/dates';
 
@@ -33,6 +34,10 @@ export function useSendEmail({ lead, patch, onSent }) {
     if (!r.ok) { toast.error(r.data?.error || 'That email did not go out.'); return; }
     toast.success(`${EMAIL_LABEL[req.kind]} sent to ${lead.email}.`);
     setReq(null);
+    /* CRM revamp, step 7: the server's stamps land on the local record now (same shape as its write); the refetch that follows skips every cache. */
+    const { leadSet, projectSet } = applySendResult(lead, req.kind, { sentAt: r.data?.sentAt || new Date().toISOString(), invoice: req.invoice, project: req.project }, { projects: shell?.projects || [], sets: shell?.sets || [] });
+    shell?.leadOps?.applyLocal?.(lead._id, leadSet);
+    if (projectSet && req.project) shell?.projectOps?.applyLocal?.(req.project._id, projectSet);
     onSent?.(req.kind, r.data, req);
   };
   const modal = req ? <SendEmailModal lead={lead} kind={req.kind} invoice={req.invoice} project={req.project} busy={busy} onClose={() => { if (!busy) setReq(null); }} onSend={send} onEmail={(v) => patch?.({ email: v.trim() })} /> : null;

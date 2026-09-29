@@ -178,7 +178,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
      log-outcome, Payments for chase-invoice. */
   useEffect(() => {
     if (!intent?.kind) return;
-    const t = setTimeout(() => { if (intent.kind === 'outcome') jump(dealMode ? 'checkpoints' : 'meeting'); else if (intent.kind === 'payments') jump(dealMode ? 'checkpoints' : 'payments'); else if (intent.kind === 'checkpoints') jump('checkpoints'); }, 60);
+    const t = setTimeout(() => { if (intent.kind === 'outcome') jump(dealMode ? 'checkpoints' : 'meeting'); else if (intent.kind === 'payments') jump(dealMode ? 'checkpoints' : 'payments'); else if (intent.kind === 'checkpoints') jump('checkpoints'); else if (intent.kind === 'projects') jump(clientMode ? 'projects' : 'overview'); }, 60);
     return () => clearTimeout(t);
   }, [intent?.n, intent?.kind, lead._id]); // eslint-disable-line react-hooks/exhaustive-deps
   /* Set next action: a manual action (auto false) the nightly recompute

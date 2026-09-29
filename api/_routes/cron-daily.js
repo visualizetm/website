@@ -7,6 +7,7 @@ import { nextActionFor, resolveNextAction, sameAction } from '../_lib/nextAction
 import { syncCallbacksDue } from '../_lib/lists.js';
 import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js';
 import { dealAutoPatch } from '../_lib/deal.js';
+import { LEAD_RULES, PROJECT_RULES, dueRules, RULE_IDS } from '../_lib/rules.js';
 import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } from '../_lib/invoices.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
@@ -23,6 +24,8 @@ import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } fr
  *  1f. Nurture resurface (CRM revamp, step 4): parked records past their
  *     day go back to triage with a note.
  *  1g. Score recompute (CRM revamp, step 4) on every live lead.
+ *  1d2 (CRM revamp, step 7): the follow up rules in api/_lib/rules.js, once
+ *     per record per condition, counted in health.crons.daily.rules.
  *  1d0 and 1d1 (CRM revamp, step 5): the deal moves (booked to deal an hour
  *     past the meeting, Concepts and Call done tick, stalledSince) and the
  *     next plan month drafted on its bill day; a retainer's next month is
@@ -150,8 +153,38 @@ export async function handler(req, res) {
     await projects.updateOne({ _id: p._id }, { $set: { invoices: [...lines, { ...newInvoice({ label: monthLineLabel(n, M), amount: Number(p.plan.monthly) || 0, dueAt, status: 'draft' }), ledgerId: '' }], updatedAt: new Date() } }); drafted++;
   }
 
+  /* 1d2. The follow up rules (CRM revamp, step 7, api/_lib/rules.js): each
+     fires once per record per condition (the key lands in cronRules) and
+     is counted in health.crons.daily.rules. They run before the next
+     action recompute so a rule that moved a record is read by it. */
+  const ruleCounts = Object.fromEntries(RULE_IDS.map(id => [id, 0]));
+  const ruleLeads = await leads.find({ deleted: { $ne: true }, $or: [{ stage: { $in: ['lead', 'booked', 'deal'] } }, { stage: { $exists: false } }, { stage: '' }] }).toArray();
+  const listsCol = db.collection('lists');
+  for (const l of ruleLeads) {
+    const fired = dueRules(LEAD_RULES, l, {}, Date.now());
+    if (!fired.length) continue;
+    const set = { updatedAt: new Date() }; const keys = { ...(l.cronRules || {}) };
+    for (const f of fired) { Object.assign(set, f.set); keys[f.id] = f.key; ruleCounts[f.id]++; if (f.lists === 'remove') await listsCol.updateMany({ status: { $ne: 'done' }, leadIds: String(l._id) }, { $pull: { leadIds: String(l._id) } }); }
+    set.cronRules = keys;
+    await leads.updateOne({ _id: l._id }, { $set: set });
+  }
+  const ruleProjects = await projects.find({ archived: { $ne: true } }).toArray();
+  const ruleLeadIds = [...new Set(ruleProjects.map(p => String(p.leadId)))];
+  const ruleOwners = ruleLeadIds.length ? await leads.find({ _id: { $in: ruleLeadIds.filter(ObjectId.isValid).map(id => new ObjectId(id)) } }).project({ retainer: 1, planner: 1 }).toArray() : [];
+  const ownerOf = (p) => ruleOwners.find(o => String(o._id) === String(p.leadId)) || null;
+  const rulePosts = ruleProjects.some(p => p.kind === 'retainer') ? await db.collection('posts').find({ deleted: { $ne: true }, archived: { $ne: true }, status: { $in: ['approved', 'posted'] } }).project({ leadId: 1, month: 1, status: 1 }).toArray() : [];
+  for (const p of ruleProjects) {
+    const fired = dueRules(PROJECT_RULES, p, { lead: ownerOf(p), posts: rulePosts }, Date.now());
+    if (!fired.length) continue;
+    const set = { updatedAt: new Date() }; const keys = { ...(p.cronRules || {}) };
+    for (const f of fired) { Object.assign(set, f.set); keys[f.id] = f.key; ruleCounts[f.id]++; }
+    set.cronRules = keys;
+    await projects.updateOne({ _id: p._id }, { $set: set });
+  }
+  const rules = RULE_IDS.map(id => ({ name: id, count: ruleCounts[id] }));
+
   const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1, deal: 1, calendlyEventUri: 1 }).toArray();
-  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
+  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, deliveredAt: 1, revisions: 1, addonIds: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
   const ctx = { projects: liveProjects, sets: liveSets };
   for (const l of liveLeads) {
     const next = resolveNextAction(l, nextActionFor(l, ctx, Date.now()));
@@ -209,12 +242,12 @@ export async function handler(req, res) {
   const health = {
     enrichment: { lastScanAt: lastScan ? new Date(lastScan).toISOString() : null, leadsScannedLast24h: scanned24.length, fieldsFilledLast24h: fields24 },
     scraper: { lastInsertAt: lastInsert[0]?.createdAt ? new Date(lastInsert[0].createdAt).toISOString() : null, insertedLast24h: inserted24, insertedLast7d: inserted7 },
-    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted,
+    crons: { ...(prev.crons || {}), daily: { lastRunAt: nowIso, rolled, cancelled, extended, healed: healedCount, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, rules,
       // The last 50 heals across runs, newest first, kept for the drawer's System items (seven days shown).
       healedRecords: [...healedRecords, ...((prev.crons?.daily?.healedRecords) || [])].filter(h => h && h.at && Date.now() - new Date(h.at).getTime() < 30 * 864e5).slice(0, 50) } },
     stripe: { lastWebhookAt: stripe.lastWebhookAt || prev.stripe?.lastWebhookAt || null, unmatched: stripe.unmatched },
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, health });
+  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, rules, health });
 }

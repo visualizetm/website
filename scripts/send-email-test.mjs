@@ -200,6 +200,35 @@ section('6. the hook URL never leaks');
   ok(sres._json?.emails && sres._json.emails.intro === true && sres._json.emails.delivery === false && Object.values(sres._json.emails).every(v => typeof v === 'boolean'), 'the settings GET reports which hooks exist as booleans');
 }
 
+section('7. the optimistic apply matches the server write (CRM revamp, step 7)');
+{
+  const { applySendResult } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'emailSend.js')).href);
+  const strip = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k === 'updatedAt' || k === '_id' ? undefined : v)));
+  for (const [kind, extra] of [['intro', {}], ['onboarding', {}], ['invoice', { invoiceId: 'dv1' }]]) {
+    seed();
+    const before = JSON.parse(JSON.stringify(lead()));
+    const r = await call({ leadId: L, kind, ...extra });
+    const local = applySendResult(before, kind, { sentAt: r._json.sentAt, invoice: extra.invoiceId ? before.deal.invoices.find(i => i.id === extra.invoiceId) : null, project: null }, { projects: _stores.projects, sets: [] });
+    const merged = strip({ ...before, ...local.leadSet });
+    const stored = strip(lead());
+    ok(JSON.stringify(merged.deal) === JSON.stringify(stored.deal) && JSON.stringify(merged.contactLog) === JSON.stringify(stored.contactLog) && JSON.stringify(merged.nextAction) === JSON.stringify(stored.nextAction), `${kind}: the local record after applySendResult equals what the route stored`);
+  }
+  seed();
+  const pBefore = JSON.parse(JSON.stringify(project()));
+  const r = await call({ leadId: L, kind: 'invoice', invoiceId: 'pv1', projectId: PJ });
+  const local = applySendResult(JSON.parse(JSON.stringify(lead())), 'invoice', { sentAt: r._json.sentAt, invoice: pBefore.invoices[0], project: pBefore }, { projects: [pBefore], sets: [] });
+  ok(JSON.stringify(strip({ ...pBefore, ...local.projectSet }).invoices) === JSON.stringify(strip(project()).invoices), 'a project invoice: the local project equals what the route stored');
+  process.env.ZAPIER_HOOK_DELIVERY = `${HOOK}${SECRET_PATH}/delivery`;
+  seed();
+  const dBefore = JSON.parse(JSON.stringify(project()));
+  const rd = await call({ leadId: L, kind: 'delivery', projectId: PJ });
+  const dl = applySendResult(JSON.parse(JSON.stringify(lead())), 'delivery', { sentAt: rd._json.sentAt, project: dBefore }, { projects: [dBefore], sets: [] });
+  ok(JSON.stringify(strip({ ...dBefore, ...dl.projectSet }).delivery) === JSON.stringify(strip(project()).delivery), 'delivery: the local project equals what the route stored');
+  delete process.env.ZAPIER_HOOK_DELIVERY;
+  const api = fs.readFileSync(path.join(repoRoot, 'src', 'shared', 'api.js'), 'utf8'); const sw = fs.readFileSync(path.join(repoRoot, 'public', 'sw.js'), 'utf8');
+  ok(api.includes("cache: 'no-store'") && api.includes("'x-vz-fresh': '1'") && sw.includes("req.headers.get('x-vz-fresh') === '1'"), 'a fresh fetch sends no-store and the header the service worker steps aside for');
+}
+
 hook.close();
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} checks passed, ${fails} failed.`);

@@ -37,7 +37,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, funnel, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenListPicker, listOps = null, styles, children,
+  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, leadOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenListPicker, listOps = null, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
@@ -136,10 +136,10 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, emails, refreshLeads: onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts,
     lists, openListPicker: onOpenListPicker, listOps,
-  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+  }), [go, openLead, onOpenShowcase, onOpenPlanner, onOpenConcepts, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;

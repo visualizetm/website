@@ -44,6 +44,9 @@ export const COPY = {
     'calls.builder': { title: 'No leads to dial', description: 'Add leads on the Leads page or import the notepads.', action: 'Import the notepads', secondary: 'Add a lead' },
     'calls.room': { title: 'Nothing left in this session', description: 'Every lead in this block has an outcome.', action: 'See the summary' },
     /* Booked */
+    /* Projects and the computer-only card (CRM revamp, step 7) */
+    'projects.none': { title: 'No projects yet', description: 'A project starts when a deal is paid, or from a client record. It lands here with its next action and its next invoice.', action: 'Open Clients' },
+    'computer.only': { title: 'Open on your computer', description: 'needs a wide screen. Copy the link and open it at the desk.', action: 'Copy link' },
     /* Deals (CRM revamp, step 5) */
     'deals.none': { title: 'No deals yet', description: 'Book a meeting from the Call Console and it lands here. The checkpoints carry it from the call to the first payment.', action: 'Open Call Console' },
     'deals.column': { title: 'Nothing here', description: 'A deal moves into this column when its checkpoint ticks.' },

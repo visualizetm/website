@@ -11,6 +11,8 @@ const DAY = 864e5;
 const HOUR = 3600e3;
 const ASK_AFTER_DAYS = 3;
 const PITCH_AFTER_DAYS = 3;
+const ROUND_DAYS = 7;
+const RUSH_EXTRA_DAYS = 3;
 const LABELS = { call: 'Call', callback: 'Call back', 'build-concepts': 'Build concepts', 'log-outcome': 'Log the outcome', 'send-onboarding': 'Send onboarding', 'chase-form': 'Chase the form', 'send-contract': 'Send the contract', 'chase-contract': 'Chase the contract', 'send-invoice': 'Send the invoice', 'chase-invoice': 'Chase the invoice', kickoff: 'Kick off', revision: 'Revision round', deliver: 'Deliver', 'retainer-pitch': 'Pitch the retainer', 'review-ask': 'Ask for a review', custom: 'Custom' };
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 export function parseDate(v) {
@@ -67,11 +69,21 @@ function leadAction(lead, ctx, now) {
 }
 function projectAction(p, ctx, now) {
   if (p.archived) return null;
-  const late = invoicesOf(p).filter(s => invoiceStatus(s, now) === 'past-due');
+  // Invoices (CRM revamp, step 5): a sent line past its day is late; a draft is not.
+  const lines = invoicesOf(p);
+  const late = lines.filter(s => invoiceStatus(s, now) === 'past-due');
   if (late.length) return act('chase-invoice', now);
+  /* The client side (CRM revamp, step 7): deliver once everything is paid, send the round back a week after it was logged (three more days on a rush job), pitch the retainer three days after delivery. */
+  const allPaid = lines.length > 0 && lines.every(s => invoiceStatus(s, now) === 'paid');
+  if (p.stage === 'delivery' && allPaid && !p.releasedAt) return act('deliver', now, 'Share the Drive folder and send the delivery email');
   if (p.stage === 'delivered' && p.delivery && p.delivery.pitchSent === false) {
-    const base = parseDate(p.releasedAt) || parseDate(p.deliveredAt) || parseDate(p.updatedAt) || new Date(now);
+    const base = parseDate(p.deliveredAt) || parseDate(p.releasedAt) || parseDate(p.updatedAt) || new Date(now);
     return act('retainer-pitch', base.getTime() + PITCH_AFTER_DAYS * DAY);
+  }
+  const log = Array.isArray(p.revisions?.log) ? p.revisions.log : [];
+  if (log.length && p.stage !== 'delivered') {
+    const last = log[log.length - 1];
+    const at = parseDate(last?.at); if (at) return act('revision', at.getTime() + (ROUND_DAYS + ((p.addonIds || []).includes('rush') ? RUSH_EXTRA_DAYS : 0)) * DAY, `Send round ${log.length}`);
   }
   return null;
 }

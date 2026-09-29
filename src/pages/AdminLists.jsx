@@ -10,6 +10,7 @@ import ListCard, { listCardStyles } from '../components/ListCard';
 import FilterPicker, { useFilterMatches } from '../components/FilterPicker';
 import { openLists, listCount, isFull, windowLabel, WINDOWS, onAnyOpenList } from '../lib/lists';
 import { effectiveStage } from '../lib/booked';
+import { useComputerOnly } from '../components/ComputerOnly';
 
 /* Lists (CRM revamp, step 3): the dial lists Rob builds for the week. A
  * card per open list with its count against the target and a Start that
@@ -73,6 +74,9 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const [target, setTarget] = useState('25');
   const [win, setWin] = useState('any');
   const [fillFor, setFillFor] = useState(null);
+  /* CRM revamp, step 7: Fill from filters is computer only; a phone gets the card. */
+  const co = useComputerOnly();
+  const openFill = (l) => (co.phone ? co.open('Fill from filters', l.name) : setFillFor(l));
   const open = useMemo(() => openLists(lists), [lists]);
   const sel = selId ? open.find(l => String(l._id) === String(selId)) || null : null;
   useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
@@ -105,7 +109,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
     { id: 'start', label: 'Start', icon: 'Play', onSelect: () => onStart(l), disabled: !listCount(l) },
     { id: 'rename', label: 'Rename', icon: 'Edit02', onSelect: () => { setName(l.name); setModal({ kind: 'rename', list: l }); } },
     { id: 'target', label: 'Set target', icon: 'Users01', onSelect: () => { setTarget(String(l.target || 25)); setModal({ kind: 'target', list: l }); } },
-    { id: 'fill', label: 'Fill from filters', icon: 'SearchMd', onSelect: () => setFillFor(l) },
+    { id: 'fill', label: 'Fill from filters', icon: 'SearchMd', onSelect: () => openFill(l) },
     'divider',
     { id: 'done', label: 'Mark done', icon: 'Check', onSelect: () => markDone(l) },
     { id: 'del', label: 'Delete', icon: 'Trash01', danger: true, onSelect: () => remove(l) },
@@ -133,7 +137,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
       <ListDetail list={sel} leads={leads} phone={phone} hover={hover}
         onReorder={(ids) => ops.patchList(sel._id, { leadIds: ids }).then(ok => { if (!ok) toast.error(COPY.error.save); })}
         onRemove={(l) => ops.removeFromList(l._id, sel._id).then(ok => { if (ok) toast.undo(`${l.business} removed from ${sel.name}.`, () => ops.addToList([l._id], sel._id), { seconds: 6 }); else toast.error(COPY.error.save); })}
-        onOpenLead={(l) => onOpenLead(l)} onFill={() => setFillFor(sel)} />
+        onOpenLead={(l) => onOpenLead(l)} onFill={() => openFill(sel)} />
     </Stack>
   ) : !open.length ? (
     <Card><EmptyState icon="Rows01" title={E.title} description={E.description} action={{ label: E.action, icon: 'Plus', onClick: () => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); } }} /></Card>
@@ -167,6 +171,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
         </Sheet>
       )}
       {confirmDialog}
+      {co.sheet}
       <style>{listCardStyles + lsStyles}</style>
     </PageShell>
   );

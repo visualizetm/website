@@ -48,6 +48,7 @@ function matches(doc, filter) {
 function applyUpdate(doc, update) {
   for (const [k, v] of Object.entries(update.$set || {})) setPath(doc, k, v);
   for (const k of Object.keys(update.$unset || {})) delPath(doc, k);
+  for (const [k, v] of Object.entries(update.$pull || {})) { const cur = getPath(doc, k); if (Array.isArray(cur)) setPath(doc, k, cur.filter(x => String(x) !== String(v))); }
   for (const [k, v] of Object.entries(update.$push || {})) {
     const cur = getPath(doc, k); const arr = Array.isArray(cur) ? cur : [];
     const items = v && typeof v === 'object' && '$each' in v ? v.$each : [v];

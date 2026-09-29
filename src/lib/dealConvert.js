@@ -52,7 +52,7 @@ export function markPaidConversion(lead, invoiceId, { paidAt = '', note = '' } =
     bookedOutcome: { result: 'won', reason: note || '', at: iso(now) },
     purchases: [...(lead.purchases || []), { id: purchaseId, label: inv.label || 'First invoice', amount: Number(inv.amount) || 0, at: paidDay, notes: note || '', projectId: '' }],
   };
-  const projectDoc = buildProject(lead._id, dealPick(deal), { startDate: paidDay });
+  const projectDoc = buildProject(lead._id, dealPick(deal), { startDate: paidDay, addonIds: deal.addonIds || [] });
   const moved = [paidLine, ...invoices.filter(i => i.id !== paidLine.id)];
   if (deal.plan?.months) {
     for (let i = moved.length; i < deal.plan.months; i++) moved.push({ ...newInvoice({ label: `Month ${i + 1} of ${deal.plan.months}`, amount: deal.plan.monthly, dueAt: addMonthsKey(paidDay, i), status: 'sent' }), ledgerId: '' });
@@ -71,7 +71,7 @@ export const undoConversionSet = (before) => ({ stage: before.stage || 'deal', d
 export function wonWithoutPayment(lead, now = Date.now()) {
   const deal = dealOf(lead);
   const leadSet = { deal, stage: 'client', clientSince: iso(now), clientStatus: 'active', bookedOutcome: { result: 'won', reason: 'Pro bono', at: iso(now) } };
-  const projectDoc = buildProject(lead._id, dealPick(deal), { startDate: invDayKey(new Date(now)) });
+  const projectDoc = buildProject(lead._id, dealPick(deal), { startDate: invDayKey(new Date(now)), addonIds: deal.addonIds || [] });
   projectDoc.invoices = []; projectDoc.plan = null;
   return { leadSet, projectDoc };
 }

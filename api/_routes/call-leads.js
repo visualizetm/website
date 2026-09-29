@@ -4,7 +4,7 @@ import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
 import { sanitizeInvoices } from '../_lib/invoices.js';
-import { DEAL_CHECKPOINT_IDS } from '../_semantics.js';
+import { DEAL_CHECKPOINT_IDS, CRON_RULE_IDS } from '../_semantics.js';
 
 import {
   CONCEPT_STATUS_IDS,
@@ -357,6 +357,8 @@ function sanitize(b) {
       reason: str(b.bookedOutcome.reason, 600),
       at: str(b.bookedOutcome.at, 40),
     } : undefined,
+    // The daily cron's rule keys (CRM revamp, step 7): which condition each rule already fired for.
+    cronRules: b.cronRules && typeof b.cronRules === 'object' ? Object.fromEntries(CRON_RULE_IDS.filter(id => b.cronRules[id] !== undefined).map(id => [id, str(b.cronRules[id], 60)])) : undefined,
     // CRM revamp, step 5: the deal, from the meeting to the first payment; null clears it.
     deal: b.deal === null ? null : b.deal && typeof b.deal === 'object' ? {
       checkpoints: Object.fromEntries(DEAL_CHECKPOINT_IDS.map(id => { const c = b.deal.checkpoints?.[id]; return [id, c && typeof c === 'object' && c.at ? { at: str(c.at, 40), by: c.by === 'auto' ? 'auto' : 'rob' } : null]; })),

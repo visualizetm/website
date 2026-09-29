@@ -79,7 +79,11 @@ moves nurture records past their `until` day back to triage (with a
 both as `resurfaced` and `scored`. Since step 5 it also moves a booked
 record an hour past its meeting to stage deal, ticks Concepts and Call done
 on their own, sets and clears `deal.stalledSince`, and drafts the next plan
-or retainer month on its bill day (`dealsMoved`, `drafted`).
+or retainer month on its bill day (`dealsMoved`, `drafted`). Since step 7 it
+runs the follow up rules in api/_lib/rules.js before the next action
+recompute, once per record per condition, and reports each rule's count
+under `rules` and in health.crons.daily.rules (docs/ARCHITECTURE.md lists
+the seven rules).
 
 If the account moves to the Pro plan, near-real-time reminders (a push the
 moment a callback or meeting is due) can come back with two changes: set
@@ -246,7 +250,7 @@ node scripts/fetch-fonts.mjs                   # refresh the self hosted latin f
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)
 node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
-node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs; node scripts/send-email-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, the four emails, against the real handlers
+node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs; node scripts/send-email-test.mjs; node scripts/rules-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, the four emails, the follow up rules and project actions, against the real handlers
 npm run lint                                   # ESLint: no-undef and no-unused-vars as errors, the hooks rules; regression.mjs runs it as step 0
 MONGODB_URI=... node scripts/migrate-invoices.mjs [--apply]   # CRM revamp, step 5: every project's schedule[] becomes invoices[] (paid stays paid, the rest sent; report first)
 MONGODB_URI=... node scripts/backfill-triage.mjs [--apply]   # CRM revamp, step 4: move untouched stage lead records into triage and write the first score (report first)

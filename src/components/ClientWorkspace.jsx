@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { COPY } from '../shared/copy';
 import InvoicesCard from './Invoices';
 import { useSendEmail } from './SendEmailModal';
+import { useComputerOnly } from './ComputerOnly';
 import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
 import { durationMs } from '../ui/motion';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
@@ -20,7 +21,7 @@ import { fmtDate, fmtDateTime } from '../shared/dates';
 import { postsOf } from '../lib/posts';
 import { useShell } from '../shell/ShellContext';
 import {
-  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct, planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject, DELIVERABLE_GROUPS, deliverablesFor, DELIVERY_STEPS, FOLLOW_UP_DAYS, retainerMonthly, cancelAtFor, monthRecord, projectsOf, brandText, isHex, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
+  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, scheduleTotal, paidTotal, owedTotal, isFullyPaid, nextUnpaid, paidPct, planMonth, planRemaining, planReminderDue, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, releaseBlockReason, isActiveProject, DELIVERABLE_GROUPS, deliverablesFor, DELIVERY_STEPS, deliveryStepsAfter, deliveryStepsAtDelivery, FOLLOW_UP_DAYS, retainerMonthly, cancelAtFor, monthRecord, projectsOf, brandText, isHex, buildProject, buildRetainerProject, CANCEL_NOTICE_DAYS,
 } from '../lib/projects';
 
 /* Client workspace (Prompt 10): the blocks LeadDetail renders in client mode.
@@ -170,6 +171,10 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   const [confirm, confirmDialog] = useConfirm();
   /* The invoice and delivery emails (CRM revamp, step 6): the server stamps the project, so it reloads after a send. */
   const email = useSendEmail({ lead, patch, onSent: () => { shell?.refreshLeads?.(); shell?.projectOps?.reload?.(); } });
+  /* CRM revamp, step 7: New project and Start a retainer are computer only; a phone gets the card. */
+  const co = useComputerOnly();
+  const openNew = () => (co.phone ? co.open('New project', lead.business) : setNewOpen(true));
+  const openRet = () => (co.phone ? co.open('Start a retainer', lead.business) : setRetOpen(true));
   const mine = useMemo(() => projectsOf(projects, lead._id), [projects, lead._id]);
   const work = useMemo(() => mine.filter(p => p.kind !== 'retainer'), [mine]);
   const [projId, setProjId] = useState(null);
@@ -205,7 +210,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
     const p = deliver.project;
     const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(p.delivery || {}) };
     setBusy(true);
-    const ok = await pp(p, { stage: 'delivered', delivery: { ...d, reviewLinkSent: d.reviewLinkSent || !!deliver.copied } });
+    const ok = await pp(p, { stage: 'delivered', deliveredAt: p.deliveredAt || new Date().toISOString(), delivery: { ...d, reviewLinkSent: d.reviewLinkSent || !!deliver.copied, steps: { ...deliveryStepsAtDelivery(), ...(d.steps || {}) } } });
     setBusy(false);
     if (ok) { setDeliver(null); toast.success(`${p.name} delivered.${deliver.copied ? ' Review link copied and ticked.' : ''}`); if (!otherActive(p)) patch({ clientStatus: 'delivered' }); }
     else toast.error(COPY.error.save);
@@ -308,12 +313,12 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
         const at = new Date(); at.setDate(at.getDate() + FOLLOW_UP_DAYS); at.setHours(10, 0, 0, 0);
         const ok = await patch({ callStatus: 'callback', callbackAt: at.toISOString(), callLog: [...(lead.callLog || []), { at: new Date().toISOString(), outcome: 'callback', note: 'Retainer follow up', meeting: '', email: '' }] });
         if (!ok) return;
-        await pp(p, { delivery: { ...d, followUpLeadCallbackAt: at.toISOString() } });
+        await pp(p, { delivery: { ...d, followUpLeadCallbackAt: at.toISOString(), steps: deliveryStepsAfter(d, 'followUp', true) } });
         toast.success(`Follow up set for ${fmtDateTime(at)}. It is on the Calendar.`);
-      } else await pp(p, { delivery: { ...d, followUpLeadCallbackAt: '' } });
+      } else await pp(p, { delivery: { ...d, followUpLeadCallbackAt: '', steps: deliveryStepsAfter(d, 'followUp', false) } });
       return;
     }
-    await pp(p, { delivery: { ...d, [id]: v } });
+    await pp(p, { delivery: { ...d, [id]: v, steps: deliveryStepsAfter(d, id, v) } });
   };
 
   /* ── Projects ── */
@@ -373,9 +378,9 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   };
   const projectsSection = (
     <section {...sec('projects')}>
-      <FoldSection id="projects" title="Projects" open={foldOpen('projects')} onToggle={foldToggle} description={work.length ? `${work.filter(isActiveProject).length} active of ${work.length}` : undefined} action={!readOnly && <Button icon={Plus} onClick={() => setNewOpen(true)} className="cw-new-project">New project</Button>}>
+      <FoldSection id="projects" title="Projects" open={foldOpen('projects')} onToggle={foldToggle} description={work.length ? `${work.filter(isActiveProject).length} active of ${work.length}` : undefined} action={!readOnly && <Button icon={Plus} onClick={openNew} className="cw-new-project">New project</Button>}>
         {work.length ? <Stack gap={3}>{work.map(projectCard)}</Stack>
-          : <Card><EmptyState size="sm" icon="Briefcase01" title={E('clients.projects').title} description={E('clients.projects').description} action={!readOnly ? { label: E('clients.projects').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
+          : <Card><EmptyState size="sm" icon="Briefcase01" title={E('clients.projects').title} description={E('clients.projects').description} action={!readOnly ? { label: E('clients.projects').action, icon: Plus, onClick: openNew } : undefined} /></Card>}
       </FoldSection>
     </section>
   );
@@ -417,7 +422,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
             <InvoicesCard invoices={invoicesOf(current)} onChange={writeInvoices(current)} onMarkPaid={(inv, form) => payInvoice(current, inv, form)} onSendEmail={(inv) => email.open('invoice', { invoice: inv, project: current })} emailConnected={email.connected('invoice')} defaults={current.plan ? { label: `Month ${planMonth(current) || 1} of ${current.plan.months}`, amount: current.plan.monthly } : { label: current.name, amount: owedTotal(current) }} readOnly={readOnly} title="Invoices" pulseId={paidPulse} emptyKey="clients.schedule" level={2} />
             {planBlock}
           </Stack>
-        ) : <Card><EmptyState size="sm" icon="CreditCard01" title={E('clients.payments').title} description={E('clients.payments').description} action={!readOnly ? { label: E('clients.payments').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
+        ) : <Card><EmptyState size="sm" icon="CreditCard01" title={E('clients.payments').title} description={E('clients.payments').description} action={!readOnly ? { label: E('clients.payments').action, icon: Plus, onClick: openNew } : undefined} /></Card>}
         <Card className="cw-ledger">
           <Row gap={2} justify="between" align="center" wrap><span className="pb-card-h" style={{ margin: 0 }}>Lifetime ledger, {money(ledger.reduce((n, x) => n + (Number(x.amount) || 0), 0))}</span>{!readOnly && <Button variant="secondary" size="md" icon={Plus} onClick={() => setManual(true)} className="cw-add-manual">Add manual payment</Button>}</Row>
           {ledger.length ? <Stack gap={1}>{ledger.map(x => { const proj = x.projectId ? mine.find(p => String(p._id) === String(x.projectId)) : null; return <ListRow key={x.id || x._i} id={x.id ? `ledger-${x.id}` : undefined} leading={<IconTile icon="CurrencyDollar" tone="won" size="sm" glow={false} />} title={x.label || 'Payment'} subtitle={[fmtDay(x.at) || fmtDate(x.at), proj?.name, x.notes].filter(Boolean).join(', ')} meta={money(x.amount)} chevron={false} className="cw-ledger-row" />; })}</Stack> : <EmptyState size="sm" icon="CurrencyDollar" title={E('clients.ledger').title} description={E('clients.ledger').description} action={!readOnly ? { label: E('clients.ledger').action, icon: Plus, onClick: () => setManual(true) } : undefined} />}
@@ -432,7 +437,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
   const months = retProject ? (() => { const cur = monthKey(); const keys = [...new Set([cur, ...(retProject.monthly || []).map(m => m.month)])].sort().reverse(); return keys.map(k => monthRecord(retProject, k)); })() : [];
   const retainerSection = (
     <section {...sec('retainer')}>
-      <FoldSection id="retainer" title="Retainer" open={foldOpen('retainer')} onToggle={foldToggle} description={ret ? `${retPlan?.label || ret.planId}, ${money(ret.amount)} a month` : 'Every delivery ends with a retainer pitch.'} action={!ret || ret.status === 'cancelled' ? (!readOnly && <Button icon={RefreshCw01} onClick={() => setRetOpen(true)} className="cw-start-retainer">Start a retainer</Button>) : undefined}>
+      <FoldSection id="retainer" title="Retainer" open={foldOpen('retainer')} onToggle={foldToggle} description={ret ? `${retPlan?.label || ret.planId}, ${money(ret.amount)} a month` : 'Every delivery ends with a retainer pitch.'} action={!ret || ret.status === 'cancelled' ? (!readOnly && <Button icon={RefreshCw01} onClick={openRet} className="cw-start-retainer">Start a retainer</Button>) : undefined}>
         {ret && ret.status !== 'cancelled' ? (
           <Card className={`cw-retainer${retPulse ? ' v-pulse-won' : ''}`}>
             <Row gap={2} wrap align="center"><Pill id={ret.status} list={RETAINER_STATUSES} size="sm" /><span className="cw-project-name">{retPlan?.label || ret.planId}</span><span className="dt-opt-n cw-ret-price">{money(ret.amount)}<small>/mo</small></span></Row>
@@ -483,7 +488,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
             )}
           </Card>
         ) : (
-          <Card><EmptyState size="sm" icon="RefreshCw01" title={ret?.status === 'cancelled' ? E('clients.retainer.cancelled').title : E('clients.retainer').title} description={ret?.status === 'cancelled' ? `${retPlan?.label || 'The plan'} ended ${fmtDate(ret.cancelAt) || 'recently'}. ${E('clients.retainer.cancelled').description}` : E('clients.retainer').description} action={!readOnly ? { label: E('clients.retainer').action, icon: RefreshCw01, onClick: () => setRetOpen(true) } : undefined} /></Card>
+          <Card><EmptyState size="sm" icon="RefreshCw01" title={ret?.status === 'cancelled' ? E('clients.retainer.cancelled').title : E('clients.retainer').title} description={ret?.status === 'cancelled' ? `${retPlan?.label || 'The plan'} ended ${fmtDate(ret.cancelAt) || 'recently'}. ${E('clients.retainer.cancelled').description}` : E('clients.retainer').description} action={!readOnly ? { label: E('clients.retainer').action, icon: RefreshCw01, onClick: openRet } : undefined} /></Card>
         )}
       </FoldSection>
     </section>
@@ -513,7 +518,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
               </Card>
             )) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables').title} description={E('clients.deliverables').description} action={!readOnly ? { label: E('clients.deliverables').action, onClick: () => pp(current, { deliverables: deliverablesFor(current.kind) }) } : undefined} /></Card>}
           </Stack>
-        ) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables.noproject').title} description={E('clients.deliverables.noproject').description} action={!readOnly ? { label: E('clients.deliverables.noproject').action, icon: Plus, onClick: () => setNewOpen(true) } : undefined} /></Card>}
+        ) : <Card><EmptyState size="sm" icon="Folder" title={E('clients.deliverables.noproject').title} description={E('clients.deliverables.noproject').description} action={!readOnly ? { label: E('clients.deliverables.noproject').action, icon: Plus, onClick: openNew } : undefined} /></Card>}
       </FoldSection>
     </section>
   );
@@ -523,6 +528,7 @@ export function ClientSections({ lead, projects, fold, patch, patchRaw, onCreate
       {projectsSection}{paymentsSection}{retainerSection}{deliverablesSection}
       {confirmDialog}
       {email.modal}
+      {co.sheet}
       {newOpen && <NewProjectSheet lead={lead} onClose={() => setNewOpen(false)} onCreate={async (doc) => { const item = await onCreateProject(doc); if (item) { setNewOpen(false); setProjId(item._id); toast.success(`${item.name} created.`); if (lead.clientStatus !== 'active') patch({ clientStatus: 'active' }); if (doc.links?.drive && !lead.links?.drive) patch({ links: { website: '', instagram: '', ...(lead.links || {}), drive: doc.links.drive } }); } else toast.error(COPY.error.create); }} />}
       <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
         footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>

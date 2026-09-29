@@ -144,13 +144,31 @@ export const DELIVERABLE_GROUPS = [
 ];
 export const deliverablesFor = (kind) => DELIVERABLE_GROUPS.filter(g => g.kinds.includes(kind)).flatMap(g => g.items.map(label => ({ id: uid(), group: g.id, label, done: false, link: '' })));
 export const DELIVERY_STEPS = [
-  { id: 'driveShared', label: 'Drive folder shared as Viewer' },
-  { id: 'emailSent', label: 'Delivery email sent' },
-  { id: 'pitchSent', label: 'Retainer pitch sent' },
-  // The review prompt: the /review/<slug> link, sent after the files are.
-  { id: 'reviewLinkSent', label: 'Review link sent' },
-  { id: 'followUp', label: `Follow up scheduled in ${FOLLOW_UP_DAYS} days` },
+  { id: 'driveShared', label: 'Drive folder shared as Viewer', days: 0 },
+  { id: 'emailSent', label: 'Delivery email sent', days: 0 },
+  { id: 'pitchSent', label: 'Retainer pitch sent', days: 3 },
+  // The review prompt: the /review/<slug> link, sent with the email.
+  { id: 'reviewLinkSent', label: 'Review link sent', days: 0, withStep: 'emailSent' },
+  { id: 'followUp', label: `Follow up scheduled in ${FOLLOW_UP_DAYS} days`, days: FOLLOW_UP_DAYS },
 ];
+/* Each delivery step carries dueAt and doneAt (CRM revamp, step 7):
+ * ticking one writes its doneAt and the next step's dueAt (drive shared
+ * and the email today, the pitch three days on, the review link with the
+ * email, the follow up three days on). Unticking clears its doneAt. */
+export function deliveryStepsAfter(delivery, id, on, now = Date.now()) {
+  const steps = { ...((delivery && delivery.steps) || {}) };
+  const i = DELIVERY_STEPS.findIndex(s => s.id === id);
+  if (i < 0) return steps;
+  steps[id] = { ...(steps[id] || {}), doneAt: on ? new Date(now).toISOString() : '' };
+  const next = DELIVERY_STEPS[i + 1];
+  if (on && next && !steps[next.id]?.dueAt) {
+    const base = next.withStep ? (steps[next.withStep]?.dueAt || dayKey(new Date(now))) : dayKey(new Date(now + next.days * DAY));
+    steps[next.id] = { ...(steps[next.id] || {}), dueAt: base };
+  }
+  return steps;
+}
+/** The steps a project starts with when it is delivered: the first one due today. */
+export const deliveryStepsAtDelivery = (now = Date.now()) => ({ driveShared: { dueAt: dayKey(new Date(now)), doneAt: '' } });
 
 /* ── Retainers ──────────────────────────────────────────────────── */
 export const retainerMonthly = (planId) => retainerOf(planId)?.monthly || { count: 0, unit: 'items', label: '' };
@@ -232,9 +250,11 @@ export function buildProject(leadId, pick, opts = {}) {
   if (pick.packageId) { const pkg = packageOf(pick.packageId); name = pkg.label; kind = kindOfPackage(pkg); total = pkg.price; packageId = pkg.id; }
   else if (pick.addonIds?.length) { const list = pick.addonIds.map(id => ADDONS.find(a => a.id === id)).filter(Boolean); name = list.map(a => a.label).join(', '); kind = 'print'; total = list.reduce((n, a) => n + a.price, 0); packageId = ''; }
   else if (pick.custom) { name = pick.custom.name; total = Number(pick.custom.total) || 0; kind = pick.custom.kind || 'brand'; custom = { name, total }; }
+  // CRM revamp, step 7: the add-ons ride along (a rush add-on shortens the revision round's due).
+  const addonIds = (pick.addonIds || opts.addonIds || []).filter(id => ADDONS.some(a => a.id === id));
   const { plan, items } = scheduleFor(total, packageId, start);
   return {
-    leadId, name, kind, packageId, custom, stage: 'kickoff', stages: stagesFor(kind), total, invoices: items,
+    leadId, name, kind, packageId, custom, addonIds, stage: 'kickoff', stages: stagesFor(kind), total, invoices: items,
     revisions: { max: REVISION_ROUNDS, used: 0, log: [] }, plan, links: { drive: opts.drive || '' },
     deliverables: deliverablesFor(kind), delivery: { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '' }, monthly: [], archived: false,
   };

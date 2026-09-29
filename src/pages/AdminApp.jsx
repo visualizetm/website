@@ -18,6 +18,8 @@ import { withNextAction, nextUpBadge } from '../lib/nextAction';
 import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead, listsBadge } from '../lib/lists';
 import ListPicker from '../components/ListPicker';
 import CaptureSheet from '../components/CaptureSheet';
+import ComputerOnly, { usePhone } from '../components/ComputerOnly';
+import { overdueProjects } from './AdminProjects';
 import { withScore, topClientIndustries, briefedLeadIds } from '../lib/score';
 import { withDeal, dealAutoPatch, tickPatch, dealOf, isTicked, isStalled } from '../lib/deal';
 import { postsInReview } from '../lib/posts';
@@ -37,6 +39,7 @@ const loaders = {
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
+  projects: () => import('./AdminProjects'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -55,6 +58,7 @@ const AdminPlanner = lazy(loaders.planner);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
+const AdminProjects = lazy(loaders.projects);
 
 /* ── Config ────────────────────────────────────────────────────── */
 
@@ -127,8 +131,8 @@ export default function AdminApp() {
   // it pings us (onDataChanged) whenever stages/statuses move.
   const [callLeads, setCallLeads] = useState([]);
   const [callLeadsLoading, setCallLeadsLoading] = useState(true);
-  const loadCallLeads = useCallback(async () => {
-    const r = await apiFetch('/api/admin/call-leads');
+  const loadCallLeads = useCallback(async (opts = {}) => {
+    const r = await apiFetch('/api/admin/call-leads', { fresh: opts?.fresh === true });
     if (r.ok) { setCallLeads(normalizeLeads(r.data?.items)); setErr('leads', false); } else setErr('leads', true);
     setCallLeadsLoading(false);
   }, [setErr]);
@@ -197,8 +201,8 @@ export default function AdminApp() {
   // Calendar, the drawer, and the Clients list all read one array.
   const [projects, setProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(true);
-  const loadProjects = useCallback(async () => {
-    const r = await apiFetch('/api/admin/projects');
+  const loadProjects = useCallback(async (opts = {}) => {
+    const r = await apiFetch('/api/admin/projects', { fresh: opts?.fresh === true });
     if (r.ok) { setProjects(r.data?.items || []); setErr('projects', false); } else setErr('projects', true);
     setProjectsLoading(false);
   }, [setErr]);
@@ -330,7 +334,11 @@ export default function AdminApp() {
   }), [createList, patchList, loadLists, syncCallbacksDue, patchCallLead]);
   const reconcileRef = useRef(null); reconcileRef.current = reconcileLists;
   const patchCallLeadRef = useRef(null); patchCallLeadRef.current = patchCallLead;
-  const projectOps = useMemo(() => ({ create: createProject, patch: patchProject, reload: loadProjects }), [createProject, patchProject, loadProjects]);
+  /* CRM revamp, step 7: a send's result lands on the local record at once (the server already wrote it), then the lists refetch past every cache. */
+  const applyLeadLocal = useCallback((id, set) => { setCallLeads(ls => ls.map(l => (l._id === id ? { ...l, ...set } : l))); }, []);
+  const applyProjectLocal = useCallback((id, set) => { setProjects(ps => ps.map(p => (String(p._id) === String(id) ? { ...p, ...set } : p))); }, []);
+  const projectOps = useMemo(() => ({ create: createProject, patch: patchProject, reload: () => loadProjects({ fresh: true }), applyLocal: applyProjectLocal }), [createProject, patchProject, loadProjects, applyProjectLocal]);
+  const leadOps = useMemo(() => ({ applyLocal: applyLeadLocal, reload: () => loadCallLeads({ fresh: true }) }), [applyLeadLocal, loadCallLeads]);
   const [pickerLeads, setPickerLeads] = useState(null);
   // Capture a lead (CRM revamp, step 4): the Quick add sheet and Triage's empty state open it.
   const [captureOpen, setCaptureOpen] = useState(false);
@@ -382,6 +390,7 @@ export default function AdminApp() {
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     if (p.startsWith('/lists')) return 'lists';
     if (p.startsWith('/triage')) return 'triage';
+    if (p.startsWith('/projects')) return 'projects';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
@@ -397,6 +406,10 @@ export default function AdminApp() {
   const relPath = location.pathname.slice(BASE.length) || '/';
   // /booked became /deals (CRM revamp, step 5); the old link still lands.
   useEffect(() => { if (relPath.startsWith('/booked')) navigate(`${BASE}/deals${relPath.slice(7)}${location.search || ''}`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
+  // /clients?filter=active became /projects (CRM revamp, step 7); the old link still lands.
+  useEffect(() => { if (relPath === '/clients' && new URLSearchParams(location.search).get('filter') === 'active') navigate(`${BASE}/projects`, { replace: true }); }, [relPath, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Under 768px the editors hand off to the computer (CRM revamp, step 7).
+  const phone = usePhone();
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
@@ -503,7 +516,8 @@ export default function AdminApp() {
   // Deals (CRM revamp, step 5): the badge counts stalled deals.
   const stalledDeals = useMemo(() => callLeads.filter(l => ['booked', 'deal'].includes(effectiveStage(l)) && isStalled(l)).length, [callLeads]);
   const funnel = useMemo(() => pipelineFunnel(callLeads), [callLeads]);
-  const openProjects = useMemo(() => (projects || []).filter(p => !p.archived && p.stage !== 'delivered' && p.kind !== 'retainer').length, [projects]);
+  // Projects (CRM revamp, step 7): the badge counts projects whose next action is overdue.
+  const openProjects = useMemo(() => overdueProjects(projects, { projects, sets }), [projects, sets]);
   // Callbacks due: every open callback (the console stores no due date, so an
   // unfinished callback is due). Feeds the Call tab badge.
   const callbacksDue = useMemo(() => callLeads.filter(l => l.callStatus === 'callback' && effectiveStage(l) !== 'lost').length, [callLeads]);
@@ -621,7 +635,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -648,7 +662,11 @@ export default function AdminApp() {
           openId={reqFor('clients')} createPreset={createFor('clients')}
         />
       )}
-      {section === 'planner' && (
+      {section === 'projects' && (
+        <AdminProjects projects={V.projects} leads={V.leads} loading={projectsLoading || callLeadsLoading || forceLoading} error={errors.projects} onRetry={loadProjects} onOpen={openLead} />
+      )}
+      {section === 'planner' && phone && <ComputerOnly page what="The Planner" name={V.leads.find(l => String(l._id) === plannerId)?.business || ''} />}
+      {section === 'planner' && !phone && (
         <AdminPlanner
           lead={V.leads.find(l => String(l._id) === plannerId) || null}
           posts={V.posts}
@@ -664,7 +682,8 @@ export default function AdminApp() {
           onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
         />
       )}
-      {section === 'conceptsEditor' && (
+      {section === 'conceptsEditor' && phone && <ComputerOnly page what="The Concepts editor" name={V.leads.find(l => String(l._id) === conceptsLeadId)?.business || ''} />}
+      {section === 'conceptsEditor' && !phone && (
         <AdminConceptsEditor
           lead={V.leads.find(l => String(l._id) === conceptsLeadId) || null}
           sets={V.sets} projects={V.projects}
@@ -675,7 +694,8 @@ export default function AdminApp() {
           onBack={() => { const l = V.leads.find(x => String(x._id) === conceptsLeadId); if (l) openLead(l); else navigate(`${BASE}/concepts`); }}
         />
       )}
-      {section === 'showcase' && (
+      {section === 'showcase' && phone && <ComputerOnly page what="The Showcase editor" name={V.leads.find(l => String(l._id) === showcaseId)?.business || ''} />}
+      {section === 'showcase' && !phone && (
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
           loading={callLeadsLoading || forceLoading}
@@ -698,7 +718,8 @@ export default function AdminApp() {
       {section === 'reviews' && (
         <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
       )}
-      {section === 'landing' && (
+      {section === 'landing' && phone && <ComputerOnly page what="The Landing screen" />}
+      {section === 'landing' && !phone && (
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
       )}
       {section === 'calls' && (

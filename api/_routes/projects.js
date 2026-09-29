@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
-import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS } from '../_semantics.js';
+import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, DELIVERY_STEP_IDS, CRON_RULE_IDS } from '../_semantics.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
 import { sanitizeInvoices, legacyToInvoice } from '../_lib/invoices.js';
 
@@ -45,7 +45,13 @@ function sanitize(b) {
     links: b.links && typeof b.links === 'object' ? { drive: safeUrl(b.links.drive, 400), ...(b.links.contract !== undefined ? { contract: safeUrl(b.links.contract, 400) } : {}) } : undefined,
     deliverables: Array.isArray(b.deliverables)
       ? b.deliverables.slice(0, 60).map(d => ({ id: str(d?.id, 40), group: str(d?.group, 8), label: str(d?.label, 120), done: !!d?.done, link: safeUrl(d?.link, 400) })) : undefined,
-    delivery: b.delivery && typeof b.delivery === 'object' ? { driveShared: !!b.delivery.driveShared, emailSent: !!b.delivery.emailSent, pitchSent: !!b.delivery.pitchSent, reviewLinkSent: !!b.delivery.reviewLinkSent, followUpLeadCallbackAt: str(b.delivery.followUpLeadCallbackAt, 40) } : undefined,
+    delivery: b.delivery && typeof b.delivery === 'object' ? { driveShared: !!b.delivery.driveShared, emailSent: !!b.delivery.emailSent, pitchSent: !!b.delivery.pitchSent, reviewLinkSent: !!b.delivery.reviewLinkSent, followUpLeadCallbackAt: str(b.delivery.followUpLeadCallbackAt, 40),
+      // CRM revamp, step 7: each step's dueAt and doneAt.
+      steps: Object.fromEntries(DELIVERY_STEP_IDS.filter(id => b.delivery.steps && typeof b.delivery.steps === 'object' && b.delivery.steps[id] && typeof b.delivery.steps[id] === 'object').map(id => [id, { dueAt: /^\d{4}-\d{2}-\d{2}$/.test(String(b.delivery.steps[id].dueAt || '')) ? String(b.delivery.steps[id].dueAt) : '', doneAt: str(b.delivery.steps[id].doneAt, 40) }])) } : undefined,
+    deliveredAt: b.deliveredAt !== undefined ? str(b.deliveredAt, 40) : undefined,
+    addonIds: Array.isArray(b.addonIds) ? b.addonIds.slice(0, 12).map(x => str(x, 40)).filter(Boolean) : undefined,
+    // The daily cron's rule keys (CRM revamp, step 7): which condition each rule already fired for.
+    cronRules: b.cronRules && typeof b.cronRules === 'object' ? Object.fromEntries(CRON_RULE_IDS.filter(id => b.cronRules[id] !== undefined).map(id => [id, str(b.cronRules[id], 60)])) : undefined,
     releasedAt: b.releasedAt !== undefined ? str(b.releasedAt, 40) : undefined,
     monthly: Array.isArray(b.monthly)
       ? b.monthly.slice(-60).map(m => ({

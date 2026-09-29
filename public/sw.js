@@ -32,6 +32,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // A fresh fetch (the refetch after a send, x-vz-fresh) goes straight to the network and is never stored.
+  if (req.headers.get('x-vz-fresh') === '1' || req.cache === 'no-store') return;
   if (req.mode === 'navigate') {
     // Network first for the document; the cached shell when offline.
     event.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(SHELL).then((c) => c.put('/', copy)); return res; }).catch(() => caches.match('/')));

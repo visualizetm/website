@@ -164,6 +164,8 @@ export default function AdminLeads({
   const setMode = (m) => { setView(m); writeLS(VIEW_KEY, m); };
 
   const [poolView, setPoolView] = useState(() => readLS(POOL_KEY, 'open') || 'open');
+  // CRM revamp, step 7: the More sheet's Declined row lands here with ?pool=declined.
+  useEffect(() => { const p = new URLSearchParams(window.location.search).get('pool'); if (p && ['open', 'declined', 'nurture'].includes(p)) setPoolView(p); }, []);
   const setPool = (v) => { setPoolView(v); writeLS(POOL_KEY, v); setSelId(null); setChecked(new Set()); };
   const pool = useMemo(() => openLeads(leads), [leads]);
   const parked = useMemo(() => (poolView === 'declined' ? declinedLeads(leads) : poolView === 'nurture' ? nurtureLeads(leads) : []).sort((a, b) => String(b.declined?.at || b.updatedAt || '').localeCompare(String(a.declined?.at || a.updatedAt || ''))), [leads, poolView]);

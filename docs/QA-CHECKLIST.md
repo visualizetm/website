@@ -13,6 +13,7 @@ off, theme Dark.
 |---|---|---|
 | 1 | Open admin.visualizeclients.com on the phone | The shell frame paints at once, the login card appears, no blank screen. |
 | 2 | Sign in with the password | Next up greets you by name with today's date and the context line (how many overdue and due today). |
+| 2a | Look at the bottom of the phone | The tab bar reads Next up, Lists, Call, Deals, More. More opens Triage, Leads, Clients, Projects, Orders, Reviews, Concepts, Declined, Settings and a greyed line naming Showcase, Planner, Concepts editor and Landing as computer only. |
 | 3 | Read Next up | The overdue rows come first in red, then today, then Later this week folded; each row's control does the action (a callback dials, an outcome opens the record on the meeting fold). Swipe a row right to mark it done and undo from the toast; open Stats and the funnel strip and the numbers are filled; no skeleton lingers. |
 | 4 | Tap Start call session | The Call Console builder opens with the status and priority chips and a lead count on the Start button. |
 | 5 | Tap Start call session in the builder | The queue (phone) or the room (desktop) opens with the first lead's card. |
@@ -31,7 +32,8 @@ off, theme Dark.
 | 14 | Tap Add option twice in Pricing options | Two option cards appear with a package, a total, and the plan line. |
 | 15 | On Checkpoints tap Met them, then Add invoice (keep the prefilled package line), open the row's menu and tap Mark paid, then Mark paid in the confirm | Call done ticks and the record is a deal; the invoice row reads Sent; the confirm names the package, the total and the plan; the profile pulses red, the toast says they are a client and the project started (Undo for six seconds), and the Clients badge ticks up. Mark won without payment sits in the bar's menu for pro bono. |
 | 16 | Open Clients and tap the client | The client detail opens with Projects, Payments, Retainer, and Deliverables tabs. |
-| 17 | On Projects tap New project, keep the package, tap Create | The sheet closes and the project card shows its stage and schedule. |
+| 16a | Open Projects (More on a phone) | Every project with its client, package, stage, next action (red when overdue), next invoice with its status pill and last touch, overdue first; the strip above reads "N open, $X due this week, N past due". Tapping one opens the client record on its Projects fold. |
+| 17 | On Projects tap New project (on a computer; a phone shows the Open on your computer card with Copy link), keep the package, tap Create | The sheet closes and the project card shows its stage and its invoices. |
 | 18 | On Payments tap Mark paid on the first due line, confirm | The row pulses and its pill reads Paid; the ledger gains the entry. |
 | 19 | On Retainer tap Start a retainer, keep the plan, tap Create | The retainer card shows the plan and amount and the tab pulses. |
 | 20 | Open a retainer client, on Retainer tap Log delivery, enter a count, tap Log | The month's delivered count goes up and the log line appears. |
@@ -45,6 +47,7 @@ off, theme Dark.
 | 28 | Tap the bell | The notifications drawer lists today's items with the callback from step 8. |
 | 29 | Settings, Profile, Appearance: tap Light | The whole admin turns light at once; the sidebar stays black. Tap Dark to return. |
 | 30 | Settings, Profile, Appearance: turn Reduce motion on | Skeleton shimmer, entrances, and pulses stop; turn it off again. |
+| 30a | On the phone open a client's Showcase, Planner or Concepts editor, or Landing | The Open on your computer card with the record's name and Copy link, which copies the admin URL. On a computer the editor opens as before. |
 | 31 | More (phone) or the avatar (desktop), Sign out | The login card returns. |
 | 32 | Sign in again | Next up returns with the same data and the theme you left. |
 

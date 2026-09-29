@@ -83,21 +83,29 @@ export const SCREENS = [
    * its own page, so this is a plain route now, not a tab to click. Two
    * rows: the fully populated client, and the one whose uploads are a
    * portrait and a panorama. */
-  { id: 'clients-showcase', screen: 'Showcase editor', label: 'published, every section', path: '/admin/clients/L11/showcase', resource: 'leads', noFit: true },
-  { id: 'clients-showcase-shapes', screen: 'Showcase editor', label: 'portrait and panoramic uploads', path: '/admin/clients/L14/showcase', resource: 'leads', noFit: true },
+  // Projects (CRM revamp, step 7): the table on a desktop, the cards on a phone, archived shown.
+  { id: 'projects-list', screen: 'Projects', label: 'every project with its next action and invoice', path: '/admin/projects', resource: 'projects' },
+  { id: 'projects-archived', screen: 'Projects', label: 'archived shown', path: '/admin/projects', resource: 'projects', detail: true, act: (p) => click(p.getByRole('button', { name: /^Show archived/ })) },
+  // The computer-only card (CRM revamp, step 7): under 768px the four editors hand off to the computer.
+  { id: 'computer-showcase', screen: 'Computer only', label: 'the Showcase editor on a phone', path: '/admin/clients/L11/showcase', resource: 'leads', maxWidth: 767, region: '.co-shell', static: true, noEmpty: true },
+  { id: 'computer-planner', screen: 'Computer only', label: 'the Planner on a phone', path: '/admin/clients/L11/planner', resource: 'leads', maxWidth: 767, region: '.co-shell', static: true, noEmpty: true },
+  { id: 'computer-concepts', screen: 'Computer only', label: 'the Concepts editor on a phone', path: '/admin/leads/L8/concepts', resource: 'leads', maxWidth: 767, region: '.co-shell', static: true, noEmpty: true },
+  { id: 'computer-landing', screen: 'Computer only', label: 'the Landing screen on a phone', path: '/admin/landing', resource: 'leads', maxWidth: 767, region: '.co-shell', static: true, noEmpty: true },
+  { id: 'clients-showcase', screen: 'Showcase editor', label: 'published, every section', path: '/admin/clients/L11/showcase', resource: 'leads', noFit: true, minWidth: 768 },
+  { id: 'clients-showcase-shapes', screen: 'Showcase editor', label: 'portrait and panoramic uploads', path: '/admin/clients/L14/showcase', resource: 'leads', noFit: true, minWidth: 768 },
 
   /* The Content Planner editor (planner prompt 2). L11 has a planner on with
      a full month including a post in review carrying a client note; L13 has
      one switched off. The Sheet, the save bar and the regenerate dialog are
      driven by the layout audit's own walk, which can press things. */
-  { id: 'planner-on', screen: 'Planner editor', label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads' },
-  { id: 'planner-off', screen: 'Planner editor', label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
-  { id: 'planner-empty', screen: 'Planner editor', label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
-  { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
+  { id: 'planner-on', screen: 'Planner editor', label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads', minWidth: 768 },
+  { id: 'planner-off', screen: 'Planner editor', label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads', minWidth: 768 },
+  { id: 'planner-empty', screen: 'Planner editor', label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads', minWidth: 768 },
+  { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', minWidth: 768, detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
   /* The format control and the platform chips, on a post that is a story
      (no hashtag field) and on one that is blocked from approval. */
-  { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
-  { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
+  { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', minWidth: 768, detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
+  { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', minWidth: 768, detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
 
   // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).
@@ -161,13 +169,13 @@ export const SCREENS = [
   { id: 'leads-nurture', screen: 'Leads', label: 'the Nurture pool', path: '/admin/leads', resource: 'leads', act: (p) => click(p.getByRole('radio', { name: 'Nurture' })) },
   { id: 'leads-decline-sheet', screen: 'Leads', label: 'the Decline sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: 'Decline', exact: true })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'concepts-list-filter', screen: 'Concepts', label: 'list filtered to a status with nothing in it', path: '/admin/concepts', resource: 'sets', act: (p) => click(p.getByRole('button', { name: /^Sent/ })) },
-  { id: 'concepts-editor', screen: 'Concepts editor', label: 'a viewed set, three directions, one change note', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true },
-  { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', noFit: true },
-  { id: 'concepts-editor-changes', screen: 'Concepts editor', label: 'changes requested, a note without a direction', path: '/admin/leads/L0/concepts', resource: 'sets', noFit: true },
-  { id: 'concepts-editor-approved', screen: 'Concepts editor', label: 'approved round two, archived round one', path: '/admin/leads/L3/concepts', resource: 'sets', noFit: true },
+  { id: 'concepts-editor', screen: 'Concepts editor', label: 'a viewed set, three directions, one change note', path: '/admin/leads/L8/concepts', resource: 'sets', minWidth: 768, noFit: true },
+  { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', minWidth: 768, noFit: true },
+  { id: 'concepts-editor-changes', screen: 'Concepts editor', label: 'changes requested, a note without a direction', path: '/admin/leads/L0/concepts', resource: 'sets', minWidth: 768, noFit: true },
+  { id: 'concepts-editor-approved', screen: 'Concepts editor', label: 'approved round two, archived round one', path: '/admin/leads/L3/concepts', resource: 'sets', minWidth: 768, noFit: true },
   { id: 'concepts-editor-none', screen: 'Concepts editor', label: 'a lead with no set yet', path: '/admin/leads/L5/concepts', resource: 'sets' },
-  { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p) => { const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); } },
-  { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: (p) => click(p.getByRole('button', { name: 'Direction A actions' })) },
+  { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', minWidth: 768, noFit: true, act: async (p) => { const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); } },
+  { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', minWidth: 768, noFit: true, act: (p) => click(p.getByRole('button', { name: 'Direction A actions' })) },
 
   { id: 'reviews-list', screen: 'Reviews', label: 'list', path: '/admin/reviews', resource: 'leads' },
   { id: 'reviews-sheet', screen: 'Reviews', label: 'review sheet', path: '/admin/reviews', open: 'L12', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open reviews for Lead Business 12/ })) },
@@ -183,7 +191,7 @@ export const SCREENS = [
   { id: 'design', screen: 'Design system', label: 'design page', path: '/admin/design', resource: null, noEmpty: true, noError: true },
 
   // Site Prompt 2 (Part 3): the Landing screen (logo strip, featured work, testimonials, stats).
-  { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
+  { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads', minWidth: 768 },
 
   // The Emails card on Settings, Integrations (CRM revamp, step 6): three hooks connected in the fixtures, one not.
   { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, region: '.st-emails', detail: true, act: async (p) => { await click(p.getByRole('tab', { name: /^Integrations/ })); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },

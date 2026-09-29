@@ -18,11 +18,13 @@ import { dealOf } from './deal.js';
 // Mirror of src/lib/booked.js meetingDate(), kept here so this module has no untyped import chain.
 const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 
-export const NEXT_ACTION_KEYS = ['stage', 'callStatus', 'callbackAt', 'meeting', 'bookedOutcome', 'reviews', 'schedule', 'invoices', 'delivery', 'releasedAt', 'archived', 'declined', 'deal', 'calendlyEventUri'];
+export const NEXT_ACTION_KEYS = ['stage', 'callStatus', 'callbackAt', 'meeting', 'bookedOutcome', 'reviews', 'schedule', 'invoices', 'delivery', 'releasedAt', 'deliveredAt', 'revisions', 'addonIds', 'archived', 'declined', 'deal', 'calendlyEventUri'];
 const DAY = 864e5;
 const HOUR = 3600e3;
 const ASK_AFTER_DAYS = 3;
 const PITCH_AFTER_DAYS = 3;
+const ROUND_DAYS = 7;
+const RUSH_EXTRA_DAYS = 3;
 const iso = (t) => new Date(t).toISOString();
 const act = (kind, dueAt, label) => ({ kind, label: label || nextActionKindOf(kind).label, dueAt: dueAt ? iso(dueAt) : '', auto: true, doneAt: '' });
 
@@ -83,11 +85,20 @@ function leadAction(lead, ctx, now) {
 function projectAction(p, ctx, now) {
   if (p.archived) return null;
   // Invoices (CRM revamp, step 5): a sent line past its day is late; a draft is not.
-  const late = invoicesOf(p).filter(s => invoiceStatus(s, now) === 'past-due');
+  const lines = invoicesOf(p);
+  const late = lines.filter(s => invoiceStatus(s, now) === 'past-due');
   if (late.length) return act('chase-invoice', now);
+  /* The client side (CRM revamp, step 7): deliver once everything is paid, send the round back a week after it was logged (three more days on a rush job), pitch the retainer three days after delivery. */
+  const allPaid = lines.length > 0 && lines.every(s => invoiceStatus(s, now) === 'paid');
+  if (p.stage === 'delivery' && allPaid && !p.releasedAt) return act('deliver', now, 'Share the Drive folder and send the delivery email');
   if (p.stage === 'delivered' && p.delivery && p.delivery.pitchSent === false) {
-    const base = parseDate(p.releasedAt) || parseDate(p.deliveredAt) || parseDate(p.updatedAt) || new Date(now);
+    const base = parseDate(p.deliveredAt) || parseDate(p.releasedAt) || parseDate(p.updatedAt) || new Date(now);
     return act('retainer-pitch', base.getTime() + PITCH_AFTER_DAYS * DAY);
+  }
+  const log = Array.isArray(p.revisions?.log) ? p.revisions.log : [];
+  if (log.length && p.stage !== 'delivered') {
+    const last = log[log.length - 1];
+    const at = parseDate(last?.at); if (at) return act('revision', at.getTime() + (ROUND_DAYS + ((p.addonIds || []).includes('rush') ? RUSH_EXTRA_DAYS : 0)) * DAY, `Send round ${log.length}`);
   }
   return null;
 }
