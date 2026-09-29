@@ -102,8 +102,8 @@ and sends the email from the studio address.
 
 | Kind | Variable | Sent from |
 |---|---|---|
-| intro | `ZAPIER_HOOK_INTRO` | the record's Checkpoints fold, Send on Intro sent |
-| onboarding | `ZAPIER_HOOK_ONBOARDING` | the Checkpoints fold, Send on Onboarding sent |
+| intro | `ZAPIER_HOOK_INTRO` | the record's Checkpoints section (and its header primary), Send on Intro sent |
+| onboarding | `ZAPIER_HOOK_ONBOARDING` | the Checkpoints section, Send on Onboarding sent |
 | invoice | `ZAPIER_HOOK_INVOICE` | an Invoices row (a deal's or a client project's), Send |
 | delivery | `ZAPIER_HOOK_DELIVERY` | the client project's Send delivery card, Send beside "Delivery email sent" |
 

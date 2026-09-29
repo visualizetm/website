@@ -391,6 +391,8 @@ for (const width of WIDTHS) {
   // domcontentloaded + settle delay: 'networkidle' never settles with the
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone that opens once. */
+  const section = async (t) => { if (width >= 768) { await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); return; } const b = page.getByRole('button', { name: new RegExp('^' + t) }).first(); if ((await b.getAttribute('aria-expanded', { timeout: 3000 }).catch(() => 'true')) !== 'true') await b.click({ timeout: 3000 }).catch(() => {}); };
   const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', or 'a11y' reruns just that block
   if (only === 'a11y') {
     /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the
@@ -784,7 +786,7 @@ for (const width of WIDTHS) {
   await goto('/admin/calendar?loading=1');
   await check('calendar skeleton');
 
-  /* Deals (CRM revamp, step 5): the board or the grouped list, the record with its Checkpoints fold, the invoices. */
+  /* Deals (CRM revamp, step 5): the board or the grouped list, the record on Checkpoints, the invoices on Money. */
   await goto('/admin/deals');
   await check('deals board');
   await goto('/admin/deals?loading=1');
@@ -792,6 +794,8 @@ for (const width of WIDTHS) {
   await goto('/admin/deals');
   await page.getByRole('button', { name: /^Open Lead Business 9/ }).first().click({ timeout: 4000 }).catch(() => {});
   await check('deal detail (checkpoints)');
+  await section('Money');
+  await check('deal detail (money)');
   await page.locator('.iv-add').first().click({ timeout: 3000 }).catch(() => {});
   await check('deal detail: add invoice');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
@@ -800,34 +804,34 @@ for (const width of WIDTHS) {
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await goto('/admin/deals');
   await page.getByRole('button', { name: /^Open Lead Business 8/ }).first().click({ timeout: 4000 }).catch(() => {});
-  await check('booked detail (overview)');
-  for (const t of ['Checkpoints', 'Playbook', 'Meeting', 'Notes', 'History']) {
-    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+  await check('booked detail (checkpoints)');
+  for (const t of ['Meeting', 'Pricing', 'Money', 'Playbook', 'Notes', 'History']) {
+    await section(t);
     await check(`booked detail (${t.toLowerCase()})`);
   }
+  await section('Pricing');
   await page.locator('.dt-addopt').first().click({ timeout: 3000 }).catch(() => {});
   await page.locator('.dt-addopt').first().click({ timeout: 3000 }).catch(() => {});
   await check('booked detail: three pricing options');
-  await page.getByRole('switch', { name: 'Call mode' }).first().click({ timeout: 3000 }).catch(() => {});
-  await check('booked detail: call mode on');
-  await page.getByRole('switch', { name: 'Call mode' }).first().click({ timeout: 3000 }).catch(() => {});
+  await section('Meeting');
   await page.locator('.dt-resched').first().click({ timeout: 3000 }).catch(() => {});
   await check('reschedule sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await page.getByRole('button', { name: 'More outcomes' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('button', { name: 'More actions' }).first().click({ timeout: 3000 }).catch(() => {});
   await page.getByRole('menuitem', { name: 'Mark won without payment' }).first().click({ timeout: 3000 }).catch(() => {});
   await check('won without payment dialog');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await page.locator('.dt-editall').first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('button', { name: 'More actions' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('menuitem', { name: 'Edit all' }).first().click({ timeout: 3000 }).catch(() => {});
   await check('edit all sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
 
   await page.evaluate(() => localStorage.setItem('vz_leads_view', JSON.stringify('kanban'))).catch(() => {});
   await goto('/admin/leads');
   await page.locator('.lc').first().click({ timeout: 4000 }).catch(() => {});
-  await check('lead detail (overview, long name)');
+  await check('lead detail (playbook, long name)');
   for (const t of ['Playbook', 'Notes', 'History']) {
-    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+    await section(t);
     await check(`lead detail (${t.toLowerCase()})`);
   }
 
@@ -840,7 +844,7 @@ for (const width of WIDTHS) {
     if (width >= 1024) await page.locator('.v-tr', { hasText: name }).first().click({ timeout: 4000 }).catch(() => {});
     else await page.getByRole('button', { name: `Open ${name}` }).first().click({ timeout: 4000 }).catch(() => {});
   };
-  const clientTab = async (t) => page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+  const clientTab = section;
   await goto('/admin/clients');
   await check('clients list');
   for (const f of ['Active project', 'On retainer', 'Delivered', 'Paused', 'Owes a payment', 'Ready to deliver']) {
@@ -851,8 +855,8 @@ for (const width of WIDTHS) {
   await goto('/admin/clients?loading=1');
   await check('clients skeleton');
   await openClient('Lead Business 11');
-  await check('client detail (overview, plan client)');
-  for (const t of ['Projects', 'Payments', 'Retainer', 'Deliverables', 'Notes', 'History']) {
+  await check('client detail (project, plan client)');
+  for (const t of ['Project', 'Money', 'Files', 'Retainer', 'Notes', 'History']) {
     await clientTab(t);
     await check(`client detail (${t.toLowerCase()})`);
   }
@@ -917,18 +921,22 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(500);
   await check('showcase editor (Instagram highlights)');
   await openClient('Lead Business 11');
-  await clientTab('Projects');
-  await page.locator('.cw-new-project').first().click({ timeout: 3000 }).catch(() => {});
+  await clientTab('Project');
+  await page.getByRole('button', { name: 'More actions' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.getByRole('menuitem', { name: 'New project' }).first().click({ timeout: 3000 }).catch(() => {});
   await check('new project sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.locator('.cw-extra-round').first().click({ timeout: 3000 }).catch(() => {});
   await check('log extra round modal');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await clientTab('Payments');
-  await check('payment plan block at month 5');
-  await page.locator('.cw-mark-paid').first().click({ timeout: 3000 }).catch(() => {});
+  await clientTab('Money');
+  await check('money at plan month 5');
+  await page.locator('.iv-paid').first().click({ timeout: 3000 }).catch(() => {});
   await check('mark paid modal');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.rc-disclose').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('money: the ledger open');
   await page.locator('.cw-add-manual').first().click({ timeout: 3000 }).catch(() => {});
   await check('add manual payment sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
@@ -936,12 +944,12 @@ for (const width of WIDTHS) {
   await page.locator('.cw-start-retainer').first().click({ timeout: 3000 }).catch(() => {});
   await check('start retainer sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-  await clientTab('Deliverables');
-  await check('deliverables (toggle disabled)');
+  await clientTab('Files');
+  await check('files (toggle disabled)');
   await openClient('Lead Business 13');
-  await clientTab('Deliverables');
-  await check('deliverables (released, toggle enabled)');
-  await clientTab('Projects');
+  await clientTab('Files');
+  await check('files (released, toggle enabled)');
+  await clientTab('Project');
   await check('delivered project (send delivery checklist)');
   await goto('/admin/clients/L13/showcase');
   await check('showcase editor (draft, never published)');
@@ -956,7 +964,7 @@ for (const width of WIDTHS) {
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await openClient('Lead Business 10');
   await check('client detail (hostile long name, single project)');
-  await clientTab('Payments');
+  await clientTab('Money');
   await check('client detail (owes a payment)');
   await goto('/admin/clients');
   await page.locator('.cl-add').first().click({ timeout: 3000 }).catch(() => {});

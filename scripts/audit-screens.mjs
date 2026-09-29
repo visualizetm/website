@@ -26,6 +26,8 @@ export const setLS = (page, k, v) => page.evaluate(([k, v]) => localStorage.setI
 export const rmLS = (page, k) => page.evaluate((k) => localStorage.removeItem(k), k).catch(() => {});
 export const click = (loc, t = 4000) => loc.first().click({ timeout: t }).catch(() => {});
 export const tab = (page, name) => click(page.getByRole('tab', { name: new RegExp('^' + name) }), 3000);
+/* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone. */
+export const openSection = async (page, width, name) => { if (width >= 768) await tab(page, name); else await click(page.getByRole('button', { name: new RegExp('^' + name) }), 3000); };
 export const openRow = async (page, width, text, mobileName) => {
   if (width >= 1024) await click(page.locator('.v-tr', { hasText: text }));
   else await click(page.getByRole('button', { name: mobileName }));
@@ -65,20 +67,23 @@ export const SCREENS = [
   { id: 'lists-grid', screen: 'Lists', label: 'the open lists', path: '/admin/lists', resource: 'lists' },
   { id: 'lists-detail', screen: 'Lists', label: 'one list, its leads in order', path: '/admin/lists', resource: 'lists', region: '.ls-shell', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Tuesday morning/ })) },
   { id: 'lists-fill', screen: 'Lists', label: 'Fill from filters', path: '/admin/lists', resource: 'lists', region: '.v-sheet', detail: true, act: async (p) => { await click(p.getByRole('button', { name: /^Tuesday morning .* actions$/ })); await click(p.getByRole('menuitem', { name: 'Fill from filters' })); } },
-  { id: 'lists-picker', screen: 'Lists', label: 'Add to list from a record', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'lists', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: /^(Add to list|Move list)$/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
-  // Deals (CRM revamp, step 5): the board on a desktop, the grouped list on a phone, the record's Checkpoints fold, the Mark paid modal.
+  { id: 'lists-picker', screen: 'Lists', label: 'Add to list from a record', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'lists', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: /^(Add to list|Move list)$/ })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
+  // Deals (CRM revamp, step 5): the board on a desktop, the grouped list on a phone, the record on Checkpoints, the Mark paid modal.
   { id: 'deals-board', screen: 'Deals', label: 'the board', path: '/admin/deals', resource: 'leads', minWidth: 1024 },
   { id: 'deals-list', screen: 'Deals', label: 'the grouped list', path: '/admin/deals', resource: 'leads', maxWidth: 1023 },
-  { id: 'deals-detail', screen: 'Deals', label: 'the record with the Checkpoints fold', path: '/admin/deals', open: 'L9', region: '.aa-main.dl-main', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Lead Business 9/ })) },
-  { id: 'deals-send', screen: 'Deals', label: 'the send email modal', path: '/admin/deals', open: 'L8', region: '.v-modal', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('tab', { name: /^Checkpoints/ })); await click(p.locator('.dc-send')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
-  { id: 'deals-markpaid', screen: 'Deals', label: 'the Mark paid modal', path: '/admin/deals', open: 'L9', region: '.v-modal', resource: 'leads', detail: true, act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.locator('.iv-paid')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'deals-detail', screen: 'Deals', label: 'the record on Checkpoints', path: '/admin/deals', open: 'L9', region: '.aa-main.dl-main', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open Lead Business 9/ })) },
+  { id: 'deals-send', screen: 'Deals', label: 'the send email modal', path: '/admin/deals', open: 'L8', region: '.v-modal', resource: 'leads', detail: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Checkpoints'); await click(p.locator('.dc-send')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'deals-markpaid', screen: 'Deals', label: 'the Mark paid modal', path: '/admin/deals', open: 'L9', region: '.v-modal', resource: 'leads', detail: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Money'); await click(p.locator('.iv-paid')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); } },
 
   { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'day') },
   { id: 'calendar-week', screen: 'Calendar', label: 'week', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'week') },
   { id: 'calendar-month', screen: 'Calendar', label: 'month', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'month') },
 
   { id: 'clients-list', screen: 'Clients', label: 'list', path: '/admin/clients', resource: 'leads' },
-  { id: 'clients-detail', screen: 'Clients', label: 'client detail', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
+  { id: 'clients-detail', screen: 'Clients', label: 'client detail (the Project tab, the rows on a phone)', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: (p, w) => openRow(p, w, 'Lead Business 11', 'Open Lead Business 11') },
+  // UI simplification, part A: the record in lead, deal and client modes at both widths is leads-detail, deals-detail and clients-detail; these are its Money section and the Add a detail sheet.
+  { id: 'clients-money', screen: 'Clients', label: 'client detail, Money', path: '/admin/clients', open: 'L11', region: '.aa-main.cl-main', resource: 'leads', detail: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Money'); } },
+  { id: 'record-add-detail', screen: 'Leads', label: 'the Add a detail sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); if (w < 768) await openSection(p, w, 'Details'); await click(p.locator('.rc-add-detail')); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   /* Site Prompt 7 moved the Showcase editor out of the client record into
    * its own page, so this is a plain route now, not a tab to click. Two
    * rows: the fully populated client, and the one whose uploads are a
@@ -167,7 +172,7 @@ export const SCREENS = [
   { id: 'concepts-list', screen: 'Concepts', label: 'list, every status', path: '/admin/concepts', resource: 'sets' },
   { id: 'leads-declined', screen: 'Leads', label: 'the Declined pool', path: '/admin/leads', resource: 'leads', act: (p) => click(p.getByRole('radio', { name: 'Declined' })) },
   { id: 'leads-nurture', screen: 'Leads', label: 'the Nurture pool', path: '/admin/leads', resource: 'leads', act: (p) => click(p.getByRole('radio', { name: 'Nurture' })) },
-  { id: 'leads-decline-sheet', screen: 'Leads', label: 'the Decline sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.dt-profile', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: 'Decline', exact: true })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'leads-decline-sheet', screen: 'Leads', label: 'the Decline sheet', path: '/admin/leads', open: 'L3', region: '.v-sheet', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: async (p) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await click(p.getByRole('button', { name: 'More actions' })); await click(p.getByRole('menuitem', { name: 'Decline' })); await p.waitForSelector('.v-sheet', { timeout: 4000 }).catch(() => {}); } },
   { id: 'concepts-list-filter', screen: 'Concepts', label: 'list filtered to a status with nothing in it', path: '/admin/concepts', resource: 'sets', act: (p) => click(p.getByRole('button', { name: /^Sent/ })) },
   { id: 'concepts-editor', screen: 'Concepts editor', label: 'a viewed set, three directions, one change note', path: '/admin/leads/L8/concepts', resource: 'sets', minWidth: 768, noFit: true },
   { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', minWidth: 768, noFit: true },

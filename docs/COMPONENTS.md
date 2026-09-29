@@ -320,8 +320,9 @@ everything after arrives with the last. Plays once per mount, never on re-render
 ### RecordSkeleton
 `cards` (default 3), `tabs`, `header` (default true). The shape of a record
 detail while a deep link resolves: a header card (avatar, name, pills,
-actions), an optional tab strip line, then content cards. Panels, Sheets, and
-`LeadDetail.Skeleton` (which adds the profile column) use it.
+actions), an optional tab strip line, then content cards. Panels and Sheets use
+it; `LeadDetail.Skeleton` draws its own shape (the header, the strip, the facts
+and the tabs on a computer, the rows on a phone).
 
 ### Motion helpers (`src/ui/motion.js`)
 `durationMs('--v-dur-base')` reads a duration token from `.lay-root` (0 under
@@ -402,9 +403,9 @@ record or start a new one.
 - `LeadHistory` (Prompt 7): callLog and contactLog merged newest first with outcome pills. Props `lead`, `limit`. Export `leadHistoryStyles`.
 - `LeadNotes` (Prompt 7): notes Textarea with InlineEdit semantics (save on blur or Cmd/Ctrl+Enter, rollback and toast on failure). Props `lead`, `onSave(id, notes)`, `rows`. Export `leadNotesStyles`.
 - `LeadPlaybook` (Prompt 7): `ScriptSteps`, `Objections`, `CloseCards`, `IntelCards`, each taking `lead`. Export `playbookStyles`.
-- `LeadDetail` (Prompt 8, client mode in Prompt 10): the one record detail. Pass `client={{ projects, onCreateProject, onPatchProject }}` to a client and it swaps Playbook and Meeting for Projects, Payments, Retainer, and Deliverables, and adds the Links and Brand blocks to the profile column.
+- `LeadDetail` (Prompt 8, client mode in Prompt 10, rebuilt in UI simplification part A): the one record. Six laws sit at the top of the file (one number one place, one way into a section, empty facts do not render, two pills, three header controls, one line empty states). It builds from `src/components/record`: `RecordHeader`, `NextActionStrip`, `FactsGrid` (with the Add a detail sheet), and one section component each; `SECTIONS_BY_MODE` lists lead (Playbook, Notes, History, Details), deal (Checkpoints, Meeting, Pricing, Money, Playbook, Notes, History, Details) and client (Project, Money, Files, Retainer, Notes, History, Details). A computer shows one 860px column with kit Tabs and the facts under the header; a phone shows a stack of rows that open one at a time (`SectionRows`). Pass `client={{ projects, onCreateProject, onPatchProject }}` for client mode; `intent={{ kind, n }}` opens a section on arrival. `checkpointAction` (record/checkpointAction.js) is the one rule the header primary, the outcome bar and the Checkpoints rows share.
 - `ClientCard` (Prompt 10): `LeadCard` compact plus the client line (active package, project stage, paid over total, retainer, next date). Props `lead`, `projects`, `onOpen`, `selected`, `compact`. Export `clientLine(lead, projects)` for the desktop Table. Styles (`clc-`) ship in `uiStyles`.
 - `LeadPicker` (Prompt 11): a Sheet with a search over the loaded leads. Props `leads`, `onPick(lead)`, `onClose`, `title`, `description`, `filter(lead)`, `sort`. Used by Print Orders (Link to client, New order), Concepts (Link a lead), Reviews (Link to client).
 - `PackPicker` (Prompt 11, exported from `src/pages/AdminConcepts.jsx`): the From library picker LeadDetail opens on a concept item. Props `packs`, `industry`, `onPick(pack)`, `onClose`.
 - `OrdersImport` (Prompt 12): the print orders CSV import Sheet (paste or file, column mapping, preview, dedupe by email, day, subtotal). Props `existing`, `onClose`, `onCreate(doc)`. Exports `parseCsv`.
-- `ClientWorkspace` (Prompt 10): `ClientLinks`, `ClientBrand` (profile cards) and `ClientSections` (the four client sections with every Sheet and Modal). Rules live in `src/lib/projects.js`; this file only renders and writes. Styles (`cw-`) ship in `uiStyles`.
+- `ClientWorkspace` (Prompt 10, a hook since UI simplification part A): `useClientWorkspace({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, readOnly, openTab })` holds the state, the writes and the modals the client's Project, Money, Files and Retainer sections share (`cw.modals` mounts once in LeadDetail); `Stepper` is the project stage stepper. Rules live in `src/lib/projects.js`. Styles (`cw-`) ship in `uiStyles`.
