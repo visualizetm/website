@@ -10,6 +10,9 @@ import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history'
 import LeadDetail from '../components/LeadDetail';
 import LeadCard from '../components/LeadCard';
 import ScoreBadge from '../components/record/ScoreBadge';
+import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
+import { industryFacets } from '../lib/leads';
+import { industryKey } from '../shared/semantics';
 import { SOCIALS } from '../components/LeadCard';
 import { useDecline } from '../components/DeclineSheet';
 import { triageLeads } from '../lib/leads';
@@ -32,6 +35,8 @@ import { keepPatch, undoKeepPatch, laterPatch, undoLaterPatch, sourceOf, intelLi
  * decision the record closes and the next lead is up; Back returns to the
  * pile where it was (src/shell/nav-history.js). */
 const KEYS = [['K', 'Keep'], ['L', 'Later'], ['D', 'Decline'], ['B', 'Bin'], ['A', 'Add to list'], ['Up and Down', 'Move focus']];
+const SOURCES = [['scraper', 'Scraper'], ['brief', 'Website'], ['import', 'Import'], ['hand', 'Added by hand']];
+const TOP_INDUSTRIES = 8;
 function SocialRow({ lead, size = 13 }) {
   return (
     <span className="lc-socials" role="img" aria-label={`Socials: ${SOCIALS.filter(([k]) => lead.socials?.[k]).map(([, , l]) => l).join(', ') || 'none'}`}>
@@ -118,17 +123,26 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   const { selId, open: openSel, close } = useSelection('triage');
   const wide = useMediaQuery('(min-width: 1280px)');
   const openRecord = (l) => { setFocusId(l._id); openSel(l._id); };
-  useScreenOrigin(() => ({ selectedId: selId || focusId }));
-  useRestore((o) => { if (o.selectedId) setFocusId(o.selectedId); });
+  useScreenOrigin(() => ({ selectedId: selId || focusId, filters: { q, src: [...srcSel], ind: [...indSel], phoneOnly } }));
+  useRestore((o) => { if (o.selectedId) setFocusId(o.selectedId); if (o.filters) { setQ(o.filters.q || ''); setSrcSel(new Set(o.filters.src || [])); setIndSel(new Set(o.filters.ind || [])); setPhoneOnly(!!o.filters.phoneOnly); } });
   const [leaving, setLeaving] = useState(null); // { id, dir } for the card's exit
   const pile = useMemo(() => triageLeads(leads), [leads]);
+  /* Search where it is missing: the one search plus one chip row (Source, Industry top 8 plus More, Has phone). Back restores them. */
+  const [q, setQ] = useState('');
+  const [srcSel, setSrcSel] = useState(() => new Set());
+  const [indSel, setIndSel] = useState(() => new Set());
+  const [phoneOnly, setPhoneOnly] = useState(false);
+  const toggleIn = (setter) => (id) => setter(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const filtersOn = !!q.trim() || srcSel.size > 0 || indSel.size > 0 || phoneOnly;
   const ctx = useMemo(() => ({ topIndustries: topClientIndustries(leads), briefed: briefedLeadIds(submissions) }), [leads, submissions]);
   const scoreOf = (l) => (l.score === undefined || l.score === null ? scoreFor(l, ctx) : Number(l.score) || 0);
   const srcOf = (l) => sourceOf(l, ctx.briefed);
+  const facets = useMemo(() => industryFacets(pile), [pile]);
+  const shown = useMemo(() => pile.filter(l => matchesList(l, q) && (!srcSel.size || srcSel.has(srcOf(l).id)) && (!indSel.size || indSel.has(industryKey(l.industry))) && (!phoneOnly || !!l.phone)), [pile, q, srcSel, indSel, phoneOnly]); // eslint-disable-line react-hooks/exhaustive-deps
   const decline = useDecline({ onPatch });
-  const top = pile[0] || null;
+  const top = shown[0] || null;
   const sel = selId ? leads.find(l => String(l._id) === String(selId)) || null : null;
-  const focused = (selId && sel) || (focusId && pile.find(l => l._id === focusId)) || pile[0] || null;
+  const focused = (selId && sel) || (focusId && shown.find(l => l._id === focusId)) || shown[0] || null;
   useEffect(() => { if (focusId && !pile.some(l => l._id === focusId)) setFocusId(pile[0]?._id || null); }, [pile, focusId]);
   /* A decision moves the lead out of the pile: the record closes and the stack or the table shows the next one. */
   useEffect(() => { if (selId && !loading && !pile.some(l => String(l._id) === String(selId))) close(); }, [selId, pile, loading, close]);
@@ -175,16 +189,17 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (keepFor || moreFor || document.querySelector('.v-sheet, .v-modal')) return;
-      const i = Math.max(0, pile.findIndex(l => l._id === (focused?._id)));
+      const i = Math.max(0, shown.findIndex(l => l._id === (focused?._id)));
       const k = e.key.toLowerCase();
-      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusId(pile[Math.min(pile.length - 1, i + 1)]._id); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setFocusId(pile[Math.max(0, i - 1)]._id); return; }
+      if (!shown.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); setFocusId(shown[Math.min(shown.length - 1, i + 1)]._id); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setFocusId(shown[Math.max(0, i - 1)]._id); return; }
       const map = { k: 'keep', l: 'later', d: 'decline', b: 'bin', a: 'list' };
       if (map[k]) { e.preventDefault(); act(map[k], focused); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phone, showSkel, pile, focused, keepFor, moreFor]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [phone, showSkel, pile, shown, focused, keepFor, moreFor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const menuFor = (l) => [
     { id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => openRecord(l) },
@@ -210,12 +225,14 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
       : <Card as="div" padding={3} aria-busy="true"><Stack gap={2}>{[1, 2, 3, 4, 5].map(i => <Row key={i} gap={3} align="center"><SkeletonBlock width={180} height={16} /><SkeletonBlock width={100} height={16} /><SkeletonBlock width={80} height={16} /><SkeletonBlock width={36} height={22} radius="var(--v-radius-pill)" /></Row>)}</Stack></Card>
   ) : error && !leads.length ? (
     <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
+  ) : pile.length && !shown.length ? (
+    <Card><EmptyState size="sm" icon="SearchMd" title="Nothing matches" description="Loosen a chip or clear the search." action={{ label: 'Clear', onClick: () => { setQ(''); setSrcSel(new Set()); setIndSel(new Set()); setPhoneOnly(false); } }} /></Card>
   ) : !pile.length ? (
     <Card><EmptyState icon="Inbox01" title={E.title} description={E.description} action={{ label: E.action, icon: 'Zap', onClick: () => onCapture?.() }} /></Card>
   ) : phone ? (
     <Stagger className="tr-stack" cap={3}>
       <div className="tr-deck">
-        {pile[1] && <div className="tr-peek" aria-hidden="true" />}
+        {shown[1] && <div className="tr-peek" aria-hidden="true" />}
         <TriageCard key={top._id} lead={top} score={scoreOf(top)} source={srcOf(top)} handlers={swipe.handlers} hint={hint} onOpen={() => openRecord(top)}
           style={{ transform: `translate3d(${swipe.d.x}px, ${swipe.d.y}px, 0) rotate(${swipe.d.x / 18}deg)`, transition: swipe.d.x || swipe.d.y ? 'none' : undefined }} />
       </div>
@@ -224,11 +241,11 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
         <IconButton icon="Clock" label={`Later, ${top.business} comes back in 30 days`} variant="secondary" size="lg" className="tr-round" onClick={() => act('later', top)} />
         <IconButton icon="Check" label={`Keep ${top.business}`} variant="primary" size="lg" className="tr-round" onClick={() => act('keep', top)} />
       </Row>
-      <p className="tr-count" role="status">{pile.length === 1 ? 'Last one.' : `${pile.length - 1} more behind it.`} <button type="button" className="tr-link" onClick={() => openRecord(top)}>Open the record</button></p>
+      <p className="tr-count" role="status">{shown.length === 1 ? 'Last one.' : `${shown.length - 1} more behind it.`} <button type="button" className="tr-link" onClick={() => openRecord(top)}>Open the record</button></p>
     </Stagger>
   ) : (
     <Stack gap={3}>
-      <Table aria-label="Triage" columns={columns} rows={pile} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => openRecord(l)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
+      <Table aria-label="Triage" columns={columns} rows={shown} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => openRecord(l)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
         rowClassName={(l) => (focused && l._id === focused._id ? 'tr-focused' : '')} />
       <Row gap={3} wrap align="center" className="tr-keys" aria-label="Keys">
         {KEYS.map(([k, v]) => <span key={k} className="tr-key"><kbd>{k}</kbd> {v}</span>)}
@@ -272,8 +289,19 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   return (
     <PageShell className="aa-main aa-main--wide tr-shell">
       <ScrollArea>
-        <Section title="Triage" loading={showSkel} description={showSkel ? undefined : pile.length ? `${pile.length} waiting, best first.` : 'Nothing waiting.'}
+        <Section title="Triage" loading={showSkel} description={showSkel ? undefined : filtersOn ? matchLine(pile.length, 'new', shown.length) : pile.length ? `${pile.length} waiting, best first.` : 'Nothing waiting.'}
           action={onCapture ? <Button icon="Zap" variant="secondary" onClick={onCapture}>Capture a lead</Button> : undefined} />
+        {!showSkel && pile.length > 0 && (
+          <Stack gap={2} className="tr-filters">
+            <ListSearch value={q} onChange={setQ} label="Search triage" />
+            <Row gap={2} wrap className="tr-chips" role="group" aria-label="Filters">
+              {SOURCES.map(([id, label]) => <Chip key={id} label={label} selected={srcSel.has(id)} onClick={() => toggleIn(setSrcSel)(id)} count={pile.filter(l => srcOf(l).id === id).length} />)}
+              {facets.slice(0, TOP_INDUSTRIES).map(f => <Chip key={f.key} label={f.label} count={f.count} selected={indSel.has(f.key)} onClick={() => toggleIn(setIndSel)(f.key)} />)}
+              {facets.length > TOP_INDUSTRIES && <Menu label="More industries" trigger={<Chip label={`More${[...indSel].filter(k => facets.slice(TOP_INDUSTRIES).some(f => f.key === k)).length ? ` ${[...indSel].filter(k => facets.slice(TOP_INDUSTRIES).some(f => f.key === k)).length}` : ''}`} selected={[...indSel].some(k => facets.slice(TOP_INDUSTRIES).some(f => f.key === k))} icon="ChevronDown" />} items={facets.slice(TOP_INDUSTRIES).map(f => ({ id: f.key, label: `${indSel.has(f.key) ? 'Remove ' : ''}${f.label} (${f.count})`, icon: indSel.has(f.key) ? 'Check' : undefined, onSelect: () => toggleIn(setIndSel)(f.key) }))} />}
+              <Chip label="Has phone" icon="Phone" selected={phoneOnly} onClick={() => setPhoneOnly(v => !v)} count={pile.filter(l => !!l.phone).length} />
+            </Row>
+          </Stack>
+        )}
         {body}
       </ScrollArea>
       {sheets}
@@ -284,6 +312,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
 
 const trStyles = `
   .tr-stack { display: flex; flex-direction: column; gap: var(--v-space-4); }
+  .tr-filters { margin-bottom: var(--v-space-3); }
   .tr-deck { position: relative; min-height: 220px; }
   .tr-card { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; transition: transform var(--v-dur-base) var(--v-ease-spring); }
   .tr-peek { position: absolute; inset: 0; transform: translateY(10px) scale(0.96); border: 1px solid var(--v-border); border-radius: var(--v-radius-lg); background: var(--v-surface-2); opacity: 0.7; pointer-events: none; z-index: 0; }

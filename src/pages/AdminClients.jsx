@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
-import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Input, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import ClientCard, { clientLine } from '../components/ClientCard';
@@ -126,10 +125,9 @@ export default function AdminClients({
   return (
     <PageShell className="aa-main aa-main--wide cl-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Clients" loading={loading} description={loading ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cl-add">Add client</Button>}>
+        <Section title="Clients" loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(clients.length, 'clients', list.length) : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="cl-add">Add client</Button>}>
           <Stack gap={2}>
-            <Input className="cl-search" placeholder="Search clients" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search clients"
-              trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
+            <ListSearch className="cl-search" placeholder="Search clients" value={q} onChange={setQ} label="Search clients" />
             <Row gap={2} wrap className="cl-chips">{CLIENT_FILTERS.filter(([id]) => FIRST_CHIPS.has(id)).map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}<Badge count={FIRST_CHIPS.has(filter) ? 0 : 1} aria-label="1 set"><Button variant="secondary" size="md" icon={FilterLines} onClick={() => setFiltersOpen(true)} className="cl-filters-btn" aria-expanded={filtersOpen}>Filters</Button></Badge></Row>
           </Stack>
         </Section>

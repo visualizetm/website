@@ -7,6 +7,7 @@ import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadCard from '../components/LeadCard';
+import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
 import ListCard, { listCardStyles } from '../components/ListCard';
 import { openLists, listCount, isFull, windowLabel, WINDOWS } from '../lib/lists';
 
@@ -21,13 +22,15 @@ import { openLists, listCount, isFull, windowLabel, WINDOWS } from '../lib/lists
  * only offers Start. */
 
 /* One list opened: its leads, in order. */
-function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead, onFill }) {
-  const ordered = useMemo(() => { const m = new Map(leads.map(l => [String(l._id), l])); return (list.leadIds || []).map(id => m.get(String(id))).filter(Boolean); }, [list.leadIds, leads]);
+function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead, onFill, q = '' }) {
+  const all = useMemo(() => { const m = new Map(leads.map(l => [String(l._id), l])); return (list.leadIds || []).map(id => m.get(String(id))).filter(Boolean); }, [list.leadIds, leads]);
+  const searching = !!q.trim();
+  const ordered = useMemo(() => (searching ? all.filter(l => matchesList(l, q)) : all), [all, q, searching]);
   const drag = useRef(null);
   const [dragging, setDragging] = useState(null);
   const [dx, setDx] = useState({});
   const touch = useRef(null);
-  const move = (from, to) => { if (from === to || from < 0 || to < 0) return; const ids = ordered.map(l => l._id); const [x] = ids.splice(from, 1); ids.splice(to, 0, x); onReorder(ids); };
+  const move = (from, to) => { if (searching || from === to || from < 0 || to < 0) return; const ids = ordered.map(l => l._id); const [x] = ids.splice(from, 1); ids.splice(to, 0, x); onReorder(ids); };
   const rowHandlers = (l, i) => phone ? {
     onTouchStart: (e) => { const t = e.touches[0]; touch.current = { x: t.clientX, y: t.clientY, i, hold: setTimeout(() => { setDragging(i); touch.current = { ...touch.current, drag: true }; }, 450), moved: false }; },
     onTouchMove: (e) => {
@@ -46,6 +49,7 @@ function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead
     onDragEnd: () => { drag.current = null; setDragging(null); },
     onDrop: () => { const from = drag.current; drag.current = null; setDragging(null); if (from == null || from === i) return; move(from, i); },
   } : {};
+  if (!ordered.length && searching) return <p className="ls-nomatch" role="status">Nothing on this list matches.</p>;
   if (!ordered.length) return <Card><EmptyState size="sm" icon="Rows01" title={COPY.empty['lists.empty'].title} description={COPY.empty['lists.empty'].description} action={list.system ? undefined : { label: COPY.empty['lists.empty'].action, icon: 'SearchMd', onClick: onFill }} /></Card>;
   return (
     <Stagger className="ls-stack" cap={6}>
@@ -74,13 +78,14 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const [name, setName] = useState('');
   const [target, setTarget] = useState('25');
   const [win, setWin] = useState('any');
+  const [q, setQ] = useState(''); // search inside the open list
   /* Fill from filters is a page at every width (src/pages/AdminListFill.jsx). */
   const openFill = (l) => shell?.openListFill?.(l);
   const open = useMemo(() => openLists(lists), [lists]);
   const sel = selId ? open.find(l => String(l._id) === String(selId)) || null : null;
   useTopBar(sel ? { title: sel.name } : null);
-  useScreenOrigin(() => ({ selectedId: selId }));
-  useRestore(() => {});
+  useScreenOrigin(() => ({ selectedId: selId, filters: { q } }));
+  useRestore((o) => { if (o.filters) setQ(o.filters.q || ''); });
 
   const create = async () => {
     const n = name.trim(); if (!n) return;
@@ -103,6 +108,8 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   ]);
   const E = COPY.empty['lists.none'];
 
+  const leadsById = useMemo(() => new Map(leads.map(l => [String(l._id), l])), [leads]);
+  const ordered = (l) => (l.leadIds || []).map(id => leadsById.get(String(id))).filter(Boolean).filter(x => !q.trim() || matchesList(x, q));
   const body = showSkel && selId ? (
     /* A deep link into one list: the header card and the rows, not the grid. */
     <Stack gap={4} aria-busy="true" aria-hidden="true">
@@ -118,7 +125,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
       <Card padding={3}>
         <Row gap={3} align="center" justify="between" wrap>
           <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-            <span className="ls-count">{sel.system ? `${listCount(sel)} due` : `${listCount(sel)} of ${sel.target}`}{sel.window && sel.window !== 'any' ? `, ${windowLabel(sel.window).toLowerCase()}` : ''}</span>
+            <span className="ls-count">{q.trim() ? matchLine(listCount(sel), 'on the list', ordered(sel).length) : `${sel.system ? `${listCount(sel)} due` : `${listCount(sel)} of ${sel.target}`}${sel.window && sel.window !== 'any' ? `, ${windowLabel(sel.window).toLowerCase()}` : ''}`}</span>
             <ProgressBar value={sel.system ? (listCount(sel) ? 100 : 0) : sel.target ? Math.min(100, (listCount(sel) / sel.target) * 100) : 0} tone="booked" size="sm" label={`${listCount(sel)} of ${sel.target}`} />
           </Stack>
           <Row gap={2} wrap>
@@ -127,10 +134,11 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
           </Row>
         </Row>
       </Card>
+      <ListSearch value={q} onChange={setQ} placeholder="Search this list" label="Search this list" />
       <ListDetail list={sel} leads={leads} phone={phone} hover={hover}
         onReorder={(ids) => ops.patchList(sel._id, { leadIds: ids }).then(ok => { if (!ok) toast.error(COPY.error.save); })}
         onRemove={(l) => ops.removeFromList(l._id, sel._id).then(ok => { if (ok) toast.undo(`${l.business} removed from ${sel.name}.`, () => ops.addToList([l._id], sel._id), { seconds: 6 }); else toast.error(COPY.error.save); })}
-        onOpenLead={(l) => onOpenLead(l)} onFill={() => openFill(sel)} />
+        onOpenLead={(l) => onOpenLead(l)} onFill={() => openFill(sel)} q={q} />
     </Stack>
   ) : !open.length ? (
     <Card><EmptyState icon="Rows01" title={E.title} description={E.description} action={{ label: E.action, icon: 'Plus', onClick: () => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); } }} /></Card>
@@ -165,6 +173,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
 
 const lsStyles = `
   .ls-stack { display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .ls-nomatch { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .ls-skel-pill { display: none; }
   @media (max-width: 767px) { .ls-skel-pill { display: block; } }
   .ls-item { position: relative; display: flex; align-items: stretch; gap: var(--v-space-2); transition: transform var(--v-dur-base) var(--v-ease-out), opacity var(--v-dur-fast) var(--v-ease-out); touch-action: pan-y; }

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
   PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadDetail from '../components/LeadDetail';
 import LeadCard from '../components/LeadCard';
@@ -50,12 +51,14 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   const pending = loading && !showSkel;
   const ctx = useMemo(() => ({ projects: shell?.projects || [], sets: shell?.sets || [] }), [shell?.projects, shell?.sets]);
   const pool = useMemo(() => leads.filter(l => ['booked', 'deal'].includes(effectiveStage(l))).sort((a, b) => Number(isStalled(b)) - Number(isStalled(a)) || daysHere(b) - daysHere(a)), [leads]);
-  const groups = useMemo(() => DEAL_COLUMNS.map(c => ({ ...c, items: pool.filter(l => columnOf(dealOf(l)) === c.id) })), [pool]);
+  const [q, setQ] = useState('');
+  const shown = useMemo(() => (q.trim() ? pool.filter(l => matchesList(l, q)) : pool), [pool, q]);
+  const groups = useMemo(() => DEAL_COLUMNS.map(c => ({ ...c, items: shown.filter(l => columnOf(dealOf(l)) === c.id) })), [shown]);
   const sel = selId ? leads.find(l => l._id === selId) : null;
   const pick = (id) => openSel(id);
   const back = () => close();
-  useScreenOrigin(() => ({ selectedId: selId }));
-  useRestore(() => {});
+  useScreenOrigin(() => ({ selectedId: selId, filters: { q } }));
+  useRestore((o) => { if (o.filters) setQ(o.filters.q || ''); });
   useTopBar(null);
   const E = COPY.empty['deals.none'];
 
@@ -91,7 +94,8 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   return (
     <PageShell className="aa-main aa-main--wide dl-shell">
       <ScrollArea wide className="dl-page">
-        <Section title="Deals" loading={showSkel} description={showSkel ? undefined : `${pool.length} in play, ${pool.filter(isStalled).length} stalled`} />
+        <Section title="Deals" loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(pool.length, 'deals', shown.length) : `${pool.length} in play, ${pool.filter(isStalled).length} stalled`} />
+        {!showSkel && !pending && pool.length > 0 && <ListSearch value={q} onChange={setQ} placeholder="Search deals" label="Search deals" className="dl-search" />}
         {pending ? null : showSkel ? skeleton
           : error && !leads.length ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
           : !pool.length ? <Card><EmptyState icon="Zap" title={E.title} description={E.description} action={{ label: E.action, icon: PhoneOutgoing01, onClick: () => (shell ? shell.go('calls') : onGo?.('calls')) }} /></Card>

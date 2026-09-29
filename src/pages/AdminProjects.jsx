@@ -8,6 +8,7 @@ import { money } from '../shared/format';
 import { fmtDate, relativeTime } from '../shared/dates';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
 import { useScreenOrigin, useRestore } from '../shell/nav-history';
 import { invoicesOf, invoiceStatus, nextUnpaidInvoice, invoicesPastDue } from '../lib/invoices';
 import { liveNextAction } from '../lib/nextAction';
@@ -32,9 +33,10 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [showArchived, setShowArchived] = useState(false);
   const [archived, setArchived] = useState(null); // loaded on demand
+  const [q, setQ] = useState('');
   useTopBar(null);
-  useScreenOrigin(() => ({ filters: { showArchived } }));
-  useRestore((o) => { if (o.filters) setShowArchived(!!o.filters.showArchived); });
+  useScreenOrigin(() => ({ filters: { showArchived, q } }));
+  useRestore((o) => { if (o.filters) { setShowArchived(!!o.filters.showArchived); setQ(o.filters.q || ''); } });
   const now = Date.now();
   const ctx = useMemo(() => ({ projects, sets: shell?.sets || [] }), [projects, shell?.sets]);
   const byId = useMemo(() => new Map((leads || []).map(l => [String(l._id), l])), [leads]);
@@ -49,6 +51,8 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
       return { p, lead, action, overdue, next, nextKey: next?.dueAt || '9999-99-99', touch: lastTouchOf(p) };
     }).sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.nextKey.localeCompare(b.nextKey) || b.touch - a.touch);
   }, [projects, archived, showArchived, byId, ctx, now]);
+  const allRows = rows;
+  const shown = useMemo(() => (q.trim() ? allRows.filter(r => (r.lead && matchesList(r.lead, q)) || String(r.p.name || '').toLowerCase().includes(q.trim().toLowerCase())) : allRows), [allRows, q]);
   const summary = useMemo(() => {
     const live = (projects || []).filter(p => !p.archived);
     const open = live.filter(p => p.stage !== 'delivered').length;
@@ -86,13 +90,13 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
       : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} as="div" padding={3}><Stack gap={2}><Row gap={2} justify="between" align="start"><SkeletonBlock width="55%" height={22} /><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="70%" height={18} /><Row gap={2} align="center"><SkeletonBlock width={110} height={18} /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={14} /></Stack></Card>)}</Stack>
   ) : error && !projects.length ? (
     <Card><ErrorState title={COPY.error.projects.title} description={COPY.error.projects.description} onRetry={retry} retrying={retrying} /></Card>
-  ) : !rows.length ? (
+  ) : !shown.length ? (
     <Card><EmptyState icon="Folder" title={E.title} description={E.description} action={{ label: E.action, icon: 'Briefcase01', onClick: () => shell?.go('clients') }} /></Card>
   ) : desktop ? (
-    <Table aria-label="Projects" columns={columns} rows={rows} rowKey={(r) => String(r.p._id)} rowId={(r) => r.lead?._id} storageKey="vz_projects_cols" onRowClick={open} rowActions={(r) => <Menu label={`Actions for ${r.lead?.business || 'project'}`} items={rowMenu(r)} />} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
+    <Table aria-label="Projects" columns={columns} rows={shown} rowKey={(r) => String(r.p._id)} rowId={(r) => r.lead?._id} storageKey="vz_projects_cols" onRowClick={open} rowActions={(r) => <Menu label={`Actions for ${r.lead?.business || 'project'}`} items={rowMenu(r)} />} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
   ) : (
     <Stagger className="pj-stack" cap={6}>
-      {rows.map(r => (
+      {shown.map(r => (
         <Card key={r.p._id} as="article" padding={3} interactive className={`pj-card${r.overdue ? ' is-overdue' : ''}`} data-row-id={r.lead?._id}>
           <button type="button" className="v-stretch" onClick={() => open(r)} aria-label={`Open ${r.lead?.business || 'project'}`}>{`Open ${r.lead?.business || 'project'}`}</button>
           <Stack gap={1}>
@@ -109,9 +113,10 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   return (
     <PageShell className="aa-main aa-main--wide pj-shell">
       <ScrollArea wide>
-        <Section title="Projects" loading={showSkel} description={showSkel ? undefined : `${rows.filter(r => !r.p.archived).length} in the list`}
+        <Section title="Projects" loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(rows.length, 'projects', shown.length) : `${rows.filter(r => !r.p.archived).length} in the list`}
           action={<Row gap={2} wrap><Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />{onNew && <Button icon="Plus" onClick={onNew} className="pj-new">New project</Button>}</Row>} />
         {strip}
+        <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />
         {body}
       </ScrollArea>
       <style>{pjStyles}</style>

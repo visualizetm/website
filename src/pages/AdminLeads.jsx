@@ -1,6 +1,4 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
-import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
@@ -14,6 +12,7 @@ import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadCard, { leadMenuItems } from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
+import ListSearch, { matchLine } from '../components/ListSearch';
 import LeadDetail from '../components/LeadDetail';
 import {
   EMPTY_FILTERS, openLeads, findDuplicates, applyFilters, countFor, industryFacets, sortLeads, SORTS, isNewLead, lastCall, conflicts, mergePayload, leadsToCsv,
@@ -321,7 +320,7 @@ export default function AdminLeads({
         <aside className="aa-panel ld-panel" aria-label="Leads">
           <ScrollArea bare className="ld-panel-scroll">
             <Stack gap={2}>
-              <Input placeholder="Search leads" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads" />
+              <ListSearch placeholder="Search leads" value={q} onChange={setQ} label="Search leads" />
               <p className="ld-muted">{sorted.length} of {pool.length}</p>
               <div className="ld-stack">{sorted.slice(0, 80).map(l => <LeadCard key={l._id} lead={l} onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</div>
             </Stack>
@@ -343,7 +342,7 @@ export default function AdminLeads({
   return (
     <PageShell className="aa-main aa-main--wide ld-shell">
       <ScrollArea wide className="ld-page">
-        <Section title="Leads" loading={loading} description={loading ? undefined : summary}
+        <Section title="Leads" loading={loading} description={loading ? undefined : activeCount ? matchLine(pool.length, 'leads', sorted.length) : summary}
           action={<Row gap={2} wrap>
             <SegmentedControl size="sm" label="Pool" options={[{ id: 'open', label: 'Open' }, { id: 'declined', label: 'Declined' }, { id: 'nurture', label: 'Nurture' }]} value={poolView} onChange={setPool} />
             {poolView === 'open' && <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />}
@@ -351,8 +350,7 @@ export default function AdminLeads({
             <Button icon={Plus} onClick={() => setCreating(true)}>Add lead</Button>
           </Row>}>
           {poolView === 'open' && <Row gap={2} wrap>
-            <Input className="ld-search" placeholder="Search business, contact, phone, industry" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads"
-              trailing={q ? <button type="button" className="ld-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
+            <ListSearch className="ld-search" value={q} onChange={setQ} label="Search leads" />
             {(!desktop || mode === 'kanban') && <Button variant={selectMode ? 'primary' : 'secondary'} size="md" onClick={() => { setSelectMode(v => !v); if (selectMode) setChecked(new Set()); }} className="ld-select">{selectMode ? 'Done' : 'Select'}</Button>}
           </Row>}
         </Section>

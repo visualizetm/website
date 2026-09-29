@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Input, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
@@ -146,9 +146,9 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
     <PageShell className={`aa-main aa-main--wide po-shell sb-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Submissions" loading={loading} description={loading ? undefined : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
+          <Section title="Submissions" loading={loading} description={loading ? undefined : (q.trim() || type || unreadOnly) ? matchLine(live.length, 'submissions', list.length) : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
             <Stack gap={2}>
-              <Input className="cl-search" placeholder="Search name, business, email, answers" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search submissions" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
+              <ListSearch className="cl-search" placeholder="Search name, business, email, answers" value={q} onChange={setQ} label="Search submissions" />
               <Row gap={2} wrap className="sb-chips"><Chip label="All" count={live.length} selected={!type && !unreadOnly} onClick={() => { setType(''); setUnreadOnly(false); }} /><Chip label="Unread" count={unread} icon="Bell01" selected={unreadOnly} onClick={() => setUnreadOnly(v => !v)} />{SUBMISSION_TYPES.map(t => <Chip key={t.id} label={t.label} count={counts[t.id]} icon={t.icon} selected={type === t.id} onClick={() => setType(type === t.id ? '' : t.id)} />)}</Row>
             </Stack>
           </Section>

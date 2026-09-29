@@ -26,14 +26,14 @@ export function industryFacets(leads) {
   return [...m.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-/** Text or digit search over business, contact name, phone (last10 partial), industry. */
+/** Text or digit search over business, contact name, phone (last10 partial), industry, area and the descriptor. */
 export function matchesSearch(l, q) {
   const s = String(q || '').trim();
   if (!s) return true;
   const d = digitsOf(s);
   if (d && /^[\s()+\-.\d]+$/.test(s)) { const p = last10(l.phone); return !!p && p.includes(last10(d) || d); }
   const n = s.toLowerCase();
-  return `${l.business} ${l.askFor} ${l.industry} ${l.descriptor}`.toLowerCase().includes(n);
+  return `${l.business} ${l.askFor} ${l.contact || ''} ${l.industry} ${l.area || ''} ${l.descriptor}`.toLowerCase().includes(n);
 }
 
 export const EMPTY_FILTERS = { status: [], prio: [], industry: [], data: [] };

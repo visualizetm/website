@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
-import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Select, Button, InlineEdit, Toggle, ListRow, Sheet, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
@@ -136,9 +135,9 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell rv-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Reviews" loading={loading} description={loading ? undefined : summary}>
+        <Section title="Reviews" loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(clients.length, 'clients', list.length) : summary}>
           <Stack gap={2}>
-            <Input className="cl-search" placeholder="Search clients" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search clients" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
+            <ListSearch className="cl-search" placeholder="Search clients" value={q} onChange={setQ} label="Search clients" />
             <Row gap={2} wrap className="rv-chips">{REVIEW_FILTERS.map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
           </Stack>
         </Section>

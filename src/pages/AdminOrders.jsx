@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
-import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, Menu, InlineEdit, Toggle, Checkbox, ListRow, Sheet, Modal, Table, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, durationMs,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
@@ -277,9 +277,9 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
     <PageShell className={`aa-main aa-main--wide po-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Print Orders" loading={loading} description={loading ? undefined : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
+          <Section title="Print Orders" loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(live.length, 'orders', list.length) : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
             <Stack gap={2}>
-              <Input className="cl-search" placeholder="Search customer, item, note" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search orders" trailing={q ? <button type="button" className="cl-clear" onClick={() => setQ('')} aria-label="Clear search"><XClose width={14} height={14} /></button> : undefined} />
+              <ListSearch className="cl-search" placeholder="Search customer, item, note" value={q} onChange={setQ} label="Search orders" />
               <Row gap={2} wrap className="po-chips">{ORDER_FILTERS.map(([id, label]) => <Chip key={id} label={chipLabel(id, label)} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>
             </Stack>
           </Section>
