@@ -81,7 +81,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
           <ScrollArea bare className="dl-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} compact />) : <><p className="dl-muted">{pool.length} in play</p>{pool.map(l => <LeadCard key={l._id} lead={l} compact onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</>}</Stack></ScrollArea>
         </aside>
         <div className="aa-main dl-main">
-          {sel ? <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} /> : showSkel && <LeadDetail.Skeleton deal />}
+          {sel ? <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} /> : showSkel && <LeadDetail.Skeleton mode="deal" />}
         </div>
         <style>{dlStyles}</style>
       </>
@@ -146,6 +146,6 @@ const dlStyles = `
   .dl-panel { padding: var(--v-space-3); }
   .dl-panel-scroll { padding: 0; }
   @media (min-width: 1024px) and (max-width: 1279px) { .dl-panel--rail { width: 232px; } }
-  .dl-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .dl-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
   @media (max-width: 767px) { .aa-app.has-detail .aa-main.dl-main { display: flex; } }
 `;

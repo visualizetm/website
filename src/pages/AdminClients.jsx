@@ -77,7 +77,7 @@ export default function AdminClients({
     return (
       <>
         <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients"><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
-        <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton />}</div>
+        <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton mode="client" />}</div>
         <style>{clStyles}</style>
       </>
     );
@@ -158,6 +158,6 @@ const clStyles = `
      without it the item's automatic minimum size is its content, so it
      grows to the full height of the detail and the ScrollArea inside it
      has nothing left to scroll (the mobile scroll fix). */
-  .cl-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .cl-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
   @media (max-width: 767px) { .aa-app.has-detail .aa-main.cl-main { display: flex; } }
 `;

@@ -50,7 +50,7 @@ export const leadDetailStyles = `
   .rc-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--v-space-3); min-width: 0; border-radius: var(--v-radius-md); }
   .rc-avatar { margin-top: 2px; }
   .rc-head-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
-  .rc-head-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-2) var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
+  .rc-head-top { display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
   .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rc-pills { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
   .rc-ctx { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -73,7 +73,7 @@ export const leadDetailStyles = `
   .rc-next-btn { flex-shrink: 0; }
   /* The facts (law 3): two columns of one line rows, the label 88px in caps, only filled values. */
   .rc-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--v-space-5); row-gap: 0; min-width: 0; }
-  .rc-fact { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); border-bottom: 1px solid var(--v-border); min-width: 0; }
+  .rc-fact { display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: var(--v-space-2); min-height: calc(var(--v-tap) + 1px); border-bottom: 1px solid var(--v-border); min-width: 0; }
   .rc-fact--wide { grid-template-columns: 88px minmax(0, 1fr) auto; }
   .rc-fact--add { border-bottom: 0; grid-template-columns: minmax(0, 1fr); }
   .rc-fact--sheet { border-bottom: 0; grid-template-columns: minmax(0, 1fr); gap: 0; }
@@ -125,11 +125,11 @@ export const leadDetailStyles = `
   .rc-month > .v-btn { grid-area: btn; }
   /* The phone (law 2): a stack of 56px rows, one open at a time, the chevron turns. */
   .rc-rows { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
-  .rc-row { overflow: hidden; }
-  .rc-row-btn { display: flex; align-items: center; gap: var(--v-space-3); width: 100%; min-height: var(--v-tap-lg); padding: var(--v-space-2) var(--v-space-3); border: 0; background: transparent; color: var(--v-text); text-align: left; font: inherit; cursor: pointer; }
+  .rc-row { overflow: hidden; gap: 0; }
+  .rc-row-btn { display: flex; align-items: center; gap: var(--v-space-3); width: 100%; min-height: var(--v-tap-lg); padding: var(--v-space-1) var(--v-space-3); border: 0; background: transparent; color: var(--v-text); text-align: left; font: inherit; cursor: pointer; box-sizing: border-box; }
   .rc-row-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
   .rc-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-  .rc-row-title { font-weight: var(--v-weight-bold); }
+  .rc-row-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
   .rc-row-sum { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); transition: transform var(--v-dur-base) var(--v-ease-out); }
   .rc-row.is-open .rc-row-chev { transform: rotate(90deg); }
@@ -182,7 +182,7 @@ export const leadDetailStyles = `
   .dt-concept-label { font-weight: var(--v-weight-semibold); }
   /* The outcome bar (booked and deal): the current next action and Mark as lost. */
   .dt-outbar-row { width: 100%; max-width: 860px; margin: 0 auto; }
-  .dt-outbar-row > .v-btn { flex: 1 1 140px; min-width: 0; }
+  .dt-outbar-row > .v-btn, .dt-outbar-row > .v-skel { flex: 1 1 140px; min-width: 0; }
 `;
 
 /* Clients module (Prompt 10): ClientCard (clc-) and ClientWorkspace (cw-).

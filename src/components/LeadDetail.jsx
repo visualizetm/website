@@ -15,7 +15,7 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, useConfirm, SkeletonBlock, SkeletonCircle, useToast,
+  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { normalizeLead } from '../lib/leads';
@@ -216,20 +216,16 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll" key={leadId}>
-        <div className="rc-inner">
+        {/* The entrance: the header, the strip and the sections step in once per record (Stagger, the kit's one entrance). */}
+        <Stagger className="rc-inner" cap={5}>
           {header}
-          <NextActionStrip rec={rec} />
-          {phone ? (
-            <SectionRows sections={sections} open={tab} onToggle={setTab} />
-          ) : (
-            <>
-              <FactsGrid rec={rec} />
-              <AnglePara rec={rec} />
-              <Tabs label="Sections" tabs={tabs.map(t => ({ id: t.id, label: t.label }))} value={active.id} onChange={setTab} className="rc-tabs" />
-              <div className="rc-panel" role="tabpanel" aria-label={active.label}>{active.body}</div>
-            </>
-          )}
-        </div>
+          {next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
+          {phone && <SectionRows sections={sections} open={tab} onToggle={setTab} />}
+          {!phone && <FactsGrid rec={rec} />}
+          {!phone && lead.angle ? <AnglePara rec={rec} /> : null}
+          {!phone && <Tabs label="Sections" tabs={tabs.map(t => ({ id: t.id, label: t.label }))} value={active.id} onChange={setTab} className="rc-tabs" />}
+          {!phone && <div className="rc-panel" role="tabpanel" aria-label={active.label}>{active.body}</div>}
+        </Stagger>
       </ScrollArea>
       {dealMode && !readOnly && (
         <StickyFooterBar className="dt-outbar">
@@ -263,32 +259,53 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   );
 }
 
-/** LeadDetail.Skeleton: the record's shape while a deep link resolves, at both widths. */
-LeadDetail.Skeleton = function LeadDetailSkeleton({ deal = false }) {
+/** LeadDetail.Skeleton: the record's shape while a deep link resolves, at both widths, by mode.
+ * It renders the real header, facts, tabs and row classes with skeleton blocks inside, so the
+ * loaded record lands on the same rows: the header, the strip on a deal, the facts grid (four
+ * rows for a lead, five for a deal, eight for a client at the audit's fixtures), the angle, the
+ * tabs and the first block of the first section; on a phone the header, the strip and one
+ * 56px row per section. */
+const SKELETON_FACTS = { lead: 4, deal: 5, client: 8 };
+LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false }) {
+  const m = deal ? 'deal' : mode;
   const phone = usePhone();
-  const pills = <Row gap={1} align="center">{[72, 56].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row>;
-  const strip = <SkeletonBlock width="100%" height={60} radius="var(--v-radius-md)" />;
+  const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
+  const head = (
+    <header className={`rc-head${phone ? ' rc-head--phone' : ''}`}>
+      {!phone && <span className="rc-avatar"><SkeletonCircle size={44} /></span>}
+      <div className="rc-head-main">
+        <div className="rc-head-top">{!phone && <SkeletonBlock width="40%" height={34} />}<span className="rc-pills">{[72, 56].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</span></div>
+        <div className="rc-ctx" style={{ height: phone && m !== 'client' ? 36 : 18 }}><SkeletonBlock width={phone ? '90%' : '55%'} height={14} style={{ margin: '2px 0' }} /></div>
+      </div>
+      <div className="rc-head-actions">{btn(96, 1)}{btn(112, 2)}{btn(44, 3)}</div>
+    </header>
+  );
+  const strip = m === 'deal' ? <div className="rc-next"><SkeletonBlock width={18} height={18} /><span className="rc-next-text" style={{ height: phone ? 54 : 26 }}><SkeletonBlock width={160} height={16} /></span><SkeletonBlock width={72} height={44} radius="var(--v-radius-md)" /></div> : null;
+  const first = m === 'client'
+    ? <Card><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
+    : m === 'deal'
+      ? <div className="rc-cp-pkg"><SkeletonBlock width="100%" height={68} radius="var(--v-radius-md)" /></div>
+      : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
+  const outbar = m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll">
         <div className="rc-inner" aria-busy="true" aria-hidden="true">
+          {head}
+          {strip}
           {phone ? (
-            <>
-              <Stack gap={2}><Row gap={2} align="center" style={{ minHeight: 'var(--v-tap)' }}>{pills}</Row><SkeletonBlock width="70%" height={14} /><Row gap={2}><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Stack>
-              {strip}
-              <Stack gap={2}>{Array.from({ length: deal ? 8 : 4 }, (_, i) => <SkeletonBlock key={i} width="100%" height={56} radius="var(--v-radius-md)" />)}</Stack>
-            </>
+            <div className="rc-rows">{SECTIONS_BY_MODE[m].map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>
           ) : (
             <>
-              <Row gap={3} align="center"><SkeletonCircle size={44} /><Stack gap={1} style={{ flex: 1 }}><Row gap={3} align="center"><SkeletonBlock width="40%" height={34} />{pills}</Row><SkeletonBlock width="55%" height={14} /></Stack><Row gap={2}><SkeletonBlock width={96} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row>
-              {strip}
-              <div className="rc-facts">{Array.from({ length: 6 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>
-              <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{Array.from({ length: deal ? 7 : 3 }, (_, i) => <SkeletonBlock key={i} width={72} height={16} />)}</div>
-              <Stack gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} width="100%" height={i === 1 ? 120 : 64} radius="var(--v-radius-md)" />)}</Stack>
+              <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>
+              <div className="rc-angle" style={{ minHeight: 68 }}><SkeletonText lines={3} /></div>
+              <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{SECTIONS_BY_MODE[m].filter(id => id !== 'details').map(id => <SkeletonBlock key={id} width={72} height={16} />)}</div>
+              <div className="rc-panel">{first}</div>
             </>
           )}
         </div>
       </ScrollArea>
+      {outbar}
     </PageShell>
   );
 };

@@ -301,7 +301,7 @@ export default function AdminLeads({
     return (
       <>
         <aside className="aa-panel ld-panel" aria-label="Leads"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} compact />)}</Stack></ScrollArea></aside>
-        <div className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton />}</div>
+        <div className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton mode="lead" />}</div>
         <style>{ldStyles}</style>
       </>
     );
@@ -603,7 +603,7 @@ const ldStyles = `
   /* Detail split: the list stays in the left panel */
   .ld-panel { padding: var(--v-space-3); }
   .ld-panel-scroll { padding: 0; }
-  .ld-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .ld-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
   @media (max-width: 767px) { .aa-app.has-detail .aa-main.ld-main { display: flex; } }
   .ld-muted { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .ld-create { --v-stack-gap: var(--v-space-4); }
