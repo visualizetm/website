@@ -64,7 +64,7 @@ function LeadCardInner({ lead: rawLead, onOpen, selected = false, selectable = f
   const items = leadMenuItems(lead, actions);
   const showCheck = !!onCheck && (selectable || checked);
   return (
-    <div className={`lc lay-card${selected ? ' is-selected' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''}${onOpen ? ' lc--open' : ''}${items.length ? '' : ' lc--nomenu'} ${className}`.trim()} {...rest}>
+    <div data-row-id={lead._id} className={`lc lay-card${selected ? ' is-selected' : ''}${checked ? ' is-checked' : ''}${dragging ? ' is-dragging' : ''}${onOpen ? ' lc--open' : ''}${items.length ? '' : ' lc--nomenu'} ${className}`.trim()} {...rest}>
       {/* One real control opens the card (Prompt 15): stretched over the surface, so the menu, checkbox, and phone link never nest inside a button. */}
       {onOpen && <button type="button" className="v-stretch lc-open" onClick={() => onOpen(lead)} aria-label={`Open ${lead.business}`}
         onKeyDown={actions?.onStatusStep ? (e) => { if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); actions.onStatusStep(e.key === 'ArrowRight' ? 1 : -1); } } : undefined}>{`Open ${lead.business}`}</button>}

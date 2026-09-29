@@ -8,6 +8,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useScreenOrigin, useRestore } from '../shell/nav-history';
 import CallbackPicker from '../components/CallbackPicker';
 import LeadForm from '../components/LeadForm';
 import { buildEvents, sameDay, KIND_LABEL } from '../lib/events';
@@ -39,7 +40,7 @@ function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
     ...(e.link ? [{ id: 'join', label: 'Join link', icon: 'ArrowRight', onSelect: () => window.open(e.link, '_blank', 'noopener') }] : []),
   ];
   return (
-    <ListRow className={`cal-row cal-row--${e.tone}`} leading={<IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : e.kind === 'bill' ? 'CurrencyDollar' : e.kind === 'planfinal' ? 'CreditCard01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
+    <ListRow data-row-id={e.lead?._id} className={`cal-row cal-row--${e.tone}`} leading={<IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : e.kind === 'bill' ? 'CurrencyDollar' : e.kind === 'planfinal' ? 'CreditCard01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
       title={e.title} subtitle={e.subtitle} meta={e.allDay ? 'All day' : fmtTime(e.at)} onClick={() => (e.leadId ? onOpen(e) : e.kind === 'calendly' ? onLink(e) : undefined)} chevron={false}
       trailing={<Menu label="Event actions" items={items} />} />
   );
@@ -67,6 +68,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const pending = loading && !showSkel;
   const touch = useRef(null);
   useTopBar(null);
+  useScreenOrigin(() => ({ view: mode, filters: { cursor: cursor.toISOString(), kinds: [...kinds] } }));
+  useRestore((o) => { if (o.view) setMode(o.view); if (o.filters?.cursor) setCursor(new Date(o.filters.cursor)); if (o.filters?.kinds) setKinds(new Set(o.filters.kinds)); });
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 60e3); return () => clearInterval(t); }, []);
 
   const calendly = shell?.calendly || { configured: null, events: [] };
@@ -157,7 +160,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
               {hours.map(h => <div key={h} className="cal-line" style={{ top: (h - START_H) * HOUR_PX }} />)}
               {sameDay(d, now) && <div className="cal-now" style={{ top: posOf(now) }} />}
               {eventsFor(d).filter(e => !e.allDay).map((e, bi) => (
-                <button key={e.id} type="button" className={`cal-block cal-block--${e.tone} v-reveal`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(44, posOf(e.end) - posOf(e.at)), animationDelay: `calc(${Math.min(bi, 8)} * var(--v-stagger))` }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
+                <button key={e.id} type="button" data-row-id={e.lead?._id} className={`cal-block cal-block--${e.tone} v-reveal`} style={{ top: Math.max(0, posOf(e.at)), height: Math.max(44, posOf(e.end) - posOf(e.at)), animationDelay: `calc(${Math.min(bi, 8)} * var(--v-stagger))` }} onClick={(ev) => { ev.stopPropagation(); setPop({ e, anchor: ev.currentTarget }); }} aria-label={`${e.title}, ${fmtTime(e.at)}`}>
                   <span className="cal-block-t">{fmtTime(e.at)}</span><span className="cal-block-title lay-truncate">{e.title.replace(/^(Meeting|Callback|Overdue callback|Calendly): /, '')}</span>
                 </button>
               ))}

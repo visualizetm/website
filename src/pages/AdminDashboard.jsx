@@ -6,6 +6,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import { normalizeStage } from '../shared/semantics';
 import { fmtDateTime, fmtWeekdayDateTime, toMs, dayKey } from '../shared/dates';
 import { money } from '../shared/format';
@@ -143,7 +144,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) 
     <div className={`nu-swipe${swipe.dx ? ' is-moving' : ''}`}>
       <span className={`nu-hint nu-hint--done${swipe.dx > 72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Check" size={16} /> Done</span>
       <span className={`nu-hint nu-hint--snooze${swipe.dx < -72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Clock" size={16} /> Snooze</span>
-      <Card as="div" padding={3} interactive className={`nu-row lay-card${item.bucket === 'overdue' ? ' is-overdue' : ''}`} style={swipe.dx ? { transform: `translate3d(${swipe.dx}px, 0, 0)`, transition: 'none' } : undefined} {...swipe.handlers}>
+      <Card as="div" padding={3} interactive data-row-id={item.lead?._id} className={`nu-row lay-card${item.bucket === 'overdue' ? ' is-overdue' : ''}`} style={swipe.dx ? { transform: `translate3d(${swipe.dx}px, 0, 0)`, transition: 'none' } : undefined} {...swipe.handlers}>
         <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${lead.business}, ${action.label}`}>{`Open ${lead.business}`}</button>
         <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
           <IconTile icon={item.icon} tone={item.tone} size="sm" />
@@ -264,14 +265,17 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const desktop = useMediaQuery('(min-width: 1024px)');
   const phone = useMediaQuery('(max-width: 767px)');
   const showSkel = useDelayedLoading(loading);
-  const [selId, setSelId] = useState(null);
-  const [intent, setIntent] = useState(null);
+  /* Back (done once): the record beside the queue rides on the history entry. */
+  const { selId, entry: openEntry, open: openSel, close } = useSelection('dashboard');
+  const intent = openEntry?.intent || null;
   const [resched, setResched] = useState(null); // the meeting event a reschedule sheet is open for
   const [pick, setPick] = useState(null); // the item a snooze picker is open for
   const [pickDate, setPickDate] = useState('');
   const now = Date.now();
   const sel = selId ? (leads || []).find(l => String(l._id) === String(selId)) || null : null;
-  useTopBar(sel && !desktop ? { title: sel.business, back: () => setSelId(null) } : null);
+  useTopBar(null);
+  useScreenOrigin(() => ({ selectedId: selId }));
+  useRestore(() => {});
 
   const s = useMemo(() => computeDashboard(leads || [], subs, orders), [leads, subs, orders]);
   const q = useMemo(() => nextUpItems(leads || [], projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -297,7 +301,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     return ok;
   };
   const openRecord = (item, why) => {
-    if (desktop) { setSelId(item.lead._id); setIntent(why ? { kind: why, n: Date.now() } : null); }
+    if (desktop) openSel(item.lead._id, { intent: why ? { kind: why, n: Date.now() } : null });
     else onOpenLead(item.lead, why);
   };
   const act = async (what, item) => {
@@ -407,7 +411,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
         </aside>
         {sel ? (
           <PageShell className="aa-main db-main" label="the record">
-            <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatchLead} onLinkSubmission={onLinkSubmission} onClose={() => setSelId(null)} client={clientProps} intent={intent} />
+            <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatchLead} onLinkSubmission={onLinkSubmission} onClose={close} client={clientProps} intent={intent} />
           </PageShell>
         ) : (
           <div className="aa-main aa-main--wide lay-scroll db-page">

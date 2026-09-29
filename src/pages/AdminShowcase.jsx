@@ -4,6 +4,7 @@ import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, ProgressBar, Chip, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { useTopBar } from '../shell/ShellContext';
 import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
 import { fmtDate } from '../shared/dates';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
@@ -767,6 +768,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this showcase have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
+  useTopBar({ back: leave });
 
   // Cmd+S / Ctrl+S, and the browser's own guard for closing the tab.
   useEffect(() => {

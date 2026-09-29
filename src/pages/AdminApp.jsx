@@ -8,6 +8,7 @@ import { wireClientLog } from '../shared/log';
 
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { navForPath, navById, sectionOf } from '../shell/nav';
+import { setNavBase, useNavHistory, usePush, useBack } from '../shell/nav-history';
 import '../shell/install';
 import BootFrame from '../shell/BootFrame';
 import { applyAppearance, setBootHint } from '../shell/appearance';
@@ -65,6 +66,7 @@ const AdminListFill = lazy(loaders.listFill);
 /* ── Config ────────────────────────────────────────────────────── */
 
 const BASE = IS_ADMIN_HOST ? '' : '/admin';
+setNavBase(BASE);
 
 /* ── Login (kit build, Prompt 13) ─────────────────────────────── */
 
@@ -121,11 +123,13 @@ export default function AdminApp() {
   // Per resource load failures (Prompt 14): each screen renders an ErrorState with Retry from these.
   const [errors, setErrors] = useState({});
   const setErr = useCallback((k, v) => setErrors(e => (e[k] === v ? e : { ...e, [k]: v })), []);
-  const [bookedOpen, setBookedOpen] = useState(false);
-  const [leadsOpen, setLeadsOpen] = useState(false);
-  const [clientsOpen, setClientsOpen] = useState(false);
-  const [openReq, setOpenReq] = useState(null);     // { section, id, n } from the command bar / notifications
-  const [createReq, setCreateReq] = useState(null); // { section, preset, n } from quick add
+  /* Navigation (Back, done once): the open, create and preset requests ride on the history entry's state (src/shell/nav-history.js), never in memory. */
+  useNavHistory();
+  const push = usePush();
+  const navBack = useBack();
+  const openReq = location.state?.open || null;
+  const createReq = location.state?.create || null;
+  const presetReq = location.state?.preset || null;
   const deepLinked = useRef(false);
 
   // Call leads, loaded at the shell level so the Booked tab badge is live
@@ -426,39 +430,38 @@ export default function AdminApp() {
   const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [], sets: [], lists: [] } : { leads: callLeads, items, projects, orders, posts, sets, lists };
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
 
+  const rootOf = (sec) => `${BASE}/${sec === 'dashboard' ? '' : sec}`;
+  /* A section root: a plain navigation with no origin, so the root has no Back. An item on it (a submission) is a push. */
   const go = useCallback((sec, itemId) => {
-    navigate(`${BASE}/${sec === 'dashboard' ? '' : sec}`);
-    if (itemId && sec === 'submissions') setOpenReq({ section: 'submissions', id: itemId, n: Date.now() });
-  }, [navigate]);
+    if (itemId && sec === 'submissions') { push(rootOf('submissions'), { open: { section: 'submissions', id: String(itemId), n: Date.now() }, selectedId: itemId }); return; }
+    navigate(rootOf(sec));
+  }, [navigate, push]);
 
   // Shell navigation by nav.js id ('deleted' is a Settings sub-view).
-  const [presetReq, setPresetReq] = useState(null); // { section, preset, n } from the dashboard or the shell
   const goNav = useCallback((navId, preset) => {
     const entry = navById(navId);
     if (!entry || entry.soon) return;
-    if (entry.id === 'deleted') { navigate(`${BASE}/settings/deleted`); return; }
+    if (entry.id === 'deleted') { push(`${BASE}/settings/deleted`); return; }
     if (entry.href) { navigate(`${BASE}${entry.href}`); return; }
     const sec = sectionOf(entry);
-    go(sec);
-    setPresetReq(preset ? { section: sec, preset, n: Date.now() } : null);
-  }, [go, navigate]);
-  // The Showcase editor for one client (Site Prompt 7, Part 3).
-  const openShowcase = useCallback((lead) => { navigate(`${BASE}/clients/${lead._id}/showcase`); }, [navigate]);
-  const openPlanner = useCallback((lead, month) => { navigate(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`); }, [navigate]);
-  const openConcepts = useCallback((lead, setId) => { navigate(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`); }, [navigate]);
-  const openProjectNew = useCallback((lead, mode) => { navigate(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`); }, [navigate]);
-  const openListFill = useCallback((list) => { navigate(`${BASE}/lists/${list._id}/fill`); }, [navigate]);
-  // Open a lead in whichever screen owns its stage.
-  const openLead = useCallback((lead, intent) => {
+    navigate(rootOf(sec), preset ? { state: { preset: { section: sec, preset, n: Date.now() } } } : undefined);
+  }, [navigate, push]);
+  // The editors and the setup pages: each a push from the screen it leaves.
+  const openShowcase = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/showcase`, { selectedId: lead._id }); }, [push]);
+  const openPlanner = useCallback((lead, month) => { push(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`, { selectedId: lead._id }); }, [push]);
+  const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
+  const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
+  const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
+  // Open a lead in whichever screen owns its stage: a push carrying the record on its state.
+  const openLead = useCallback((lead, intent, opts = {}) => {
     const stage = effectiveStage(lead);
     const sec = (stage === 'booked' || stage === 'deal') ? 'deals' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
-    go(sec);
     // intent (CRM revamp, step 2): which fold the record opens on ('outcome', 'payments').
-    setOpenReq({ section: sec, id: lead._id, n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null });
-  }, [go]);
-  const newLead = useCallback((preset) => { go('leads'); setCreateReq({ section: 'leads', preset: preset || {}, n: Date.now() }); }, [go]);
-  const newClient = useCallback(() => { go('clients'); setCreateReq({ section: 'clients', preset: {}, n: Date.now() }); }, [go]);
-  const newOrder = useCallback((preset) => { go('orders'); setCreateReq({ section: 'orders', preset: preset || {}, n: Date.now() }); }, [go]);
+    push(rootOf(sec), { open: { section: sec, id: String(lead._id), n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null }, selectedId: lead._id, replace: !!opts.replace });
+  }, [push]);
+  const newLead = useCallback((preset) => { push(rootOf('leads'), { create: { section: 'leads', preset: preset || {}, n: Date.now() } }); }, [push]);
+  const newClient = useCallback(() => { push(rootOf('clients'), { create: { section: 'clients', preset: {}, n: Date.now() } }); }, [push]);
+  const newOrder = useCallback((preset) => { push(rootOf('orders'), { create: { section: 'orders', preset: preset || {}, n: Date.now() } }); }, [push]);
 
   useEffect(() => {
     applyAppearance();
@@ -473,12 +476,23 @@ export default function AdminApp() {
     const id = idle(() => { loaders.leads(); loaders.calls(); });
     return () => (window.cancelIdleCallback || clearTimeout)(id);
   }, [authed]);
-  // ?open=<id> deep links a record on the current screen (push links and the feel audit use it).
+  // ?open=<id> deep links a record on the current screen (push links and the feel audit use it): no origin, so Back goes to the section root.
+  // On Next up (a task push lands on /?open=) the lead opens in the screen that owns its stage once the leads are in.
+  const deepOpened = useRef(false);
   useEffect(() => {
-    if (!authed) return;
+    if (!authed || deepOpened.current) return;
     const id = new URLSearchParams(window.location.search).get('open');
-    if (id) setOpenReq({ section, id, n: Date.now() });
-  }, [authed]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!id) return;
+    if (section === 'dashboard') {
+      if (callLeadsLoading) return;
+      deepOpened.current = true;
+      const lead = callLeads.find(l => String(l._id) === String(id));
+      if (lead) openLead(lead, null, { replace: true });
+      return;
+    }
+    deepOpened.current = true;
+    navigate(location.pathname + location.search, { replace: true, state: { open: { section, id, n: Date.now() }, idx: 0 } });
+  }, [authed, callLeadsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     const r = await apiFetch('/api/admin/submissions');
@@ -583,9 +597,9 @@ export default function AdminApp() {
       .then(r => {
         const d = r.data || {};
         if (!d.submission) return;
-        if (d.submission.type === 'shop-order') { navigate(`${BASE}/orders`); setOpenReq({ section: 'orders', submissionId: String(d.submission._id), n: Date.now() }); }
-        else if (d.submission.type === 'review') navigate(`${BASE}/reviews`);
-        else { navigate(`${BASE}/submissions`); setOpenReq({ section: 'submissions', id: String(d.submission._id), n: Date.now() }); }
+        if (d.submission.type === 'shop-order') navigate(`${BASE}/orders`, { replace: true, state: { open: { section: 'orders', submissionId: String(d.submission._id), n: Date.now() }, idx: 0 } });
+        else if (d.submission.type === 'review') navigate(`${BASE}/reviews`, { replace: true });
+        else navigate(`${BASE}/submissions`, { replace: true, state: { open: { section: 'submissions', id: String(d.submission._id), n: Date.now() }, idx: 0 } });
       })
       .catch(() => {});
   }, [authed, navigate]);
@@ -622,7 +636,8 @@ export default function AdminApp() {
   if (authed === null) return <BootFrame />;
   if (!authed) return <Login />;
 
-  const hasDetail = (section === 'deals' && bookedOpen) || (section === 'leads' && leadsOpen) || (section === 'clients' && clientsOpen);
+  // A phone shows the record instead of the list while the entry opens one (the three split screens).
+  const hasDetail = ['deals', 'leads', 'clients', 'triage'].includes(section) && !!(openReq?.section === section || createReq?.section === section);
   /* Link a submission: a start brief linked to a deal ticks Form received (CRM revamp, step 5). */
   const linkSubmission = async (subId, leadId) => {
     const ok = await patch(subId, { linkedLeadId: leadId });
@@ -635,7 +650,6 @@ export default function AdminApp() {
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
   const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
-  const reqFor = (sec) => (openReq?.section === sec ? openReq : null);
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
 
@@ -655,8 +669,7 @@ export default function AdminApp() {
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onBulkDelete={bulkDeleteCallLeads} onRestore={restoreCallLeads}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
-          onMobileOpen={() => setLeadsOpen(true)} onMobileClose={() => setLeadsOpen(false)} onGo={go}
-          openId={reqFor('leads')} createPreset={createFor('leads')} filterPreset={presetFor('leads')}
+          onGo={go} createPreset={createFor('leads')} filterPreset={presetFor('leads')}
         />
       )}
       {section === 'clients' && (
@@ -665,8 +678,7 @@ export default function AdminApp() {
           projects={V.projects} posts={V.posts} onCreateProject={createProject} onPatchProject={patchProject} onRefreshProjects={loadProjects}
           onPatch={patchCallLead} onCreate={createCallLead} onDelete={deleteCallLead}
           onRefresh={loadCallLeads} onLinkSubmission={linkSubmission}
-          onMobileOpen={() => setClientsOpen(true)} onMobileClose={() => setClientsOpen(false)} onGo={go}
-          openId={reqFor('clients')} createPreset={createFor('clients')}
+          onGo={go} createPreset={createFor('clients')}
         />
       )}
       {section === 'projects' && (
@@ -675,11 +687,11 @@ export default function AdminApp() {
       {section === 'projectNew' && (
         <AdminProjectNew key={projectNewLeadId || 'pick'} lead={V.leads.find(l => String(l._id) === projectNewLeadId) || null} leads={V.leads} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
           onCreateProject={createProject} onPatchLead={patchCallLead} mode={new URLSearchParams(location.search).get('mode') || 'package'}
-          onPick={(l) => openProjectNew(l)} onCancel={() => { const l = V.leads.find(x => String(x._id) === projectNewLeadId); if (l) openLead(l, 'projects'); else go('projects'); }} onDone={(l, item, intent) => openLead(l, intent)} />
+          onPick={(l) => openProjectNew(l)} onCancel={() => { if (navBack) navBack.back(); else go('projects'); }} onDone={(l, item, intent) => openLead(l, intent, { replace: true })} />
       )}
       {section === 'listFill' && (
         <AdminListFill list={V.lists.find(l => String(l._id) === listFillId) || null} leads={V.leads} lists={V.lists} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists || errors.leads} onRetry={loadLists} ops={listOps}
-          onDone={(l) => { navigate(`${BASE}/lists`); setOpenReq({ section: 'lists', id: l._id, n: Date.now() }); }} onCancel={() => { navigate(`${BASE}/lists`); if (listFillId) setOpenReq({ section: 'lists', id: listFillId, n: Date.now() }); }} />
+          onDone={(l) => push(`${BASE}/lists`, { open: { section: 'lists', id: String(l._id), n: Date.now() }, replace: true })} onCancel={() => { if (navBack) navBack.back(); else go('lists'); }} />
       )}
       {section === 'planner' && (
         <AdminPlanner
@@ -694,7 +706,7 @@ export default function AdminApp() {
           onCreatePost={createPost}
           onPatchPost={patchPost}
           onDeletePost={deletePost}
-          onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: plannerId, n: Date.now() }); }}
+          onBack={navBack ? navBack.back : () => go('clients')}
         />
       )}
       {section === 'conceptsEditor' && (
@@ -705,7 +717,7 @@ export default function AdminApp() {
           error={errors.sets} onRetry={loadSets}
           onCreate={createSet} onPatch={patchSet} onPatchProject={patchProject}
           setId={new URLSearchParams(location.search).get('set') || ''}
-          onBack={() => { const l = V.leads.find(x => String(x._id) === conceptsLeadId); if (l) openLead(l); else navigate(`${BASE}/concepts`); }}
+          onBack={navBack ? navBack.back : () => go('concepts')}
         />
       )}
       {section === 'showcase' && (
@@ -714,22 +726,22 @@ export default function AdminApp() {
           loading={callLeadsLoading || forceLoading}
           submissions={V.items}
           onPatch={patchCallLead}
-          onBack={() => { navigate(`${BASE}/clients`); setOpenReq({ section: 'clients', id: showcaseId, n: Date.now() }); }}
+          onBack={navBack ? navBack.back : () => go('clients')}
         />
       )}
       {section === 'submissions' && (
-        <AdminSubmissions items={V.items} loading={loading || forceLoading} error={errors.submissions} onRetry={load} leads={V.leads} onPatch={patch} onDelete={softDelete} onLinkLead={linkSubmission} onPatchLead={patchCallLead} onCreateLead={createCallLead} onRefresh={load} openId={reqFor('submissions')} />
+        <AdminSubmissions items={V.items} loading={loading || forceLoading} error={errors.submissions} onRetry={load} leads={V.leads} onPatch={patch} onDelete={softDelete} onLinkLead={linkSubmission} onPatchLead={patchCallLead} onCreateLead={createCallLead} onRefresh={load} />
       )}
       {section === 'orders' && (
         <AdminOrders orders={V.orders} loading={ordersLoading || callLeadsLoading || forceLoading} error={errors.orders} onRetry={loadOrders} unimported={unimported} leads={V.leads} projects={V.projects}
           onCreate={createOrder} onPatch={patchOrder} onRefresh={loadOrders} onImportSubmissions={importSubmissionOrders} onPatchLead={patchCallLead} onCreateProject={createProject}
-          openId={reqFor('orders')} createPreset={createFor('orders')} />
+          createPreset={createFor('orders')} />
       )}
       {section === 'concepts' && (
         <AdminConcepts sets={V.sets} leads={V.leads} loading={setsLoading || callLeadsLoading || forceLoading} error={errors.sets} onRetry={loadSets} />
       )}
       {section === 'reviews' && (
-        <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} openId={reqFor('reviews')} />
+        <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} />
       )}
       {section === 'landing' && (
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
@@ -739,7 +751,7 @@ export default function AdminApp() {
       )}
       {section === 'lists' && (
         <AdminLists lists={V.lists} leads={V.leads} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists} onRetry={loadLists} ops={listOps} onPatchLead={patchCallLead} onOpenLead={openLead}
-          onStart={(list) => { navigate(`${BASE}/calls`); setPresetReq({ section: 'calls', preset: { listId: String(list._id) }, n: Date.now() }); }} openId={reqFor('lists')} />
+          onStart={(list) => navigate(`${BASE}/calls`, { state: { preset: { section: 'calls', preset: { listId: String(list._id) }, n: Date.now() } } })} />
       )}
       {section === 'triage' && (
         <AdminTriage leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
@@ -756,17 +768,14 @@ export default function AdminApp() {
           onPatch={patchCallLead}
           onRefresh={loadCallLeads}
           onLinkSubmission={linkSubmission}
-          onMobileOpen={() => setBookedOpen(true)}
-          onMobileClose={() => setBookedOpen(false)}
           onGo={go}
-          openId={reqFor('deals')}
         />
       )}
       {section === 'calendar' && (
-        <AdminCalendar leads={V.leads} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatch={patchCallLead} onCreate={createCallLead} onRefresh={loadCallLeads} openId={reqFor('calendar')} />
+        <AdminCalendar leads={V.leads} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatch={patchCallLead} onCreate={createCallLead} onRefresh={loadCallLeads} />
       )}
       {section === 'design' && (
-        <AdminDesign onBack={() => go('settings')} loading={forceLoading} />
+        <AdminDesign onBack={navBack ? navBack.back : null} loading={forceLoading} />
       )}
       {section === 'settings' && (
         <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />

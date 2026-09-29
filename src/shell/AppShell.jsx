@@ -3,6 +3,7 @@ import { useMediaQuery } from '../ui';
 import { ShellCtx } from './ShellContext';
 import Sidebar, { sidebarStyles } from './Sidebar';
 import TopBar, { topBarStyles } from './TopBar';
+import { useBack, navHistoryStyles } from './nav-history';
 import TabBar, { tabBarStyles } from './TabBar';
 import MoreSheet, { moreSheetStyles } from './MoreSheet';
 import ShortcutsSheet, { shortcutsSheetStyles } from './ShortcutsSheet';
@@ -50,6 +51,8 @@ export default function AppShell({
   const [cmdOpen, setCmdOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [topBar, setTopBarState] = useState(null);
+  /* Back (done once): the top bar's Back comes from the history entry; a screen's own back (a draft's leave guard) takes precedence. */
+  const navBack = useBack();
   // Read state, snoozes and Calendly events (Prompt 9). Server first, localStorage as the offline fallback.
   const [notifDoc, setNotifDoc] = useState(() => ({ readIds: readJSON(KEYS.notifRead, []), lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }));
   const [calendly, setCalendly] = useState({ configured: null, events: [] });
@@ -170,7 +173,7 @@ export default function AppShell({
       <div className={`sh-root lay-root${collapsed ? ' is-collapsed' : ''}`} data-v-theme={appearance.theme} data-v-motion={appearance.reduce || appearance.reduceOS ? 'reduce' : undefined}>
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} funnel={funnel} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
-          <TopBar title={title} onBack={topBar?.back || null}
+          <TopBar title={title} onBack={topBar?.back || navBack?.back || null}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
           {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}
@@ -199,5 +202,5 @@ export const shellStyles = `
   .sh-content { flex: 1; min-height: 0; min-width: 0; display: flex; }
   .sh-offline.is-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; min-height: 0; }
   .sh-offline { display: flex; align-items: center; justify-content: center; gap: var(--v-space-2); flex-shrink: 0; min-height: var(--v-space-9); padding: var(--v-space-1) var(--v-gutter-r) var(--v-space-1) var(--v-gutter-l); background: var(--v-status-new-soft); color: var(--v-status-new-text); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); border-bottom: 1px solid color-mix(in srgb, var(--v-status-new-text) 30%, transparent); animation: lay-view-in var(--v-dur-base) var(--v-ease-out) both; }
-${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles + shortcutsSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
+${navHistoryStyles}${sidebarStyles}${topBarStyles}${tabBarStyles}${moreSheetStyles + shortcutsSheetStyles}${commandBarStyles}${notificationsStyles}${quickAddStyles}
 `;

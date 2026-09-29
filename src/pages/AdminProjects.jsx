@@ -8,6 +8,7 @@ import { money } from '../shared/format';
 import { fmtDate, relativeTime } from '../shared/dates';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useScreenOrigin, useRestore } from '../shell/nav-history';
 import { invoicesOf, invoiceStatus, nextUnpaidInvoice, invoicesPastDue } from '../lib/invoices';
 import { liveNextAction } from '../lib/nextAction';
 import { packageOf } from '../shared/pricing';
@@ -32,6 +33,8 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   const [showArchived, setShowArchived] = useState(false);
   const [archived, setArchived] = useState(null); // loaded on demand
   useTopBar(null);
+  useScreenOrigin(() => ({ filters: { showArchived } }));
+  useRestore((o) => { if (o.filters) setShowArchived(!!o.filters.showArchived); });
   const now = Date.now();
   const ctx = useMemo(() => ({ projects, sets: shell?.sets || [] }), [projects, shell?.sets]);
   const byId = useMemo(() => new Map((leads || []).map(l => [String(l._id), l])), [leads]);
@@ -86,11 +89,11 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   ) : !rows.length ? (
     <Card><EmptyState icon="Folder" title={E.title} description={E.description} action={{ label: E.action, icon: 'Briefcase01', onClick: () => shell?.go('clients') }} /></Card>
   ) : desktop ? (
-    <Table aria-label="Projects" columns={columns} rows={rows} rowKey={(r) => String(r.p._id)} storageKey="vz_projects_cols" onRowClick={open} rowActions={(r) => <Menu label={`Actions for ${r.lead?.business || 'project'}`} items={rowMenu(r)} />} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
+    <Table aria-label="Projects" columns={columns} rows={rows} rowKey={(r) => String(r.p._id)} rowId={(r) => r.lead?._id} storageKey="vz_projects_cols" onRowClick={open} rowActions={(r) => <Menu label={`Actions for ${r.lead?.business || 'project'}`} items={rowMenu(r)} />} rowClassName={(r) => (r.overdue ? 'pj-row-overdue' : '')} />
   ) : (
     <Stagger className="pj-stack" cap={6}>
       {rows.map(r => (
-        <Card key={r.p._id} as="article" padding={3} interactive className={`pj-card${r.overdue ? ' is-overdue' : ''}`}>
+        <Card key={r.p._id} as="article" padding={3} interactive className={`pj-card${r.overdue ? ' is-overdue' : ''}`} data-row-id={r.lead?._id}>
           <button type="button" className="v-stretch" onClick={() => open(r)} aria-label={`Open ${r.lead?.business || 'project'}`}>{`Open ${r.lead?.business || 'project'}`}</button>
           <Stack gap={1}>
             <Row gap={2} justify="between" align="start"><span className="pj-client lay-truncate">{r.lead?.business || 'Unknown client'}</span><span className="v-above">{stagePill(r.p)}</span></Row>

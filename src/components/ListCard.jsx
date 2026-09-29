@@ -10,7 +10,7 @@ export default function ListCard({ list, onOpen, onStart, onMenu }) {
   const n = listCount(list); const full = isFull(list);
   const sysFull = list.system && n > 0;
   return (
-    <Card as="div" padding={4} interactive className={`ls-card${full || sysFull ? ' is-full' : ''}`}>
+    <Card as="div" padding={4} interactive className={`ls-card${full || sysFull ? ' is-full' : ''}`} data-row-id={list._id}>
       <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${list.name}, ${n} of ${list.target}`}>{`Open ${list.name}`}</button>
       <Stack gap={3}>
         <Row gap={2} align="center" justify="between" wrap={false}>

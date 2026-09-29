@@ -14,6 +14,8 @@ import {
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useSelection, useBack } from '../shell/nav-history';
 import { useDecline } from '../components/DeclineSheet';
 import { withNextAction } from '../lib/nextAction';
 import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey, restoreLead } from '../lib/lists';
@@ -280,9 +282,31 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const indMoreRef = useRef(null);
 
   // Flow
-  const [mode, setMode] = useState('builder'); // builder | queue | room | summary
+  /* Back (done once): queue, room and summary are history entries; builder is the root. The entry's mode wins on a popstate. */
+  const [mode, setModeState] = useState('builder'); // builder | queue | room | summary
+  const { entry: modeEntry, open: pushMode } = useSelection('calls');
+  const navigate = useNavigate();
+  const navBack = useBack(); const navBackRef = useRef(navBack); navBackRef.current = navBack;
+  const modeRef = useRef(mode); modeRef.current = mode;
+  const location = useLocation(); const idxRef = useRef(0); idxRef.current = location.state?.idx || 0;
+  const idxOf = useRef({}); // the history depth each mode's entry sits at, so a move down the modes pops to it
+  const ORDER = { builder: 0, queue: 1, room: 2, summary: 3 };
+  useEffect(() => { const m = modeEntry?.mode; if (m && m !== modeRef.current) setModeState(m); if (!m && modeRef.current !== 'builder') setModeState('builder'); }, [modeEntry]);
+  const setMode = useCallback((m) => {
+    const cur = modeRef.current; if (m === cur) return;
+    if (ORDER[m] < ORDER[cur]) {
+      const at = m === 'builder' ? idxOf.current.builder : idxOf.current[m];
+      if (at != null && at < idxRef.current) { navigate(at - idxRef.current); return; }
+      if (navBackRef.current && m === 'builder') { navBackRef.current.back(); return; }
+      setModeState(m); return;
+    }
+    if (cur === 'builder') idxOf.current.builder = idxRef.current;
+    idxOf.current[m] = idxRef.current + 1;
+    setModeState(m); pushMode(m, { mode: m });
+  }, [pushMode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
   const [quick, setQuick] = useState(false); // builder mode shows the lists first; Quick session is the old builder (CRM revamp, step 3)
   const [session, setSession] = useState(null);
+  const sessionRef = useRef(session); sessionRef.current = session;
   const [sheet, setSheet] = useState(null);
   const [tab, setTab] = useState(() => readLS(TAB_KEY, 'script'));
   const [predial, setPredial] = useState({});
@@ -305,7 +329,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setMode('builder'); setQuick(!p.listId && (!!p.status || !!p.prio || !!p.ids));
     if (p.autostart && Array.isArray(p.ids) && p.ids.length) setAutostart(p.ids);
     if (p.listId) setStartList(p.listId);
-  }, [builderPreset]);  
+  }, [builderPreset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (embedded) { setAuthed(true); return; }
@@ -321,14 +345,15 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [listsRetry, listsRetrying] = useRetry(onRetryLists || (() => {})); // the lists view's Try again (CRM revamp, step 3), a hook, so above the early return
   const loadFailed = loadError && !loaded && <Card><ErrorState title={COPY.error.calls.title} description={COPY.error.calls.description} onRetry={retry} retrying={retrying} /></Card>;
 
-  // Persisted session survives a phone call or a reload.
+  // Persisted session survives a phone call or a reload (a Start from Lists supersedes it).
   useEffect(() => {
+    if (builderPreset) return;
     const s = readLS(SESSION_KEY, null);
     if (Array.isArray(s?.ids) && s.ids.length) {
       setSession({ ids: s.ids, idx: Math.min(Math.max(0, s.idx || 0), s.ids.length - 1), stats: { ...EMPTY_STATS, ...(s.stats || {}) }, logged: s.logged || {}, startedAt: s.startedAt || Date.now(), size: s.size || s.ids.length, listId: s.listId || '' });
       setMode(s.mode === 'summary' ? 'summary' : s.mode === 'room' ? 'room' : 'queue');
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (session) writeLS(SESSION_KEY, { ...session, mode }); else { try { localStorage.removeItem(SESSION_KEY); } catch { /* fine */ } } }, [session, mode]);
   useEffect(() => { writeLS(TAB_KEY, tab); }, [tab]);
   useEffect(() => { if (!timer) return undefined; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [timer]);
@@ -433,8 +458,11 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const goTo = (i) => { setSession(s => (s ? { ...s, idx: i } : s)); setPredial({}); setTimer(null); setMode('room'); };
   const advance = useCallback((d = 1) => {
     setSheet(null); setPredial({}); setTimer(null);
-    setSession(s => { if (!s) return s; const ni = s.idx + d; if (ni >= s.ids.length) { setMode('summary'); return s; } return { ...s, idx: Math.max(0, ni) }; });
-  }, []);
+    const s = sessionRef.current; if (!s) return;
+    const ni = s.idx + d;
+    if (ni >= s.ids.length) { setMode('summary'); return; }
+    setSession({ ...s, idx: Math.max(0, ni) });
+  }, [setMode]);
   const skipToEnd = (id) => setSession(s => { if (!s) return s; const ids = s.ids.filter(x => x !== id); ids.push(id); return { ...s, ids, idx: Math.min(s.idx, ids.length - 1) }; });
 
   useTopBar(useMemo(() => {
@@ -442,7 +470,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (mode === 'room' && current && !desktop) return { title: timer ? `${current.business}  ${fmtClock(Date.now() - timer.start)}` : current.business, back: () => setMode('queue') };
     if (mode === 'room' && current && desktop) return { title: timer ? `Call Console  ${fmtClock(Date.now() - timer.start)}` : 'Call Console', back: null };
     if (mode === 'queue') return { title: 'Session', back: () => setMode('builder') };
-    if (mode === 'summary') return { title: 'Session summary', back: null };
+    if (mode === 'summary') return { title: 'Session summary', back: () => shell?.go?.('dashboard') };
     return null;
   }, [embedded, mode, current?._id, current?.business, desktop, timer && Math.floor((Date.now() - timer.start) / 1000)])); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -10,6 +10,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, usePushRel } from '../shell/nav-history';
 import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '../shell/install';
 import { THEME_MODES } from '../shell/appearance';
 import LeadImport from '../components/LeadImport';
@@ -104,8 +105,14 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const desktop = useMediaQuery('(min-width: 1024px)');
   // Old deep links to the Automation and Shortcuts tabs land on Integrations (UX audit, item 11).
   const tabOf = (t) => (t === 'automation' || t === 'shortcuts' ? 'integrations' : t);
-  const [tab, setTab] = useState(tabOf(initialTab) || 'profile');
-  useEffect(() => { if (initialTab) setTab(tabOf(initialTab)); }, [initialTab]);
+  /* Back (done once): on a phone every tab but the first is a history entry, so Back returns to Profile; a computer switches in place. */
+  const phone = useMediaQuery('(max-width: 767px)');
+  const { entry: tabEntry, open: pushTab, close: closeTab } = useSelection('settings');
+  const pushRel = usePushRel(); // Design opened from here is one level in, so it gets a Back
+  const [tabState, setTabState] = useState(tabOf(initialTab) || 'profile');
+  useEffect(() => { if (initialTab) setTabState(tabOf(initialTab)); }, [initialTab]);
+  const tab = phone && tabEntry?.tab ? tabEntry.tab : tabState;
+  const setTab = (t) => { if (!phone) { setTabState(t); return; } if (t === tab) return; if (t === 'profile' && tabEntry?.tab) closeTab(); else pushTab(t, { tab: t }); };
   useTopBar(null);
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -374,7 +381,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <Card className="st-card">
         <p className="pb-card-h">Design system</p>
         <p className="dt-muted">Every token, color, and status pill rendered live. The old print dashboard was retired; its orders live in Print Orders and its saved orders import from the Data tab.</p>
-        <Row gap={2} wrap><Button variant="ghost" icon="Palette" onClick={() => shell?.go('design')}>Open design system</Button></Row>
+        <Row gap={2} wrap><Button variant="ghost" icon="Palette" onClick={() => pushRel('/design')}>Open design system</Button></Row>
       </Card>
     </Stagger>
   );

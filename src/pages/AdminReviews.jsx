@@ -8,6 +8,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
 import { REVIEW_CHANNELS, REVIEW_RESULTS, normalizeStage } from '../shared/semantics';
 import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
@@ -27,7 +28,7 @@ export function ReviewCard({ lead, projects, onOpen, selected }) {
   const la = lastAsk(lead);
   const due = reviewAskDue(lead, projects);
   return (
-    <Card as="div" padding={3} interactive selected={selected} className="rv-card">
+    <Card as="div" padding={3} interactive selected={selected} className="rv-card" data-row-id={lead._id}>
       <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open reviews for ${lead.business}`}>{`Open reviews for ${lead.business}`}</button>
       <Row gap={2} align="center"><Avatar name={lead.business} size="sm" /><span className="rv-card-name lay-truncate">{lead.business}</span>{r.nfcCard && <Pill tone="callback" label="NFC" size="sm" icon="CreditCard01" />}{due && <Pill tone="new" label="Ask due" size="sm" icon="Bell01" />}</Row>
       <Row gap={2} wrap align="center" className="rv-counts">
@@ -94,13 +95,14 @@ function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onClose }) {
   );
 }
 
-export default function AdminReviews({ leads = [], projects = [], submissions = [], loading, error, onRetry, onPatch, onPatchSubmission, openId }) {
+export default function AdminReviews({ leads = [], projects = [], submissions = [], loading, error, onRetry, onPatch, onPatchSubmission }) {
   const toast = useToast();
   const shell = useShell();
   const [retry, retrying] = useRetry(onRetry);
   const E = (k) => COPY.empty[k];
   const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open client rides on the history entry. */
+  const { selId, open: openSel, close } = useSelection('reviews');
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');
   const [linkSub, setLinkSub] = useState(null);
@@ -108,8 +110,9 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
   const pending = loading && !showSkel;
   const now = Date.now();
   useTopBar(null);
-  useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
-  const pendingOpen = !!openId?.id && loading;
+  useScreenOrigin(() => ({ filters: { filter, q }, selectedId: selId }));
+  useRestore((o) => { if (o.filters) { if (o.filters.filter) setFilter(o.filters.filter); setQ(o.filters.q || ''); } });
+  const pendingOpen = !!selId && loading;
 
   const clients = useMemo(() => leads.filter(l => normalizeStage(l) === 'client').sort((a, b) => (reviewAskDue(b, projects, now) ? 1 : 0) - (reviewAskDue(a, projects, now) ? 1 : 0) || String(a.business).localeCompare(String(b.business))), [leads, projects, now]);
   const counts = useMemo(() => Object.fromEntries(REVIEW_FILTERS.map(([id]) => [id, clients.filter(l => reviewPasses(l, projects, id, now)).length])), [clients, projects, now]);
@@ -148,7 +151,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
         ) : !list.length ? (
           <Card><EmptyState size="sm" icon="SearchMd" title={E('reviews.filter').title} description={E('reviews.filter').description} action={{ label: E('reviews.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
         ) : (
-          <Stagger className="rv-grid">{list.map(l => <ReviewCard key={l._id} lead={l} projects={projects} onOpen={() => setSelId(l._id)} selected={sel && String(sel._id) === String(l._id)} />)}</Stagger>
+          <Stagger className="rv-grid">{list.map(l => <ReviewCard key={l._id} lead={l} projects={projects} onOpen={() => openSel(l._id)} selected={sel && String(sel._id) === String(l._id)} />)}</Stagger>
         )}
         {!loading && (
           <Section title="Form submissions" description={forms.length ? `${forms.length} from the website review form` : undefined}>
@@ -164,8 +167,8 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
           </Section>
         )}
       </ScrollArea>
-      {pendingOpen && !sel && <Sheet open onClose={() => setSelId(null)} title={<SkeletonBlock width={140} height={22} />} tall width={520} className="rv-sheet">{showSkel && <RecordSkeleton cards={3} header={false} heights={[300, 220, 350]} />}</Sheet>}
-      {sel && <ReviewSheet lead={sel} projects={projects} onPatch={patch} onPatchRaw={onPatch} onClose={() => setSelId(null)} />}
+      {pendingOpen && !sel && <Sheet open onClose={close} title={<SkeletonBlock width={140} height={22} />} tall width={520} className="rv-sheet">{showSkel && <RecordSkeleton cards={3} header={false} heights={[300, 220, 350]} />}</Sheet>}
+      {sel && <ReviewSheet lead={sel} projects={projects} onPatch={patch} onPatchRaw={onPatch} onClose={close} />}
       {linkSub && <LeadPicker leads={leads} title="Link to client" description={`${linkSub.business || linkSub.name}: logs an ask with result left.`} filter={(l) => normalizeStage(l) === 'client'} onClose={() => setLinkSub(null)} onPick={(l) => linkForm(linkSub, l)} />}
       <style>{rvStyles}</style>
     </PageShell>

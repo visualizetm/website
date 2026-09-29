@@ -8,6 +8,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
 import LeadForm from '../components/LeadForm';
 import { defaultLead } from '../lib/defaultLead';
@@ -33,7 +34,7 @@ const copyText = async (toast, text, what) => { try { await navigator.clipboard.
 
 export function SubmissionCard({ sub: s, onOpen, selected, compact = false }) {
   return (
-    <Card padding={3} interactive onClick={onOpen} selected={selected} className={`sb-card${s.read ? '' : ' is-unread'}${compact ? ' sb-card--compact' : ''}`} aria-label={`Open submission from ${s.business || s.name}`}>
+    <Card padding={3} interactive onClick={onOpen} selected={selected} className={`sb-card${s.read ? '' : ' is-unread'}${compact ? ' sb-card--compact' : ''}`} data-row-id={s._id} aria-label={`Open submission from ${s.business || s.name}`}>
       <Row gap={2} align="center"><Avatar name={s.business || s.name} size="sm" /><span className="sb-card-name lay-truncate">{s.business || s.name}</span>{!s.read && <Pill tone="won" label="Unread" size="sm" variant="solid" icon={false} />}<Pill id={s.type} list={SUBMISSION_TYPES} size="sm" variant="outline" /></Row>
       {!compact && <><span className="sb-card-line lay-truncate">{firstLine(s)}</span><Row gap={2} wrap className="sb-card-meta"><span>{s.name}</span><span>{relativeTime(s.createdAt)}</span><Pill id={s.status} list={LEAD_STATUSES} size="sm" icon={false} /></Row></>}
     </Card>
@@ -109,20 +110,22 @@ function SubmissionDetail({ sub: s, leads, onPatch, onPatchRaw, onDelete, onLink
   );
 }
 
-export default function AdminSubmissions({ items = [], loading, error, onRetry, leads = [], onPatch, onDelete, onLinkLead, onPatchLead, onCreateLead, onRefresh, openId }) {
+export default function AdminSubmissions({ items = [], loading, error, onRetry, leads = [], onPatch, onDelete, onLinkLead, onPatchLead, onCreateLead, onRefresh }) {
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
   const E = (k) => COPY.empty[k];
   const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const desktop = useMediaQuery('(min-width: 1024px)');
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open submission rides on the history entry. */
+  const { selId, open: openSel, close } = useSelection('submissions');
   const [type, setType] = useState('');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [q, setQ] = useState('');
   const showSkel = useDelayedLoading(loading);
   const pending = loading && !showSkel;
   useTopBar(null);
-  useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
+  useScreenOrigin(() => ({ filters: { type, unreadOnly, q }, selectedId: selId }));
+  useRestore((o) => { if (o.filters) { setType(o.filters.type || ''); setUnreadOnly(!!o.filters.unreadOnly); setQ(o.filters.q || ''); } });
   const live = useMemo(() => items.filter(s => !s.deleted), [items]);
   const counts = useMemo(() => Object.fromEntries(SUBMISSION_TYPES.map(t => [t.id, live.filter(s => (s.type || 'other') === t.id).length])), [live]);
   const unread = live.filter(s => !s.read).length;
@@ -136,8 +139,8 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
     { id: 'first', label: 'Detail', render: (s) => firstLine(s) },
     { id: 'date', label: 'Received', render: (s) => fmtDateTime(s.createdAt) },
   ];
-  const pendingOpen = !!openId?.id && loading && !sel;
-  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={2} />) : sel && <SubmissionDetail sub={sel} leads={leads} onPatch={patch} onPatchRaw={onPatch} onDelete={onDelete} onLinkLead={onLinkLead} onPatchLead={onPatchLead} onCreateLead={onCreateLead} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const pendingOpen = !!selId && loading && !sel;
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={2} />) : sel && <SubmissionDetail sub={sel} leads={leads} onPatch={patch} onPatchRaw={onPatch} onDelete={onDelete} onLinkLead={onLinkLead} onPatchLead={onPatchLead} onCreateLead={onCreateLead} onClose={desktop ? close : undefined} />;
   const panelOpen = !!sel || pendingOpen;
   return (
     <PageShell className={`aa-main aa-main--wide po-shell sb-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
@@ -158,15 +161,15 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
           ) : !list.length ? (
             <Card><EmptyState size="sm" icon="SearchMd" title={E('submissions.filter').title} description={E('submissions.filter').description} action={{ label: E('submissions.filter').action, onClick: () => { setType(''); setUnreadOnly(false); setQ(''); } }} /></Card>
           ) : desktop && !sel ? (
-            <Table aria-label="Submissions" columns={columns} rows={list} rowKey={(s) => String(s._id)} onRowClick={(s) => setSelId(s._id)} rowClassName={(s) => (s.read ? '' : 'is-unread')} storageKey="vz_subs_cols" className="sb-table" />
+            <Table aria-label="Submissions" columns={columns} rows={list} rowKey={(s) => String(s._id)} onRowClick={(s) => openSel(s._id)} rowClassName={(s) => (s.read ? '' : 'is-unread')} storageKey="vz_subs_cols" className="sb-table" />
           ) : (
-            <Stagger className="cl-stack">{list.map(s => <SubmissionCard key={s._id} sub={s} onOpen={() => setSelId(s._id)} selected={sel && String(sel._id) === String(s._id)} compact={!!sel && desktop} />)}</Stagger>
+            <Stagger className="cl-stack">{list.map(s => <SubmissionCard key={s._id} sub={s} onOpen={() => openSel(s._id)} selected={sel && String(sel._id) === String(s._id)} compact={!!sel && desktop} />)}</Stagger>
           )}
           {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
         {panelOpen && desktop && <aside className="po-panel" aria-label="Submission"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : <SkeletonBlock width={120} height={14} />} tall width={520}>{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={close} title={sel ? (sel.business || sel.name) : <SkeletonBlock width={140} height={22} />} description={sel ? submissionTypeOf(sel.type).label : <SkeletonBlock width={120} height={14} />} tall width={520}>{detail}</Sheet>}
       <style>{sbStyles}</style>
     </PageShell>
   );

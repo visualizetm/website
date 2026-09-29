@@ -172,7 +172,6 @@ export default function AdminConceptsEditor({
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
-  useTopBar(null);
 
   const mine = useMemo(() => setsOf(sets, lead?._id), [sets, lead]);
   const byRound = useMemo(() => [...mine].sort((a, b) => (a.round || 0) - (b.round || 0)), [mine]);
@@ -222,6 +221,7 @@ export default function AdminConceptsEditor({
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to these concepts have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
+  useTopBar({ back: leave });
   useEffect(() => {
     const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if (dirtyRef.current) save(); } };
     window.addEventListener('keydown', onKey);

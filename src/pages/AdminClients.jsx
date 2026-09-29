@@ -9,6 +9,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import ClientCard, { clientLine } from '../components/ClientCard';
 import { clientRowPill } from '../lib/clientRowPill';
 import LeadDetail from '../components/LeadDetail';
@@ -30,7 +31,7 @@ const FIRST_CHIPS = new Set(['all', 'active', 'delivered', 'paused']);
 
 export default function AdminClients({
   leads, submissions = [], loading, error, onRetry, projects = [], posts = [], onCreateProject, onPatchProject, onRefreshProjects,
-  onPatch, onCreate, onDelete, onRefresh, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId, createPreset,
+  onPatch, onCreate, onDelete, onRefresh, onLinkSubmission, onGo, createPreset,
 }) {
   const shell = useShell();
   const toast = useToast();
@@ -38,7 +39,8 @@ export default function AdminClients({
   const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery('(min-width: 1024px)');
   const wide = useMediaQuery('(min-width: 1280px)');
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open record rides on the history entry; a row tap pushes, Back pops. */
+  const { selId, entry: openEntry, open: openSel, close } = useSelection('clients');
   const [creating, setCreating] = useState(false);
   /* The sidebar's Projects and Planner entries are this screen with a filter (?filter=active, ?filter=planner). */
   const location = useLocation();
@@ -60,10 +62,11 @@ export default function AdminClients({
   const summary = desktop ? `${clients.length} client${clients.length === 1 ? '' : 's'}, ${onRet} on retainer, ${money(collected)} collected` : `${clients.length} client${clients.length === 1 ? '' : 's'}, ${money(collected)} collected`;
 
   const sel = selId ? leads.find(l => l._id === selId) : null;
-  const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
-  const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
-  useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (createPreset) { setCreating(true); } }, [createPreset]);  
+  const pick = (id) => { setCreating(false); openSel(id); };
+  const back = () => close();
+  useEffect(() => { if (createPreset) { setCreating(true); } }, [createPreset]);
+  useScreenOrigin(() => ({ filters: { filter, q }, selectedId: selId }));
+  useRestore((o) => { if (o.filters) { if (o.filters.filter) setFilter(o.filters.filter); setQ(o.filters.q || ''); } });  
   useTopBar(null);
   const clientProps = { projects, onCreateProject, onPatchProject };
 
@@ -77,7 +80,7 @@ export default function AdminClients({
     </Sheet>
   );
 
-  const pendingOpen = !!openId?.id && loading && !sel;
+  const pendingOpen = !!selId && loading && !sel;
   if (pendingOpen) {
     return (
       <>
@@ -95,7 +98,7 @@ export default function AdminClients({
           <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
         </aside>
         <div className="aa-main cl-main">
-          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} client={clientProps} />
+          <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} intent={openEntry?.intent || null} client={clientProps} />
         </div>
         {addSheet}
         <style>{clStyles}</style>

@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, ProgressBar, Menu, Modal, Input, Select, EmptyState, ErrorState, Stagger,
   SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadCard from '../components/LeadCard';
 import ListCard, { listCardStyles } from '../components/ListCard';
 import { openLists, listCount, isFull, windowLabel, WINDOWS } from '../lib/lists';
@@ -59,7 +60,7 @@ function ListDetail({ list, leads, phone, hover, onReorder, onRemove, onOpenLead
   );
 }
 
-export default function AdminLists({ lists = [], leads = [], loading = false, error = false, onRetry, ops, onOpenLead, onStart, openId }) {
+export default function AdminLists({ lists = [], leads = [], loading = false, error = false, onRetry, ops, onOpenLead, onStart }) {
   const shell = useShell();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
@@ -67,7 +68,8 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const showSkel = useDelayedLoading(loading);
   const phone = useMediaQuery('(max-width: 767px)');
   const hover = useMediaQuery('(hover: hover) and (pointer: fine)');
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open list rides on the history entry. */
+  const { selId, open: openSel, close } = useSelection('lists');
   const [modal, setModal] = useState(null); // { kind: 'new' | 'rename' | 'target', list }
   const [name, setName] = useState('');
   const [target, setTarget] = useState('25');
@@ -76,19 +78,20 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const openFill = (l) => shell?.openListFill?.(l);
   const open = useMemo(() => openLists(lists), [lists]);
   const sel = selId ? open.find(l => String(l._id) === String(selId)) || null : null;
-  useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
-  useTopBar(sel ? { title: sel.name, back: () => setSelId(null) } : null);
+  useTopBar(sel ? { title: sel.name } : null);
+  useScreenOrigin(() => ({ selectedId: selId }));
+  useRestore(() => {});
 
   const create = async () => {
     const n = name.trim(); if (!n) return;
     const item = await ops.createList({ name: n, target: Math.max(1, Math.min(500, Math.round(Number(target)) || 25)), window: win });
     if (!item) { toast.error(COPY.error.create); return; }
-    setModal(null); setSelId(item._id); toast.success(`${item.name} made. Add leads or fill it from the filters.`);
+    setModal(null); openSel(item._id); toast.success(`${item.name} made. Add leads or fill it from the filters.`);
   };
   const rename = async () => { const n = name.trim(); if (!n || !modal?.list) return; const ok = await ops.patchList(modal.list._id, { name: n }); if (ok) { setModal(null); toast.success('Renamed.'); } else toast.error(COPY.error.save); };
   const retarget = async () => { const n = Math.max(1, Math.min(500, Math.round(Number(target)) || 0)); if (!n || !modal?.list) return; const ok = await ops.patchList(modal.list._id, { target: n }); if (ok) { setModal(null); toast.success(`Target is ${n}.`); } else toast.error(COPY.error.save); };
-  const markDone = async (l) => { const yes = await confirm({ title: `Mark ${l.name} done?`, body: 'It leaves the open lists and its leads are free to join another.', confirmLabel: 'Mark done' }); if (!yes) return; const ok = await ops.finishList(l._id); if (ok) { if (String(selId) === String(l._id)) setSelId(null); toast.success(`${l.name} done.`); } else toast.error(COPY.error.save); };
-  const remove = async (l) => { const yes = await confirm({ title: `Delete ${l.name}?`, body: 'The list goes; the leads stay where they are.', confirmLabel: 'Delete', danger: true }); if (!yes) return; const ok = await ops.finishList(l._id, true); if (ok) { if (String(selId) === String(l._id)) setSelId(null); toast.success(`${l.name} deleted.`); } else toast.error(COPY.error.del); };
+  const markDone = async (l) => { const yes = await confirm({ title: `Mark ${l.name} done?`, body: 'It leaves the open lists and its leads are free to join another.', confirmLabel: 'Mark done' }); if (!yes) return; const ok = await ops.finishList(l._id); if (ok) { if (String(selId) === String(l._id)) close(); toast.success(`${l.name} done.`); } else toast.error(COPY.error.save); };
+  const remove = async (l) => { const yes = await confirm({ title: `Delete ${l.name}?`, body: 'The list goes; the leads stay where they are.', confirmLabel: 'Delete', danger: true }); if (!yes) return; const ok = await ops.finishList(l._id, true); if (ok) { if (String(selId) === String(l._id)) close(); toast.success(`${l.name} deleted.`); } else toast.error(COPY.error.del); };
   const menuFor = (l) => (l.system ? [{ id: 'start', label: 'Start', icon: 'Play', onSelect: () => onStart(l), disabled: !listCount(l) }] : [
     { id: 'start', label: 'Start', icon: 'Play', onSelect: () => onStart(l), disabled: !listCount(l) },
     { id: 'rename', label: 'Rename', icon: 'Edit02', onSelect: () => { setName(l.name); setModal({ kind: 'rename', list: l }); } },
@@ -100,7 +103,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   ]);
   const E = COPY.empty['lists.none'];
 
-  const body = showSkel && openId?.id ? (
+  const body = showSkel && selId ? (
     /* A deep link into one list: the header card and the rows, not the grid. */
     <Stack gap={4} aria-busy="true" aria-hidden="true">
       <Card padding={3} style={{ minHeight: 81, boxSizing: 'border-box' }}><Row gap={3} align="center" justify="between"><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width={120} height={18} /><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Stack><Row gap={2}><SkeletonBlock width={88} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>
@@ -133,14 +136,14 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
     <Card><EmptyState icon="Rows01" title={E.title} description={E.description} action={{ label: E.action, icon: 'Plus', onClick: () => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); } }} /></Card>
   ) : (
     <Stagger className="ls-grid" cap={6}>
-      {open.map(l => <ListCard key={l._id} list={l} onOpen={() => setSelId(l._id)} onStart={onStart} onMenu={menuFor} />)}
+      {open.map(l => <ListCard key={l._id} list={l} onOpen={() => openSel(l._id)} onStart={onStart} onMenu={menuFor} />)}
     </Stagger>
   );
 
   return (
     <PageShell className="aa-main aa-main--wide ls-shell">
       <ScrollArea wide>
-        {!sel && !(showSkel && openId?.id) && <Section title="Lists" loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
+        {!sel && !(showSkel && selId) && <Section title="Lists" loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
           action={<Button icon="Plus" onClick={() => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); }}>New list</Button>} />}
         {body}
       </ScrollArea>

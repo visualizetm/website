@@ -9,6 +9,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
 import LeadCard from '../components/LeadCard';
 import { PRINT_ORDER_STATUSES, ORDER_SOURCES, printOrderStatusOf } from '../shared/semantics';
@@ -39,7 +40,7 @@ function Stepper({ status }) {
 export function OrderCard({ order: o, leads, onOpen, selected, compact = false }) {
   const c = customerOf(o, leads);
   return (
-    <Card padding={3} interactive onClick={onOpen} selected={selected} className={`po-card${compact ? ' po-card--compact' : ''}`} aria-label={`Open order for ${c.name}`}>
+    <Card padding={3} interactive onClick={onOpen} selected={selected} className={`po-card${compact ? ' po-card--compact' : ''}`} aria-label={`Open order for ${c.name}`} data-row-id={o._id}>
       <Row gap={2} align="center"><Avatar name={c.name} size="sm" /><span className="po-card-name lay-truncate">{c.name}</span><Pill id={o.source} list={ORDER_SOURCES} size="sm" variant="outline" /><Pill id={o.status} list={PRINT_ORDER_STATUSES} size="sm" /></Row>
       {!compact && <>
         <span className="po-card-items lay-truncate">{itemSummary(o)}</span>
@@ -226,14 +227,15 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchRaw, onPatchLe
 }
 
 /* ── Screen ────────────────────────────────────────────────────── */
-export default function AdminOrders({ orders = [], loading, error, onRetry, unimported = 0, leads = [], projects = [], onCreate, onPatch, onRefresh, onImportSubmissions, onPatchLead, onCreateProject, openId, createPreset }) {
+export default function AdminOrders({ orders = [], loading, error, onRetry, unimported = 0, leads = [], projects = [], onCreate, onPatch, onRefresh, onImportSubmissions, onPatchLead, onCreateProject, createPreset }) {
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
   const E = (k) => COPY.empty[k];
   // AdminApp's onPatch is optimistic with rollback; this adds the failure toast for button and menu writes.
   const patch = async (id, set) => { const ok = await onPatch(id, set); if (!ok) toast.error(COPY.error.save); return ok; };
   const desktop = useMediaQuery('(min-width: 1024px)');
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open order rides on the history entry. */
+  const { selId, open: openSel, close } = useSelection('orders');
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState('all');
   const [q, setQ] = useState('');
@@ -242,8 +244,9 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
   const pending = loading && !showSkel;
   const now = Date.now();
   useTopBar(null);
-  useEffect(() => { if (openId?.id) setSelId(openId.id); }, [openId]);
   useEffect(() => { if (createPreset) setCreating(true); }, [createPreset]);
+  useScreenOrigin(() => ({ filters: { filter, q }, selectedId: selId }));
+  useRestore((o) => { if (o.filters) { if (o.filters.filter) setFilter(o.filters.filter); setQ(o.filters.q || ''); } });
 
   const live = useMemo(() => orders.filter(o => !o.archived), [orders]);
   const counts = useMemo(() => Object.fromEntries(ORDER_FILTERS.map(([id]) => [id, live.filter(o => orderPasses(o, id, now)).length])), [live, now]);
@@ -254,7 +257,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
   const chipLabel = (id, label) => label || printOrderStatusOf(id).label;
 
   const runImport = async () => { setImporting(true); const n = await onImportSubmissions?.(); setImporting(false); if (n == null) toast.error('Import failed. Nothing was added.'); else toast.success(`${n} shop order${n === 1 ? '' : 's'} imported.`); };
-  const create = async (doc) => { const item = await onCreate?.(doc); if (item) { toast.success('Order created.'); setCreating(false); setSelId(item._id); } else toast.error(COPY.error.create); };
+  const create = async (doc) => { const item = await onCreate?.(doc); if (item) { toast.success('Order created.'); setCreating(false); openSel(item._id); } else toast.error(COPY.error.create); };
 
   const columns = [
     { id: 'customer', label: 'Customer', always: true, render: (o) => <span className="cl-cell-biz"><Avatar name={customerName(o, leads)} size="sm" /><span className="lay-truncate">{customerName(o, leads)}</span></span> },
@@ -267,8 +270,8 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
     { id: 'paid', label: 'Paid', width: 90, render: (o) => (o.paid ? <Pill tone="booked" label="Paid" size="sm" icon="Check" /> : <span className="cl-muted-cell">Unpaid</span>) },
   ];
 
-  const pendingOpen = !!openId?.id && loading && !sel; // deep link while the list resolves: the record shape, not the list skeleton
-  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} headerHeight={300} heights={[116, 300, 150]} />) : sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? () => setSelId(null) : undefined} />;
+  const pendingOpen = !!selId && loading && !sel; // deep link while the list resolves: the record shape, not the list skeleton
+  const detail = pendingOpen ? (showSkel && <RecordSkeleton cards={3} headerHeight={300} heights={[116, 300, 150]} />) : sel && <OrderDetail order={sel} leads={leads} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchLead={onPatchLead} onCreateProject={onCreateProject} onClose={desktop ? close : undefined} />;
   const panelOpen = !!sel || pendingOpen;
   return (
     <PageShell className={`aa-main aa-main--wide po-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
@@ -294,15 +297,15 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
           ) : !list.length ? (
             <Card><EmptyState size="sm" icon="SearchMd" title={E('orders.filter').title} description={E('orders.filter').description} action={{ label: E('orders.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
           ) : desktop && !sel ? (
-            <Table aria-label="Print orders" columns={columns} rows={list} rowKey={(o) => String(o._id)} onRowClick={(o) => setSelId(o._id)} storageKey="vz_orders_cols" className="po-table" />
+            <Table aria-label="Print orders" columns={columns} rows={list} rowKey={(o) => String(o._id)} onRowClick={(o) => openSel(o._id)} storageKey="vz_orders_cols" className="po-table" />
           ) : (
-            <Stagger className="cl-stack">{list.map(o => <OrderCard key={o._id} order={o} leads={leads} onOpen={() => setSelId(o._id)} selected={sel && String(sel._id) === String(o._id)} compact={!!sel && desktop} />)}</Stagger>
+            <Stagger className="cl-stack">{list.map(o => <OrderCard key={o._id} order={o} leads={leads} onOpen={() => openSel(o._id)} selected={sel && String(sel._id) === String(o._id)} compact={!!sel && desktop} />)}</Stagger>
           )}
           {!loading && <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={onRefresh}>Refresh</Button></Row>}
         </ScrollArea>
         {panelOpen && desktop && <aside className="po-panel" aria-label="Order"><ScrollArea bare className="po-panel-scroll">{detail}</ScrollArea></aside>}
       </div>
-      {panelOpen && !desktop && <Sheet open onClose={() => setSelId(null)} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : <SkeletonBlock width={200} height={14} />} tall width={520} className="po-sheet">{detail}</Sheet>}
+      {panelOpen && !desktop && <Sheet open onClose={close} title={sel ? customerName(sel, leads) : <SkeletonBlock width={140} height={22} />} description={sel ? itemSummary(sel) : <SkeletonBlock width={200} height={14} />} tall width={520} className="po-sheet">{detail}</Sheet>}
       {creating && <NewOrderSheet leads={leads} onClose={() => setCreating(false)} onCreate={create} preset={createPreset?.preset} />}
       <style>{poStyles}</style>
     </PageShell>

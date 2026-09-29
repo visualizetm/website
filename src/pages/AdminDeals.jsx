@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
   PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadDetail from '../components/LeadDetail';
 import LeadCard from '../components/LeadCard';
 import { effectiveStage } from '../lib/booked';
@@ -37,22 +38,24 @@ function DealCard({ lead, action, onOpen, onAct, phone, selected }) {
   return <LeadCard lead={lead} onOpen={onOpen} selected={selected} pill={pill} line={pkg || 'No package yet'} trailing={act} className={`dl-card${isStalled(lead) ? ' is-stalled' : ''}`} />;
 }
 
-export default function AdminDeals({ leads, submissions = [], loading, error, onRetry, onPatch, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
+export default function AdminDeals({ leads, submissions = [], loading, error, onRetry, onPatch, onLinkSubmission, onGo }) {
   const shell = useShell();
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1280px)');
   const board = useMediaQuery('(min-width: 1024px)');
-  const [selId, setSelId] = useState(null);
+  /* Back (done once): the open record rides on the history entry; a card tap pushes, Back pops. */
+  const { selId, entry: openEntry, open: openSel, close } = useSelection('deals');
   const showSkel = useDelayedLoading(loading);
   const pending = loading && !showSkel;
   const ctx = useMemo(() => ({ projects: shell?.projects || [], sets: shell?.sets || [] }), [shell?.projects, shell?.sets]);
   const pool = useMemo(() => leads.filter(l => ['booked', 'deal'].includes(effectiveStage(l))).sort((a, b) => Number(isStalled(b)) - Number(isStalled(a)) || daysHere(b) - daysHere(a)), [leads]);
   const groups = useMemo(() => DEAL_COLUMNS.map(c => ({ ...c, items: pool.filter(l => columnOf(dealOf(l)) === c.id) })), [pool]);
   const sel = selId ? leads.find(l => l._id === selId) : null;
-  const pick = (id) => { setSelId(id); onMobileOpen?.(); };
-  const back = () => { setSelId(null); onMobileClose?.(); };
-  useEffect(() => { if (openId?.id) { setSelId(openId.id); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (id) => openSel(id);
+  const back = () => close();
+  useScreenOrigin(() => ({ selectedId: selId }));
+  useRestore(() => {});
   useTopBar(null);
   const E = COPY.empty['deals.none'];
 
@@ -66,7 +69,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   };
   const card = (l, phone) => <DealCard key={l._id} lead={l} action={liveNextAction(l, ctx)} onOpen={() => pick(l._id)} onAct={act} phone={phone} selected={sel?._id === l._id} />;
 
-  const pendingOpen = !!openId?.id && loading && !sel;
+  const pendingOpen = !!selId && loading && !sel;
   if (pendingOpen || sel) {
     return (
       <>
@@ -74,7 +77,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
           <ScrollArea bare className="dl-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} menu={false} />) : <><p className="dl-muted">{pool.length} in play</p>{pool.map(l => <LeadCard key={l._id} lead={l} onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</>}</Stack></ScrollArea>
         </aside>
         <div className="aa-main dl-main">
-          {sel ? <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} /> : showSkel && <LeadDetail.Skeleton mode="deal" />}
+          {sel ? <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openEntry?.intent || null} /> : showSkel && <LeadDetail.Skeleton mode="deal" />}
         </div>
         <style>{dlStyles}</style>
       </>

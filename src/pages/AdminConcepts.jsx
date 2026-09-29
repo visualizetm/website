@@ -6,6 +6,7 @@ import { relativeTime } from '../shared/dates';
 import { safeHref } from '../lib/safeUrl';
 import { sortSets, statusOf, directionsOf, firstImage, viewedUnanswered } from '../lib/concepts';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { useScreenOrigin, useRestore } from '../shell/nav-history';
 
 /* Studio > Concepts (Concepts rebuild, Part 3): every concept set across
  * every lead, in the order they need Rob: changes requested, then viewed
@@ -18,6 +19,8 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
   const showSkel = useDelayedLoading(loading);
   const [retry, retrying] = useRetry(onRetry);
   const [filter, setFilter] = useState('all');
+  useScreenOrigin(() => ({ filters: { filter } }));
+  useRestore((o) => { if (o.filters?.filter) setFilter(o.filters.filter); });
   const leadOf = useMemo(() => new Map((leads || []).map(l => [String(l._id), l])), [leads]);
   const rows = useMemo(() => sortSets(sets).map(s => ({ set: s, lead: leadOf.get(String(s.leadId)) || null })), [sets, leadOf]);
   const counts = useMemo(() => rows.reduce((m, r) => { const k = statusOf(r.set); m[k] = (m[k] || 0) + 1; return m; }, {}), [rows]);
@@ -52,7 +55,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
                     const n = directionsOf(set).length;
                     const stale = viewedUnanswered(set);
                     return (
-                      <Card key={set._id} as="div" padding={3} interactive className="cl-row">
+                      <Card key={set._id} as="div" padding={3} interactive className="cl-row" data-row-id={lead?._id}>
                         <button type="button" className="v-stretch" disabled={!lead} onClick={() => lead && shell?.openConcepts?.(lead, set._id)} aria-label={`Open ${client}, ${set.title || 'Concepts'} round ${set.round || 1}`}>Open</button>
                         <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
                           <span className="img-fit cl-thumb">{thumb ? <img src={thumb} alt="" width={96} height={96} loading="lazy" decoding="async" /> : <span className="cl-thumb-empty" aria-hidden="true"><Icon icon="Image01" size="var(--v-icon-md)" /></span>}</span>

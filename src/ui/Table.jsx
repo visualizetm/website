@@ -16,6 +16,7 @@ import { durationMs } from './motion';
  *   `always` columns cannot be hidden in the chooser; the first column is sticky on scroll by default.
  * @param {Array} props.rows already sorted by the parent
  * @param {Function} [props.rowKey] (row) => key, default row._id
+ * @param {Function} [props.rowId] (row) => the id Back highlights (data-row-id), default the key
  * @param {boolean} [props.selectable] header and row checkboxes
  * @param {Set} [props.selected] selected keys
  * @param {Function} [props.onSelect] (nextSet) => void
@@ -31,7 +32,7 @@ import { durationMs } from './motion';
  * @param {number} [props.pageSize=80] rows mounted per page; the next page mounts as the end scrolls into view
  */
 export default function Table({
-  columns, rows, rowKey = (r) => r._id, selectable = false, selected, onSelect, sort, onSort, density = 'md',
+  columns, rows, rowKey = (r) => r._id, rowId = null, selectable = false, selected, onSelect, sort, onSort, density = 'md',
   onRowClick, rowActions, storageKey, columnChooser = true, empty, rowClassName, className = '', 'aria-label': label, pageSize = 80,
 }) {
   // Windowing (Prompt 15): only the first `pageSize` rows render; a sentinel under the table extends the
@@ -111,7 +112,7 @@ export default function Table({
               const k = rowKey(row);
               const on = selected?.has(k);
               return (
-                <tr key={k} className={`v-tr${onRowClick ? ' v-tr--click' : ''}${on ? ' is-selected' : ''}${entering ? ' v-tr--enter' : ''} ${rowClassName?.(row) || ''}`.trim()} data-v-enter="" style={entering ? { animationDelay: `calc(${Math.min(ri, 8)} * var(--v-stagger))` } : undefined}
+                <tr key={k} data-row-id={rowId ? rowId(row) : k} className={`v-tr${onRowClick ? ' v-tr--click' : ''}${on ? ' is-selected' : ''}${entering ? ' v-tr--enter' : ''} ${rowClassName?.(row) || ''}`.trim()} data-v-enter="" style={entering ? { animationDelay: `calc(${Math.min(ri, 8)} * var(--v-stagger))` } : undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined} tabIndex={onRowClick ? 0 : undefined}
                   onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter') onRowClick(row); } : undefined} aria-selected={on || undefined}>
                   {selectable && <td className="v-td v-td--check v-td--sticky" onClick={(e) => e.stopPropagation()}><Checkbox checked={!!on} onChange={() => toggleRow(k)} aria-label="Select row" /></td>}

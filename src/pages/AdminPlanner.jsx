@@ -214,7 +214,6 @@ export default function AdminPlanner({
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
-  useTopBar(null);
 
   const [month, setMonth] = useState(() => monthProp || thisMonth());
   const [openId, setOpenId] = useState(null);
@@ -312,6 +311,7 @@ export default function AdminPlanner({
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this planner have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
+  useTopBar({ back: leave });
 
   // Cmd+S / Ctrl+S, and the browser's own guard for closing the tab.
   useEffect(() => {

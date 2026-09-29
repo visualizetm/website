@@ -11,6 +11,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadCard, { leadMenuItems } from '../components/LeadCard';
 import LeadForm from '../components/LeadForm';
 import LeadDetail from '../components/LeadDetail';
@@ -133,7 +134,7 @@ function MergeModal({ group, onClose, onMerge }) {
 
 export default function AdminLeads({
   leads, submissions, loading, error, onRetry, onPatch, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
-  onLinkSubmission, onMobileOpen, onMobileClose, openId, createPreset, filterPreset,
+  onLinkSubmission, createPreset, filterPreset,
 }) {
   const shell = useShell();
   const toast = useToast();
@@ -145,8 +146,11 @@ export default function AdminLeads({
   const [sort, setSort] = useState({ id: 'added', dir: 'desc' });
   const [view, setView] = useState(() => readLS(VIEW_KEY, null));
   const [views, setViews] = useState(() => { const v = readLS(VIEWS_KEY, null); if (v) return v; writeLS(VIEWS_KEY, DEFAULT_VIEWS); return DEFAULT_VIEWS; });
-  const [selId, setSelId] = useState(null);
-  const [creating, setCreating] = useState(false);
+  /* Back (done once): the open record rides on the history entry; a row tap pushes, Back pops. */
+  const { selId, entry: openEntry, open: openSel, close } = useSelection('leads');
+  const [createdN, setCreatedN] = useState(null); // the create entry already handled (saved or dismissed)
+  const creating = !!createPreset && createPreset.n !== createdN && !selId;
+  const setCreating = (on) => { if (!on) setCreatedN(createPreset?.n ?? null); else shell?.newLead?.({}); };
   const [importOpen, setImportOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [checked, setChecked] = useState(() => new Set());
@@ -167,7 +171,7 @@ export default function AdminLeads({
   const [poolView, setPoolView] = useState(() => readLS(POOL_KEY, 'open') || 'open');
   // CRM revamp, step 7: the More sheet's Declined row lands here with ?pool=declined.
   useEffect(() => { const p = new URLSearchParams(window.location.search).get('pool'); if (p && ['open', 'declined', 'nurture'].includes(p)) setPoolView(p); }, []);
-  const setPool = (v) => { setPoolView(v); writeLS(POOL_KEY, v); setSelId(null); setChecked(new Set()); };
+  const setPool = (v) => { setPoolView(v); writeLS(POOL_KEY, v); setChecked(new Set()); };
   const pool = useMemo(() => openLeads(leads), [leads]);
   const parked = useMemo(() => (poolView === 'declined' ? declinedLeads(leads) : poolView === 'nurture' ? nurtureLeads(leads) : []).sort((a, b) => String(b.declined?.at || b.updatedAt || '').localeCompare(String(a.declined?.at || a.updatedAt || ''))), [leads, poolView]);
   const reasonLine = useMemo(() => { const c = new Map(); for (const l of parked) { const k = l.declined?.reason; if (k) c.set(k, (c.get(k) || 0) + 1); } return DECLINE_REASONS.filter(r => c.get(r.id)).map(r => `${r.label} ${c.get(r.id)}`).join(', '); }, [parked]);
@@ -186,18 +190,19 @@ export default function AdminLeads({
 
   // The record can be a declined or nurture lead opened from those views, a notification or the search.
   const sel = selId ? (pool.find(l => l._id === selId) || leads.find(l => l._id === selId && ['declined', 'nurture', 'triage'].includes(effectiveStage(l)))) || null : null;
-  const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };
-  const back = () => { setSelId(null); setCreating(false); onMobileClose?.(); };
-  useEffect(() => { if (openId?.id) { setSelId(openId.id); setCreating(false); onMobileOpen?.(); } }, [openId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (createPreset) { setCreating(true); setSelId(null); onMobileOpen?.(); } }, [createPreset]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (id) => openSel(id);
+  const back = () => close();
+  /* What Back restores on this screen: the filter set, the search, the sort, the pool and the view. */
+  useScreenOrigin(() => ({ filters: { filters, q, sort, poolView }, view: mode, selectedId: selId }));
+  useRestore((o) => { if (o.filters) { if (o.filters.filters) setFilters(o.filters.filters); setQ(o.filters.q || ''); if (o.filters.sort) setSort(o.filters.sort); if (o.filters.poolView) setPoolView(o.filters.poolView); } if (o.view) setView(o.view); });
   // Filter preset from the shell: { status, prio, industry }. Missing keys clear that filter; {} clears everything.
   useEffect(() => {
     if (!filterPreset) return;
     const p = filterPreset.preset || {};
     setFilters({ ...EMPTY_FILTERS, status: p.status || [], prio: p.prio || [], industry: p.industry && p.industry !== 'all' ? [industryKey(p.industry)] : [] });
-    setQ(''); setSelId(null); setCreating(false); onMobileClose?.();
-  }, [filterPreset]); // eslint-disable-line react-hooks/exhaustive-deps
-  useTopBar(creating ? { title: 'New lead', back } : sel ? { title: sel.business, back } : null);
+    setQ('');
+  }, [filterPreset]);
+  useTopBar(creating ? { title: 'New lead' } : null);
 
   // Writes: AdminApp's onPatch is already optimistic with rollback; this adds the error toast.
   const patch = async (id, set, fail = COPY.error.save) => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };
@@ -298,7 +303,7 @@ export default function AdminLeads({
   );
 
   /* ── Deep link while the list resolves: the detail shape, not the list skeleton ── */
-  const pendingOpen = !!openId?.id && loading && !sel && !creating;
+  const pendingOpen = !!selId && loading && !sel && !creating;
   if (pendingOpen) {
     return (
       <>
@@ -326,7 +331,7 @@ export default function AdminLeads({
           {creating ? (
             <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { const ok = await onCreate(defaultLead(f)); if (ok) back(); else toast.error(COPY.error.create); }} onCancel={back} /></Section></Card></ScrollArea>
           ) : (
-            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} intent={openId?.intent || null} />
+            <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; }} onLinkSubmission={onLinkSubmission} onClose={back} intent={openEntry?.intent || null} />
           )}
         </div>
         <style>{ldStyles}</style>
@@ -343,7 +348,7 @@ export default function AdminLeads({
             <SegmentedControl size="sm" label="Pool" options={[{ id: 'open', label: 'Open' }, { id: 'declined', label: 'Declined' }, { id: 'nurture', label: 'Nurture' }]} value={poolView} onChange={setPool} />
             {poolView === 'open' && <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />}
             <Button variant="secondary" icon={Upload01} onClick={() => setImportOpen(true)}>Import</Button>
-            <Button icon={Plus} onClick={() => { setCreating(true); setSelId(null); onMobileOpen?.(); }}>Add lead</Button>
+            <Button icon={Plus} onClick={() => setCreating(true)}>Add lead</Button>
           </Row>}>
           {poolView === 'open' && <Row gap={2} wrap>
             <Input className="ld-search" placeholder="Search business, contact, phone, industry" value={q} onChange={(e) => setQ(e.target.value)} leading={<SearchMd width={16} height={16} />} aria-label="Search leads"
@@ -394,7 +399,7 @@ export default function AdminLeads({
             </div>
 
             {!pool.length ? (
-              <Card><EmptyState icon="Users01" title={E('leads.none').title} description={E('leads.none').description} action={{ label: E('leads.none').action, icon: Plus, onClick: () => { setCreating(true); onMobileOpen?.(); } }} secondary={{ label: E('leads.none').secondary, onClick: () => setImportOpen(true) }} /></Card>
+              <Card><EmptyState icon="Users01" title={E('leads.none').title} description={E('leads.none').description} action={{ label: E('leads.none').action, icon: Plus, onClick: () => setCreating(true) }} secondary={{ label: E('leads.none').secondary, onClick: () => setImportOpen(true) }} /></Card>
             ) : filters.data.includes('dupes') ? (
               <Stack gap={4}>
                 {!dupes.groups.length && <Card><EmptyState size="sm" icon="Check" title={E('leads.dupes').title} description={E('leads.dupes').description} action={{ label: E('leads.dupes').action, onClick: clearAll }} /></Card>}

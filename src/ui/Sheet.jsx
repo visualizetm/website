@@ -41,7 +41,7 @@ export default function Sheet({ open, onClose, title, description, footer, width
   useFocusTrap(boxRef, open && mounted, { onEscape: close });
 
   const onPointerDown = (e) => {
-    if (desktop) return;
+    if (desktop || e.target.closest?.('.v-sheet-x')) return;
     drag.current = { y0: e.clientY, t0: performance.now() };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
