@@ -13,6 +13,7 @@ export const undoKeepPatch = (lead) => ({ stage: 'triage', priority: lead?.prior
 export const laterPatch = (lead, now = Date.now()) => ({ stage: 'nurture', nurture: { until: addDaysKey(30, now), reason: 'Later' }, nextAction: null, listId: '' });
 export const undoLaterPatch = (lead) => ({ stage: 'triage', nurture: lead?.nurture || null, nextAction: null });
 /** Where the lead came from. briefed: the Set of lead ids with a start or contact submission linked. */
+export const SOURCE_TONE = { scraper: 'progress', brief: 'booked', import: 'neutral', hand: 'new' };
 export function sourceOf(lead, briefed) {
   if (lead?.sourceId) return { id: 'scraper', label: 'Nightly scraper' };
   if (briefed && briefed.has(String(lead?._id))) return { id: 'brief', label: 'Website brief' };

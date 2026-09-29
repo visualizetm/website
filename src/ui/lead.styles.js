@@ -183,6 +183,13 @@ export const leadDetailStyles = `
   /* The outcome bar (booked and deal): the current next action and Mark as lost. */
   .dt-outbar-row { width: 100%; max-width: 860px; margin: 0 auto; }
   .dt-outbar-row > .v-btn, .dt-outbar-row > .v-skel { flex: 1 1 140px; min-width: 0; }
+  .dt-triagebar-row > .v-btn { flex: 1 1 120px; }
+  @media (max-width: 479px) { .dt-triagebar-row > .v-btn { flex: 1 1 40%; } }
+  /* The lead score pill (Triage and the triage record header). */
+  .tr-score { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 28px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); font-family: var(--v-font-display); font-size: var(--v-text-md); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+  .tr-score--booked { background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
+  .tr-score--new { background: var(--v-status-new-soft); color: var(--v-status-new-text); }
+  .tr-score--neutral { background: var(--v-status-neutral-soft); color: var(--v-status-neutral-text); }
 `;
 
 /* Clients module (Prompt 10): the client rows (clc-) and ClientWorkspace (cw-).

@@ -55,7 +55,10 @@ const tidy = (items) => items.filter((it, i, all) => it !== 'divider' || (i > 0 
  * @param {{ projects: Array, onCreateProject: Function, onPatchProject: Function }} [props.client] client mode
  * @param {{ kind: string, n: number }} [props.intent] opens a section on arrival
  */
-export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null, intent = null }) {
+/* triage (Triage lets you look before you decide): { score, source, onKeep, onLater, onDecline, onBin }. The record opens in lead
+ * mode with everything editable, the header shows the source pill and the score, and a decision bar pinned at the bottom
+ * replaces the outcome bar. */
+export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, onDelete, onLinkSubmission, onClose, readOnly = false, client = null, intent = null, triage = null }) {
   const lead = normalizeLead(rawLead);
   const leadId = lead._id;
   const shell = useShell();
@@ -145,7 +148,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   };
   const del = async () => { if (!onDelete) return; if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) await onDelete(leadId); };
 
-  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq };
+  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq, triage };
 
   /* The header's three controls by mode (law 5). */
   const ca = dealMode ? checkpointAction(lead, { canBuild: !!shell?.openConcepts }) : null;
@@ -226,6 +229,16 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           {!phone && <div className="rc-panel" role="tabpanel" aria-label={active.label}>{active.body}</div>}
         </Stagger>
       </ScrollArea>
+      {triage && !readOnly && (
+        <StickyFooterBar className="dt-outbar dt-triagebar">
+          <Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">
+            <Button icon="Check" onClick={triage.onKeep} className="tr-keep">Keep</Button>
+            <Button variant="secondary" icon="Clock" onClick={triage.onLater} className="tr-later">Later</Button>
+            <Button variant="secondary" icon="SlashCircle01" onClick={triage.onDecline} className="tr-decline">Decline</Button>
+            <Button variant="danger" icon="Trash01" onClick={triage.onBin} className="tr-bin">Bin</Button>
+          </Row>
+        </StickyFooterBar>
+      )}
       {dealMode && !readOnly && (
         <StickyFooterBar className="dt-outbar">
           <Row gap={2} className="dt-outbar-row">

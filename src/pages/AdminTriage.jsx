@@ -6,11 +6,15 @@ import {
 import { COPY } from '../shared/copy';
 import { PRIORITIES, WINDOWS } from '../shared/semantics';
 import { useShell } from '../shell/ShellContext';
+import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
+import LeadDetail from '../components/LeadDetail';
+import LeadCard from '../components/LeadCard';
+import ScoreBadge from '../components/record/ScoreBadge';
 import { SOCIALS } from '../components/LeadCard';
 import { useDecline } from '../components/DeclineSheet';
 import { triageLeads } from '../lib/leads';
-import { scoreFor, scoreTone, topClientIndustries, briefedLeadIds } from '../lib/score';
-import { keepPatch, undoKeepPatch, laterPatch, undoLaterPatch, sourceOf, intelLines } from '../lib/triage';
+import { scoreFor, topClientIndustries, briefedLeadIds } from '../lib/score';
+import { keepPatch, undoKeepPatch, laterPatch, undoLaterPatch, sourceOf, intelLines, SOURCE_TONE } from '../lib/triage';
 
 /* Triage (CRM revamp, step 4): the pile every new lead lands in, sorted by
  * score and then by newest. A phone shows one card at a time with the next
@@ -19,14 +23,15 @@ import { keepPatch, undoKeepPatch, laterPatch, undoLaterPatch, sourceOf, intelLi
  * the same. Keep opens a sheet for the priority, the best window and an
  * Add to list row, then writes stage lead. A desktop shows a table with one
  * row focused and the keys K, L, D, B and A, plus the same five in the row
- * menu. Every action gets a six second undo. */
-const SOURCE_TONE = { scraper: 'progress', brief: 'booked', import: 'neutral', hand: 'new' };
+ * menu. Every action gets a six second undo.
+ * Look before you decide: a tap on the card (a click on the row) opens the
+ * full record, everything editable, with the decision bar pinned under it
+ * (src/components/LeadDetail.jsx, triage prop); a swipe still decides, a tap
+ * never does. A computer keeps the split: the pile on the left with the
+ * focused row, the record on the right, the keys still live. After a
+ * decision the record closes and the next lead is up; Back returns to the
+ * pile where it was (src/shell/nav-history.js). */
 const KEYS = [['K', 'Keep'], ['L', 'Later'], ['D', 'Decline'], ['B', 'Bin'], ['A', 'Add to list'], ['Up and Down', 'Move focus']];
-
-function ScoreBadge({ score }) {
-  const n = Number(score) || 0;
-  return <span className={`tr-score tr-score--${scoreTone(n)}`} aria-label={`Score ${n} of 100`}>{n}</span>;
-}
 function SocialRow({ lead, size = 13 }) {
   return (
     <span className="lc-socials" role="img" aria-label={`Socials: ${SOCIALS.filter(([k]) => lead.socials?.[k]).map(([, , l]) => l).join(', ') || 'none'}`}>
@@ -57,10 +62,11 @@ function useCardSwipe({ onRight, onLeft, onDown, enabled }) {
   };
 }
 
-function TriageCard({ lead, score, source, style, handlers, hint }) {
+function TriageCard({ lead, score, source, style, handlers, hint, onOpen }) {
   const lines = intelLines(lead);
   return (
-    <Card as="article" padding={4} className="tr-card" style={style} {...(handlers || {})}>
+    <Card as="article" padding={4} className="tr-card" style={style} data-row-id={lead._id} {...(handlers || {})}>
+      {onOpen && <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${lead.business || 'this lead'}`}>{`Open ${lead.business || 'this lead'}`}</button>}
       {hint && <span className={`tr-hint tr-hint--${hint}`} aria-hidden="true"><Icon icon={hint === 'keep' ? 'Check' : hint === 'bin' ? 'Trash01' : 'ChevronDown'} size="var(--v-icon-lg)" /></span>}
       <Stack gap={3}>
         <Row gap={3} justify="between" align="start">
@@ -71,7 +77,7 @@ function TriageCard({ lead, score, source, style, handlers, hint }) {
               {lead.area && <span className="tr-area lay-truncate">{lead.area}</span>}
             </Row>
           </Stack>
-          <ScoreBadge score={score} />
+          <Row gap={2} align="center" wrap={false} className="v-above tr-card-right"><ScoreBadge score={score} />{onOpen && <span className="tr-open" aria-hidden="true"><Icon icon="ChevronRight" size="var(--v-icon-md)" /></span>}</Row>
         </Row>
         <Row gap={2} wrap align="center">
           <Pill label={source.label} tone={SOURCE_TONE[source.id] || 'neutral'} icon={false} size="sm" />
@@ -99,7 +105,7 @@ function KeepSheet({ lead, onClose, onDone, onAddToList }) {
   );
 }
 
-export default function AdminTriage({ leads = [], submissions = [], loading = false, error = false, onRetry, onPatch, onDelete, onRestore, onOpenLead, onCapture }) {
+export default function AdminTriage({ leads = [], submissions = [], loading = false, error = false, onRetry, onPatch, onDelete, onRestore, onCapture }) {
   const toast = useToast();
   const shell = useShell();
   const [retry, retrying] = useRetry(onRetry);
@@ -108,6 +114,12 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   const [keepFor, setKeepFor] = useState(null);
   const [moreFor, setMoreFor] = useState(null);
   const [focusId, setFocusId] = useState(null);
+  /* Back (done once): the open record rides on the history entry; Back returns to the pile with the row focused. */
+  const { selId, open: openSel, close } = useSelection('triage');
+  const wide = useMediaQuery('(min-width: 1280px)');
+  const openRecord = (l) => { setFocusId(l._id); openSel(l._id); };
+  useScreenOrigin(() => ({ selectedId: selId || focusId }));
+  useRestore((o) => { if (o.selectedId) setFocusId(o.selectedId); });
   const [leaving, setLeaving] = useState(null); // { id, dir } for the card's exit
   const pile = useMemo(() => triageLeads(leads), [leads]);
   const ctx = useMemo(() => ({ topIndustries: topClientIndustries(leads), briefed: briefedLeadIds(submissions) }), [leads, submissions]);
@@ -115,8 +127,11 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   const srcOf = (l) => sourceOf(l, ctx.briefed);
   const decline = useDecline({ onPatch });
   const top = pile[0] || null;
-  const focused = (focusId && pile.find(l => l._id === focusId)) || pile[0] || null;
+  const sel = selId ? leads.find(l => String(l._id) === String(selId)) || null : null;
+  const focused = (selId && sel) || (focusId && pile.find(l => l._id === focusId)) || pile[0] || null;
   useEffect(() => { if (focusId && !pile.some(l => l._id === focusId)) setFocusId(pile[0]?._id || null); }, [pile, focusId]);
+  /* A decision moves the lead out of the pile: the record closes and the stack or the table shows the next one. */
+  useEffect(() => { if (selId && !loading && !pile.some(l => String(l._id) === String(selId))) close(); }, [selId, pile, loading, close]);
 
   const keep = async (l, picked) => {
     const set = keepPatch(l, picked);
@@ -155,7 +170,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
 
   // Desktop keys: K, L, D, B, A on the focused row; Up and Down move it. Never while typing or while a sheet is up.
   useEffect(() => {
-    if (phone || showSkel || !pile.length) return undefined;
+    if ((phone && !selId) || showSkel || !pile.length) return undefined;
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
@@ -172,6 +187,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   }, [phone, showSkel, pile, focused, keepFor, moreFor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const menuFor = (l) => [
+    { id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => openRecord(l) },
     { id: 'keep', label: 'Keep', icon: 'Check', onSelect: () => act('keep', l) },
     { id: 'later', label: 'Later', icon: 'Clock', onSelect: () => act('later', l) },
     { id: 'decline', label: 'Decline', icon: 'SlashCircle01', onSelect: () => act('decline', l) },
@@ -200,7 +216,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
     <Stagger className="tr-stack" cap={3}>
       <div className="tr-deck">
         {pile[1] && <div className="tr-peek" aria-hidden="true" />}
-        <TriageCard key={top._id} lead={top} score={scoreOf(top)} source={srcOf(top)} handlers={swipe.handlers} hint={hint}
+        <TriageCard key={top._id} lead={top} score={scoreOf(top)} source={srcOf(top)} handlers={swipe.handlers} hint={hint} onOpen={() => openRecord(top)}
           style={{ transform: `translate3d(${swipe.d.x}px, ${swipe.d.y}px, 0) rotate(${swipe.d.x / 18}deg)`, transition: swipe.d.x || swipe.d.y ? 'none' : undefined }} />
       </div>
       <Row gap={4} justify="center" align="center" className="tr-actions">
@@ -208,19 +224,51 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
         <IconButton icon="Clock" label={`Later, ${top.business} comes back in 30 days`} variant="secondary" size="lg" className="tr-round" onClick={() => act('later', top)} />
         <IconButton icon="Check" label={`Keep ${top.business}`} variant="primary" size="lg" className="tr-round" onClick={() => act('keep', top)} />
       </Row>
-      <p className="tr-count" role="status">{pile.length === 1 ? 'Last one.' : `${pile.length - 1} more behind it.`} <button type="button" className="tr-link" onClick={() => onOpenLead?.(top)}>Open the record</button></p>
+      <p className="tr-count" role="status">{pile.length === 1 ? 'Last one.' : `${pile.length - 1} more behind it.`} <button type="button" className="tr-link" onClick={() => openRecord(top)}>Open the record</button></p>
     </Stagger>
   ) : (
     <Stack gap={3}>
-      <Table aria-label="Triage" columns={columns} rows={pile} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => setFocusId(l._id)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
+      <Table aria-label="Triage" columns={columns} rows={pile} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => openRecord(l)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
         rowClassName={(l) => (focused && l._id === focused._id ? 'tr-focused' : '')} />
       <Row gap={3} wrap align="center" className="tr-keys" aria-label="Keys">
         {KEYS.map(([k, v]) => <span key={k} className="tr-key"><kbd>{k}</kbd> {v}</span>)}
-        {focused && <Button variant="ghost" size="sm" onClick={() => onOpenLead?.(focused)}>Open {focused.business}</Button>}
+        {focused && <Button variant="ghost" size="sm" onClick={() => openRecord(focused)}>Open {focused.business}</Button>}
       </Row>
     </Stack>
   );
 
+  const sheets = (
+    <>
+      {keepFor && <KeepSheet lead={keepFor} onClose={() => setKeepFor(null)} onDone={async (picked) => { const l = keepFor; setKeepFor(null); await keep(l, picked); }} onAddToList={shell?.openListPicker ? async (picked) => { const l = keepFor; setKeepFor(null); await addToList(l, picked); } : null} />}
+      {moreFor && (
+        <Sheet open onClose={() => setMoreFor(null)} title={moreFor.business} description="Park it or say no." label="More">
+          <Stack gap={2}>
+            <Button variant="secondary" icon="Clock" onClick={() => act('later', moreFor)}>Later, 30 days</Button>
+            <Button variant="secondary" icon="SlashCircle01" onClick={() => act('decline', moreFor)}>Decline</Button>
+            <Button variant="ghost" onClick={() => { const l = moreFor; setMoreFor(null); openRecord(l); }}>Open the record</Button>
+          </Stack>
+        </Sheet>
+      )}
+      {decline.sheet}
+    </>
+  );
+  /* The record: the decision bar under it runs the same four actions; Keep goes through the Keep sheet. */
+  const triageProps = sel ? { score: scoreOf(sel), source: srcOf(sel), onKeep: () => act('keep', sel), onLater: () => act('later', sel), onDecline: () => act('decline', sel), onBin: () => act('bin', sel) } : null;
+  const pendingOpen = !!selId && loading && !sel;
+  if (pendingOpen || sel) {
+    return (
+      <>
+        <aside className={`aa-panel tr-panel${wide ? '' : ' tr-panel--rail'}`} aria-label="Triage">
+          <ScrollArea bare className="tr-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} menu={false} />) : <><p className="tr-muted">{pile.length} waiting</p>{pile.map(l => <LeadCard key={l._id} lead={l} onOpen={() => openRecord(l)} selected={String(l._id) === String(selId)} pill={<ScoreBadge score={scoreOf(l)} />} line={srcOf(l).label} />)}</>}</Stack></ScrollArea>
+        </aside>
+        <div className="aa-main tr-main">
+          {sel ? <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete} onClose={close} triage={triageProps} /> : showSkel && <LeadDetail.Skeleton mode="lead" />}
+        </div>
+        {sheets}
+        <style>{trStyles}</style>
+      </>
+    );
+  }
   return (
     <PageShell className="aa-main aa-main--wide tr-shell">
       <ScrollArea>
@@ -228,17 +276,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
           action={onCapture ? <Button icon="Zap" variant="secondary" onClick={onCapture}>Capture a lead</Button> : undefined} />
         {body}
       </ScrollArea>
-      {keepFor && <KeepSheet lead={keepFor} onClose={() => setKeepFor(null)} onDone={async (picked) => { const l = keepFor; setKeepFor(null); await keep(l, picked); }} onAddToList={shell?.openListPicker ? async (picked) => { const l = keepFor; setKeepFor(null); await addToList(l, picked); } : null} />}
-      {moreFor && (
-        <Sheet open onClose={() => setMoreFor(null)} title={moreFor.business} description="Park it or say no." label="More">
-          <Stack gap={2}>
-            <Button variant="secondary" icon="Clock" onClick={() => act('later', moreFor)}>Later, 30 days</Button>
-            <Button variant="secondary" icon="SlashCircle01" onClick={() => act('decline', moreFor)}>Decline</Button>
-            <Button variant="ghost" onClick={() => { const l = moreFor; setMoreFor(null); onOpenLead?.(l); }}>Open the record</Button>
-          </Stack>
-        </Sheet>
-      )}
-      {decline.sheet}
+      {sheets}
       <style>{trStyles}</style>
     </PageShell>
   );
@@ -253,10 +291,6 @@ const trStyles = `
   .tr-name { margin: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); font-weight: var(--v-weight-semibold); line-height: 1.1; color: var(--v-text); }
   .tr-area { font-size: var(--v-text-sm); color: var(--v-text-2); }
   .tr-intel { margin: 0; padding: 0 0 0 var(--v-space-4); display: flex; flex-direction: column; gap: var(--v-space-1); font-size: var(--v-text-sm); color: var(--v-text-2); }
-  .tr-score { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 28px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); font-family: var(--v-font-display); font-size: var(--v-text-md); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-  .tr-score--booked { background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
-  .tr-score--new { background: var(--v-status-new-soft); color: var(--v-status-new-text); }
-  .tr-score--neutral { background: var(--v-status-neutral-soft); color: var(--v-status-neutral-text); }
   .tr-hint { position: absolute; top: var(--v-space-3); display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border-radius: var(--v-radius-pill); z-index: 2; }
   .tr-hint--keep { right: var(--v-space-3); background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
   .tr-hint--bin { left: var(--v-space-3); background: var(--v-status-danger-soft); color: var(--v-status-danger-text); }
@@ -275,6 +309,14 @@ const trStyles = `
   .tr-listrow:hover { border-color: var(--v-border-strong); }
   .tr-listrow:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .tr-listrow-hint { margin-left: auto; font-size: var(--v-text-xs); font-weight: var(--v-weight-regular); color: var(--v-text-3); }
+  .tr-card-right { flex-shrink: 0; }
+  .tr-open { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); margin: -8px -12px -8px 0; border-radius: var(--v-radius-pill); color: var(--v-text-3); }
+  .tr-panel { padding: var(--v-space-3); }
+  .tr-panel-scroll { padding: 0; }
+  .tr-muted { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
+  @media (min-width: 1024px) and (max-width: 1279px) { .tr-panel--rail { width: 232px; } }
+  .tr-main { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+  @media (max-width: 767px) { .aa-app.has-detail .aa-main.tr-main { display: flex; } }
   @media (prefers-reduced-motion: reduce) { .tr-card { transition: none; } }
   [data-v-motion="reduce"] .tr-card { transition: none; }
 `;

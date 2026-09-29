@@ -47,6 +47,7 @@ import Rows01 from '@untitled-ui/icons-react/build/esm/Rows01';
 import GitMerge from '@untitled-ui/icons-react/build/esm/GitMerge';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
 import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
+import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Globe01 from '@untitled-ui/icons-react/build/esm/Globe01';
 import MarkerPin01 from '@untitled-ui/icons-react/build/esm/MarkerPin01';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
@@ -91,7 +92,7 @@ export const ICONS = {
   /* shell + nav */
   LayoutAlt01, PhoneCall01, Image01, Star01, Palette, Trash01, Settings01, Inbox01, SearchMd, Plus, LogOut01, Edit02, ArrowRight,
   /* console + leads */
-  PhoneX01: SlashCircle01, SlashCircle01, Sunrise, Sunset, Keyboard01, Copy01, SkipForward, Play, UserX01, Columns03, Rows01, GitMerge, ChevronDown, ChevronLeft,
+  PhoneX01: SlashCircle01, SlashCircle01, Sunrise, Sunset, Keyboard01, Copy01, SkipForward, Play, UserX01, Columns03, Rows01, GitMerge, ChevronDown, ChevronLeft, ChevronRight,
   Globe01, MarkerPin01, Camera01, ThumbsUp, Clock, ClockRewind, CurrencyDollarCircle,
   /* clients */
   RefreshCw01, Link01, Folder, CreditCard01, Send01, LinkExternal01, Colors, PauseCircle,

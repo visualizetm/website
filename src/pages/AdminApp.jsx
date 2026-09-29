@@ -755,7 +755,7 @@ export default function AdminApp() {
       )}
       {section === 'triage' && (
         <AdminTriage leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
-          onPatch={patchCallLead} onDelete={deleteCallLead} onRestore={restoreCallLeads} onOpenLead={openLead} onCapture={openCapture} />
+          onPatch={patchCallLead} onDelete={deleteCallLead} onRestore={restoreCallLeads} onCapture={openCapture} />
       )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
       {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}

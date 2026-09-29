@@ -1,3 +1,5 @@
+import ScoreBadge from './ScoreBadge';
+import { SOURCE_TONE } from '../../lib/triage';
 import { Avatar, Pill, Menu } from '../../ui';
 import { STAGES, PRIORITIES, CLIENT_STATUSES, displayIndustry } from '../../shared/semantics';
 import { checkpointOf, newestTick } from '../../lib/deal';
@@ -27,7 +29,9 @@ export default function RecordHeader({ rec, primary = null, secondary = null, me
       <div className="rc-head-main">
         <div className="rc-head-top">
           {!phone && <h2 className="rc-name">{lead.business}</h2>}
-          <span className="rc-pills">{status}<Pill id={lead.priority || 'warm'} list={PRIORITIES} size="sm" /></span>
+          {rec.triage
+            ? <span className="rc-pills"><Pill label={rec.triage.source.label} tone={SOURCE_TONE[rec.triage.source.id] || 'neutral'} icon={false} size="sm" /><ScoreBadge score={rec.triage.score} /></span>
+            : <span className="rc-pills">{status}<Pill id={lead.priority || 'warm'} list={PRIORITIES} size="sm" /></span>}
         </div>
         {parts.length > 0 && (
           <p className="rc-ctx">{parts.map((p, i) => <span key={i} className="rc-ctx-part">{i > 0 && <span className="rc-dot" aria-hidden="true">·</span>}{p}</span>)}</p>
