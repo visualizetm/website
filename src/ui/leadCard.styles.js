@@ -13,10 +13,9 @@ export const leadCardStyles = `
   .lc.is-dragging { transform: scale(1.02) rotate(0.5deg); box-shadow: var(--v-shadow-3); opacity: 0.9; z-index: 2; }
   .lc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .lc-l1, .lc-l2 { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; }
-  .lc-name { flex: 1 1 60%; min-width: 72px; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
-  /* In a narrow kanban column the pill gives way before the name does. */
-  .lc-pill { flex: 0 1 auto; min-width: 0; display: inline-flex; }
-  .lc-pill > .v-pill { max-width: 100%; }
+  .lc-name { flex: 1 1 auto; min-width: 48px; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
+  /* The pill keeps its whole label; the name is what truncates in a narrow column. */
+  .lc-pill { flex: 0 0 auto; display: inline-flex; }
   .lc-ctx { flex: 1; min-width: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   /* The tel link sits on line two, right aligned; its 44px target reaches above and below the line without moving it. */
   .lc-phone { flex-shrink: 0; display: inline-flex; align-items: center; min-height: var(--v-tap); min-width: var(--v-tap); margin: calc((var(--v-lh-sm) - var(--v-tap)) / 2) 0; padding: 0 var(--v-space-1); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-2); text-decoration: none; font-variant-numeric: tabular-nums; white-space: nowrap; border-radius: var(--v-radius-sm); }

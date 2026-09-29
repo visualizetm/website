@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
+  PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -11,7 +11,7 @@ import { effectiveStage } from '../lib/booked';
 import { DEAL_COLUMNS, dealOf, columnOf, daysHere, isStalled, tickPatch, metPatch, checkpointOf } from '../lib/deal';
 import { dealPackageLabel } from '../lib/dealConvert';
 import { liveNextAction } from '../lib/nextAction';
-import { fmtDate } from '../shared/dates';
+import { nextActionKindOf } from '../shared/semantics';
 
 /* Deals (CRM revamp, step 5): every booked and deal record on one board.
  * A desktop shows seven columns, Booked to Invoice sent; a card sits in
@@ -21,27 +21,20 @@ import { fmtDate } from '../shared/dates';
  * the record with the Checkpoints fold on top. */
 const SEND_KINDS = { 'send-onboarding': 'onboardingSent', 'send-contract': 'contractSent', 'send-invoice': 'invoiceSent' };
 
+/* A deal row (UI simplification, part B): LeadCard's shell, the days here or
+ * Stalled as the one pill, the package on line two. The column says where
+ * the deal is and the record shows the action; a phone keeps the one action
+ * button as the row's trailing control. */
 function DealCard({ lead, action, onOpen, onAct, phone, selected }) {
   const deal = dealOf(lead);
   const days = daysHere(lead);
   const pkg = dealPackageLabel(deal);
-  return (
-    <Card as="article" padding={3} interactive selected={selected} className={`dl-card${isStalled(lead) ? ' is-stalled' : ''}`}>
-      <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${lead.business}`}>{`Open ${lead.business}`}</button>
-      <Stack gap={1}>
-        <Row gap={2} justify="between" align="start">
-          <span className="dl-name lay-truncate">{lead.business}</span>
-          {isStalled(lead) && <Pill tone="danger" label="Stalled" size="sm" variant="solid" icon="ClockRewind" className="v-above" />}
-        </Row>
-        <span className={`dl-pkg${pkg ? '' : ' dl-pkg--none'}`}>{pkg || 'No package'}</span>
-        <Row gap={2} wrap align="center" className="dl-meta">
-          <span className="dl-days">{days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'} here`}</span>
-          {action && !action.doneAt && <span className="dl-next lay-truncate">{action.label}{action.dueAt ? `, ${fmtDate(action.dueAt)}` : ''}</span>}
-        </Row>
-        {phone && action && !action.doneAt && <span className="v-above"><Button size="md" variant="secondary" full onClick={() => onAct(lead, action)} className="dl-act">{action.label}</Button></span>}
-      </Stack>
-    </Card>
-  );
+  const pill = isStalled(lead)
+    ? <Pill tone="danger" label="Stalled" size="sm" variant="solid" icon={false} />
+    : <Pill tone="neutral" label={days === 0 ? 'Today' : `${days} day${days === 1 ? '' : 's'}`} size="sm" icon={false} />;
+  /* The phone's one action: a 44px icon button named after the action, so the name and the pill keep their room. */
+  const act = phone && action && !action.doneAt ? <IconButton icon={nextActionKindOf(action.kind).icon} label={action.label} variant="secondary" onClick={() => onAct(lead, action)} className="dl-act" /> : null;
+  return <LeadCard lead={lead} onOpen={onOpen} selected={selected} pill={pill} line={pkg || 'No package yet'} trailing={act} className={`dl-card${isStalled(lead) ? ' is-stalled' : ''}`} />;
 }
 
 export default function AdminDeals({ leads, submissions = [], loading, error, onRetry, onPatch, onLinkSubmission, onMobileOpen, onMobileClose, onGo, openId }) {
@@ -89,8 +82,8 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   }
 
   const skeleton = board
-    ? <div className="dl-board" aria-busy="true">{DEAL_COLUMNS.map(c => <div key={c.id} className="dl-col"><div className="dl-col-head"><SkeletonBlock width={90} height={14} /></div><Stack gap={2}>{[1, 2].map(i => <Card key={i} as="div" padding={3}><Stack gap={2}><SkeletonBlock width="70%" height={16} /><SkeletonBlock width="50%" height={12} /><SkeletonBlock width="80%" height={12} /></Stack></Card>)}</Stack></div>)}</div>
-    : <Stack gap={4} aria-busy="true">{[1, 2, 3].map(g => <Stack key={g} gap={2}><SkeletonBlock width={110} height={14} /><Card as="div" padding={3}><Stack gap={1}><SkeletonBlock width="70%" height={18} /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width="80%" height={12} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card></Stack>)}</Stack>;
+    ? <div className="dl-board" aria-busy="true">{DEAL_COLUMNS.map(c => <div key={c.id} className="dl-col"><div className="dl-col-head"><SkeletonBlock width={90} height={14} /></div><Stack gap={2}>{[1, 2].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</Stack></div>)}</div>
+    : <Stack gap={4} aria-busy="true">{[1, 2, 3].map(g => <Stack key={g} gap={2}><SkeletonBlock width={110} height={14} /><LeadCard.Skeleton menu={false} /></Stack>)}</Stack>;
 
   return (
     <PageShell className="aa-main aa-main--wide dl-shell">
@@ -126,7 +119,8 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
 
 const dlStyles = `
   .dl-shell.aa-main { display: flex; flex-direction: column; }
-  .dl-board { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--v-space-2); align-items: start; }
+  /* Seven columns of one line rows: each at least 176px, the board scrolls sideways when the screen is narrower (as the Leads board does). */
+  .dl-board { display: grid; grid-template-columns: repeat(7, minmax(176px, 1fr)); gap: var(--v-space-2); align-items: start; overflow-x: auto; padding: 2px; margin: -2px; scrollbar-width: thin; }
   .dl-col { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .dl-col-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); min-height: 28px; padding: 0 var(--v-space-1); }
   .dl-col-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
@@ -134,14 +128,7 @@ const dlStyles = `
   .dl-col-stack, .dl-list { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .dl-col-stack > .v-stagger-item, .dl-list > .v-stagger-item { display: contents; }
   .dl-col-empty { margin: 0; padding: var(--v-space-3); border: 1px dashed var(--v-border); border-radius: var(--v-radius-md); font-size: var(--v-text-xs); color: var(--v-text-3); text-align: center; }
-  .dl-card { position: relative; }
   .dl-card.is-stalled { border-color: var(--v-status-danger-solid); }
-  .dl-name { font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 0; }
-  .dl-pkg { font-size: var(--v-text-sm); color: var(--v-text-2); }
-  .dl-pkg--none { color: var(--v-text-3); }
-  .dl-meta { font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .dl-days { font-variant-numeric: tabular-nums; }
-  .dl-next { color: var(--v-status-progress-text); min-width: 0; }
   .dl-muted { margin: 0 0 var(--v-space-2); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .dl-panel { padding: var(--v-space-3); }
   .dl-panel-scroll { padding: 0; }

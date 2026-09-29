@@ -62,7 +62,8 @@ function FilterRow({ label, options, values, onChange, more }) {
 }
 
 function KanbanColumn({ status, leads, total, collapsed, onToggle, onMore, onStartSession, cardProps, dropping, dragHandlers, stagger, offset = 0 }) {
-  const items = leads.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} {...dragHandlers(l)} />);
+  // The column is the call status, so the kanban row's one pill is the priority (UI simplification, part B).
+  const items = leads.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} {...dragHandlers(l)} pill={<Pill id={l.priority || 'warm'} size="sm" />} />);
   return (
     <section className={`ld-col${collapsed ? ' is-collapsed' : ''}${dropping ? ' is-dropping' : ''}`} data-col={status.id} aria-label={`${status.label}, ${total}`}>
       <header className="ld-col-head">
