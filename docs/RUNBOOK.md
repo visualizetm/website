@@ -93,6 +93,23 @@ moment a callback or meeting is due) can come back with two changes: set
 change the reminders schedule in vercel.json back to every 15 minutes. The
 file keeps the old per-event logic behind that flag for exactly this.
 
+Tasks with a due date (a custom next action set through the Set task sheet on
+a lead, a deal, a client or a project) get two reminders from the same
+endpoint. The 9am digest lists every task due today under Tasks, after the
+callbacks and the meetings. And on every call, whenever it comes, the endpoint
+pushes "Task due: <label>" once for every live lead and project whose task has
+`remindAt` in the past, `notifiedAt` empty and `doneAt` empty, then stamps
+`notifiedAt`. Hobby crons run once a day, so with nothing else set up a task
+due at 2:30pm is pushed the next morning at 9am. For reminders at the due
+time, point an outside scheduler (cron-job.org or similar) at the endpoint:
+GET https://admin.visualizeclients.com/api/cron/reminders every 15 minutes
+with the header `Authorization: Bearer CRON_SECRET`. Nothing else changes
+when it does: `notifiedAt` keys the per task push and the digest keys on the
+day, so the daily Vercel run and the 15 minute pings can overlap without a
+duplicate. Settings, Notifications reads "Reminder timing: Every 15 minutes"
+once the endpoint has run more than once in the last day (health keeps the
+last twelve run times), and "Task reminders" is the toggle for both paths.
+
 ## Emails
 
 The four branded emails (CRM revamp, step 6) go out through Zapier: one

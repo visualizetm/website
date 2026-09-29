@@ -41,6 +41,7 @@ export default function ProjectSection({ rec }) {
       <Card className="cw-project" glow={p.stage === 'delivered' ? 'booked' : undefined}>
         <Row gap={2} align="center" className="cw-project-head">
           <Row gap={2} wrap align="center" style={{ flex: 1, minWidth: 0 }}><span className="cw-project-name">{p.name}</span><Pill id={p.kind} list={PROJECT_KINDS} size="sm" variant="outline" /><Pill id={p.stage} list={PROJECT_STAGES} size="sm" /></Row>
+          {!readOnly && rec.openTask && <Button variant="ghost" size="md" icon="CheckCircle" onClick={rec.openTask} className="cw-add-task">{rec.taskNow ? 'Edit task' : 'Add task'}</Button>}
           <Menu label={`Actions for ${p.name}`} items={menu} />
         </Row>
         <span className="rc-muted">Started {fmtDate(p.createdAt) || 'today'}</span>

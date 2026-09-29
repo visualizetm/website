@@ -15,12 +15,14 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Input, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
+  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { normalizeLead } from '../lib/leads';
 import { postsOf } from '../lib/posts';
 import LeadForm from './LeadForm';
+import TaskSheet from './TaskSheet';
+import { isTask } from '../lib/tasks';
 import CallbackPicker from './CallbackPicker';
 import { useDecline } from './DeclineSheet';
 import { useSendEmail } from './SendEmailModal';
@@ -96,8 +98,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [nextOpen, setNextOpen] = useState(false);
-  const [nextDraft, setNextDraft] = useState('');
+  const [taskOpen, setTaskOpen] = useState(false); // the Set task sheet (tasks with a due date)
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
   const [outcomeNote, setOutcomeNote] = useState('');
   const [wonPulse, setWonPulse] = useState(false);
@@ -115,6 +116,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     if (kind === 'tab') { openTab(arg); return; }
     if (kind === 'email') { email.open(arg); return; }
     if (kind === 'clear') { await patchRaw({ nextAction: nextActionFor(lead, actionCtx) }); return; }
+    if (kind === 'done') { if (next) await patch({ nextAction: { ...next, doneAt: new Date().toISOString() } }); return; }
+    if (kind === 'task') { setTaskOpen(true); return; }
     if (kind === 'met') { setBusy(what); const ok = await patch(metPatch(lead)); setBusy(''); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); openTab('checkpoints'); } return; }
     if (kind === 'tick') { setBusy(what); const ok = await patch(tickPatch(lead, arg)); setBusy(''); if (ok) toast.success(`${checkpointOf(arg)?.label || 'Step'} ticked.`); }
   };
@@ -141,14 +144,11 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(leadId, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); onClose?.(); }
     }
   };
-  const saveNext = async () => {
-    const label = nextDraft.trim().slice(0, 120); if (!label) return;
-    const ok = await patch({ nextAction: { kind: 'custom', label, dueAt: next?.dueAt || new Date(Date.now() + 864e5).toISOString(), auto: false, doneAt: '' } });
-    if (ok) setNextOpen(false);
-  };
+  const openTask = () => setTaskOpen(true);
+  const taskNow = isTask(next) && !next.doneAt ? next : null;
   const del = async () => { if (!onDelete) return; if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) await onDelete(leadId); };
 
-  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq, triage };
+  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq, triage, openTask, taskNow };
 
   /* The header's three controls by mode (law 5). */
   const ca = dealMode ? checkpointAction(lead, { canBuild: !!shell?.openConcepts }) : null;
@@ -184,7 +184,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     ...(!readOnly ? [
       { id: 'edit', label: 'Edit all', icon: 'Edit02', onSelect: () => setEditAll(true) },
       { id: 'status', label: clientMode ? 'Priority and status' : 'Priority', icon: 'Zap', onSelect: () => setStatusOpen(true) },
-      { id: 'next', label: 'Set next action', icon: 'CheckCircle', onSelect: () => { setNextDraft(next && next.auto === false ? next.label : ''); setNextOpen(true); } },
+      { id: 'task', label: taskNow ? 'Edit task' : 'Set task', icon: 'CheckCircle', onSelect: openTask },
     ] : []),
     { id: 'text', label: 'Text', icon: 'MessageCircle01', disabled: !lead.phone, onSelect: () => { window.location.href = `sms:${String(lead.phone).replace(/[^0-9+]/g, '')}`; } },
     { id: 'mail', label: 'Email', icon: 'Mail01', disabled: !lead.email, onSelect: () => { window.location.href = `mailto:${lead.email}`; } },
@@ -259,10 +259,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           {clientMode && <SegmentedControl label="Client status" full options={CLIENT_STATUSES.map(c => ({ id: c.id, label: c.label }))} value={lead.clientStatus || 'active'} onChange={(id) => patch({ clientStatus: id })} />}
         </Stack>
       </Modal>
-      <Modal open={nextOpen} onClose={() => setNextOpen(false)} title="Set next action" description="A manual action the rules never overwrite. Clear it to hand the field back to the rules."
-        footer={<><Button variant="ghost" onClick={() => setNextOpen(false)}>Cancel</Button>{next?.auto === false && <Button variant="secondary" onClick={async () => { await run('clear'); setNextOpen(false); }}>Clear</Button>}<Button onClick={saveNext} disabled={!nextDraft.trim()}>Save</Button></>}>
-        <Input label="What" value={nextDraft} onChange={(e) => setNextDraft(e.target.value)} placeholder="Drop off the proof" data-autofocus />
-      </Modal>
+      {taskOpen && <TaskSheet business={lead.business} task={taskNow} onClose={() => setTaskOpen(false)} onSave={(na) => patch({ nextAction: na })} onDone={taskNow ? async () => { await run('done'); return true; } : null} />}
       <Modal open={!!outcome} onClose={() => setOutcome(null)} title={outcome === 'won' ? `Mark ${lead.business} won without payment?` : `Mark ${lead.business} as lost?`} danger={outcome === 'lost'} description={outcome === 'won' ? 'Pro bono: they become a client now and the project starts with no invoice and nothing on the ledger.' : 'They leave Booked. Undo is available for six seconds.'}
         footer={<><Button variant="ghost" onClick={() => setOutcome(null)}>Cancel</Button><Button variant={outcome === 'lost' ? 'danger' : 'primary'} icon={outcome === 'won' ? Trophy01 : XClose} onClick={closeOut}>{outcome === 'won' ? 'Won, no payment' : 'Mark lost'}</Button></>}>
         <Textarea label="Note (optional)" rows={2} value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder={outcome === 'won' ? 'Went with Web Complete plus Site Care.' : 'Chose their nephew.'} data-autofocus />

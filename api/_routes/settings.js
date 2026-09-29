@@ -5,7 +5,7 @@ import { stripeHealth } from '../_lib/stripe.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
-const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true } };
+const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true } };
 // Prompt 12: the profile document (greeting name, business hours for the best window).
 // Prompt 14 adds the additive appearance fields: theme (system, dark, light; default dark) and reduceMotion.
 const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false };
@@ -22,7 +22,7 @@ const notifShape = (d = {}) => ({
   readIds: strList(d.readIds, 500),
   lastSeenAt: typeof d.lastSeenAt === 'string' ? d.lastSeenAt : null,
   snoozedUntil: d.snoozedUntil && typeof d.snoozedUntil === 'object' ? Object.fromEntries(Object.entries(d.snoozedUntil).filter(([, v]) => typeof v === 'string').slice(-200)) : {},
-  reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false, bills: d.reminders?.bills !== false, reviews: d.reminders?.reviews !== false },
+  reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false, bills: d.reminders?.bills !== false, reviews: d.reminders?.reviews !== false, tasks: d.reminders?.tasks !== false },
 });
 const clampTarget = (v) => {
   const n = Math.round(Number(v));

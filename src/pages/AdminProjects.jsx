@@ -9,6 +9,8 @@ import { fmtDate, relativeTime } from '../shared/dates';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
+import TaskSheet from '../components/TaskSheet';
+import { isTask } from '../lib/tasks';
 import { useScreenOrigin, useRestore } from '../shell/nav-history';
 import { invoicesOf, invoiceStatus, nextUnpaidInvoice, invoicesPastDue } from '../lib/invoices';
 import { liveNextAction } from '../lib/nextAction';
@@ -26,7 +28,7 @@ export const projectIsOverdue = (p, ctx, now = Date.now()) => { const a = liveNe
 export const overdueProjects = (projects, ctx, now = Date.now()) => (projects || []).filter(p => !p.archived && projectIsOverdue(p, ctx, now)).length;
 const lastTouchOf = (p) => [p.updatedAt, p.createdAt, ...(p.revisions?.log || []).map(r => r.at), ...invoicesOf(p).map(i => i.paidAt)].filter(Boolean).map(v => new Date(v).getTime()).filter(t => !Number.isNaN(t)).sort((a, b) => b - a)[0] || 0;
 
-export default function AdminProjects({ projects = [], leads = [], loading = false, error = false, onRetry, onOpen, onNew }) {
+export default function AdminProjects({ projects = [], leads = [], loading = false, error = false, onRetry, onOpen, onNew, onPatch }) {
   const shell = useShell();
   const [retry, retrying] = useRetry(onRetry);
   const showSkel = useDelayedLoading(loading);
@@ -34,6 +36,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   const [showArchived, setShowArchived] = useState(false);
   const [archived, setArchived] = useState(null); // loaded on demand
   const [q, setQ] = useState('');
+  const [taskFor, setTaskFor] = useState(null); // the project a Set task sheet is open for
   useTopBar(null);
   useScreenOrigin(() => ({ filters: { showArchived, q } }));
   useRestore((o) => { if (o.filters) { setShowArchived(!!o.filters.showArchived); setQ(o.filters.q || ''); } });
@@ -80,6 +83,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   const rowMenu = (r) => [
     { id: 'open', label: 'Open the client', icon: 'ArrowRight', disabled: !r.lead, onSelect: () => open(r) },
     { id: 'money', label: 'Open Money', icon: 'CurrencyDollar', disabled: !r.lead, onSelect: () => { if (r.lead) onOpen?.(r.lead, 'payments'); } },
+    ...(onPatch ? [{ id: 'task', label: isTask(r.action) && !r.action.doneAt ? 'Edit task' : 'Set task', icon: 'CheckCircle', onSelect: () => setTaskFor(r) }] : []),
   ];
   const E = COPY.empty['projects.none'];
   const strip = showSkel ? <p className="pj-strip" aria-hidden="true"><SkeletonBlock width={300} height={27} /></p> : (
@@ -119,6 +123,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
         <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />
         {body}
       </ScrollArea>
+      {taskFor && <TaskSheet business={`${taskFor.lead?.business || 'Project'}, ${taskFor.p.name}`} task={isTask(taskFor.action) && !taskFor.action.doneAt ? taskFor.action : null} onClose={() => setTaskFor(null)} onSave={(na) => onPatch(taskFor.p._id, { nextAction: na })} onDone={isTask(taskFor.action) && !taskFor.action.doneAt ? () => onPatch(taskFor.p._id, { nextAction: { ...taskFor.action, doneAt: new Date().toISOString() } }) : null} />}
       <style>{pjStyles}</style>
     </PageShell>
   );

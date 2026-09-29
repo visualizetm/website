@@ -106,5 +106,6 @@ export function resolveNextAction(record, computed) {
 export function sanitizeNextAction(v, str) {
   if (v === null) return null;
   if (!v || typeof v !== 'object') return undefined;
-  return { kind: NEXT_ACTION_KIND_IDS.includes(v.kind) ? v.kind : 'custom', label: str(v.label, 120), dueAt: str(v.dueAt, 40), auto: v.auto !== false, doneAt: str(v.doneAt, 40) };
+  // remindAt and notifiedAt (tasks with a due date): the reminder instant and the stamp the cron leaves once its push went out.
+  return { kind: NEXT_ACTION_KIND_IDS.includes(v.kind) ? v.kind : 'custom', label: str(v.label, 120), dueAt: str(v.dueAt, 40), auto: v.auto !== false, doneAt: str(v.doneAt, 40), remindAt: str(v.remindAt, 40), notifiedAt: str(v.notifiedAt, 40) };
 }

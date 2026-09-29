@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
+import { zoneDayKey, ZONE } from '../_lib/zone.js';
 
 /* Vercel cron (vercel.json). Hobby plan cron jobs must run once daily, so by
  * default this runs at 13:00 UTC / 9am Eastern and sends one morning digest
@@ -19,6 +20,14 @@ import { sendPush } from '../_lib/notify.js';
  * CALLBACK_LOOKAHEAD_MS of due and per meeting within MEETING_LOOKAHEAD_MS
  * of start, each with its own dedupe key, the way this file worked before
  * that limit.
+ *
+ * Tasks with a due date (a custom nextAction with auto false, set through the
+ * Set task sheet) ride on both modes and on every call, however often it
+ * comes: the digest lists every task due today under Tasks, and every live
+ * lead and project whose task has remindAt in the past, notifiedAt empty and
+ * doneAt empty gets one push, then notifiedAt is stamped. notifiedAt is the
+ * key, so calling this endpoint every 15 minutes (an outside scheduler, see
+ * docs/RUNBOOK.md) or once a day both work without a duplicate.
  */
 const FIFTEEN_MINUTE_MODE = false;
 const CALLBACK_LOOKAHEAD_MS = 15 * 60e3; // FIFTEEN_MINUTE_MODE only: how far ahead a callback counts as due
@@ -41,7 +50,7 @@ export async function handler(req, res) {
   const db = await getDb();
   const settings = db.collection('settings');
   const doc = (await settings.findOne({ _id: 'notifications' })) || {};
-  const prefs = { meetings: doc.reminders?.meetings !== false, callbacks: doc.reminders?.callbacks !== false, bills: doc.reminders?.bills !== false, reviews: doc.reminders?.reviews !== false };
+  const prefs = { meetings: doc.reminders?.meetings !== false, callbacks: doc.reminders?.callbacks !== false, bills: doc.reminders?.bills !== false, reviews: doc.reminders?.reviews !== false, tasks: doc.reminders?.tasks !== false };
   const sent = new Set(doc.sentReminderKeys || []);
   const now = new Date();
   const today = dayKey(now);
@@ -64,6 +73,33 @@ export async function handler(req, res) {
       }
     }
   }
+
+  /* Tasks with a due date: gathered once, used by the digest (due today, America/New_York) and the per task push (remindAt past, not yet notified, not done). */
+  const taskRows = [];
+  if (prefs.tasks) {
+    const isTask = (a) => a && typeof a === 'object' && a.kind === 'custom' && a.auto === false && !a.doneAt && a.label;
+    const taskLeads = await db.collection('call_leads').find({ deleted: { $ne: true }, 'nextAction.kind': 'custom', 'nextAction.auto': false }).project({ business: 1, nextAction: 1 }).toArray();
+    for (const l of taskLeads) if (isTask(l.nextAction)) taskRows.push({ coll: 'call_leads', _id: l._id, leadId: l._id, business: l.business, action: l.nextAction });
+    const taskProjects = await db.collection('projects').find({ archived: { $ne: true }, 'nextAction.kind': 'custom', 'nextAction.auto': false }).project({ leadId: 1, name: 1, nextAction: 1 }).toArray();
+    if (taskProjects.length) {
+      const ids = [...new Set(taskProjects.map(p => String(p.leadId)))];
+      const owners = await db.collection('call_leads').find({ deleted: { $ne: true } }).project({ business: 1 }).toArray();
+      const nameOf = new Map(owners.filter(o => ids.includes(String(o._id))).map(o => [String(o._id), o.business]));
+      for (const p of taskProjects) if (isTask(p.nextAction)) taskRows.push({ coll: 'projects', _id: p._id, leadId: p.leadId, business: nameOf.get(String(p.leadId)) || p.name || 'Project', action: p.nextAction });
+    }
+  }
+  const nowMsTasks = now.getTime();
+  const tasksToday = taskRows.filter(t => t.action.dueAt && zoneDayKey(new Date(t.action.dueAt).getTime()) === zoneDayKey(nowMsTasks)).sort((a, b) => String(a.action.dueAt).localeCompare(String(b.action.dueAt)));
+  const tasksDue = taskRows.filter(t => t.action.remindAt && !t.action.notifiedAt && new Date(t.action.remindAt).getTime() <= nowMsTasks && !Number.isNaN(new Date(t.action.remindAt).getTime()));
+  const fmtZoneTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ZONE });
+  let taskPushes = 0;
+  for (const t of tasksDue) {
+    try { await sendPush(db, { title: `Task due: ${t.action.label}`, body: `${t.business} · due ${fmtZoneTime(t.action.dueAt || t.action.remindAt)}`, url: `${base}/?open=${t.leadId}` }); } catch { /* one bad subscription must not stop the rest */ }
+    await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': now.toISOString() } });
+    taskPushes++;
+  }
+  /* Health: lastRunAt plus the last twelve run times, so Settings can tell a fifteen minute schedule from a daily one. */
+  const stampHealth = async (checked, sentN) => settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': checked, 'crons.reminders.sent': sentN, 'crons.reminders.tasks': taskPushes, updatedAt: new Date() }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
   if (FIFTEEN_MINUTE_MODE) {
     // Pro plan: near-real-time, one push per event, each with its own dedupe key.
@@ -88,8 +124,8 @@ export async function handler(req, res) {
       const keys = [...sent, ...fresh.map(d => d.key)].slice(-500);
       await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
     }
-    await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders': { lastRunAt: now.toISOString(), checked: due.length, sent: fresh.length }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-    return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length });
+    await stampHealth(due.length, fresh.length);
+    return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length, tasks: taskPushes });
   }
 
   // Hobby plan: one digest, once a day.
@@ -106,7 +142,7 @@ export async function handler(req, res) {
     }
   }
 
-  const total = callbacks.length + meetings.length + bills.length + reviews.length;
+  const total = callbacks.length + meetings.length + bills.length + reviews.length + tasksToday.length;
   const digestKey = `digest:${today}`;
   const alreadySent = sent.has(digestKey);
 
@@ -117,12 +153,13 @@ export async function handler(req, res) {
     if (meetings.length) parts.push(`${plural(meetings.length, 'meeting')}: ${list(meetings.map(m => `${m.business} at ${fmtTime(m.at)}`))}`);
     if (bills.length) parts.push(`${plural(bills.length, 'bill')} due: ${list(bills.map(b => `${b.business} $${Number(b.amount || 0).toLocaleString()}`))}`);
     if (reviews.length) parts.push(`${plural(reviews.length, 'review ask')} due: ${list(reviews.map(r => r.business))}`);
+    if (tasksToday.length) parts.push(`Tasks: ${list(tasksToday.map(t => `${t.action.label} (${t.business}, ${fmtZoneTime(t.action.dueAt)})`))}`);
     try { await sendPush(db, { title, body: parts.join('. '), url: `${base}/` }); } catch { /* one bad subscription must not stop the digest from being marked sent */ }
     const keys = [...sent, digestKey].slice(-500);
     await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
   const didSend = total > 0 && !alreadySent;
-  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders': { lastRunAt: now.toISOString(), checked: total, sent: didSend ? 1 : 0 }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0 });
+  await stampHealth(total, didSend ? 1 : 0);
+  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes });
 }

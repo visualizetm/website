@@ -103,6 +103,9 @@ export const NEXT_ACTION_KINDS = [
   { id: 'custom',          label: 'Custom',             icon: 'Edit02',          order: 15 },
 ];
 export const NEXT_ACTION_KIND_IDS = NEXT_ACTION_KINDS.map(k => k.id);
+/* The fields a nextAction carries (tasks with a due date add remindAt and notifiedAt); the Remind me choices (src/lib/tasks.js). Mirrored in api/_semantics.js. */
+export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt'];
+export const REMIND_CHOICE_IDS = ['at', 'hour', 'morning', 'off'];
 export const nextActionKindOf = (id) => NEXT_ACTION_KINDS.find(k => k.id === id) || NEXT_ACTION_KINDS[NEXT_ACTION_KINDS.length - 1];
 export const declineReasonOf = (id) => DECLINE_REASONS.find(r => r.id === id) || DECLINE_REASONS[DECLINE_REASONS.length - 1];
 /** Stage as stored can be missing OR "" (the nightly enricher writes an

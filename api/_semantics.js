@@ -12,6 +12,9 @@ export function normalizeStage(lead) {
   return 'lead';
 }
 export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
+/* The fields a nextAction carries (tasks with a due date add remindAt and notifiedAt); the Remind me choices the sheet offers. */
+export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt'];
+export const REMIND_CHOICE_IDS = ['at', 'hour', 'morning', 'off'];
 export const NEXT_ACTION_KIND_IDS = ['call', 'callback', 'build-concepts', 'log-outcome', 'send-onboarding', 'chase-form', 'send-contract', 'chase-contract', 'send-invoice', 'chase-invoice', 'kickoff', 'revision', 'deliver', 'retainer-pitch', 'review-ask', 'custom'];
 export const LIST_WINDOW_IDS = ['any', 'morning', 'midday', 'afternoon', 'evening'];
 export const LIST_STATUS_IDS = ['open', 'done'];

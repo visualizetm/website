@@ -203,6 +203,8 @@ export const clientStyles = `
   .cl-shell.aa-main, .po-shell.aa-main { display: flex; flex-direction: column; }
   .cl-page { --v-stack-gap: var(--v-space-4); }
   .cl-search { max-width: 520px; }
+  .ts-date { flex: 1 1 160px; }
+  .ts-time { flex: 1 1 120px; }
   .lsr { max-width: 520px; flex: 1; min-width: 0; }
   .lsr-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
   .lsr-clear:hover { color: var(--v-text); background: var(--v-surface-3); }

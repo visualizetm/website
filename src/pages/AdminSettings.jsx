@@ -135,13 +135,16 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   /* Notifications */
   const prefs = data?.prefs || { pushEnabled: true, emailEnabled: true };
   const savePrefs = async (next) => { const before = prefs; setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) { setData(d => ({ ...d, prefs: before })); toast.error(COPY.error.save); } };
-  const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true };
+  const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true };
   const saveReminders = async (next) => { const before = reminders; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: before } })); toast.error(COPY.error.save); } };
   const testPush = async () => { const r = await post({ action: 'test-push' }); if (r.ok) toast.success('Test notification sent to every subscribed device.'); else toast.error('Could not send the test.'); };
   const install = async () => { const r = await promptInstall(); if (r === 'accepted') toast.success('Installed. Open it from your home screen.'); else if (r === 'unavailable') toast.info('Use your browser menu to install.'); };
 
   /* Integrations */
   const health = data?.health || null;
+  /* Reminder timing: the reminders endpoint ran more than once in the last day (an outside scheduler pings it every 15 minutes), else once a day at 9am. */
+  const reminderRuns = (health?.crons?.reminders?.runs || []).filter(t => Date.now() - new Date(t).getTime() < 864e5).length;
+  const reminderTiming = reminderRuns > 1 ? 'Every 15 minutes' : 'Once a day at 9am, see Runbook for due time reminders';
   const stripe = data?.stripe || { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
   /* Emails (CRM revamp, step 6): four Zapier catch hooks, one per kind. The settings GET says which variables exist; Send test posts a fixed sample flagged test: true. */
   const EMAIL_KINDS = [['intro', 'Intro'], ['onboarding', 'Onboarding'], ['invoice', 'Invoice'], ['delivery', 'Delivery']];
@@ -182,7 +185,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   const crons = [
-    { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, and review asks due, with a deep link to Next up.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
+    { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, review asks due and every task due today, with a deep link to Next up. Every call also pushes each task whose reminder time has passed, once.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
     { id: 'daily', label: 'Daily', every: 'Once a day, 06:00 UTC', what: 'Rolls retainer bill dates forward, extends retainer schedules, cancels retainers past their notice, and writes task health.', last: health?.crons?.daily?.lastRunAt, next: nextRun(health?.crons?.daily?.lastRunAt, 24 * 60), extra: health?.crons?.daily ? `${health.crons.daily.rolled || 0} rolled, ${health.crons.daily.cancelled || 0} cancelled` : '' },
   ];
   const cronArmed = !!(data?.cron?.configured ?? data?.reminders?.configured);
@@ -247,8 +250,10 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <Toggle label="Meeting reminders" description="Include today's booked meetings in the morning digest." checked={reminders.meetings !== false} onChange={(v) => saveReminders({ ...reminders, meetings: v })} />
           <Toggle label="Callback reminders" description="Include callbacks due today or overdue in the morning digest." checked={reminders.callbacks !== false} onChange={(v) => saveReminders({ ...reminders, callbacks: v })} />
           <Toggle label="Bill reminders" description="Include retainer bills due today in the morning digest." checked={reminders.bills !== false} onChange={(v) => saveReminders({ ...reminders, bills: v })} className="st-rem-bills" />
+          <Toggle label="Task reminders" description="A push when a task you set comes due, and today's tasks in the morning digest." checked={reminders.tasks !== false} onChange={(v) => saveReminders({ ...reminders, tasks: v })} className="st-rem-tasks" />
           <Toggle label="Review ask reminders" description="Include clients due for a review ask (three days after a release, none logged yet) in the morning digest." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
         </Stack>
+        <p className="dt-muted st-rem-timing">Reminder timing: {reminderTiming}</p>
         {!cronArmed && <p className="dt-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
         <Row gap={2}><Button variant="secondary" icon={Bell01} onClick={testPush}>Send test notification</Button></Row>
       </Card>

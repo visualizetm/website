@@ -682,7 +682,7 @@ export default function AdminApp() {
         />
       )}
       {section === 'projects' && (
-        <AdminProjects projects={V.projects} leads={V.leads} loading={projectsLoading || callLeadsLoading || forceLoading} error={errors.projects} onRetry={loadProjects} onOpen={openLead} onNew={() => openProjectNew(null)} />
+        <AdminProjects projects={V.projects} leads={V.leads} loading={projectsLoading || callLeadsLoading || forceLoading} error={errors.projects} onRetry={loadProjects} onOpen={openLead} onNew={() => openProjectNew(null)} onPatch={patchProject} />
       )}
       {section === 'projectNew' && (
         <AdminProjectNew key={projectNewLeadId || 'pick'} lead={V.leads.find(l => String(l._id) === projectNewLeadId) || null} leads={V.leads} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}

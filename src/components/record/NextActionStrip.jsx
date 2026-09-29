@@ -1,6 +1,7 @@
 import { Button, Icon } from '../../ui';
 import { nextActionKindOf } from '../../shared/semantics';
 import { fmtDateTime } from '../../shared/dates';
+import { isTask, fmtTaskDue } from '../../lib/tasks';
 
 /* The next action strip: the only place the next action appears on the
  * record. One line: the kind's icon, the label, the due time, and one
@@ -18,7 +19,7 @@ const RUN = {
   'chase-invoice': ['Open', 'tab:money'],
   kickoff: ['Open', 'tab:project'], revision: ['Open', 'tab:project'], deliver: ['Open', 'tab:project'],
   'retainer-pitch': ['Open', 'tab:retainer'],
-  custom: ['Done', 'clear'],
+  custom: ['Done', 'done'],
 };
 
 export default function NextActionStrip({ rec }) {
@@ -35,7 +36,7 @@ export default function NextActionStrip({ rec }) {
       <Icon icon={kind.icon} size={18} className="rc-next-icon" />
       <span className="rc-next-text">
         <span className="rc-next-label">{next.label}</span>
-        {next.dueAt && <span className="rc-next-due">{overdue ? 'Overdue, ' : ''}{fmtDateTime(next.dueAt)}</span>}
+        {next.dueAt && <span className="rc-next-due">{overdue ? 'Overdue, ' : ''}{isTask(next) ? fmtTaskDue(next.dueAt) : fmtDateTime(next.dueAt)}</span>}
       </span>
       {!readOnly && can && <Button size="md" onClick={() => run(what)} loading={busy === what} className="rc-next-btn">{verb}</Button>}
     </div>

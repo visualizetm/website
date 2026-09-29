@@ -18,6 +18,8 @@ import { invoicesOf, invoiceStatus } from '../lib/invoices';
 import { openLists, isFull, listCount } from '../lib/lists';
 import LeadDetail from '../components/LeadDetail';
 import { RescheduleSheet } from '../components/record/MeetingSection';
+import TaskSheet from '../components/TaskSheet';
+import { isTask, fmtTaskDue } from '../lib/tasks';
 
 /* Next up (CRM revamp, step 2; flat since the no folds pass): the one list
  * of what to do, first. Every lead and project carries its next action
@@ -122,7 +124,7 @@ function useSwipe({ onRight, onLeft, onHold, enabled }) {
   };
 }
 
-function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) {
+function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask }) {
   const { action, lead } = item;
   const swipe = useSwipe({ enabled: phone, onRight: onDone, onLeft: onSnooze, onHold: onPick });
   const kind = action.kind;
@@ -137,6 +139,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) 
     { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
     { id: 'snooze', label: 'Snooze a day', icon: 'Clock', onSelect: onSnooze },
     { id: 'pick', label: 'Snooze until', icon: 'Calendar', onSelect: onPick },
+    ...(isTask(action) && onEditTask ? [{ id: 'edit', label: 'Edit task', icon: 'Edit02', onSelect: onEditTask }] : []),
     'divider',
     { id: 'open', label: 'Open the record', icon: 'ArrowRight', onSelect: onOpen },
   ];
@@ -153,7 +156,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick }) 
             <span className="nu-what lay-truncate">{action.label}{item.project ? `, ${item.project.name}` : ''}</span>
             <Row gap={2} align="center" wrap>
               {item.bucket === 'overdue' && <Pill tone="danger" label="Overdue" size="sm" icon={false} variant="solid" />}
-              <span className="nu-due">{dueLabel(item, now)}</span>
+              <span className="nu-due">{isTask(action) && action.dueAt ? fmtTaskDue(action.dueAt, now) : dueLabel(item, now)}</span>
             </Row>
           </Stack>
           <span className="v-above nu-ctl">
@@ -213,7 +216,7 @@ function ListReadyRow({ list, onStart, onOpen }) {
 
 /* The six sections, every one open, an empty one a single line. */
 function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
-  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} />);
+  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} />);
   const line = (text) => <p className="nu-clear" role="status">{text}</p>;
   const section = (id, label, tone, count, body) => (
     <section key={id} className="nu-sec" aria-label={label}>
@@ -270,6 +273,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const intent = openEntry?.intent || null;
   const [resched, setResched] = useState(null); // the meeting event a reschedule sheet is open for
   const [pick, setPick] = useState(null); // the item a snooze picker is open for
+  const [taskEdit, setTaskEdit] = useState(null); // the item an Edit task sheet is open for
   const [pickDate, setPickDate] = useState('');
   const now = Date.now();
   const sel = selId ? (leads || []).find(l => String(l._id) === String(selId)) || null : null;
@@ -319,6 +323,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
       else openRecord(item);
       return;
     }
+    if (what === 'edittask') { setTaskEdit(item); return; }
     if (what === 'done') {
       const ok = await writeAction(item, { ...item.action, doneAt: new Date().toISOString() });
       if (ok) toast.undo(`${item.action.label} done for ${item.lead.business}.`, () => writeAction(item, { ...item.action, doneAt: '' }), { seconds: 6 });
@@ -390,6 +395,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   );
   const statsBlock = <div className="db-tiles" role="group" aria-label="Today in numbers">{tiles.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} onClick={c.go} className="db-tile" />)}</div>;
   const list = <NextUpList q={q} meetings={meetings} lists={listsReady} phone={phone} now={now} act={act} onReschedule={setResched} onStartList={(l) => shell.go('calls', { listId: String(l._id) })} onOpenLists={() => shell.go('lists')} />;
+  const taskSheet = taskEdit && <TaskSheet business={taskEdit.lead.business} task={taskEdit.action} onClose={() => setTaskEdit(null)} onSave={(na) => writeAction(taskEdit, na)} onDone={() => writeAction(taskEdit, { ...taskEdit.action, doneAt: new Date().toISOString() })} />;
   const reschedSheet = resched && <RescheduleSheet lead={resched.lead} onClose={() => setResched(null)} onSave={async (m) => { const l = resched.lead; const ok = await onPatchLead(l._id, { meeting: { date: '', time: '', type: 'call', location: '', ...(l.meeting || {}), ...m } }); if (ok) { setResched(null); toast.success('Meeting updated.'); } else toast.error(COPY.error.save); }} />;
   const picker = pick && (
     <Sheet open onClose={() => setPick(null)} title="Snooze until" description={`${pick.action.label}, ${pick.lead.business}`} label="Snooze until"
@@ -421,7 +427,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
           </div>
         )}
         {picker}
-        {reschedSheet}
+        {reschedSheet}{taskSheet}
         <style>{dbStyles}</style>
       </>
     );
@@ -436,7 +442,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
         </Stagger>
       </div>
       {picker}
-      {reschedSheet}
+      {reschedSheet}{taskSheet}
       <style>{dbStyles}</style>
     </div>
   );
