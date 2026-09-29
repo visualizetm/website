@@ -56,7 +56,8 @@ export default function AdminClients({
   const list = useMemo(() => clients.filter(l => clientPasses(l, projects, filter, now, posts) && (!q.trim() || matchesSearch(l, q))), [clients, projects, posts, filter, q, now]);
   const collected = useMemo(() => clients.reduce((n, l) => n + lifetimeValue(l), 0), [clients]);
   const onRet = counts.retainer;
-  const summary = `${clients.length} client${clients.length === 1 ? '' : 's'}, ${onRet} on retainer, ${money(collected)} collected`;
+  // One line beside Add client at every width: the phone drops the retainer count (the sheet's chip carries it).
+  const summary = desktop ? `${clients.length} client${clients.length === 1 ? '' : 's'}, ${onRet} on retainer, ${money(collected)} collected` : `${clients.length} client${clients.length === 1 ? '' : 's'}, ${money(collected)} collected`;
 
   const sel = selId ? leads.find(l => l._id === selId) : null;
   const pick = (id) => { setSelId(id); setCreating(false); onMobileOpen?.(); };

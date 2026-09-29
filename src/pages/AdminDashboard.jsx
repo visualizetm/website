@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, Collapsible,
+  PageShell, ScrollArea, Stack, Row, Grid, Section, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, Collapsible,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONTACTED_STATUSES } from '../lib/leads';
@@ -89,7 +89,7 @@ const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return tru
 const trendOf = (cur, prev, label) => (prev == null ? undefined : { value: `${cur - prev >= 0 ? '+' : ''}${cur - prev} vs ${label}`, direction: cur > prev ? 'up' : cur < prev ? 'down' : 'flat' });
 const timeOf = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 /* UI simplification, part B: the due time shows, never a relative time beside it; an overdue row from another day names the day. */
-const dueLabel = (item, now = Date.now()) => (item.bucket === 'today' || (item.bucket === 'overdue' && dayKey(item.due) === dayKey(now)) ? timeOf(item.due) : item.bucket === 'overdue' ? new Date(item.due).toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + timeOf(item.due) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
+const dueLabel = (item, now = Date.now()) => (item.bucket === 'today' || (item.bucket === 'overdue' && dayKey(item.due) === dayKey(now)) ? timeOf(item.due) : item.bucket === 'overdue' ? new Date(item.due).toLocaleDateString([], { month: 'short', day: 'numeric' }) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
 const at9 = (d) => { const x = new Date(d); x.setHours(9, 0, 0, 0); return x; };
 const SNOOZES = [
   { id: 'tomorrow', label: 'Tomorrow 9am', at: (now) => at9(now + DAY) },
@@ -190,9 +190,10 @@ function NextUpList({ q, phone, now, laterOpen, onLater, act, empty }) {
 }
 
 function NextUpSkeleton({ counts }) {
-  const rowSkel = (i) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={18} /><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="30%" height={22} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
-  const group = (n, key) => (n ? <Stack gap={2} key={key}><Row gap={2}><SkeletonBlock width={70} height={16} /><SkeletonBlock width={20} height={16} /></Row>{Array.from({ length: n }, (_, i) => rowSkel(i))}</Stack> : null);
-  return <Stack gap={4} aria-busy="true">{group(counts.overdue, 'o')}{group(counts.today, 't')}</Stack>;
+  // A row at its real lines: the name (22), the action (21), then the due line, a pill (22) when overdue or the time (19).
+  const rowSkel = (i, overdue) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  const group = (n, key, overdue) => (n ? <Stack gap={2} key={key}><Row gap={2} align="center"><SkeletonBlock width={70} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></Row>{Array.from({ length: n }, (_, i) => rowSkel(i, overdue))}</Stack> : null);
+  return <Stack gap={4} aria-busy="true">{group(counts.overdue, 'o', true)}{group(counts.today, 't', false)}</Stack>;
 }
 
 export default function AdminDashboard({ leads, projects = [], sets = [], loading, error, onRetry, subs, orders, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
@@ -201,7 +202,6 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const phone = useMediaQuery('(max-width: 767px)');
-  const wide = useMediaQuery('(min-width: 1280px)');
   const showSkel = useDelayedLoading(loading);
   const [selId, setSelId] = useState(null);
   const [intent, setIntent] = useState(null);
@@ -276,14 +276,14 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     const counts = readNextCounts(); const rows = counts.overdue + counts.today;
     const body = (
       <Stack gap={5}>
-        <div className="db-head"><Stack gap={1}><SkeletonText lines={wide ? 2 : 1} lineHeight={phone ? 32 : 39} gap={1} width={phone ? '80%' : 300} /><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
+        <div className="db-head"><Stack gap={1}><h2 className="db-greet">{greetingFor(hour, name)}</h2><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
         {!desktop && <Card className="db-next"><Stack gap={3}><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock width={180} height={18} /></Stack>{rows ? <NextUpSkeleton counts={counts} /> : <SkeletonBlock height={150} radius="var(--v-radius-md)" />}</Stack></Card>}
-        <Card><Row gap={2} align="center" style={{ minHeight: 44 }}><SkeletonBlock width={50} height={14} /><SkeletonBlock width={200} height={14} /></Row></Card>
+        <Card style={{ minHeight: 90, boxSizing: 'border-box' }}><Row gap={2} align="center" style={{ minHeight: 44 }}><SkeletonBlock width={50} height={14} /><SkeletonBlock width={200} height={14} /></Row></Card>
       </Stack>
     );
     return desktop ? (
       <>
-        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={16} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton counts={rows ? counts : { overdue: 0, today: 3 }} />}</ScrollArea></aside>
+        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton counts={rows ? counts : { overdue: 0, today: 3 }} />}</ScrollArea></aside>
         <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
       </>
     ) : (
@@ -437,11 +437,12 @@ const dbStyles = `
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */
   .db-panel { gap: var(--v-space-3); }
-  @media (min-width: 768px) { .db-panel { width: 340px; } }
+  @media (min-width: 768px) { .aa-panel.db-panel { width: 380px; } }
   .db-panel-head { display: flex; align-items: center; gap: var(--v-space-2); padding: 0 var(--v-space-1); }
   .db-panel-scroll { padding: 2px; }
   .db-head { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
-  @media (min-width: 1280px) { .db-head { flex-direction: row; align-items: flex-start; justify-content: space-between; } }
+  /* The greeting keeps a whole line: the actions sit beside it only when there is room for both (1440 up), under it otherwise. */
+  @media (min-width: 1440px) { .db-head { flex-direction: row; align-items: flex-start; justify-content: space-between; } }
   .db-greet { margin: 0; font-family: var(--v-font-display); font-size: var(--v-display-md); line-height: var(--v-lh-display-md); letter-spacing: var(--v-ls-display-md); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); }
   @media (max-width: 1279px) { .db-greet { font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); } }
   .db-context { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }
@@ -476,7 +477,7 @@ const dbStyles = `
   .nu-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .nu-biz { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .nu-what { font-size: var(--v-text-sm); color: var(--v-text-2); }
-  .nu-due { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; }
+  .nu-due { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .nu-ctl { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
   .nu-later { overflow: hidden; }
   .nu-later-btn { display: flex; align-items: center; gap: var(--v-space-2); width: 100%; min-height: 44px; padding: 0 var(--v-space-4); background: none; border: 0; color: var(--v-text); cursor: pointer; text-align: left; font: inherit; }

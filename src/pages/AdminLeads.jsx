@@ -367,7 +367,7 @@ export default function AdminLeads({
               <div className="ld-board">{BOARD_STATUSES.map(s => <section key={s.id} className="ld-col"><header className="ld-col-head"><SkeletonBlock width={80} height={22} radius="var(--v-radius-pill)" /></header><div className="ld-col-body"><div className="ld-col-stack">{[1, 2, 3].map(i => <LeadCard.Skeleton key={i} />)}</div></div></section>)}</div>
             ) : mode === 'kanban' ? (
               <div className="ld-board">{BOARD_STATUSES.slice(0, 2).map(s => <section key={s.id} className="ld-col"><header className="ld-col-head"><SkeletonBlock width={80} height={22} radius="var(--v-radius-pill)" /></header><div className="ld-col-body"><div className="ld-col-stack">{[1, 2, 3].map(i => <LeadCard.Skeleton key={i} />)}</div></div></section>)}</div>
-            ) : desktop ? <Table.Skeleton rows={10} cols={7} /> : <Stack gap={2}><Stack gap={1}><SkeletonBlock width={40} height={16} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack><div className="ld-stack">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} />)}</div></Stack>}
+            ) : desktop ? <Table.Skeleton rows={10} cols={7} /> : <Stack gap={2}><SkeletonBlock height={68} radius="var(--v-radius-md)" /><div className="ld-stack">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} />)}</div></Stack>}
           </Stack>
         ) : error && !pool.length ? (
           <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>

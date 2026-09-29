@@ -116,7 +116,13 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   ]);
   const E = COPY.empty['lists.none'];
 
-  const body = showSkel ? (
+  const body = showSkel && openId?.id ? (
+    /* A deep link into one list: the header card and the rows, not the grid. */
+    <Stack gap={4} aria-busy="true" aria-hidden="true">
+      <Card padding={3} style={{ minHeight: 81, boxSizing: 'border-box' }}><Row gap={3} align="center" justify="between"><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width={120} height={18} /><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Stack><Row gap={2}><SkeletonBlock width={88} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>
+      <div className="ls-stack">{[1, 2, 3].map(i => <div key={i} className="ls-item"><span className="ls-pos" aria-hidden="true">{i}</span><LeadCard.Skeleton /></div>)}</div>
+    </Stack>
+  ) : showSkel ? (
     <Grid minColumnWidth={260} gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4}><Stack gap={3}><Row gap={2} justify="between"><SkeletonBlock width={140} height={18} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</Grid>
   ) : error && !lists.length ? (
     <Card><ErrorState title={COPY.error.lists.title} description={COPY.error.lists.description} onRetry={retry} retrying={retrying} /></Card>
@@ -150,7 +156,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   return (
     <PageShell className="aa-main aa-main--wide ls-shell">
       <ScrollArea wide>
-        {!sel && <Section title="Lists" loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
+        {!sel && !(showSkel && openId?.id) && <Section title="Lists" loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
           action={<Button icon="Plus" onClick={() => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); }}>New list</Button>} />}
         {body}
       </ScrollArea>

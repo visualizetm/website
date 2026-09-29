@@ -83,7 +83,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
 
   const skeleton = board
     ? <div className="dl-board" aria-busy="true">{DEAL_COLUMNS.map(c => <div key={c.id} className="dl-col"><div className="dl-col-head"><SkeletonBlock width={90} height={14} /></div><Stack gap={2}>{[1, 2].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</Stack></div>)}</div>
-    : <Stack gap={4} aria-busy="true">{[1, 2, 3].map(g => <Stack key={g} gap={2}><SkeletonBlock width={110} height={14} /><LeadCard.Skeleton menu={false} /></Stack>)}</Stack>;
+    : <Stack gap={4} aria-busy="true">{[1, 2, 3].map(g => <Stack key={g} gap={2}><SkeletonBlock width={110} height={16} /><LeadCard.Skeleton menu={false} /></Stack>)}</Stack>;
 
   return (
     <PageShell className="aa-main aa-main--wide dl-shell">

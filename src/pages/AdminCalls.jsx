@@ -631,8 +631,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   /* Skeletons for a persisted session while the leads load (Prompt 14). */
   const queueSkeleton = (
     <div className="cc-queue" aria-busy="true">
-      <Section title="Session" loading><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Section>
-      <div className="cc-qlist">{[1, 2, 3, 4, 5].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</div>
+      <Section title="Session" loading action={<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}><SkeletonBlock height={4} radius="var(--v-radius-pill)" /></Section>
+      {/* One skeleton row per lead in the session, which the saved session already knows. */}
+      <div className="cc-qlist">{(session?.ids?.length ? session.ids : [1, 2, 3, 4, 5]).map((id, i) => <LeadCard.Skeleton key={id || i} menu={false} />)}</div>
     </div>
   );
   const roomSkeleton = (
