@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, ProgressBar, Chip, useToast, useConfirm, useMediaQuery,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, ErrorState, Stagger, SkeletonBlock, SkeletonText, useRetry, Icon, ProgressBar, Chip, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
@@ -712,7 +712,7 @@ function draftOf(lead) {
  * @param {Function} props.onBack () => void, back to the client record
  * @param {Array} [props.submissions] every submission, filtered to reviews here
  */
-export default function AdminShowcase({ lead, loading = false, onPatch, onBack, submissions = [], readOnly = false }) {
+export default function AdminShowcase({ lead, loading = false, error = false, onRetry, onPatch, onBack, submissions = [], readOnly = false }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const [signals, setSignals] = useState({});
@@ -778,6 +778,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
   /* A phone: an overview of rows, one block (a step) per screen. The draft lives up here, so it carries across the steps; Save is on the
      overview, a step has Done. Back from a step is a history Back to the overview; Back from the overview keeps the leave guard. */
   const phone = useMediaQuery('(max-width: 767px)');
+  const [retry, retrying] = useRetry(onRetry);
   const { selId: step, open: openStep, close: closeStep } = useSelection('showcase-step');
   const inStep = phone && !!step;
   useTopBar({ title: inStep ? step : undefined, back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
@@ -802,8 +803,12 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
     return (
       <PageShell className="aa-main aa-main--wide">
         <ScrollArea wide>
-          {loading
-            ? <Section title="Showcase" description=" " loading><Stack gap={3}>{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack></Section>
+          {error && !loading
+            ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
+            : loading
+            ? (phone
+              ? <Stack gap={3} aria-busy="true"><SkeletonBlock height={44} /><SkeletonBlock height={96} />{[1, 2, 3, 4, 5, 6, 7, 8].map(i => <SkeletonBlock key={i} height={64} />)}</Stack>
+              : <Section title="Showcase" description=" " loading><Stack gap={3}>{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack></Section>)
             : <EmptyState icon="Image01" title="Client not found" description="That client is not in the list any more." action={<Button onClick={onBack}>Back to clients</Button>} />}
         </ScrollArea>
       </PageShell>
@@ -841,7 +846,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           {inStep ? (
             <StepCtx.Provider value>{(steps.find(x => x.id === step) || steps[0]).render()}</StepCtx.Provider>
           ) : (
-            <Stack gap={3}>
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-3)' }}>
               <Row gap={2} align="center" justify="between" wrap>
                 <Row gap={2} align="center" style={{ minWidth: 0 }}>
                   <h2 className="sc-page-title lay-title">{name}</h2>
@@ -853,7 +858,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
               <Stack gap={2}>
                 {steps.map(x => <ListRow key={x.id} title={x.id} subtitle={x.summary} onClick={() => openStep(x.id)} />)}
               </Stack>
-            </Stack>
+            </Stagger>
           )}
         </div>
       ) : (

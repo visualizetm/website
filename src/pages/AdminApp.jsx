@@ -727,6 +727,7 @@ export default function AdminApp() {
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
           loading={callLeadsLoading || forceLoading}
+          error={errors.leads} onRetry={loadCallLeads}
           submissions={V.items}
           onPatch={patchCallLead}
           onBack={navBack ? navBack.back : () => go('clients')}
