@@ -6,7 +6,7 @@ Desktop notes (1280): D6 the client record title truncates to "LEAD BU..." becau
 
 ## What the baseline says in one paragraph
 
-The app is already far along: records on a phone are already a first screen of identity, the next action and rows (Project, Money, Files, Retainer, Notes, History, Details with a summary on each), editors are separate pages, Back is one history model, every list has a first-time empty state, and there are no cards three deep on any list screen. What is wrong is the chrome and a few specifics: the tab bar is on all 82 states (R5, R11 fail), the top bar offers Search, Quick add and Notifications on every screen including records, editors and the call room (R12, R13 fail), More is a 3 by 5 grid in a sheet (R3, R6, R10), the tab labels are 10px (R4), search fields are 42px, the lead phone number is a 15px link, two search no-results states are wrong, and a few screens are crowded above the fold (Leads has nine controls before the first row).
+The app is already far along: records on a phone are a first screen of identity, the next action and rows (Project, Money, Files, Retainer, Notes, History, Details with a summary on each), but a row opened its section as an inline accordion on the same page (corrected after milestone 4: it did not push a screen), editors are separate pages, Back is one history model, every list has a first-time empty state, and there are no cards three deep on any list screen. What is wrong is the chrome and a few specifics: the tab bar is on all 82 states (R5, R11 fail), the top bar offers Search, Quick add and Notifications on every screen including records, editors and the call room (R12, R13 fail), More is a 3 by 5 grid in a sheet (R3, R6, R10), the tab labels are 10px (R4), search fields are 42px, the lead phone number is a 15px link, two search no-results states are wrong, and a few screens are crowded above the fold (Leads has nine controls before the first row).
 
 ## Tab usage ranking (decision input)
 
@@ -60,7 +60,7 @@ Reading the top column: Search, Quick add and Notifications are offered unchange
 
 | Item | Result | Number |
 |---|---|---|
-| R1 reorganize, never shrink | pass | no screen is a scaled desktop; records are rows already |
+| R1 reorganize, never shrink | pass | no screen is a scaled desktop; records are rows (their sections were accordions, see the correction above) |
 | R2 cut information before size | weak | Leads shows 38 controls above the fold (nine before the first row), Calendar month 55 |
 | R3 three or four tabs, five at most | pass for tabs, fail for More | 4 tabs plus More; More is a 15 button grid in a sheet |
 | R4 44px targets | fail | 42px: every search field (9 screens), selects, date inputs; 15px: phone number link on lead, triage and deal records; tab labels 10px |
@@ -69,7 +69,7 @@ Reading the top column: Search, Quick add and Notifications are offered unchange
 | R7 no card in a card in a card | weak | 3 deep on Client money and Design; 2 deep on 14 states |
 | R8 spacing is structure | pass | measured: consistent gutter and gaps via tokens |
 | R9 one screen, one job | weak | Leads list (find, filter, sort, import, add, select, three views); Settings (five tab groups in one screen) |
-| R10 desktop panels become screens or sheets | pass | records, editors and setup are already pages on a phone; More is the exception |
+| R10 desktop panels become screens or sheets | pass | editors and setup are pages on a phone, records pushed sections only after milestone 4; More is the exception |
 | R11 global nav may disappear | fail | never does |
 | R12 top bar controls match the task | fail | 82 of 82 identical right side |
 | R13 controls replaced, not accumulated | fail | a record adds Back to the same three controls |
@@ -99,6 +99,6 @@ R4: 9 search fields, 3 phone links, 10px tab labels. R5, R11: 82. R12, R13: 82. 
 
 M2 (red audits): money rows `.v-lrow-side` at 320, `.rc-ctx-part` and siblings at 768, Home scene fit at 320, 768, 1280, the Triage pile skeleton (CLS under 0.02), the Back highlight on Projects (outline, not size), D4 phone link 44px, D6, D7, D8 and the long name rule, regions for Settings Integrations and Danger and for sheets, last rows clear the tab bar, feel audit both themes both motion modes, `npm audit fix` for ip-address only if clean.
 M3 (shell): chrome mode per route (tabs or focused) with a slide, tab labels at 11px (drop the label at 320 only if it cannot fit), More as a full screen with counts on the right of rows (R3 R5 R6 R10 R11), a top bar that declares left control, title and right controls per state and replaces them (R12 R13), interactive edge Back that tracks the finger (R15), sheet drag with a receding background (R15 R16 R18).
-M4 (one job): lead, deal and client records are already first screen plus rows, so this means each row pushes its own focused screen through nav-history if it does not already; editors become overview plus step screens with one draft; Settings becomes rows that push screens; the Call room keeps the script, outcomes and essentials and moves the rest into one sheet (D3); nested cards (3 deep) flattened; calendar and concept grids reviewed.
+M4 (one job): lead, deal and client records are already first screen plus rows, so this means each row pushes its own focused screen through nav-history (it did not: the sections were inline accordions, so this was built, not checked); editors become overview plus step screens with one draft; Settings becomes rows that push screens; the Call room keeps the script, outcomes and essentials and moves the rest into one sheet (D3); nested cards (3 deep) flattened; calendar and concept grids reviewed.
 M5 (rows and empty states): D1, D2, search wording that names the search, a Retry on every list load failure, row swipe with finger tracking on leads, tasks, planner posts and list members with a menu equivalent, long press sheets on lead, client and project rows.
 M6: gesture-test, chrome-audit, empty-audit, the pre-ship command, MOBILE-AUDIT-AFTER.md, doc fixes.
