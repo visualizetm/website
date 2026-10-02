@@ -51,6 +51,8 @@ async function collectSmallTargets(page) {
       const cs = getComputedStyle(el);
       if (cs.display === 'none' || cs.visibility === 'hidden' || el.closest('[aria-hidden="true"]')) continue;
       if (el.matches('a') && inProse(el)) continue;
+      // Behind an open sheet the screen is receded (scaled to 96 percent) and unreachable; only the dialog's own controls count.
+      if (document.querySelector('[data-v-recede]') && el.closest('.sh-col') && !el.closest('[role="dialog"]')) continue;
       // The stretched open control is the whole card or row; its parent is the target.
       const box = el.classList.contains('v-stretch') ? el.parentElement : el;
       const r = box.getBoundingClientRect();
