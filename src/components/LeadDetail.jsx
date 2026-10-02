@@ -330,12 +330,13 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
   );
   const strip = m === 'deal' ? <div className="rc-next"><SkeletonBlock width={18} height={18} /><span className="rc-next-text" style={{ height: phone ? 54 : 26 }}><SkeletonBlock width={160} height={16} /></span><SkeletonBlock width={72} height={44} radius="var(--v-radius-md)" /></div> : null;
   const first = m === 'client'
-    ? <Card><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
+    /* The project card runs the height of a project with its tasks and invoices (about 490px at 390). */
+    ? <Card style={{ minHeight: phone ? 493 : undefined }}><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
     : m === 'deal'
       ? <div className="rc-cp-pkg"><SkeletonBlock width="100%" height={68} radius="var(--v-radius-md)" /></div>
-      : triage
-        /* Triage opens on the Playbook: two groups, each a label, one item and the add row, under the pinned decision bar. */
-        ? <>{[0, 1].map(k => <div key={k} className="rc-group"><SkeletonBlock width={120} height={16} /><div style={{ height: 40 }}><SkeletonBlock width="60%" height={18} style={{ margin: '11px 0' }} /></div><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>)}</>
+      : m === 'lead'
+        /* Triage opens on the Playbook: four groups (accomplishments, gaps, drop these, before you dial), each a label, its items (1, 2, 0, 1 as a typical scraped lead) and the add row, under the pinned decision bar. */
+        ? <>{(triage ? [1, 2, 0, 1] : [0, 0, 0, 1]).map((n, k) => <div key={k} className="rc-group"><SkeletonBlock width={120} height={16} />{Array.from({ length: n }, (_, i) => <div key={i} style={{ height: 40 }}><SkeletonBlock width="60%" height={18} style={{ margin: '11px 0' }} /></div>)}<Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>)}</>
         : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
   const outbar = triage ? <StickyFooterBar className="dt-outbar dt-triagebar"><Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">{[0, 1, 2, 3].map(k => <SkeletonBlock key={k} height={44} radius="var(--v-radius-md)" />)}</Row></StickyFooterBar> : m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
   return (
@@ -347,7 +348,8 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
           {phone ? (
             <>
               <div className="rc-first">{first}</div>
-              <div className="rc-rows">{SECTIONS_BY_MODE[m].filter(id => id !== FIRST[m]).map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>
+              {/* A lead, triage or deal record: its first section runs past the first screen, so the skeleton stops there. */}
+              {m === 'client' && <div className="rc-rows">{SECTIONS_BY_MODE[m].filter(id => id !== FIRST[m]).map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>}
             </>
           ) : (
             <>
