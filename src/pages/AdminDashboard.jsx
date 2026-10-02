@@ -450,7 +450,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 
 const dbStyles = `
   /* The skeleton tile is the height of a loaded one on a phone (icon, number, label, and the room for a two line label). */
-  @media (max-width: 767px) { .db-tile--skel { min-height: 94px; } }
+  @media (max-width: 767px) { .db-tiles .db-tile--skel { min-height: 94px; height: 94px; } }
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */

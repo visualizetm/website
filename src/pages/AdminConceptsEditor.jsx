@@ -469,8 +469,8 @@ export default function AdminConceptsEditor({
           ) : showSkel ? (
             <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
           ) : !active ? (
-            <Card><EmptyState icon="LayersThree01" title={COPY.empty['concepts.lead'].title} description={COPY.empty['concepts.lead'].description}
-              action={readOnly ? undefined : { label: COPY.empty['concepts.lead'].action, onClick: newSet }} /></Card>
+            <Stagger className="v-stack"><Card><EmptyState icon="LayersThree01" title={COPY.empty['concepts.lead'].title} description={COPY.empty['concepts.lead'].description}
+              action={readOnly ? undefined : { label: COPY.empty['concepts.lead'].action, onClick: newSet }} /></Card></Stagger>
           ) : (
             <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
               {!inStep && (<Card className="ce-sets">

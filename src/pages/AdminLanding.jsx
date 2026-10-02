@@ -370,7 +370,7 @@ export default function AdminLanding({ leads = [], projects = [], loading, error
               {/* A fixed spacer matching the real fallback note's footprint, tuned
                   against a direct measurement rather than guessed, so the row
                   below lands at the same position in both states. */}
-              <div style={{ height: 36 }} aria-hidden="true" />
+              <div style={{ height: phone ? 54 : 36 }} aria-hidden="true" />
               <Stack gap={2}>{Array.from({ length: phone ? 3 : 1 }, (_, i) => <SkeletonBlock key={i} height={62} radius="var(--v-radius-md)" />)}</Stack>
             </Section>
             <Section title="Testimonials" description=" "><Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack></Section>

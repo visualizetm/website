@@ -214,6 +214,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
+    : narrow && tab === 'integrations' && i === 0 ? <Card key={i} className="st-card" style={{ minHeight: 96 }}>{line(160, 12)}{line('70%', 14)}</Card>
     : <Card key={i} className="st-card" style={heightFor(i) ? { minHeight: heightFor(i) } : undefined}>{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
   const body = pending ? null : showSkel ? (
     <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: (narrow && tab === 'integrations' ? 3 : TAB_CARDS[tab]) || 3 }, (_, i) => skeletonCard(i))}</Stack>

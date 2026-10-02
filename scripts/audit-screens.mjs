@@ -232,7 +232,7 @@ export const SCREENS = [
 
   // The Emails card on Settings, Integrations (CRM revamp, step 6): three hooks connected in the fixtures, one not.
   // settings-emails is static: the card is reached by a tab click after the screen has loaded, so there is no skeleton of its own to measure.
-  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, static: true, region: '.st-emails', detail: true, act: async (p) => { await tab(p, 'Integrations'); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, static: true, region: '.lay-tabbody', detail: true, act: async (p) => { await tab(p, 'Integrations'); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   /* The sidebar rebuild: the groups are disclosure widgets, the rail's groups are menus. */
   { id: 'side-groups', screen: 'Shell', label: 'sidebar, every group open', path: '/admin', minWidth: 768, resource: 'leads', static: true, act: async (p) => { for (const b of await p.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {}); } },
