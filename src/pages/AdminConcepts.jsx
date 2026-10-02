@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useRetry, Icon } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useRetry, useMediaQuery, Icon } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONCEPT_SET_STATUSES, conceptSetStatusOf } from '../shared/semantics';
 import { relativeTime } from '../shared/dates';
@@ -18,6 +18,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
   useTopBar(null);
   const showSkel = useDelayedLoading(loading);
   const [retry, retrying] = useRetry(onRetry);
+  const phone = useMediaQuery('(max-width: 767px)');
   const [filter, setFilter] = useState('all');
   useScreenOrigin(() => ({ filters: { filter } }));
   useRestore((o) => { if (o.filters?.filter) setFilter(o.filters.filter); });
@@ -36,7 +37,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
           ) : showSkel ? (
             <Stack gap={3} aria-busy="true">
               <Row gap={2} wrap className="cl-chips">{[100, 94, 91, 108, 187, 125, 120].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row>
-              <Stack gap={2}>{[124, 95, 124, 95].map((h, i) => <Card key={i} style={{ minHeight: h }}><SkeletonText lines={2} /></Card>)}</Stack>
+              <Stack gap={2}>{(phone ? [124, 95, 124, 95] : [95, 95, 95, 95]).map((h, i) => <Card key={i} style={{ minHeight: h }}><SkeletonText lines={2} /></Card>)}</Stack>
             </Stack>
           ) : !rows.length ? (
             <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go('leads') }} /></Card>

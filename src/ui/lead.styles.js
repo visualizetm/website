@@ -50,8 +50,10 @@ export const leadDetailStyles = `
   .rc-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--v-space-3); min-width: 0; border-radius: var(--v-radius-md); }
   .rc-avatar { margin-top: 2px; }
   .rc-head-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
-  .rc-head-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-1) var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
-  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+  .rc-head-top { display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
+  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A phone: the pills wrap under the name and the name clamps to two lines instead of truncating. */
+  @media (max-width: 767px) { .rc-head-top { flex-wrap: wrap; gap: var(--v-space-1) var(--v-space-3); } .rc-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; text-overflow: clip; } }
   .rc-pills { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
   .rc-ctx { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
   .rc-ctx-part { white-space: normal; }
