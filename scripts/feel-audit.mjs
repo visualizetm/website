@@ -58,7 +58,7 @@ async function measure(page, region) {
   }, [region, BLOCKS, VIEW_H]);
 }
 async function count(page, region, sel) {
-  return page.evaluate(([region, sel]) => { const root = document.querySelector(region); return root ? root.querySelectorAll(sel).length : -1; }, [region, sel]);
+  return page.evaluate(([region, sel]) => { const root = document.querySelector(region); return root ? root.querySelectorAll(sel).length + (root.matches(sel) ? 1 : 0) : -1; }, [region, sel]);
 }
 const rowsOf = (boxes) => { const rows = []; for (const b of boxes) { const r = rows[rows.length - 1]; if (r && Math.abs(r.t - b.t) <= FIT_PX) r.items.push(b); else rows.push({ t: b.t, l: b.l, items: [b] }); } return rows; };
 function fit(skel, loaded) {
