@@ -1,6 +1,6 @@
 # Mobile audit (after)
 
-Taken on the final build of the revamp, at 390 by 844 with a touch profile, dark theme, against the audit fixtures, by scripts/mobile-measure.mjs (the same script and fixtures as docs/MOBILE-AUDIT.md). The rubric is docs/MOBILE-UI-GUIDE.md.
+Taken on the final build of the revamp, at 390 by 844 (and again at 320 by 844: 83 states, no page overflow, the same grids) with a touch profile, dark theme, against the audit fixtures, by scripts/mobile-measure.mjs (the same script and fixtures as docs/MOBILE-AUDIT.md). The rubric is docs/MOBILE-UI-GUIDE.md.
 
 ## Before and after
 
@@ -23,7 +23,7 @@ Taken on the final build of the revamp, at 390 by 844 with a touch profile, dark
 - Tap 42 on Back or Search: these rows are states with a sheet open, where the screen behind is scaled to 96 percent (the recede); the controls are 44px unscaled and are not reachable while the sheet is up. The layout audit skips that receded screen.
 - Text 0 on the calendar month: the day numbers are visually hidden text for screen readers, as in the baseline.
 - Sideways scrollers: the Leads filter chips, the client and order stepper (cw-stepper), the data table on Settings Data and the design page tables. None carries a gesture.
-- Grids with two or more columns: the Next up tiles (4 by 1), the room's outcome buttons (5 by 1), the calendar day strip and week (one row of 7 and 8), and the design page. The Call summary stat list is one column of rows; its remaining v-grid 2 by 3 is the ring and notes block.
+- Grids with two or more columns: the Next up tiles (4 by 1), the room's outcome buttons (5 by 1), the calendar day strip and week (one row of 7 and 8), and the design page. The Call summary stats are one row each. The design page also has a 2 by 3 grid.
 - Cards three deep: the design page only.
 
 ## Every state
