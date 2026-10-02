@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, ErrorState, Stagger, SkeletonText, useDelayedLoading, useRetry, Icon } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonText, useDelayedLoading, useRetry, Icon } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONCEPT_SET_STATUSES, conceptSetStatusOf } from '../shared/semantics';
 import { relativeTime } from '../shared/dates';
@@ -26,7 +26,6 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
   const counts = useMemo(() => rows.reduce((m, r) => { const k = statusOf(r.set); m[k] = (m[k] || 0) + 1; return m; }, {}), [rows]);
   const shown = filter === 'all' ? rows.filter(r => statusOf(r.set) !== 'archived') : rows.filter(r => statusOf(r.set) === filter);
   const E = COPY.empty['concepts.none'];
-  const F = COPY.empty['concepts.filter'];
 
   return (
     <PageShell className="aa-main aa-main--wide">
@@ -37,7 +36,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
           ) : showSkel ? (
             <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={2} /></Card>)}</Stack>
           ) : !rows.length ? (
-            <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} /></Card>
+            <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go('leads') }} /></Card>
           ) : (
             <Stack gap={3}>
               <Row gap={2} wrap role="group" aria-label="Filter by status" className="cl-chips">
@@ -45,7 +44,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
                 {CONCEPT_SET_STATUSES.map(s => <Chip key={s.id} label={s.label} count={counts[s.id] || 0} selected={filter === s.id} onClick={() => setFilter(s.id)} />)}
               </Row>
               {!shown.length ? (
-                <Card><EmptyState icon="LayersThree01" title={F.title} description={F.description} action={{ label: F.action, onClick: () => setFilter('all') }} /></Card>
+                <Card><NoResults noun="concept sets" filters={[(CONCEPT_SET_STATUSES.find(x => x.id === filter) || {}).label]} onClear={() => setFilter('all')} /></Card>
               ) : (
                 <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>
                   {shown.map(({ set, lead }) => {

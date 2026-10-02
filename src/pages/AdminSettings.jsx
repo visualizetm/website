@@ -6,8 +6,7 @@ import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
-} from '../ui';
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, Icon } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, usePushRel } from '../shell/nav-history';
@@ -32,6 +31,7 @@ export const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' },
   { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
+const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
 const nextRun = (lastRunAt, minutes) => { const base = lastRunAt ? new Date(lastRunAt).getTime() : Date.now(); return new Date(base + minutes * 60e3); };
@@ -111,9 +111,9 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const pushRel = usePushRel(); // Design opened from here is one level in, so it gets a Back
   const [tabState, setTabState] = useState(tabOf(initialTab) || 'profile');
   useEffect(() => { if (initialTab) setTabState(tabOf(initialTab)); }, [initialTab]);
-  const tab = phone && tabEntry?.tab ? tabEntry.tab : tabState;
+  /* A phone (milestone 4): Settings is a list of rows; a row pushes that group's screen (a history entry), Back returns to the list. A deep link to a group (/settings/deleted) opens it. */
+  const tab = phone ? (tabEntry?.tab || (initialTab ? tabState : null)) : tabState;
   const setTab = (t) => { if (!phone) { setTabState(t); return; } if (t === tab) return; if (t === 'profile' && tabEntry?.tab) closeTab(); else pushTab(t, { tab: t }); };
-  useTopBar(null);
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const load = useCallback(() => apiFetch('/api/admin/settings').then(r => { if (r.ok && r.data) { setData(r.data); setLoadError(false); shell?.setProfile?.(r.data.profile || null); } else setLoadError(true); }), []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -184,6 +184,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const backup = async () => { const a = document.createElement('a'); a.href = '/api/admin/backup'; a.download = ''; a.click(); setTimeout(load, 1500); };
 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
+  useTopBar(phone && tab ? { title: (SETTINGS_TABS.find(t => t.id === tab) || {}).label } : null);
   const crons = [
     { id: 'reminders', label: 'Reminders', every: 'Once a day, 13:00 UTC (9am Eastern)', what: 'One morning digest push: every callback due today or overdue, every meeting today, retainer bills due today, review asks due and every task due today, with a deep link to Next up. Every call also pushes each task whose reminder time has passed, once.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 24 * 60), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
     { id: 'daily', label: 'Daily', every: 'Once a day, 06:00 UTC', what: 'Rolls retainer bill dates forward, extends retainer schedules, cancels retainers past their notice, and writes task health.', last: health?.crons?.daily?.lastRunAt, next: nextRun(health?.crons?.daily?.lastRunAt, 24 * 60), extra: health?.crons?.daily ? `${health.crons.daily.rolled || 0} rolled, ${health.crons.daily.cancelled || 0} cancelled` : '' },
@@ -394,9 +395,21 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell st-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
-        <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>
-        <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
+        {phone && !tab ? (
+          <>
+            <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
+            <Stack gap={2}>
+              {tabs.map(t => <ListRow key={t.id} leading={t.icon ? <Icon icon={t.icon} size="var(--v-icon-md)" /> : undefined} title={t.label} subtitle={SETTINGS_BLURB[t.id]} meta={t.count ? <span className="st-count">{t.count}</span> : undefined} onClick={() => pushTab(t.id, { tab: t.id })} />)}
+              <ListRow leading={<Icon icon="Palette" size="var(--v-icon-md)" />} title="Design system" subtitle="Every token and status, rendered live" onClick={() => pushRel('/design')} />
+            </Stack>
+          </>
+        ) : (
+          <>
+            {!phone && <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />}
+            {!phone && <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>}
+            <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
+          </>
+        )}
       </ScrollArea>
       {confirmDialog}
       {leadImport && <LeadImport existingLeads={leads} onClose={() => setLeadImport(false)} onImported={() => { setLeadImport(false); onLeadsImported?.(); }} />}
@@ -435,6 +448,7 @@ const stStyles = `
   .st-log-row { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); min-width: 0; }
   .st-log-row:last-child { border-bottom: 0; }
   .st-log-msg { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text); overflow-wrap: anywhere; }
+  .st-count { min-width: 24px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-3); color: var(--v-text); font-size: var(--v-text-sm); line-height: 24px; text-align: center; font-weight: var(--v-weight-bold); }
   .st-tabs { position: sticky; top: calc(-1 * var(--v-space-4)); z-index: var(--v-z-sticky); background: var(--v-ground); padding-top: var(--v-space-1); }
   .st-stack { gap: var(--v-space-3); }
   .st-card { gap: var(--v-space-3); }

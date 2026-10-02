@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Select, Button, InlineEdit, Toggle, ListRow, Sheet, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Select, Button, InlineEdit, Toggle, ListRow, Sheet, EmptyState, NoResults, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
@@ -148,7 +148,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
         ) : !clients.length ? (
           <Card><EmptyState icon="Star01" title={E('reviews.none').title} description={E('reviews.none').description} action={{ label: E('reviews.none').action, onClick: () => shell?.go('clients') }} /></Card>
         ) : !list.length ? (
-          <Card><EmptyState size="sm" icon="SearchMd" title={E('reviews.filter').title} description={E('reviews.filter').description} action={{ label: E('reviews.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
+          <Card><NoResults noun="clients" query={q} filters={filter !== 'all' ? [(REVIEW_FILTERS.find(([id]) => id === filter) || [])[1]] : []} onClear={() => { setFilter('all'); setQ(''); }} /></Card>
         ) : (
           <Stagger className="rv-grid">{list.map(l => <ReviewCard key={l._id} lead={l} projects={projects} onOpen={() => openSel(l._id)} selected={sel && String(sel._id) === String(l._id)} />)}</Stagger>
         )}

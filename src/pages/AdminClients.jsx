@@ -3,13 +3,14 @@ import { useLocation } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Button, Menu, Table, Sheet, EmptyState, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Button, Menu, Table, Sheet, EmptyState, NoResults, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import ClientCard, { clientLine } from '../components/ClientCard';
+import HoldRow from '../components/HoldRow';
 import { clientRowPill } from '../lib/clientRowPill';
 import LeadDetail from '../components/LeadDetail';
 import LeadForm from '../components/LeadForm';
@@ -136,13 +137,14 @@ export default function AdminClients({
         ) : error && !leads.length ? (
           <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
         ) : !clients.length ? (
-          <Card><EmptyState icon="Briefcase01" title={E('clients.none').title} description={E('clients.none').description} action={{ label: E('clients.none').action, onClick: () => (shell ? shell.go('booked') : onGo?.('booked')) }} /></Card>
+          <Card><EmptyState icon="Briefcase01" title={E('clients.none').title} description={E('clients.none').description} action={{ label: E('clients.none').action, onClick: () => (shell ? shell.go('deals') : onGo?.('deals')) }} /></Card>
         ) : !list.length ? (
-          <Card><EmptyState size="sm" icon="SearchMd" title={E('clients.filter').title} description={E('clients.filter').description} action={{ label: E('clients.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
+          <Card><NoResults noun="clients" query={q} filters={filter !== 'all' ? [(CLIENT_FILTERS.find(([id]) => id === filter) || [])[1]] : []} onClear={() => { setFilter('all'); setQ(''); }} /></Card>
         ) : desktop ? (
           <Table aria-label="Clients" columns={columns} rows={rows} onRowClick={(r) => pick(r._id)} rowActions={(r) => <Menu label={`Actions for ${r.lead.business}`} items={rowMenu(r.lead)} />} storageKey="vz_clients_cols" density="md" className="cl-table" />
         ) : (
-          <Stagger className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} />)}</Stagger>
+          <Stagger className="cl-stack">{list.map(l => <HoldRow key={l._id} title={l.business} subtitle={[l.industry, l.area].filter(Boolean).join(' · ')} items={rowMenu(l)} enabled={!desktop}
+            facts={[{ label: 'Phone', value: l.phone ? formatPhone(l.phone) : '' }, { label: 'Since', value: l.clientSince ? fmtDate(l.clientSince) : '' }, { label: 'Contact', value: l.askFor }]}><ClientCard lead={l} projects={projects} onOpen={() => pick(l._id)} /></HoldRow>)}</Stagger>
         )}
         {loading ? null : <Row gap={2} justify="end"><Button variant="ghost" size="md" icon="RefreshCw01" onClick={() => { onRefresh?.(); onRefreshProjects?.(); }}>Refresh</Button></Row>}
       </ScrollArea>

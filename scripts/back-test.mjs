@@ -129,12 +129,12 @@ for (const width of WIDTHS) {
       return 'record back';
     });
   };
-  await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Showcase/, '.sc-shell, .sc-topbar, .sh-content .v-section-head');
+  await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
   await fromRecord('Planner editor', '/admin/clients', 'L11', /^Planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
   await step('Concepts editor: Back returns to the Concepts list', async () => {
     await goto('/admin/concepts'); await settle();
     await page.getByRole('button', { name: /^Open Lead Business 8/ }).first().click({ timeout: T });
-    await page.locator('.ce-dir').first().waitFor({ state: 'visible', timeout: T });
+    await page.locator('.ce-dir, .ce-sets').first().waitFor({ state: 'visible', timeout: T });
     if (!(await hasBack())) throw new Error('no Back control on the editor');
     await backBtn().first().click({ timeout: T }); await settle();
     if (!(await pathOf()).startsWith('/admin/concepts')) throw new Error(`path ${await pathOf()}`);
@@ -176,9 +176,9 @@ for (const width of WIDTHS) {
   await step('Settings: a tab on the phone, Recently deleted and Design have Back', async () => {
     await goto('/admin/settings'); await settle();
     const notes = [];
-    if (phone) { await page.getByRole('tab', { name: /^Notifications/ }).first().click({ timeout: T }); await page.waitForTimeout(400); if (!(await hasBack())) throw new Error('no Back on a Settings tab'); await backBtn().first().click({ timeout: T }); await page.waitForTimeout(400); notes.push('tab'); }
+    if (phone) { await page.locator('.sh-content').getByRole('button', { name: /^Notifications/ }).first().click({ timeout: T }); await page.waitForTimeout(400); if (!(await hasBack())) throw new Error('no Back on a Settings tab'); await backBtn().first().click({ timeout: T }); await page.waitForTimeout(400); notes.push('tab'); }
     await goto('/admin/settings/deleted'); await page.waitForTimeout(600); if (!(await hasBack())) throw new Error('no Back on Recently deleted'); notes.push('deleted');
-    await goto('/admin/settings'); await settle(); await page.getByRole('tab', { name: /^Danger/ }).first().click({ timeout: T }); await page.waitForTimeout(500); await page.getByRole('button', { name: /^Open design system/ }).first().click({ timeout: T }); await page.waitForTimeout(600); if (!(await hasBack())) throw new Error('no Back on Design opened from Settings'); notes.push('design');
+    await goto('/admin/settings'); await settle(); await (phone ? page.locator('.sh-content').getByRole('button', { name: /^Danger/ }) : page.getByRole('tab', { name: /^Danger/ })).first().click({ timeout: T }); await page.waitForTimeout(500); await page.getByRole('button', { name: /^Open design system/ }).first().click({ timeout: T }); await page.waitForTimeout(600); if (!(await hasBack())) throw new Error('no Back on Design opened from Settings'); notes.push('design');
     return notes.join(', ');
   });
   await step('Deep link: a record with no origin shows Back to its section root', async () => {

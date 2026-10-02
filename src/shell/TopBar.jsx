@@ -6,18 +6,25 @@ import QuickAdd from './QuickAdd';
 /**
  * Top bar: title (and back on detail screens), the command bar on desktop,
  * quick add, notifications, avatar. Compact on mobile.
+ *
+ * Chrome modes (src/shell/chrome.js): on a phone a tabs screen offers Search, Quick add and
+ * Notifications; a focused screen (a record, an editor, a setup page, the call room) offers Back, the
+ * title and only the `actions` the screen declares through useTopBar({ actions }). The controls are
+ * replaced, never added to, and the clusters fade in when the mode changes. Desktop is unchanged.
+ * actions: [{ id, label, icon, onClick, disabled }]
  */
-export default function TopBar({ title, onBack, commandBar, onOpenCommand, notifCount, notifLoading, onOpenNotifications, quickAdd, menuItems }) {
+export default function TopBar({ title, onBack, focused = false, actions = null, commandBar, onOpenCommand, notifCount, notifLoading, onOpenNotifications, quickAdd, menuItems }) {
   return (
-    <header className="sh-top">
-      <div className="sh-top-left">
+    <header className={`sh-top${focused ? ' is-focused' : ''}`}>
+      <div className="sh-top-left" key={focused ? 'left-f' : 'left-t'}>
         {onBack && <IconButton icon={ArrowLeft} label="Back" onClick={onBack} tooltip={false} className="sh-top-back" />}
         <h1 className="sh-top-title lay-truncate">{title}</h1>
       </div>
       <div className="sh-top-center">{commandBar}</div>
-      <div className="sh-top-right">
+      <div className="sh-top-right" key={focused ? 'right-f' : 'right-t'}>
+        {actions && actions.map(a => <IconButton key={a.id} icon={a.icon} label={a.label} onClick={a.onClick} disabled={a.disabled} tooltip={false} className="sh-top-action" />)}
         <IconButton icon={SearchMd} label="Search" onClick={onOpenCommand} className="sh-top-searchbtn" tooltip={false} />
-        <QuickAdd items={quickAdd} />
+        <span className="sh-top-add"><QuickAdd items={quickAdd} /></span>
         <span className="sh-top-bell">
           <IconButton icon={Bell01} label="Notifications" onClick={onOpenNotifications} tooltip={false} className="sh-bell" />
           {notifLoading ? <SkeletonBlock width={16} height={16} radius="var(--v-radius-pill)" className="sh-bell-skel" /> : <Badge count={notifCount} className="sh-bell-badge" />}
@@ -40,6 +47,10 @@ export const topBarStyles = `
     background: var(--v-surface-1); border-bottom: 1px solid var(--v-border);
   }
   @media (min-width: 768px) { .sh-top { grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr) auto; padding-top: var(--v-space-2); } }
+  @keyframes sh-top-in { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+  .sh-top-left, .sh-top-right { animation: sh-top-in var(--v-dur-base) var(--v-ease-out) both; }
+  /* A focused phone screen: Back and the title; the global controls step aside (they return with the tab bar). */
+  @media (max-width: 767px) { .sh-top.is-focused .sh-top-searchbtn, .sh-top.is-focused .sh-top-add, .sh-top.is-focused .sh-top-bell { display: none; } }
   .sh-top-left { display: flex; align-items: center; gap: var(--v-space-1); min-width: 0; }
   .sh-top-back { margin-left: calc(-1 * var(--v-space-2)); }
   .sh-top-title { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; }

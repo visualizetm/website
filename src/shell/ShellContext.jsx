@@ -18,9 +18,13 @@ export function useTopBar(spec) {
   ref.current = spec;
   const title = spec?.title ?? null;
   const hasBack = !!spec?.back;
+  /* actions: [{ id, label, icon, onClick, disabled }]; a focused phone screen shows these instead of the global controls. Compared by id and state so a screen can pass a fresh array each render. */
+  const actions = spec?.actions || null;
+  const actionKey = actions ? actions.map(a => `${a.id}:${a.disabled ? 1 : 0}`).join('|') : '';
   useEffect(() => {
     if (!shell) return undefined;
-    shell.setTopBar(title == null && !hasBack ? null : { title, back: hasBack ? () => ref.current?.back?.() : null });
+    const live = actions ? actions.map(a => ({ ...a, onClick: () => ref.current?.actions?.find(x => x.id === a.id)?.onClick?.() })) : null;
+    shell.setTopBar(title == null && !hasBack && !live ? null : { title, back: hasBack ? () => ref.current?.back?.() : null, actions: live });
     return () => shell.setTopBar(null);
-  }, [shell, title, hasBack]);
+  }, [shell, title, hasBack, actionKey]); // eslint-disable-line react-hooks/exhaustive-deps
 }

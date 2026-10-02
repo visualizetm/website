@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "vite build && node scripts/prerender-clients.mjs && node scripts/build-sitemap.mjs",
     "preview": "vite preview",
-    "lint": "eslint src api scripts"
+    "lint": "eslint src api scripts",
+    "preship": "node scripts/preship.mjs",
+    "preship:full": "node scripts/preship.mjs --full"
   },
   "dependencies": {
     "@babel/runtime": "^7.29.7",

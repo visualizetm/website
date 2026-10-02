@@ -28,7 +28,7 @@ function PipelineStrip({ funnel, onGo }) {
   const steps = [
     { id: 'leads', label: 'Leads', n: f.leads, go: () => onGo('leads') },
     { id: 'contacted', label: 'Contacted', n: f.contacted, pct: pct(f.contacted, f.leads), go: () => onGo('leads', { status: [...CONTACTED_STATUSES] }) },
-    { id: 'booked', label: 'Booked', n: f.booked, pct: pct(f.booked, f.contacted), go: () => onGo('booked') },
+    { id: 'booked', label: 'Booked', n: f.booked, pct: pct(f.booked, f.contacted), go: () => onGo('deals') },
     { id: 'clients', label: 'Clients', n: f.clients, pct: pct(f.clients, f.booked), go: () => onGo('clients') },
   ];
   return (

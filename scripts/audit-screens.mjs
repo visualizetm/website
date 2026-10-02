@@ -25,7 +25,8 @@ export const SESSION = (mode) => ({ ids: ['L0', 'L1', 'L3', 'L4', 'L6', 'L7'], i
 export const setLS = (page, k, v) => page.evaluate(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [k, v]).catch(() => {});
 export const rmLS = (page, k) => page.evaluate((k) => localStorage.removeItem(k), k).catch(() => {});
 export const click = (loc, t = 4000) => loc.first().click({ timeout: t }).catch(() => {});
-export const tab = (page, name) => click(page.getByRole('tab', { name: new RegExp('^' + name) }), 3000);
+/* A tab on a computer, a row button on a phone (Settings is a list of rows there). */
+export const tab = async (page, name) => { const t = page.getByRole('tab', { name: new RegExp('^' + name) }); if (await t.count()) return click(t, 3000); return click(page.locator('.sh-content').getByRole('button', { name: new RegExp('^' + name) }), 3000); };
 /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone. */
 export const openSection = async (page, width, name) => { if (width >= 768) await tab(page, name); else await click(page.getByRole('button', { name: new RegExp('^' + name) }), 3000); };
 export const openRow = async (page, width, text, mobileName) => {
@@ -197,8 +198,8 @@ export const SCREENS = [
   { id: 'concepts-editor-changes', screen: 'Concepts editor', label: 'changes requested, a note without a direction', path: '/admin/leads/L0/concepts', resource: 'sets', noFit: true },
   { id: 'concepts-editor-approved', screen: 'Concepts editor', label: 'approved round two, archived round one', path: '/admin/leads/L3/concepts', resource: 'sets', noFit: true },
   { id: 'concepts-editor-none', screen: 'Concepts editor', label: 'a lead with no set yet', path: '/admin/leads/L5/concepts', resource: 'sets' },
-  { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p) => { const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); } },
-  { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: (p) => click(p.getByRole('button', { name: 'Direction A actions' })) },
+  { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p, w) => { /* a phone edits the title in the Setup step, then Done returns to the overview where the save bar is */ if (w < 768) { await click(p.locator('.sh-content').getByRole('button', { name: /^Setup/ }), 3000); await p.waitForTimeout(500); } const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); if (w < 768) { await click(p.getByRole('button', { name: 'Done' }), 3000); await p.waitForTimeout(500); } } },
+  { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p, w) => { if (w < 768) { await click(p.locator('.sh-content').getByRole('button', { name: /^Direction A/ }), 3000); await p.waitForTimeout(500); } await click(p.getByRole('button', { name: 'Direction A actions' })); } },
 
   { id: 'reviews-list', screen: 'Reviews', label: 'list', path: '/admin/reviews', resource: 'leads' },
   { id: 'reviews-sheet', screen: 'Reviews', label: 'review sheet', path: '/admin/reviews', open: 'L12', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.getByRole('button', { name: /^Open reviews for Lead Business 12/ })) },
@@ -217,10 +218,10 @@ export const SCREENS = [
   { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
 
   // The Emails card on Settings, Integrations (CRM revamp, step 6): three hooks connected in the fixtures, one not.
-  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, region: '.st-emails', detail: true, act: async (p) => { await click(p.getByRole('tab', { name: /^Integrations/ })); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, region: '.st-emails', detail: true, act: async (p) => { await tab(p, 'Integrations'); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   /* The sidebar rebuild: the groups are disclosure widgets, the rail's groups are menus. */
   { id: 'side-groups', screen: 'Shell', label: 'sidebar, every group open', path: '/admin', minWidth: 768, resource: 'leads', static: true, act: async (p) => { for (const b of await p.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {}); } },
   { id: 'side-rail', screen: 'Shell', label: 'sidebar rail, a group menu open', path: '/admin', minWidth: 768, resource: 'leads', static: true, prep: (p) => setLS(p, 'vz_shell_collapsed', true), act: (p) => click(p.locator('.sh-side-group--rail .sh-nav--group').first()) },
-  { id: 'more', screen: 'Shell', label: 'More sheet', path: '/admin/leads', region: '.v-sheet', maxWidth: 767, resource: null, static: true, act: (p) => click(p.locator('.sh-tab--more')) },
+  { id: 'more', screen: 'More', label: 'the More screen', path: '/admin/more', maxWidth: 767, resource: null, static: true },
 ];

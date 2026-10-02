@@ -117,12 +117,40 @@ function ShortcutsModal({ open, onClose }) {
 }
 
 /* ── Room pieces ─────────────────────────────────────────────── */
-function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, desktop, onCopy }) {
+function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, desktop, onCopy, onAbout }) {
   const win = currentWindow();
   const winsOf = windowsOf(lead.bestWindow);
   const scan = lead.enrichment?.lastScanAt ? (Date.now() - new Date(lead.enrichment.lastScanAt).getTime()) / 864e5 : null;
   const socials = [['website', 'Globe01', 'Website'], ['instagram', 'Image01', 'Instagram'], ['facebook', 'Users01', 'Facebook'], ['google', 'MarkerPin01', 'Maps']].filter(([k]) => lead.socials?.[k]);
   const warned = WARN_RX.test(`${lead.notes || ''} ${lead.phoneNote || ''}`);
+  /* A phone (milestone 4): the name (two lines at most), what decides the call (priority, the best window), who to ask for and the Call
+     button, all above the outcome bar at first paint. Everything else about the lead is one sheet away (About this lead). */
+  if (!desktop) {
+    return (
+      <Card className={`cc-head cc-head--phone${pulse ? ` is-pulse cc-head--${pulse}` : ''}`} glow={lead.priority === 'hot' ? 'won' : undefined}>
+        {warned && <div className="cc-warn" role="alert"><AlertTriangle width={16} height={16} /> Check the notes before dialing.</div>}
+        <Row gap={3} align="start">
+          <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+            <h2 className="cc-biz lay-title">{lead.business}</h2>
+            <Row gap={1} wrap>
+              <Pill id={lead.priority || 'warm'} size="sm" />
+              {lead.bestWindow && <Pill tone={winsOf.has(win) ? 'booked' : 'neutral'} label={lead.bestWindow} icon={winsOf.has(win) ? 'Check' : false} size="sm" variant={winsOf.has(win) ? 'soft' : 'outline'} />}
+            </Row>
+          </Stack>
+          <Menu label="Lead actions" items={[{ id: 'about', label: 'About this lead', icon: 'Users01', onSelect: onAbout }, { id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
+        </Row>
+        {lead.askFor && <p className="cc-askfor">Ask for <strong>{lead.askFor.replace(/^Ask for /i, '')}</strong></p>}
+        <div className="cc-phone">
+          {lead.phone ? (
+            <Button size="lg" full icon={PhoneCall01} href={telHref(lead.phone)} onClick={onCallTap} className="cc-phone-btn">{formatPhone(lead.phone)}{timerMs != null && <span className="cc-phone-timer">{fmtClock(timerMs)}</span>}</Button>
+          ) : (
+            <div className="cc-phone-none"><AlertTriangle width={18} height={18} /> No phone on file. Find the number first.</div>
+          )}
+        </div>
+        <Button variant="ghost" size="md" icon="Users01" onClick={onAbout} className="cc-about-btn">About this lead</Button>
+      </Card>
+    );
+  }
   return (
     <Card className={`cc-head${pulse ? ` is-pulse cc-head--${pulse}` : ''}`} glow={lead.priority === 'hot' ? 'won' : undefined}>
       {warned && <div className="cc-warn" role="alert"><AlertTriangle width={16} height={16} /> Check the notes before dialing.</div>}
@@ -176,7 +204,8 @@ function BeforeYouDial({ lead, done, onToggle }) {
 }
 
 const ROOM_TABS = [{ id: 'script', label: 'Script' }, { id: 'objections', label: 'Objections' }, { id: 'close', label: 'Close' }, { id: 'intel', label: 'Intel' }];
-const MOBILE_TABS = [...ROOM_TABS, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' }];
+/* A phone keeps the three playbook tabs; Intel, Notes and History are in the About this lead sheet. */
+const MOBILE_TABS = ROOM_TABS.slice(0, 3);
 
 function RoomBody({ lead, tab, onTab, desktop, onSaveNotes }) {
   const tabs = desktop ? ROOM_TABS : MOBILE_TABS;
@@ -314,6 +343,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [, setTick] = useState(0);
   const [pulse, setPulse] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -706,7 +736,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const roomCenter = pending ? <div className="cc-room" /> : loadFailed ? <div className="cc-room cc-room--empty">{loadFailed}</div> : showSkel ? roomSkeleton : current ? (
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
       <Stagger className="cc-room-inner lay-content" cap={3}>
-        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} />
+        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} onAbout={() => setAboutOpen(true)} />
         {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
       </Stagger>
@@ -721,6 +751,21 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
       {sheet && current && <OutcomeSheet key={`${current._id}-${sheet.outcome}`} outcome={sheet.outcome} lead={current} onLog={applyLog} onClose={() => setSheet(null)} />}
       <ShortcutsModal open={keysOpen} onClose={() => setKeysOpen(false)} />
       {decline.sheet}
+      {aboutOpen && current && (
+        <Sheet open onClose={() => setAboutOpen(false)} title="About this lead" description={current.business} tall label="About this lead">
+          <Stack gap={4}>
+            <Row gap={1} wrap>
+              {current.industry && <Pill tone="neutral" label={displayIndustry(current.industry)} icon={false} size="sm" variant="outline" />}
+              <Pill id={current.callStatus || 'not-called'} list={CALL_STATUSES} size="sm" />
+            </Row>
+            {current.descriptor && <p className="cc-desc">{current.descriptor}</p>}
+            <Row gap={2} wrap>{['website', 'instagram', 'facebook', 'google'].filter(k => current.socials?.[k]).map(k => <Button key={k} variant="secondary" size="md" href={current.socials[k]} target="_blank" rel="noopener noreferrer">{{ website: 'Website', instagram: 'Instagram', facebook: 'Facebook', google: 'Maps' }[k]}</Button>)}</Row>
+            <Section title="Intel"><IntelCards lead={current} /></Section>
+            <Section title="Notes"><LeadNotes lead={current} onSave={saveNotes} /></Section>
+            <Section title="History"><LeadHistory lead={current} /></Section>
+          </Stack>
+        </Sheet>
+      )}
       {editOpen && current && <Sheet open onClose={() => setEditOpen(false)} title="Edit lead" description={current.business} tall width={640}><LeadForm lead={current} onSave={async (v) => { const ok = await patchLead(current._id, v); if (ok) setEditOpen(false); }} onCancel={() => setEditOpen(false)} onDelete={deleteLead} /></Sheet>}
       {newOpen && <Sheet open onClose={() => setNewOpen(false)} title="New lead" tall width={640}><LeadForm creating lead={typeof newOpen === 'object' ? newOpen : undefined} onSave={createLead} onCancel={() => setNewOpen(false)} /></Sheet>}
     </>
@@ -784,6 +829,9 @@ const ccStyles = `
   .cc-head--booked { border-color: var(--v-status-booked-solid); box-shadow: 0 0 0 4px var(--v-status-booked-soft); }
   @keyframes cc-pulse { 0% { transform: scale(1); } 40% { transform: scale(1.015); } 100% { transform: scale(1); } }
   .cc-warn { display: flex; align-items: center; gap: var(--v-space-2); padding: var(--v-space-2) var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-status-danger-soft); color: var(--v-status-danger-text); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); }
+  .cc-head--phone .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); }
+  .cc-head--phone { --v-stack-gap: var(--v-space-2); }
+  .cc-about-btn { align-self: flex-start; }
   .cc-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
   @media (max-width: 479px) { .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); } }
   .cc-queue .v-section-text { flex-basis: 120px; }

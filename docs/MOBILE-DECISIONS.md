@@ -5,3 +5,17 @@ One line each: what, why, the alternative rejected.
 - Tabs stay Next up, Lists, Call, Deals, More. The badges say these four are the day's work and the shell already has four plus More. Rejected: swapping Leads in (Leads is reached from Next up and More, and the count there is the biggest list, not the most urgent).
 - Guide saved from the pasted text, not an attachment. No file came through, so the pasted copy is the source; em dashes replaced because CLAUDE.md bans them in docs.
 - scripts/mobile-measure.mjs measures every screen in audit-screens.mjs instead of a hand walk, so milestone 1 and milestone 6 compare like with like. Rejected: a one off script in the scratchpad.
+- Chrome mode is one function of the history entry (src/shell/chrome.js): an entry with an open or create request, or a path deeper than a section root, is focused. Rejected: a per route table (it drifts the moment a screen gains a sub page).
+- The tab bar hides by animating its height to 0 (not a transform only), so the screen gets the space and a bar pinned above it (SaveBar) follows through --v-tabbar-now. Rejected: a fixed bar the content has to pad around.
+- More is a page at /more (a tabs screen, the More tab stays current), not a sheet. The sheet and its component are deleted. Rejected: keeping both.
+- A focused phone screen's top bar is Back, the title and only the actions the screen declares (useTopBar({ actions })). Search, Quick add and Notifications return with the tab bar. Rejected: keeping Search everywhere (it does nothing for the task in a record).
+- Edge Back keeps a static copy of the screen it left (cloneNode at the push, skipped over 1400 elements) so the screen beneath is real, not a placeholder. Rejected: a blank ground under the moving screen.
+- Edge Back calls the same Back the top bar calls, so a leave guard still applies; if the entry does not change within 360ms the screen springs back.
+- The sheet's background recedes through --v-recede on .lay-root (0.96 at most), written by the Sheet itself. Backdrop clicks in the first 400ms of a sheet are ignored so the release of a long press cannot close it or press an action.
+- The phone editors keep one draft in the editor and push steps as history entries (useSelection). Planner keeps the month on the overview (the job) and only Setup and the client link are steps. Rejected: making the posts a step.
+- Settings on a phone is a list of rows that push the group's screen; the tab strip is computer only. A deep link to a group still opens it.
+- Call room on a phone: name (two lines), priority and window, who to ask for, the Call button, then the playbook tabs Script, Objections, Close. Intel, Notes, History, socials and the descriptor are one About this lead sheet. The Call button sits above the outcome bar at 844, 700 and 568 tall.
+- Row swipe on Leads (right Call, left Callback tomorrow at nine with an undo) and on planner posts (right Send for approval). Next up (done, snooze), Triage and Lists (remove) already had finger tracking and were left as they are. Every swipe action is also in the row menu.
+- Long press opens a sheet (RowSheet) with the essentials and the row menu's actions on lead, client and project rows.
+- eslint now runs react/jsx-no-undef: a missing component import compiled and crashed at runtime in three places before it. Rejected: relying on the smoke walks to catch it.
+- The planner's Send for approval is the swipe because the client approves; Rob sends. Rejected: an approve action for Rob.

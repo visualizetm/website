@@ -55,6 +55,6 @@ export const saveBarStyles = `
   /* The tab bar exists below 768px only, and it is --v-tabbar-h tall PLUS the
      home indicator inset (TabBar.jsx sets exactly that height). */
   @media (max-width: 767.98px) {
-    .sb-bar { bottom: calc(var(--v-tabbar-h) + var(--v-inset-bottom) + var(--v-space-3)); }
+    .sb-bar { bottom: calc(var(--v-tabbar-now, var(--v-tabbar-h)) + var(--v-inset-bottom) + var(--v-space-3)); }
   }
 `;

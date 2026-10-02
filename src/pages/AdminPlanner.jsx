@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Toggle, Textarea,
   InlineEdit, Menu, ProgressBar, EmptyState, ErrorState, Stagger, SkeletonText,
-  useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon,
-} from '../ui';
+  useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow, SwipeRow } from '../ui';
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
 import { isOnRetainer } from '../lib/projects';
 import { useTopBar } from '../shell/ShellContext';
+import { useSelection } from '../shell/nav-history';
 import { platformOf, postStatusOf, postFormatOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
 import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, missingForReview, listPhrase, hashtagsOf, aspectNote } from '../lib/posts';
@@ -136,7 +136,7 @@ function InviteCard({ planner, url, onRegenerate, readOnly }) {
 }
 
 /* ── One row in the month ─────────────────────────────────────────── */
-function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, dragProps }) {
+function PostRow({ post, draft, client, onOpen, onMove, onSendForApproval, first, last, readOnly, dragProps }) {
   const p = { ...post, ...draft };
   const st = postStatusOf(p.status);
   const fmt = postFormatOf(formatOf(p));
@@ -152,7 +152,10 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
   /* A note is news while the post is back in `making`; once it has gone up
    * for review again it stays on the record as history. */
   const noteIsNew = note && post.status === 'making';
+  /* A phone: drag right sends a finished post for the client's approval (the same status change as the post sheet's, and the menu has it). */
+  const canSend = !readOnly && p.status === 'making' && missing.length === 0 && !!onSendForApproval;
   return (
+    <SwipeRow right={canSend ? { label: 'Send for approval', icon: 'Send01', tone: 'primary', onCommit: onSendForApproval } : undefined} enabled={!!onSendForApproval}>
     <Card as="div" padding={3} interactive className="pl-post" {...dragProps}>
       <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Edit the ${postLabel(p)}`}>{`Edit the ${postLabel(p)}`}</button>
       <Row gap={3} align="start" wrap={false} style={{ minWidth: 0 }}>
@@ -198,11 +201,13 @@ function PostRow({ post, draft, client, onOpen, onMove, first, last, readOnly, d
             { id: 'up', label: 'Move up', icon: 'ChevronLeft', disabled: first, onSelect: () => onMove(-1) },
             { id: 'down', label: 'Move down', icon: 'ChevronDown', disabled: last, onSelect: () => onMove(1) },
             'divider',
+            ...(canSend ? [{ id: 'send', label: 'Send for approval', icon: 'Send01', onSelect: onSendForApproval }] : []),
             { id: 'edit', label: 'Edit post', icon: 'Edit02', onSelect: onOpen },
           ]} />
         )}
       </Row>
     </Card>
+    </SwipeRow>
   );
 }
 
@@ -311,7 +316,12 @@ export default function AdminPlanner({
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this planner have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
-  useTopBar({ back: leave });
+  /* A phone (milestone 4): the month and its posts stay on the overview (that is the job); Setup and the client link are rows that open
+     their own screen with a Done. The draft lives here, so it carries across; Save is on the overview. */
+  const phone = useMediaQuery('(max-width: 767px)');
+  const { selId: step, open: openStep, close: closeStep } = useSelection('planner-step');
+  const inStep = phone && !!step;
+  useTopBar({ title: inStep ? step : undefined, back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
 
   // Cmd+S / Ctrl+S, and the browser's own guard for closing the tab.
   useEffect(() => {
@@ -402,32 +412,7 @@ export default function AdminPlanner({
   const plan = lead && isOnRetainer(lead) ? RETAINERS.find(r => r.id === lead.retainer?.planId) : null;
   const planCount = planCountOf(lead);
   const cap = planCount || Number(draft.postsPerMonth) || 8;
-  const open = openId ? monthPosts.find(p => String(p._id) === openId) || mine.find(p => String(p._id) === openId) : null;
-
-  return (
-    <PageShell className="aa-main aa-main--wide pl-page sb-host">
-      <ScrollArea wide className="pl-scroll">
-        <div className="pl-topbar">
-          <Row gap={2} align="center" justify="between" wrap>
-            <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-              <Button variant="ghost" icon="ArrowLeft" onClick={leave}>Back</Button>
-              <h1 className="pl-page-title lay-title">{name}</h1>
-              <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
-                variant={draft.enabled && !waiting ? 'solid' : 'soft'}
-                label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />
-            </Row>
-            <Button variant="secondary" icon="LinkExternal01" disabled={!url}
-              onClick={() => window.open(`/api/planner?token=${encodeURIComponent(token)}&month=${month}`, '_blank', 'noopener')}>Preview</Button>
-          </Row>
-        </div>
-
-        <div className="pl-page-body">
-          {error && !mine.length ? (
-            <Card><ErrorState title={COPY.error.posts.title} description={COPY.error.posts.description} onRetry={onRetry} /></Card>
-          ) : showSkel ? (
-            <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
-          ) : (
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
+  const setupCard = (
               <Card className="pl-setup">
                 <p className="pb-card-h">Setup</p>
                 <Toggle checked={!!draft.enabled} onChange={(v) => setPlanner({ enabled: v })} disabled={readOnly}
@@ -445,14 +430,49 @@ export default function AdminPlanner({
                   onChange={(e) => setPlanner({ welcome: e.target.value.slice(0, 300) })}
                   hint={`Appears at the top of their planner. ${draft.welcome.length} of 300.`} />
               </Card>
-
-              {draft.enabled && url && <InviteCard planner={lead.planner || {}} url={url} readOnly={readOnly}
+  );
+  const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} readOnly={readOnly}
                 onRegenerate={async () => {
                   const ok = await onPatch(lead._id, { planner: { ...plannerPatch(lead, draft), regenerate: true } });
                   if (ok) { await onRefetchLead?.(); toast.success('New link made. The old one stopped working.'); }
                   else toast.error(COPY.error.save);
-                }} />}
+                }} /> : null;
+  const open = openId ? monthPosts.find(p => String(p._id) === openId) || mine.find(p => String(p._id) === openId) : null;
 
+  return (
+    <PageShell className="aa-main aa-main--wide pl-page sb-host">
+      <ScrollArea wide className="pl-scroll">
+        <div className="pl-topbar">
+          <Row gap={2} align="center" justify="between" wrap>
+            <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
+              <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="pl-back">Back</Button>
+              <h1 className="pl-page-title lay-title">{name}</h1>
+              <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
+                variant={draft.enabled && !waiting ? 'solid' : 'soft'}
+                label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />
+            </Row>
+            <Button variant="secondary" icon="LinkExternal01" disabled={!url}
+              onClick={() => window.open(`/api/planner?token=${encodeURIComponent(token)}&month=${month}`, '_blank', 'noopener')}>Preview</Button>
+          </Row>
+        </div>
+
+        <div className="pl-page-body">
+          {error && !mine.length ? (
+            <Card><ErrorState title={COPY.error.posts.title} description={COPY.error.posts.description} onRetry={onRetry} /></Card>
+          ) : showSkel ? (
+            <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
+          ) : (
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
+              {(!phone || step === 'Setup') && setupCard}
+              {(!phone || step === 'Link') && inviteCard}
+              {phone && !step && (
+                <Stack gap={2}>
+                  <ListRow title="Setup" subtitle={!draft.enabled ? 'Off' : `On, ${cap} a month`} onClick={() => openStep('Setup')} />
+                  {draft.enabled && url && <ListRow title="Client link" subtitle="Share or regenerate" onClick={() => openStep('Link')} />}
+                </Stack>
+              )}
+
+              {!inStep && (<>
               <Card className="pl-month">
                 <Row gap={2} align="center" justify="between" wrap>
                   <Row gap={1} align="center">
@@ -485,6 +505,7 @@ export default function AdminPlanner({
                     <PostRow key={p._id} post={p} draft={postDrafts[String(p._id)]} client={name}
                       first={i === 0} last={i === monthPosts.length - 1} readOnly={readOnly}
                       onOpen={() => setOpenId(String(p._id))}
+                      onSendForApproval={phone ? () => { writePost(p._id, { status: 'review' }); toast.info(`${postLabel(p)} is ready to send. Save to send it.`); } : undefined}
                       onMove={(by) => movePost(p, by)}
                       dragProps={!readOnly && desktop ? {
                         draggable: true,
@@ -495,6 +516,7 @@ export default function AdminPlanner({
                   ))}
                 </Stack>
               )}
+              </>)}
             </Stagger>
           )}
         </div>
@@ -514,7 +536,7 @@ export default function AdminPlanner({
         />
       )}
 
-      <SaveBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
       <style>{saveBarStyles + imageFieldStyles + postSheetStyles + plStyles}</style>
     </PageShell>
@@ -529,6 +551,7 @@ const plStyles = `
     background: var(--v-surface-1);
     border-bottom: 1px solid var(--v-border-1);
   }
+  @media (max-width: 767px) { .pl-topbar .pl-back { display: none; } }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .pl-page-body { padding-top: var(--v-space-4); }
   .pl-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }

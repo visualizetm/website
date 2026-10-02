@@ -3,6 +3,7 @@ import { normalizeLeads, pipelineFunnel } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Wordmark from '../components/Wordmark';
 import AdminDashboard from './AdminDashboard';
+import AdminMore from './AdminMore';
 import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal, ErrorBoundary } from '../ui';
 import { wireClientLog } from '../shared/log';
 
@@ -388,6 +389,7 @@ export default function AdminApp() {
 
   const section = useMemo(() => {
     const p = location.pathname.slice(BASE.length) || '/';
+    if (p.startsWith('/more')) return 'more';
     if (p.startsWith('/submissions')) return 'submissions';
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
@@ -663,6 +665,7 @@ export default function AdminApp() {
       {section === 'dashboard' && (
         <AdminDashboard leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
       )}
+      {section === 'more' && <AdminMore counts={counts} countsLoading={callLeadsLoading || forceLoading} onGo={goNav} onLogout={logout} />}
       {section === 'leads' && (
         <AdminLeads
           leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}

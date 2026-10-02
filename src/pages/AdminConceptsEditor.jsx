@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, InlineEdit, Tabs, Menu,
-  EmptyState, ErrorState, Stagger, SkeletonText, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon,
-} from '../ui';
+  EmptyState, ErrorState, Stagger, SkeletonText, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONCEPT_ITEM_KINDS, conceptSetStatusOf, conceptFeedbackActionOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
@@ -13,6 +12,7 @@ import {
   MAX_DIRECTIONS, MAX_ITEMS, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
 } from '../lib/concepts';
 import { useTopBar } from '../shell/ShellContext';
+import { useSelection } from '../shell/nav-history';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import { imageFieldStyles } from '../components/ImageField';
 
@@ -221,7 +221,13 @@ export default function AdminConceptsEditor({
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to these concepts have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
-  useTopBar({ back: leave });
+  /* A phone (milestone 4): the sets and a row per part (Setup, each direction, Send, Feedback); a row opens that part on its own screen
+     with a Done. One draft lives here and carries across; Save is on the overview. */
+  const phone = useMediaQuery('(max-width: 767px)');
+  const { selId: step, open: openStep, close: closeStep } = useSelection('concepts-step');
+  const inStep = phone && !!step;
+  const stepTitle = step ? (step.startsWith('dir:') ? `Direction ${'ABCDEF'[Math.max(0, draft.directions.findIndex(d => `dir:${d.id}` === step))] || ''}`.trim() : step) : undefined;
+  useTopBar({ title: inStep ? stepTitle : undefined, back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
   useEffect(() => {
     const onKey = (e) => { if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); if (dirtyRef.current) save(); } };
     window.addEventListener('keydown', onKey);
@@ -335,49 +341,7 @@ export default function AdminConceptsEditor({
   const used = project ? revisionsUsed(project) : 0;
   const max = project ? revisionsMax(project) : 0;
   const C = COPY.concepts.editor;
-
-  return (
-    <PageShell className="aa-main aa-main--wide pl-page sb-host">
-      <ScrollArea wide className="pl-scroll">
-        <div className="pl-topbar">
-          <Row gap={2} align="center" justify="between" wrap>
-            <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-              <Button variant="ghost" icon="ArrowLeft" onClick={leave}>Back</Button>
-              <h1 className="pl-page-title lay-title">{name}</h1>
-              {st && <Pill tone={st.tone} label={st.label} size="sm" icon={false} variant={status === 'approved' || status === 'changes' ? 'solid' : 'soft'} />}
-            </Row>
-            <Row gap={2} align="center" wrap>
-              <Button variant="secondary" icon="LinkExternal01" disabled={!url || isDraft} title={isDraft ? C.previewDraft : undefined}
-                onClick={() => window.open(url, '_blank', 'noopener')}>Preview</Button>
-              <Button variant="secondary" icon="Monitor01" disabled={!url || isDraft} title={isDraft ? C.previewDraft : 'Opens the client page with the approve and feedback controls hidden, for showing in a meeting.'}
-                onClick={() => window.open(`${url}?present=1`, '_blank', 'noopener')}>Present</Button>
-            </Row>
-          </Row>
-        </div>
-
-        <div className="pl-page-body">
-          {error && !mine.length ? (
-            <Card><ErrorState title={COPY.error.sets.title} description={COPY.error.sets.description} onRetry={onRetry} /></Card>
-          ) : showSkel ? (
-            <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
-          ) : !active ? (
-            <Card><EmptyState icon="LayersThree01" title={COPY.empty['concepts.lead'].title} description={COPY.empty['concepts.lead'].description}
-              action={readOnly ? undefined : { label: COPY.empty['concepts.lead'].action, onClick: newSet }} /></Card>
-          ) : (
-            <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
-              <Card className="ce-sets">
-                <Row gap={2} align="center" justify="between" wrap>
-                  <Tabs label="Sets" value={String(active._id)} onChange={switchTo}
-                    tabs={byRound.map(s => ({ id: String(s._id), label: `Round ${s.round || 1}${s.archived ? ', archived' : ''}` }))} />
-                  {!readOnly && (
-                    <Row gap={2} align="center" wrap>
-                      <Button size="md" variant="secondary" icon="Plus" onClick={newSet} loading={busy}>New set</Button>
-                      <Button size="md" variant="secondary" icon="RefreshCw01" onClick={nextRound} loading={busy} disabled={!draft.directions.length}>Start next round</Button>
-                    </Row>
-                  )}
-                </Row>
-              </Card>
-
+  const setupCard = (
               <Card className="ce-setup">
                 <p className="pb-card-h">Setup</p>
                 <Input label="Title" value={draft.title} maxLength={120} disabled={readOnly} placeholder={`Concepts for ${name}`}
@@ -391,19 +355,22 @@ export default function AdminConceptsEditor({
                     onChange={(e) => write({ projectId: e.target.value })} />
                 )}
               </Card>
-
-              {draft.directions.map((d, i) => (
-                <DirectionCard key={d.id} d={d} index={i} count={draft.directions.length} readOnly={readOnly} desktop={desktop}
+  );
+  const dirCard = (d, i) => (
+    <DirectionCard key={d.id} d={d} index={i} count={draft.directions.length} readOnly={readOnly} desktop={desktop}
                   onWrite={(next) => writeDirections(draft.directions.map(x => (x.id === d.id ? { ...x, ...next } : x)))}
                   onMove={(by) => moveDirection(i, by)} onDuplicate={() => duplicateDirection(i)} onDelete={() => deleteDirection(i)} />
-              ))}
+  );
+  const dirCards = (<>
+    {draft.directions.map((d, i) => dirCard(d, i))}
               {!readOnly && (
                 <Row gap={2} align="center" wrap>
                   <Button variant="secondary" icon="Plus" onClick={addDirection} disabled={draft.directions.length >= MAX_DIRECTIONS} className="ce-add-dir">Add direction</Button>
                   {draft.directions.length >= MAX_DIRECTIONS && <span className="dt-muted">Six is the most a client can weigh at once.</span>}
                 </Row>
               )}
-
+  </>);
+  const sendCard = !active ? null : (
               <Card className="ce-send">
                 <p className="pb-card-h">Send</p>
                 {isDraft ? (
@@ -436,7 +403,8 @@ export default function AdminConceptsEditor({
                   </>
                 )}
               </Card>
-
+  );
+  const feedbackCard = !active ? null : (
               <Card className="ce-feedback">
                 <p className="pb-card-h">Feedback</p>
                 {approvedId && (
@@ -474,12 +442,70 @@ export default function AdminConceptsEditor({
                   </div>
                 )}
               </Card>
+  );
+
+  return (
+    <PageShell className="aa-main aa-main--wide pl-page sb-host">
+      <ScrollArea wide className="pl-scroll">
+        <div className="pl-topbar">
+          <Row gap={2} align="center" justify="between" wrap>
+            <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
+              <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="pl-back">Back</Button>
+              <h1 className="pl-page-title lay-title">{name}</h1>
+              {st && <Pill tone={st.tone} label={st.label} size="sm" icon={false} variant={status === 'approved' || status === 'changes' ? 'solid' : 'soft'} />}
+            </Row>
+            <Row gap={2} align="center" wrap>
+              <Button variant="secondary" icon="LinkExternal01" disabled={!url || isDraft} title={isDraft ? C.previewDraft : undefined}
+                onClick={() => window.open(url, '_blank', 'noopener')}>Preview</Button>
+              <Button variant="secondary" icon="Monitor01" disabled={!url || isDraft} title={isDraft ? C.previewDraft : 'Opens the client page with the approve and feedback controls hidden, for showing in a meeting.'}
+                onClick={() => window.open(`${url}?present=1`, '_blank', 'noopener')}>Present</Button>
+            </Row>
+          </Row>
+        </div>
+
+        <div className="pl-page-body">
+          {error && !mine.length ? (
+            <Card><ErrorState title={COPY.error.sets.title} description={COPY.error.sets.description} onRetry={onRetry} /></Card>
+          ) : showSkel ? (
+            <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
+          ) : !active ? (
+            <Card><EmptyState icon="LayersThree01" title={COPY.empty['concepts.lead'].title} description={COPY.empty['concepts.lead'].description}
+              action={readOnly ? undefined : { label: COPY.empty['concepts.lead'].action, onClick: newSet }} /></Card>
+          ) : (
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
+              {!inStep && (<Card className="ce-sets">
+                <Row gap={2} align="center" justify="between" wrap>
+                  <Tabs label="Sets" value={String(active._id)} onChange={switchTo}
+                    tabs={byRound.map(s => ({ id: String(s._id), label: `Round ${s.round || 1}${s.archived ? ', archived' : ''}` }))} />
+                  {!readOnly && (
+                    <Row gap={2} align="center" wrap>
+                      <Button size="md" variant="secondary" icon="Plus" onClick={newSet} loading={busy}>New set</Button>
+                      <Button size="md" variant="secondary" icon="RefreshCw01" onClick={nextRound} loading={busy} disabled={!draft.directions.length}>Start next round</Button>
+                    </Row>
+                  )}
+                </Row>
+              </Card>)}
+
+              {(!phone || step === 'Setup') && setupCard}
+              {!inStep && phone && (
+                <Stack gap={2}>
+                  <ListRow title="Setup" subtitle={draft.title || `Concepts for ${name}`} onClick={() => openStep('Setup')} />
+                  {draft.directions.map((d, i) => <ListRow key={d.id} title={`Direction ${'ABCDEF'[i]}`} subtitle={d.name || 'Not named yet'} onClick={() => openStep(`dir:${d.id}`)} />)}
+                  {!readOnly && <Button variant="secondary" icon="Plus" onClick={addDirection} disabled={draft.directions.length >= MAX_DIRECTIONS} className="ce-add-dir">Add direction</Button>}
+                  <ListRow title="Send" subtitle={isDraft ? (blocked || 'Ready to send') : (active.sentAt ? `Sent ${relativeTime(active.sentAt)}` : 'Sent')} onClick={() => openStep('Send')} />
+                  <ListRow title="Feedback" subtitle={approvedId ? `Picked ${directionLabel(active, approvedId)}` : `${timeline.length} ${timeline.length === 1 ? 'note' : 'notes'}`} onClick={() => openStep('Feedback')} />
+                </Stack>
+              )}
+              {!phone && dirCards}
+              {phone && step && step.startsWith('dir:') && draft.directions.map((d, i) => (`dir:${d.id}` === step ? dirCard(d, i) : null))}
+              {(!phone || step === 'Send') && sendCard}
+              {(!phone || step === 'Feedback') && feedbackCard}
             </Stagger>
           )}
         </div>
       </ScrollArea>
 
-      <SaveBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
       <style>{saveBarStyles + imageFieldStyles + ceStyles}</style>
     </PageShell>
@@ -489,6 +515,7 @@ export default function AdminConceptsEditor({
 export const ceStyles = `
   .pl-scroll { --v-scroll-extra: var(--sb-scroll-extra); }
   .pl-topbar { position: sticky; top: 0; z-index: 5; padding: var(--v-space-3) 0; background: var(--v-surface-1); border-bottom: 1px solid var(--v-border-1); }
+  @media (max-width: 767px) { .pl-topbar .pl-back { display: none; } }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .pl-page-body { padding-top: var(--v-space-4); }
   .ce-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }

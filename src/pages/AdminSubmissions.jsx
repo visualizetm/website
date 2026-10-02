@@ -3,7 +3,7 @@ import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Avatar, Button, IconButton, Menu, InlineEdit, ListRow, Sheet, Table, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
@@ -159,7 +159,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
           ) : !live.length ? (
             <Card><EmptyState icon="Inbox01" title={E('submissions.none').title} description={E('submissions.none').description} action={{ label: E('submissions.none').action, href: 'https://visualizestudio.org/start' }} /></Card>
           ) : !list.length ? (
-            <Card><EmptyState size="sm" icon="SearchMd" title={E('submissions.filter').title} description={E('submissions.filter').description} action={{ label: E('submissions.filter').action, onClick: () => { setType(''); setUnreadOnly(false); setQ(''); } }} /></Card>
+            <Card><NoResults noun="submissions" query={q} filters={[type ? String(type) : '', unreadOnly ? 'Unread' : ''].filter(Boolean)} onClear={() => { setType(''); setUnreadOnly(false); setQ(''); }} /></Card>
           ) : desktop && !sel ? (
             <Table aria-label="Submissions" columns={columns} rows={list} rowKey={(s) => String(s._id)} onRowClick={(s) => openSel(s._id)} rowClassName={(s) => (s.read ? '' : 'is-unread')} storageKey="vz_subs_cols" className="sb-table" />
           ) : (

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Menu, Button, Table, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Menu, Button, Table, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { PROJECT_STAGES, INVOICE_STATUSES } from '../shared/semantics';
@@ -8,6 +8,7 @@ import { money } from '../shared/format';
 import { fmtDate, relativeTime } from '../shared/dates';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import HoldRow from '../components/HoldRow';
 import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
 import TaskSheet from '../components/TaskSheet';
 import { isTask } from '../lib/tasks';
@@ -91,9 +92,11 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   );
   const body = showSkel ? (
     desktop ? <div aria-busy="true"><Table.Skeleton rows={4} cols={5} /></div>
-      : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} as="div" padding={3}><Stack gap={2}><Row gap={2} justify="between" align="start"><SkeletonBlock width="55%" height={22} /><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="70%" height={18} /><Row gap={2} align="center"><SkeletonBlock width={110} height={18} /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={14} /></Stack></Card>)}</Stack>
+      : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} as="div" padding={3} style={{ height: 150, boxSizing: 'border-box', overflow: 'hidden' }}><Stack gap={2}><Row gap={2} justify="between" align="start"><SkeletonBlock width="55%" height={22} /><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="70%" height={18} /><Row gap={2} align="center"><SkeletonBlock width={110} height={18} /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={14} /></Stack></Card>)}</Stack>
   ) : error && !projects.length ? (
     <Card><ErrorState title={COPY.error.projects.title} description={COPY.error.projects.description} onRetry={retry} retrying={retrying} /></Card>
+  ) : !shown.length && q.trim() && allRows.length ? (
+    <Card><NoResults noun="projects" query={q} filters={showArchived ? ['Archived included'] : []} onClear={() => setQ('')} /></Card>
   ) : !shown.length ? (
     <Card><EmptyState icon="Folder" title={E.title} description={E.description} action={{ label: E.action, icon: 'Briefcase01', onClick: () => shell?.go('clients') }} /></Card>
   ) : desktop ? (
@@ -101,7 +104,9 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   ) : (
     <Stagger className="pj-stack" cap={6}>
       {shown.map(r => (
-        <Card key={r.p._id} as="article" padding={3} interactive className={`pj-card${r.overdue ? ' is-overdue' : ''}`} data-row-id={r.lead?._id}>
+        <HoldRow key={r.p._id} title={r.lead?.business || 'Unknown client'} subtitle={packageOf(r.p.packageId)?.label || r.p.name || ''} items={rowMenu(r)}
+          facts={[{ label: 'Stage', value: r.p.kind === 'retainer' ? 'Retainer' : (PROJECT_STAGES.find(x => x.id === r.p.stage) || {}).label }, { label: 'Next action', value: r.action && !r.action.doneAt ? r.action.label : '' }, { label: 'Next invoice', value: r.next ? `${money(r.next.amount)}, ${fmtDay(r.next.dueAt)}` : '' }, { label: 'Last touch', value: r.touch ? relativeTime(r.touch) : '' }]}>
+        <Card as="article" padding={3} interactive className={`pj-card${r.overdue ? ' is-overdue' : ''}`} data-row-id={r.lead?._id}>
           <button type="button" className="v-stretch" onClick={() => open(r)} aria-label={`Open ${r.lead?.business || 'project'}`}>{`Open ${r.lead?.business || 'project'}`}</button>
           <Stack gap={1}>
             <Row gap={2} justify="between" align="start"><span className="pj-client lay-truncate">{r.lead?.business || 'Unknown client'}</span><span className="v-above">{stagePill(r.p)}</span></Row>
@@ -111,6 +116,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
             <span className="pj-muted">{r.touch ? `Last touch ${relativeTime(r.touch)}` : ''}</span>
           </Stack>
         </Card>
+        </HoldRow>
       ))}
     </Stagger>
   );

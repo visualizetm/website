@@ -4,11 +4,11 @@ import { TAB_NAV, MORE_NAV } from './nav';
 /**
  * Mobile tab bar (under 768px): five tabs from nav.js plus More.
  */
-export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, moreOpen }) {
-  const moreActive = moreOpen || MORE_NAV.some(n => n.id === activeId);
+export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, hidden = false }) {
+  const moreActive = activeId === 'more' || MORE_NAV.some(n => n.id === activeId);
   const moreCount = MORE_NAV.reduce((n, e) => n + (e.badge ? counts?.[e.badge] || 0 : 0), 0);
   return (
-    <nav className="sh-tabs" aria-label="Sections">
+    <nav className={`sh-tabs${hidden ? ' is-hidden' : ''}`} aria-label="Sections" inert={hidden ? '' : undefined} aria-hidden={hidden || undefined}>
       {TAB_NAV.map(n => {
         const active = n.id === activeId;
         const count = n.badge ? counts?.[n.badge] : 0;
@@ -22,7 +22,7 @@ export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, 
           </button>
         );
       })}
-      <button type="button" className={`sh-tab sh-tab--more${moreActive ? ' is-active' : ''}`} onClick={onMore} aria-haspopup="dialog" aria-expanded={moreOpen}>
+      <button type="button" className={`sh-tab sh-tab--more${moreActive ? ' is-active' : ''}`} onClick={onMore} aria-current={activeId === 'more' ? 'page' : undefined}>
         <span className="sh-tab-icon"><DotsGrid width={18} height={18} /><Badge count={moreCount} /></span>
         <span className="sh-tab-label">More</span>
       </button>
@@ -35,7 +35,10 @@ export const tabBarStyles = `
     display: flex; align-items: stretch; justify-content: space-around; flex-shrink: 0;
     height: calc(var(--v-tabbar-h) + var(--v-inset-bottom)); padding: 0 max(var(--v-space-1), env(safe-area-inset-left)) var(--v-inset-bottom) max(var(--v-space-1), env(safe-area-inset-right));
     background: var(--v-surface-1); border-top: 1px solid var(--v-border); z-index: var(--v-z-tabbar);
+    overflow: hidden; transition: height var(--v-dur-base) var(--v-ease-out), opacity var(--v-dur-base) var(--v-ease-out), transform var(--v-dur-base) var(--v-ease-out);
   }
+  /* Focused screens (src/shell/chrome.js): the bar slides away and gives its height to the screen; it slides back on Back. */
+  .sh-tabs.is-hidden { height: 0; padding-bottom: 0; border-top-color: transparent; opacity: 0; transform: translateY(100%); pointer-events: none; }
   @media (min-width: 768px) { .sh-tabs { display: none; } }
   .sh-tab {
     flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
@@ -47,7 +50,7 @@ export const tabBarStyles = `
   .sh-tab-icon { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 26px; border-radius: var(--v-radius-pill); transition: background var(--v-dur-fast) var(--v-ease-out); }
   .sh-tab.is-active { color: var(--v-red-highlight); }
   .sh-tab.is-active .sh-tab-icon { background: var(--v-red-soft); }
-  .sh-tab-label { font-size: 10px; line-height: 12px; font-weight: var(--v-weight-bold); letter-spacing: 0.02em; }
+  .sh-tab-label { font-size: 11px; line-height: 13px; font-weight: var(--v-weight-bold); letter-spacing: 0.02em; }
   .sh-tab .v-badge { top: -4px; right: 2px; box-shadow: 0 0 0 2px var(--v-surface-1); }
   .sh-tab-skel { position: absolute; top: -2px; right: 4px; }
 `;

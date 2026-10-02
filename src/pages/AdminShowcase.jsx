@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Menu, InlineEdit, ListRow, Sheet, Input, Select, Textarea, Toggle, Collapsible, EmptyState, SkeletonText, Icon, ProgressBar, Chip, useToast, useConfirm, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
+import { useSelection } from '../shell/nav-history';
 import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_IDS } from '../shared/semantics';
 import { fmtDate } from '../shared/dates';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
@@ -191,7 +192,11 @@ function ObjectListEditor({ items, onReorder, onRemove, onAdd, canAdd, addLabel 
  * its header that stays visible either way (the Deliverables/Playbook
  * `Block` pattern in LeadDetail.jsx, reusing its dt-block* classes; kept
  * local here to avoid a circular import between the two files). */
+/* A phone (milestone 4) shows the editor as an overview of rows; a row opens one block on its own screen. In that step the block is
+   always open and its header is a plain title with the Enabled switch, not a fold. */
+const StepCtx = createContext(false);
 function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children, openSignal }) {
+  const stepMode = useContext(StepCtx);
   /* UX audit, item 7: closed until asked for, so the page reads as a
      checklist; the completeness meter opens a block by bumping openSignal. */
   const [open, setOpen] = useState(false);
@@ -199,13 +204,15 @@ function ShowcaseBlock({ title, enabled, onEnabled, summary, readOnly, children,
   return (
     <Card className="dt-block">
       <Row gap={2} align="center" className="dt-block-head">
-        <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} data-block={title}>
-          <span className="pb-card-h" style={{ margin: 0 }}>{title}</span>
-          {!open && <span className="dt-block-sum lay-truncate">{summary}</span>}
-        </button>
+        {stepMode ? <span className="pb-card-h dt-block-btn" style={{ margin: 0 }} data-block={title}>{title}</span> : (
+          <button type="button" className="dt-block-btn" onClick={() => setOpen(o => !o)} aria-expanded={open} data-block={title}>
+            <span className="pb-card-h" style={{ margin: 0 }}>{title}</span>
+            {!open && <span className="dt-block-sum lay-truncate">{summary}</span>}
+          </button>
+        )}
         <Toggle size="sm" checked={enabled} onChange={onEnabled} label="Enabled" disabled={readOnly} />
       </Row>
-      <Collapsible open={open}>{children}</Collapsible>
+      <Collapsible open={open || stepMode}>{children}</Collapsible>
     </Card>
   );
 }
@@ -768,7 +775,12 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
     const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this showcase have not been saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
   }, [confirm, onBack]);
-  useTopBar({ back: leave });
+  /* A phone: an overview of rows, one block (a step) per screen. The draft lives up here, so it carries across the steps; Save is on the
+     overview, a step has Done. Back from a step is a history Back to the overview; Back from the overview keeps the leave guard. */
+  const phone = useMediaQuery('(max-width: 767px)');
+  const { selId: step, open: openStep, close: closeStep } = useSelection('showcase-step');
+  const inStep = phone && !!step;
+  useTopBar({ title: inStep ? step : undefined, back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
 
   // Cmd+S / Ctrl+S, and the browser's own guard for closing the tab.
   useEffect(() => {
@@ -801,16 +813,51 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
   const publicUrl = sh.slug ? `https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}` : '';
   /* The meter opens a block by bumping its signal; a chip for a card that is
      always open (fields, testimonials) scrolls to it instead. */
+  const stepOf = (block) => (block === 'fields' ? 'Card fields' : block === 'testimonials' ? 'Testimonials' : block);
   const openBlock = (block) => {
+    if (phone) { openStep(stepOf(block)); return; }
     if (block === 'fields' || block === 'testimonials') { document.querySelector(block === 'fields' ? '.sc-fields' : '.sc-testimonials')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     setSignals(prev => ({ ...prev, [block]: (prev[block] || 0) + 1 }));
     requestAnimationFrame(() => document.querySelector(`[data-block="${block}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
   const name = sh.displayName || lead.business || 'Client';
+  /* The phone's overview rows, in the order the page reads. Each renders its own card or block in a step. */
+  const steps = [
+    { id: 'Publish', summary: sh.published ? 'Published' : 'Draft, not live', render: () => <PublishCard sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} /> },
+    { id: 'Card fields', summary: sh.displayName || lead?.business || 'Name, type and blurb', render: () => <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} /> },
+    { id: 'Brand identity', summary: sh.brand?.enabled ? 'On' : 'Off', render: () => <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={0} /> },
+    { id: 'Website', summary: sh.website?.enabled ? 'On' : 'Off', render: () => <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={0} /> },
+    { id: 'Instagram', summary: sh.instagram?.enabled ? 'On' : 'Off', render: () => <InstagramBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={0} /> },
+    { id: 'Business cards', summary: sh.cards?.enabled ? 'On' : 'Off', render: () => <CardsBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={0} /> },
+    { id: 'Print and product', summary: sh.print?.enabled ? 'On' : 'Off', render: () => <PrintBlock sh={sh} write={write} writeRaw={write} readOnly={readOnly} openSignal={0} /> },
+    { id: 'Testimonials', summary: `${(draft.testimonials || []).length} saved`, render: () => <TestimonialsCard lead={lead} testimonials={draft.testimonials} writeTestimonials={writeTestimonials} submissions={submissions} readOnly={readOnly} /> },
+  ];
 
   return (
     <PageShell className="aa-main aa-main--wide sc-page sb-host">
       <ScrollArea wide className="sc-scroll">
+      {phone ? (
+        <div className="sc-page-body">
+          {inStep ? (
+            <StepCtx.Provider value>{(steps.find(x => x.id === step) || steps[0]).render()}</StepCtx.Provider>
+          ) : (
+            <Stack gap={3}>
+              <Row gap={2} align="center" justify="between" wrap>
+                <Row gap={2} align="center" style={{ minWidth: 0 }}>
+                  <h2 className="sc-page-title lay-title">{name}</h2>
+                  <Pill tone={sh.published ? 'booked' : 'neutral'} label={sh.published ? 'Published' : 'Draft'} size="sm" variant={sh.published ? 'solid' : 'soft'} icon={false} />
+                </Row>
+                <Button variant="secondary" icon="LinkExternal01" disabled={!publicUrl} onClick={() => window.open(publicUrl, '_blank', 'noopener')}>Preview</Button>
+              </Row>
+              <CompletenessCard sh={sh} lead={lead} onOpen={openBlock} />
+              <Stack gap={2}>
+                {steps.map(x => <ListRow key={x.id} title={x.id} subtitle={x.summary} onClick={() => openStep(x.id)} />)}
+              </Stack>
+            </Stack>
+          )}
+        </div>
+      ) : (
+      <>
       <div className="sc-topbar">
         <Row gap={2} align="center" justify="between" wrap>
           <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
@@ -836,6 +883,8 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
         </Section>
       </div>
 
+      </>
+      )}
       </ScrollArea>
 
       {/* The save bar rises the moment the draft differs from what is live.
@@ -843,7 +892,7 @@ export default function AdminShowcase({ lead, loading = false, onPatch, onBack, 
           the page, not scroll content, and leaving it inside the scroller
           meant the scroller reserved no room for it. The space it needs is
           reserved through the kit's own --v-scroll-extra hook above. */}
-      <SaveBar open={dirty} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
       <style>{saveBarStyles + imageFieldStyles + scStyles}</style>
     </PageShell>

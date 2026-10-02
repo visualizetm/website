@@ -43,7 +43,7 @@ export function searchAll(query, leads, { limit = 6 } = {}) {
   const clients = scored.filter(x => CLIENT_STAGES.has(normalizeStage(x.lead))).slice(0, limit);
   const leadsOut = scored.filter(x => !CLIENT_STAGES.has(normalizeStage(x.lead))).slice(0, limit);
   const jumps = q && !digits
-    ? NAV.filter(n => !n.soon && (lower(n.label).includes(needle) || lower(n.id).includes(needle))).slice(0, 4)
+    ? NAV.filter(n => !n.soon && !n.phoneOnly && (lower(n.label).includes(needle) || lower(n.id).includes(needle))).slice(0, 4)
     : [];
   const showcases = digits ? [] : clients.slice(0, 3);
   return { leads: leadsOut, clients, showcases, jumps, digits, digitsPretty: digits ? (formatPhone(digitsOf(q)) || digitsOf(q)) : '' };

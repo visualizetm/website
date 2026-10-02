@@ -12,7 +12,7 @@ import Button from './Button';
  */
 export default function EmptyState({ icon, title, description, action, secondary, size = 'md', className = '', ...rest }) {
   return (
-    <div className={`v-empty v-empty--${size} ${className}`.trim()} role="status" {...rest}>
+    <div className={`v-empty v-empty--${size} ${className}`.trim()} role="status" data-state="empty" {...rest}>
       {icon && <span className="v-empty-icon"><Icon icon={icon} size="var(--v-icon-lg)" /></span>}
       <p className="v-empty-title">{title}</p>
       {description && <p className="v-empty-desc">{description}</p>}

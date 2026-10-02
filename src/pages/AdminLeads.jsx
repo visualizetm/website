@@ -5,12 +5,13 @@ import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Badge, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Modal, Sheet, Table, EmptyState, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
+  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Badge, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Modal, Sheet, Table, EmptyState, NoResults, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadCard, { leadMenuItems } from '../components/LeadCard';
+import LeadSwipe from '../components/LeadSwipe';
 import LeadForm from '../components/LeadForm';
 import ListSearch, { matchLine } from '../components/ListSearch';
 import LeadDetail from '../components/LeadDetail';
@@ -185,6 +186,7 @@ export default function AdminLeads({
   const activeCount = filters.status.length + filters.prio.length + filters.industry.length + filters.data.length + (q ? 1 : 0);
   const sheetCount = filters.prio.length + filters.industry.length + filters.data.length;
   const setGroup = (g) => (vals) => setFilters(f => ({ ...f, [g]: vals }));
+  const filtersOn = JSON.stringify(filters) !== JSON.stringify(EMPTY_FILTERS);
   const clearAll = () => { setFilters(EMPTY_FILTERS); setQ(''); };
 
   // The record can be a declined or nurture lead opened from those views, a notification or the search.
@@ -298,7 +300,7 @@ export default function AdminLeads({
 
   const summary = `${pool.length} lead${pool.length === 1 ? '' : 's'}, ${toCall} to call`;
   const stackList = (list) => (
-    <Stagger className="ld-stack">{list.map(l => <LeadCard key={l._id} lead={l} {...cardProps(l)} />)}</Stagger>
+    <Stagger className="ld-stack">{list.map(l => <LeadSwipe key={l._id} lead={l} actions={cardActions(l)} onOpen={() => pick(l._id)} patch={patch} enabled={!desktop && !selectMode && checked.size === 0}><LeadCard lead={l} {...cardProps(l)} /></LeadSwipe>)}</Stagger>
   );
 
   /* ── Deep link while the list resolves: the detail shape, not the list skeleton ── */
@@ -408,7 +410,7 @@ export default function AdminLeads({
                 ))}
               </Stack>
             ) : !sorted.length ? (
-              <Card><EmptyState size="sm" icon="SearchMd" title={E('leads.filter').title} description={E('leads.filter').description} action={{ label: E('leads.filter').action, onClick: clearAll }} /></Card>
+              <Card><NoResults noun="leads" query={q} filters={filtersOn ? ['these filters'] : []} onClear={clearAll} /></Card>
             ) : mode === 'kanban' ? (
               <div className={`ld-board${drag ? ' is-dragging' : ''}`} role="group" aria-label="Leads by call status">
                 {columns.map((c, i) => {
@@ -424,7 +426,7 @@ export default function AdminLeads({
               </div>
             ) : desktop ? (
               <Table aria-label="Leads" columns={tableCols} rows={sorted} selectable selected={checked} onSelect={setChecked} sort={sort} onSort={setSort} density="md" storageKey="vz_leads_cols"
-                onRowClick={(l) => pick(l._id)} rowActions={(l) => <Menu items={leadMenuItems(l, cardActions(l))} label={`Actions for ${l.business}`} />} empty={<EmptyState size="sm" icon="SearchMd" title={E('leads.filter').title} description={E('leads.filter').description} action={{ label: E('leads.filter').action, onClick: clearAll }} />} />
+                onRowClick={(l) => pick(l._id)} rowActions={(l) => <Menu items={leadMenuItems(l, cardActions(l))} label={`Actions for ${l.business}`} />} empty={<NoResults noun="leads" query={q} filters={filtersOn ? ['these filters'] : []} onClear={clearAll} />} />
             ) : (
               <Stack gap={2}>
                 <Select label="Sort" value={sort.id} onChange={(e) => { const s = SORTS.find(x => x.id === e.target.value); setSort({ id: s.id, dir: s.dir }); }} options={SORTS.map(s => ({ id: s.id, label: s.label }))} />

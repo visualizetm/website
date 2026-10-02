@@ -661,8 +661,11 @@ for (const width of WIDTHS) {
 
   await goto('/admin/settings');
   await check('settings: profile');
+  if (width < 768) { await page.locator('.sh-content').getByRole('button', { name: /^Profile/ }).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(400); await check('settings: profile screen'); }
   for (const t of ['Notifications', 'Integrations', 'Data', 'Danger zone']) {
-    await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
+    /* A computer switches tabs in place; a phone goes back to the list of rows and opens the next one. */
+    if (width < 768) { await goto('/admin/settings'); await page.locator('.sh-content').getByRole('button', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(400); }
+    else await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
     await check(`settings: ${t.toLowerCase()}`);
     if (t === 'Integrations') {
       await page.locator('.st-reconcile').first().click({ timeout: 3000 }).catch(() => {});
@@ -1110,7 +1113,8 @@ for (const width of WIDTHS) {
 
   if (width < 768) {
     await page.locator('.sh-tab--more').click({ timeout: 4000 }).catch(() => {});
-    await check('mobile More sheet');
+    await page.waitForTimeout(500);
+    await check('mobile More screen');
     await page.keyboard.press('Escape').catch(() => {});
   } else {
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});

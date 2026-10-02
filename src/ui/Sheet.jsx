@@ -6,6 +6,8 @@ import useScrollLock from './useScrollLock';
 import useMediaQuery, { DESKTOP_QUERY } from './useMediaQuery';
 import { portalRoot } from './portal';
 import { durationMs } from './motion';
+
+const FLICK = 0.5; // px per ms: a quick downward flick dismisses a bottom sheet
 /**
  * Sheet: bottom sheet on mobile (drag handle, sized to content, swipe down to
  * dismiss, respects --v-safe-bottom), right side panel on desktop. Focus trap,
@@ -28,6 +30,10 @@ export default function Sheet({ open, onClose, title, description, footer, width
   const drag = useRef(null);
   const boxRef = useRef(null);
   const close = useCallback(() => onClose?.(), [onClose]);
+  /* A sheet opened by a long press must not be closed by the release of that same touch: backdrop clicks in its first moments are ignored. */
+  const openedAt = useRef(0);
+  useEffect(() => { if (open) openedAt.current = Date.now(); }, [open]);
+  const closeFromBackdrop = () => { if (Date.now() - openedAt.current > 400) close(); };
 
   useEffect(() => {
     if (open) { setMounted(true); setClosing(false); setDragY(0); return undefined; }
@@ -40,25 +46,61 @@ export default function Sheet({ open, onClose, title, description, footer, width
   useScrollLock(mounted);
   useFocusTrap(boxRef, open && mounted, { onEscape: close });
 
+  /* The sheet follows the finger from the handle, the title and (when it is scrolled to the top) the body. Release past a third of
+     its height, or with a flick, dismisses; less springs back. */
+  const release = (dy) => {
+    const d = drag.current; if (!d) return;
+    const v = dy / Math.max(1, performance.now() - d.t0);
+    const h = boxRef.current?.getBoundingClientRect().height || 300;
+    drag.current = null;
+    if (dy > h / 3 || (v > FLICK && dy > 40)) close(); else setDragY(0);
+  };
   const onPointerDown = (e) => {
     if (desktop || e.target.closest?.('.v-sheet-x')) return;
     drag.current = { y0: e.clientY, t0: performance.now() };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onPointerMove = (e) => { if (drag.current) setDragY(Math.max(0, e.clientY - drag.current.y0)); };
-  const onPointerUp = (e) => {
-    if (!drag.current) return;
-    const dy = e.clientY - drag.current.y0;
-    const v = dy / Math.max(1, performance.now() - drag.current.t0);
-    drag.current = null;
-    if (dy > 110 || v > 0.6) close(); else setDragY(0);
-  };
+  const onPointerUp = (e) => { if (drag.current) release(e.clientY - drag.current.y0); };
+
+  /* The body: a downward drag that starts while it is scrolled to the top takes the sheet with it (touch only). */
+  useEffect(() => {
+    const body = boxRef.current?.querySelector('.v-sheet-body');
+    if (!mounted || desktop || !body) return undefined;
+    let t = null;
+    const start = (e) => { if (e.touches.length === 1 && body.scrollTop <= 0) t = { y0: e.touches[0].clientY, x0: e.touches[0].clientX, on: false, t0: performance.now() }; };
+    const move = (e) => {
+      if (!t) return;
+      const dy = e.touches[0].clientY - t.y0; const dx = e.touches[0].clientX - t.x0;
+      if (!t.on) { if (dy > 8 && dy > Math.abs(dx) * 1.2 && body.scrollTop <= 0) { t.on = true; drag.current = { y0: t.y0, t0: t.t0 }; } else if (dy < -4 || Math.abs(dx) > 8) { t = null; return; } else return; }
+      if (e.cancelable) e.preventDefault();
+      setDragY(Math.max(0, dy));
+    };
+    const end = (e) => { if (t?.on) release(Math.max(0, (e.changedTouches?.[0]?.clientY ?? t.y0) - t.y0)); t = null; };
+    body.addEventListener('touchstart', start, { passive: true });
+    body.addEventListener('touchmove', move, { passive: false });
+    body.addEventListener('touchend', end);
+    body.addEventListener('touchcancel', end);
+    return () => { body.removeEventListener('touchstart', start); body.removeEventListener('touchmove', move); body.removeEventListener('touchend', end); body.removeEventListener('touchcancel', end); };
+  });
+
+  /* The screen behind recedes while a bottom sheet is up: --v-recede runs 1 (sheet at rest) to 0 (sheet gone), following the drag. At most a 4 percent scale. */
+  useEffect(() => {
+    const root = document.querySelector('.lay-root');
+    if (!root || desktop || !mounted) return undefined;
+    const h = boxRef.current?.getBoundingClientRect().height || 400;
+    const r = closing ? 0 : Math.max(0, 1 - dragY / h);
+    root.setAttribute('data-v-recede', dragY ? 'drag' : 'on');
+    root.style.setProperty('--v-recede', String(r));
+    return undefined;
+  }, [mounted, closing, dragY, desktop]);
+  useEffect(() => () => { const root = document.querySelector('.lay-root'); if (root) { root.removeAttribute('data-v-recede'); root.style.removeProperty('--v-recede'); } }, []);
 
   if (!mounted) return null;
   const root = portalRoot();
   if (!root) return null;
   return createPortal(
-    <div className={`v-sheet-back${closing ? ' is-closing' : ''}`} onClick={close}>
+    <div className={`v-sheet-back${closing ? ' is-closing' : ''}`} onClick={closeFromBackdrop}>
       <div ref={boxRef} className={`v-sheet ${desktop ? 'v-sheet--side' : 'v-sheet--bottom'}${tall ? ' v-sheet--tall' : ''}${closing ? ' is-closing' : ''} ${className}`.trim()}
         role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Details')} aria-labelledby={typeof title === 'string' && title ? 'v-sheet-title' : undefined} tabIndex={-1}
         style={{ width: desktop ? (typeof width === 'number' ? `${width}px` : width) : undefined, transform: dragY ? `translateY(${dragY}px)` : undefined, transition: dragY ? 'none' : undefined }}
@@ -82,6 +124,9 @@ export default function Sheet({ open, onClose, title, description, footer, width
 }
 
 export const sheetStyles = `
+  /* The screen behind a bottom sheet scales back (4 percent at most) and returns as the sheet leaves; --v-recede is written by Sheet. */
+  [data-v-recede] .sh-col { transform: scale(calc(1 - 0.04 * var(--v-recede, 0))); transform-origin: center 30%; border-radius: calc(var(--v-radius-xl) * var(--v-recede, 0)); overflow: hidden; transition: transform var(--v-dur-base) var(--v-ease-out), border-radius var(--v-dur-base) var(--v-ease-out); }
+  [data-v-recede='drag'] .sh-col { transition: none; }
   .v-sheet-back { position: fixed; inset: 0; z-index: var(--v-z-sheet); background: var(--v-overlay); backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; animation: v-fade var(--v-dur-base) var(--v-ease-out) both; }
   .v-sheet-back.is-closing { animation: v-fade var(--v-dur-base) var(--v-ease-out) reverse both; }
   @keyframes v-fade { from { opacity: 0; } to { opacity: 1; } }

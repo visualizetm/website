@@ -111,6 +111,26 @@ export function useNavHistory() {
     if (o && toIdx < fromIdx && o.path === location.pathname) setPending({ ...o, n: Date.now() });
   }, [location]);
 }
+/* ── The screen beneath an interactive Back (milestone 3) ──
+ * When a push leaves a screen, a static copy of its content is kept by the depth of the entry, so the edge swipe
+ * can show it under the screen that follows the finger (src/shell/useEdgeBack.js). A copy is skipped for a very
+ * large screen (a long list), which then shows the plain ground under the moving screen. */
+const SNAP_LIMIT = 1400;
+const snaps = new Map();
+export function captureSnapshot(idx) {
+  try {
+    const main = document.querySelector('.sh-content');
+    if (!main) return;
+    if (main.getElementsByTagName('*').length > SNAP_LIMIT) { snaps.delete(idx); return; }
+    const clone = main.cloneNode(true);
+    clone.removeAttribute('id'); clone.setAttribute('aria-hidden', 'true'); clone.setAttribute('inert', '');
+    clone.querySelectorAll('[id]').forEach(n => n.removeAttribute('id'));
+    snaps.set(idx, clone);
+    for (const k of [...snaps.keys()]) if (k < idx - 4) snaps.delete(k);
+  } catch { /* the swipe falls back to the plain ground */ }
+}
+export const snapshotFor = (idx) => snaps.get(idx) || null;
+
 /** push(to, { open, create, preset, selectedId, replace }): a history push whose state carries the origin. */
 export function usePush() {
   const navigate = useNavigate(); const location = useLocation();
@@ -119,6 +139,7 @@ export function usePush() {
     const cur = loc.current;
     const origin = captureOrigin(cur, { selectedId: opts.selectedId });
     const idx = (cur.state?.idx || 0) + 1;
+    if (!opts.replace) captureSnapshot(cur.state?.idx || 0);
     const state = { idx, origin, ...(opts.open ? { open: opts.open } : {}), ...(opts.create ? { create: opts.create } : {}), ...(opts.preset ? { preset: opts.preset } : {}) };
     if (opts.replace) { state.idx = cur.state?.idx || 0; state.origin = cur.state?.origin || null; }
     navigate(to, { state, replace: !!opts.replace });

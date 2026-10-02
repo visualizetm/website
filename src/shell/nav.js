@@ -38,7 +38,9 @@ export const NAV = [
   { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', group: 'System', badge: null, more: 8 },
   { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     group: 'System',   badge: null,        more: 13 },
   { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   group: 'System',   badge: null,        more: 11 },
-  // The More sheet's Declined row: the Leads screen on its Declined pool. moreOnly keeps it out of the sidebar.
+  // The phone's More screen (milestone 3): not a destination of its own, so the sidebar and the command bar skip it (phoneOnly).
+  { id: 'more',        label: 'More',             icon: 'Rows01',          path: '/more',       group: 'System',   badge: null,        phoneOnly: true },
+  // The More screen's Declined row: the Leads screen on its Declined pool. moreOnly keeps it out of the sidebar.
   { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/leads',      href: '/leads?pool=declined', search: 'pool=declined', group: 'Pipeline', badge: null, more: 10, moreOnly: true },
 ];
 
@@ -54,7 +56,7 @@ export const NAV_GROUP_META = {
 export const NAV_GROUPS = ['Pipeline', 'Clients', 'Studio', 'System'];
 
 /** Entries grouped in display order. */
-export const navGroups = () => NAV_GROUPS.map(g => ({ group: g, items: NAV.filter(n => n.group === g && !n.moreOnly) }));
+export const navGroups = () => NAV_GROUPS.map(g => ({ group: g, items: NAV.filter(n => n.group === g && !n.moreOnly && !n.phoneOnly) }));
 
 /** The mobile thumb tabs, in order (More is appended by the tab bar itself). */
 export const TAB_NAV = NAV.filter(n => n.tab).sort((a, b) => (a.tabOrder ?? 99) - (b.tabOrder ?? 99));

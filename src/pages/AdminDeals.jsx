@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
-  PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
+  PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -100,6 +100,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
         {pending ? null : showSkel ? skeleton
           : error && !leads.length ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
           : !pool.length ? <Card><EmptyState icon="Zap" title={E.title} description={E.description} action={{ label: E.action, icon: PhoneOutgoing01, onClick: () => (shell ? shell.go('calls') : onGo?.('calls')) }} /></Card>
+          : q.trim() && !shown.length ? <Card><NoResults noun="deals" query={q} onClear={() => setQ('')} /></Card>
           : board ? (
             <div className="dl-board">
               {groups.map(g => (

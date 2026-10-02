@@ -4,7 +4,7 @@ import Check from '@untitled-ui/icons-react/build/esm/Check';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, Menu, InlineEdit, Toggle, Checkbox, ListRow, Sheet, Modal, Table, EmptyState, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, durationMs,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Textarea, Select, Button, IconButton, Menu, InlineEdit, Toggle, Checkbox, ListRow, Sheet, Modal, Table, EmptyState, NoResults, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, durationMs,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
@@ -295,7 +295,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
           ) : !live.length ? (
             <Card><EmptyState icon="Package" title={E('orders.none').title} description={E('orders.none').description} action={{ label: E('orders.none').action, icon: Plus, onClick: () => setCreating(true) }} /></Card>
           ) : !list.length ? (
-            <Card><EmptyState size="sm" icon="SearchMd" title={E('orders.filter').title} description={E('orders.filter').description} action={{ label: E('orders.filter').action, onClick: () => { setFilter('all'); setQ(''); } }} /></Card>
+            <Card><NoResults noun="orders" query={q} filters={filter !== 'all' ? [(ORDER_FILTERS.find(([id]) => id === filter) || [])[1]] : []} onClear={() => { setFilter('all'); setQ(''); }} /></Card>
           ) : desktop && !sel ? (
             <Table aria-label="Print orders" columns={columns} rows={list} rowKey={(o) => String(o._id)} onRowClick={(o) => openSel(o._id)} storageKey="vz_orders_cols" className="po-table" />
           ) : (

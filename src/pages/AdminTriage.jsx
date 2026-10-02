@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Menu, Sheet, Table, Pill, Chip, SegmentedControl, EmptyState, ErrorState, Stagger,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Menu, Sheet, Table, Pill, Chip, SegmentedControl, EmptyState, NoResults, ErrorState, Stagger,
   SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
@@ -231,7 +231,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   ) : error && !leads.length ? (
     <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
   ) : pile.length && !shown.length ? (
-    <Card><EmptyState size="sm" icon="SearchMd" title="Nothing matches" description="Loosen a chip or clear the search." action={{ label: 'Clear', onClick: () => { setQ(''); setSrcSel(new Set()); setIndSel(new Set()); setPhoneOnly(false); } }} /></Card>
+    <Card><NoResults noun="leads" query={q} filters={q.trim() ? [] : ['these chips']} onClear={() => { setQ(''); setSrcSel(new Set()); setIndSel(new Set()); setPhoneOnly(false); }} /></Card>
   ) : !pile.length ? (
     <Card><EmptyState icon="Inbox01" title={E.title} description={E.description} action={{ label: E.action, icon: 'Zap', onClick: () => onCapture?.() }} /></Card>
   ) : phone ? (

@@ -56,7 +56,7 @@ export const COPY = {
     'calendar.day': { title: 'Nothing scheduled', description: 'A clear day. Book something or set a callback.', action: 'Start call session', secondary: 'Add a callback' },
     'calendar.range': { title: 'Nothing on the calendar', description: 'Meetings, callbacks, and Calendly bookings all land here.', action: 'Start call session' },
     /* Clients */
-    'clients.none': { title: 'No clients yet', description: 'Win a booked meeting, or add a walk in with the button above.', action: 'Open Booked' },
+    'clients.none': { title: 'No clients yet', description: 'Win a booked meeting, or add a walk in with the button above.', action: 'Open Deals' },
     'clients.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
     'clients.projects': { title: 'No projects yet', description: 'Start one from a package, an add-on set, or a custom total. The payment schedule fills itself in.', action: 'New project' },
     'clients.payments': { title: 'No project to bill', description: 'Create a project and its schedule shows up here.', action: 'New project' },
@@ -74,7 +74,7 @@ export const COPY = {
     'orders.import.csv': { title: 'Nothing to import yet', description: 'Add a header row and at least one order row.' },
     /* Concepts */
     /* Concepts, rebuilt as a client presentation (docs/CONCEPTS-AUDIT.md). */
-    'concepts.none': { title: 'No concepts out right now', description: 'Build one from a lead: open the record and tap Concepts.' },
+    'concepts.none': { title: 'No concepts out right now', description: 'Build one from a lead: open the record and tap Concepts.', action: 'Open Leads' },
     'concepts.filter': { title: 'Nothing in this status', description: 'Every set is under All.', action: 'Show all' },
     'concepts.lead': { title: 'No concepts for this record yet', description: 'Start a set, add a direction or three with images, and send them the link.', action: 'Start a set' },
     /* Reviews */
