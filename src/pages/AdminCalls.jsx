@@ -196,7 +196,7 @@ function BeforeYouDial({ lead, done, onToggle }) {
   const items = lead.beforeYouDial || [];
   if (!items.length) return null;
   return (
-    <Card level={1} padding={3} className="cc-predial" style={{ minHeight: desktop ? undefined : 106 }}>
+    <Card level={1} padding={3} className="cc-predial">
       <p className="pb-card-h">Before you dial</p>
       <Stack gap={0}>{items.map((t, i) => <Checkbox key={i} label={t} checked={!!done[i]} onChange={() => onToggle(i)} />)}</Stack>
     </Card>
@@ -714,7 +714,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
         </Card>
         )}
-        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{(desktop ? [1, 2, 3] : [1]).map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
+        <Card level={1} padding={3} className="cc-predial" style={{ minHeight: desktop ? undefined : 106 }}><SkeletonBlock width={110} height={12} /><Stack gap={0}>{(desktop ? [1, 2, 3] : [1]).map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
         {desktop
           ? <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
           /* A phone: the tab row (45px, like the real tabs) and the open tab's text, which has no card of its own. */

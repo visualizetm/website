@@ -309,6 +309,7 @@ export default function AdminLanding({ leads = [], projects = [], loading, error
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
+  const phone = useMediaQuery('(max-width: 767px)');
   const showSkel = useDelayedLoading(loading);
   const pending = loading && !showSkel;
   useTopBar(null);
@@ -364,13 +365,13 @@ export default function AdminLanding({ leads = [], projects = [], loading, error
           // Shaped like the four real sections below (Section + row skeletons at
           // the same heights as ListRow/Card), so the fit check sees no jump.
           <Stack gap={6} aria-busy="true" className="ld-sections">
-            <Section title="Logo strip" description=" "><Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack></Section>
+            <Section title="Logo strip" description=" "><Stack gap={2}>{Array.from({ length: phone ? 3 : 2 }, (_, i) => <SkeletonBlock key={i} height={62} radius="var(--v-radius-md)" />)}</Stack></Section>
             <Section title="Featured work" description=" ">
               {/* A fixed spacer matching the real fallback note's footprint, tuned
                   against a direct measurement rather than guessed, so the row
                   below lands at the same position in both states. */}
               <div style={{ height: 36 }} aria-hidden="true" />
-              <Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack>
+              <Stack gap={2}>{Array.from({ length: phone ? 3 : 1 }, (_, i) => <SkeletonBlock key={i} height={62} radius="var(--v-radius-md)" />)}</Stack>
             </Section>
             <Section title="Testimonials" description=" "><Stack gap={2}><SkeletonBlock height={62} radius="var(--v-radius-md)" /></Stack></Section>
             <Section title="Stats" description=" "><Stack gap={2}>{[1, 2, 3, 4].map(i => <Card key={i} padding={3}><Row gap={4} wrap><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 220px' }} /><SkeletonBlock height={44} radius="var(--v-radius-md)" style={{ flex: '1 1 180px' }} /></Row></Card>)}</Stack></Section>

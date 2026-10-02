@@ -212,7 +212,7 @@ function PostRow({ post, draft, client, onOpen, onMove, onSendForApproval, first
 }
 
 export default function AdminPlanner({
-  lead, posts = [], loading = false, error = false, onRetry, onPatch, onRefetchLead,
+  lead, posts = [], loading = false, error = false, onRetry, leadsError = false, onRetryLeads, onPatch, onRefetchLead,
   onCreatePost, onPatchPost, onDeletePost, onBack, month: monthProp, readOnly = false,
 }) {
   const toast = useToast();
@@ -397,7 +397,9 @@ export default function AdminPlanner({
     return (
       <PageShell className="aa-main aa-main--wide">
         <ScrollArea wide>
-          {loading
+          {leadsError && !loading
+            ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={onRetryLeads} /></Card>
+            : loading
             ? <Section title="Planner" description=" " loading><Stack gap={3}>{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack></Section>
             : <EmptyState icon="Calendar" title="Client not found" description="That client is not in the list any more." action={<Button onClick={onBack}>Back to clients</Button>} />}
         </ScrollArea>

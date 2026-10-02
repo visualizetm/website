@@ -132,9 +132,10 @@ export const SCREENS = [
      a full month including a post in review carrying a client note; L13 has
      one switched off. The Sheet, the save bar and the regenerate dialog are
      driven by the layout audit's own walk, which can press things. */
-  { id: 'planner-on', screen: 'Planner editor', label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads' },
-  { id: 'planner-off', screen: 'Planner editor', label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
-  { id: 'planner-empty', screen: 'Planner editor', label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
+  // The planner states are noFit: the layout depends on the client's planner setting and the month's posts, unknown until the lead loads.
+  { id: 'planner-on', screen: 'Planner editor', noFit: true, label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads' },
+  { id: 'planner-off', screen: 'Planner editor', noFit: true, label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
+  { id: 'planner-empty', screen: 'Planner editor', noFit: true, label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
   { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
   /* The format control and the platform chips, on a post that is a story
      (no hashtag field) and on one that is blocked from approval. */
@@ -195,7 +196,8 @@ export const SCREENS = [
   // reports/MAINTENANCE-PAGE-REPORT.md for how it was verified.
   { id: 'mkt-maintenance', screen: 'Maintenance (marketing)', label: 'full', path: '/', session: false, static: true, marketing: true },
 
-  { id: 'orders-list', screen: 'Print Orders', label: 'list', path: '/admin/orders', resource: 'orders' },
+  // orders-list is noFit: the shop-order import banner appears only when submissions are unimported, which the skeleton cannot know.
+  { id: 'orders-list', screen: 'Print Orders', label: 'list', noFit: true, path: '/admin/orders', resource: 'orders' },
   { id: 'orders-detail', screen: 'Print Orders', label: 'order detail (panel or sheet)', path: '/admin/orders', open: 'O1', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'orders', detail: true, act: (p, w) => openRow(p, w, 'Person 0', /^Open order for Person 0/) },
 
   { id: 'concepts-list', screen: 'Concepts', label: 'list, every status', path: '/admin/concepts', resource: 'sets' },
@@ -207,7 +209,7 @@ export const SCREENS = [
   { id: 'concepts-editor-draft', screen: 'Concepts editor', label: 'a draft with a linked project', path: '/admin/leads/L11/concepts', resource: 'sets', noFit: true },
   { id: 'concepts-editor-changes', screen: 'Concepts editor', label: 'changes requested, a note without a direction', path: '/admin/leads/L0/concepts', resource: 'sets', noFit: true },
   { id: 'concepts-editor-approved', screen: 'Concepts editor', label: 'approved round two, archived round one', path: '/admin/leads/L3/concepts', resource: 'sets', noFit: true },
-  { id: 'concepts-editor-none', screen: 'Concepts editor', label: 'a lead with no set yet', path: '/admin/leads/L5/concepts', resource: 'sets' },
+  { id: 'concepts-editor-none', screen: 'Concepts editor', noFit: true, label: 'a lead with no set yet', path: '/admin/leads/L5/concepts', resource: 'sets' },
   { id: 'concepts-editor-dirty', screen: 'Concepts editor', label: 'unsaved change, the save bar', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p, w) => { /* a phone edits the title in the Setup step, then Done returns to the overview where the save bar is */ if (w < 768) { await click(p.locator('.sh-content').getByRole('button', { name: /^Setup/ }), 3000); await p.waitForTimeout(500); } const t = p.getByLabel('Title'); await t.fill('Edited title'); await t.blur(); if (w < 768) { await click(p.getByRole('button', { name: 'Done' }), 3000); await p.waitForTimeout(500); } } },
   { id: 'concepts-editor-menu', screen: 'Concepts editor', label: 'direction actions menu', path: '/admin/leads/L8/concepts', resource: 'sets', noFit: true, act: async (p, w) => { if (w < 768) { await click(p.locator('.sh-content').getByRole('button', { name: /^Direction A/ }), 3000); await p.waitForTimeout(500); } await click(p.getByRole('button', { name: 'Direction A actions' })); } },
 
@@ -222,13 +224,15 @@ export const SCREENS = [
     act: t === 'Profile' ? undefined : (p) => tab(p, t),
   })),
 
-  { id: 'design', screen: 'Design system', label: 'design page', path: '/admin/design', resource: null, noEmpty: true, noError: true },
+  // design is noFit: a developer reference page whose loaded state is the whole kit, a thousand pixels past any skeleton.
+  { id: 'design', screen: 'Design system', label: 'design page', path: '/admin/design', resource: null, noFit: true, noEmpty: true, noError: true },
 
   // Site Prompt 2 (Part 3): the Landing screen (logo strip, featured work, testimonials, stats).
   { id: 'landing', screen: 'Landing', label: 'landing screen', path: '/admin/landing', resource: 'leads' },
 
   // The Emails card on Settings, Integrations (CRM revamp, step 6): three hooks connected in the fixtures, one not.
-  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, region: '.st-emails', detail: true, act: async (p) => { await tab(p, 'Integrations'); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
+  // settings-emails is static: the card is reached by a tab click after the screen has loaded, so there is no skeleton of its own to measure.
+  { id: 'settings-emails', screen: 'Settings', label: 'the Emails card', path: '/admin/settings', resource: 'settings', noEmpty: true, static: true, region: '.st-emails', detail: true, act: async (p) => { await tab(p, 'Integrations'); await p.waitForSelector('.st-emails', { timeout: 4000 }).catch(() => {}); } },
   { id: 'notifications', screen: 'Shell', label: 'notifications drawer', path: '/admin/leads', region: '.v-sheet', resource: 'leads', emptyAlso: ['settings'], act: (p) => click(p.locator('.sh-bell')) },
   /* The sidebar rebuild: the groups are disclosure widgets, the rail's groups are menus. */
   { id: 'side-groups', screen: 'Shell', label: 'sidebar, every group open', path: '/admin', minWidth: 768, resource: 'leads', static: true, act: async (p) => { for (const b of await p.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {}); } },

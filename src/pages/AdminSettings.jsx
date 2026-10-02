@@ -208,7 +208,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
   const TAB_HEIGHTS = {
     notifications: { n: [190, 612, 114, 150], d: [158, 424, 114, 74] },
-    integrations: { n: [96, 222, 144, 276, 260, 260, 142], d: [78, 126, 126, 102, 124, 124, 106] },
+    integrations: { n: [96, 222, 435], d: [78, 126, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
   };
@@ -216,7 +216,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
     : <Card key={i} className="st-card" style={heightFor(i) ? { minHeight: heightFor(i) } : undefined}>{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
   const body = pending ? null : showSkel ? (
-    <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: TAB_CARDS[tab] || 3 }, (_, i) => skeletonCard(i))}</Stack>
+    <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: (narrow && tab === 'integrations' ? 3 : TAB_CARDS[tab]) || 3 }, (_, i) => skeletonCard(i))}</Stack>
   ) : loadError && !data ? (
     <Card><ErrorState title={COPY.error.settings.title} description={COPY.error.settings.description} onRetry={retry} retrying={retrying} /></Card>
   ) : tab === 'profile' ? (
@@ -398,10 +398,11 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         {phone && !tab ? (
           <>
             <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
-            <Stack gap={2}>
+            {loadError && !data && !fetching && <Card><ErrorState title={COPY.error.settings.title} description={COPY.error.settings.description} onRetry={retry} retrying={retrying} /></Card>}
+            <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>
               {tabs.map(t => <ListRow key={t.id} leading={t.icon ? <Icon icon={t.icon} size="var(--v-icon-md)" /> : undefined} title={t.label} subtitle={SETTINGS_BLURB[t.id]} meta={t.count ? <span className="st-count">{t.count}</span> : undefined} onClick={() => pushTab(t.id, { tab: t.id })} />)}
               <ListRow leading={<Icon icon="Palette" size="var(--v-icon-md)" />} title="Design system" subtitle="Every token and status, rendered live" onClick={() => pushRel('/design')} />
-            </Stack>
+            </Stagger>
           </>
         ) : (
           <>

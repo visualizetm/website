@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonText, useDelayedLoading, useRetry, Icon } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useRetry, Icon } from '../ui';
 import { COPY } from '../shared/copy';
 import { CONCEPT_SET_STATUSES, conceptSetStatusOf } from '../shared/semantics';
 import { relativeTime } from '../shared/dates';
@@ -34,7 +34,10 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
           {error && !rows.length ? (
             <Card><ErrorState title={COPY.error.sets.title} description={COPY.error.sets.description} onRetry={retry} retrying={retrying} /></Card>
           ) : showSkel ? (
-            <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={2} /></Card>)}</Stack>
+            <Stack gap={3} aria-busy="true">
+              <Row gap={2} wrap className="cl-chips">{[100, 94, 91, 108, 187, 125, 120].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row>
+              <Stack gap={2}>{[124, 95, 124, 95].map((h, i) => <Card key={i} style={{ minHeight: h }}><SkeletonText lines={2} /></Card>)}</Stack>
+            </Stack>
           ) : !rows.length ? (
             <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go('leads') }} /></Card>
           ) : (
@@ -44,7 +47,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
                 {CONCEPT_SET_STATUSES.map(s => <Chip key={s.id} label={s.label} count={counts[s.id] || 0} selected={filter === s.id} onClick={() => setFilter(s.id)} />)}
               </Row>
               {!shown.length ? (
-                <Card><NoResults noun="concept sets" filters={[(CONCEPT_SET_STATUSES.find(x => x.id === filter) || {}).label]} onClear={() => setFilter('all')} /></Card>
+                <Stagger className="v-stack"><Card><NoResults noun="concept sets" filters={[(CONCEPT_SET_STATUSES.find(x => x.id === filter) || {}).label]} onClear={() => setFilter('all')} /></Card></Stagger>
               ) : (
                 <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>
                   {shown.map(({ set, lead }) => {

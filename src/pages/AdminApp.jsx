@@ -704,6 +704,7 @@ export default function AdminApp() {
           loading={callLeadsLoading || forceLoading}
           error={errors.posts}
           onRetry={loadPosts}
+          leadsError={!!errors.leads} onRetryLeads={loadCallLeads}
           onPatch={patchCallLead}
           onRefetchLead={loadCallLeads}
           onCreatePost={createPost}
