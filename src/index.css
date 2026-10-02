@@ -726,6 +726,39 @@ h1, h2, h3, h4, h5, h6 {
    bare) and the last step holds a full beat before the scene lets go.
    A data-step="0" child is revealed with the stage. Reduced motion never
    sees these rules. */
+/* Scene fit on a tablet and on the smallest phone (CRM mobile revamp, milestone 2): spacing only.
+   Every scene's own gaps are vh clamps tuned for a phone and a laptop, and they cap out before a
+   768 by 1024 stage is full, which left 175 to 211px of black above and below the block. Here the
+   gaps and padding grow with the height, so the block reaches the audit's 15 percent bands. */
+@media (min-width: 768px) and (max-width: 1023px) and (min-height: 880px) {
+  .m-scene .hero-copy { gap: 5.8vh; }
+  .m-scene .mf-col { gap: 3.6vh; }
+  .m-scene .mf-line { padding: 3vh 0; }
+  .m-scene .bt-col { gap: 4.4vh; }
+  /* Six cards share one cell: stretched to the tallest, so the painted block does not change height from card to card. */
+  .m-scene .bt-zone > * { align-self: stretch; }
+  .m-scene .bt-card { gap: 2.4vh; padding: 3vh; }
+  .m-scene .bt-needs { gap: 1.6vh; }
+  .m-scene .pk-col { gap: 3.4vh; }
+  .m-scene .pk-tier { gap: 1.6vh; padding: 2.8vh; }
+  .m-scene .hiw-col { gap: 4.4vh; }
+  .m-scene .hiw-step { padding: 5.8vh 0; }
+}
+/* A 320 wide phone with Safari's bars (500px tall): the three scenes that overran their stage give back a few pixels of gap. */
+@media (max-width: 360px) and (max-height: 560px) {
+  .m-scene .bt-col { gap: 8px; }
+  .m-scene .bt-card { padding: 8px; gap: 2px; }
+  .m-scene .bt-needs { gap: 1px; }
+  .m-scene .pk-col { gap: 3px; }
+  .m-scene .pk-tier { padding: 7px; gap: 2px; }
+  .m-scene .hiw-col { gap: 10px; }
+  .m-scene .hiw-step { padding: 8px 0; }
+}
+/* A laptop (1280 by 800): Packages was 30px short of its stage, so its block sat 141px under the navbar against a 120px limit. */
+@media (min-width: 1024px) and (max-height: 900px) {
+  .m-scene .pk-col { gap: 3vh; }
+  .m-scene .pk-tier { padding: 2.2vh; }
+}
 .m-scene--pinned [data-step] {
   --sr: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 1.35) / 0.35), 1);
 }

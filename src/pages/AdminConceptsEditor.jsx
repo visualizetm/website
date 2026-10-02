@@ -343,7 +343,7 @@ export default function AdminConceptsEditor({
           <Row gap={2} align="center" justify="between" wrap>
             <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
               <Button variant="ghost" icon="ArrowLeft" onClick={leave}>Back</Button>
-              <h1 className="pl-page-title lay-truncate">{name}</h1>
+              <h1 className="pl-page-title lay-title">{name}</h1>
               {st && <Pill tone={st.tone} label={st.label} size="sm" icon={false} variant={status === 'approved' || status === 'changes' ? 'solid' : 'soft'} />}
             </Row>
             <Row gap={2} align="center" wrap>

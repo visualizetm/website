@@ -130,15 +130,18 @@ export default function Table({
   );
 }
 
-/** Table.Skeleton: same header shape, `rows` shimmer rows. */
-Table.Skeleton = function TableSkeleton({ rows = 8, cols = 6, density = 'md', selectable = true }) {
+/** Table.Skeleton: same header shape, `rows` shimmer rows.
+ *  `actions` adds the trailing cell the real table has (the column chooser in the header, a row menu in each row);
+ *  `widths` gives each column's block width (a number is px, a string is a share of the cell), so a screen can match its real columns. */
+Table.Skeleton = function TableSkeleton({ rows = 8, cols = 6, density = 'md', selectable = true, actions = false, widths }) {
+  const w = (i) => (widths && widths[i] !== undefined ? widths[i] : i === 0 ? '80%' : '60%');
   return (
     <div className="v-table-wrap" aria-busy="true" aria-hidden="true">
       <div className="v-table-scroll">
         <table className={`v-table v-table--${density}`} role="presentation">
-          <thead><tr>{selectable && <th className="v-th v-th--check"><SkeletonBlock width={22} height={22} /></th>}{Array.from({ length: cols }, (_, i) => <th key={i} className="v-th"><SkeletonBlock width={i === 0 ? 120 : 70} height={12} /></th>)}</tr></thead>
+          <thead><tr>{selectable && <th className="v-th v-th--check"><SkeletonBlock width={22} height={22} /></th>}{Array.from({ length: cols }, (_, i) => <th key={i} className="v-th"><SkeletonBlock width={i === 0 ? 120 : 70} height={12} /></th>)}{actions && <th className="v-th v-th--actions"><SkeletonBlock width={28} height={28} radius="var(--v-radius-md)" /></th>}</tr></thead>
           <tbody>{Array.from({ length: rows }, (_, r) => (
-            <tr key={r} className="v-tr">{selectable && <td className="v-td v-td--check"><SkeletonBlock width={22} height={22} /></td>}{Array.from({ length: cols }, (_, i) => <td key={i} className="v-td"><SkeletonBlock width={i === 0 ? '80%' : '60%'} height={14} /></td>)}</tr>
+            <tr key={r} className="v-tr">{selectable && <td className="v-td v-td--check"><SkeletonBlock width={22} height={22} /></td>}{Array.from({ length: cols }, (_, i) => <td key={i} className="v-td"><SkeletonBlock width={w(i)} height={14} /></td>)}{actions && <td className="v-td v-td--actions"><SkeletonBlock width={28} height={28} radius="var(--v-radius-md)" /></td>}</tr>
           ))}</tbody>
         </table>
       </div>

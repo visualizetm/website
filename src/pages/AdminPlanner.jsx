@@ -411,7 +411,7 @@ export default function AdminPlanner({
           <Row gap={2} align="center" justify="between" wrap>
             <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
               <Button variant="ghost" icon="ArrowLeft" onClick={leave}>Back</Button>
-              <h1 className="pl-page-title lay-truncate">{name}</h1>
+              <h1 className="pl-page-title lay-title">{name}</h1>
               <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
                 variant={draft.enabled && !waiting ? 'solid' : 'soft'}
                 label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />

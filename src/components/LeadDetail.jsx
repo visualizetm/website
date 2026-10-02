@@ -275,7 +275,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
  * tabs and the first block of the first section; on a phone the header, the strip and one
  * 56px row per section. */
 const SKELETON_FACTS = { lead: 4, deal: 5, client: 8 };
-LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false }) {
+LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false, triage = false }) {
   const m = deal ? 'deal' : mode;
   const phone = useMediaQuery('(max-width: 767px)');
   const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
@@ -284,7 +284,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false 
       {!phone && <span className="rc-avatar"><SkeletonCircle size={44} /></span>}
       <div className="rc-head-main">
         <div className="rc-head-top">{!phone && <SkeletonBlock width="40%" height={34} />}<span className="rc-pills">{[72, 56].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</span></div>
-        <div className="rc-ctx" style={{ height: phone && m !== 'client' ? 36 : 18 }}><SkeletonBlock width={phone ? '90%' : '55%'} height={14} style={{ margin: '2px 0' }} /></div>
+        <div className="rc-ctx" style={{ height: phone && m !== 'client' ? (triage ? 42 : 36) : 18 }}><SkeletonBlock width={phone ? '90%' : '55%'} height={14} style={{ margin: '2px 0' }} /></div>
       </div>
       <div className="rc-head-actions">{btn(96, 1)}{btn(112, 2)}{btn(44, 3)}</div>
     </header>
@@ -294,8 +294,11 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false 
     ? <Card><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
     : m === 'deal'
       ? <div className="rc-cp-pkg"><SkeletonBlock width="100%" height={68} radius="var(--v-radius-md)" /></div>
-      : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
-  const outbar = m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
+      : triage
+        /* Triage opens on the Playbook: two groups, each a label, one item and the add row, under the pinned decision bar. */
+        ? <>{[0, 1].map(k => <div key={k} className="rc-group"><SkeletonBlock width={120} height={16} /><div style={{ height: 40 }}><SkeletonBlock width="60%" height={18} style={{ margin: '11px 0' }} /></div><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>)}</>
+        : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
+  const outbar = triage ? <StickyFooterBar className="dt-outbar dt-triagebar"><Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">{[0, 1, 2, 3].map(k => <SkeletonBlock key={k} height={44} radius="var(--v-radius-md)" />)}</Row></StickyFooterBar> : m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll">

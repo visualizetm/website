@@ -111,7 +111,9 @@ const SAMPLE = () => {
     const backdrop = !!stage.querySelector(':scope > .m-scene-backdrop');
     return { i, label: stage.getAttribute('aria-label') || '', steps, pinned, held, p: p === '' ? null : Number(p), top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height), onScreen: r.bottom > 0 && r.top < vh, reveal, fits, bodyH: body ? body.scrollHeight : 0, bodyBox: body ? body.clientHeight : 0,
       bodyTop: Math.round(br.top), bodyBottom: Math.round(br.bottom), contentTop: cTop === Infinity ? null : Math.round(cTop), contentBottom: cBottom === -Infinity ? null : Math.round(cBottom),
-      indicator: ir ? { top: Math.round(ir.top), bottom: Math.round(ir.bottom) } : null, names, settling, backdrop };
+      indicator: ir ? { top: Math.round(ir.top), bottom: Math.round(ir.bottom) } : null, names, settling, backdrop,
+      /* A slot a scene reserves for what arrives later (Business types' tile row, data-scene-reserve) is content, not a dead band. */
+      reserve: [...stage.querySelectorAll('[data-scene-reserve]')].map(el => { const q = el.getBoundingClientRect(); return [Math.round(q.top), Math.round(q.bottom)]; }) };
   });
   /* Navbar clearance and indicator clearance inside a held stage; text
      overlap across the page. Leaves: elements with their own text. */
@@ -262,7 +264,8 @@ async function walk(width) {
            bottom). Centring from the block's rect against the body's box. */
         const lower = sc.indicator ? sc.indicator.top : sc.bottom;
         const above = countRun(rows, s.navBottom, sc.contentTop), below = countRun(rows, sc.contentBottom, lower);
-        const inner = longestRun(rows, sc.contentTop, sc.contentBottom);
+        const rowsInner = rows.slice(); for (const [a, b] of sc.reserve || []) for (let y = Math.max(0, a); y < Math.min(rowsInner.length, b); y++) rowsInner[y] = false;
+        const inner = longestRun(rowsInner, sc.contentTop, sc.contentBottom);
         /* Against the stage's fixed space (navbar bottom to the indicator
            or the stage's bottom), never the body box, which moves with
            the block and so can never look off centre. */

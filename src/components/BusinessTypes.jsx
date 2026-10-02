@@ -30,7 +30,7 @@ export default function BusinessTypes({ tone = 'a' }) {
           <h2 className="section-title bt-title">What I do for your kind of business</h2>
           <p className="bt-intro">Every business needs something different. Here is what that usually looks like.</p>
         </div>
-        <div className="bt-zone">
+        <div className="bt-zone" data-scene-reserve>
           {TYPES.map(({ icon: Icon, type, needs, does }, i) => (
             <article key={type} data-step={i + 1} data-reveal="custom" className="bt-card" style={{ '--i': i }}>
               <span className="bt-icon" aria-hidden="true"><Icon width={22} height={22} /></span>

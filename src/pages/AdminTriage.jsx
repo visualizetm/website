@@ -76,7 +76,7 @@ function TriageCard({ lead, score, source, style, handlers, hint, onOpen }) {
       <Stack gap={3}>
         <Row gap={3} justify="between" align="start">
           <Stack gap={1} style={{ minWidth: 0, flex: 1 }}>
-            <h2 className="tr-name lay-truncate">{lead.business || 'Unnamed'}</h2>
+            <h2 className="tr-name lay-title">{lead.business || 'Unnamed'}</h2>
             <Row gap={2} wrap align="center">
               {lead.industry && <Pill label={lead.industry} tone="neutral" icon={false} size="sm" />}
               {lead.area && <span className="tr-area lay-truncate">{lead.area}</span>}
@@ -110,6 +110,10 @@ function KeepSheet({ lead, onClose, onDone, onAddToList }) {
   );
 }
 
+/* The skeleton draws as many rows as the pile had last time (a session remembers it), so loading to loaded moves nothing below the table. */
+const PILE_KEY = 'vz_triage_rows';
+const lastPileRows = () => { try { const n = Number(sessionStorage.getItem(PILE_KEY)); return n >= 1 && n <= 12 ? n : 10; } catch { return 10; } };
+
 export default function AdminTriage({ leads = [], submissions = [], loading = false, error = false, onRetry, onPatch, onDelete, onRestore, onCapture }) {
   const toast = useToast();
   const shell = useShell();
@@ -127,6 +131,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   useRestore((o) => { if (o.selectedId) setFocusId(o.selectedId); if (o.filters) { setQ(o.filters.q || ''); setSrcSel(new Set(o.filters.src || [])); setIndSel(new Set(o.filters.ind || [])); setPhoneOnly(!!o.filters.phoneOnly); } });
   const [leaving, setLeaving] = useState(null); // { id, dir } for the card's exit
   const pile = useMemo(() => triageLeads(leads), [leads]);
+  useEffect(() => { if (!loading && pile.length) { try { sessionStorage.setItem(PILE_KEY, String(Math.min(12, pile.length))); } catch { /* the skeleton falls back to ten rows */ } } }, [loading, pile.length]);
   /* Search where it is missing: the one search plus one chip row (Source, Industry top 8 plus More, Has phone). Back restores them. */
   const [q, setQ] = useState('');
   const [srcSel, setSrcSel] = useState(() => new Set());
@@ -222,7 +227,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
 
   const body = showSkel ? (
     phone ? <div className="tr-stack" aria-busy="true"><Stack gap={2} className="tr-filters"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /><Row gap={2} wrap>{[112, 113, 104, 159, 154, 107, 152].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</Row></Stack><div className="tr-deck"><Card as="div" padding={4} className="tr-card" style={{ minHeight: 215, boxSizing: 'border-box' }}><Stack gap={3}><Row gap={3} justify="between" align="start"><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width={200} height={30} /><Row gap={2} align="center"><SkeletonBlock width={96} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={90} height={14} /></Row></Stack><SkeletonBlock width={44} height={28} radius="var(--v-radius-pill)" /></Row><Row gap={2} align="center"><SkeletonBlock width={110} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width={84} height={14} /></Row><Stack gap={1}><SkeletonBlock width="70%" height={16} /><SkeletonBlock width="76%" height={16} /><SkeletonBlock width="64%" height={16} /></Stack></Stack></Card></div><Row gap={4} justify="center" className="tr-actions">{[1, 2, 3].map(i => <SkeletonBlock key={i} width={56} height={56} radius="var(--v-radius-pill)" />)}</Row><p className="tr-count"><SkeletonBlock width={200} height={14} style={{ margin: '0 auto' }} /></p></div>
-      : <Stack gap={4} aria-busy="true"><Stack gap={2} className="tr-filters"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /><Row gap={2} wrap>{[112, 113, 104, 159, 154, 107, 152].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</Row></Stack><Table.Skeleton rows={3} cols={5} /><Row gap={3} wrap align="center" className="tr-keys"><SkeletonBlock width={183} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+      : <Stack gap={4} aria-busy="true"><Stack gap={2} className="tr-filters"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /><Row gap={2} wrap>{[112, 113, 104, 159, 154, 107, 152].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</Row></Stack><Row gap={3} wrap align="center" className="tr-keys"><SkeletonBlock width={183} height={44} radius="var(--v-radius-md)" style={{ marginLeft: 'auto' }} /></Row><Table.Skeleton rows={lastPileRows()} cols={5} selectable={false} actions widths={[200, 110, 120, 44, 96]} /></Stack>
   ) : error && !leads.length ? (
     <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>
   ) : pile.length && !shown.length ? (
@@ -245,12 +250,13 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
     </Stagger>
   ) : (
     <Stack gap={3}>
-      <Table aria-label="Triage" columns={columns} rows={shown} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => openRecord(l)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
-        rowClassName={(l) => (focused && l._id === focused._id ? 'tr-focused' : '')} />
+      {/* The key legend sits above the table, so nothing under the table moves when the rows land. */}
       <Row gap={3} wrap align="center" className="tr-keys" aria-label="Keys">
         {KEYS.map(([k, v]) => <span key={k} className="tr-key"><kbd>{k}</kbd> {v}</span>)}
-        {focused && <Button variant="ghost" size="sm" onClick={() => openRecord(focused)}>Open {focused.business}</Button>}
+        {focused && <Button variant="ghost" size="sm" onClick={() => openRecord(focused)} style={{ marginLeft: 'auto' }}>Open {focused.business}</Button>}
       </Row>
+      <Table aria-label="Triage" columns={columns} rows={shown} rowKey={(l) => l._id} storageKey="vz_triage_cols" onRowClick={(l) => openRecord(l)} rowActions={(l) => <Menu label={`${l.business} actions`} items={menuFor(l)} />}
+        rowClassName={(l) => (focused && l._id === focused._id ? 'tr-focused' : '')} />
     </Stack>
   );
 
@@ -279,7 +285,7 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
           <ScrollArea bare className="tr-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} menu={false} />) : <><p className="tr-muted">{pile.length} waiting</p>{pile.map(l => <LeadCard key={l._id} lead={l} onOpen={() => openRecord(l)} selected={String(l._id) === String(selId)} pill={<ScoreBadge score={scoreOf(l)} />} line={srcOf(l).label} />)}</>}</Stack></ScrollArea>
         </aside>
         <div className="aa-main tr-main">
-          {sel ? <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete} onClose={close} triage={triageProps} /> : showSkel && <LeadDetail.Skeleton mode="lead" />}
+          {sel ? <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete} onClose={close} triage={triageProps} /> : showSkel && <LeadDetail.Skeleton mode="lead" triage />}
         </div>
         {sheets}
         <style>{trStyles}</style>

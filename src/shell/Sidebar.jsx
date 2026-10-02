@@ -167,9 +167,9 @@ export const sidebarStyles = `
   .sh-wordmark { font-family: var(--v-font-body); font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); letter-spacing: -0.02em; white-space: nowrap; }
   .sh-wordmark-dot { color: var(--v-red); }
   /* The pipeline strip: four numbers, the conversion between each. */
-  .sh-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 0 0 var(--v-space-3); padding: var(--v-space-2) var(--v-space-1); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-md); background: var(--v-sidebar-hover); }
+  .sh-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: var(--v-space-2) 0 var(--v-space-3); padding: var(--v-space-2) var(--v-space-1); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-md); background: var(--v-sidebar-hover); }
   .sh-strip-cell { position: relative; display: flex; min-width: 0; }
-  .sh-strip-pct { position: absolute; left: 0; top: 2px; transform: translateX(-50%); font-size: 9px; line-height: 12px; font-weight: var(--v-weight-bold); color: var(--v-sidebar-text-3); background: var(--v-sidebar-bg); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-pill); padding: 0 4px; white-space: nowrap; pointer-events: none; }
+  .sh-strip-pct { position: absolute; left: 0; top: -10px; transform: translateX(-50%); font-size: 9px; line-height: 12px; font-weight: var(--v-weight-bold); color: var(--v-sidebar-text-3); background: var(--v-sidebar-bg); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-pill); padding: 0 4px; white-space: nowrap; pointer-events: none; }
   .sh-strip-btn { flex: 1; min-width: 0; min-height: var(--v-tap); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 2px 0 0; border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-sidebar-text-2); cursor: pointer; font-family: var(--v-font-body); }
   .sh-strip-btn:hover { color: var(--v-sidebar-text); background: var(--v-sidebar-active-bg); }
   .sh-strip-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }

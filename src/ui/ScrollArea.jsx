@@ -47,6 +47,8 @@ export const scrollAreaStyles = `
   .lay-card { width: 100%; max-width: 100%; min-width: 0; }
   .lay-card > * { min-width: 0; }
   .lay-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* A title (a name, a page heading): two lines at most, an ellipsis after that, and a long unbroken word wraps anywhere instead of pushing a control out of reach (the long name rule, CRM mobile revamp). */
+  .lay-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; min-width: 0; }
 
   /* Overlay contract for anything positioned over the page */
   .lay-overlay {

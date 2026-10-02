@@ -50,12 +50,15 @@ export const leadDetailStyles = `
   .rc-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--v-space-3); min-width: 0; border-radius: var(--v-radius-md); }
   .rc-avatar { margin-top: 2px; }
   .rc-head-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
-  .rc-head-top { display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
-  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-head-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-1) var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
+  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
   .rc-pills { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
-  .rc-ctx { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rc-ctx { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+  .rc-ctx-part { white-space: normal; }
   .rc-dot { margin: 0 var(--v-space-2); color: var(--v-text-3); }
-  .rc-tel { color: inherit; text-decoration: none; }
+  /* D4: the number is a link in running text; its tap area is a 44px box laid over it, not a bigger glyph. */
+  .rc-tel { position: relative; display: inline-block; color: inherit; text-decoration: none; }
+  .rc-tel::after { content: ''; position: absolute; left: -8px; right: -8px; top: 50%; height: var(--v-tap); transform: translateY(-50%); }
   .rc-tel:hover { text-decoration: underline; }
   .rc-head-actions { display: flex; align-items: center; gap: var(--v-space-2); flex-shrink: 0; margin-left: auto; }
   .rc-head--phone { flex-wrap: wrap; }
@@ -63,7 +66,6 @@ export const leadDetailStyles = `
   .rc-head--phone .rc-head-top { min-height: 0; }
   .rc-head--phone .rc-head-actions { flex: 1 1 100%; flex-wrap: wrap; }
   .rc-head--phone .rc-head-actions .v-btn { flex: 1 1 120px; min-width: 0; }
-  .rc-head--phone .rc-ctx { white-space: normal; }
   /* The next action strip: red-soft, red border, one line, one button. */
   .rc-next { display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px solid var(--v-red); border-radius: var(--v-radius-md); background: var(--v-red-soft); color: var(--v-text); min-width: 0; }
   .rc-next-icon { color: var(--v-red-highlight); flex-shrink: 0; }
@@ -183,8 +185,8 @@ export const leadDetailStyles = `
   /* The outcome bar (booked and deal): the current next action and Mark as lost. */
   .dt-outbar-row { width: 100%; max-width: 860px; margin: 0 auto; }
   .dt-outbar-row > .v-btn, .dt-outbar-row > .v-skel { flex: 1 1 140px; min-width: 0; }
-  .dt-triagebar-row > .v-btn { flex: 1 1 120px; }
-  @media (max-width: 479px) { .dt-triagebar-row > .v-btn { flex: 1 1 40%; } }
+  .dt-triagebar-row > .v-btn, .dt-triagebar-row > .v-skel { flex: 1 1 120px; }
+  @media (max-width: 479px) { .dt-triagebar-row > .v-btn, .dt-triagebar-row > .v-skel { flex: 1 1 40%; } }
   /* The lead score pill (Triage and the triage record header). */
   .tr-score { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; height: 28px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); font-family: var(--v-font-display); font-size: var(--v-text-md); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .tr-score--booked { background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
@@ -207,7 +209,8 @@ export const clientStyles = `
   .ts-time { flex: 1 1 120px; }
   .lsr { max-width: 520px; flex: 1; min-width: 0; }
   .lsr-skel { display: block; max-width: 520px; }
-  .lsr-clear { display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
+  /* The 44px clear button sits inside a 44px field shell whose border takes 2px: the negative block margin keeps the shell at 44 whether or not a query is typed (it grew to 46 and shifted the list). */
+  .lsr-clear { margin: -1px 0; display: inline-flex; align-items: center; justify-content: center; width: var(--v-tap); height: var(--v-tap); border: 0; border-radius: var(--v-radius-sm); background: transparent; color: var(--v-text-3); cursor: pointer; }
   .lsr-clear:hover { color: var(--v-text); background: var(--v-surface-3); }
   .cl-stack { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .cl-stack > .v-stagger-item { display: contents; }
@@ -253,7 +256,11 @@ export const clientStyles = `
   .cw-rev-log li { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; }
   .cw-rev-when { color: var(--v-text-3); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .cw-rev-note { min-width: 0; overflow-wrap: anywhere; }
-  .cw-sched-row .v-lrow-trail { flex-wrap: wrap; justify-content: flex-end; }
+  /* An invoice row (milestone 2): the title and amount take the first line, the status, the primary action and the menu wrap under it on a narrow row instead of running past the edge. */
+  .cw-sched-row { flex-wrap: wrap; }
+  .cw-sched-row .v-lrow-main { flex: 1 1 9rem; }
+  .cw-sched-row .v-lrow-side { flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; }
+  .cw-sched-row .v-lrow-side > .v-row { flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }
   .cw-kv { display: flex; flex-direction: column; gap: 2px; font-size: var(--v-text-md); font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 0; font-variant-numeric: tabular-nums; }
   .cw-sub-id { font-size: var(--v-text-sm); font-family: var(--v-font-mono, monospace); }
   .cw-retainer { gap: var(--v-space-3); }
