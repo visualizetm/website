@@ -133,9 +133,9 @@ export const leadDetailStyles = `
   .rc-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rc-row-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
   .rc-row-sum { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
-  .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); transition: transform var(--v-dur-base) var(--v-ease-out); }
-  .rc-row.is-open .rc-row-chev { transform: rotate(90deg); }
-  .rc-row-body { display: flex; flex-direction: column; gap: var(--v-space-4); padding: 0 var(--v-space-3) var(--v-space-3); min-width: 0; }
+  .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); }
+  /* The first screen's own section, and a section on its screen (phone). */
+  .rc-first, .rc-secscreen { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
   @media (max-width: 767px) {
     .rc-facts { grid-template-columns: minmax(0, 1fr); }
     .rc-fact--stack { grid-template-columns: 88px minmax(0, 1fr); }
@@ -258,6 +258,8 @@ export const clientStyles = `
   .cw-rev-note { min-width: 0; overflow-wrap: anywhere; }
   /* An invoice row (milestone 2): the title and amount take the first line, the status, the primary action and the menu wrap under it on a narrow row instead of running past the edge. */
   .cw-sched-row { flex-wrap: wrap; }
+  /* A phone: the invoice rows sit in the Invoices card as lines, not as cards inside a card (one container, dividers between). */
+  @media (max-width: 767px) { .iv-card .cw-sched-row { background: transparent; border-width: 0 0 1px; border-radius: 0; padding-left: 0; padding-right: 0; } .iv-card .cw-sched-row:last-child { border-bottom-width: 0; } }
   .cw-sched-row .v-lrow-main { flex: 1 1 9rem; }
   .cw-sched-row .v-lrow-side { flex: 0 1 auto; min-width: 0; max-width: 100%; margin-left: auto; }
   .cw-sched-row .v-lrow-side > .v-row { flex-wrap: wrap; justify-content: flex-end; min-width: 0; max-width: 100%; }

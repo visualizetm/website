@@ -31,6 +31,7 @@ is in reports/PROMPT-NN-REPORT.md and reports/SITE-NN-REPORT.md.
 - Skeletons ship with features. A new screen or region lands with its skeleton, its empty state (src/shared/copy.js), its error state with Retry, and its entrance; the feel audit checks all four.
 - Motion reads `--v-dur-*` and `--v-ease-*` only, and JS timers read `durationMs()`; everything collapses under Reduce motion.
 - Accessibility is part of done: one real control per card or row (the stretched `.v-stretch` button), 44px targets, labels on every icon button, live regions for status, landmarks named. `node scripts/a11y-audit.mjs` must show no serious or critical violation.
+- The phone is designed to docs/MOBILE-UI-GUIDE.md: a chrome mode per screen (src/shell/chrome.js: tabs on a section root, focused on a record, an editor, a setup page or the call room, where the tab bar is hidden and the top bar is Back, the title and only declared actions); More is a page; a phone editor is an overview of rows with a step per row and one draft; every list has an EmptyState (first time) and a NoResults (names the search) and never one for the other; every gesture (edge Back, sheet drag, row swipe, long press) follows the finger, has a visible equivalent and stays off sideways scrollers. Tab labels 11px, targets 44px, titles clamp to two lines (`.lay-title`).
 - Greetings and copy address Rob. Untitled UI icons only.
 - Run the scripts before committing (see below); push to main after every prompt.
 
@@ -48,6 +49,10 @@ node scripts/site-regression.mjs                # docs/SITE-QA-CHECKLIST.md's CR
 SCENE_PATH=/ SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # Home's gate at a phone's real viewport heights: painted-row dead bands, block placement, text overlap, navbar and indicator clearance, wrapped words, cover names, the strip (docs/SCENE-ENGINE.md); SCENE_MOTION=reduce for reduced motion
 node scripts/mobile-trace.mjs                   # Home on a phone with real touch drags (390, 320, 430, reduce motion), against the mock server on 4350
 node scripts/hex-count.js                       # 90 or lower
+node scripts/gesture-test.mjs                   # edge Back, sheet drag, row swipe, long press, with real touch events at 390
+node scripts/chrome-audit.mjs                   # the chrome mode of every admin state at 390: tab bar, top bar controls, nothing accumulates
+node scripts/empty-audit.mjs                    # every list screen in its first time and no results states
+npm run preship                                 # the gate in one command: layout-audit and scene-audit detached at 390 and 1280, then lint, hex, gesture, chrome, empty (preship:full: all five widths)
 node scripts/css-orphans.mjs                    # 0
 TZ=America/New_York node scripts/dates-test.mjs
 node scripts/security-test.mjs                  # operator injection, javascript: URLs, script tags, the planner token, the login and form limiters, against the real handlers
@@ -70,7 +75,7 @@ scripts/feel-audit.mjs --boot`.
 
 ## Shape of the repo
 
-api/ (9 Vercel functions, under the Hobby plan's cap of 12: api/admin/login.js,
+api/ (10 Vercel functions, under the Hobby plan's cap of 12: api/admin/login.js,
 logout.js, and session.js stand alone; api/admin/index.js dispatches every
 other admin endpoint on ?r=<name>, put there by one vercel.json rewrite per
 URL, to api/_routes/<name>.js, one file per route's logic, each still wrapped

@@ -141,4 +141,4 @@ Covered views: dashboard, submissions list + detail, orders, settings, the
 design system page with its Sheet and Modal open, call console session
 builder + session, the reverse-lookup sheet, the Booked workspace list +
 detail, the Leads page list + detail, the Clients page list + detail, and the
-mobile More sheet.
+mobile More screen (a page, /more).

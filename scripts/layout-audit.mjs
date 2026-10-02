@@ -20,6 +20,7 @@ const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): 
 const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
 import { LONG, mockRoutes } from './audit-fixtures.mjs';
+import { phoneSection } from './audit-screens.mjs';
 
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
@@ -392,7 +393,7 @@ for (const width of WIDTHS) {
   // PWA service worker active, so bounded waits keep the audit fast.
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone that opens once. */
-  const section = async (t) => { if (width >= 768) { await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); return; } const b = page.getByRole('button', { name: new RegExp('^' + t) }).first(); if ((await b.getAttribute('aria-expanded', { timeout: 3000 }).catch(() => 'true')) !== 'true') await b.click({ timeout: 3000 }).catch(() => {}); };
+  const section = async (t) => { if (width >= 768) { await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); return; } await phoneSection(page, t); };
   const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', or 'a11y' reruns just that block
   if (only === 'a11y') {
     /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the

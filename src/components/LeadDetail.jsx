@@ -10,7 +10,8 @@
  * FactsGrid, one component per section, and the registry that lists the
  * sections by mode (lead, deal, client). Everything renders from one `rec`
  * object built here from the props this component always had. */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
@@ -18,6 +19,7 @@ import {
   PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
+import { usePush, sectionRootOf } from '../shell/nav-history';
 import { normalizeLead } from '../lib/leads';
 import { postsOf } from '../lib/posts';
 import LeadForm from './LeadForm';
@@ -73,28 +75,61 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const ids = SECTIONS_BY_MODE[mode];
   const deal = dealOf(lead);
   const [confirm, confirmDialog] = useConfirm();
-  useTopBar({ title: lead.business, back: onClose });
-
   // Two write paths: `patch` toasts on failure (buttons, menus, checkboxes); `patchRaw` is for InlineEdit, which shows its own failure toast.
   const patchRaw = (set) => (readOnly ? Promise.resolve(false) : onPatch(leadId, set));
   const patch = async (set) => { const ok = await patchRaw(set); if (!ok && !readOnly) toast.error(COPY.error.save); return ok; };
 
   /* The section that is open: the tab on a computer, the row on a phone (none until tapped). */
   const first = FIRST[mode];
-  const [tab, setTab] = useState(phone ? null : first);
-  useEffect(() => { setTab(phone ? null : first); }, [leadId, first, phone]);
-  const openTab = (id) => { if (ids.includes(id)) setTab(id); };
+  const [tabState, setTabState] = useState(first);
+  useEffect(() => { setTabState(first); }, [leadId, first]);
   const intentN = intent?.n; const intentKind = intent?.kind;
+  /* A phone (mobile revamp): the record is a first screen, and each other section is a screen of its own, a history entry that carries
+     `sec` (Back returns to the first screen, and closing the record for good goes back past both). An intent (chase the invoice, open the
+     checkpoints) opens its section at once, with nothing to unfold and nothing to shift. A computer keeps its tabs in state. */
+  const location = useLocation(); const navigate = useNavigate(); const pushEntry = usePush();
+  const entryOpen = location.state?.open || null;
+  const entryDriven = phone && !!entryOpen;
+  const intentTarget = intentKind && ids.includes(INTENT_TAB[intentKind]) && INTENT_TAB[intentKind] !== first ? INTENT_TAB[intentKind] : null; // the stage's own section is already on the first screen
+  const secEntry = entryDriven && entryOpen.sec && ids.includes(entryOpen.sec) ? entryOpen.sec : null;
+  const localSec = phone && !entryDriven && tabState !== first ? tabState : null; // a phone with no history entry behind it (an embedded record): the same screens, held in state
+  const phoneTab = entryDriven ? (secEntry || intentTarget) : localSec;
+  const tab = phone ? (phoneTab || first) : tabState;
+  const openTab = (id) => {
+    if (!ids.includes(id)) return;
+    if (!entryDriven) { setTabState(id); return; }
+    if (id === tab) return;
+    pushEntry(location.pathname + (location.search || ''), { open: { ...entryOpen, sec: id, intent: null, recordOrigin: !!entryOpen.recordOrigin || !!location.state?.origin, n: Date.now() }, selectedId: leadId });
+  };
+  const setTab = openTab;
+  /* A section opens at its top; the first screen comes back where it was left. */
+  const scrollMemo = useRef(0);
   useEffect(() => {
-    const target = intentKind ? INTENT_TAB[intentKind] : null;
-    if (!target || !ids.includes(target)) return undefined;
-    const t = setTimeout(() => setTab(target), 60);
+    const el = phone ? document.querySelector('.dt-scroll') : null;
+    if (!el) return undefined;
+    el.scrollTop = phoneTab ? 0 : scrollMemo.current;
+    return () => { if (!phoneTab) scrollMemo.current = el.scrollTop; };
+  }, [phoneTab, phone]);
+  useEffect(() => {
+    if (phone) return undefined;
+    const target = intentTarget;
+    if (!target) return undefined;
+    const t = setTimeout(() => setTabState(target), 60);
     return () => clearTimeout(t);
-  }, [intentN, intentKind, ids, leadId]);
+  }, [intentN, intentKind, intentTarget, leadId, phone]);
+  /* Closing the record for good: from a section screen that is two entries back (the section, then the record); a record reached by a deep
+     link has no list behind it, so it goes to its section's root. */
+  const closeRecord = () => {
+    if (!secEntry) { onClose?.(); return; }
+    if (entryOpen.recordOrigin) navigate(-2); else navigate(sectionRootOf(location.pathname), { replace: true });
+  };
+  const backFn = secEntry ? () => navigate(-1) : localSec ? () => setTabState(first) : onClose;
+  const activeSectionLabel = phone && phoneTab ? (SECTIONS[phoneTab]?.label || '') : '';
+  useTopBar({ title: activeSectionLabel || lead.business, back: backFn });
 
   const email = useSendEmail({ lead, patch: patchRaw, onSent: () => shell?.refreshLeads?.() });
   const cw = useClientWorkspace({ lead, projects: client?.projects || [], patch, patchRaw, onCreateProject: client?.onCreateProject, onPatchProject: client?.onPatchProject, readOnly, openTab });
-  const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => onClose?.() });
+  const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => closeRecord() });
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -104,7 +139,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [wonPulse, setWonPulse] = useState(false);
   const [busy, setBusy] = useState('');
   const [invoiceReq, setInvoiceReq] = useState(null); // { n, kind, inv } for the Money tab's card
-  const wonClose = () => { setWonPulse(true); setTimeout(() => { setWonPulse(false); onClose?.(); }, durationMs('--v-dur-slow') * 2 + 60); };
+  const wonClose = () => { setWonPulse(true); setTimeout(() => { setWonPulse(false); closeRecord(); }, durationMs('--v-dur-slow') * 2 + 60); };
 
   const actionCtx = { projects: shell?.projects || [], sets: shell?.sets || [] };
   const next = liveNextAction(lead, actionCtx);
@@ -141,7 +176,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     } else {
       // explicit: true, because a booked, won or client record leaving its stage is the guard's business.
       const ok = await patch({ stage: 'lost', bookedOutcome: { result: 'lost', reason: outcomeNote.trim(), at }, explicit: true });
-      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(leadId, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); onClose?.(); }
+      if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(leadId, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); closeRecord(); }
     }
   };
   const openTask = () => setTaskOpen(true);
@@ -213,6 +248,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), body: <s.Component rec={rec} /> }; });
   const tabs = sections.filter(s => s.id !== 'details');
   const active = tabs.find(s => s.id === tab) || tabs[0];
+  const firstSection = sections.find(x => x.id === first);
+  const otherSections = sections.filter(x => x.id !== first);
   const header = <RecordHeader rec={rec} primary={primary} secondary={secondary} menu={menu} phone={phone} pulse={wonPulse} />;
 
   return (
@@ -220,9 +257,11 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       <ScrollArea bare className="dt-scroll" key={leadId}>
         {/* The entrance: the header, the strip and the sections step in once per record (Stagger, the kit's one entrance). */}
         <Stagger className="rc-inner" cap={5}>
-          {header}
-          {next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
-          {phone && <SectionRows sections={sections} open={tab} onToggle={setTab} />}
+          {!(phone && phoneTab) && header}
+          {!(phone && phoneTab) && next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
+          {phone && !phoneTab && firstSection && <div className="rc-first" role="region" aria-label={firstSection.label}>{firstSection.body}</div>}
+          {phone && !phoneTab && <SectionRows sections={otherSections} onOpen={openTab} />}
+          {phone && phoneTab && <div className="rc-secscreen" role="region" aria-label={activeSectionLabel}>{(sections.find(x => x.id === phoneTab) || {}).body}</div>}
           {!phone && <FactsGrid rec={rec} />}
           {!phone && lead.angle ? <AnglePara rec={rec} /> : null}
           {!phone && <Tabs label="Sections" tabs={tabs.map(t => ({ id: t.id, label: t.label }))} value={active.id} onChange={setTab} className="rc-tabs" />}
@@ -306,7 +345,10 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
           {head}
           {strip}
           {phone ? (
-            <div className="rc-rows">{SECTIONS_BY_MODE[m].map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>
+            <>
+              <div className="rc-first">{first}</div>
+              <div className="rc-rows">{SECTIONS_BY_MODE[m].filter(id => id !== FIRST[m]).map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>
+            </>
           ) : (
             <>
               <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>

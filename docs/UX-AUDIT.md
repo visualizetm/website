@@ -13,7 +13,7 @@ AdminShowcase.jsx, AdminPlanner.jsx, and every sanitize() in api/_routes/.
 Two rules carried from the security pass and kept throughout: every link or
 image field keeps safeUrl() at sanitize and safeHref() at render, and no
 field leaves sanitize() to leave the UI (old records must still read).
-scripts/security-test.mjs stays at 852 checks.
+scripts/security-test.mjs stays at 852 checks (916 after the later passes).
 
 ## Part 1: what was found
 

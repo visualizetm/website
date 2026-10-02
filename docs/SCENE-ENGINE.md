@@ -162,6 +162,10 @@ empty rows (line gaps, ascender space) and a four letter link is an empty
 row, so a screen full of text reads 60 percent empty; the bands are what
 a person sees.
 
+A scene may reserve a slot for what arrives later with `data-scene-reserve` on the element (Business types' tile row: the compact row the arrived cards slide into is laid out from the first frame so nothing moves when they land). The audit counts a reserved element's rows as content, not a dead band, and only for the longest-band check; the placement, centring and clearance checks are unchanged. Only that attribute is exempt, and one element uses it.
+
+On a tablet (768 to 1023 wide, 880 or more tall) and on the smallest phone (320 wide, 560 or less tall) the scenes' own gaps are set in src/index.css so the block reaches the audit's bands; spacing only.
+
 What the old audit missed, and why: it counted a `data-step` child's
 final box as content whether or not it had revealed, so a stage with one
 card slot and half a viewport of black read as full; it had no text

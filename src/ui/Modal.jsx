@@ -39,7 +39,7 @@ export default function Modal({ open, onClose, title, description, footer, size 
   return createPortal(
     <div className={`v-modal-back lay-overlay${closing ? ' is-closing' : ''}`} onClick={close}>
       <div ref={boxRef} className={`v-modal v-modal--${size}${danger ? ' v-modal--danger' : ''}${closing ? ' is-closing' : ''} ${className}`.trim()}
-        role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Dialog')} aria-labelledby={typeof title === 'string' && title ? 'v-modal-title' : undefined} tabIndex={-1}
+        data-v-enter="" role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Dialog')} aria-labelledby={typeof title === 'string' && title ? 'v-modal-title' : undefined} tabIndex={-1}
         onClick={(e) => e.stopPropagation()}>
         {(title || closeButton) && (
           <div className="v-modal-head">

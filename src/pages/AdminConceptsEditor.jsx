@@ -526,7 +526,7 @@ export const ceStyles = `
     background: var(--v-status-callback-soft); color: var(--v-status-callback-text); font-weight: var(--v-weight-bold); font-size: var(--v-text-sm);
   }
   .ce-dir-h { margin: 0; min-width: 0; }
-  .ce-items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); margin-top: var(--v-space-2); }
+  .ce-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--v-space-3); margin-top: var(--v-space-2); }
   @media (min-width: 768px) { .ce-items { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); } }
   .ce-item { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; padding: var(--v-space-2); border: 1px solid var(--v-border); border-radius: var(--v-radius-md); background: var(--v-surface-2); }
   .ce-item-img { aspect-ratio: 1 / 1; background: var(--v-surface-3); border: 1px solid var(--v-border); }

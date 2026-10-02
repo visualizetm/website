@@ -102,7 +102,7 @@ export default function Sheet({ open, onClose, title, description, footer, width
   return createPortal(
     <div className={`v-sheet-back${closing ? ' is-closing' : ''}`} onClick={closeFromBackdrop}>
       <div ref={boxRef} className={`v-sheet ${desktop ? 'v-sheet--side' : 'v-sheet--bottom'}${tall ? ' v-sheet--tall' : ''}${closing ? ' is-closing' : ''} ${className}`.trim()}
-        role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Details')} aria-labelledby={typeof title === 'string' && title ? 'v-sheet-title' : undefined} tabIndex={-1}
+        data-v-enter="" role="dialog" aria-modal="true" aria-label={typeof title === 'string' && title ? undefined : (label || 'Details')} aria-labelledby={typeof title === 'string' && title ? 'v-sheet-title' : undefined} tabIndex={-1}
         style={{ width: desktop ? (typeof width === 'number' ? `${width}px` : width) : undefined, transform: dragY ? `translateY(${dragY}px)` : undefined, transition: dragY ? 'none' : undefined }}
         onClick={(e) => e.stopPropagation()}>
         {!desktop && <div className="v-sheet-handle" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}><span /></div>}

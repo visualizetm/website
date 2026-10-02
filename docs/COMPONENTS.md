@@ -102,6 +102,14 @@ xs|sm|md|lg|xl (24/32/40/56/72), `status` (tone for the corner dot).
 `Avatar.Skeleton({ size })`; `initialsOf(name)` exported.
 Use when: a lead, client, or person. Not when: a category icon (IconTile).
 
+### NoResults (CRM mobile revamp)
+
+The list has rows and the search or the filters match none. `<NoResults noun="deals" query={q} filters={['Active']} onClear={...} />` says what was searched ("Nothing matches "zzqqxx"") or which filter ("No deals in Active"), and gives one Clear action (`data-state="no-results"`). Not the first time state: that is EmptyState (`data-state="empty"`).
+
+### SwipeRow (CRM mobile revamp)
+
+`<SwipeRow right={{ label, icon, tone, onCommit }} left={...} onHold={...} enabled>`: a row that follows the finger, arms past 88px and commits on release, reverts below; a long press (500ms) calls onHold and swallows the tap. Touch only, gives up when the touch turns vertical or starts on a sideways scroller. Every action it carries must also be in the row's menu. Used by `LeadSwipe`, `HoldRow` and the planner posts; `RowSheet` is the sheet a long press opens.
+
 ### EmptyState
 `icon`, `title`, `description` (one line), `action {label, onClick|href, icon}`,
 `secondary {label, onClick|href}`, `size` md|sm. `role="status"`.
@@ -373,7 +381,7 @@ Built in Prompt 4 on top of the kit. Screens never import shell internals;
 they use two things:
 
 - `src/shell/nav.js`: the single list of destinations (id, label, icon, path,
-  group, badge key, mobile tab, soon). Sidebar, tab bar, More sheet, command
+  group, badge key, mobile tab, soon). Sidebar, tab bar, More screen, command
   bar "Jump to", and the top bar title all render from it.
 - `useTopBar({ title, back })` from `src/shell/ShellContext.jsx`: a screen with
   an open detail sets the top bar title and back button while mounted; pass

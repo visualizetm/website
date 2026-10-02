@@ -258,7 +258,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = nu
           <Section title="Session complete" description={fmtMins(Date.now() - session.startedAt) + ' on the phones'}>
             <Row gap={5} align="center" wrap className="cc-sumrow">
               <ProgressRing value={connects ? Math.round((s.booked / connects) * 100) : 0} size={96} thickness={9} tone="booked" label="Booked of connects"><Stack gap={0} align="center"><span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.booked}</span><span className="cc-ring-sub">of {connects}</span></Stack></ProgressRing>
-              <Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>
+              <Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }} className="cc-statgrid">
                 {[['Calls', s.calls], ['Connects', connects], ['Booked', s.booked], ['Callbacks', s.callbacks], ['Said no', s.no], ['Wrong number', s.wrongNumber]].map(([l, n]) => <Card key={l} level={2} padding={3}><span className="cc-stat-n">{n}</span><span className="cc-stat-l">{l}</span></Card>)}
               </Grid>
             </Row>
@@ -698,6 +698,14 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     <ScrollArea bare className="cc-room" aria-busy="true">
       <div className="cc-room-inner lay-content">
         {/* The header at its real minimum (Prompt 15): one line of name, the pills wrapping like the real four, the descriptor and ask-for lines, two social buttons, the phone button. */}
+        {!desktop ? (
+          <Card className="cc-head cc-head--phone" aria-hidden="true">
+            <Row gap={3} align="start"><Stack gap={1} style={{ flex: 1, minWidth: 0 }}><SkeletonBlock width="80%" height={56} /><Row gap={1} wrap>{[56, 150].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row>
+            <SkeletonBlock width="40%" height={24} />
+            <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
+            <SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" />
+          </Card>
+        ) : (
         <Card className="cc-head" aria-hidden="true">
           <Row gap={3} align="start"><SkeletonCircle size={56} /><Stack gap={1} style={{ flex: 1 }}><SkeletonBlock width="60%" height={34} /><Row gap={1} wrap>{[110, 52, 84, 190].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</Row></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row>
           <SkeletonBlock width="90%" height={22} />
@@ -705,8 +713,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           <Row gap={2} wrap>{[96, 104].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-md)" />)}</Row>
           <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
         </Card>
+        )}
         <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{[1, 2, 3].map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
-        <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
+        <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, ...(desktop ? [4] : [])].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
       </div>
     </ScrollArea>
   );
@@ -832,6 +841,8 @@ const ccStyles = `
   .cc-head--phone .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); }
   .cc-head--phone { --v-stack-gap: var(--v-space-2); }
   .cc-about-btn { align-self: flex-start; }
+  /* A phone: the session numbers are lines with a divider (label, then the number), not six cards in two columns inside a card. */
+  @media (max-width: 767px) { .cc-statgrid { display: flex; flex-direction: column; gap: 0; } .cc-statgrid > .v-card { flex-direction: row-reverse; justify-content: space-between; align-items: baseline; background: transparent; border-width: 0 0 1px; border-radius: 0; padding: var(--v-space-2) 0; box-shadow: none; } }
   .cc-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
   @media (max-width: 479px) { .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); } }
   .cc-queue .v-section-text { flex-basis: 120px; }

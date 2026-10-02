@@ -86,8 +86,13 @@ async function settle(page, region, ms = 900) {
 }
 const waitRegion = (page, region) => page.waitForSelector(region, { timeout: 6000 }).catch(() => {});
 
-async function runState(ctx, s, width, theme, motion) {
-  const region = typeof s.region === 'function' ? s.region(width) : (s.region || '.sh-content');
+/* An overlay (a sheet, a modal, a dialog) holds what the screen under it already loaded: it has no request of its own, so a forced loading
+   state has nothing to draw. Its region is the dialog, which carries its label; what is checked is that it enters (data-v-enter) and fits. */
+const isOverlay = (region) => typeof region === 'string' && /\.v-sheet|\.v-modal|\[role="dialog"\]/.test(region);
+async function runState(ctx, s0, width, theme, motion) {
+  const region0 = typeof s0.region === 'function' ? s0.region(width) : (s0.region || '.sh-content');
+  const s = isOverlay(region0) ? { ...s0, static: true } : s0;
+  const region = region0;
   const row = { id: s.id, screen: s.screen, state: s.label, width, theme, motion, skeleton: 'n/a', fit: 'n/a', entrance: 'n/a', empty: 'n/a', error: 'n/a', cls: 'n/a', gaps: [] };
   const page = await ctx.newPage();
   await page.addInitScript(([theme, motion]) => {
@@ -174,8 +179,9 @@ async function runState(ctx, s, width, theme, motion) {
 
 /* The fit check needs the skeleton boxes and the loaded boxes from two clean
  * loads, so it wraps runState with its own two passes. */
-async function runStateWithFit(ctx, s, width, theme, motion) {
-  const region = typeof s.region === 'function' ? s.region(width) : (s.region || '.sh-content');
+async function runStateWithFit(ctx, s0, width, theme, motion) {
+  const region = typeof s0.region === 'function' ? s0.region(width) : (s0.region || '.sh-content');
+  const s = isOverlay(region) ? { ...s0, static: true } : s0;
   let skelBlocks = null;
   if (!s.static && !s.boot) {
     const page = await ctx.newPage();

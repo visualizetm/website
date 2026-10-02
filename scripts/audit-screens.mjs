@@ -28,7 +28,15 @@ export const click = (loc, t = 4000) => loc.first().click({ timeout: t }).catch(
 /* A tab on a computer, a row button on a phone (Settings is a list of rows there). */
 export const tab = async (page, name) => { const t = page.getByRole('tab', { name: new RegExp('^' + name) }); if (await t.count()) return click(t, 3000); return click(page.locator('.sh-content').getByRole('button', { name: new RegExp('^' + name) }), 3000); };
 /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone. */
-export const openSection = async (page, width, name) => { if (width >= 768) await tab(page, name); else await click(page.getByRole('button', { name: new RegExp('^' + name) }), 3000); };
+/* A phone's record is a first screen (the header, the strip and the stage's own section) with a row per other section; a row opens that section on
+   a screen of its own. To reach a section: if its row is not here we are on another section's screen, so go Back to the first screen, then press the row.
+   The section the first screen already shows has no row. */
+export const phoneSection = async (page, name, t = 3000) => {
+  const row = page.locator('.sh-content .rc-row-btn').filter({ hasText: new RegExp('^' + name) }).first();
+  if (!(await row.count()) && (await page.locator('.rc-secscreen').count())) { await page.locator('.sh-top-back').first().click({ timeout: t }).catch(() => {}); await page.waitForTimeout(500); }
+  if (await row.count()) { await row.click({ timeout: t }).catch(() => {}); await page.waitForTimeout(400); }
+};
+export const openSection = async (page, width, name) => { if (width >= 768) await tab(page, name); else await phoneSection(page, name); };
 export const openRow = async (page, width, text, mobileName) => {
   if (width >= 1024) await click(page.locator('.v-tr', { hasText: text }));
   else await click(page.getByRole('button', { name: mobileName }));
