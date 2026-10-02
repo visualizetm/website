@@ -38,5 +38,7 @@ export const listCardStyles = `
   .ls-card:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .ls-name { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .ls-count { font-size: var(--v-text-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; }
+  /* The skeleton card is the height of a loaded list card (name, count, meter, Start), so the lists do not jump when they arrive. */
+  @media (max-width: 767px) { .ls-skel { min-height: 201px; } .ls-skel:nth-child(2) { min-height: 211px; } }
   .ls-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: var(--v-space-3); }
 `;

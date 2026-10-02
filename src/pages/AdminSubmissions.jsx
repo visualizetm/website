@@ -40,7 +40,7 @@ export function SubmissionCard({ sub: s, onOpen, selected, compact = false }) {
     </Card>
   );
 }
-SubmissionCard.Skeleton = function SubmissionCardSkeleton() { return <Card padding={3} aria-busy="true"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="80%" height={12} /><SkeletonBlock width="40%" height={12} /></Card>; };
+SubmissionCard.Skeleton = function SubmissionCardSkeleton() { return <Card padding={3} aria-busy="true" className="sb-skel"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="80%" height={12} /><SkeletonBlock width="40%" height={12} /></Card>; };
 
 function SubmissionDetail({ sub: s, leads, onPatch, onPatchRaw, onDelete, onLinkLead, onPatchLead, onCreateLead, onClose }) {
   const shell = useShell();
@@ -176,6 +176,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
 }
 
 const sbStyles = `
+  @media (max-width: 767px) { .sb-skel { min-height: 125px; } }
   .sb-card { gap: var(--v-space-2); text-align: left; align-items: stretch; }
   .sb-card.is-unread { border-color: var(--v-border-strong); }
   .sb-card-name { flex: 1; min-width: 0; font-weight: var(--v-weight-bold); color: var(--v-text); }

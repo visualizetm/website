@@ -244,7 +244,7 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
 }
 
 /* The six sections at fixed counts (3, 3, 4, 2, 2, 1): an action row at its real lines (the name 22, the action 21, then a pill 22 when overdue or the time 19), a meeting row and a list row at theirs. */
-const SKEL_SECTIONS = [['Overdue', 3, 'act'], ['Today', 3, 'act'], ['This week', 4, 'act'], ['Later', 2, 'act'], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
+const SKEL_SECTIONS = [['Overdue', 4, 'act'], ['Today', 3, 'act'], ['This week', 4, 'act'], ['Later', 2, 'act'], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
 function NextUpSkeleton() {
   const actRow = (i, overdue) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
   const twoLine = (i, wide) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="45%" height={19} /></Stack><Row gap={1}>{wide ? <SkeletonBlock width={76} height={44} radius="var(--v-radius-md)" /> : <SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
@@ -346,8 +346,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   if (loading) {
     const body = (
       <Stack gap={5}>
-        <div className="db-head"><Stack gap={1}><h2 className="db-greet">{greetingFor(hour, name)}</h2><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={112} height={44} radius="var(--v-radius-md)" /></Row></div>
-        <div className="db-tiles" aria-busy="true" aria-hidden="true">{[0, 1, 2, 3].map(i => <Card key={i} className="v-stat db-tile" as="div"><span className="v-tile db-tile-skel"><SkeletonBlock width={40} height={40} radius="var(--v-radius-md)" /></span><div className="v-stat-body"><SkeletonBlock width={48} height={26} style={{ marginBottom: 2 }} /><SkeletonBlock width="80%" height={16} /></div></Card>)}</div>
+        <div className="db-head"><Stack gap={1}><h2 className="db-greet">{greetingFor(hour, name)}</h2><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={desktop ? 164 : 175} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={desktop ? 112 : 175} height={44} radius="var(--v-radius-md)" /></Row></div>
+        <div className="db-tiles" aria-busy="true" aria-hidden="true">{[0, 1, 2, 3].map(i => <Card key={i} className="v-stat db-tile db-tile--skel" as="div"><span className="v-tile db-tile-skel"><SkeletonBlock width={40} height={40} radius="var(--v-radius-md)" /></span><div className="v-stat-body"><SkeletonBlock width={48} height={26} style={{ marginBottom: 2 }} /><SkeletonBlock width="80%" height={16} /></div></Card>)}</div>
         {!desktop && <div className="db-next"><NextUpSkeleton /></div>}
       </Stack>
     );
@@ -449,6 +449,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 }
 
 const dbStyles = `
+  /* The skeleton tile is the height of a loaded one on a phone (icon, number, label, and the room for a two line label). */
+  @media (max-width: 767px) { .db-tile--skel { min-height: 94px; } }
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */

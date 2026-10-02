@@ -218,7 +218,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   return (
     <PageShell className="aa-main aa-main--wide cal-shell">
       <ScrollArea wide className="cal-page">
-        <Section title={title} loading={loading} description={loading ? undefined : mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : undefined}
+        <Section title={title} loading={loading && mode === 'day'} description={loading ? undefined : mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : undefined}
           action={<Row gap={2} wrap>
             <Row gap={1}><IconButton icon={ChevronLeft} label="Previous" variant="secondary" onClick={prev} /><Button variant="secondary" onClick={() => setCursor(startOfDay(new Date()))}>Today</Button><IconButton icon={ChevronRight} label="Next" variant="secondary" onClick={next} /></Row>
             <SegmentedControl size="sm" label="View" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={mode} onChange={setMode} />

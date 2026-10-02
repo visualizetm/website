@@ -77,7 +77,8 @@ export const SCREENS = [
   { id: 'leads-detail', screen: 'Leads', label: 'lead detail', path: '/admin/leads', open: 'L0', region: '.aa-main.ld-main', resource: 'leads', detail: true, prep: (p) => setLS(p, 'vz_leads_view', 'list'), act: (p, w) => click(p.locator(w >= 1024 ? '.v-tr' : '.lc')) },
 
   { id: 'calls-lists', screen: 'Call Console', label: 'the lists to run', path: '/admin/calls', resource: 'lists', prep: (p) => rmLS(p, 'vz_call_session') },
-  { id: 'calls-builder', screen: 'Call Console', label: 'quick session builder', path: '/admin/calls', resource: 'leads', prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.getByRole('button', { name: 'Quick session' })); await p.mouse.move(0, 0); } }, // the pointer leaves the sticky Start button, so axe reads it at rest and not on hover
+  // calls-builder is noFit: the builder is reached by a click on the lists screen, so the skeleton the audit sees is the lists one.
+  { id: 'calls-builder', screen: 'Call Console', label: 'quick session builder', path: '/admin/calls', resource: 'leads', noFit: true, prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.getByRole('button', { name: 'Quick session' })); await p.mouse.move(0, 0); } }, // the pointer leaves the sticky Start button, so axe reads it at rest and not on hover
   { id: 'calls-queue', screen: 'Call Console', label: 'queue', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('queue')) },
   { id: 'calls-room', screen: 'Call Console', label: 'room', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('room')) },
   { id: 'calls-summary', screen: 'Call Console', label: 'summary', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('summary')) },
@@ -101,7 +102,8 @@ export const SCREENS = [
   { id: 'deals-send', screen: 'Deals', label: 'the send email modal', path: '/admin/deals', open: 'L8', region: '.v-modal', resource: 'leads', detail: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Checkpoints'); await click(p.locator('.dc-send')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); await p.mouse.move(0, 0); } },
   { id: 'deals-markpaid', screen: 'Deals', label: 'the Mark paid modal', path: '/admin/deals', open: 'L9', region: '.v-modal', resource: 'leads', detail: true, act: async (p, w) => { await p.waitForSelector('.rc-head', { timeout: 8000 }).catch(() => {}); await openSection(p, w, 'Money'); await click(p.locator('.iv-paid')); await p.waitForSelector('.v-modal', { timeout: 4000 }).catch(() => {}); await p.mouse.move(0, 0); } }, // the pointer leaves the confirm button, so axe reads it at rest and not on hover
 
-  { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'day') },
+  // calendar-day is noFit: its Overdue callbacks card shows only when callbacks are overdue, which the skeleton cannot know.
+  { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', noFit: true, prep: (p) => setLS(p, 'vz_cal_view', 'day') },
   { id: 'calendar-week', screen: 'Calendar', label: 'week', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'week') },
   { id: 'calendar-month', screen: 'Calendar', label: 'month', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'month') },
 

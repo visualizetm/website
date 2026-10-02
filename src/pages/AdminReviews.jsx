@@ -38,7 +38,7 @@ export function ReviewCard({ lead, projects, onOpen, selected }) {
     </Card>
   );
 }
-ReviewCard.Skeleton = function ReviewCardSkeleton() { return <Card padding={3} aria-busy="true"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /></Row><SkeletonBlock width="60%" height={12} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>; };
+ReviewCard.Skeleton = function ReviewCardSkeleton() { return <Card padding={3} aria-busy="true" className="rv-skel"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /></Row><SkeletonBlock width="60%" height={12} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>; };
 
 function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onClose }) {
   const toast = useToast();
@@ -175,6 +175,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
 }
 
 const rvStyles = `
+  @media (max-width: 767px) { .rv-skel { min-height: 148px; } }
   .rv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--v-space-3); min-width: 0; }
   .rv-grid > .v-stagger-item { display: contents; }
   .rv-card { gap: var(--v-space-2); text-align: left; align-items: stretch; }

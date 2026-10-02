@@ -55,7 +55,7 @@ export function OrderCard({ order: o, leads, onOpen, selected, compact = false }
   );
 }
 OrderCard.Skeleton = function OrderCardSkeleton() {
-  return <Card padding={3} aria-busy="true"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="70%" height={12} /><Row gap={2}><SkeletonBlock width={60} height={14} /><SkeletonBlock width={110} height={22} radius="var(--v-radius-pill)" /></Row></Card>;
+  return <Card padding={3} aria-busy="true" className="po-skel"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width={60} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="70%" height={12} /><Row gap={2}><SkeletonBlock width={60} height={14} /><SkeletonBlock width={110} height={22} radius="var(--v-radius-pill)" /></Row></Card>;
 };
 
 /* ── Product picker (new order and add item) ───────────────────── */
@@ -313,6 +313,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
 }
 
 const poStyles = `
+  @media (max-width: 767px) { .po-skel { min-height: 120px; } .po-skel:nth-child(2) { min-height: 146px; } .po-skel:nth-child(3) { min-height: 125px; } }
   /* The list plus panel split (.po-split, .po-panel) ships in uiStyles (src/ui/lead.styles.js). */
   .po-card { gap: var(--v-space-2); text-align: left; align-items: stretch; }
   .po-card-name { flex: 1; min-width: 0; font-weight: var(--v-weight-bold); color: var(--v-text); }

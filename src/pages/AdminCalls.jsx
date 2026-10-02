@@ -196,7 +196,7 @@ function BeforeYouDial({ lead, done, onToggle }) {
   const items = lead.beforeYouDial || [];
   if (!items.length) return null;
   return (
-    <Card level={1} padding={3} className="cc-predial">
+    <Card level={1} padding={3} className="cc-predial" style={{ minHeight: desktop ? undefined : 106 }}>
       <p className="pb-card-h">Before you dial</p>
       <Stack gap={0}>{items.map((t, i) => <Checkbox key={i} label={t} checked={!!done[i]} onChange={() => onToggle(i)} />)}</Stack>
     </Card>
@@ -607,7 +607,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
         {pending ? null : loadFailed ? loadFailed : showSkel || listsLoading ? (
           <Stack gap={5} aria-busy="true">
             <Stack gap={1}><SkeletonBlock width={140} height={16} /><SkeletonText lines={desktop ? 1 : 2} lineHeight={desktop ? 38 : 30} gap={1} width="70%" /><SkeletonText lines={1} lineHeight={18} width="60%" /></Stack>
-            <div className="ls-grid">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4}><Stack gap={3}><Row gap={2} justify="between"><SkeletonBlock width={140} height={18} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</div>
+            <div className="ls-grid">{[1, 2, 3].map(i => <Card key={i} as="div" padding={4} className="ls-skel"><Stack gap={3}><Row gap={2} justify="between"><SkeletonBlock width={140} height={18} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row><Stack gap={1}><SkeletonBlock width={60} height={14} /><SkeletonBlock height={6} radius="var(--v-radius-pill)" /></Stack><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Stack></Card>)}</div>
           </Stack>
         ) : listsError && !lists.length ? (
           <Card><ErrorState title={COPY.error.lists.title} description={COPY.error.lists.description} onRetry={listsRetry} retrying={listsRetrying} /></Card>
@@ -714,14 +714,17 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           <SkeletonBlock height={56} radius="var(--v-radius-lg)" />
         </Card>
         )}
-        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{[1, 2, 3].map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
-        <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, ...(desktop ? [4] : [])].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
+        <Card level={1} padding={3} className="cc-predial"><SkeletonBlock width={110} height={12} /><Stack gap={0}>{(desktop ? [1, 2, 3] : [1]).map(i => <Row key={i} gap={3} align="center" style={{ minHeight: 'var(--v-tap)' }}><SkeletonBlock width={22} height={22} /><SkeletonBlock width={`${50 + i * 12}%`} height={14} /></Row>)}</Stack></Card>
+        {desktop
+          ? <Stack gap={3}><Row gap={2} style={{ borderBottom: '1px solid var(--v-border)', paddingBottom: 12 }}>{[1, 2, 3, 4].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row><Card><SkeletonText lines={4} /></Card><Card><SkeletonText lines={3} /></Card></Stack>
+          /* A phone: the tab row (45px, like the real tabs) and the open tab's text, which has no card of its own. */
+          : <Stack gap={3}><div className="v-tabs" style={{ minHeight: 45 }}><Row gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} width={64} height={16} />)}</Row></div><SkeletonText lines={4} /></Stack>}
       </div>
     </ScrollArea>
   );
   const summarySkeleton = (
     <ScrollArea className="cc-summary" aria-busy="true">
-      <Stack gap={4}><Card><SkeletonBlock width={140} height={12} /><Row gap={5} align="center"><SkeletonCircle size={96} /><Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{[1, 2, 3, 4, 5, 6].map(i => <Card key={i} level={2} padding={3}><SkeletonBlock width={40} height={30} /><SkeletonBlock width={60} height={12} /></Card>)}</Grid></Row><SkeletonBlock height={56} radius="var(--v-radius-lg)" /></Card><Row gap={2}><SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={160} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+      <Stack gap={4}><Card style={{ minHeight: desktop ? undefined : 509 }}><SkeletonBlock width={140} height={12} /><Row gap={5} align="center"><SkeletonCircle size={96} /><Grid className="cc-statgrid" minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{[1, 2, 3, 4, 5, 6].map(i => <Card key={i} level={2} padding={3}><SkeletonBlock width={40} height={30} /><SkeletonBlock width={60} height={12} /></Card>)}</Grid></Row><SkeletonBlock height={56} radius="var(--v-radius-lg)" /></Card><Row gap={2}><SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={160} height={44} radius="var(--v-radius-md)" /></Row></Stack>
     </ScrollArea>
   );
 
