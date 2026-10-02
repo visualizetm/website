@@ -245,6 +245,14 @@ function OutcomeBar({ current, position, total, onOutcome, onSkip, desktop, onKe
 }
 
 /* ── Summary ─────────────────────────────────────────────────── */
+/* The six stats: a grid on a computer, one row per stat on a phone (a Grid sets display inline, so the phone gets a Stack). */
+function StatGrid({ children }) {
+  const phone = useMediaQuery('(max-width: 767px)');
+  return phone
+    ? <Stack gap={0} className="cc-statgrid" style={{ flex: '1 1 240px', minWidth: 0 }}>{children}</Stack>
+    : <Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{children}</Grid>;
+}
+
 function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = null, onRoll, onDone }) {
   const toast = useToast();
   const s = session.stats;
@@ -258,9 +266,9 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = nu
           <Section title="Session complete" description={fmtMins(Date.now() - session.startedAt) + ' on the phones'}>
             <Row gap={5} align="center" wrap className="cc-sumrow">
               <ProgressRing value={connects ? Math.round((s.booked / connects) * 100) : 0} size={96} thickness={9} tone="booked" label="Booked of connects"><Stack gap={0} align="center"><span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.booked}</span><span className="cc-ring-sub">of {connects}</span></Stack></ProgressRing>
-              <Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }} className="cc-statgrid">
+              <StatGrid>
                 {[['Calls', s.calls], ['Connects', connects], ['Booked', s.booked], ['Callbacks', s.callbacks], ['Said no', s.no], ['Wrong number', s.wrongNumber]].map(([l, n]) => <Card key={l} level={2} padding={3}><span className="cc-stat-n">{n}</span><span className="cc-stat-l">{l}</span></Card>)}
-              </Grid>
+              </StatGrid>
             </Row>
             <Card level={2} padding={3} className="cc-winline"><p>{winLine(s)}</p><Button variant="secondary" icon={Copy01} onClick={copy}>Copy win line</Button></Card>
           </Section>
@@ -724,7 +732,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   );
   const summarySkeleton = (
     <ScrollArea className="cc-summary" aria-busy="true">
-      <Stack gap={4}><Card style={{ minHeight: desktop ? undefined : 509 }}><SkeletonBlock width={140} height={12} /><Row gap={5} align="center"><SkeletonCircle size={96} /><Grid className="cc-statgrid" minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{[1, 2, 3, 4, 5, 6].map(i => <Card key={i} level={2} padding={3}><SkeletonBlock width={40} height={30} /><SkeletonBlock width={60} height={12} /></Card>)}</Grid></Row><SkeletonBlock height={56} radius="var(--v-radius-lg)" /></Card><Row gap={2}><SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={160} height={44} radius="var(--v-radius-md)" /></Row></Stack>
+      <Stack gap={4}><Card className="cc-sum-skel"><SkeletonBlock width={140} height={12} /><Row gap={5} align="center"><SkeletonCircle size={96} /><StatGrid>{[1, 2, 3, 4, 5, 6].map(i => <Card key={i} level={2} padding={3}><SkeletonBlock width={40} height={30} /><SkeletonBlock width={60} height={12} /></Card>)}</StatGrid></Row><SkeletonBlock height={56} radius="var(--v-radius-lg)" /></Card><Row gap={2}><SkeletonBlock width={140} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={160} height={44} radius="var(--v-radius-md)" /></Row></Stack>
     </ScrollArea>
   );
 
@@ -845,6 +853,9 @@ const ccStyles = `
   .cc-head--phone { --v-stack-gap: var(--v-space-2); }
   .cc-about-btn { align-self: flex-start; }
   /* A phone: the session numbers are lines with a divider (label, then the number), not six cards in two columns inside a card. */
+  /* The summary skeleton is the height of the loaded summary (the stats are one row each on a phone). */
+  .cc-sum-skel { min-height: 388px; }
+  @media (max-width: 767px) { .cc-sum-skel { min-height: 667px; } }
   @media (max-width: 767px) { .cc-statgrid { display: flex; flex-direction: column; gap: 0; } .cc-statgrid > .v-card { flex-direction: row-reverse; justify-content: space-between; align-items: baseline; background: transparent; border-width: 0 0 1px; border-radius: 0; padding: var(--v-space-2) 0; box-shadow: none; } }
   .cc-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
   @media (max-width: 479px) { .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); } }
