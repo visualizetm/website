@@ -40,7 +40,7 @@ import { formatPhone } from '../shared/phone';
 import { fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
-import { RecordHeader, NextActionStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor } from './record';
+import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor } from './record';
 
 const FIRST = { lead: 'playbook', deal: 'checkpoints', client: 'project' };
 /* Next up (CRM revamp, step 2): a row's control opens the record on the section that does the thing. */
@@ -259,6 +259,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
         <Stagger className="rc-inner" cap={5}>
           {!(phone && phoneTab) && header}
           {!(phone && phoneTab) && next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
+          {mode === 'lead' && !(phone && phoneTab) ? <SocialsStrip rec={rec} onAdd={() => setEditAll(true)} /> : null}
           {phone && !phoneTab && firstSection && <div className="rc-first" role="region" aria-label={firstSection.label}>{firstSection.body}</div>}
           {phone && !phoneTab && <SectionRows sections={otherSections} onOpen={openTab} />}
           {phone && phoneTab && <div className="rc-secscreen" role="region" aria-label={activeSectionLabel}>{(sections.find(x => x.id === phoneTab) || {}).body}</div>}
@@ -338,6 +339,8 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
         /* Triage opens on the Playbook: four groups (accomplishments, gaps, drop these, before you dial), each a label, its items (1, 2, 0, 1 as a typical scraped lead) and the add row, under the pinned decision bar. */
         ? <>{(triage ? [1, 2, 0, 1] : [0, 0, 0, 1]).map((n, k) => <div key={k} className="rc-group"><SkeletonBlock width={120} height={16} />{Array.from({ length: n }, (_, i) => <div key={i} style={{ height: 40 }}><SkeletonBlock width="60%" height={18} style={{ margin: '11px 0' }} /></div>)}<Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>)}</>
         : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
+  /* A lead or triage record opens with its socials (two or three rows is the usual find), between the header and the rest. */
+  const socials = m === 'lead' ? <div className="rc-soc"><p className="rc-soc-head"><SkeletonBlock width={64} height={12} /></p><ul className="rc-soc-list">{Array.from({ length: triage ? 3 : 2 }, (_, i) => <li key={i}><div className="rc-soc-link"><SkeletonBlock width={18} height={18} /><span className="rc-soc-text"><SkeletonBlock width="35%" height={16} /><SkeletonBlock width="55%" height={16} style={{ marginTop: 4 }} /></span></div></li>)}</ul></div> : null;
   const outbar = triage ? <StickyFooterBar className="dt-outbar dt-triagebar"><Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">{[0, 1, 2, 3].map(k => <SkeletonBlock key={k} height={44} radius="var(--v-radius-md)" />)}</Row></StickyFooterBar> : m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
   return (
     <PageShell className="dt">
@@ -345,6 +348,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
         <div className="rc-inner" aria-busy="true" aria-hidden="true">
           {head}
           {strip}
+          {socials}
           {phone ? (
             <>
               <div className="rc-first">{first}</div>

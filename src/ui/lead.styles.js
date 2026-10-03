@@ -70,6 +70,20 @@ export const leadDetailStyles = `
   .rc-head--phone .rc-head-actions .v-btn { flex: 1 1 120px; min-width: 0; }
   /* The next action strip: red-soft, red border, one line, one button. */
   .rc-next { display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px solid var(--v-red); border-radius: var(--v-radius-md); background: var(--v-red-soft); color: var(--v-text); min-width: 0; }
+  /* The socials strip: one row per channel the business has, an icon, the name, the handle or address, and the way out. Nothing for a channel it lacks. */
+  .rc-soc { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .rc-soc-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--v-space-2); margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .rc-soc-count { text-transform: none; letter-spacing: 0; color: var(--v-text-3); }
+  .rc-soc-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: var(--v-space-2); }
+  .rc-soc-link { display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px solid var(--v-border); border-radius: var(--v-radius-md); background: var(--v-surface-2); color: var(--v-text); text-decoration: none; min-width: 0; transition: background var(--v-dur-fast) var(--v-ease-out), border-color var(--v-dur-fast) var(--v-ease-out); }
+  .rc-soc-link:hover { background: var(--v-surface-3); border-color: var(--v-border-strong); }
+  .rc-soc-icon { display: inline-flex; flex-shrink: 0; color: var(--v-red-highlight); }
+  .rc-soc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .rc-soc-name { font-weight: var(--v-weight-semibold); line-height: var(--v-lh-sm); }
+  .rc-soc-url { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rc-soc-out { display: inline-flex; flex-shrink: 0; color: var(--v-text-3); }
+  .rc-soc--none { flex-direction: row; align-items: center; justify-content: space-between; min-height: var(--v-tap); }
+  .rc-soc-none { color: var(--v-text-2); font-size: var(--v-text-sm); }
   .rc-next-icon { color: var(--v-red-highlight); flex-shrink: 0; }
   .rc-next-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--v-space-2); flex-wrap: wrap; }
   .rc-next-label { font-weight: var(--v-weight-bold); }

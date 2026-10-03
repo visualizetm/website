@@ -17,6 +17,7 @@ export { default as RecordHeader } from './RecordHeader';
 export { default as NextActionStrip } from './NextActionStrip';
 export { default as FactsGrid, AnglePara } from './FactsGrid';
 export { default as SectionRows } from './SectionRows';
+export { default as SocialsStrip } from './SocialsStrip';
 export { checkpointAction, runKeyFor } from './checkpointAction';
 
 export const SECTIONS = {
