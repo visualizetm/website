@@ -905,6 +905,29 @@ for (const width of WIDTHS) {
   await page.locator('.sc-thumb').first().waitFor({ timeout: 4000 }).catch(() => {});
   await check('showcase editor (portrait and panoramic uploads)');
 
+  /* Tasks (the task system, milestone 5): a client with checklists, a
+     checklist step on a phone, the Quick add sheet, the template picker, and
+     a client with none yet. */
+  await goto('/admin/clients/L11/tasks');
+  await page.locator('.tk-body').first().waitFor({ timeout: 4000 }).catch(() => {});
+  await check('tasks (a client with checklists)');
+  if (width < 768) {
+    await page.locator('.tk-body .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await check('tasks (one checklist, a step on a phone)');
+  }
+  await page.locator('.tk-add').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('tasks (quick add sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  if (width < 768) { await page.locator('.sh-topbar button, .lay-top button').first().click({ timeout: 2000 }).catch(() => {}); await page.waitForTimeout(500); }
+  await page.locator('.tk-template').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('tasks (template picker)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await goto('/admin/clients/L13/tasks');
+  await page.waitForTimeout(600);
+  await check('tasks (a client with none yet)');
   /* The Content Planner editor (planner prompt 2, part 6): the page on and
      off, a month with nothing in it, the post editor Sheet, the save bar,
      and the regenerate dialog. The image check earns its keep here too: a

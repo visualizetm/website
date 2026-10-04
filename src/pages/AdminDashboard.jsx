@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
+  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
@@ -12,6 +12,9 @@ import { fmtDateTime, fmtWeekdayDateTime, toMs, dayKey } from '../shared/dates';
 import { money } from '../shared/format';
 import { telHref } from '../shared/phone';
 import { nextUpItems } from '../lib/nextAction';
+import { taskCounts } from '../shared/taskRules';
+import { completePatch, pinPatch, unpinPatch, checklistsPatch } from '../lib/taskWrite';
+import { patchTask } from '../shared/taskRules';
 import { buildEvents } from '../lib/events';
 import { isStalled } from '../lib/deal';
 import { invoicesOf, invoiceStatus } from '../lib/invoices';
@@ -124,8 +127,11 @@ function useSwipe({ onRight, onLeft, onHold, enabled }) {
   };
 }
 
-function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask }) {
+function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask, onPin, onAuto, onTasks }) {
   const { action, lead } = item;
+  /* The task system: a client or a project with checklists shows how far it is; a task action gets Pin or Auto and the way into its Tasks screen. */
+  const counts = item.record?.checklists?.length ? taskCounts(item.record) : null;
+  const isTaskItem = !!action.taskId;
   const swipe = useSwipe({ enabled: phone, onRight: onDone, onLeft: onSnooze, onHold: onPick });
   const kind = action.kind;
   const primary = kind === 'call' || kind === 'callback'
@@ -139,7 +145,9 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, on
     { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
     { id: 'snooze', label: 'Snooze a day', icon: 'Clock', onSelect: onSnooze },
     { id: 'pick', label: 'Snooze until', icon: 'Calendar', onSelect: onPick },
-    ...(isTask(action) && onEditTask ? [{ id: 'edit', label: 'Edit task', icon: 'Edit02', onSelect: onEditTask }] : []),
+    ...(isTask(action) && !isTaskItem && onEditTask ? [{ id: 'edit', label: 'Edit task', icon: 'Edit02', onSelect: onEditTask }] : []),
+    ...(isTaskItem ? [action.auto === false ? { id: 'auto', label: 'Auto (unpin)', icon: 'Zap', onSelect: onAuto } : { id: 'pin', label: 'Pin as Next up', icon: 'Pin01', onSelect: onPin }] : []),
+    ...((counts || isTaskItem) && onTasks ? [{ id: 'tasks', label: 'Open tasks', icon: 'CheckDone01', onSelect: onTasks }] : []),
     'divider',
     { id: 'open', label: 'Open the record', icon: 'ArrowRight', onSelect: onOpen },
   ];
@@ -157,7 +165,9 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, on
             <Row gap={2} align="center" wrap>
               {item.bucket === 'overdue' && <Pill tone="danger" label="Overdue" size="sm" icon={false} variant="solid" />}
               <span className="nu-due">{isTask(action) && action.dueAt ? fmtTaskDue(action.dueAt, now) : dueLabel(item, now)}</span>
+              {isTaskItem && action.auto === false && <span className="nu-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned.</span></span>}
             </Row>
+            {counts && <ProgressBar value={counts.pct} size="sm" tone={counts.done === counts.total ? 'booked' : 'progress'} className="nu-bar" aria-label={`${counts.done} of ${counts.total} tasks done`} />}
           </Stack>
           <span className="v-above nu-ctl">
             <IconButton icon={primary.icon} label={primary.label} variant="secondary" onClick={primary.href ? () => { window.location.href = primary.href; } : onAct} />
@@ -216,7 +226,7 @@ function ListReadyRow({ list, onStart, onOpen }) {
 
 /* The six sections, every one open, an empty one a single line. */
 function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
-  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} />);
+  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} onPin={() => act('pin', it)} onAuto={() => act('auto', it)} onTasks={() => act('tasks', it)} />);
   const line = (text) => <p className="nu-clear" role="status">{text}</p>;
   const section = (id, label, tone, count, body) => (
     <section key={id} className="nu-sec" aria-label={label}>
@@ -304,6 +314,15 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     if (!ok) toast.error(COPY.error.save);
     return ok;
   };
+  /* The task system: a task action writes the task (the checklist), never the next action by hand; the rule recomputes from it. */
+  const taskCtx = { projects, sets };
+  const writeRecord = async (item, set) => {
+    const ok = item.project ? await onPatchProject(item.project._id, set) : await onPatchLead(item.lead._id, set);
+    if (!ok) toast.error(COPY.error.save);
+    return ok;
+  };
+  const moveTask = (item, iso) => writeRecord(item, checklistsPatch(item.record, patchTask(item.record.checklists || [], item.action.taskId, { due: iso, notifiedAt: '' }), taskCtx));
+  const taskDue = (item) => (item.record.checklists || []).flatMap(l => l.items || []).find(t => t.id === item.action.taskId)?.due || '';
   const openRecord = (item, why) => {
     if (desktop) openSel(item.lead._id, { intent: why ? { kind: why, n: Date.now() } : null });
     else onOpenLead(item.lead, why);
@@ -324,6 +343,20 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
       return;
     }
     if (what === 'edittask') { setTaskEdit(item); return; }
+    if (what === 'tasks') { shell?.openTasks?.(item.lead, item.project || undefined); return; }
+    if (what === 'pin' && item.action.taskId) { const ok = await writeRecord(item, pinPatch(item.record, item.action.taskId, taskCtx)); if (ok) toast.success(`${item.action.label} pinned as Next up.`); return; }
+    if (what === 'auto' && item.action.taskId) { const ok = await writeRecord(item, unpinPatch(item.record, taskCtx)); if (ok) toast.success('Back to auto: the task due soonest is the Next up.'); return; }
+    if (what === 'done' && item.action.taskId) {
+      const ok = await writeRecord(item, completePatch(item.record, item.action.taskId, true, taskCtx, now));
+      if (ok) toast.undo(`${item.action.label} done for ${item.lead.business}.`, () => writeRecord(item, completePatch(item.record, item.action.taskId, false, taskCtx, now)), { seconds: 6 });
+      return;
+    }
+    if (what === 'snooze' && item.action.taskId) {
+      const before = taskDue(item);
+      const ok = await moveTask(item, new Date(Math.max(item.due, now) + DAY).toISOString());
+      if (ok) toast.undo(`${item.lead.business} snoozed a day.`, () => moveTask(item, before), { seconds: 6 });
+      return;
+    }
     if (what === 'done') {
       const ok = await writeAction(item, { ...item.action, doneAt: new Date().toISOString() });
       if (ok) toast.undo(`${item.action.label} done for ${item.lead.business}.`, () => writeAction(item, { ...item.action, doneAt: '' }), { seconds: 6 });
@@ -339,6 +372,12 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const snoozeUntil = async (when) => {
     if (!pick || !when) return;
     const item = pick; setPick(null);
+    if (item.action.taskId) {
+      const before = taskDue(item);
+      const ok = await moveTask(item, new Date(when).toISOString());
+      if (ok) toast.undo(`${item.lead.business} snoozed until ${fmtDateTime(when)}.`, () => moveTask(item, before), { seconds: 6 });
+      return;
+    }
     const ok = await writeAction(item, { ...item.action, dueAt: new Date(when).toISOString(), auto: false });
     if (ok) toast.undo(`${item.lead.business} snoozed until ${fmtDateTime(when)}.`, () => writeAction(item, item.action), { seconds: 6 });
   };
@@ -484,6 +523,8 @@ const dbStyles = `
   .nu-swipe.is-moving .nu-hint { opacity: 0.6; }
   .nu-hint.is-armed { opacity: 1; }
   .nu-hint--done { left: 0; right: 40%; justify-content: flex-start; background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
+  .nu-bar { margin-top: var(--v-space-1); max-width: 220px; }
+  .nu-pin { display: inline-flex; color: var(--v-status-progress-text); }
   .nu-hint--snooze { right: 0; left: 40%; justify-content: flex-end; background: var(--v-status-callback-soft); color: var(--v-status-callback-text); }
   .nu-row { gap: 0; text-align: left; align-items: stretch; transition: transform var(--v-dur-base) var(--v-ease-out); touch-action: pan-y; }
   .nu-row.is-overdue { border-color: var(--v-status-danger-text); }

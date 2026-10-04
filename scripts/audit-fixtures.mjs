@@ -59,7 +59,16 @@ export const PIPE_EXTRA = {
         planner: { enabled: true, token: 'plnrTESTtoken0123456789abcdEF', tokenCreatedAt: daysFrom(-30), lastViewedAt: new Date(Date.now() - 4 * 3600e3).toISOString(), postsPerMonth: 8, welcome: 'Here is what is going out this month. Tap any post to read it.' },
         servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
         pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
-        checklists: [{ name: 'Launch', items: [{ text: 'Domain live', done: true }] }],
+        /* The task system (milestone 5): a legacy list (no ids) beside a normalized one with an overdue task, one due tomorrow, one with a note and one with no date. */
+        checklists: [
+          { name: 'Launch', items: [{ text: 'Domain live', done: true }] },
+          { id: 'ckL11a', name: 'Content month', templateId: 'content-month', items: [
+            { id: 'tkL11a1', text: 'Plan the month', done: true, doneAt: daysFrom(-3), due: daysFrom(-3), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
+            { id: 'tkL11a2', text: 'Make graphics', done: false, doneAt: '', due: daysFrom(-2), note: 'Three squares and one story', order: 1, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
+            { id: 'tkL11a3', text: 'Write captions', done: false, doneAt: '', due: daysFrom(1), note: '', order: 2, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
+            { id: 'tkL11a4', text: 'Send for approval', done: false, doneAt: '', due: '', note: '', order: 3, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
+          ] },
+        ],
         links: { website: 'https://example.com/' + UNBROKEN, drive: 'https://drive.google.com/drive/folders/' + UNBROKEN, instagram: '' },
         brand: { primary: '#d44c43', colors: ['#080808', '#fafafa', 'notahex', ''], fontDisplay: 'Barlow Condensed ' + UNBROKEN.slice(0, 20), fontBody: 'Inter', logoLink: 'https://example.com/' + UNBROKEN, notes: UNBROKEN },
         purchases: [
@@ -257,7 +266,7 @@ export const projects = [
     invoices: [{ id: 's1', amount: 500, dueAt: daysFrom(-10), status: 'sent', ledgerId: '', sentAt: NOW_ISO, note: '', label: 'Full payment' }], revisions: { max: 2, used: 1, log: [{ at: NOW_ISO, note: 'Tightened the hero ' + UNBROKEN.slice(0, 40), extra: false }] }, plan: null,
     links: { drive: '' }, deliverables: [{ id: 'd1', group: '02', label: 'Access and credentials', done: false, link: '' }, { id: 'd2', group: '02', label: 'Walkthrough video', done: false, link: '' }, { id: 'd3', group: '04', label: 'Source files', done: false, link: '' }],
     delivery: { driveShared: false, emailSent: false, pitchSent: false, followUpLeadCallbackAt: '' }, monthly: [], createdAt: daysFrom(-12), archived: false },
-  { _id: 'P11', leadId: 'L11', name: 'Launch Plan', kind: 'combined', packageId: 'launch-plan', stage: 'revisions', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 1275,
+  { _id: 'P11', leadId: 'L11', name: 'Launch Plan', kind: 'combined', packageId: 'launch-plan', stage: 'revisions', checklists: [{ id: 'ckP11', name: 'Website project', templateId: 'website', items: [{ id: 'tkP11a', text: 'Collect content', done: true, doneAt: daysFrom(-10), due: daysFrom(-10), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' }, { id: 'tkP11b', text: 'Design pages', done: false, doneAt: '', due: daysFrom(4), note: '', order: 1, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' }] }], stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 1275,
     invoices: [
       { id: 'm1', amount: 200, dueAt: monthsAgo(4, 5), status: 'paid', ledgerId: 'lg1', label: 'Month 1 of 6', paidAt: NOW_ISO },
       { id: 'm2', amount: 200, dueAt: monthsAgo(3, 5), status: 'paid', ledgerId: 'lg2', label: 'Month 2 of 6' },

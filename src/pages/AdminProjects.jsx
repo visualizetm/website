@@ -84,6 +84,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   const rowMenu = (r) => [
     { id: 'open', label: 'Open the client', icon: 'ArrowRight', disabled: !r.lead, onSelect: () => open(r) },
     { id: 'money', label: 'Open Money', icon: 'CurrencyDollar', disabled: !r.lead, onSelect: () => { if (r.lead) onOpen?.(r.lead, 'payments'); } },
+    ...(shell?.openTasks ? [{ id: 'tasks', label: 'Tasks', icon: 'CheckDone01', disabled: !r.lead, onSelect: () => { if (r.lead) shell.openTasks(r.lead, r.p); } }] : []),
     ...(onPatch ? [{ id: 'task', label: isTask(r.action) && !r.action.doneAt ? 'Edit task' : 'Set task', icon: 'CheckCircle', onSelect: () => setTaskFor(r) }] : []),
   ];
   const E = COPY.empty['projects.none'];

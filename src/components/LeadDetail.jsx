@@ -40,7 +40,8 @@ import { formatPhone } from '../shared/phone';
 import { fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
-import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor } from './record';
+import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor, tasksSummary } from './record';
+import { completePatch } from '../lib/taskWrite';
 
 const FIRST = { lead: 'playbook', deal: 'checkpoints', client: 'project' };
 /* Next up (CRM revamp, step 2): a row's control opens the record on the section that does the thing. */
@@ -151,7 +152,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     if (kind === 'tab') { openTab(arg); return; }
     if (kind === 'email') { email.open(arg); return; }
     if (kind === 'clear') { await patchRaw({ nextAction: nextActionFor(lead, actionCtx) }); return; }
-    if (kind === 'done') { if (next) await patch({ nextAction: { ...next, doneAt: new Date().toISOString() } }); return; }
+    /* A task behind the action (the task system): finishing it is the checklist write, which clears the pin and lets the rule pick the next one. */
+    if (kind === 'done') { if (next?.taskId) await patch(completePatch(lead, next.taskId, true, actionCtx)); else if (next) await patch({ nextAction: { ...next, doneAt: new Date().toISOString() } }); return; }
     if (kind === 'task') { setTaskOpen(true); return; }
     if (kind === 'met') { setBusy(what); const ok = await patch(metPatch(lead)); setBusy(''); if (ok) { toast.success(`Met them. ${lead.business} is a deal.`); openTab('checkpoints'); } return; }
     if (kind === 'tick') { setBusy(what); const ok = await patch(tickPatch(lead, arg)); setBusy(''); if (ok) toast.success(`${checkpointOf(arg)?.label || 'Step'} ticked.`); }
@@ -232,6 +234,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     'divider',
     ...(clientMode && shell?.openShowcase ? [{ id: 'showcase', label: `Showcase, ${hasShowcase ? (lead.showcase.published ? 'published' : 'draft') : 'none yet'}`, icon: 'Image01', onSelect: () => shell.openShowcase(lead) }] : []),
     ...(clientMode && shell?.openPlanner ? [{ id: 'planner', label: `Planner, ${plannerLabel}`, icon: 'Calendar', onSelect: () => shell.openPlanner(lead) }] : []),
+    ...(shell?.openTasks ? [{ id: 'tasks', label: `Tasks, ${tasksSummary(rec)}`, icon: 'CheckDone01', onSelect: () => shell.openTasks(lead) }] : []),
     ...(shell?.openConcepts ? [{ id: 'concepts', label: `Concepts, ${conceptSt ? conceptSt.label.toLowerCase() : 'none'}`, icon: 'LayersThree01', onSelect: () => shell.openConcepts(lead) }] : []),
     'divider',
     ...(!readOnly && !clientMode && stage !== 'client' && stage !== 'won' && shell?.openListPicker ? [{ id: 'list', label: lead.listId ? 'Move list' : 'Add to list', icon: 'Rows01', onSelect: () => shell.openListPicker([lead]) }] : []),
@@ -245,7 +248,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   ]);
 
   /* The sections of this mode: one component and one summary each. */
-  const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), body: <s.Component rec={rec} /> }; });
+  const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), bar: s.bar ? s.bar(rec) : null, body: <s.Component rec={rec} /> }; });
   const tabs = sections.filter(s => s.id !== 'details');
   const active = tabs.find(s => s.id === tab) || tabs[0];
   const firstSection = sections.find(x => x.id === first);

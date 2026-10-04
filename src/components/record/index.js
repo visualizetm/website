@@ -12,6 +12,9 @@ import PlaybookSection, { playbookSummary } from './PlaybookSection';
 import NotesSection, { notesSummary } from './NotesSection';
 import HistorySection, { historySummary } from './HistorySection';
 import DetailsSection, { detailsSummary } from './DetailsSection';
+import TasksSection, { tasksSummary, tasksBar } from './TasksSection';
+
+export { tasksSummary } from './TasksSection';
 
 export { default as RecordHeader } from './RecordHeader';
 export { default as NextActionStrip } from './NextActionStrip';
@@ -29,6 +32,7 @@ export const SECTIONS = {
   files: { label: 'Files', Component: FilesSection, summary: filesSummary },
   retainer: { label: 'Retainer', Component: RetainerSection, summary: retainerSummary },
   playbook: { label: 'Playbook', Component: PlaybookSection, summary: playbookSummary },
+  tasks: { label: 'Tasks', Component: TasksSection, summary: tasksSummary, bar: tasksBar },
   notes: { label: 'Notes', Component: NotesSection, summary: notesSummary },
   history: { label: 'History', Component: HistorySection, summary: historySummary },
   details: { label: 'Details', Component: DetailsSection, summary: detailsSummary },
@@ -36,7 +40,7 @@ export const SECTIONS = {
 
 /* Sections by mode, in tab order. Details is a phone row only; on a computer its facts sit under the header. */
 export const SECTIONS_BY_MODE = {
-  lead: ['playbook', 'notes', 'history', 'details'],
-  deal: ['checkpoints', 'meeting', 'pricing', 'money', 'playbook', 'notes', 'history', 'details'],
-  client: ['project', 'money', 'files', 'retainer', 'notes', 'history', 'details'],
+  lead: ['playbook', 'tasks', 'notes', 'history', 'details'],
+  deal: ['checkpoints', 'meeting', 'pricing', 'money', 'tasks', 'playbook', 'notes', 'history', 'details'],
+  client: ['project', 'tasks', 'money', 'files', 'retainer', 'notes', 'history', 'details'],
 };

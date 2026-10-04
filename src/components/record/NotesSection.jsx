@@ -1,7 +1,6 @@
 import LeadNotes from '../LeadNotes';
-import Checklists from '../Checklists';
 
-/* Notes: the textarea and the checklists. */
+/* Notes: the textarea. The checklists that used to sit under it are the Tasks section now (one task system). */
 export const notesSummary = (rec) => (rec.lead.notes || '').split('\n').map(l => l.trim()).find(Boolean) || 'No notes yet';
 
 export default function NotesSection({ rec }) {
@@ -9,7 +8,6 @@ export default function NotesSection({ rec }) {
   return (
     <div className="rc-notes">
       <LeadNotes lead={lead} onSave={(id, v) => onPatch(id, { notes: v })} />
-      <div className="rc-group"><p className="rc-label">Checklists</p><Checklists lead={lead} onPatch={onPatch} /></div>
     </div>
   );
 }

@@ -60,7 +60,8 @@ section('2. normalize, add, remove, templates');
 {
   const legacy = [{ name: 'Old', items: [{ text: 'first', done: true }, { text: 'second', done: false }] }];
   const n = T.normalizeChecklists(legacy);
-  ok(n[0].id.length === 8 && n[0].items[0].id.length === 8 && n[0].items[1].order === 1 && n[0].items[0].done === true && n[0].items[0].text === 'first', 'a legacy list gains ids and order and keeps what it had');
+  ok(n[0].id === 'list0' && n[0].items[0].id === 'list0item0' && n[0].items[1].id === 'list0item1' && n[0].items[1].order === 1 && n[0].items[0].done === true && n[0].items[0].text === 'first', 'a legacy list gains ids and order and keeps what it had');
+  ok(JSON.stringify(T.normalizeChecklists(legacy)) === JSON.stringify(n), 'the ids a legacy list gets are the same on every read (a tick lands on the row that was ticked)');
   ok(T.normalizeChecklists(n)[0].items[0].id === n[0].items[0].id, 'a normalized list keeps its ids on the next pass');
   const added = T.addTask(n, n[0].id, { text: 'third', due: iso(NOW + DAY), source: 'suggestion', suggestionId: 's1' });
   ok(added[0].items.length === 3 && added[0].items[2].text === 'third' && added[0].items[2].source === 'suggestion' && added[0].items[2].order === 2, 'addTask appends to the list by id with its source');

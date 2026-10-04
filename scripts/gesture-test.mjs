@@ -118,6 +118,32 @@ await step('a lead row follows the finger, arms and commits a callback, reverts 
   need((await state(page)).path === '/admin/leads' && (await page.evaluate(() => !history.state?.usr?.open)), 'the swipe also opened the record');
   return 'followed, armed, wrote one callback, nothing else opened';
 });
+await step('a task row follows the finger, a swipe right completes it with one checklists write, a swipe left opens its sheet', async (page) => {
+  const writes = []; page.on('request', r => { if (r.method() === 'PATCH' && /call-leads/.test(r.url())) writes.push(r.postData()); });
+  const g = await open(page, '/admin/clients/L11/tasks'); await g.wait(600);
+  /* The Content month list: its first open task can be swiped right (a done task offers no Done). */
+  await page.locator('.tk-body .v-lrow').filter({ hasText: 'Content month' }).locator('.v-stretch').first().evaluate(el => el.click()); await g.wait(900);
+  const row = page.locator('.tk-rows .v-swipe').first(); const box = await row.boundingBox();
+  need(!!box, 'no task row on the checklist step');
+  writes.length = 0;
+  await drag(g, box.x + 120, box.y + 22, box.x + 150, box.y + 23, 3); await g.wait(60);
+  const small = await row.evaluate(el => ({ s: el.dataset.swipe, tx: el.querySelector('.v-swipe-fg').style.transform }));
+  need(small.s === 'dragging' && /translate3d\(/.test(small.tx), `a short drag: ${JSON.stringify(small)}`);
+  await g.t('touchEnd'); await g.wait(500); need(writes.length === 0, 'a short swipe wrote');
+  await drag(g, box.x + 60, box.y + 22, box.x + 220, box.y + 23, 8);
+  const armed = await row.evaluate(el => ({ s: el.dataset.swipe, hint: el.querySelector('.v-swipe-hint')?.textContent.trim() }));
+  need(armed.s === 'armed' && /Done/.test(armed.hint), `not armed: ${JSON.stringify(armed)}`);
+  await g.t('touchEnd'); await g.wait(800);
+  need(writes.length === 1 && /checklists/.test(writes[0]) && /"done":true/.test(writes[0]), `no checklists write: ${JSON.stringify(writes)}`);
+  need(await page.locator('.tk-rows .tk-row.is-done').count() >= 1, 'the row did not read as done');
+  const other = page.locator('.tk-rows .v-swipe').nth(1); const b2 = await other.boundingBox();
+  if (b2) {
+    await drag(g, b2.x + 280, b2.y + 22, b2.x + 120, b2.y + 23, 8); await g.t('touchEnd'); await g.wait(700);
+    const t = await page.locator('[role="dialog"]').innerText().catch(() => '');
+    need(/Pin as Next up|Auto/.test(t) && /Reschedule/.test(t) && /Delete task/.test(t), `the task sheet lacks its actions: ${t.slice(0, 80)}`);
+  }
+  return `followed, armed, one checklists write, ${b2 ? 'the sheet from a swipe left' : 'one row only'}`;
+});
 await step('long press opens the lead sheet and the tap that follows does not open the record', async (page) => {
   const g = await open(page, '/admin/leads');
   const box = await page.locator('.ld-stack .lc').first().boundingBox();

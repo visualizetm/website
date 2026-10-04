@@ -25,7 +25,7 @@ const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const ONLY = process.env.AUDIT_ONLY || '';
 
 const MUST_TABS = /^(dashboard|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|design|more|settings-profile|back-[a-z]+)$/;
-const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty)|concepts-editor(?!-menu).*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|data|danger-zone|emails))$/;
+const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|data|danger-zone|emails))$/;
 const GLOBAL = ['Search', 'Quick add', 'Notifications'];
 
 const url = (s) => `${BASE}${s.path}${s.open ? `${s.path.includes('?') ? '&' : '?'}open=${s.open}` : ''}`;

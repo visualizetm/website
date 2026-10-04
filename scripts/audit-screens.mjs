@@ -139,6 +139,12 @@ export const SCREENS = [
   { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
   /* The format control and the platform chips, on a post that is a story
      (no hashtag field) and on one that is blocked from approval. */
+  /* Tasks (the task system, milestone 5): a focused screen; a checklist is a step on a phone; Quick add and the template picker are sheets. */
+  { id: 'clients-tasks', screen: 'Tasks', label: 'a client with checklists', path: '/admin/clients/L11/tasks', resource: 'leads' },
+  { id: 'clients-tasks-empty', screen: 'Tasks', label: 'a client with none yet', path: '/admin/clients/L13/tasks', resource: 'leads', noFit: true },
+  { id: 'clients-tasks-list', screen: 'Tasks', label: 'one checklist (a step on a phone)', path: '/admin/clients/L11/tasks', resource: 'leads', noFit: true, act: async (p, w) => { if (w < 768) { await click(p.locator('.tk-body .v-stretch').first()); await p.waitForTimeout(500); } } },
+  { id: 'clients-tasks-quick', screen: 'Tasks', label: 'the Quick add sheet', path: '/admin/clients/L11/tasks', resource: 'leads', region: '.v-sheet', detail: true, act: (p, w) => click(p.locator(w < 768 ? '.tk-add' : '.tk-add-top').first()) },
+  { id: 'clients-tasks-template', screen: 'Tasks', label: 'the template picker', path: '/admin/clients/L11/tasks', resource: 'leads', region: '.v-sheet', detail: true, act: (p) => click(p.locator('.tk-template').first()) },
   { id: 'planner-sheet-ad', screen: 'Planner editor', label: 'post editor sheet, an ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'October interior offer' }).first().locator('.v-stretch')) },
   { id: 'planner-sheet-video', screen: 'Planner editor', label: 'post editor sheet, a planned video ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Ceramic coat reel' }).first().locator('.v-stretch')) },
   { id: 'planner-ideas', screen: 'Planner editor', noFit: true, label: 'the ideas inbox', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', region: (w) => (w < 768 ? '.sh-content' : '.pl-ideas') },

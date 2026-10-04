@@ -14,10 +14,12 @@ const ms = (v) => { const t = Date.parse(v || ''); return Number.isNaN(t) ? 0 : 
 /** Every checklist, with ids on every list and item, order filled in, and nothing else changed. */
 export function normalizeChecklists(lists) {
   if (!Array.isArray(lists)) return [];
-  return lists.slice(0, 10).map((l) => ({
-    id: str(l?.id, 24) || uid(), name: str(l?.name, 80), templateId: str(l?.templateId, 40),
+  /* A list or an item written before ids existed gets one from its position (list0, list0item3): the same id on every read until the next
+   * write stores it, so a tick lands on the row that was ticked. A new list or task gets a random one (addTask, applyTemplate). */
+  return lists.slice(0, 10).map((l, li) => ({
+    id: str(l?.id, 24) || `list${li}`, name: str(l?.name, 80), templateId: str(l?.templateId, 40),
     items: (Array.isArray(l?.items) ? l.items : []).slice(0, 50).map((it, ii) => ({
-      id: str(it?.id, 24) || uid(), text: str(it?.text, 300), done: !!it?.done, doneAt: str(it?.doneAt, 40), due: str(it?.due, 40), note: str(it?.note, 300),
+      id: str(it?.id, 24) || `list${li}item${ii}`, text: str(it?.text, 300), done: !!it?.done, doneAt: str(it?.doneAt, 40), due: str(it?.due, 40), note: str(it?.note, 300),
       order: Number.isFinite(Number(it?.order)) ? Number(it.order) : ii, pinned: !!it?.pinned, remindAt: str(it?.remindAt, 40), notifiedAt: str(it?.notifiedAt, 40),
       source: ['manual', 'template', 'suggestion'].includes(it?.source) ? it.source : 'manual', suggestionId: str(it?.suggestionId, 64),
     })),
@@ -70,7 +72,7 @@ export function removeTask(lists, taskId) {
 /** A new task appended to a list (by id), or to a list made for it. */
 export function addTask(lists, listId, task) {
   const base = normalizeChecklists(lists);
-  const item = normalizeChecklists([{ name: 'x', items: [task] }])[0].items[0];
+  const item = normalizeChecklists([{ name: 'x', items: [{ ...task, id: str(task?.id, 24) || uid() }] }])[0].items[0];
   const i = base.findIndex(l => l.id === listId);
   if (i < 0) return [...base, { id: uid(), name: str(task.listName, 80) || 'Tasks', templateId: '', items: [{ ...item, order: 0 }] }];
   return base.map((l, j) => (j === i ? { ...l, items: [...l.items, { ...item, order: l.items.length }] } : l));

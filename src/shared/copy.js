@@ -17,6 +17,8 @@ export const COPY = {
     'dashboard.activity': { title: 'Nothing yet', description: 'Calls, briefs, wins, and orders show up here the moment they land.', action: 'Start call session' },
     /* Content Planner (planner prompt 2) */
     'planner.month': { title: 'No posts for this month yet', description: 'Add the first one, or copy last month across and edit from there.', action: 'Add post' },
+    /* Tasks (planner dashboard and task system, milestone 5) */
+    'tasks.first': { title: 'No tasks yet', description: 'Start with a template and the dates fill themselves in, or make a blank checklist.', action: 'Start with a template' },
     'planner.off': { title: 'The planner is off for this client', description: 'Turn it on above and they get a private link to read captions, approve posts, and ask for changes.', action: 'Turn it on' },
     /* Leads */
     'leads.none': { title: 'No open leads', description: 'Add one, import a spreadsheet, or check Booked and Clients. Everyone might just be further down the pipeline.', action: 'Add lead', secondary: 'Import spreadsheet' },

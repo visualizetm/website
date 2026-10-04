@@ -37,6 +37,7 @@ const loaders = {
   submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
   planner: () => import('./AdminPlanner'),
+  tasks: () => import('./AdminTasks'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
@@ -57,6 +58,7 @@ const AdminDesign = lazy(loaders.design);
 const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
+const AdminTasks = lazy(loaders.tasks);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
@@ -404,6 +406,7 @@ export default function AdminApp() {
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
+    if (/^\/clients\/[^/]+\/tasks$/.test(p)) return 'tasks';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
@@ -423,6 +426,8 @@ export default function AdminApp() {
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
   // /clients/:id/planner (planner prompt 2), the same shape.
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
+  // /clients/:id/tasks (the task system): the client's and their projects' checklists; ?project= opens one project's.
+  const tasksId = (relPath.match(/^\/clients\/([^/]+)\/tasks$/) || [])[1] || '';
   // /clients/:id/projects/new and /projects/new (nothing computer only): the new project page; /lists/:id/fill: fill from filters.
   const projectNewLeadId = (relPath.match(/^\/clients\/([^/]+)\/projects\/new$/) || [])[1] || '';
   const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
@@ -451,6 +456,7 @@ export default function AdminApp() {
   // The editors and the setup pages: each a push from the screen it leaves.
   const openShowcase = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/showcase`, { selectedId: lead._id }); }, [push]);
   const openPlanner = useCallback((lead, month) => { push(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`, { selectedId: lead._id }); }, [push]);
+  const openTasks = useCallback((lead, project) => { push(`${BASE}/clients/${lead._id}/tasks${project ? `?project=${project._id}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
   const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
@@ -674,7 +680,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenConcepts={openConcepts} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>
@@ -729,6 +735,17 @@ export default function AdminApp() {
           suggestions={suggestions}
           onPatchSuggestion={patchSuggestion}
           openIdeas={new URLSearchParams(location.search).get('ideas') === '1'}
+          onBack={navBack ? navBack.back : () => go('clients')}
+        />
+      )}
+      {section === 'tasks' && (
+        <AdminTasks
+          lead={V.leads.find(l => String(l._id) === tasksId) || null}
+          projects={V.projects} sets={V.sets}
+          projectId={new URLSearchParams(location.search).get('project') || ''}
+          loading={callLeadsLoading || forceLoading}
+          leadsError={!!errors.leads} onRetryLeads={loadCallLeads}
+          onPatchLead={patchCallLead} onPatchProject={patchProject}
           onBack={navBack ? navBack.back : () => go('clients')}
         />
       )}

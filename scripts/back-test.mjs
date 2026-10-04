@@ -131,6 +131,31 @@ for (const width of WIDTHS) {
   };
   await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
   await fromRecord('Planner editor', '/admin/clients', 'L11', /^Planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
+  await fromRecord('Tasks', '/admin/clients', 'L11', /^Tasks/, '.tk-topbar, .tk-body');
+  /* The task system (milestone 5): a checklist is a step of Tasks on a phone, the ideas inbox a step of the planner editor. Back walks out one level at a time. */
+  await step('Tasks: a checklist step on a phone, Back returns to Tasks, then to the section root', async () => {
+    if (width >= 768) return 'a computer shows the checklists as sections';
+    await goto('/admin/clients/L11/tasks'); await settle();
+    await page.locator('.tk-body .v-lrow .v-stretch, .tk-body .v-stretch').first().click({ timeout: T });
+    await page.locator('.tk-rows').first().waitFor({ state: 'visible', timeout: T });
+    if (!(await hasBack())) throw new Error('no Back on the checklist step');
+    await backBtn().first().click({ timeout: T });
+    await page.locator('.tk-total').first().waitFor({ state: 'visible', timeout: T });
+    if (!(await hasBack())) throw new Error('no Back on Tasks');
+    await backBtn().first().click({ timeout: T });
+    await page.waitForTimeout(500);
+    const p = await pathOf(); if (!/^\/admin\/clients/.test(p) || /\/tasks/.test(p)) throw new Error(`path ${p}`);
+    return 'checklist, Tasks, then Clients';
+  });
+  await step('Planner editor: the Ideas step on a phone, Back returns to the planner', async () => {
+    if (width >= 768) return 'a computer shows the inbox on the page';
+    await goto('/admin/clients/L11/planner?ideas=1'); await settle();
+    await page.locator('.pl-ideas').first().waitFor({ state: 'visible', timeout: T });
+    if (!(await hasBack())) throw new Error('no Back on the Ideas step');
+    await backBtn().first().click({ timeout: T });
+    await page.locator('.pl-month').first().waitFor({ state: 'visible', timeout: T });
+    return 'the inbox, then the planner';
+  });
   await step('Concepts editor: Back returns to the Concepts list', async () => {
     await goto('/admin/concepts'); await settle();
     await page.getByRole('button', { name: /^Open Lead Business 8/ }).first().click({ timeout: T });

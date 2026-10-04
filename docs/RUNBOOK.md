@@ -110,6 +110,18 @@ duplicate. Settings, Notifications reads "Reminder timing: Every 15 minutes"
 once the endpoint has run more than once in the last day (health keeps the
 last twelve run times), and "Task reminders" is the toggle for both paths.
 
+Checklist tasks (the task system, src/shared/taskRules.js) get the same two
+reminders: a task with `remindAt` in the past and `notifiedAt` empty is
+pushed once and `notifiedAt` is stamped on the item itself, and today's
+tasks join the digest. A pinned task is the record's next action but carries
+no reminder of its own, so nothing is pushed twice.
+
+A client's idea (the Ideas tab on their planner) is pushed the moment it is
+written, by api/planner.js, not by a cron: "New idea from <client>" with a
+deep link to the planner editor's inbox. Settings, Notifications, "Client
+ideas" turns that push off; the New idea task on the client's Ideas
+checklist is written either way, so Next up still shows it.
+
 ## Emails
 
 The four branded emails (CRM revamp, step 6) go out through Zapier: one
@@ -269,6 +281,8 @@ node scripts/fetch-fonts.mjs                   # refresh the self hosted latin f
 node scripts/hex-count.js                      # raw hex literals in src and api (the ceiling only ever goes down, see CLAUDE.md for the current one)
 node scripts/css-orphans.mjs                   # class selectors nothing renders (0)
 TZ=America/New_York node scripts/dates-test.mjs
+node scripts/tasks-test.mjs; node scripts/share-test.mjs; node scripts/task-reminder-test.mjs; node scripts/planner-endpoint-test.mjs   # the task rule and its mirror, Save to photos with navigator.share mocked, the reminders cron over checklist tasks, the planner door (posts, ads, suggest, the limiters)
+MONGODB_URI=... node scripts/migrate-checklists.mjs [--apply]   # stamp ids on every checklist and task written before the task system (report first)
 node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/deals-test.mjs; node scripts/send-email-test.mjs; node scripts/rules-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, the four emails, the follow up rules and project actions, against the real handlers
 npm run lint                                   # ESLint: no-undef and no-unused-vars as errors, the hooks rules; regression.mjs runs it as step 0
 MONGODB_URI=... node scripts/migrate-invoices.mjs [--apply]   # CRM revamp, step 5: every project's schedule[] becomes invoices[] (paid stays paid, the rest sent; report first)

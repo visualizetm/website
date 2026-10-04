@@ -84,8 +84,14 @@ import Monitor01 from '@untitled-ui/icons-react/build/esm/Monitor01';
 import WifiOff from '@untitled-ui/icons-react/build/esm/WifiOff';
 /* landing (Site Prompt 2, Part 3) */
 import Browser from '@untitled-ui/icons-react/build/esm/Browser';
+import Pin01 from '@untitled-ui/icons-react/build/esm/Pin01';
+import File02 from '@untitled-ui/icons-react/build/esm/File02';
+import CheckDone01 from '@untitled-ui/icons-react/build/esm/CheckDone01';
+import DotsHorizontal from '@untitled-ui/icons-react/build/esm/DotsHorizontal';
 
 export const ICONS = {
+  /* tasks (planner dashboard and task system) */
+  Pin01, File02, CheckDone01, DotsHorizontal,
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
   CalendarCheck01, Trophy01, Briefcase01, XClose, Bell01, Mail01, MessageCircle01,
   CurrencyDollar, Package, Calendar, User01,

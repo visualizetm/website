@@ -28,6 +28,8 @@ const SCREENS = [
   { id: 'Submissions', path: '/admin/submissions', resource: 'submissions', search: true },
   { id: 'Lists', path: '/admin/lists', resource: 'lists', search: false, why: 'the lists screen has no search; a list that is empty is the first time state' },
   { id: 'Concepts', path: '/admin/concepts', resource: 'sets', search: false, why: 'a status filter narrows it; the filter state is its own copy (concepts.filter)' },
+  /* The task system (milestone 5): the first time state is a client with no checklists (emptyPath), not a missing client. */
+  { id: 'Tasks', path: '/admin/clients/L11/tasks', emptyPath: '/admin/clients/L13/tasks', resource: 'leads', search: true },
 ];
 const grab = () => {
   const e = document.querySelector('.sh-content [data-state]');
@@ -40,17 +42,17 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 let failures = 0; const rows = [];
 for (const s of SCREENS) {
   const bad = [];
-  const mk = async (opts) => {
+  const mk = async (opts, path = s.path) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block' });
     const page = await ctx.newPage();
     await page.addInitScript(() => { try { localStorage.setItem('vz_theme', 'dark'); localStorage.setItem('vz_boot', '1'); localStorage.setItem('vz_leads_view', JSON.stringify('list')); localStorage.removeItem('vz_call_session'); } catch {} });
     await mockRoutes(page, opts);
-    await page.goto(BASE + s.path, { waitUntil: 'networkidle' }).catch(() => {});
+    await page.goto(BASE + path, { waitUntil: 'networkidle' }).catch(() => {});
     await page.waitForTimeout(1100);
     return { ctx, page };
   };
   let first = null; let none = null;
-  { const { ctx, page } = await mk({ empty: [s.resource] }); first = await page.evaluate(grab); await ctx.close(); }
+  { const { ctx, page } = s.emptyPath ? await mk({}, s.emptyPath) : await mk({ empty: [s.resource] }); first = await page.evaluate(grab); await ctx.close(); }
   if (!first || first.kind !== 'empty') bad.push(`first time state missing (${first ? first.kind : 'nothing rendered'})`);
   else {
     if (!first.title || !first.desc) bad.push('first time state has no title or description');

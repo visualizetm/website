@@ -112,6 +112,7 @@ export default function AdminClients({
     ...(l.phone ? [{ id: 'call', label: `Call ${formatPhone(l.phone)}`, icon: 'Phone', onSelect: () => { window.location.href = telHref(l.phone); } }] : []),
     ...(shell?.openShowcase ? [{ id: 'showcase', label: 'Showcase', icon: 'Image01', onSelect: () => shell.openShowcase(l) }] : []),
     ...(shell?.openPlanner ? [{ id: 'planner', label: 'Planner', icon: 'Calendar', onSelect: () => shell.openPlanner(l) }] : []),
+    ...(shell?.openTasks ? [{ id: 'tasks', label: 'Tasks', icon: 'CheckDone01', onSelect: () => shell.openTasks(l) }] : []),
   ];
   const columns = [
     { id: 'business', label: 'Business', always: true, sortable: false, render: (r) => <span className="cl-cell-biz lay-truncate">{r.lead.business}</span> },
