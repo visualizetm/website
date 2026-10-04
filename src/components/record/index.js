@@ -13,8 +13,13 @@ import NotesSection, { notesSummary } from './NotesSection';
 import HistorySection, { historySummary } from './HistorySection';
 import DetailsSection, { detailsSummary } from './DetailsSection';
 import TasksSection, { tasksSummary, tasksBar } from './TasksSection';
+import ProfileSection, { profileSummary } from './ProfileSection';
 
-export { tasksSummary } from './TasksSection';
+export { tasksSummary, tasksBar } from './TasksSection';
+export { default as ProfileCard } from './ProfileCard';
+export { default as ProfileSection } from './ProfileSection';
+export { default as WorkspaceCards } from './WorkspaceCards';
+export { default as QuickActions } from './QuickActions';
 
 export { default as RecordHeader } from './RecordHeader';
 export { default as NextActionStrip } from './NextActionStrip';
@@ -36,11 +41,14 @@ export const SECTIONS = {
   notes: { label: 'Notes', Component: NotesSection, summary: notesSummary },
   history: { label: 'History', Component: HistorySection, summary: historySummary },
   details: { label: 'Details', Component: DetailsSection, summary: detailsSummary },
+  /* The client's full profile (client page workspace redesign): a pushed screen on a phone, a side panel on a computer, never a tab or a row. */
+  profile: { label: 'Profile', Component: ProfileSection, summary: profileSummary },
 };
 
 /* Sections by mode, in tab order. Details is a phone row only; on a computer its facts sit under the header. */
 export const SECTIONS_BY_MODE = {
   lead: ['playbook', 'tasks', 'notes', 'history', 'details'],
   deal: ['checkpoints', 'meeting', 'pricing', 'money', 'tasks', 'playbook', 'notes', 'history', 'details'],
-  client: ['project', 'tasks', 'money', 'files', 'retainer', 'notes', 'history', 'details'],
+  /* A client (workspace redesign): the facts live in the profile card and the Profile screen, the tasks in the Tasks card; the Tasks tab and row stay as a redirect to the Tasks screen. */
+  client: ['project', 'money', 'files', 'retainer', 'notes', 'history', 'profile'],
 };

@@ -21,7 +21,6 @@ import {
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { usePush, sectionRootOf } from '../shell/nav-history';
 import { normalizeLead } from '../lib/leads';
-import { postsOf } from '../lib/posts';
 import LeadForm from './LeadForm';
 import TaskSheet from './TaskSheet';
 import { isTask } from '../lib/tasks';
@@ -34,13 +33,13 @@ import { dealOf, metPatch, tickPatch, checkpointOf } from '../lib/deal';
 import { wonWithoutPayment } from '../lib/dealConvert';
 import { invoiceStatus } from '../lib/invoices';
 import { nextUnpaid, brandText } from '../lib/projects';
-import { newestSet, statusOf as conceptStatusOf } from '../lib/concepts';
-import { normalizeStage, PRIORITIES, CLIENT_STATUSES, conceptSetStatusOf } from '../shared/semantics';
+import { normalizeStage, PRIORITIES, CLIENT_STATUSES } from '../shared/semantics';
 import { formatPhone } from '../shared/phone';
 import { fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
-import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor, tasksSummary } from './record';
+import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor, tasksSummary, tasksBar, ProfileCard, ProfileSection, WorkspaceCards, QuickActions } from './record';
+import { plannerStatus, conceptsStatus } from '../lib/workspace';
 import { completePatch } from '../lib/taskWrite';
 
 const FIRST = { lead: 'playbook', deal: 'checkpoints', client: 'project' };
@@ -135,6 +134,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [cbOpen, setCbOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false); // the Set task sheet (tasks with a due date)
+  /* The full profile (workspace redesign): a side panel on a computer; a phone pushes the profile section. `profileFocus` names the field a dimmed button on the profile card asked for. */
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileFocus, setProfileFocus] = useState('');
   const [outcome, setOutcome] = useState(null); // 'won' | 'lost'
   const [outcomeNote, setOutcomeNote] = useState('');
   const [wonPulse, setWonPulse] = useState(false);
@@ -185,7 +187,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const taskNow = isTask(next) && !next.doneAt ? next : null;
   const del = async () => { if (!onDelete) return; if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) await onDelete(leadId); };
 
-  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq, triage, openTask, taskNow };
+  const openProfile = (field = '') => { setProfileFocus(field); if (phone) openTab('profile'); else setProfileOpen(true); };
+  const rec = { lead, stage, mode, clientMode, dealMode, readOnly, deal, patch, patchRaw, onPatch, onLinkSubmission, submissions, shell, toast, email, confirm, cw, next, run, busy, has: (id) => ids.includes(id), openTab, wonClose, invoiceReq, triage, openTask, taskNow, openEditAll: readOnly ? null : () => setEditAll(true) };
 
   /* The header's three controls by mode (law 5). */
   const ca = dealMode ? checkpointAction(lead, { canBuild: !!shell?.openConcepts }) : null;
@@ -212,12 +215,18 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   /* The overflow menu, in the approved order; a group with nothing in it takes its divider with it. */
   const social = (k) => lead.socials?.[k] || '';
   const openUrl = (u) => window.open(u, '_blank', 'noopener');
-  const hasShowcase = !!lead.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0;
-  const plannerWaiting = postsOf(shell?.posts || [], leadId).filter(p => p.status === 'review').length;
-  const plannerLabel = !lead.planner?.enabled ? 'off' : plannerWaiting ? `${plannerWaiting} in review` : 'on';
-  const conceptSet = newestSet(shell?.sets, leadId);
-  const conceptSt = conceptSet ? conceptSetStatusOf(conceptStatusOf(conceptSet)) : null;
-  const menu = tidy([
+  /* The status lines a lead or a deal still shows in its menu read the same selectors the client's workspace cards read (src/lib/workspace.js). */
+  const plannerLabel = plannerStatus(shell?.posts || [], lead).label;
+  const conceptLabel = conceptsStatus(shell?.sets || [], leadId).label;
+  /* A client (workspace redesign): the menu keeps Edit all, Priority and status and Delete; everything else moved onto the page. */
+  const menu = clientMode ? tidy([
+    ...(!readOnly ? [
+      { id: 'edit', label: 'Edit all', icon: 'Edit02', onSelect: () => setEditAll(true) },
+      { id: 'status', label: 'Priority and status', icon: 'Zap', onSelect: () => setStatusOpen(true) },
+    ] : []),
+    'divider',
+    ...(onDelete && !readOnly ? [{ id: 'del', label: 'Delete', icon: 'Trash01', danger: true, onSelect: del }] : []),
+  ]) : tidy([
     ...(!readOnly ? [
       { id: 'edit', label: 'Edit all', icon: 'Edit02', onSelect: () => setEditAll(true) },
       { id: 'status', label: clientMode ? 'Priority and status' : 'Priority', icon: 'Zap', onSelect: () => setStatusOpen(true) },
@@ -232,10 +241,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     { id: 'copy', label: 'Copy phone', icon: 'Copy01', disabled: !lead.phone, onSelect: () => copyText(toast, formatPhone(lead.phone), 'Number') },
     ...(clientMode ? [{ id: 'brand', label: 'Copy brand', icon: 'Copy01', onSelect: () => copyText(toast, brandText(lead), 'Brand block') }] : []),
     'divider',
-    ...(clientMode && shell?.openShowcase ? [{ id: 'showcase', label: `Showcase, ${hasShowcase ? (lead.showcase.published ? 'published' : 'draft') : 'none yet'}`, icon: 'Image01', onSelect: () => shell.openShowcase(lead) }] : []),
-    ...(clientMode && shell?.openPlanner ? [{ id: 'planner', label: `Planner, ${plannerLabel}`, icon: 'Calendar', onSelect: () => shell.openPlanner(lead) }] : []),
+    ...(shell?.openPlanner && stage === 'won' ? [{ id: 'planner', label: `Planner, ${plannerLabel}`, icon: 'Calendar', onSelect: () => shell.openPlanner(lead) }] : []),
     ...(shell?.openTasks ? [{ id: 'tasks', label: `Tasks, ${tasksSummary(rec)}`, icon: 'CheckDone01', onSelect: () => shell.openTasks(lead) }] : []),
-    ...(shell?.openConcepts ? [{ id: 'concepts', label: `Concepts, ${conceptSt ? conceptSt.label.toLowerCase() : 'none'}`, icon: 'LayersThree01', onSelect: () => shell.openConcepts(lead) }] : []),
+    ...(shell?.openConcepts ? [{ id: 'concepts', label: `Concepts, ${conceptLabel}`, icon: 'LayersThree01', onSelect: () => shell.openConcepts(lead) }] : []),
     'divider',
     ...(!readOnly && !clientMode && stage !== 'client' && stage !== 'won' && shell?.openListPicker ? [{ id: 'list', label: lead.listId ? 'Move list' : 'Add to list', icon: 'Rows01', onSelect: () => shell.openListPicker([lead]) }] : []),
     ...(!readOnly ? [{ id: 'callback', label: lead.callbackAt ? `Callback, ${fmtDateTime(lead.callbackAt)}` : 'Set a callback', icon: 'PhoneIncoming01', onSelect: () => setCbOpen(true) }] : []),
@@ -248,27 +256,48 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   ]);
 
   /* The sections of this mode: one component and one summary each. */
-  const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), bar: s.bar ? s.bar(rec) : null, body: <s.Component rec={rec} /> }; });
-  const tabs = sections.filter(s => s.id !== 'details');
+  const sections = ids.map(id => { const s = SECTIONS[id]; return { id, label: s.label, summary: s.summary(rec), bar: s.bar ? s.bar(rec) : null, body: <s.Component rec={rec} focus={id === 'profile' ? profileFocus : undefined} /> }; });
+  const tabs = sections.filter(s => s.id !== 'details' && s.id !== 'profile');
   const active = tabs.find(s => s.id === tab) || tabs[0];
   const firstSection = sections.find(x => x.id === first);
-  const otherSections = sections.filter(x => x.id !== first);
+  /* A client (workspace redesign): the Tasks tab and the Tasks row open the Tasks screen, the same view the Tasks card opens, so old habits still land. */
+  const tasksLink = clientMode && !!shell?.openTasks;
+  const tabList = [...tabs.map(t => ({ id: t.id, label: t.label })), ...(tasksLink ? [{ id: 'tasks', label: 'Tasks' }] : [])];
+  const pickTab = (id) => { if (id === 'tasks' && tasksLink) { shell.openTasks(lead); return; } setTab(id); };
+  const otherSections = [...sections.filter(x => x.id !== first && x.id !== 'profile'), ...(tasksLink ? [{ id: 'tasks', label: 'Tasks', summary: tasksSummary(rec), bar: tasksBar(rec) }] : [])];
+  const openRow = (id) => { if (id === 'tasks' && tasksLink) { shell.openTasks(lead); return; } openTab(id); };
+  const quick = clientMode && !readOnly ? [
+    { id: 'callback', label: lead.callbackAt ? `Callback, ${fmtDateTime(lead.callbackAt)}` : 'Set a callback', icon: 'PhoneIncoming01', onClick: () => setCbOpen(true) },
+    { id: 'newproj', label: 'New project', icon: 'Plus', onClick: cw.openNew },
+    (!cw.ret || cw.ret.status === 'cancelled') ? { id: 'ret', label: 'Start a retainer', icon: 'RefreshCw01', onClick: cw.openRet } : null,
+    { id: 'task', label: taskNow ? 'Edit task' : 'Set task', icon: 'CheckCircle', onClick: openTask },
+    { id: 'status', label: 'Priority and status', icon: 'Zap', onClick: () => setStatusOpen(true) },
+  ] : [];
   const header = <RecordHeader rec={rec} primary={primary} secondary={secondary} menu={menu} phone={phone} pulse={wonPulse} />;
+  const workspace = clientMode ? (
+    <div className="rc-ws">
+      <ProfileCard rec={rec} onOpenProfile={() => openProfile('')} onAdd={(field) => openProfile(field)} />
+      <WorkspaceCards rec={rec} />
+    </div>
+  ) : null;
 
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll" key={leadId}>
         {/* The entrance: the header, the strip and the sections step in once per record (Stagger, the kit's one entrance). */}
-        <Stagger className="rc-inner" cap={5}>
+        <Stagger className={`rc-inner${clientMode ? ' rc-inner--ws' : ''}`} cap={5}>
           {!(phone && phoneTab) && header}
           {!(phone && phoneTab) && next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
           {mode === 'lead' && !(phone && phoneTab) ? <SocialsStrip rec={rec} onAdd={() => setEditAll(true)} /> : null}
+          {/* A client (workspace redesign): the profile card and the four workspace cards, then the quick actions, under the strip at every width. */}
+          {!(phone && phoneTab) && workspace}
+          {!(phone && phoneTab) && quick.length > 0 && <QuickActions items={quick} />}
           {phone && !phoneTab && firstSection && <div className="rc-first" role="region" aria-label={firstSection.label}>{firstSection.body}</div>}
-          {phone && !phoneTab && <SectionRows sections={otherSections} onOpen={openTab} />}
+          {phone && !phoneTab && <SectionRows sections={otherSections} onOpen={openRow} />}
           {phone && phoneTab && <div className="rc-secscreen" role="region" aria-label={activeSectionLabel}>{(sections.find(x => x.id === phoneTab) || {}).body}</div>}
-          {!phone && <FactsGrid rec={rec} />}
-          {!phone && lead.angle ? <AnglePara rec={rec} /> : null}
-          {!phone && <Tabs label="Sections" tabs={tabs.map(t => ({ id: t.id, label: t.label }))} value={active.id} onChange={setTab} className="rc-tabs" />}
+          {!phone && !clientMode && <FactsGrid rec={rec} />}
+          {!phone && !clientMode && lead.angle ? <AnglePara rec={rec} /> : null}
+          {!phone && <Tabs label="Sections" tabs={tabList} value={active.id} onChange={pickTab} className="rc-tabs" />}
           {!phone && <div className="rc-panel" role="tabpanel" aria-label={active.label}>{active.body}</div>}
         </Stagger>
       </ScrollArea>
@@ -294,6 +323,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       {email.modal}
       {cw.modals}
       {decline.sheet}
+      {profileOpen && !phone && clientMode && <Sheet open onClose={() => { setProfileOpen(false); setProfileFocus(''); }} title="Profile" description={lead.business} tall width={640} className="rc-profile-sheet"><ProfileSection rec={rec} focus={profileFocus} /></Sheet>}
       {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(leadId, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       <Modal open={statusOpen} onClose={() => setStatusOpen(false)} title={clientMode ? 'Priority and status' : 'Priority'} description={lead.business} footer={<Button variant="ghost" onClick={() => setStatusOpen(false)}>Done</Button>}>
@@ -344,25 +374,36 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
         : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
   /* A lead or triage record opens with its socials (two or three rows is the usual find), between the header and the rest. */
   const socials = m === 'lead' ? <div className="rc-soc"><p className="rc-soc-head"><SkeletonBlock width={64} height={12} /></p><ul className="rc-soc-list">{Array.from({ length: triage ? 3 : 2 }, (_, i) => <li key={i}><div className="rc-soc-link"><SkeletonBlock width={18} height={18} /><span className="rc-soc-text"><SkeletonBlock width="35%" height={16} /><SkeletonBlock width="55%" height={16} style={{ marginTop: 4 }} /></span></div></li>)}</ul></div> : null;
+  /* A client (workspace redesign): the profile card, the four workspace cards and the quick action chips sit between the strip and the sections at every width. */
+  const workspace = m === 'client' ? (
+    <>
+      <div className="rc-ws">
+        <div className="rc-pf"><div className="rc-pf-top"><SkeletonCircle size={56} /><div className="rc-pf-id"><SkeletonBlock width="70%" height={22} /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width="40%" height={14} /></div></div><div className="rc-pf-actions">{Array.from({ length: 7 }, (_, i) => <SkeletonBlock key={i} width={44} height={44} radius="var(--v-radius-md)" />)}</div><div className="rc-pf-foot">{btn(110, 1)}{btn(110, 2)}{btn(128, 3)}</div></div>
+        <div className="rc-ws-grid">{['showcase', 'planner', 'tasks', 'concepts'].map(id => <div key={id} className="rc-ws-card"><div className="rc-ws-head"><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body"><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>)}</div>
+      </div>
+      <div className="rc-quick">{[120, 108, 128, 92, 140].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</div>
+    </>
+  ) : null;
   const outbar = triage ? <StickyFooterBar className="dt-outbar dt-triagebar"><Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">{[0, 1, 2, 3].map(k => <SkeletonBlock key={k} height={44} radius="var(--v-radius-md)" />)}</Row></StickyFooterBar> : m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
   return (
     <PageShell className="dt">
       <ScrollArea bare className="dt-scroll">
-        <div className="rc-inner" aria-busy="true" aria-hidden="true">
+        <div className={`rc-inner${m === 'client' ? ' rc-inner--ws' : ''}`} aria-busy="true" aria-hidden="true">
           {head}
           {strip}
           {socials}
+          {workspace}
           {phone ? (
             <>
               <div className="rc-first">{first}</div>
               {/* A lead, triage or deal record: its first section runs past the first screen, so the skeleton stops there. */}
-              {m === 'client' && <div className="rc-rows">{SECTIONS_BY_MODE[m].filter(id => id !== FIRST[m]).map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>}
+              {m === 'client' && <div className="rc-rows">{[...SECTIONS_BY_MODE[m].filter(id => id !== FIRST[m] && id !== 'profile'), 'tasks'].map(id => <Card key={id} padding={0} className="rc-row"><div className="rc-row-btn"><span className="rc-row-text"><SkeletonBlock width={90} height={16} /><SkeletonBlock width="70%" height={13} /></span></div></Card>)}</div>}
             </>
           ) : (
             <>
-              <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>
-              <div className="rc-angle" style={{ minHeight: 68 }}><SkeletonText lines={3} /></div>
-              <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{SECTIONS_BY_MODE[m].filter(id => id !== 'details').map(id => <SkeletonBlock key={id} width={72} height={16} />)}</div>
+              {m !== 'client' && <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>}
+              {m !== 'client' && <div className="rc-angle" style={{ minHeight: 68 }}><SkeletonText lines={3} /></div>}
+              <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{[...SECTIONS_BY_MODE[m].filter(id => id !== 'details' && id !== 'profile'), ...(m === 'client' ? ['tasks'] : [])].map(id => <SkeletonBlock key={id} width={72} height={16} />)}</div>
               <div className="rc-panel">{first}</div>
             </>
           )}

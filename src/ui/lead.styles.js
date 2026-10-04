@@ -50,8 +50,9 @@ export const leadDetailStyles = `
   .rc-head { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--v-space-3); min-width: 0; border-radius: var(--v-radius-md); }
   .rc-avatar { margin-top: 2px; }
   .rc-head-main { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: var(--v-space-1); }
-  .rc-head-top { display: flex; align-items: center; gap: var(--v-space-3); min-width: 0; min-height: var(--v-tap); }
-  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-head-top { display: flex; align-items: center; gap: var(--v-space-1) var(--v-space-3); min-width: 0; min-height: var(--v-tap); flex-wrap: wrap; }
+  /* The name wraps to two lines at every width (workspace redesign) instead of ending in an ellipsis; the profile card carries it whole. */
+  .rc-name { margin: 0; flex: 0 1 auto; min-width: 0; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; flex: 1 1 240px; }
   /* A phone: the pills wrap under the name and the name clamps to two lines instead of truncating. */
   @media (max-width: 767px) { .rc-head-top { flex-wrap: wrap; gap: var(--v-space-1) var(--v-space-3); } .rc-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; text-overflow: clip; } }
   .rc-pills { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
@@ -159,6 +160,56 @@ export const leadDetailStyles = `
   .rc-task.is-overdue .rc-task-due { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
   .rc-task.is-next .rc-task-text > span:first-child { font-weight: var(--v-weight-bold); }
   .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); }
+  /* The client workspace (client page workspace redesign): the profile card beside the four cards from 1200 up, stacked below; the record widens to hold them. */
+  .rc-inner--ws { max-width: 1160px; container-type: inline-size; container-name: record; }
+  .rc-ws { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--v-space-4); min-width: 0; }
+  /* The record's own width decides, not the viewport: beside the Clients list at 1280 the record has about 740px, so the profile sits left with the cards two by two; a record with 1000px or more gets the four across. */
+  @container record (min-width: 700px) { .rc-ws { grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr); align-items: start; } }
+  @container record (min-width: 1000px) { .rc-ws-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .rc-pf { display: flex; flex-direction: column; gap: var(--v-space-3); padding: var(--v-space-4); background: var(--v-surface-2); border: 1px solid var(--v-border-1); border-radius: var(--v-radius-lg); min-width: 0; }
+  .rc-pf-top { display: flex; align-items: flex-start; gap: var(--v-space-3); min-width: 0; }
+  .rc-pf-avatar { flex-shrink: 0; }
+  .rc-pf-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .rc-pf-name { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-xl); line-height: var(--v-lh-xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); overflow-wrap: anywhere; }
+  .rc-pf-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); min-width: 0; overflow-wrap: anywhere; }
+  .rc-pf-strong { color: var(--v-text); }
+  /* Seven targets, never hidden: a channel the client lacks stays in the row, dimmed, and its tap opens the field. The row scrolls sideways when it does not fit. */
+  .rc-pf-actions { display: flex; gap: var(--v-space-2); overflow-x: auto; scrollbar-width: none; min-width: 0; padding: 2px; margin: -2px; }
+  /* From 768 up the row wraps instead (every button stays in view); the sideways scroller is a phone thing. */
+  @media (min-width: 768px) { .rc-pf-actions { flex-wrap: wrap; overflow: visible; } }
+  .rc-pf-actions::-webkit-scrollbar { display: none; }
+  .rc-pf-act { flex: 0 0 auto; }
+  .rc-pf-act.is-missing { opacity: 0.45; }
+  .rc-pf-foot { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; }
+  .rc-pf-open { margin-left: auto; }
+  .rc-ws-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); min-width: 0; }
+  .rc-ws-card { position: relative; display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-3); background: var(--v-surface-2); border: 1px solid var(--v-border-1); border-radius: var(--v-radius-lg); min-width: 0; transition: border-color var(--v-dur-fast) var(--v-ease-out); }
+  .rc-ws-card:hover { border-color: var(--v-border-2); }
+  .rc-ws-card:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .rc-ws-card .v-stretch:focus-visible { outline: 0; }
+  .rc-ws-head { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; }
+  .rc-ws-icon { color: var(--v-text-3); flex-shrink: 0; }
+  .rc-ws-title { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .rc-ws-body { display: flex; flex-direction: column; gap: var(--v-space-2); flex: 1; min-width: 0; }
+  .rc-ws-row { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; min-width: 0; }
+  .rc-ws-thumb { width: 40px; height: 40px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border-1); flex-shrink: 0; }
+  .rc-ws-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .rc-ws-sub { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
+  .rc-ws-tasks { display: flex; flex-direction: column; min-width: 0; }
+  .rc-ws-task .v-check-label { min-width: 0; white-space: normal; }
+  .rc-ws-task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--v-text-sm); }
+  .rc-ws-task-due { font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .rc-ws-task.is-overdue .rc-ws-task-due { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
+  .rc-ws-foot { margin-top: auto; }
+  /* Quick actions: one chip row; it scrolls sideways on a phone. */
+  .rc-quick { display: flex; gap: var(--v-space-2); flex-wrap: wrap; min-width: 0; }
+  @media (max-width: 767px) { .rc-quick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; } .rc-quick::-webkit-scrollbar { display: none; } .rc-quick-chip { flex: 0 0 auto; } }
+  /* The full profile: grouped rows, one column. */
+  .rc-profile { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
+  .rc-profile-h { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .rc-pf-group { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .rc-pf-facts { grid-template-columns: minmax(0, 1fr); }
+  .rc-fact--sheet.is-focus { border-left: 2px solid var(--v-status-progress-text); padding-left: var(--v-space-2); }
   /* The first screen's own section, and a section on its screen (phone). */
   .rc-first, .rc-secscreen { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
   @media (max-width: 767px) {

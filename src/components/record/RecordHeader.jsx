@@ -33,7 +33,8 @@ export default function RecordHeader({ rec, primary = null, secondary = null, me
             ? <span className="rc-pills"><Pill label={rec.triage.source.label} tone={SOURCE_TONE[rec.triage.source.id] || 'neutral'} icon={false} size="sm" /><ScoreBadge score={rec.triage.score} /></span>
             : <span className="rc-pills">{status}<Pill id={lead.priority || 'warm'} list={PRIORITIES} size="sm" /></span>}
         </div>
-        {parts.length > 0 && (
+        {/* A client (workspace redesign): the contact, area and industry sit on the profile card, so the header does not say them twice. */}
+        {parts.length > 0 && mode !== 'client' && (
           <p className="rc-ctx">{parts.map((p, i) => <span key={i} className="rc-ctx-part">{i > 0 && <span className="rc-dot" aria-hidden="true">·</span>}{p}</span>)}</p>
         )}
       </div>
