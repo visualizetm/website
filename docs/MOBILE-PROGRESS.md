@@ -12,5 +12,8 @@ Rubric: docs/MOBILE-UI-GUIDE.md. Baseline and plan: docs/MOBILE-AUDIT.md. After:
 - Milestone 6: gesture-test, chrome-audit, empty-audit, npm run preship and preship:full.
 - Feel audit: the skeleton fit gaps at 390 went from about 45 rows to the logged exemptions (see MOBILE-DECISIONS.md).
 
+## Planner dashboard and task system (docs/PLANNER-TASKS-DESIGN.md)
+- Milestone 1: the design doc and the decisions (this commit).
+
 ## Next
-- Only what the final audits flag.
+- Milestone 2: data, endpoints and tests (posts kind, ad and video fields, suggestions, the task rule and tasks-test).
