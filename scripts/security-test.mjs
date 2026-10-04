@@ -62,7 +62,7 @@ const submissions = (await load('submissions.js')).default;
 const login = (await load('admin/login.js')).default;
 const adminIndex = (await load('admin/index.js')).default;
 const routes = {};
-for (const n of ['call-leads', 'submissions', 'posts', 'projects', 'concept-packs', 'concept-sets', 'orders', 'export', 'stripe-reconcile', 'settings']) routes[n] = (await load(`_routes/${n}.js`)).handler;
+for (const n of ['call-leads', 'submissions', 'posts', 'projects', 'concept-packs', 'concept-sets', 'orders', 'export', 'stripe-reconcile', 'settings', 'suggestions']) routes[n] = (await load(`_routes/${n}.js`)).handler;
 const { signSession } = await load('_lib/auth.js');
 const { rateKey } = await load('_lib/limit.js');
 
@@ -306,6 +306,44 @@ section('4. the planner token');
   const thirtyFirst = await call(planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'approve' } });
   ok(thirtyFirst._status === 429 && thirtyFirst._headers['Retry-After'], `the 31st action in an hour is 429 with Retry-After (${thirtyFirst._status})`);
   ok(_stores.settings.every(s => !String(s._id).includes(ON)), `the limiter key never carries the token (${_stores.settings.map(s => s._id).join(', ')})`);
+}
+
+/* ── 4a. The planner dashboard: ideas and ads ──────────────── */
+section('4a. the planner dashboard: ideas and ads');
+await injection('planner suggest subject', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: '__OP__' } }, [200, 400]);
+await injection('planner suggest kind', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: '__OP__', subject: 'x' } }, [200]);
+await injection('planner suggest goal', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'x', goal: '__OP__' } }, [200]);
+await injection('planner suggest link', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'x', link: '__OP__' } }, [200]);
+await injection('planner suggest photos', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'x', photos: ['__OP__'] } }, [200]);
+await injection('planner suggest preferredDate', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'x', preferredDate: '__OP__' } }, [200]);
+await injection('suggestions ?leadId', routes.suggestions, 'GET', { query: { leadId: '__OP__' } }, [200]);
+await injection('suggestions ?status', routes.suggestions, 'GET', { query: { status: '__OP__' } }, [200]);
+await injection('suggestions PATCH id', routes.suggestions, 'PATCH', { body: { id: '__OP__', set: { status: 'planned' } } }, [400]);
+await injection('suggestions PATCH status', routes.suggestions, 'PATCH', { body: { id: 'c07f1f77bcf86cd799439009', set: { status: '__OP__' } } }, [200]);
+await urlField('post ad.link', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { kind: 'ad', ad: { name: 'A', link: u } } } }), () => _stores.posts[0].ad.link);
+await urlField('post video.url', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { format: 'video', video: { url: u, durationSec: 10 } } } }), () => _stores.posts[0].video.url);
+await urlField('post video.poster', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { format: 'video', video: { poster: u } } } }), () => _stores.posts[0].video.poster);
+await urlField('suggestion link', planner, 'POST', u => ({ query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'link check', link: u } }), () => (_stores.suggestions || []).slice(-1)[0]?.link ?? '');
+{
+  seed();
+  await call(planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: XSS, details: XSS } });
+  const sg = (_stores.suggestions || []).slice(-1)[0];
+  ok(!!sg && sg.subject === XSS && sg.details === XSS, 'an idea stores its subject and details verbatim');
+  const mine = await call(planner, 'GET', { query: { token: ON } });
+  ok(mine._json.suggestions[0].subject === XSS && !JSON.stringify(mine._json.suggestions).includes('details'), 'the planner serves the subject as a JSON value and never the details');
+  ok(_stores.settings.every(s => !String(s._id).includes(ON)), `the suggest limiter keys never carry the token (${_stores.settings.map(s => s._id).join(', ')})`);
+  const photos = await call(planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'p', photos: ['https://evil.example/a.jpg', 'javascript:alert(1)', 'https://res.cloudinary.com/x/image/upload/v1/ok.jpg'] } });
+  ok(photos._status === 429 || (_stores.suggestions || []).slice(-1)[0].photos.join(',') === 'https://res.cloudinary.com/x/image/upload/v1/ok.jpg', 'a photo off our Cloudinary host is dropped');
+  // The hidden budget never reaches the client, in any form.
+  seed();
+  await call(routes.posts, 'PATCH', { body: { id: POST_MINE, set: { kind: 'ad', ad: { name: 'Budget check', budget: 98765, showBudget: false, results: { reach: 0 } } } } });
+  const pl = await call(planner, 'GET', { query: { token: ON } });
+  ok(pl._status === 200 && !JSON.stringify(pl._json).includes('98765') && !JSON.stringify(pl._json).includes('showBudget') && !JSON.stringify(pl._json).includes('"results"'), 'a hidden budget and empty results are stripped on the server');
+  await call(routes.posts, 'PATCH', { body: { id: POST_MINE, set: { ad: { name: 'Budget check', budget: 98765, showBudget: true } } } });
+  const pl2 = await call(planner, 'GET', { query: { token: ON } });
+  ok(JSON.stringify(pl2._json).includes('98765'), 'a shown budget reaches the client');
+  const bad = await call(routes.posts, 'PATCH', { body: { id: POST_MINE, set: { kind: 'post', status: 'live' } } });
+  ok(bad._status === 400 && _stores.posts[0].status !== 'live', 'live is refused on a post');
 }
 
 /* ── 4b. The concepts token ─────────────────────────────────────────── */

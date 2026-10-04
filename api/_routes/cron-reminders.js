@@ -74,18 +74,21 @@ export async function handler(req, res) {
     }
   }
 
-  /* Tasks with a due date: gathered once, used by the digest (due today, America/New_York) and the per task push (remindAt past, not yet notified, not done). */
+  /* Tasks with a due date: gathered once, used by the digest (due today, America/New_York) and the per task push (remindAt past, not yet notified, not done).
+     Two sources, one shape: the checklists on every live lead and project (the task system), and a legacy next action set in TaskSheet before
+     checklists carried tasks (auto false, no taskId). A pinned task's next action carries no remindAt, so nothing is pushed twice. */
   const taskRows = [];
   if (prefs.tasks) {
-    const isTask = (a) => a && typeof a === 'object' && a.kind === 'custom' && a.auto === false && !a.doneAt && a.label;
-    const taskLeads = await db.collection('call_leads').find({ deleted: { $ne: true }, 'nextAction.kind': 'custom', 'nextAction.auto': false }).project({ business: 1, nextAction: 1 }).toArray();
-    for (const l of taskLeads) if (isTask(l.nextAction)) taskRows.push({ coll: 'call_leads', _id: l._id, leadId: l._id, business: l.business, action: l.nextAction });
-    const taskProjects = await db.collection('projects').find({ archived: { $ne: true }, 'nextAction.kind': 'custom', 'nextAction.auto': false }).project({ leadId: 1, name: 1, nextAction: 1 }).toArray();
+    const isLegacy = (a) => a && typeof a === 'object' && a.kind === 'custom' && a.auto === false && !a.doneAt && a.label && !a.taskId;
+    const fromLists = (coll, rec, business) => { for (const l of (rec.checklists || [])) for (const it of (l?.items || [])) if (it && !it.done && it.text) taskRows.push({ coll, _id: rec._id, leadId: coll === 'projects' ? rec.leadId : rec._id, business, action: { label: it.text, dueAt: it.due || '', remindAt: it.remindAt || '', notifiedAt: it.notifiedAt || '' }, taskId: it.id, listId: l.id }); };
+    const taskLeads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ 'nextAction.kind': 'custom', 'nextAction.auto': false }, { 'checklists.items.remindAt': { $exists: true } }, { 'checklists.items.due': { $exists: true } }] }).project({ business: 1, nextAction: 1, checklists: 1 }).toArray();
+    for (const l of taskLeads) { if (isLegacy(l.nextAction)) taskRows.push({ coll: 'call_leads', _id: l._id, leadId: l._id, business: l.business, action: l.nextAction }); fromLists('call_leads', l, l.business); }
+    const taskProjects = await db.collection('projects').find({ archived: { $ne: true }, $or: [{ 'nextAction.kind': 'custom', 'nextAction.auto': false }, { 'checklists.items.due': { $exists: true } }] }).project({ leadId: 1, name: 1, nextAction: 1, checklists: 1 }).toArray();
     if (taskProjects.length) {
       const ids = [...new Set(taskProjects.map(p => String(p.leadId)))];
       const owners = await db.collection('call_leads').find({ deleted: { $ne: true } }).project({ business: 1 }).toArray();
       const nameOf = new Map(owners.filter(o => ids.includes(String(o._id))).map(o => [String(o._id), o.business]));
-      for (const p of taskProjects) if (isTask(p.nextAction)) taskRows.push({ coll: 'projects', _id: p._id, leadId: p.leadId, business: nameOf.get(String(p.leadId)) || p.name || 'Project', action: p.nextAction });
+      for (const p of taskProjects) { const who = nameOf.get(String(p.leadId)) || p.name || 'Project'; if (isLegacy(p.nextAction)) taskRows.push({ coll: 'projects', _id: p._id, leadId: p.leadId, business: who, action: p.nextAction }); fromLists('projects', p, who); }
     }
   }
   const nowMsTasks = now.getTime();
@@ -95,7 +98,14 @@ export async function handler(req, res) {
   let taskPushes = 0;
   for (const t of tasksDue) {
     try { await sendPush(db, { title: `Task due: ${t.action.label}`, body: `${t.business} · due ${fmtZoneTime(t.action.dueAt || t.action.remindAt)}`, url: `${base}/?open=${t.leadId}` }); } catch { /* one bad subscription must not stop the rest */ }
-    await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': now.toISOString() } });
+    if (t.taskId) {
+      /* A checklist task: stamp the one item, by id, writing the whole array back the way every checklist write does. */
+      const rec = await db.collection(t.coll).findOne({ _id: t._id }, { projection: { checklists: 1 } });
+      const lists = (rec?.checklists || []).map(l => ({ ...l, items: (l?.items || []).map(it => (it?.id === t.taskId ? { ...it, notifiedAt: now.toISOString() } : it)) }));
+      await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { checklists: lists } });
+    } else {
+      await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': now.toISOString() } });
+    }
     taskPushes++;
   }
   /* Health: lastRunAt plus the last twelve run times, so Settings can tell a fifteen minute schedule from a daily one. */

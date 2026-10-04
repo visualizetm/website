@@ -6,7 +6,7 @@ import { RETAINER_STATUSES, SCHEDULE_STATUSES } from '../../shared/semantics';
 import { money } from '../../shared/format';
 import { fmtDate } from '../../shared/dates';
 import { COPY } from '../../shared/copy';
-import { postsOf } from '../../lib/posts';
+import { deliveredFor } from '../../lib/posts';
 import { monthLabel, nextUnpaid, scheduleStatus, retainerMonthly } from '../../lib/projects';
 import { fmtDay, fmtDayShort } from '../ClientWorkspace';
 import EmptyLine from './EmptyLine';
@@ -57,14 +57,16 @@ export default function RetainerSection({ rec }) {
         <Stack gap={1} className="cw-months">
           <p className="rc-label">Monthly deliverables: {retainerMonthly(ret.planId).label}</p>
           {months.map((m, i) => {
-            /* Planner prompt 2, part 5: with the planner on, the month's delivered count is the posts that reached approved or posted. */
-            const fromPlanner = cw.plannerOn ? postsOf(cw.posts, lead._id).filter(p => p.month === m.month && (p.status === 'approved' || p.status === 'posted')).length : null;
+            /* Planner prompt 2, part 5: with the planner on, the month's delivered count comes from the planner: posts count toward the Content Kit, ads toward Ad Creatives, Growth counts both. */
+            const dl = cw.plannerOn ? deliveredFor(cw.posts, lead._id, m.month, ret.planId) : null;
+            const fromPlanner = dl ? dl.counted : null;
             const delivered = fromPlanner ?? m.delivered;
             return (
               <div key={m.month} className={`rc-month${i === 0 ? ' is-current' : ''}`}>
                 <span className="rc-month-name">{monthLabel(m.month)}{i === 0 ? <span className="rc-muted"> · this month</span> : ''}</span>
                 <ProgressBar value={m.included ? Math.min(100, Math.round((delivered / m.included) * 100)) : 0} tone={delivered >= m.included && m.included ? 'booked' : 'progress'} size="sm" className="rc-month-bar" />
                 <span className="rc-month-count">{delivered} of {m.included} {retainerMonthly(ret.planId).unit}{fromPlanner !== null ? ', from their planner' : ''}</span>
+                {dl && <span className="rc-month-split">{dl.posts} post{dl.posts === 1 ? '' : 's'}, {dl.ads} ad{dl.ads === 1 ? '' : 's'}</span>}
                 {!readOnly && fromPlanner === null && <Button variant="secondary" size="md" icon={Plus} onClick={() => cw.openLogDel(retProject, m.month)} className="cw-log-delivery">Log delivery</Button>}
               </div>
             );

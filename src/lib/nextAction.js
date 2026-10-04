@@ -14,11 +14,12 @@ import { normalizeStage, nextActionKindOf } from '../shared/semantics.js';
 import { parseDate, dayKey } from '../shared/dates.js';
 import { invoicesOf, invoiceStatus, invoicesPastDue } from './invoices.js';
 import { dealOf } from './deal.js';
+import { taskNextUp, taskAsAction } from '../shared/taskRules.js';
 
 // Mirror of src/lib/booked.js meetingDate(), kept here so this module has no untyped import chain.
 const meetingDate = (lead) => { const m = lead?.meeting; if (!m?.date) return null; const d = new Date(`${m.date}T${m.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 
-export const NEXT_ACTION_KEYS = ['stage', 'callStatus', 'callbackAt', 'meeting', 'bookedOutcome', 'reviews', 'schedule', 'invoices', 'delivery', 'releasedAt', 'deliveredAt', 'revisions', 'addonIds', 'archived', 'declined', 'deal', 'calendlyEventUri'];
+export const NEXT_ACTION_KEYS = ['checklists', 'stage', 'callStatus', 'callbackAt', 'meeting', 'bookedOutcome', 'reviews', 'schedule', 'invoices', 'delivery', 'releasedAt', 'deliveredAt', 'revisions', 'addonIds', 'archived', 'declined', 'deal', 'calendlyEventUri'];
 const DAY = 864e5;
 const HOUR = 3600e3;
 const ASK_AFTER_DAYS = 3;
@@ -107,11 +108,14 @@ function projectAction(p, ctx, now) {
 export function nextActionFor(record, ctx = {}, now = Date.now()) {
   if (!record || typeof record !== 'object') return null;
   const c = ctxOf(ctx);
+  /* Tasks (the task system): on a client and on a project, the task due soonest is the Next up; the pipeline rules only speak when no task is open. A lead keeps the pipeline rules. */
+  const stage = isProject(record) ? 'client' : normalizeStage(record);
+  if ((stage === 'client' || stage === 'won') && !record.archived) { const t = taskNextUp(record, now); if (t) return taskAsAction(t, true); }
   return isProject(record) ? projectAction(record, c, now) : leadAction(record, c, now);
 }
 
 const sameDue = (a, b) => Math.abs((parseDate(a)?.getTime() || 0) - (parseDate(b)?.getTime() || 0)) < 60e3;
-export const sameAction = (a, b) => (!a && !b) || (!!a && !!b && a.kind === b.kind && sameDue(a.dueAt, b.dueAt) && !!a.doneAt === !!b.doneAt && a.label === b.label && !!a.auto === !!b.auto);
+export const sameAction = (a, b) => (!a && !b) || (!!a && !!b && a.kind === b.kind && sameDue(a.dueAt, b.dueAt) && !!a.doneAt === !!b.doneAt && a.label === b.label && !!a.auto === !!b.auto && (a.taskId || '') === (b.taskId || ''));
 
 /** What the record should store, given what it holds and what the rules say. */
 export function resolveNextAction(record, computed) {

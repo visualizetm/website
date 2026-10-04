@@ -2,6 +2,10 @@ import { ObjectId } from 'mongodb';
 import { getDb } from './_lib/mongo.js';
 import { route } from './_lib/handler.js';
 import { rateKey, rateState, rateHit } from './_lib/limit.js';
+import { safeUrl } from './_lib/url.js';
+import { sendPush } from './_lib/notify.js';
+import { SUGGESTION_KIND_IDS, SUGGESTION_GOAL_IDS } from './_semantics.js';
+import { addTask } from './_lib/taskRules.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -12,8 +16,14 @@ import { rateKey, rateState, rateHit } from './_lib/limit.js';
  *        empty posts array, not a 404.
  *
  *   POST /api/planner?token=xxx   { postId, action, note }
- *        action 'approve'        review -> approved
+ *        action 'approve'        review -> approved (a post or an ad)
  *        action 'request-change' review -> making, with their note
+ *        action 'suggest'        { kind, subject, goal, details, preferredDate, link, photos }
+ *                                writes a suggestion (the Ideas tab), one every 20 seconds and
+ *                                15 a day per token, every field capped, photos only on our own
+ *                                Cloudinary cloud, the link through safeUrl; pushes Rob a
+ *                                notification when the Client ideas toggle is on and adds a
+ *                                "New idea" task to the client's Ideas checklist
  *
  * The token is the whole credential, so the rules around it are the security
  * model:
@@ -31,7 +41,15 @@ import { rateKey, rateState, rateHit } from './_lib/limit.js';
  */
 
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 const ACTIONS_PER_HOUR = 30;
+const SUGGEST_GAP_MS = 20 * 1000;
+const SUGGESTS_PER_DAY = 15;
+/* Photos on a suggestion must be https on our own Cloudinary cloud. The cloud name is the same variable the browser
+ * build uses (Vercel exposes it at runtime too); with it unset, the host alone is required. */
+const cloudName = () => String(process.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
+const ownPhoto = (u) => { const v = safeUrl(u, 600); const cloud = cloudName(); if (!/^https:\/\/res\.cloudinary\.com\//i.test(v)) return ''; if (cloud && !v.startsWith(`https://res.cloudinary.com/${cloud}/`)) return ''; return v; };
+const dateStr = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '').trim()) ? String(v).trim() : '');
 const VIEW_STAMP_EVERY = HOUR; // lastViewedAt is a "they looked today" signal, not an access log
 
 const notFound = (res) => res.status(404).json({ error: 'not found' });
@@ -53,7 +71,7 @@ async function clientFor(db, token) {
   if (!token) return null;
   const lead = await db.collection('call_leads').findOne(
     { 'planner.token': token, deleted: { $ne: true } },
-    { projection: { business: 1, 'showcase.displayName': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1 } },
+    { projection: { business: 1, 'showcase.displayName': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1 } },
   );
   if (!lead || !lead.planner?.enabled) return null;
   return lead;
@@ -66,22 +84,49 @@ const publicClient = (lead) => ({
   postsPerMonth: Number(lead.planner?.postsPerMonth) || 8,
 });
 
-/** Exactly the fields a client may see about one post. */
+/** The ad fields a client may see: budget only when Rob chose to show it, results only once any is entered. */
+const publicAd = (a) => {
+  if (!a || typeof a !== 'object') return null;
+  const r = a.results && typeof a.results === 'object' ? a.results : {};
+  const hasResults = ['reach', 'clicks', 'messages', 'spend'].some(k => r[k] !== '' && r[k] != null && Number(r[k]) > 0);
+  return {
+    name: a.name || '', goal: a.goal || 'awareness', audience: a.audience || '', placements: Array.isArray(a.placements) ? a.placements : [],
+    buttonText: a.buttonText || '', link: a.link || '', startDate: a.startDate || '', endDate: a.endDate || '',
+    ...(a.showBudget && a.budget !== '' && a.budget != null ? { budget: Number(a.budget) || 0 } : {}),
+    ...(hasResults ? { results: { reach: Number(r.reach) || 0, clicks: Number(r.clicks) || 0, messages: Number(r.messages) || 0, spend: Number(r.spend) || 0 } } : {}),
+  };
+};
+/** Exactly the fields a client may see about one post (or ad). */
 const publicPost = (p) => ({
   id: String(p._id),
+  kind: p.kind === 'ad' ? 'ad' : 'post',
   date: p.date || '',
   time: p.time || '',
   /* An array, always: a post written before this existed carries a single
    * `platform` string and comes back as a one item list. */
   platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
-  format: p.format === 'story' ? 'story' : 'portrait',
+  format: p.format === 'story' ? 'story' : p.format === 'video' ? 'video' : 'portrait',
   hashtags: p.hashtags || '',
   imageUrl: p.imageUrl || '',
   caption: p.caption || '',
   status: p.status || 'making',
   note: p.note || '',
   clientNote: p.clientNote || '',
+  allowDownload: p.allowDownload !== false,
+  video: p.format === 'video' ? { url: p.video?.url || '', durationSec: Number(p.video?.durationSec) || 0, poster: p.video?.poster || '', concept: p.concept || '' } : null,
+  ad: p.kind === 'ad' ? publicAd(p.ad) : null,
 });
+/** Exactly the fields a client may see about one of their own ideas. */
+const publicSuggestion = (s) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : '' });
+
+/** When the New idea task is due: the day before the preferred date when there is one, else two working days from now (New York day keys are not needed here: the admin's own zone reads it back). */
+function suggestionDue(preferredDate, nowMs) {
+  const key = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  if (preferredDate) { const [y, m, d] = preferredDate.split('-').map(Number); const before = new Date(Date.UTC(y, m - 1, d - 1)); if (before.getTime() > nowMs) return `${key(before)}T13:00:00.000Z`; }
+  const d = new Date(nowMs); let left = 2;
+  while (left > 0) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) left--; }
+  return `${key(d)}T13:00:00.000Z`;
+}
 
 async function handler(req, res) {
   // A client's month is theirs: never a shared cache, never the back-forward cache with the token in the URL.
@@ -115,7 +160,8 @@ async function handler(req, res) {
       } catch { /* their read matters more than the stamp */ }
     }
 
-    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost) });
+    const suggestions = await db.collection('suggestions').find({ leadId: String(lead._id), deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(50).toArray();
+    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(publicSuggestion) });
   }
 
   if (req.method === 'POST') {
@@ -128,6 +174,49 @@ async function handler(req, res) {
     await rateHit(db, key, limit.hits);
 
     const { postId, action } = req.body || {};
+
+    /* An idea (the Ideas tab). Its own two limiters: one every 20 seconds, 15 a day. Plain text in, plain text out. */
+    if (action === 'suggest') {
+      const b = req.body || {};
+      const gap = await rateState(db, rateKey('suggest-gap', token), { max: 1, windowMs: SUGGEST_GAP_MS });
+      const day = await rateState(db, rateKey('suggest-day', token), { max: SUGGESTS_PER_DAY, windowMs: DAY });
+      if (gap.exceeded || day.exceeded) {
+        res.setHeader('Retry-After', String(Math.max(gap.retryAfter, day.retryAfter)));
+        return res.status(429).json({ error: gap.exceeded ? 'Give it a moment, then send the next one.' : 'That is a lot of ideas for one day. Send the rest tomorrow.' });
+      }
+      const subject = String(b.subject ?? '').trim().slice(0, 120);
+      if (!subject) return res.status(400).json({ error: 'Say what it is about and I can make it.' });
+      const doc = {
+        leadId: String(lead._id),
+        kind: SUGGESTION_KIND_IDS.includes(b.kind) ? b.kind : 'post',
+        subject,
+        goal: SUGGESTION_GOAL_IDS.includes(b.goal) ? b.goal : 'other',
+        details: String(b.details ?? '').trim().slice(0, 1000),
+        preferredDate: dateStr(b.preferredDate),
+        link: safeUrl(b.link, 600),
+        photos: (Array.isArray(b.photos) ? b.photos : []).map(ownPhoto).filter(Boolean).slice(0, 3),
+        status: 'new', postId: '', note: '', seenAt: '',
+        createdAt: new Date(), updatedAt: new Date(),
+      };
+      const r = await db.collection('suggestions').insertOne(doc);
+      await rateHit(db, rateKey('suggest-gap', token), gap.hits);
+      await rateHit(db, rateKey('suggest-day', token), day.hits);
+      /* Rob's side of it, best effort: the "New idea" task (due in two working days, or the day before the preferred date) and the push. */
+      try {
+        const due = suggestionDue(doc.preferredDate, Date.now());
+        const lists = addTask(lead.checklists || [], (lead.checklists || []).find(l => l.name === 'Ideas')?.id || '', { text: `New idea: ${subject}`, due, source: 'suggestion', suggestionId: String(r.insertedId), listName: 'Ideas' });
+        await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, updatedAt: new Date() } });
+      } catch { /* the idea is saved; the task is a convenience */ }
+      try {
+        const notif = await db.collection('settings').findOne({ _id: 'notifications' });
+        if (notif?.reminders?.ideas !== false) {
+          const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+          await sendPush(db, { title: `New idea from ${lead.showcase?.displayName || lead.business}`, body: `${doc.kind === 'ad' ? 'An ad' : doc.kind === 'video' ? 'A video' : 'A post'}: ${subject}`, url: `${base}/clients/${lead._id}/planner?ideas=1` });
+        }
+      } catch { /* a push that fails never fails their idea */ }
+      return res.status(200).json({ ok: true, suggestion: publicSuggestion({ ...doc, _id: r.insertedId }) });
+    }
+
     let _id = null;
     try { _id = new ObjectId(String(postId)); } catch { return notFound(res); }
 

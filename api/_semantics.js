@@ -13,7 +13,7 @@ export function normalizeStage(lead) {
 }
 export const STAGE_IDS = ['triage', 'lead', 'booked', 'deal', 'client', 'nurture', 'declined', 'won', 'lost'];
 /* The fields a nextAction carries (tasks with a due date add remindAt and notifiedAt); the Remind me choices the sheet offers. */
-export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt'];
+export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt', 'taskId'];
 export const REMIND_CHOICE_IDS = ['at', 'hour', 'morning', 'off'];
 export const NEXT_ACTION_KIND_IDS = ['call', 'callback', 'build-concepts', 'log-outcome', 'send-onboarding', 'chase-form', 'send-contract', 'chase-contract', 'send-invoice', 'chase-invoice', 'kickoff', 'revision', 'deliver', 'retainer-pitch', 'review-ask', 'custom'];
 export const LIST_WINDOW_IDS = ['any', 'morning', 'midday', 'afternoon', 'evening'];
@@ -57,5 +57,14 @@ export const SUBMISSION_TYPE_IDS = ['start', 'contact', 'review', 'shop-order', 
 export const TESTIMONIAL_SOURCE_IDS = ['nfc', 'text', 'email', 'in-person', 'website', 'google'];
 // Planner prompt 1: the posts collection's two enums.
 export const PLATFORM_IDS = ['instagram', 'facebook', 'tiktok', 'other'];
-export const POST_STATUS_IDS = ['making', 'review', 'approved', 'posted'];
-export const POST_FORMAT_IDS = ['portrait', 'story'];
+export const POST_STATUS_IDS = ['making', 'review', 'approved', 'posted', 'live', 'finished'];
+export const AD_ONLY_STATUS_IDS = ['live', 'finished'];
+export const POST_FORMAT_IDS = ['portrait', 'story', 'video'];
+// Planner dashboard: post kinds, ad goals and placements, suggestions, task sources.
+export const POST_KIND_IDS = ['post', 'ad'];
+export const AD_GOAL_IDS = ['calls', 'messages', 'visits', 'offer', 'awareness'];
+export const AD_PLACEMENT_IDS = ['feed', 'stories', 'reels'];
+export const SUGGESTION_KIND_IDS = ['post', 'ad', 'video'];
+export const SUGGESTION_GOAL_IDS = ['calls', 'offer', 'work', 'slow', 'other'];
+export const SUGGESTION_STATUS_IDS = ['new', 'planned', 'declined'];
+export const TASK_SOURCE_IDS = ['manual', 'template', 'suggestion'];

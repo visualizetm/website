@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
-import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS } from '../_semantics.js';
+import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS, POST_KIND_IDS, AD_GOAL_IDS, AD_PLACEMENT_IDS, AD_ONLY_STATUS_IDS } from '../_semantics.js';
 
 /* Posts (Content Planner, prompt 1): one document per scheduled social post.
  * A post belongs to a client (call_leads _id) and to a month, and moves
@@ -58,11 +58,37 @@ export function monthsFrom(now = new Date()) {
   return [key(y, m), m === 11 ? key(y + 1, 0) : key(y, m + 1)];
 }
 
+/** The ad fields (planner dashboard): what Rob runs on Meta. budget is shown to the client only when showBudget is on; results only once any value is set. */
+export function sanitizeAd(a) {
+  if (!a || typeof a !== 'object') return undefined;
+  const r = a.results && typeof a.results === 'object' ? a.results : {};
+  const n = (v) => (v === '' || v == null ? '' : num(v, 1e7));
+  return {
+    name: str(a.name, 120), goal: AD_GOAL_IDS.includes(a.goal) ? a.goal : 'awareness', audience: str(a.audience, 300),
+    placements: Array.isArray(a.placements) ? [...new Set(a.placements.filter(x => AD_PLACEMENT_IDS.includes(x)))] : [],
+    buttonText: str(a.buttonText, 40), link: safeUrl(a.link, 600), startDate: dateStr(a.startDate), endDate: dateStr(a.endDate),
+    budget: n(a.budget), showBudget: !!a.showBudget,
+    results: { reach: n(r.reach), clicks: n(r.clicks), messages: n(r.messages), spend: n(r.spend) },
+  };
+}
+/** The video on a video post or ad: the file (optional until it exists), its length and a poster. */
+export function sanitizeVideo(v) {
+  if (!v || typeof v !== 'object') return undefined;
+  return { url: safeUrl(v.url, 600), durationSec: Math.round(num(v.durationSec, 3600)), poster: safeUrl(v.poster, 600) };
+}
+
 /* sanitize() IS the schema. A key the whitelist does not know is not
  * written, and a key the caller did not send stays undefined so PATCH can
  * tell "set this to empty" from "leave this alone". */
 function sanitize(b) {
+  const kind = b.kind !== undefined ? (POST_KIND_IDS.includes(b.kind) ? b.kind : 'post') : undefined;
   return {
+    /* Planner dashboard: a post the client shares, or an ad Rob runs. Missing means post, which every row written before this was. */
+    kind,
+    ad: b.ad !== undefined ? (b.ad === null ? null : sanitizeAd(b.ad)) : undefined,
+    video: b.video !== undefined ? (b.video === null ? null : sanitizeVideo(b.video)) : undefined,
+    concept: b.concept !== undefined ? str(b.concept, 600) : undefined, // a planned video's idea, before the file exists
+    allowDownload: b.allowDownload !== undefined ? !!b.allowDownload : undefined,
     leadId: b.leadId !== undefined ? str(b.leadId, 64) : undefined,
     month: b.month !== undefined ? monthStr(b.month) : undefined,
     date: b.date !== undefined ? dateStr(b.date) : undefined,
@@ -86,6 +112,7 @@ function sanitize(b) {
     hashtags: b.hashtags !== undefined ? normalizeHashtags(b.hashtags) : undefined,
     imageUrl: b.imageUrl !== undefined ? safeUrl(b.imageUrl, 600) : undefined, // http, https or a root path, else ''
     caption: b.caption !== undefined ? String(b.caption ?? '').slice(0, 2200) : undefined, // Instagram's own cap
+    /* live and finished belong to ads; a post sent one of them is left as it was (undefined), never moved. The route checks the kind on write. */
     status: b.status !== undefined ? (POST_STATUS_IDS.includes(b.status) ? b.status : 'making') : undefined,
     note: b.note !== undefined ? str(b.note, 500) : undefined,             // Rob writes this one
     clientNote: b.clientNote !== undefined ? str(b.clientNote, 500) : undefined, // the client writes this one
@@ -117,8 +144,10 @@ export async function handler(req, res) {
   if (req.method === 'POST') {
     const doc = compact(sanitize(req.body || {}));
     if (!doc.leadId || !doc.month) return res.status(400).json({ error: 'leadId and month required' });
+    if (AD_ONLY_STATUS_IDS.includes(doc.status) && (doc.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
     const now = new Date();
     const item = {
+      kind: 'post', allowDownload: true,
       date: '', time: '', platform: 'instagram', platforms: ['instagram'], format: 'portrait',
       imageUrl: '', caption: '', hashtags: '', status: 'making',
       note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0,
@@ -137,6 +166,10 @@ export async function handler(req, res) {
     for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
     delete allowed.leadId; // a post never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
+    if (AD_ONLY_STATUS_IDS.includes(allowed.status)) {
+      const cur = await col.findOne({ _id, deleted: { $ne: true } }, { projection: { kind: 1 } });
+      if ((allowed.kind || cur?.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
+    }
     allowed.updatedAt = new Date();
     await col.updateOne({ _id, deleted: { $ne: true } }, { $set: allowed });
     return res.status(200).json({ ok: true });

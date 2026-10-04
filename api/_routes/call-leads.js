@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
+import { sanitizeChecklists } from '../_lib/checklists.js';
 import { sanitizeInvoices } from '../_lib/invoices.js';
 import { DEAL_CHECKPOINT_IDS, CRON_RULE_IDS } from '../_semantics.js';
 
@@ -269,15 +270,8 @@ function sanitize(b) {
       driveUrl: link(b.conceptsTracker.driveUrl),
     } : undefined,
     prepNotes: b.prepNotes !== undefined ? str(b.prepNotes, 3000) : undefined,
-    // Named task lists ("checklists"), additive. ≤10 lists × ≤50 items.
-    checklists: Array.isArray(b.checklists)
-      ? b.checklists.slice(0, 10).map(l => ({
-          name: str(l?.name, 80),
-          items: Array.isArray(l?.items)
-            ? l.items.slice(0, 50).map(i => ({ text: str(i?.text, 300), done: !!i?.done }))
-            : [],
-        }))
-      : undefined,
+    // Named task lists ("checklists"), additive, 10 lists of 50: the task system's shape (api/_lib/checklists.js).
+    checklists: sanitizeChecklists(b.checklists),
     // Set when the first invoice is paid and the lead becomes a client.
     clientSince: b.clientSince !== undefined ? str(b.clientSince, 40) : undefined,
     // Prompt 6 merge: the losing duplicate points at the record it was folded into (additive).

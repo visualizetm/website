@@ -28,6 +28,7 @@ import { handler as settings } from '../_routes/settings.js';
 import { handler as stripeEvents } from '../_routes/stripe-events.js';
 import { handler as stripeReconcile } from '../_routes/stripe-reconcile.js';
 import { handler as submissions } from '../_routes/submissions.js';
+import { handler as suggestions } from '../_routes/suggestions.js';
 
 const ROUTES = {
   'backup': route(backup, { methods: ['GET'] }),
@@ -37,6 +38,7 @@ const ROUTES = {
   'concept-sets': route(conceptSets, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 512 * 1024 }),
   'export': route(exportHandler, { methods: ['GET'] }),
   'lists': route(lists, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
+  'suggestions': route(suggestions, { methods: ['GET', 'PATCH'] }),
   'leads-import': route(leadsImport, { methods: ['POST'], maxBody: 2 * 1024 * 1024 }),
   'log': route(log, { methods: ['GET', 'POST', 'DELETE'], maxBody: 16 * 1024 }),
   'send-email': route(sendEmail, { methods: ['POST'], maxBody: 16 * 1024 }),

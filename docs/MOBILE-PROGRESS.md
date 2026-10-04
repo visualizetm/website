@@ -13,7 +13,8 @@ Rubric: docs/MOBILE-UI-GUIDE.md. Baseline and plan: docs/MOBILE-AUDIT.md. After:
 - Feel audit: the skeleton fit gaps at 390 went from about 45 rows to the logged exemptions (see MOBILE-DECISIONS.md).
 
 ## Planner dashboard and task system (docs/PLANNER-TASKS-DESIGN.md)
-- Milestone 1: the design doc and the decisions (this commit).
+- Milestone 1: the design doc and the decisions.
+- Milestone 2: posts gain kind, ad, video, concept, allowDownload and the ad statuses; the suggestions route and the public suggest action; the task rule in src/shared/taskRules.js with its api mirror, checklists on projects, the next action a client's or a project's task becomes; the reminders cron reads checklist tasks; the retainer delivered count by kind; tasks-test (64), task-reminder-test (26), planner-endpoint-test and security-test extended; scripts/migrate-checklists.mjs.
 
 ## Next
-- Milestone 2: data, endpoints and tests (posts kind, ad and video fields, suggestions, the task rule and tasks-test).
+- Milestone 3: the client dashboard (Home, Posts, Ads, Ideas, the details, the Suggest sheet, Save to photos).

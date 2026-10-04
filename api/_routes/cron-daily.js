@@ -183,8 +183,8 @@ export async function handler(req, res) {
   }
   const rules = RULE_IDS.map(id => ({ name: id, count: ruleCounts[id] }));
 
-  const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1, deal: 1, calendlyEventUri: 1 }).toArray();
-  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, deliveredAt: 1, revisions: 1, addonIds: 1, updatedAt: 1, archived: 1, nextAction: 1 }).toArray();
+  const liveLeads = await leads.find({ deleted: { $ne: true } }).project({ business: 1, stage: 1, callStatus: 1, callbackAt: 1, meeting: 1, bookedOutcome: 1, reviews: 1, nextAction: 1, deal: 1, calendlyEventUri: 1, checklists: 1 }).toArray();
+  const liveProjects = await projects.find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, deliveredAt: 1, revisions: 1, addonIds: 1, updatedAt: 1, archived: 1, nextAction: 1, checklists: 1 }).toArray();
   const ctx = { projects: liveProjects, sets: liveSets };
   for (const l of liveLeads) {
     const next = resolveNextAction(l, nextActionFor(l, ctx, Date.now()));

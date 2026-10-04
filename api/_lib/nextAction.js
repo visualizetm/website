@@ -7,6 +7,7 @@ import { NEXT_ACTION_KIND_IDS, normalizeStage } from '../_semantics.js';
 import { invoicesOf, invoiceStatus, invoicesPastDue } from './invoices.js';
 import { dealOf } from './deal.js';
 import { zoneDayKey, zoneDayMs, zoneDateAt, zoneMeetingMs, keyAddDays } from './zone.js';
+import { taskNextUp, taskAsAction } from './taskRules.js';
 
 const DAY = 864e5;
 const HOUR = 3600e3;
@@ -91,10 +92,13 @@ function projectAction(p, ctx, now) {
 export function nextActionFor(record, ctx = {}, now = Date.now()) {
   if (!record || typeof record !== 'object') return null;
   const c = ctxOf(ctx);
+  /* Tasks (the task system): on a client and on a project, the task due soonest is the Next up; the pipeline rules only speak when no task is open. A lead keeps the pipeline rules. */
+  const stage = isProject(record) ? 'client' : normalizeStage(record);
+  if ((stage === 'client' || stage === 'won') && !record.archived) { const t = taskNextUp(record, now); if (t) return taskAsAction(t, true); }
   return isProject(record) ? projectAction(record, c, now) : leadAction(record, c, now);
 }
 const sameDue = (a, b) => Math.abs((parseDate(a)?.getTime() || 0) - (parseDate(b)?.getTime() || 0)) < 60e3;
-export const sameAction = (a, b) => (!a && !b) || (!!a && !!b && a.kind === b.kind && sameDue(a.dueAt, b.dueAt) && !!a.doneAt === !!b.doneAt && a.label === b.label && !!a.auto === !!b.auto);
+export const sameAction = (a, b) => (!a && !b) || (!!a && !!b && a.kind === b.kind && sameDue(a.dueAt, b.dueAt) && !!a.doneAt === !!b.doneAt && a.label === b.label && !!a.auto === !!b.auto && (a.taskId || '') === (b.taskId || ''));
 export function resolveNextAction(record, computed) {
   const cur = record?.nextAction && typeof record.nextAction === 'object' && record.nextAction.kind ? record.nextAction : null;
   if (cur && cur.auto === false && !cur.doneAt) return cur;
@@ -107,5 +111,5 @@ export function sanitizeNextAction(v, str) {
   if (v === null) return null;
   if (!v || typeof v !== 'object') return undefined;
   // remindAt and notifiedAt (tasks with a due date): the reminder instant and the stamp the cron leaves once its push went out.
-  return { kind: NEXT_ACTION_KIND_IDS.includes(v.kind) ? v.kind : 'custom', label: str(v.label, 120), dueAt: str(v.dueAt, 40), auto: v.auto !== false, doneAt: str(v.doneAt, 40), remindAt: str(v.remindAt, 40), notifiedAt: str(v.notifiedAt, 40) };
+  return { kind: NEXT_ACTION_KIND_IDS.includes(v.kind) ? v.kind : 'custom', label: str(v.label, 120), dueAt: str(v.dueAt, 40), auto: v.auto !== false, doneAt: str(v.doneAt, 40), remindAt: str(v.remindAt, 40), notifiedAt: str(v.notifiedAt, 40), taskId: str(v.taskId, 24) };
 }

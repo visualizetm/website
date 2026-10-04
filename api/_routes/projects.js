@@ -3,6 +3,7 @@ import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, DELIVERY_STEP_IDS, CRON_RULE_IDS } from '../_semantics.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
+import { sanitizeChecklists } from '../_lib/checklists.js';
 import { sanitizeInvoices, legacyToInvoice } from '../_lib/invoices.js';
 
 /* Projects (Prompt 10): one client (a call_leads doc with stage 'client') has
@@ -63,6 +64,8 @@ function sanitize(b) {
     archived: b.archived !== undefined ? !!b.archived : undefined,
     // CRM revamp, step 2: the project's own next action (chase an invoice, pitch the retainer).
     nextAction: sanitizeNextAction(b.nextAction, str),
+    // The task system: a project carries checklists the same way a lead does.
+    checklists: sanitizeChecklists(b.checklists),
   };
 }
 const compact = (o) => { for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k]; return o; };

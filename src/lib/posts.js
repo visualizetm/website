@@ -2,7 +2,7 @@
  * The documents come from /api/admin/posts (api/_routes/posts.js); nothing
  * here fetches, exactly like lib/projects.js and lib/reviews.js.
  */
-import { POST_STATUS_IDS } from '../shared/semantics';
+import { POST_STATUS_IDS } from '../shared/semantics.js';
 
 const H = 3600e3;
 /** Words that read as dangling when a caption is cut short. */
@@ -21,7 +21,10 @@ export function platformsOf(post) {
 }
 
 /** The post's format, with the pre-format default every old post reads as. */
-export const formatOf = (post) => (post?.format === 'story' ? 'story' : 'portrait');
+export const formatOf = (post) => (post?.format === 'story' ? 'story' : post?.format === 'video' ? 'video' : 'portrait');
+/** A post the client shares, or an ad Rob runs (planner dashboard). Missing means post. */
+export const kindOf = (post) => (post?.kind === 'ad' ? 'ad' : 'post');
+export const isAd = (post) => kindOf(post) === 'ad';
 
 /** The hashtags on a post as tokens, for counting and for display. */
 export const hashtagsOf = (post) => String(post?.hashtags || '').split(/\s+/).filter(t => t.startsWith('#') && t.length > 1);
@@ -33,7 +36,14 @@ export const hashtagsOf = (post) => String(post?.hashtags || '').split(/\s+/).fi
  * a sentence would name them. */
 export function missingForReview(post) {
   const missing = [];
+  if (formatOf(post) === 'video') {
+    /* A planned video needs its concept (or the file) before the client is asked to approve the idea; an ad needs a name too. */
+    if (!post?.video?.url && !String(post?.concept || '').trim()) missing.push('a concept or the video');
+    if (isAd(post) && !String(post?.ad?.name || '').trim()) missing.push('an ad name');
+    return missing;
+  }
   if (!post?.imageUrl) missing.push('an image');
+  if (isAd(post)) { if (!String(post?.ad?.name || '').trim()) missing.push('an ad name'); return missing; }
   if (formatOf(post) === 'portrait') {
     if (!String(post?.caption || '').trim()) missing.push('a caption');
     if (!hashtagsOf(post).length) missing.push('hashtags');
@@ -77,6 +87,17 @@ export const postsOf = (posts = [], leadId) => livePosts(posts).filter(p => Stri
 
 /** The month a date string falls in, "YYYY-MM". */
 export const monthOf = (date) => String(date || '').slice(0, 7);
+
+/* Delivered, for a retainer month: approved, posted, live and finished count. Posts count toward the Content Kit, ads
+ * toward Ad Creatives, and Growth counts both (src/shared/pricing.js names the plans). */
+export const DONE_STATUSES = ['approved', 'posted', 'live', 'finished'];
+export const isDone = (post) => DONE_STATUSES.includes(post?.status);
+export const PLAN_COUNTS = { 'content-kit': ['post'], 'ad-creatives': ['ad'], growth: ['post', 'ad'] };
+export function deliveredFor(posts = [], leadId, month, planId) {
+  const kinds = PLAN_COUNTS[planId] || ['post', 'ad'];
+  const mine = postsOf(posts, leadId).filter(p => p.month === month && isDone(p));
+  return { posts: mine.filter(p => kindOf(p) === 'post').length, ads: mine.filter(p => kindOf(p) === 'ad').length, counted: mine.filter(p => kinds.includes(kindOf(p))).length, kinds };
+}
 
 /** Posts sitting with clients right now, across every client. The nav badge. */
 export const postsInReview = (posts = []) => livePosts(posts).filter(p => p.status === 'review').length;

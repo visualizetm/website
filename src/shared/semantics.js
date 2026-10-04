@@ -104,7 +104,7 @@ export const NEXT_ACTION_KINDS = [
 ];
 export const NEXT_ACTION_KIND_IDS = NEXT_ACTION_KINDS.map(k => k.id);
 /* The fields a nextAction carries (tasks with a due date add remindAt and notifiedAt); the Remind me choices (src/lib/tasks.js). Mirrored in api/_semantics.js. */
-export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt'];
+export const NEXT_ACTION_FIELDS = ['kind', 'label', 'dueAt', 'auto', 'doneAt', 'remindAt', 'notifiedAt', 'taskId'];
 export const REMIND_CHOICE_IDS = ['at', 'hour', 'morning', 'off'];
 export const nextActionKindOf = (id) => NEXT_ACTION_KINDS.find(k => k.id === id) || NEXT_ACTION_KINDS[NEXT_ACTION_KINDS.length - 1];
 export const declineReasonOf = (id) => DECLINE_REASONS.find(r => r.id === id) || DECLINE_REASONS[DECLINE_REASONS.length - 1];
@@ -327,7 +327,44 @@ export const POST_STATUSES = [
   { id: 'review',   label: 'In review', icon: 'Clock',      order: 1, ...tone('new') },
   { id: 'approved', label: 'Approved', icon: 'Check',       order: 2, ...tone('booked') },
   { id: 'posted',   label: 'Posted',   icon: 'Send01',      order: 3, ...tone('neutral') },
+  /* Ads only (planner dashboard): running on Meta, and done. A post never carries these. */
+  { id: 'live',     label: 'Live',     icon: 'Play',        order: 4, ...tone('booked'), adOnly: true },
+  { id: 'finished', label: 'Finished', icon: 'Check',       order: 5, ...tone('neutral'), adOnly: true },
 ];
+/* What the client posts, and what Rob runs for them (planner dashboard). */
+export const POST_KINDS = [
+  { id: 'post', label: 'Post', icon: 'Image01', order: 0, ...tone('progress') },
+  { id: 'ad',   label: 'Ad',   icon: 'Zap',     order: 1, ...tone('callback') },
+];
+export const POST_KIND_IDS = POST_KINDS.map(k => k.id);
+export const postKindOf = (id) => POST_KINDS.find(k => k.id === id) || POST_KINDS[0];
+export const AD_GOALS = [
+  { id: 'calls', label: 'Get more calls', client: 'More calls' },
+  { id: 'messages', label: 'Get messages', client: 'More messages' },
+  { id: 'visits', label: 'Get visits', client: 'More visits' },
+  { id: 'offer', label: 'Promote an offer', client: 'Promote an offer' },
+  { id: 'awareness', label: 'Awareness', client: 'Get seen' },
+];
+export const AD_GOAL_IDS = AD_GOALS.map(g => g.id);
+export const adGoalOf = (id) => AD_GOALS.find(g => g.id === id) || AD_GOALS[4];
+export const AD_PLACEMENTS = [{ id: 'feed', label: 'Feed' }, { id: 'stories', label: 'Stories' }, { id: 'reels', label: 'Reels' }];
+export const AD_PLACEMENT_IDS = AD_PLACEMENTS.map(p => p.id);
+/* A client's idea (planner dashboard, Ideas tab): what it is, what it should do, and what happened to it. */
+export const SUGGESTION_KINDS = [{ id: 'post', label: 'Post' }, { id: 'ad', label: 'Ad' }, { id: 'video', label: 'Video' }];
+export const SUGGESTION_KIND_IDS = SUGGESTION_KINDS.map(k => k.id);
+export const SUGGESTION_GOALS = [
+  { id: 'calls', label: 'Get more calls' }, { id: 'offer', label: 'Promote an offer' }, { id: 'work', label: 'Show my work' }, { id: 'slow', label: 'Fill a slow day' }, { id: 'other', label: 'Something else' },
+];
+export const SUGGESTION_GOAL_IDS = SUGGESTION_GOALS.map(g => g.id);
+export const SUGGESTION_STATUSES = [
+  { id: 'new', label: 'Sent', client: 'Sent', ...tone('new') },
+  { id: 'planned', label: 'In the plan', client: 'In the plan', ...tone('booked') },
+  { id: 'declined', label: 'Not this time', client: 'Not this time', ...tone('neutral') },
+];
+export const SUGGESTION_STATUS_IDS = SUGGESTION_STATUSES.map(s => s.id);
+export const suggestionStatusOf = (id) => SUGGESTION_STATUSES.find(s => s.id === id) || SUGGESTION_STATUSES[0];
+/* Where a task came from (the checklists on a lead and a project). */
+export const TASK_SOURCE_IDS = ['manual', 'template', 'suggestion'];
 export const postStatusOf = (id) => POST_STATUSES.find(s => s.id === id) || POST_STATUSES[0];
 /* What shape the post is. Every post written before this existed reads as a
    portrait post, which is what they all were. The aspect is what the image
@@ -336,6 +373,8 @@ export const postStatusOf = (id) => POST_STATUSES.find(s => s.id === id) || POST
 export const POST_FORMATS = [
   { id: 'portrait', label: 'Portrait post', icon: 'Image01', aspect: 'img-fit--4x5', ratio: '4:5', blurb: 'The standard feed post.', order: 0, ...tone('progress') },
   { id: 'story',    label: 'Story',         icon: 'Zap',     aspect: 'img-fit--9x16', ratio: '9:16', blurb: 'Disappears in 24 hours.', order: 1, ...tone('callback') },
+  /* Planner dashboard: a video post or ad. A planned one carries only a concept and a length until the file exists. */
+  { id: 'video',    label: 'Video',         icon: 'Play',    aspect: 'img-fit--9x16', ratio: '9:16', blurb: 'A clip, vertical. Plan it now, add the file later.', order: 2, ...tone('won') },
 ];
 export const postFormatOf = (id) => POST_FORMATS.find(f => f.id === id) || POST_FORMATS[0];
 export const POST_FORMAT_IDS = POST_FORMATS.map(f => f.id);

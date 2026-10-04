@@ -62,6 +62,11 @@ const posts = [
   { _id: '607f1f77bcf86cd799439003', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-10`, time: '', platform: 'instagram', imageUrl: '', caption: '', status: 'making', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
   { _id: '607f1f77bcf86cd799439004', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-11`, time: '', platform: 'instagram', imageUrl: '', caption: 'Deleted one', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, deleted: true },
   { _id: '607f1f77bcf86cd799439005', leadId: enabledClient._id, month: '2026-01', date: '2026-01-05', time: '', platform: 'instagram', imageUrl: '', caption: 'Another month', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
+  /* An ad (the planner dashboard): the budget is hidden until Rob shows it, the results only once entered. And a planned video with no file. */
+  { _id: '607f1f77bcf86cd799439009', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-12`, time: '', kind: 'ad', platforms: ['instagram', 'facebook'], platform: 'instagram', format: 'portrait', hashtags: '', imageUrl: 'https://img.example/ad.jpg', caption: 'Half off ceramic coating this month', status: 'live', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: false,
+    ad: { name: 'Coating offer', goal: 'offer', audience: 'People within 10 miles of Oxford, 25 to 55', placements: ['feed', 'reels'], buttonText: 'Book now', link: 'https://example.com/book', startDate: `${THIS_MONTH}-12`, endDate: `${THIS_MONTH}-26`, budget: 300, showBudget: false, results: { reach: 1240, clicks: 38, messages: '', spend: 120 } } },
+  { _id: '607f1f77bcf86cd799439010', leadId: enabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-28`, time: '', kind: 'ad', platforms: ['instagram'], platform: 'instagram', format: 'video', hashtags: '', imageUrl: '', caption: '', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false,
+    concept: 'A quick walk around a freshly coated truck', video: { url: '', durationSec: 15, poster: '' }, ad: { name: 'Truck walkaround', goal: 'calls', audience: 'Truck owners nearby', placements: ['reels'], buttonText: 'Call', link: '', startDate: '', endDate: '', budget: 150, showBudget: true, results: { reach: '', clicks: '', messages: '', spend: '' } } },
   // Somebody else's post, in review, with a real id: the cross client check.
   { _id: '607f1f77bcf86cd799439006', leadId: disabledClient._id, month: THIS_MONTH, date: `${THIS_MONTH}-15`, time: '', platform: 'instagram', imageUrl: '', caption: 'Not yours', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false },
 ];
@@ -83,9 +88,9 @@ function setPath(obj, key, value) {
   for (let i = 0; i < parts.length - 1; i++) { cur[parts[i]] = cur[parts[i]] || {}; cur = cur[parts[i]]; }
   cur[parts[parts.length - 1]] = value;
 }
-/* global postsStore, settingsStore, leadsStore */ // defined in the fake module this function is serialized into
+/* global postsStore, settingsStore, leadsStore, suggestionsStore */ // defined in the fake module this function is serialized into
 function collection(name) {
-  const list = name === 'posts' ? postsStore : name === 'settings' ? settingsStore : leadsStore;
+  const list = name === 'posts' ? postsStore : name === 'settings' ? settingsStore : name === 'suggestions' ? suggestionsStore : leadsStore;
   return {
     async findOne(filter) { return list.find(d => matches(d, filter)) || null; },
     find(filter) {
@@ -111,23 +116,27 @@ function collection(name) {
       if (update.$set) for (const [k, v] of Object.entries(update.$set)) setPath(doc, k, v);
       return { matchedCount: 1 };
     },
+    async insertOne(doc) { const d = { _id: doc._id || `${name}-${list.length + 1}-${Math.random().toString(36).slice(2, 10)}`, ...doc }; list.push(d); return { insertedId: d._id }; },
   };
 }
 fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), `
 const leadsStore = ${JSON.stringify([enabledClient, disabledClient, noPlannerClient])};
 const postsStore = ${JSON.stringify(posts)};
 const settingsStore = [];
+const suggestionsStore = [{ _id: 'sg-theirs', leadId: '${disabledClient._id}', kind: 'post', subject: 'Not your idea', goal: 'other', details: 'private', status: 'new', note: 'rob private', createdAt: '2026-09-01T10:00:00.000Z' }];
 ${matches.toString()}
 ${getPath.toString()}
 ${setPath.toString()}
 ${collection.toString()}
 export async function getDb() { return { collection }; }
-export const _stores = { leadsStore, postsStore, settingsStore };
+export const _stores = { leadsStore, postsStore, settingsStore, suggestionsStore };
+export const _pushes = [];
 `);
 
+fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "import { _pushes } from './mongo.js';\nexport async function sendPush(db, p) { _pushes.push(p); }\n");
 const plannerUrl = pathToFileURL(path.join(apiDst, 'planner.js')).href;
 const { default: plannerHandler } = await import(plannerUrl);
-const { _stores } = await import(pathToFileURL(path.join(apiDst, '_lib', 'mongo.js')).href);
+const { _stores, _pushes } = await import(pathToFileURL(path.join(apiDst, '_lib', 'mongo.js')).href);
 process.env.SESSION_SECRET = 'test-not-real';
 
 const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, status(c) { this._status = c; return this; }, json(p) { this._json = p; return this; }, setHeader(k, v) { this._headers[k] = v; } });
@@ -143,15 +152,15 @@ async function call(method, query = {}, body = undefined) {
   const res = await call('GET', { token: ON_TOKEN });
   ok(res._status === 200, `a live token and an enabled planner answer 200 (got ${res._status})`);
   const body = res._json || {};
-  ok(Object.keys(body).sort().join(',') === 'client,month,posts', `the response is exactly client, month, posts (got ${Object.keys(body).sort().join(',')})`);
+  ok(Object.keys(body).sort().join(',') === 'client,month,posts,suggestions', `the response is exactly client, month, posts, suggestions (got ${Object.keys(body).sort().join(',')})`);
   ok(Object.keys(body.client).sort().join(',') === 'displayName,postsPerMonth,welcome', `client is exactly displayName, welcome, postsPerMonth (got ${Object.keys(body.client).sort().join(',')})`);
   ok(body.client.displayName === 'Kims Cafe' && body.client.postsPerMonth === 12 && body.client.welcome === 'Here is September.', 'client carries the showcase display name, the welcome, and postsPerMonth');
   ok(body.month === THIS_MONTH, `month defaults to the current one (got ${body.month})`);
 
-  const WANT = ['id', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote'].sort().join(',');
-  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the eleven whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
-  ok(body.posts.length === 5, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
-  ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-24`, `${THIS_MONTH}-26`, `${THIS_MONTH}-27`].join(' '), 'posts are sorted by date');
+  const WANT = ['id', 'kind', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote', 'allowDownload', 'video', 'ad'].sort().join(',');
+  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the fifteen whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  ok(body.posts.length === 7, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
+  ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-12`, `${THIS_MONTH}-24`, `${THIS_MONTH}-26`, `${THIS_MONTH}-27`, `${THIS_MONTH}-28`].join(' '), 'posts are sorted by date');
   ok(!body.posts.some(p => p.caption === 'Deleted one'), 'a soft deleted post never reaches the client');
   ok(!body.posts.some(p => p.caption === 'Not yours'), "another client's post never reaches this client");
 
@@ -168,6 +177,18 @@ async function call(method, query = {}, body = undefined) {
   ok(legacy.format === 'portrait', 'a record with no format reads as a portrait post');
   ok(legacy.hashtags === '', 'a record with no hashtags reads as an empty string, never undefined');
   ok(!JSON.stringify(body.posts).includes('"platform"'), 'the singular platform field is not in the public shape');
+  /* The planner dashboard: kinds, ads, video, download. */
+  const ad = byId['607f1f77bcf86cd799439009'];
+  const vid = byId['607f1f77bcf86cd799439010'];
+  ok(legacy.kind === 'post' && legacy.allowDownload === true && legacy.video === null && legacy.ad === null, 'a row written before kinds reads as a post, downloadable, with no video and no ad');
+  ok(ad.kind === 'ad' && ad.status === 'live' && ad.allowDownload === false, 'an ad carries its kind, its ad status and the download switch');
+  ok(ad.ad && Object.keys(ad.ad).sort().join(',') === 'audience,buttonText,endDate,goal,link,name,placements,results,startDate', `the ad shape is the public one, no budget while showBudget is off (got ${Object.keys(ad.ad || {}).sort().join(',')})`);
+  ok(!JSON.stringify(ad).includes('300') && !JSON.stringify(ad).includes('"budget"') && !JSON.stringify(ad).includes('showBudget'), 'the hidden budget never leaks, not even as a number');
+  ok(ad.ad.results.reach === 1240 && ad.ad.results.clicks === 38 && ad.ad.results.messages === 0 && ad.ad.results.spend === 120, 'entered results come through, an empty one reads as zero');
+  ok(vid.format === 'video' && vid.video && vid.video.url === '' && vid.video.durationSec === 15 && vid.video.concept === 'A quick walk around a freshly coated truck', 'a planned video with no file carries its concept and length');
+  ok(vid.ad.budget === 150 && !('results' in vid.ad), 'budget shows when Rob chose to show it; no results until any is entered');
+  ok(Array.isArray(body.suggestions) && body.suggestions.length === 0, 'this client has no ideas yet, and sees none of anybody else\'s');
+  ok(!JSON.stringify(body).includes('Not your idea') && !JSON.stringify(body).includes('rob private'), "another client's idea never reaches this client");
 
   const dump = JSON.stringify(body);
   for (const key of ['phone', 'email', 'askFor', 'purchases', 'callLog', 'notes', 'prepNotes', 'links', 'reviews', 'token', 'planner', 'leadId', '_id', 'stage', 'clientSince']) {
@@ -259,6 +280,62 @@ async function call(method, query = {}, body = undefined) {
   ok(bogus._status === 400, 'an unknown action is a 400');
   const untouched = _stores.postsStore.find(p => p._id === '607f1f77bcf86cd799439002');
   ok(untouched.caption === 'Behind the counter' && untouched.date === `${THIS_MONTH}-02`, 'a caption or a date sent alongside an action is never written');
+}
+
+/* ── POST: suggest (the Ideas tab) ───────────────────────────────────── */
+{
+  const good = { action: 'suggest', kind: 'ad', subject: '  Half off coating in October  ', goal: 'offer', details: 'Ten percent off for the month, mention the free pickup', preferredDate: `${THIS_MONTH}-20`, link: 'https://example.com/offer', photos: ['https://res.cloudinary.com/testcloud/image/upload/v1/a.jpg', 'https://evil.example/x.jpg', 'http://res.cloudinary.com/testcloud/b.jpg'] };
+  process.env.VITE_CLOUDINARY_CLOUD_NAME = '';
+  const res = await call('POST', { token: ON_TOKEN }, good);
+  ok(res._status === 200 && res._json.ok && res._json.suggestion && res._json.suggestion.status === 'new', `suggest writes an idea and answers it (got ${res._status} ${JSON.stringify(res._json).slice(0, 120)})`);
+  const doc = _stores.suggestionsStore.find(s => s.leadId === enabledClient._id);
+  ok(!!doc && doc.subject === 'Half off coating in October' && doc.kind === 'ad' && doc.goal === 'offer' && doc.preferredDate === `${THIS_MONTH}-20` && doc.link === 'https://example.com/offer', 'the idea is stored trimmed with its kind, goal, date and link');
+  ok(doc.photos.length === 1 && doc.photos[0].startsWith('https://res.cloudinary.com/'), `only an https photo on res.cloudinary.com is kept (got ${JSON.stringify(doc.photos)})`);
+  ok(Object.keys(res._json.suggestion).sort().join(',') === 'createdAt,goal,id,kind,note,status,subject', `the public idea shape (got ${Object.keys(res._json.suggestion).sort().join(',')})`);
+  ok(_pushes.length === 1 && /^New idea from Kims Cafe/.test(_pushes[0].title) && /Half off coating/.test(_pushes[0].body) && /\/planner\?ideas=1$/.test(_pushes[0].url), `Rob gets one push naming the client (got ${JSON.stringify(_pushes[0])})`);
+  const leadDoc = _stores.leadsStore.find(l => l._id === enabledClient._id);
+  const ideasList = (leadDoc.checklists || []).find(l => l.name === 'Ideas');
+  ok(!!ideasList && ideasList.items.length === 1 && ideasList.items[0].text === 'New idea: Half off coating in October' && ideasList.items[0].source === 'suggestion' && ideasList.items[0].suggestionId === String(doc._id) && ideasList.items[0].due === `${THIS_MONTH}-19T13:00:00.000Z`, `the New idea task lands on the client's Ideas checklist, due the day before the preferred date (got ${JSON.stringify(ideasList?.items?.[0])})`);
+  const mine = await call('GET', { token: ON_TOKEN });
+  ok(mine._json.suggestions.length === 1 && mine._json.suggestions[0].subject === 'Half off coating in October' && mine._json.suggestions[0].note === '', 'the client reads their own idea back, with no note while it is new');
+  ok(!JSON.stringify(mine._json.suggestions).includes('Ten percent'), 'the details are not echoed back (they are for Rob)');
+
+  const quick = await call('POST', { token: ON_TOKEN }, { ...good, subject: 'Another one' });
+  ok(quick._status === 429 && quick._headers['Retry-After'], `a second idea inside twenty seconds is a 429 (got ${quick._status})`);
+  ok(_stores.suggestionsStore.filter(s => s.leadId === enabledClient._id).length === 1, 'the refused idea is not written');
+  // Lift the gap, then: an empty subject, a bad enum, oversize fields, a javascript: link.
+  const lift = () => { for (const s of _stores.settingsStore) if (/^rate:suggest-(gap|day)/.test(String(s._id))) s.hits = []; };
+  lift();
+  const empty = await call('POST', { token: ON_TOKEN }, { action: 'suggest', kind: 'post', subject: '   ' });
+  ok(empty._status === 400, 'no subject is a 400');
+  lift();
+  const bad = await call('POST', { token: ON_TOKEN }, { action: 'suggest', kind: 'billboard', subject: 'x'.repeat(500), goal: 'world domination', details: 'y'.repeat(5000), preferredDate: 'next tuesday', link: 'javascript:alert(1)', photos: ['https://res.cloudinary.com/testcloud/1.jpg', 'https://res.cloudinary.com/testcloud/2.jpg', 'https://res.cloudinary.com/testcloud/3.jpg', 'https://res.cloudinary.com/testcloud/4.jpg'] });
+  const badDoc = _stores.suggestionsStore.filter(s => s.leadId === enabledClient._id)[1];
+  ok(bad._status === 200 && badDoc.kind === 'post' && badDoc.goal === 'other' && badDoc.subject.length === 120 && badDoc.details.length === 1000 && badDoc.preferredDate === '' && badDoc.link === '' && badDoc.photos.length === 3, `a bad enum reads as the default, every field is capped, a bad date is empty, a javascript: link is empty, photos stop at three (got ${JSON.stringify({ k: badDoc.kind, g: badDoc.goal, s: badDoc.subject.length, d: badDoc.details.length, p: badDoc.preferredDate, l: badDoc.link, n: badDoc.photos.length })})`);
+  process.env.VITE_CLOUDINARY_CLOUD_NAME = 'mycloud';
+  lift();
+  await call('POST', { token: ON_TOKEN }, { action: 'suggest', kind: 'post', subject: 'cloud check', photos: ['https://res.cloudinary.com/testcloud/1.jpg', 'https://res.cloudinary.com/mycloud/2.jpg'] });
+  const cloudDoc = _stores.suggestionsStore.filter(s => s.leadId === enabledClient._id)[2];
+  ok(cloudDoc.photos.length === 1 && cloudDoc.photos[0].includes('/mycloud/'), 'with the cloud name known, only our own cloud is kept');
+  process.env.VITE_CLOUDINARY_CLOUD_NAME = '';
+  lift();
+  for (const s of _stores.settingsStore) if (/^rate:suggest-day/.test(String(s._id))) s.hits = Array.from({ length: 15 }, () => Date.now() - 1000);
+  const dayCap = await call('POST', { token: ON_TOKEN }, { action: 'suggest', kind: 'post', subject: 'one too many' });
+  ok(dayCap._status === 429, 'the sixteenth idea in a day is a 429');
+  const offIdea = await call('POST', { token: OFF_TOKEN }, { action: 'suggest', kind: 'post', subject: 'nope' });
+  ok(offIdea._status === 404, 'a switched off planner cannot suggest');
+  // The Client ideas toggle off: the idea is kept, nothing is pushed.
+  _pushes.length = 0; lift();
+  _stores.settingsStore.push({ _id: 'notifications', reminders: { ideas: false } });
+  await call('POST', { token: ON_TOKEN }, { action: 'suggest', kind: 'post', subject: 'quiet one' });
+  ok(_pushes.length === 0 && _stores.suggestionsStore.some(s => s.subject === 'quiet one'), 'with Client ideas off the idea is saved and nothing is pushed');
+  _stores.settingsStore.splice(_stores.settingsStore.findIndex(s => s._id === 'notifications'), 1);
+}
+
+/* ── POST: approve an ad ─────────────────────────────────────────────── */
+{
+  const res = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439010', action: 'approve' });
+  ok(res._status === 200 && _stores.postsStore.find(p => p._id === '607f1f77bcf86cd799439010').status === 'approved', 'an ad in review can be approved like a post');
 }
 
 /* ── The rate limit ──────────────────────────────────────────────────── */
