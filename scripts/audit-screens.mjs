@@ -139,6 +139,10 @@ export const SCREENS = [
   { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
   /* The format control and the platform chips, on a post that is a story
      (no hashtag field) and on one that is blocked from approval. */
+  { id: 'planner-sheet-ad', screen: 'Planner editor', label: 'post editor sheet, an ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'October interior offer' }).first().locator('.v-stretch')) },
+  { id: 'planner-sheet-video', screen: 'Planner editor', label: 'post editor sheet, a planned video ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Ceramic coat reel' }).first().locator('.v-stretch')) },
+  { id: 'planner-ideas', screen: 'Planner editor', noFit: true, label: 'the ideas inbox', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', region: (w) => (w < 768 ? '.sh-content' : '.pl-ideas') },
+  { id: 'planner-ideas-decline', screen: 'Planner editor', noFit: true, label: 'declining an idea', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', region: (w) => (w < 768 ? '.sh-content' : '.pl-ideas'), act: (p) => click(p.locator('.pl-idea-actions .v-btn--ghost, .pl-idea-actions button').filter({ hasText: /^Decline$/ })) },
   { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
   { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
 

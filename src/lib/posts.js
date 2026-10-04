@@ -115,6 +115,9 @@ export function postDateLabel(date) {
 /** How to name one post inside a sentence: the first few words of its
  *  caption ("the peach dumpling post"), or its date when there is no
  *  caption yet ("the Sep 24 post"). */
+/** The item in a sentence, by kind: "the October interior offer ad", or the post's own label. */
+export const itemLabel = (post) => (kindOf(post) === 'ad' ? `${post?.ad?.name ? `${post.ad.name} ` : ''}ad` : postLabel(post));
+
 export function postLabel(post) {
   const caption = String(post?.caption || '').trim().replace(/\s+/g, ' ');
   if (caption) {

@@ -4,7 +4,7 @@
  * (next 7 days), new (leads created in the last 48h), system. */
 import { normalizeStage } from '../shared/semantics';
 import { buildEvents, sameDay } from '../lib/events';
-import { recentClientActions, postLabel, postDateLabel } from '../lib/posts';
+import { recentClientActions, itemLabel, postDateLabel, kindOf } from '../lib/posts';
 import { healItems } from '../lib/heals';
 import { recentConceptActions, directionLabel } from '../lib/concepts';
 import { nextUpItems } from '../lib/nextAction';
@@ -68,11 +68,11 @@ export function buildNotifications(leads, opts = {}) {
     const who = a.lead.showcase?.displayName || a.lead.business;
     if (a.kind === 'approved') {
       items.push({ id: a.id, kind: 'post-approved', group: 'system', tone: 'booked', icon: 'Check', openPlanner: true,
-        title: `${who} approved the ${postLabel(a.post)}`,
-        detail: `${postDateLabel(a.post.date) || 'No date yet'}, ready to schedule.`, at: a.at, lead: a.lead });
+        title: `${who} approved the ${itemLabel(a.post)}`,
+        detail: kindOf(a.post) === 'ad' ? `${postDateLabel(a.post.ad?.startDate || a.post.date) || 'No date yet'}, ready to run.` : `${postDateLabel(a.post.date) || 'No date yet'}, ready to schedule.`, at: a.at, lead: a.lead });
     } else {
       items.push({ id: a.id, kind: 'post-change', group: 'system', tone: 'danger', icon: 'Edit02', openPlanner: true,
-        title: `${who} asked for a change on the ${postDateLabel(a.post.date) || 'untitled'} post`,
+        title: `${who} asked for a change on the ${kindOf(a.post) === 'ad' ? itemLabel(a.post) : `${postDateLabel(a.post.date) || 'untitled'} post`}`,
         detail: a.post.clientNote, at: a.at, lead: a.lead });
     }
   }

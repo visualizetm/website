@@ -464,6 +464,7 @@ export const PAYLOADS = {
   lists: () => ({ items: lists }),
   projects: () => ({ items: projects }),
   posts: () => ({ items: posts }),
+  suggestions: () => ({ items: suggestions }),
 };
 export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, delivery: false };
@@ -535,6 +536,7 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill(json({ ok: true, item: { ...cur, ...(body.set || {}), updatedAt: NOW_ISO } }));
   });
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
+  await page.route('**/api/admin/suggestions**', r => (r.request().method() === 'GET' ? respond(r, 'suggestions', PAYLOADS.suggestions()) : r.fulfill(json({ ok: true }))));
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
   // Site Prompt 3: the public showcase endpoint the marketing Clients page reads.

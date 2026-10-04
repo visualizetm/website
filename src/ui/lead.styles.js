@@ -86,7 +86,7 @@ export const leadDetailStyles = `
   .rc-soc-none { color: var(--v-text-2); font-size: var(--v-text-sm); }
   .rc-next-icon { color: var(--v-red-highlight); flex-shrink: 0; }
   .rc-next-text { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--v-space-2); flex-wrap: wrap; }
-  .rc-next-label { font-weight: var(--v-weight-bold); }
+  .rc-next-label { font-weight: var(--v-weight-bold); min-width: 0; overflow-wrap: anywhere; }
   .rc-next-due { font-size: var(--v-text-sm); color: var(--v-text-2); }
   .rc-next-btn { flex-shrink: 0; }
   /* The facts (law 3): two columns of one line rows, the label 88px in caps, only filled values. */
@@ -149,6 +149,15 @@ export const leadDetailStyles = `
   .rc-row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .rc-row-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); }
   .rc-row-sum { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
+  /* The Tasks row (planner dashboard and task system): a thin bar under the summary, and the section's rows. */
+  .rc-row-bar { margin-top: var(--v-space-1); max-width: 220px; }
+  .rc-tasks { min-width: 0; }
+  .rc-tasks-list { min-width: 0; }
+  .rc-task .v-check-label { min-width: 0; white-space: normal; }
+  .rc-task-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .rc-task-due { font-size: var(--v-text-xs); color: var(--v-text-3); }
+  .rc-task.is-overdue .rc-task-due { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
+  .rc-task.is-next .rc-task-text > span:first-child { font-weight: var(--v-weight-bold); }
   .rc-row-chev { flex-shrink: 0; color: var(--v-text-3); }
   /* The first screen's own section, and a section on its screen (phone). */
   .rc-first, .rc-secscreen { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }

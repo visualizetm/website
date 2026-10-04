@@ -253,6 +253,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <Toggle label="Callback reminders" description="Include callbacks due today or overdue in the morning digest." checked={reminders.callbacks !== false} onChange={(v) => saveReminders({ ...reminders, callbacks: v })} />
           <Toggle label="Bill reminders" description="Include retainer bills due today in the morning digest." checked={reminders.bills !== false} onChange={(v) => saveReminders({ ...reminders, bills: v })} className="st-rem-bills" />
           <Toggle label="Task reminders" description="A push when a task you set comes due, and today's tasks in the morning digest." checked={reminders.tasks !== false} onChange={(v) => saveReminders({ ...reminders, tasks: v })} className="st-rem-tasks" />
+          <Toggle label="Client ideas" description="A push the moment a client sends an idea from their planner. The idea also lands as a task on their Ideas checklist either way." checked={reminders.ideas !== false} onChange={(v) => saveReminders({ ...reminders, ideas: v })} className="st-rem-ideas" />
           <Toggle label="Review ask reminders" description="Include clients due for a review ask (three days after a release, none logged yet) in the morning digest." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
         </Stack>
         <p className="dt-muted st-rem-timing">Reminder timing: {reminderTiming}</p>

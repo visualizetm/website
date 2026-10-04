@@ -97,3 +97,60 @@ export async function uploadToCloudinary(file) {
   if (!data?.secure_url) return { error: `Cloudinary accepted the file (${res.status}) but returned no URL.` };
   return { url: data.secure_url };
 }
+
+/* Video (planner dashboard, milestone 4): the same unsigned preset, the
+ * /video/upload endpoint, a bigger cap, and progress, because a clip is the
+ * one upload long enough that a bar beats a spinner. XMLHttpRequest rather
+ * than fetch for the one thing fetch cannot do: report upload progress. */
+export const ACCEPTED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
+export const ACCEPT_VIDEO_ATTR = ACCEPTED_VIDEO_TYPES.join(',');
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+
+/** Why this video cannot be uploaded, or null when it can. */
+export function validateVideoFile(file) {
+  if (!file) return 'No file chosen.';
+  if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
+    return `${file.name || 'That file'} is a ${file.type || 'unknown type'}. Use an MP4, MOV or WebM.`;
+  }
+  if (file.size > MAX_VIDEO_BYTES) {
+    return `${file.name || 'That file'} is ${prettySize(file.size)}. The limit is ${prettySize(MAX_VIDEO_BYTES)}.`;
+  }
+  return null;
+}
+
+export const videoUploadUrl = () => `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`;
+
+/**
+ * Uploads one video. Resolves { url, durationSec, poster } or { error }.
+ * @param {File} file
+ * @param {(pct: number) => void} [onProgress] 0 to 100
+ */
+export function uploadVideoToCloudinary(file, onProgress) {
+  if (!cloudinaryEnabled) return Promise.resolve({ error: 'Video uploads are not configured for this deployment.' });
+  const invalid = validateVideoFile(file);
+  if (invalid) return Promise.resolve({ error: invalid });
+  return new Promise((resolve) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('upload_preset', UPLOAD_PRESET);
+    let xhr;
+    try { xhr = new XMLHttpRequest(); } catch { resolve({ error: 'This browser cannot upload a video here.' }); return; }
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100)); };
+    xhr.onerror = () => resolve({ error: 'Upload blocked by the browser or the network. Nothing reached api.cloudinary.com: check the connection, and that api.cloudinary.com is in the admin CSP connect-src.' });
+    xhr.onload = () => {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch { /* handled below */ }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const said = data?.error?.message;
+        resolve({ error: said ? `Cloudinary refused the video (${xhr.status}): ${said}` : `Cloudinary refused the video (${xhr.status}).` });
+        return;
+      }
+      if (!data?.secure_url) { resolve({ error: `Cloudinary accepted the file (${xhr.status}) but returned no URL.` }); return; }
+      /* A poster from the same asset: the first frame as a JPEG, which is what the client's planner shows before they press play. */
+      const poster = String(data.secure_url).replace(/\.[a-z0-9]+$/i, '.jpg');
+      resolve({ url: data.secure_url, durationSec: Math.round(Number(data.duration) || 0), poster });
+    };
+    xhr.open('POST', videoUploadUrl());
+    xhr.send(form);
+  });
+}

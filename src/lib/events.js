@@ -48,6 +48,29 @@ export function buildEvents(leads = [], extras = [], now = Date.now(), projects 
     if (p.deleted || p.archived || !p.date) continue;
     const lead = byId.get(String(p.leadId));
     if (!lead) continue;
+    /* An ad (planner dashboard, milestone 4) is a range, not a moment: one
+       all day block on every day it runs, labelled Ad, in its status tone
+       (live reads booked). Capped at 62 days so a typo cannot flood a year. */
+    if (p.kind === 'ad' && p.ad?.startDate) {
+      const [sy, sm, sd] = String(p.ad.startDate).split('-').map(Number);
+      const [ey, em, ed] = String(p.ad.endDate || p.ad.startDate).split('-').map(Number);
+      const start = new Date(sy, (sm || 1) - 1, sd || 1, 9, 0);
+      const end = new Date(ey || sy, (em || sm || 1) - 1, ed || sd || 1, 9, 0);
+      if (!start.getTime()) continue;
+      const st = postStatusOf(p.status);
+      const name = p.ad.name || postLabel(p);
+      const range = `${start.toLocaleDateString([], { month: 'short', day: 'numeric' })} to ${end.toLocaleDateString([], { month: 'short', day: 'numeric' })}`;
+      for (let i = 0, d = new Date(start); i < 62 && d.getTime() <= Math.max(start.getTime(), end.getTime()); i++, d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 9, 0)) {
+        out.push({
+          id: `ad:${p._id}:${i}`, kind: 'ad', at: d.getTime(), end: d.getTime() + POST_MIN * MIN, allDay: true,
+          title: `Ad: ${name}`,
+          subtitle: `${lead.business}, ${range}, ${st.label.toLowerCase()}`,
+          tone: p.status === 'review' ? 'new' : (p.status === 'approved' || p.status === 'live') ? 'booked' : 'neutral',
+          leadId: lead._id, lead, source: 'crm', post: p, month: p.month || String(p.date).slice(0, 7),
+        });
+      }
+      continue;
+    }
     const [y, m, d] = String(p.date).split('-').map(Number);
     const [hh, mm] = String(p.time || '').split(':').map(Number);
     const when = new Date(y, (m || 1) - 1, d || 1, Number.isFinite(hh) ? hh : 9, Number.isFinite(mm) ? mm : 0);
@@ -109,4 +132,4 @@ export function buildEvents(leads = [], extras = [], now = Date.now(), projects 
 }
 
 export const eventsOn = (events, day) => events.filter(e => sameDay(e.at, day));
-export const KIND_LABEL = { meeting: 'Meetings', callback: 'Callbacks', calendly: 'Calendly', scraper: 'New leads', bill: 'Bills', planfinal: 'Final payments', post: 'Posts' };
+export const KIND_LABEL = { meeting: 'Meetings', callback: 'Callbacks', calendly: 'Calendly', scraper: 'New leads', bill: 'Bills', planfinal: 'Final payments', post: 'Posts', ad: 'Ads' };

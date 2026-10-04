@@ -50,6 +50,7 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/calendly')) return get('calendly');
   if (p.startsWith('/api/admin/call-leads')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('leads')) : json(res, { ok: true, item: { ...leads[0], _id: 'LNEW' } });
   if (p.startsWith('/api/admin/orders')) return m === 'GET' ? get('orders') : json(res, { ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } });
+  if (p.startsWith('/api/admin/suggestions')) return m === 'GET' ? json(res, { items: suggestions }) : json(res, { ok: true });
   if (p.startsWith('/api/admin/concept-packs')) return get('packs');
   if (p.startsWith('/api/admin/concept-sets')) return m === 'GET' ? get('sets') : json(res, { ok: true, item: { ...sets[0], _id: 'SNEW' } });
   if (p.startsWith('/api/admin/lists')) return m === 'GET' ? get('lists') : json(res, { ok: true, item: { ...lists[1], _id: 'LSNEW' } });

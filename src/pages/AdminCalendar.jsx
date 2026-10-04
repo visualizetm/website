@@ -24,7 +24,7 @@ const VIEW_KEY = 'vz_cal_view';
 const HOUR_PX = 88; // a 30 minute block is 44px, the minimum target (Prompt 15)
 const START_H = 7;
 const END_H = 21;
-const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill', 'post'];
+const KINDS = ['meeting', 'callback', 'calendly', 'scraper', 'bill', 'post', 'ad'];
 const readLS = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
 const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -103,7 +103,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   });  
 
   /* A post opens its own month in the planner editor, not the lead. */
-  const openLead = (e) => { if (e.kind === 'post' && e.lead && shell?.openPlanner) shell.openPlanner(e.lead, e.month); else if (e.lead) shell?.openRecord(e.lead); };
+  const openLead = (e) => { if ((e.kind === 'post' || e.kind === 'ad') && e.lead && shell?.openPlanner) shell.openPlanner(e.lead, e.month); else if (e.lead) shell?.openRecord(e.lead); };
   const reschedule = (e) => { if (e.kind === 'callback') { setAddSlot(new Date(e.at)); setAddLead(e.lead); } else if (e.lead) shell?.openRecord(e.lead); };
   const markDone = async (e) => {
     const l = e.lead; if (!l) return;

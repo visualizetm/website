@@ -506,6 +506,20 @@ export default function AdminApp() {
   useEffect(() => { if (authed) loadCallLeads(); }, [authed, loadCallLeads]);
   useEffect(() => { if (authed) loadProjects(); }, [authed, loadProjects]);
   useEffect(() => { if (authed) loadPosts(); }, [authed, loadPosts]);
+  /* Suggestions (planner dashboard, milestone 4): what clients asked for
+   * from Ideas on their planner, loaded at the shell level like posts so
+   * the Planner badge and the editor's inbox read the same list. */
+  const [suggestions, setSuggestions] = useState([]);
+  const loadSuggestions = useCallback(async () => {
+    const r = await apiFetch('/api/admin/suggestions', { silent: true });
+    if (r.ok) setSuggestions(r.data?.items || []);
+  }, []);
+  const patchSuggestion = useCallback(async (id, set) => {
+    const r = await apiFetch('/api/admin/suggestions', { method: 'PATCH', body: { id, set } });
+    if (r.ok) setSuggestions(l => l.map(x => (String(x._id) === String(id) ? { ...x, ...set } : x)));
+    return r.ok;
+  }, []);
+  useEffect(() => { if (authed) loadSuggestions(); }, [authed, loadSuggestions]);
   useEffect(() => { if (authed) loadOrders(); }, [authed, loadOrders]);
 
   /* The deal sweep (CRM revamp, step 5): on load, a booked record past its
@@ -584,6 +598,8 @@ export default function AdminApp() {
   // Posts sitting with clients right now, across every client: the Planner
   // badge, so Rob can see at a glance how many are waiting on somebody else.
   const postsWithClients = useMemo(() => postsInReview(posts), [posts]);
+  // Plus the ideas nobody has answered yet: the same badge, the same meaning (somebody is waiting on Rob).
+  const newIdeas = useMemo(() => suggestions.filter(x => x.status === 'new' && !x.deleted).length, [suggestions]);
 
   useEffect(() => {
     document.title = unread > 0 ? `(${unread}) Visualize Admin` : 'Visualize Admin';
@@ -651,7 +667,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
+  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients + newIdeas, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
 
@@ -710,6 +726,9 @@ export default function AdminApp() {
           onCreatePost={createPost}
           onPatchPost={patchPost}
           onDeletePost={deletePost}
+          suggestions={suggestions}
+          onPatchSuggestion={patchSuggestion}
+          openIdeas={new URLSearchParams(location.search).get('ideas') === '1'}
           onBack={navBack ? navBack.back : () => go('clients')}
         />
       )}
