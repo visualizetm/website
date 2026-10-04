@@ -24,5 +24,13 @@ Rubric: docs/MOBILE-UI-GUIDE.md. Baseline and plan: docs/MOBILE-AUDIT.md. After:
 
 - Milestone 6: the gate in full. lint, build, hex 80, css-orphans 0, every node test (tasks 65, share 39, task-reminder 26, planner-endpoint 95 checks, security 1073, next-action in both zones, dates, deals, lists, score, send-email, showcase and concepts endpoints, pipeline, rules), a11y in both themes (452 rows, zero violations), the feel audit in both themes and both motion settings, layout-audit and scene-audit at 320, 390, 430, 768 and 1280 through preship:full, the zoom and text spacing pass, back-test, gesture-test, chrome-audit (92 states), empty-audit (Tasks included), regression (89 steps) and site-regression, mobile-trace, Lighthouse on the client planner at 390. The ideas inbox gained search. docs/ARCHITECTURE.md, RUNBOOK.md, QA-CHECKLIST.md and CLAUDE.md name the planner dashboard and the task system.
 
+## Client page workspace redesign (one job, five milestones)
+Plan: 1. Profile card and the full profile (grouped rows, inline edit, Add a detail, Edit all), a pushed screen on a phone and a side panel on a computer. 2. Four workspace cards on src/lib/workspace.js, the Tasks tab as a redirect. 3. Quick actions, the trimmed menu, the name wrap. 4. The five widths, the skeleton, gestures and Back, empty states. 5. Audits, docs, the report.
+- Milestone 1: src/components/record/ProfileCard.jsx (avatar, name, contact, area and industry, phone, email, seven channel buttons that never hide, Copy phone, Copy brand, Open profile) and ProfileSection.jsx (Contact, Online, Business, Brand, Notes; inline edit; Add a detail; Edit all), registered as the `profile` section (a pushed screen on a phone, a Sheet on a computer).
+- Milestone 2: src/lib/workspace.js (showcaseStatus, plannerStatus, tasksStatus, conceptsStatus; src/lib/showcaseMeter.js holds the completeness rule) and WorkspaceCards.jsx; the Tasks tab and row redirect to the Tasks screen.
+- Milestone 3: QuickActions.jsx under the cards; the client menu keeps Edit all, Priority and status, Delete; the name wraps at every width; the header drops its context line on a client.
+- Milestone 4: a container query sizes the workspace by the record's width; the client skeleton draws the profile card, the four cards and the chips; the profile screen goes through nav-history.
+- Milestone 5: see reports/CLIENT-WORKSPACE-REPORT.md.
+
 ## Next
-- Nothing queued. Open items are in reports/PLANNER-TASKS-REPORT.md.
+- Nothing queued.

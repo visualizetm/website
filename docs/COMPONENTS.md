@@ -417,3 +417,20 @@ record or start a new one.
 - `PackPicker` (Prompt 11, exported from `src/pages/AdminConcepts.jsx`): the From library picker LeadDetail opens on a concept item. Props `packs`, `industry`, `onPick(pack)`, `onClose`.
 - `OrdersImport` (Prompt 12): the print orders CSV import Sheet (paste or file, column mapping, preview, dedupe by email, day, subtotal). Props `existing`, `onClose`, `onCreate(doc)`. Exports `parseCsv`.
 - `ClientWorkspace` (Prompt 10, a hook since UI simplification part A): `useClientWorkspace({ lead, projects, patch, patchRaw, onCreateProject, onPatchProject, readOnly, openTab })` holds the state, the writes and the modals the client's Project, Money, Files and Retainer sections share (`cw.modals` mounts once in LeadDetail); `Stepper` is the project stage stepper. Rules live in `src/lib/projects.js`. Styles (`cw-`) ship in `uiStyles`.
+
+## The client record's workspace (client page workspace redesign, src/components/record)
+
+Not kit pieces: record components built from the kit, listed here because a screen reaches for them by name.
+
+### ProfileCard
+`rec`, `onOpenProfile`, `onAdd(field)`. Avatar (the showcase logo when there is one), the name (wraps, never truncates), contact person, area and industry, phone and email as links; a row of seven IconButtons (Call, Text, Email, Instagram, Facebook, Website, Maps) that never hides one: a missing channel is dimmed (`is-missing`, `data-missing`) and its tap calls `onAdd` with the field; Copy phone, Copy brand, Open profile. `PROFILE_ACTIONS` and `actionValue(lead, id)` are exported.
+Use when: the client record's first card. Not when: a lead or a deal (SocialsStrip).
+
+### ProfileSection
+`rec`, `focus` (a field id: opens the Add a detail sheet on arrival). The full profile, grouped Contact, Online, Business, Brand, Notes; filled rows are InlineEdit, the empty ones wait behind Add a detail; Edit all is the header action (`rec.openEditAll`). Registered as the record's `profile` section: a pushed screen on a phone, shown in a Sheet on a computer. `profileGroups(rec)` and `profileSummary(rec)` are exported.
+
+### WorkspaceCards
+`rec`. Four cards (Showcase, Planner, Tasks, Concepts) in `.rc-ws-grid`, two by two, four across when the record is 1000px wide or more (a container query). Each card is one stretched button (`.v-stretch`) with its status line, a tiny visual and one Button (`.rc-ws-btn`) above it; the Tasks card's next two tasks are Checkboxes that complete the task. Every number comes from src/lib/workspace.js.
+
+### QuickActions
+`items [{ id, label, icon, onClick, disabled }]`. One Chip row (`.rc-quick`, chips `.rc-quick-chip--<id>`), sideways scrolling on a phone.

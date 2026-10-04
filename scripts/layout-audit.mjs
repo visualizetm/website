@@ -31,7 +31,7 @@ import { phoneSection } from './audit-screens.mjs';
 // .cs-cover on a detail page and .wk-card-media on a card. All three
 // frames are themselves still checked, so a frame that genuinely does
 // not fit still fails.)
-const HSCROLL_OK = ['.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap'];
+const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap'];
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
@@ -889,6 +889,15 @@ for (const width of WIDTHS) {
   await check('clients skeleton');
   await openClient('Lead Business 11');
   await check('client detail (project, plan client)');
+  /* The workspace redesign: the full profile (a side panel on a computer, a pushed screen on a phone) and its Add a detail sheet. */
+  await page.locator('.rc-pf-open').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('client detail (the profile)');
+  await page.locator('.rc-add-detail').first().click({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('client detail (profile, add a detail sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  if (width < 768) { await page.locator('.sh-topbar button, .lay-top button').first().click({ timeout: 2000 }).catch(() => {}); await page.waitForTimeout(500); } else { await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300); }
   for (const t of ['Project', 'Money', 'Files', 'Retainer', 'Notes', 'History']) {
     await clientTab(t);
     await check(`client detail (${t.toLowerCase()})`);
@@ -978,8 +987,7 @@ for (const width of WIDTHS) {
   await check('showcase editor (Instagram highlights)');
   await openClient('Lead Business 11');
   await clientTab('Project');
-  await page.getByRole('button', { name: 'More actions' }).first().click({ timeout: 3000 }).catch(() => {});
-  await page.getByRole('menuitem', { name: 'New project' }).first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.rc-quick-chip--newproj').first().click({ timeout: 3000 }).catch(() => {});
   await check('new project sheet');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
   await page.locator('.cw-extra-round').first().click({ timeout: 3000 }).catch(() => {});

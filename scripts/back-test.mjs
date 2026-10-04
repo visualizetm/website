@@ -113,14 +113,14 @@ for (const width of WIDTHS) {
   if (ONLY) { await ctx.close(); continue; }
 
   /* The editors and the setup pages: opened from a record, Back returns to the record. */
+  /* A client (workspace redesign): the editors open from the workspace cards' buttons, not the menu; `menuItem` is the button's name. */
   const fromRecord = async (name, path, rowId, menuItem, expect) => {
     await step(`${name}: Back returns to the record`, async () => {
       await setLS({ vz_leads_view: 'list' });
       await goto(path); await settle();
       await openRow(page.locator(`[data-row-id="${rowId}"]`).first());
       await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
-      await page.getByRole('button', { name: 'More actions' }).first().click({ timeout: T });
-      await page.getByRole('menuitem', { name: menuItem }).first().click({ timeout: T });
+      await page.locator('.rc-ws-btn, .rc-quick-chip').filter({ hasText: menuItem }).first().click({ timeout: T });
       await page.locator(expect).first().waitFor({ state: 'visible', timeout: T });
       if (!(await hasBack())) throw new Error('no Back control on the page');
       await backBtn().first().click({ timeout: T });
@@ -129,9 +129,22 @@ for (const width of WIDTHS) {
       return 'record back';
     });
   };
-  await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
-  await fromRecord('Planner editor', '/admin/clients', 'L11', /^Planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
-  await fromRecord('Tasks', '/admin/clients', 'L11', /^Tasks/, '.tk-topbar, .tk-body');
+  await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Open showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
+  await fromRecord('Planner editor', '/admin/clients', 'L11', /^Open planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
+  await fromRecord('Tasks', '/admin/clients', 'L11', /^All tasks/, '.tk-topbar, .tk-body');
+  await step('Profile: a pushed screen on a phone, Back returns to the record', async () => {
+    if (width >= 768) return 'a computer shows the profile in a side panel';
+    await setLS({ vz_leads_view: 'list' });
+    await goto('/admin/clients'); await settle();
+    await openRow(page.locator('[data-row-id="L11"]').first());
+    await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
+    await page.locator('.rc-pf-open').first().click({ timeout: T });
+    await page.locator('.rc-profile').first().waitFor({ state: 'visible', timeout: T });
+    if (!(await hasBack())) throw new Error('no Back on the profile screen');
+    await backBtn().first().click({ timeout: T });
+    await page.locator('.rc-pf').first().waitFor({ state: 'visible', timeout: T });
+    return 'profile, then the record';
+  });
   /* The task system (milestone 5): a checklist is a step of Tasks on a phone, the ideas inbox a step of the planner editor. Back walks out one level at a time. */
   await step('Tasks: a checklist step on a phone, Back returns to Tasks, then to the section root', async () => {
     if (width >= 768) return 'a computer shows the checklists as sections';
