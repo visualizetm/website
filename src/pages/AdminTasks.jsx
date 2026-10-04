@@ -309,8 +309,20 @@ export default function AdminTasks({
     </Row>
   );
 
+  /* The skeleton is the overview's shape: the search, the total bar, three checklist rows and the add bar on a phone; three list cards with their rows on a computer. */
   const body = showSkel ? (
-    <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonBlock height={92} radius="var(--v-radius-md)" /></Card>)}</Stack>
+    <Stack gap={3} aria-busy="true" aria-hidden="true">
+      <SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" />
+      {phone ? (
+        <>
+          <Card className="tk-total"><SkeletonBlock height={28} radius="var(--v-radius-md)" /></Card>
+          <Stack gap={2}>{[1, 2, 3].map(i => <SkeletonBlock key={i} height={68} radius="var(--v-radius-md)" />)}</Stack>
+          <SkeletonBlock height={44} width={220} radius="var(--v-radius-md)" />
+        </>
+      ) : (
+        [1, 2, 3].map(i => <Card key={i}><SkeletonBlock height={120} radius="var(--v-radius-md)" /></Card>)
+      )}
+    </Stack>
   ) : !lists.length ? (
     <Card><EmptyState icon="CheckDone01" title={E.title} description={E.description}
       action={readOnly ? undefined : { label: E.action, icon: 'File02', onClick: () => setTpl({ ownerKey: 'lead' }) }}

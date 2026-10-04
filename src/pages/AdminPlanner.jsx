@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Toggle, Textarea,
-  InlineEdit, Menu, ProgressBar, EmptyState, ErrorState, Stagger, SkeletonText,
+  InlineEdit, Menu, ProgressBar, EmptyState, NoResults, ErrorState, Stagger, SkeletonText,
   useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow, SwipeRow } from '../ui';
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
@@ -16,6 +16,7 @@ import { videoFieldStyles } from '../components/VideoField';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
+import ListSearch from '../components/ListSearch';
 
 /* The Content Planner editor (planner prompt 2), one page per client at
  * /clients/:id/planner, built on the pattern AdminShowcase established: a
@@ -296,6 +297,10 @@ export default function AdminPlanner({
   const mine = useMemo(() => postsOf(posts, lead?._id), [posts, lead]);
   const ideas = useMemo(() => suggestions.filter(s => String(s.leadId) === String(lead?._id) && !s.deleted).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))), [suggestions, lead]);
   const newIdeas = ideas.filter(s => s.status === 'new').length;
+  /* Search where it is missing: the inbox, once it has a few. */
+  const [ideaQ, setIdeaQ] = useState('');
+  const ideaQuery = ideaQ.trim().toLowerCase();
+  const shownIdeas = useMemo(() => (!ideaQuery ? ideas : ideas.filter(s => [s.subject, s.details, s.note].some(v => String(v || '').toLowerCase().includes(ideaQuery)))), [ideas, ideaQuery]);
   /* The tag set from this client's most recent post that has any, so a set
      is reused rather than retyped. Newest by date, then by creation. A hook,
      so it lives up here with the others and never after the early return. */
@@ -559,9 +564,12 @@ export default function AdminPlanner({
                   <p className="pb-card-h">Ideas{newIdeas ? `, ${newIdeas} new` : ''}</p>
                   <span className="dt-muted">What they asked for from their planner.</span>
                 </Row>
+                {ideas.length > 3 && <ListSearch value={ideaQ} onChange={setIdeaQ} placeholder="Search ideas" label="Search ideas" className="pl-ideas-search" />}
                 {!ideas.length
                   ? <p className="pl-note">No ideas yet. They send one from Ideas on their planner, and it lands here with a task on their Ideas checklist.</p>
-                  : <Stack gap={2}>{ideas.map(s => <IdeaRow key={s._id} s={s} busy={busy} readOnly={readOnly} onMake={makeFromIdea} onDecline={declineIdea} />)}</Stack>}
+                  : !shownIdeas.length
+                    ? <NoResults noun="ideas" query={ideaQ} onClear={() => setIdeaQ('')} />
+                    : <Stack gap={2}>{shownIdeas.map(s => <IdeaRow key={s._id} s={s} busy={busy} readOnly={readOnly} onMake={makeFromIdea} onDecline={declineIdea} />)}</Stack>}
               </Card>
   );
 

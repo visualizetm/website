@@ -53,3 +53,4 @@ One line each: what, why, the alternative rejected.
 - The Notes section lost its checklists: the Tasks section (a row on a phone, a tab on a computer, "6 of 14 done" with a thin bar) and the Tasks screen are the one task system. src/components/Checklists.jsx is deleted.
 - A legacy list or task with no id reads the same id on every pass (list0, list0item2) until a write stores it, so a tick lands on the row that was ticked; a new task gets a random one. Rejected: stamping random ids on read (every render would rename every task).
 - Snooze on a task action moves the task's own due date, not a next action override, so the Tasks screen and Next up agree.
+- Feel audit exemption (noFit): the Tasks overview, one row per checklist the client and their projects carry, so the loaded row count depends on the data; the skeleton draws the search, the total bar, three rows and the add bar. Rejected: a skeleton that reads the record before it loads (it is what loading means).
