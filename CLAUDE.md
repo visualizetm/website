@@ -61,6 +61,8 @@ node scripts/next-action-test.mjs               # the next action rules (src/lib
 node scripts/lists-test.mjs                     # dial lists: the route whitelist, the Callbacks due system list rules, every outcome rule
 node scripts/score-test.mjs                     # the lead score: every rule, the cap, the server mirror byte for byte, the cron and the backfill (scripts/backfill-triage.mjs)
 node scripts/send-email-test.mjs                # the four emails: whitelist, payload shapes, 503 and 502, the stamps, the rate limit, hook URLs never leak
+node scripts/tasks-test.mjs                     # the task rule (src/shared/taskRules.js and its api mirror byte for byte): pinned, due, ties, undated, templates, the checklist sanitizer on leads and projects, the retainer delivered count by kind
+node scripts/share-test.mjs                     # Save to photos (src/lib/share.js) with navigator.share and canShare mocked: share, download, cancel, every fallback, the attachment link
 node scripts/deals-test.mjs                     # the deal: every transition, every next action rule, stalledSince, the mark paid conversion and its undo, invoiceStatus across month ends, the mirrors, the handlers
 node scripts/planner-endpoint-test.mjs; node scripts/showcase-endpoint-test.mjs; node scripts/concepts-endpoint-test.mjs   # the three public doors: exact whitelists, identical 404s, the limiters
 SCENE_PATH=/concepts/cncpTESTtoken0123456789abcdEF SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # the concepts presentation on the same gate as Home (and SCENE_MOTION=reduce)

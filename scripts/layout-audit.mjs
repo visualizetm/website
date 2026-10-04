@@ -572,62 +572,89 @@ for (const width of WIDTHS) {
       await check('marketing: Review (thank you)');
       await page.unroute('**/api/submissions').catch(() => {});
     }
-    /* The client facing Content Planner (planner prompt 3): both views, the
-       detail in a review status and in a settled one, the change request
-       form, an empty month, and the dead end a revoked link lands on. */
+    /* The client's planner dashboard (milestone 3): Home, Posts in both
+       views, Ads, Ideas, a post detail in a review status and a settled one,
+       the two ad details, the change request form, the Suggest sheet, an
+       empty month, and the dead end a revoked link lands on. */
     await goto('/planner/plnrTESTtoken0123456789abcdEF');
     /* The moment it opens, before anything settles: this is where the
        marketing splash used to be sitting on top of the finished page, and
        it is the one state the stuck overlay check has to see. */
     await check('marketing: Planner (the moment it opens)');
-    await page.locator('.pl-legend').first().waitFor({ timeout: 5000 }).catch(() => {});
+    await page.locator('.pl-needs').first().waitFor({ timeout: 5000 }).catch(() => {});
+    await check('marketing: Planner (Home)');
+    await page.locator('.pl-how .pl-btn').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    await check('marketing: Planner (Home, how this works dismissed)');
+    await page.evaluate(() => localStorage.removeItem('vz_planner_how')).catch(() => {});
+    await page.locator('.pl-tab[data-tab="posts"]').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(500);
     /* The calendar is only offered from 430 up, where seven 44px columns
        actually fit; below that the list is the whole story, so this row
        measures whichever view the width can honestly show. */
     await page.locator('.pl-view', { hasText: 'Calendar' }).first().click({ timeout: 2000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (calendar view)');
+    await check('marketing: Planner (Posts, calendar view)');
     await page.locator('.pl-view', { hasText: 'List' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (list view)');
-    await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).first().click({ timeout: 3000 }).catch(() => {});
+    await check('marketing: Planner (Posts, list view)');
+    await page.locator('.pl-row').filter({ hasText: 'Needs you' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (detail, needs approval)');
+    await check('marketing: Planner (post detail, needs you)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-    /* A post on three platforms with hashtags, and a story with no caption
-       at all: the two shapes the detail panel has to hold. */
-    await page.locator('.pl-row').filter({ hasText: 'Instagram, Facebook, TikTok' }).first().click({ timeout: 3000 }).catch(() => {});
+    /* A post on three platforms with hashtags, and a video post with a file:
+       two shapes the detail has to hold. */
+    await page.locator('.pl-row').filter({ hasText: 'Three places at once' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (detail, three platforms)');
-    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-    await page.locator('.pl-row').filter({ hasText: 'Story' }).first().click({ timeout: 3000 }).catch(() => {});
-    await page.waitForTimeout(400);
-    await check('marketing: Planner (detail, a story with no caption)');
-    /* The whole image, expanded. A dialog fit to the viewport. */
+    await check('marketing: Planner (post detail, three platforms)');
+    /* The whole picture, expanded. A dialog fit to the viewport. */
     await page.locator('button.pl-img--whole').first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (the whole image, expanded)');
+    await check('marketing: Planner (the whole picture, expanded)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     /* Closed again: the viewer has to take its backdrop with it. */
-    await check('marketing: Planner (the whole image, closed again)');
+    await check('marketing: Planner (the whole picture, closed again)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await check('marketing: Planner (detail closed, nothing over the page)');
-    /* An image whose real shape does not match its format, both ways: a 1:1
-       on a story, and a wide one on a portrait post. */
-    await page.locator('.pl-row').filter({ hasText: 'Needs your approval' }).last().click({ timeout: 3000 }).catch(() => {});
+    await page.locator('.pl-row').filter({ hasText: 'black truck' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (detail, an image that is not the format shape)');
+    await check('marketing: Planner (post detail, a video with a file)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.pl-row').filter({ hasText: 'Needs you' }).last().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
     await page.locator('.pl-ask-btn').first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
     await check('marketing: Planner (change request form)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await page.locator('.pl-row').filter({ hasText: 'Posted' }).first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(400);
-    await check('marketing: Planner (detail, a settled post)');
+    await check('marketing: Planner (post detail, a settled post)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await page.locator('.pl-monthnav button').last().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(700);
-    await check('marketing: Planner (a month with nothing in it)');
+    await check('marketing: Planner (Posts, a month with nothing in it)');
+    await page.locator('.pl-monthnav button').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(700);
+    /* Ads: the list, a live image ad with results, a planned video ad. */
+    await page.locator('.pl-tab[data-tab="ads"]').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await check('marketing: Planner (Ads)');
+    await page.locator('.pl-row').filter({ hasText: 'October interior offer' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (ad detail, live with results)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    await page.locator('.pl-row').filter({ hasText: 'Ceramic coat reel' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (ad detail, a planned video)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    /* Ideas: the list and the Suggest sheet. */
+    await page.locator('.pl-tab[data-tab="ideas"]').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(500);
+    await check('marketing: Planner (Ideas)');
+    await page.locator('.pl-suggest').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (the Suggest sheet)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await goto('/planner/notarealtokenatall000000000');
     await check('marketing: Planner (a link that is not active)');
     if (only === 'marketing') { await ctx.close(); continue; }

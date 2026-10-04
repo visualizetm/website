@@ -176,7 +176,24 @@ export const SCREENS = [
 
   /* The client facing Content Planner (planner prompt 3). The token in these
      paths is the audit fixture's, answered by the mocked /api/planner. */
-  { id: 'mkt-planner-cal', screen: 'Planner (marketing)', label: 'calendar view', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true },
+  /* The client's planner dashboard (milestone 3): the four destinations, the
+     two details (a post, an image ad and a planned video ad) and the Suggest
+     sheet. The tab lives in the URL, so each destination is its own path. */
+  { id: 'mkt-planner-home', screen: 'Planner (marketing)', label: 'Home', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true },
+  { id: 'mkt-planner-posts', screen: 'Planner (marketing)', label: 'Posts, the list', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true,
+    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); } },
+  { id: 'mkt-planner-cal', screen: 'Planner (marketing)', label: 'Posts, the calendar', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true,
+    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'Calendar' }), 1500); await p.waitForTimeout(300); } },
+  { id: 'mkt-planner-ads', screen: 'Planner (marketing)', label: 'Ads', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true },
+  { id: 'mkt-planner-ideas', screen: 'Planner (marketing)', label: 'Ideas', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ideas', session: false, static: true, marketing: true },
+  { id: 'mkt-planner-post', screen: 'Planner (marketing)', label: 'a post, needs you', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
+    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); await click(p.locator('.pl-row').filter({ hasText: 'Needs you' })); await p.waitForTimeout(500); } },
+  { id: 'mkt-planner-ad-image', screen: 'Planner (marketing)', label: 'an image ad, live, with results', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
+    act: async (p) => { await click(p.locator('.pl-row').filter({ hasText: 'October interior offer' })); await p.waitForTimeout(500); } },
+  { id: 'mkt-planner-ad-video', screen: 'Planner (marketing)', label: 'a planned video ad, needs you', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
+    act: async (p) => { await click(p.locator('.pl-row').filter({ hasText: 'Ceramic coat reel' })); await p.waitForTimeout(500); } },
+  { id: 'mkt-planner-suggest', screen: 'Planner (marketing)', label: 'the Suggest sheet', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ideas', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
+    act: async (p) => { await click(p.locator('.pl-suggest')); await p.waitForTimeout(500); } },
   { id: 'mkt-planner-dead', screen: 'Planner (marketing)', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000', session: false, static: true, marketing: true },
   // Concepts (Concepts rebuild, Part 7): the client presentation and its states.
   { id: 'mkt-concepts', screen: 'Concepts (marketing)', label: 'the presentation, three directions', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, noFit: true },
@@ -187,8 +204,8 @@ export const SCREENS = [
   { id: 'mkt-concepts-approve', screen: 'Concepts (marketing)', label: 'the approve confirm panel', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true, region: '.cp-panel', act: (p) => click(p.locator('.cp-card .cp-btn').first()) },
   { id: 'mkt-concepts-changes', screen: 'Concepts (marketing)', label: 'the change request form', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true, region: '.cp-panel', act: (p) => click(p.locator('.cp-beat .cp-btn--ghost').first()) },
   /* The expanded image: a dialog, so it gets its own axe row. */
-  { id: 'mkt-planner-zoom', screen: 'Planner (marketing)', label: 'the whole image, expanded', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, detail: true,
-    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' })); await p.waitForTimeout(400); await click(p.locator('.pl-row').first()); await p.waitForTimeout(500); await click(p.locator('button.pl-img--whole').first()); } },
+  { id: 'mkt-planner-zoom', screen: 'Planner (marketing)', label: 'the whole picture, expanded', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true, detail: true,
+    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); await click(p.locator('.pl-row').first()); await p.waitForTimeout(500); await click(p.locator('button.pl-img--whole').first()); } },
   // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
   // the React root, not a route, so unlike every other marketing: true
   // entry above it only renders against a build made with that env var

@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, sets, lists, publicConceptSet, projects, posts, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, leads, orders, sets, lists, publicConceptSet, projects, posts, suggestions, plannerPayload, plannerPublicSuggestion, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -77,14 +77,9 @@ function api(req, res, url) {
     const token = url.searchParams.get('token') || '';
     const lead = leads.find(l => l.planner?.enabled && l.planner?.token === token);
     if (!lead) return json(res, { error: 'not found' }, 404);
-    if (m === 'POST') return json(res, { ok: true });
+    if (m === 'POST') return json(res, { ok: true, suggestion: plannerPublicSuggestion({ _id: 'SGmock', leadId: lead._id, kind: 'post', subject: 'An idea', goal: 'other', status: 'new', createdAt: new Date().toISOString() }) });
     const month = url.searchParams.get('month') || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-    const mine = posts.filter(x => String(x.leadId) === String(lead._id) && x.month === month && !x.deleted && !x.archived)
-      .map(x => ({ id: String(x._id), date: x.date, time: x.time,
-        platforms: (Array.isArray(x.platforms) && x.platforms.length) ? x.platforms : [x.platform || 'instagram'],
-        format: x.format === 'story' ? 'story' : 'portrait', hashtags: x.hashtags || '',
-        imageUrl: x.imageUrl, caption: x.caption, status: x.status, note: x.note, clientNote: x.clientNote }));
-    return json(res, { client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth }, month, posts: mine });
+    return json(res, plannerPayload(lead, month, posts, suggestions));
   }
   if (p === '/api/submissions') return json(res, { ok: true, id: 'subMock' });
   return json(res, { error: 'not mocked' }, 404);

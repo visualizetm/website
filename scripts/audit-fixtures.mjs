@@ -194,9 +194,63 @@ export const posts = [
   /* A story carrying a 1:1 image: the shape does not match the format, which
      is a note for Rob and nothing at all for the client. */
   { _id: 'PO17', leadId: 'L11', month: THIS_MONTH, date: daysFrom(23), time: '', platforms: ['instagram'], platform: 'instagram', format: 'story', imageUrl: '/showcase/fixtures/square.svg', caption: '', hashtags: '', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  /* Planner dashboard (milestone 3): the four shapes the client's Ads and
+     Posts tabs have to hold. A live image ad with results and a hidden
+     budget; a planned video ad up for approval with its budget shown and no
+     file yet; a finished ad; a video post with a file; and a post whose
+     download is switched off. */
+  { _id: 'PO20', leadId: 'L11', month: THIS_MONTH, date: daysFrom(3), time: '', kind: 'ad', platforms: ['instagram', 'facebook'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/feed.svg', caption: 'Book a detail this month and the interior is on us.', hashtags: '', status: 'live', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true,
+    ad: { name: 'October interior offer', goal: 'calls', audience: 'Car owners within 15 miles of the shop, 25 to 55', placements: ['feed', 'stories'], buttonText: 'Call now', link: 'https://example.com/book', startDate: daysFrom(3), endDate: daysFrom(17), budget: 300, showBudget: false, results: { reach: 1240, clicks: 38, messages: 4, spend: 96 } }, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO21', leadId: 'L11', month: THIS_MONTH, date: daysFrom(10), time: '', kind: 'ad', platforms: ['instagram'], platform: 'instagram', format: 'video', imageUrl: '', caption: 'Fifteen seconds of a ceramic coat going on, start to finish.', hashtags: '', status: 'review', note: 'This is the one I would run first.', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: true, concept: 'A fast cut of the coating going on, the beads of water at the end, your logo last.',
+    video: { url: '', durationSec: 15, poster: '' },
+    ad: { name: 'Ceramic coat reel', goal: 'messages', audience: 'People who watched the last two reels', placements: ['reels'], buttonText: 'Send message', link: '', startDate: daysFrom(10), endDate: daysFrom(24), budget: 150, showBudget: true, results: { reach: '', clicks: '', messages: '', spend: '' } }, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO22', leadId: 'L11', month: THIS_MONTH, date: daysFrom(-9), time: '', kind: 'ad', platforms: ['facebook'], platform: 'facebook', format: 'portrait', imageUrl: '/showcase/fixtures/square.svg', caption: 'September special, now over.', hashtags: '', status: 'finished', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true,
+    ad: { name: 'September special', goal: 'visits', audience: 'Everyone nearby', placements: ['feed'], buttonText: 'Get directions', link: '', startDate: daysFrom(-23), endDate: daysFrom(-9), budget: 200, showBudget: false, results: { reach: 3310, clicks: 120, messages: 0, spend: 200 } }, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO23', leadId: 'L11', month: THIS_MONTH, date: daysFrom(5), time: '12:00', kind: 'post', platforms: ['instagram', 'tiktok'], platform: 'instagram', format: 'video', imageUrl: '', caption: 'The before and after on the black truck', hashtags: '#detailing #beforeandafter', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true, concept: '',
+    video: { url: '/showcase/fixtures/clip.mp4', durationSec: 22, poster: '/showcase/fixtures/story.svg' }, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO24', leadId: 'L11', month: THIS_MONTH, date: daysFrom(7), time: '09:30', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/portrait.svg', caption: 'A picture you can look at here but not save', hashtags: '', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO4', leadId: 'L13', month: THIS_MONTH, date: daysFrom(1), time: '12:00', platform: 'facebook', imageUrl: '', caption: 'Grand reopening', status: 'review', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO5', leadId: 'L13', month: THIS_MONTH, date: daysFrom(-6), time: '', platform: 'instagram', imageUrl: '', caption: 'Last week', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 8 * 864e5).toISOString(), postedAt: new Date(Date.now() - 6 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
 ];
+
+/* The client's ideas (planner dashboard, milestone 3): one just sent, one
+   Rob put in the plan, one declined with his note. */
+export const suggestions = [
+  { _id: 'SG1', leadId: 'L11', kind: 'post', subject: 'Our new Friday special', goal: 'offer', details: 'Half price interiors every Friday in October.', preferredDate: daysFrom(9), link: '', photos: [], status: 'new', postId: '', note: '', seenAt: '', createdAt: new Date(Date.now() - 2 * 3600e3).toISOString(), updatedAt: NOW_ISO },
+  { _id: 'SG2', leadId: 'L11', kind: 'video', subject: 'The headlight restoration', goal: 'work', details: '', preferredDate: '', link: '', photos: [], status: 'planned', postId: 'PO23', note: '', seenAt: NOW_ISO, createdAt: new Date(Date.now() - 6 * 864e5).toISOString(), updatedAt: NOW_ISO },
+  { _id: 'SG3', leadId: 'L11', kind: 'ad', subject: 'A giveaway for a free wash', goal: 'calls', details: '', preferredDate: '', link: '', photos: [], status: 'declined', postId: '', note: 'Giveaways bring the wrong crowd for you. Let me do the Friday offer first.', seenAt: NOW_ISO, createdAt: new Date(Date.now() - 12 * 864e5).toISOString(), updatedAt: NOW_ISO },
+];
+
+/* What api/planner.js sends the client about one post (publicPost there),
+   mirrored for the two mocks so they answer the same shape. */
+const plannerAd = (a) => {
+  if (!a || typeof a !== 'object') return null;
+  const r = a.results && typeof a.results === 'object' ? a.results : {};
+  const hasResults = ['reach', 'clicks', 'messages', 'spend'].some(k => r[k] !== '' && r[k] != null && Number(r[k]) > 0);
+  return {
+    name: a.name || '', goal: a.goal || 'awareness', audience: a.audience || '', placements: Array.isArray(a.placements) ? a.placements : [],
+    buttonText: a.buttonText || '', link: a.link || '', startDate: a.startDate || '', endDate: a.endDate || '',
+    ...(a.showBudget && a.budget !== '' && a.budget != null ? { budget: Number(a.budget) || 0 } : {}),
+    ...(hasResults ? { results: { reach: Number(r.reach) || 0, clicks: Number(r.clicks) || 0, messages: Number(r.messages) || 0, spend: Number(r.spend) || 0 } } : {}),
+  };
+};
+export const plannerPublic = (p) => ({
+  id: String(p._id), kind: p.kind === 'ad' ? 'ad' : 'post', date: p.date || '', time: p.time || '',
+  platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
+  format: p.format === 'story' ? 'story' : p.format === 'video' ? 'video' : 'portrait',
+  hashtags: p.hashtags || '', imageUrl: p.imageUrl || '', caption: p.caption || '', status: p.status || 'making',
+  note: p.note || '', clientNote: p.clientNote || '', allowDownload: p.allowDownload !== false,
+  video: p.format === 'video' ? { url: p.video?.url || '', durationSec: Number(p.video?.durationSec) || 0, poster: p.video?.poster || '', concept: p.concept || '' } : null,
+  ad: p.kind === 'ad' ? plannerAd(p.ad) : null,
+});
+export const plannerPublicSuggestion = (s) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt || '' });
+/** The whole GET answer for one lead and month, shared by the fixture route and the mock server. */
+export const plannerPayload = (lead, month, allPosts = posts, allSuggestions = suggestions) => ({
+  client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth },
+  month,
+  posts: allPosts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived).map(plannerPublic),
+  suggestions: allSuggestions.filter(x => String(x.leadId) === String(lead._id) && !x.deleted).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(plannerPublicSuggestion),
+});
 
 export const projects = [
   { _id: 'P10', leadId: 'L10', name: 'Web Essentials', kind: 'web', packageId: 'web-essentials', stage: 'design', stages: ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'], total: 500,
@@ -494,6 +548,14 @@ export async function mockRoutes(page, opts = {}) {
     if (!lead) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
     if (r.request().method() === 'POST') {
       let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+      /* The client's idea (milestone 3): stored on the fixture so the Ideas
+         tab shows it straight after sending. */
+      if (body.action === 'suggest') {
+        if (!String(body.subject || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Say what it is about and I can make it.' }) });
+        const doc = { _id: `SG${suggestions.length + 1}`, leadId: lead._id, kind: body.kind || 'post', subject: String(body.subject).slice(0, 120), goal: body.goal || 'other', details: String(body.details || '').slice(0, 1000), preferredDate: body.preferredDate || '', link: body.link || '', photos: Array.isArray(body.photos) ? body.photos.slice(0, 3) : [], status: 'new', postId: '', note: '', seenAt: '', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        suggestions.push(doc);
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, suggestion: plannerPublicSuggestion(doc) }) });
+      }
       const p = posts.find(x => String(x._id) === String(body.postId));
       if (!p) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
       if (p.status !== 'review') return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'That post is not waiting for approval any more.' }) });
@@ -503,15 +565,7 @@ export async function mockRoutes(page, opts = {}) {
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: p.status }) });
     }
     const month = url.searchParams.get('month') || THIS_MONTH;
-    const mine = posts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived)
-      .map(p => ({ id: String(p._id), date: p.date, time: p.time,
-        platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
-        format: p.format === 'story' ? 'story' : 'portrait', hashtags: p.hashtags || '',
-        imageUrl: p.imageUrl, caption: p.caption, status: p.status, note: p.note, clientNote: p.clientNote }));
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth },
-      month, posts: mine,
-    }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(plannerPayload(lead, month)) });
   });
   await page.route('**/api/showcase**', (r) => {
     const u = new URL(r.request().url());
