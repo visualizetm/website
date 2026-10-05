@@ -132,6 +132,7 @@ for (const width of WIDTHS) {
   await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Open showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
   await fromRecord('Planner editor', '/admin/clients', 'L11', /^Open planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
   await fromRecord('Tasks', '/admin/clients', 'L11', /^All tasks/, '.tk-topbar, .tk-body');
+  await fromRecord('All docs', '/admin/clients', 'L11', /^All docs/, '.ad-body');
   await step('Profile: a pushed screen on a phone, Back returns to the record', async () => {
     if (width >= 768) return 'a computer shows the profile in a side panel';
     await setLS({ vz_leads_view: 'list' });

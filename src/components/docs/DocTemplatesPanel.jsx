@@ -57,7 +57,7 @@ export default function DocTemplatesPanel({ docsApi }) {
     <Stack gap={3}>
       <Card className="st-card">
         <p className="pb-card-h">Doc templates</p>
-        <p className="dt-muted">What the New doc sheet offers, in this order. Hide a built in one you never use. Save any doc as a template from its menu.</p>
+        <p className="dt-muted dtp-lede">What the New doc sheet offers, in this order.</p>
       </Card>
       <Stagger className="v-stack dtp-rows" cap={6}>
         {rows.map((r, i) => (
@@ -101,6 +101,7 @@ function RenameSheet({ row, onSave, onClose }) {
 
 
 const panelStyles = `
+  .dtp-lede { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dtp-rows { gap: var(--v-space-3); }
   .dtp-row { padding: var(--v-space-3); }
   .dtp-row.is-hidden { opacity: 0.7; }

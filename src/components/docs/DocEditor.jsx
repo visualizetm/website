@@ -96,7 +96,7 @@ const Block = memo(function Block({ b, n, readOnly, phone, ctx, api, dragging, c
   const text = isText(b);
   const body = (() => {
     if (text) {
-      const rt = <RichText id={b.id} runs={b.runs} readOnly={readOnly} label={BLOCK_LABELS[type]} placeholder={PLACEHOLDER[type]} className={`dc-rt--${type}${type === 'check' && b.checked ? ' is-done' : ''}`}
+      const rt = <RichText tag={type === 'h1' ? 'h2' : type === 'h2' ? 'h3' : 'p'} id={b.id} runs={b.runs} readOnly={readOnly} label={BLOCK_LABELS[type]} placeholder={PLACEHOLDER[type]} className={`dc-rt--${type}${type === 'check' && b.checked ? ' is-done' : ''}`}
         onRuns={(r) => api.runs(b.id, r)} onEnter={(at) => api.enter(b.id, at)} onBackspaceStart={() => api.backspace(b.id)} onPasteLines={(l) => api.pasteLines(b.id, l)}
         onFocus={() => api.focus(b.id)} onBlur={() => api.blur(b.id)} onMarkdown={(r) => api.markdown(b.id, r)} />;
       if (type === 'ul') return <div className="dc-li"><span className="dc-mark" aria-hidden="true">{'•'}</span>{rt}</div>;

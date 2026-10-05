@@ -43,7 +43,7 @@ function DocsCard({ rec }) {
           <ul className="rc-docs-rows" aria-label="Recent docs">
             {st.rows.map(d => <DocRow key={d._id} doc={d} now={now} onOpen={api.openDoc} />)}
           </ul>
-          <div className="rc-docs-foot v-above"><Button variant="secondary" size="md" onClick={() => api.openClientDocs(lead)} className="rc-docs-all">{st.more > 0 ? `All docs, ${st.count}` : 'All docs'}</Button></div>
+          <div className="rc-docs-foot v-above"><Button variant="secondary" size="md" onClick={() => api.openClientDocs(lead)} className="rc-docs-all rc-ws-btn">{st.more > 0 ? `All docs, ${st.count}` : 'All docs'}</Button></div>
         </>
       )}
     </section>

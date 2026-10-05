@@ -213,7 +213,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     integrations: { n: [96, 222, 435], d: [78, 126, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
-    templates: { n: [124, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
+    templates: { n: [88, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]

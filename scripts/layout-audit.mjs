@@ -31,7 +31,7 @@ import { phoneSection, SCREENS } from './audit-screens.mjs';
 // .cs-cover on a detail page and .wk-card-media on a card. All three
 // frames are themselves still checked, so a frame that genuinely does
 // not fit still fails.)
-const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap'];
+const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap', '.dc-bar-row'];
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
@@ -700,7 +700,7 @@ for (const width of WIDTHS) {
   await goto('/admin/settings');
   await check('settings: profile');
   if (width < 768) { await page.locator('.sh-content').getByRole('button', { name: /^Profile/ }).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(400); await check('settings: profile screen'); }
-  for (const t of ['Notifications', 'Integrations', 'Data', 'Danger zone']) {
+  for (const t of ['Notifications', 'Integrations', 'Doc templates', 'Data', 'Danger zone']) {
     /* A computer switches tabs in place; a phone goes back to the list of rows and opens the next one. */
     if (width < 768) { await goto('/admin/settings'); await page.locator('.sh-content').getByRole('button', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(400); }
     else await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {});
@@ -945,6 +945,65 @@ for (const width of WIDTHS) {
   await goto('/admin/clients/L13/tasks');
   await page.waitForTimeout(600);
   await check('tasks (a client with none yet)');
+  /* Client docs (docs job): the Docs card empty, the New doc sheet, one client's docs, every client's docs, the editor (every block type, empty,
+     over the keyboard, a failed save), its sheets, and a reference chip. The card filled is part of the client detail views above. */
+  await goto('/admin/clients?open=L13');
+  await page.locator('.rc-docs').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('docs (the card on a client with none)');
+  await goto('/admin/clients?open=L11');
+  await page.locator('.rc-docs-new').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.locator('.rc-docs-new').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.nd-opt').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('docs (new doc sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await goto('/admin/clients/L11/docs');
+  await page.locator('.ad-group').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('docs (one client, grouped by type)');
+  await goto('/admin/docs');
+  await page.locator('.rc-docs-row').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('docs (every client)');
+  await goto('/admin/docs/DOC1');
+  await page.locator('.dc-blocks').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('doc (every block type)');
+  await page.locator('.dc-row[data-block-id="b9"] .dc-rt').first().click({ timeout: 3000 }).catch(() => {});
+  if (width < 768) {
+    await page.evaluate(() => { const vv = window.visualViewport; Object.defineProperty(vv, 'height', { configurable: true, get: () => 470 }); vv.dispatchEvent(new Event('resize')); }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('doc (the formatting bar over the keyboard)');
+  } else await check('doc (the formatting bar, a block focused)');
+  await page.locator('.dc-fb[data-fmt="insert"]').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dc-opt').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('doc (add a block sheet)');
+  await page.locator('.dc-opt[data-opt="ref"]').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dc-refopt').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('doc (reference sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await page.locator('.dc-row[data-block-id="b4"] .dc-grip').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dc-turn').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('doc (block menu)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await page.locator('.dc-fb[data-fmt="link"]').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.dc-link-apply').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  await check('doc (link sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await goto('/admin/docs/DOCE');
+  await page.locator('.dc-blocks').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('doc (nothing in it)');
+  await goto('/admin/docs/DOC1');
+  await page.locator('.dc-blocks').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.route('**/api/admin/docs**', r => (r.request().method() === 'PATCH' ? r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"audit: refused"}' }) : r.fallback())).catch(() => {});
+  await page.locator('.dc-row[data-block-id="b9"] .dc-rt').first().click({ timeout: 3000 }).catch(() => {});
+  await page.keyboard.type(' x').catch(() => {});
+  await page.waitForSelector('[data-save="failed"]', { timeout: 5000 }).catch(() => {});
+  await check('doc (a failed save: Not saved, retrying)');
+  await page.unroute('**/api/admin/docs**').catch(() => {});
   /* The Content Planner editor (planner prompt 2, part 6): the page on and
      off, a month with nothing in it, the post editor Sheet, the save bar,
      and the regenerate dialog. The image check earns its keep here too: a

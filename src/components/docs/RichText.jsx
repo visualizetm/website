@@ -64,7 +64,7 @@ export function placeCaret(root, offset) {
   sel.removeAllRanges(); sel.addRange(range);
 }
 
-export default function RichText({ id, runs, label, placeholder, className = '', readOnly, onRuns, onEnter, onBackspaceStart, onPasteLines, onFocus, onBlur, onMarkdown }) {
+export default function RichText({ tag: Tag = 'p', id, runs, label, placeholder, className = '', readOnly, onRuns, onEnter, onBackspaceStart, onPasteLines, onFocus, onBlur, onMarkdown }) {
   const ref = useRef(null);
   const last = useRef('');
   /* Take the runs from outside only when they are not what the page already holds (a convert, a template, an undo); typing never resets the caret. */
@@ -97,7 +97,7 @@ export default function RichText({ id, runs, label, placeholder, className = '',
     if (lines.length > 1) onPasteLines?.(lines.slice(1));
   };
   return (
-    <div ref={ref} className={`dc-rt ${className}`.trim()} data-rt={id} data-placeholder={placeholder} role="textbox" aria-multiline="false" aria-label={label}
+    <Tag ref={ref} className={`dc-rt ${className}`.trim()} data-rt={id} data-placeholder={placeholder} role="textbox" aria-multiline="false" aria-label={label}
       contentEditable={!readOnly} suppressContentEditableWarning spellCheck autoCorrect="on" autoCapitalize="sentences" enterKeyHint="enter"
       onInput={() => { const r = emit(); onMarkdown?.(r); }} onKeyDown={onKeyDown} onPaste={onPaste} onFocus={onFocus} onBlur={onBlur}
       onDrop={(e) => e.preventDefault()} />
