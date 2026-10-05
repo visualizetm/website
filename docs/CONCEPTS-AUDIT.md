@@ -126,3 +126,63 @@ credential, minted only server side; an admin editor on the Showcase and
 Planner pattern; and a public presentation at /concepts/:token built on
 the Scene engine. docs/ARCHITECTURE.md carries the schema once it is
 built.
+
+## Review each (the concepts review job)
+
+The first presentation asked a client for one answer on the whole set:
+approve a direction, or ask for changes, once. Rob often sends several
+things that each need an answer (a logo, a business card, a homepage), and
+the page revealed them piece by piece with the feedback controls apart from
+the thing being judged. This job changed three things, and nothing else.
+
+What it is now:
+
+- **Approval mode, per set, chosen in the CRM before sending.** Pick one
+  (the default, and what every older document reads as) or Review each. In
+  Review each every direction is Needs a decision (the default) or For
+  reference (shown, no answer asked: a mood board, a color study), and the
+  set can allow Not this one. The editor says what the client will be asked
+  ("Client will review 4 items, 1 for reference") and a review set with
+  nothing to decide cannot be sent. The unit the client answers is a
+  direction (its name, its description and all its images), so a direction
+  with several images is one item with one answer.
+- **The client's walk.** One section per direction: the visual, the name
+  and description, and the decision panel together. Approve saves at once;
+  Needs changes opens a note (required, "What would you change?") and
+  saves with Save; Not this one appears only when the set allows it. Each
+  answer saves as it is given, so the client can leave and come back on the
+  same link; a changed answer overwrites. A bar fixed to the bottom says "2
+  of 4 reviewed" (a tap on it jumps to the next unanswered section) and
+  holds Send my answers, disabled until every item that needs an answer
+  has one. A summary sheet ("Here's what you picked") lists every answer and
+  note before the one send. After sending the same page reads back their
+  answers, read only, with "Got it, thank you. I'll get back to you soon."
+- **Whole section reveal.** There is no pinned scene and no scroll linked
+  reveal on the page. A section is hidden only until the first pixel of it
+  is on screen, then the whole card fades and rises once (240 ms); an
+  anchored jump marks its target revealed first so it lands whole; reduced
+  motion shows every section from the first paint. At 1280 the section is
+  two columns (visual about 60 percent, the panel sticky inside its own
+  section); under 768 it is stacked, visual first, then the title and
+  description, then the panel, with full width 44px decision buttons and a
+  bar that respects the safe area and never covers the last button.
+
+Rob's side: the editor's Their answers card lists each item with the
+decision, note and time, and a summary line ("2 approved, 1 needs
+changes"); when a submission has Needs changes, Log as a round opens the
+existing Log a round modal (src/components/RoundLog.jsx, shared with the
+Project section) with the change notes as one consolidated round, and never
+logs it by itself (two rounds per package is Rob's rule). The client page's
+Concepts card and the Concepts list read "Waiting on client, 2 of 4" or
+"3 approved, 1 needs changes" for a review set and today's wording for a
+Pick one set. A submission makes one task, Review concept answers (unless
+an open one is already there), one push, and one in-app note for the whole
+set. Once the client has sent, the mode, Not this one and which items need
+an answer are locked; Reopen for review clears the answers off the items,
+keeps them in submissions[], and puts the set back to sent.
+
+What was not touched: Pick one's flow and wording of the buttons, the
+viewer, present mode, the token model, the rate limit, and every set
+written before the job (it reads as Pick one with no answers and is never
+migrated). Image pins do not exist on this page, so change notes are text.
+The security guards and their proof are in docs/SECURITY-AUDIT.md.
