@@ -656,6 +656,8 @@ export async function mockRoutes(page, opts = {}) {
     const query = Object.fromEntries(u.searchParams.entries());
     let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
     if (failing.has('docs')) return r.fulfill(fail());
+    /* The audit's empty state for a doc: the doc is not there (its screen says so), the way an emptied list says it has none. */
+    if (method === 'GET' && query.id && empty.has('docs')) return r.fulfill({ ...json({ error: 'not found' }), status: 404 });
     if (method === 'GET' && !query.id && !query.templates && !query.deleted && !query.leadId) return respond(r, 'docs', { items: docsHandler(docStore, 'GET', {}, {}).body.items });
     if (opts.docsSaveFails && method !== 'GET') return r.fulfill(fail());
     const out = docsHandler(docStore, method, query, body);

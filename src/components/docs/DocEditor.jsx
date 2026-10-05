@@ -96,15 +96,16 @@ const Block = memo(function Block({ b, n, readOnly, phone, ctx, api, dragging, c
   const text = isText(b);
   const body = (() => {
     if (text) {
-      const rt = <RichText tag={type === 'h1' ? 'h2' : type === 'h2' ? 'h3' : 'p'} id={b.id} runs={b.runs} readOnly={readOnly} label={BLOCK_LABELS[type]} placeholder={PLACEHOLDER[type]} className={`dc-rt--${type}${type === 'check' && b.checked ? ' is-done' : ''}`}
+      const rt = <RichText tag={type === 'h1' || type === 'h2' ? 'span' : 'p'} id={b.id} runs={b.runs} readOnly={readOnly} label={BLOCK_LABELS[type]} placeholder={PLACEHOLDER[type]} className={`dc-rt--${type}${type === 'check' && b.checked ? ' is-done' : ''}`}
         onRuns={(r) => api.runs(b.id, r)} onEnter={(at) => api.enter(b.id, at)} onBackspaceStart={() => api.backspace(b.id)} onPasteLines={(l) => api.pasteLines(b.id, l)}
         onFocus={() => api.focus(b.id)} onBlur={() => api.blur(b.id)} onMarkdown={(r) => api.markdown(b.id, r)} />;
+      const wrapped = type === 'h1' ? <h2 className="dc-hw">{rt}</h2> : type === 'h2' ? <h3 className="dc-hw">{rt}</h3> : rt;
       if (type === 'ul') return <div className="dc-li"><span className="dc-mark" aria-hidden="true">{'•'}</span>{rt}</div>;
       if (type === 'ol') return <div className="dc-li"><span className="dc-mark dc-mark--n" aria-hidden="true">{n}.</span>{rt}</div>;
       if (type === 'check') return <div className="dc-li"><button type="button" className="dc-tick" role="checkbox" aria-checked={!!b.checked} aria-label="Done" disabled={readOnly} onClick={() => api.patch(b.id, { checked: !b.checked })}><span className="dc-tick-box">{b.checked && <Icon icon="Check" size={14} />}</span></button>{rt}</div>;
-      return rt;
+      return wrapped;
     }
-    if (type === 'divider') return <div className="dc-divider" role="separator" tabIndex={readOnly ? -1 : 0} aria-label="Divider. Backspace removes it." onKeyDown={(e) => { if (!readOnly && (e.key === 'Backspace' || e.key === 'Delete')) { e.preventDefault(); api.remove(b.id); } }}><hr /></div>;
+    if (type === 'divider') return <div className="dc-divider" role="separator"><hr /></div>;
     if (type === 'link') return <LinkBody b={b} readOnly={readOnly} api={api} />;
     if (type === 'image') return <ImageBody b={b} readOnly={readOnly} api={api} />;
     if (type === 'ref') return <RefBody b={b} ctx={ctx} api={api} />;
