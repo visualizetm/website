@@ -6,7 +6,7 @@ import { normalizeStage } from '../shared/semantics';
 import { buildEvents, sameDay } from '../lib/events';
 import { recentClientActions, itemLabel, postDateLabel, kindOf } from '../lib/posts';
 import { healItems } from '../lib/heals';
-import { recentConceptActions, directionLabel } from '../lib/concepts';
+import { recentConceptActions, directionLabel, reviewTally, tallyLine } from '../lib/concepts';
 import { nextUpItems } from '../lib/nextAction';
 
 const H = 3600e3;
@@ -83,12 +83,17 @@ export function buildNotifications(leads, opts = {}) {
   const leadOf = new Map(leads.map(l => [String(l._id), l]));
   for (const a of recentConceptActions(opts.sets || [], { now })) {
     const lead = leadOf.get(String(a.set.leadId)); if (!lead) continue;
-    const id = a.kind === 'changes' ? `concepts:change:${a.set._id}:${a.at}` : `concepts:${a.kind}:${a.set._id}`;
+    const id = a.kind === 'changes' ? `concepts:change:${a.set._id}:${a.at}` : a.kind === 'answered' ? `concepts:answered:${a.set._id}:${a.at}` : `concepts:${a.kind}:${a.set._id}`;
     const sn = snoozed[id]; if (sn && new Date(sn).getTime() > now) continue;
     const who = lead.showcase?.displayName || lead.business;
     const at = new Date(a.at).getTime();
     if (a.kind === 'opened') items.push({ id, kind: 'concepts-opened', group: 'system', tone: 'neutral', icon: 'Eye', openConcepts: true, setId: a.set._id, title: `${who} opened your concepts`, detail: `${a.set.title || 'Concepts'}, round ${a.set.round || 1}. No answer yet.`, at, lead });
     else if (a.kind === 'picked') items.push({ id, kind: 'concepts-picked', group: 'system', tone: 'booked', icon: 'Check', openConcepts: true, setId: a.set._id, title: `${who} picked ${directionLabel(a.set, a.directionId, false)}`, detail: `${directionLabel(a.set, a.directionId)}${a.name ? `, by ${a.name}` : ''}. Rob takes it from here.`, at, lead });
+    else if (a.kind === 'answered') {
+      /* Review each: one item for the whole submission, with the tally in it, not one per answer. */
+      const t = reviewTally(a.set);
+      items.push({ id, kind: 'concepts-answered', group: 'system', tone: t.changes ? 'danger' : 'booked', icon: 'Send01', openConcepts: true, setId: a.set._id, title: `${who} sent their answers`, detail: `${tallyLine(t) || 'Answers in'}${a.name ? `, by ${a.name}` : ''}.`, at, lead });
+    }
     else items.push({ id, kind: 'concepts-change', group: 'system', tone: 'danger', icon: 'Edit02', openConcepts: true, setId: a.set._id, title: `${who} asked for changes on ${directionLabel(a.set, a.directionId, false)}`, detail: a.note || directionLabel(a.set, a.directionId), at, lead });
   }
 

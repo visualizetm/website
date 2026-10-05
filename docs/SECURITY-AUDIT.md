@@ -450,3 +450,19 @@ and planner endpoint tests do, and asserts:
 - the submission limiter and the field normaliser: an 11th contact form in
   an hour is 429, nested `fields` flatten to strings, and reserved
   Web3Forms keys never reach the email
+- the concepts answers (Review each, section 4c of security-test, the
+  checks in scripts/concepts-review-lib.mjs): a direction id from another
+  set is the same 404 and writes nothing; a note is cut at 1,000
+  characters and stripped of HTML tags before it is stored (notes on the
+  public concepts door are plain words, so this is a change from the
+  stored verbatim rule above for that door); an answer on a For reference
+  direction is refused; Not this one is refused unless the set allows it;
+  Needs changes without a note is refused; decide and submit on a Pick one
+  set, and approve or change on a Review each set, are 409; Send my answers
+  with an unanswered item is 400 and does not lock; a second submit and an
+  answer after a submit are 409; the admin cannot change the mode, Not
+  this one or which items need an answer once the client has sent, cannot
+  send a Review each set with nothing to decide, and cannot write or erase
+  a client's answer by saving the editor. scripts/concepts-guard-proof.mjs
+  cuts each of the 13 guards out of a copy of api/ in turn and requires the
+  guard's own check to fail, so a guard nothing tests cannot sit there.

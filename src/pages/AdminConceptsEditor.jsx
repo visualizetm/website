@@ -3,17 +3,18 @@ import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, SegmentedControl, Toggle, InlineEdit, Tabs, Menu,
   EmptyState, ErrorState, Stagger, SkeletonText, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow } from '../ui';
 import { COPY } from '../shared/copy';
-import { CONCEPT_ITEM_KINDS, CONCEPT_APPROVAL_MODES, conceptSetStatusOf, conceptFeedbackActionOf } from '../shared/semantics';
+import { CONCEPT_ITEM_KINDS, CONCEPT_APPROVAL_MODES, conceptSetStatusOf, conceptFeedbackActionOf, conceptDecisionOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
 import { projectsOf, activeProject, revisionsUsed, revisionsMax, extraRoundFeeFor, roundLogPatch, money } from '../lib/projects';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { safeHref } from '../lib/safeUrl';
 import {
-  MAX_DIRECTIONS, MAX_ITEMS, approvalModeOf, isReview, needsDecision, isLocked, decisionItems, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
+  MAX_DIRECTIONS, MAX_ITEMS, approvalModeOf, isReview, needsDecision, isLocked, decisionItems, decisionOf, reviewTally, tallyLine, reviewLine, roundNote, submissionsOf, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
 } from '../lib/concepts';
 import { useTopBar } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
 import SaveBar, { saveBarStyles } from '../components/SaveBar';
+import { useRoundLog } from '../components/RoundLog';
 import { imageFieldStyles } from '../components/ImageField';
 
 /* The Concepts editor (Concepts rebuild, Part 3), one page per lead at
@@ -182,6 +183,15 @@ export default function AdminConceptsEditor({
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
+  /* The client answers while this page is open somewhere: take what the server holds when the page comes back into view. */
+  useEffect(() => {
+    if (!onRetry) return undefined;
+    const back = () => { if (document.visibilityState === 'visible') onRetry(); };
+    document.addEventListener('visibilitychange', back);
+    window.addEventListener('focus', back);
+    return () => { document.removeEventListener('visibilitychange', back); window.removeEventListener('focus', back); };
+  }, [onRetry]);
+  const roundLog = useRoundLog({ onPatchProject });
 
   const mine = useMemo(() => setsOf(sets, lead?._id), [sets, lead]);
   const byRound = useMemo(() => [...mine].sort((a, b) => (a.round || 0) - (b.round || 0)), [mine]);
@@ -448,6 +458,59 @@ export default function AdminConceptsEditor({
                 )}
               </Card>
   );
+  /* Review each: what the client answered, item by item, and the one action their change requests lead to. */
+  const tally = active ? reviewTally(active) : null;
+  const sentIn = !!(active && isLocked(active));
+  const resultsLine = active && isReview(active) ? (sentIn ? (tallyLine(tally) || 'Answers in') : (['draft', 'archived'].includes(status) ? '' : reviewLine(active))) : '';
+  const changeNote = active ? roundNote(active) : '';
+  const logAsRound = () => { if (project) roundLog.open(project, changeNote); };
+  const resultsCard = !active || !isReview(active) ? null : (
+              <Card className="ce-results">
+                <Row gap={2} align="center" justify="between" wrap>
+                  <p className="pb-card-h">{sentIn ? 'Their answers' : 'Their answers so far'}</p>
+                  {sentIn && active.submittedAt && <span className="dt-muted">Sent {relativeTime(active.submittedAt)}</span>}
+                </Row>
+                {resultsLine ? <p className="ce-results-line" role="status">{resultsLine}</p> : <p className="ce-note">{isDraft ? 'Nothing yet. Answers arrive here once they open the link.' : 'Nothing answered yet.'}</p>}
+                {!sentIn && tally && tally.answered > 0 && <p className="ce-note">Not sent yet. They can still change these before they send.</p>}
+                <ol className="ce-answers">
+                  {decisionItems(active).map((d) => {
+                    const a = decisionOf(d); const info = a ? conceptDecisionOf(a.status) : null;
+                    return (
+                      <li key={d.id} className={`ce-ans${a ? ` ce-ans--${a.status}` : ''}`}>
+                        <Row gap={2} align="center" wrap>
+                          <span className="ce-ans-dir">{directionLabel(active, d.id)}</span>
+                          {info ? <Pill tone={info.tone} label={info.label} size="sm" icon={info.icon} variant={a.status === 'pass' ? 'soft' : 'solid'} /> : <Pill tone="neutral" label="Waiting" size="sm" icon={false} variant="soft" />}
+                          {a?.decidedAt && <span className="dt-muted">{fmtDateTime(a.decidedAt)}</span>}
+                        </Row>
+                        {a?.note ? <p className="ce-fb-body">{a.note}</p> : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+                {draft.directions.some(d => !needsDecision(d)) && <p className="ce-note">{draft.directions.filter(d => !needsDecision(d)).length} for reference, no answer asked.</p>}
+                {sentIn && tally && tally.changes > 0 && !readOnly && (
+                  <div className="ce-loground">
+                    <Row gap={2} align="center" wrap>
+                      <Button variant="secondary" size="md" icon="Plus" onClick={logAsRound} disabled={!project} className="ce-log-round">Log as a round</Button>
+                      <span className="ce-note">{project ? 'Opens Log a round with their change notes filled in as one round. Nothing is logged until you confirm it.' : 'Link a project in Setup first, so the round has somewhere to land.'}</span>
+                    </Row>
+                  </div>
+                )}
+                {submissionsOf(active).length > 0 && (
+                  <details className="ce-history">
+                    <summary>Answer history ({submissionsOf(active).length})</summary>
+                    <ol className="ce-answers">
+                      {submissionsOf(active).map((sb) => (
+                        <li key={sb.id || sb.at} className="ce-ans">
+                          <span className="ce-ans-dir">{fmtDateTime(sb.at)}{sb.name ? `, ${sb.name}` : ''}</span>
+                          <p className="ce-note">{tallyLine({ approved: (sb.answers || []).filter(x => x.status === 'approved').length, changes: (sb.answers || []).filter(x => x.status === 'changes').length, pass: (sb.answers || []).filter(x => x.status === 'pass').length })}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </details>
+                )}
+              </Card>
+  );
   const feedbackCard = !active ? null : (
               <Card className="ce-feedback">
                 <p className="pb-card-h">Feedback</p>
@@ -537,12 +600,13 @@ export default function AdminConceptsEditor({
                   {draft.directions.map((d, i) => <ListRow key={d.id} title={`Direction ${'ABCDEF'[i]}`} subtitle={`${d.name || 'Not named yet'}${review && !needsDecision(d) ? ', for reference' : ''}`} onClick={() => openStep(`dir:${d.id}`)} />)}
                   {!readOnly && <Button variant="secondary" icon="Plus" onClick={addDirection} disabled={draft.directions.length >= MAX_DIRECTIONS} className="ce-add-dir">Add direction</Button>}
                   <ListRow title="Send" subtitle={isDraft ? (blocked || 'Ready to send') : (active.sentAt ? `Sent ${relativeTime(active.sentAt)}` : 'Sent')} onClick={() => openStep('Send')} />
-                  <ListRow title="Feedback" subtitle={approvedId ? `Picked ${directionLabel(active, approvedId)}` : `${timeline.length} ${timeline.length === 1 ? 'note' : 'notes'}`} onClick={() => openStep('Feedback')} />
+                  <ListRow title="Feedback" subtitle={isReview(active) ? (reviewLine(active) || 'Nothing answered yet') : approvedId ? `Picked ${directionLabel(active, approvedId)}` : `${timeline.length} ${timeline.length === 1 ? 'note' : 'notes'}`} onClick={() => openStep('Feedback')} />
                 </Stack>
               )}
               {!phone && dirCards}
               {phone && step && step.startsWith('dir:') && draft.directions.map((d, i) => (`dir:${d.id}` === step ? dirCard(d, i) : null))}
               {(!phone || step === 'Send') && sendCard}
+              {(!phone || step === 'Feedback') && resultsCard}
               {(!phone || step === 'Feedback') && feedbackCard}
             </Stagger>
           )}
@@ -551,6 +615,7 @@ export default function AdminConceptsEditor({
 
       <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
       {confirmDialog}
+      {roundLog.modal}
       <style>{saveBarStyles + imageFieldStyles + ceStyles}</style>
     </PageShell>
   );
@@ -595,6 +660,14 @@ export const ceStyles = `
   .ce-fb--approve { background: var(--v-status-booked-soft); }
   .ce-fb-dir { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .ce-fb-body { margin: var(--v-space-1) 0 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .ce-results-line { margin: 0; font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .ce-answers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .ce-ans { padding: var(--v-space-2) var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-surface-3); }
+  .ce-ans--changes { background: var(--v-status-danger-soft); }
+  .ce-ans--approved { background: var(--v-status-booked-soft); }
+  .ce-ans-dir { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .ce-loground { padding-top: var(--v-space-1); }
+  .ce-history summary { min-height: var(--v-tap); display: flex; align-items: center; cursor: pointer; font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-2); }
   .ce-rounds { padding: var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-surface-2); border: 1px solid var(--v-border); }
   .ce-rounds.is-over { border-color: var(--v-status-danger-text); }
   .ce-rounds-h { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text-1); }

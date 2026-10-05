@@ -4,7 +4,7 @@ import { COPY } from '../shared/copy';
 import { CONCEPT_SET_STATUSES, conceptSetStatusOf } from '../shared/semantics';
 import { relativeTime } from '../shared/dates';
 import { safeHref } from '../lib/safeUrl';
-import { sortSets, statusOf, directionsOf, firstImage, viewedUnanswered } from '../lib/concepts';
+import { sortSets, statusOf, directionsOf, firstImage, viewedUnanswered, reviewLine } from '../lib/concepts';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useScreenOrigin, useRestore } from '../shell/nav-history';
 
@@ -69,7 +69,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
                               {stale && <Pill tone="new" label="Unanswered 2 days" size="sm" icon={false} variant="outline" />}
                             </Row>
                             <span className="cl-title lay-truncate">{set.title || 'Concepts'}, round {set.round || 1}</span>
-                            <span className="dt-muted">{n} direction{n === 1 ? '' : 's'}. {set.lastViewedAt ? `Last opened ${relativeTime(set.lastViewedAt)}.` : set.status === 'draft' ? 'Not sent yet.' : 'Not opened yet.'}</span>
+                            <span className="dt-muted">{reviewLine(set) ? `${reviewLine(set)}.` : `${n} direction${n === 1 ? '' : 's'}.`} {set.lastViewedAt ? `Last opened ${relativeTime(set.lastViewedAt)}.` : set.status === 'draft' ? 'Not sent yet.' : 'Not opened yet.'}</span>
                           </Stack>
                         </Row>
                       </Card>

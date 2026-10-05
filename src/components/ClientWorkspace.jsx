@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { COPY } from '../shared/copy';
 import { useSendEmail } from './SendEmailModal';
-import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice, newInvoice } from '../lib/invoices';
+import { useRoundLog } from './RoundLog';
+import { invoicesOf, markPaid as markInvoicePaid, replaceInvoice } from '../lib/invoices';
 import { durationMs } from '../ui/motion';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import {
-  Stack, Row, Grid, Card, Button, Sheet, Modal, Input, Select, Textarea, useToast, useConfirm,
+  Stack, Row, Grid, Card, Button, Sheet, Modal, Input, Select, useToast, useConfirm,
 } from '../ui';
 import { projectStageOf } from '../shared/semantics';
-import { retainerOf, REVISION_ROUNDS } from '../shared/pricing';
+import { retainerOf } from '../shared/pricing';
 import { money } from '../shared/format';
 import { fmtDateTime } from '../shared/dates';
 import { useShell } from '../shell/ShellContext';
 import {
-  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, revisionsUsed, extraRounds, revisionsMax, revisionsExhausted, extraRoundFeeFor, deliverBlockReason, isActiveProject, deliveryStepsAfter, deliveryStepsAtDelivery, FOLLOW_UP_DAYS, cancelAtFor, monthRecord, projectsOf, nextUnpaid, CANCEL_NOTICE_DAYS,
+  uid, today, monthKey, monthLabel, addMonths, localDate, stagesFor, nextStage, retainerSchedule, scheduleStatus, deliverBlockReason, isActiveProject, deliveryStepsAfter, deliveryStepsAtDelivery, FOLLOW_UP_DAYS, cancelAtFor, monthRecord, projectsOf, nextUnpaid, CANCEL_NOTICE_DAYS,
 } from '../lib/projects';
 
 /* The client workspace (Prompt 10, rebuilt in UI simplification part A):
@@ -68,8 +69,6 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchPro
   const [projId, setProjId] = useState(null);
   const current = work.find(p => String(p._id) === String(projId)) || work.find(isActiveProject) || work[0] || null;
   useEffect(() => { setProjId(null); }, [lead._id]);
-  const [round, setRound] = useState(null); // { project, extra }
-  const [roundNote, setRoundNote] = useState('');
   const [pay, setPay] = useState(null); // { project, item }
   const [payForm, setPayForm] = useState({ amount: '', at: today(), label: '' });
   const [manual, setManual] = useState(false);
@@ -110,23 +109,9 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchPro
   const advance = (p) => { const n = nextStage(p); if (n) setStage(p, n); };
   const archive = async (p) => { if (await confirm({ title: `Archive ${p.name}?`, body: 'It leaves the list. The ledger entries it paid stay on the client.', danger: true, confirmLabel: 'Archive' })) pp(p, { archived: true }); };
 
-  /* Revision rounds. */
-  const openRound = (p) => { setRound({ project: p, extra: revisionsExhausted(p) }); setRoundNote(''); };
-  const saveRound = async () => {
-    const p = round.project; const rev = { max: revisionsMax(p), used: revisionsUsed(p), log: [...(p.revisions?.log || [])], ...(p.revisions || {}) };
-    rev.log = [...(p.revisions?.log || []), { at: new Date().toISOString(), note: roundNote.trim(), extra: !!round.extra }];
-    rev.used = rev.log.filter(r => !r.extra).length;
-    const set = { revisions: rev };
-    if (round.extra) {
-      const fee = extraRoundFeeFor(p); const n = extraRounds(p) + 1;
-      set.invoices = [...invoicesOf(p), { ...newInvoice({ label: `Extra round ${n}`, amount: fee, dueAt: today(), status: 'sent' }), ledgerId: '', extra: true }];
-      set.total = (Number(p.total) || 0) + fee;
-    }
-    setBusy(true);
-    const ok = await pp(p, set);
-    setBusy(false);
-    if (ok) { toast.success(round.extra ? `Extra round logged, ${money(extraRoundFeeFor(p))} added as an invoice.` : `Round ${rev.used} of ${rev.max} logged.`); setRound(null); setRoundNote(''); }
-  };
+  /* Revision rounds: one flow, shared with the Concepts editor (RoundLog.jsx). */
+  const roundLog = useRoundLog({ onPatchProject });
+  const openRound = roundLog.open;
 
   /* Mark paid (CRM revamp, step 5): the ledger entry as today (or the day given), then the invoice paid and pointed at it. */
   const payInvoice = async (p, item, { paidAt = '', note = '' } = {}) => {
@@ -203,10 +188,7 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchPro
     <>
       {confirmDialog}
       {email.modal}
-      <Modal open={!!round} onClose={() => setRound(null)} title={round?.extra ? 'Log an extra round' : `Log round ${round ? revisionsUsed(round.project) + 1 : ''} of ${round ? revisionsMax(round.project) : REVISION_ROUNDS}`} description={round?.extra ? `${money(round ? extraRoundFeeFor(round.project) : 0)} for a ${round?.project.kind === 'web' || round?.project.kind === 'combined' ? 'web' : 'design'} round, added to the schedule as an unpaid line.` : 'What changed in this round.'}
-        footer={<><Button variant="ghost" onClick={() => setRound(null)}>Cancel</Button><Button loading={busy} onClick={saveRound}>{round?.extra ? 'Log extra round' : 'Log round'}</Button></>}>
-        <Textarea label={round?.extra ? 'Reason' : 'What changed'} rows={3} value={roundNote} onChange={(e) => setRoundNote(e.target.value)} placeholder={round?.extra ? 'They want the mark reworked after approving it.' : 'Tightened the wordmark spacing, swapped the secondary color.'} data-autofocus />
-      </Modal>
+      {roundLog.modal}
       <Modal open={!!deliver} onClose={() => setDeliver(null)} title={deliver ? `Mark ${deliver.project.name} delivered?` : ''} description="Every delivery ends with a retainer pitch. The Send delivery checklist opens on the project."
         footer={<><Button variant="ghost" onClick={() => setDeliver(null)} disabled={busy}>Cancel</Button><Button loading={busy} icon={Check} onClick={confirmDeliver} className="cw-deliver-confirm">Mark delivered</Button></>}>
         <Card level={2} padding={3} className="cw-deliver-link">

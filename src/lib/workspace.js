@@ -1,5 +1,5 @@
 import { postsOf, kindOf } from './posts';
-import { setsOf, newestSet, statusOf as conceptStatusOf, itemCount } from './concepts';
+import { setsOf, newestSet, statusOf as conceptStatusOf, itemCount, reviewLine } from './concepts';
 import { conceptSetStatusOf } from '../shared/semantics';
 import { taskCounts, taskNextUp, openTasks } from '../shared/taskRules';
 import { completeness } from './showcaseMeter';
@@ -47,13 +47,16 @@ export function tasksStatus(record, n = 2, now = Date.now()) {
   return { ...counts, next, label: counts.total ? `${counts.done} of ${counts.total} done` : 'none yet' };
 }
 
-/** Concepts: how many sets, the newest live one and its state, when the client last looked. */
+/** Concepts: how many sets, the newest live one and its state, when the client last looked. A Review each set also carries `review`, the one
+ * line the card and the menu say about it: "Waiting on client, 2 of 4" before they send, "3 approved, 1 needs changes" after. A Pick one set
+ * (and every older one) has none and keeps today's wording. */
 export function conceptsStatus(sets, leadId) {
   const all = setsOf(sets, leadId);
   const set = newestSet(sets, leadId);
   const st = set ? conceptSetStatusOf(conceptStatusOf(set)) : null;
+  const review = set ? reviewLine(set) : undefined;
   return {
-    count: all.length, set, status: st, label: st ? st.label.toLowerCase() : 'none',
+    count: all.length, set, status: st, label: review ? review[0].toLowerCase() + review.slice(1) : st ? st.label.toLowerCase() : 'none', review,
     items: set ? itemCount(set) : 0, lastViewedAt: set?.lastViewedAt || '', approved: !!set?.approvedDirectionId,
   };
 }

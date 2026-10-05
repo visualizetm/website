@@ -119,7 +119,7 @@ export const sameDraft = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 /* The notifications feed (Part 6): what a client did on a set within the
  * window. Opened is the last view, picked is the approval, changes is each
- * change request. Each carries the set so the shell can open the editor. */
+ * change request, answered is a Review each submission (one per send). Each carries the set so the shell can open the editor. */
 export function recentConceptActions(sets, { now = Date.now(), windowMs = UNANSWERED_MS } = {}) {
   const out = [];
   for (const s of (sets || []).filter(isLive)) {
@@ -131,6 +131,7 @@ export function recentConceptActions(sets, { now = Date.now(), windowMs = UNANSW
       if (!t || now - t > windowMs) continue;
       if (f.action === 'approve') out.push({ kind: 'picked', at: f.at, set: s, directionId: f.directionId, name: f.name || '' });
       if (f.action === 'change') out.push({ kind: 'changes', at: f.at, set: s, directionId: f.directionId, name: f.name || '', note: f.note || '' });
+      if (f.action === 'submit') out.push({ kind: 'answered', at: f.at, set: s, name: f.name || '' });
     }
   }
   return out.sort((a, b) => String(b.at).localeCompare(String(a.at)));

@@ -344,8 +344,8 @@ export const sets = [
     feedback: [{ at: daysFrom(-4), directionId: 'dH', action: 'change', name: 'Lead Business 3', note: 'Heavier.' }],
     approvedDirectionId: '', approvedAt: '', projectId: '', token: 'cncpARCHIVEDtoken0123456789a', tokenCreatedAt: daysFrom(-8), sentAt: daysFrom(-8), lastViewedAt: daysFrom(-4), createdAt: daysFrom(-9), updatedAt: daysFrom(-3) },
   /* Review each (Concepts review job): four items on one lead, three that need a decision and a mood board for reference. Four states of the same set on four leads: nothing answered
-   * (L12, token cncpREVIEWtoken0123456789abc), partly answered (L13), all answered but not sent (L14), sent (L15, with its submission). L16 is a locked set that Rob reopened. */
-  ...[['L12', 'cncpREVIEWtoken0123456789abc', 'sent', 0], ['L13', 'cncpPARTLYtoken0123456789abcd', 'viewed', 2], ['L14', 'cncpALLINtoken01234567890abcde', 'viewed', 3], ['L15', 'cncpSUBMITTEDtoken0123456789ab', 'changes', 3]].map(([leadId, token, status, answered]) => {
+   * (L12, token cncpREVIEWtoken0123456789abc), partly answered (L13), all answered but not sent (L14), sent (L10, a client with a project, so Log as a round has somewhere to land). */
+  ...[['L12', 'cncpREVIEWtoken0123456789abc', 'sent', 0], ['L13', 'cncpPARTLYtoken0123456789abcd', 'viewed', 2], ['L14', 'cncpALLINtoken01234567890abcde', 'viewed', 3], ['L10', 'cncpSUBMITTEDtoken0123456789ab', 'changes', 3]].map(([leadId, token, status, answered]) => {
     const need = [['rA', 'Logo', 'The primary mark', IMG.g, 'logo'], ['rB', 'Business card', 'Front and back', IMG.l, 'mockup'], ['rC', 'Homepage', 'The first screen', IMG.p, 'web']];
     const ans = [{ status: 'approved', note: '', decidedAt: daysFrom(-1) }, { status: 'changes', note: 'Can the phone number be bigger? ' + UNBROKEN.slice(0, 18), decidedAt: daysFrom(-1) }, { status: 'approved', note: '', decidedAt: daysFrom(-1) }];
     const directions = [
@@ -353,7 +353,7 @@ export const sets = [
         items: [item(id + '1', img, kind, cap, 0), ...(i === 1 ? [item(id + '2', IMG.s, 'mockup', 'The back', 1)] : [])], ...(i < answered ? { decision: ans[i] } : {}) })),
       { id: 'rD', name: 'Mood board', rationale: 'Where the colors and the feel came from. Nothing to decide here.', order: 3, needsDecision: false, items: [item('rD1', IMG.f, 'board', 'Reference', 0)] },
     ];
-    const submitted = leadId === 'L15';
+    const submitted = leadId === 'L10';
     return { _id: 'SR' + leadId, leadId, title: 'Your brand, three pieces', round: 1, intro: 'Take a look at each one.', status, archived: false, approvalMode: 'review', allowPass: leadId !== 'L12', directions,
       feedback: submitted ? [{ at: daysFrom(-1), directionId: '', action: 'submit', name: 'Sam', note: '' }] : [], submissions: submitted ? [{ id: 'sub1', at: daysFrom(-1), name: 'Sam', status: 'changes', answers: need.map(([id, name], i) => ({ directionId: id, name, ...ans[i] })) }] : [], submittedAt: submitted ? daysFrom(-1) : '',
       approvedDirectionId: '', approvedAt: '', projectId: '', token, tokenCreatedAt: daysFrom(-3), sentAt: daysFrom(-3), lastViewedAt: daysFrom(-1), createdAt: daysFrom(-4), updatedAt: daysFrom(-1) };

@@ -81,7 +81,7 @@ export default function WorkspaceCards({ rec }) {
         <div className="rc-ws-row">
           {cc.status ? <Pill tone={cc.status.tone} label={cc.status.label} size="sm" icon={false} variant={cc.status.id === 'approved' ? 'solid' : 'soft'} /> : <Pill tone="neutral" label="None yet" size="sm" icon={false} variant="soft" />}
         </div>
-        <p className="rc-ws-line">{cc.set ? `${plural(cc.count, 'set')}, ${plural(cc.items, 'item')} in round ${cc.set.round || 1}.` : 'Nothing to show them yet.'}</p>
+        <p className="rc-ws-line">{cc.review ? `${cc.review}.` : cc.set ? `${plural(cc.count, 'set')}, ${plural(cc.items, 'item')} in round ${cc.set.round || 1}.` : 'Nothing to show them yet.'}</p>
         {cc.lastViewedAt && <p className="rc-ws-sub">Viewed {relativeTime(cc.lastViewedAt)}</p>}
       </CardShell>
     </div>
