@@ -24,6 +24,16 @@ const RANK = { changes: 0, viewed: 1, sent: 2, draft: 3, approved: 4, archived: 
 export const rankOf = (set) => RANK[statusOf(set)] ?? 3;
 export const sortSets = (sets) => [...(sets || [])].filter(isLive).sort((a, b) => rankOf(a) - rankOf(b) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
 
+/* Approval mode (Review each). A set with no approvalMode at all is Pick one, as every document written before it was. */
+export const approvalModeOf = (set) => (set?.approvalMode === 'review' ? 'review' : 'pick');
+export const isReview = (set) => approvalModeOf(set) === 'review';
+/** A direction needs an answer unless Rob marked it For reference. */
+export const needsDecision = (d) => d?.needsDecision !== false;
+/** The client's own answer on one direction: { status: approved | changes | pass, note, decidedAt }, or null. */
+export const decisionOf = (d) => (d?.decision && ['approved', 'changes', 'pass'].includes(d.decision.status) ? d.decision : null);
+/** The client has sent their answers: the mode and which items need one are locked until Rob reopens it. */
+export const isLocked = (set) => isReview(set) && !!set?.submittedAt;
+
 export const directionsOf = (set) => [...(set?.directions || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
 export const itemsOf = (d) => [...(d?.items || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
 export const itemCount = (set) => directionsOf(set).reduce((n, d) => n + itemsOf(d).length, 0);
@@ -37,10 +47,39 @@ export function directionLabel(set, id, withName = true) {
   return withName && d.name ? `Direction ${letterOf(i)}, ${d.name}` : `Direction ${letterOf(i)}`;
 }
 
+/** The directions a client has to answer in Review each. */
+export const decisionItems = (set) => directionsOf(set).filter(needsDecision);
+/** How the answers stand: total items needing one, how many have one, and the count of each answer. */
+export function reviewTally(set) {
+  const items = decisionItems(set);
+  const n = (k) => items.filter(d => decisionOf(d)?.status === k).length;
+  const approved = n('approved'); const changes = n('changes'); const pass = n('pass');
+  return { total: items.length, answered: approved + changes + pass, approved, changes, pass, waiting: items.length - approved - changes - pass };
+}
+/** "3 approved, 1 needs changes, 1 passed": only the parts that are not zero. */
+export function tallyLine(t) {
+  return [[t.approved, 'approved'], [t.changes, t.changes === 1 ? 'needs changes' : 'need changes'], [t.pass, 'passed']].filter(([c]) => c).map(([c, l]) => `${c} ${l}`).join(', ');
+}
+/** The one line the Concepts card and the list say about a set: "Waiting on client, 2 of 4" before they send, "3 approved, 1 needs changes" after; Pick one keeps its own wording (undefined). */
+export function reviewLine(set) {
+  if (!isReview(set) || ['draft', 'archived'].includes(statusOf(set))) return undefined;
+  const t = reviewTally(set);
+  if (set.submittedAt) return tallyLine(t) || 'Answers in';
+  return `Waiting on client, ${t.answered} of ${t.total}`;
+}
+/** What the "Log as a round" action pre-fills: every item that needs changes, one line each, as one consolidated round. */
+export function roundNote(set) {
+  return directionsOf(set).filter(d => decisionOf(d)?.status === 'changes')
+    .map(d => `${directionLabel(set, d.id)}: ${String(decisionOf(d).note || '').trim()}`).join('\n');
+}
+/** Every submission, newest first. */
+export const submissionsOf = (set) => [...(set?.submissions || [])].sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+
 /** Why Send to client is disabled, or null when it can go. */
 export function sendBlockReason(set) {
   const ds = directionsOf(set);
   if (!ds.length) return 'Add a direction first.';
+  if (isReview(set) && !decisionItems(set).length) return 'Mark at least one item as Needs a decision first.';
   if (!ds.some(d => itemsOf(d).some(it => it.image))) return 'Add at least one image to a direction first.';
   return null;
 }
@@ -57,20 +96,23 @@ export const viewedUnanswered = (set, now = Date.now()) => statusOf(set) === 'vi
 export const conceptsBadge = (sets, now = Date.now()) => (sets || []).filter(isLive).filter(s => statusOf(s) === 'changes' || viewedUnanswered(s, now)).length;
 
 /** A fresh empty direction / item as the editor adds them. */
-export const blankDirection = (order = 0) => ({ id: uid(), name: '', rationale: '', order, items: [] });
+export const blankDirection = (order = 0) => ({ id: uid(), name: '', rationale: '', order, needsDecision: true, items: [] });
 export const blankItem = (image, order = 0, kind = 'other') => ({ id: uid(), kind, image, caption: '', order });
 /** The next round: the same directions with new ids, as a draft the client has not seen. */
 export function nextRoundOf(set) {
   return {
     leadId: String(set.leadId), title: set.title || '', round: (Number(set.round) || 1) + 1, intro: set.intro || '', projectId: set.projectId || '',
-    directions: directionsOf(set).map((d, i) => ({ ...d, id: uid(), order: i, items: itemsOf(d).map((it, k) => ({ ...it, id: uid(), order: k })) })),
+    approvalMode: approvalModeOf(set), allowPass: set.allowPass === true,
+    /* The answers stay on the round they were given on: a fresh round starts with none. */
+    directions: directionsOf(set).map((d, i) => { const { decision, ...rest } = d; return { ...rest, id: uid(), order: i, needsDecision: needsDecision(d), items: itemsOf(d).map((it, k) => ({ ...it, id: uid(), order: k })) }; }),
   };
 }
-/** What the editor drafts: the four writable fields and nothing the server owns. */
+/** What the editor drafts: the writable fields (title, intro, project, the approval mode, Not this one, and each direction with whether it needs an answer) and nothing the server owns. */
 export function draftOf(set) {
   return {
     title: String(set?.title || ''), intro: String(set?.intro || ''), projectId: String(set?.projectId || ''),
-    directions: directionsOf(set).map((d, i) => ({ id: d.id || uid(), name: String(d.name || ''), rationale: String(d.rationale || ''), order: i, items: itemsOf(d).map((it, k) => ({ id: it.id || uid(), kind: it.kind || 'other', image: String(it.image || ''), caption: String(it.caption || ''), order: k })) })),
+    approvalMode: approvalModeOf(set), allowPass: set?.allowPass === true,
+    directions: directionsOf(set).map((d, i) => ({ id: d.id || uid(), name: String(d.name || ''), rationale: String(d.rationale || ''), order: i, needsDecision: needsDecision(d), items: itemsOf(d).map((it, k) => ({ id: it.id || uid(), kind: it.kind || 'other', image: String(it.image || ''), caption: String(it.caption || ''), order: k })) })),
   };
 }
 export const sameDraft = (a, b) => JSON.stringify(a) === JSON.stringify(b);

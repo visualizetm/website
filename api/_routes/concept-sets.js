@@ -164,7 +164,8 @@ export async function handler(req, res) {
     if (allowed.status === 'sent' && before.status !== 'sent') allowed.sentAt = new Date().toISOString();
     allowed.updatedAt = new Date();
     await col.updateOne({ _id, deleted: { $ne: true } }, { $set: allowed });
-    return res.status(200).json({ ok: true });
+    /* The stored document comes back, so the shell takes what the server wrote (a stamp, a minted token, a reopen that cleared the answers). */
+    return res.status(200).json({ ok: true, item: await col.findOne({ _id, deleted: { $ne: true } }) });
   }
 
   if (req.method === 'DELETE') {

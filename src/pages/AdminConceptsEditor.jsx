@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, InlineEdit, Tabs, Menu,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, SegmentedControl, Toggle, InlineEdit, Tabs, Menu,
   EmptyState, ErrorState, Stagger, SkeletonText, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow } from '../ui';
 import { COPY } from '../shared/copy';
-import { CONCEPT_ITEM_KINDS, conceptSetStatusOf, conceptFeedbackActionOf } from '../shared/semantics';
+import { CONCEPT_ITEM_KINDS, CONCEPT_APPROVAL_MODES, conceptSetStatusOf, conceptFeedbackActionOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
 import { projectsOf, activeProject, revisionsUsed, revisionsMax, extraRoundFeeFor, roundLogPatch, money } from '../lib/projects';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { safeHref } from '../lib/safeUrl';
 import {
-  MAX_DIRECTIONS, MAX_ITEMS, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
+  MAX_DIRECTIONS, MAX_ITEMS, approvalModeOf, isReview, needsDecision, isLocked, decisionItems, letterOf, statusOf, setsOf, itemsOf, sendBlockReason, publicUrl, timelineOf, directionLabel, blankDirection, blankItem, nextRoundOf, draftOf, sameDraft,
 } from '../lib/concepts';
 import { useTopBar } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
@@ -67,7 +67,7 @@ function ItemCard({ item, letter, index, count, readOnly, onWrite, onMove, onDel
 }
 
 /* ── One direction ────────────────────────────────────────────────── */
-function DirectionCard({ d, index, count, readOnly, desktop, onWrite, onMove, onDuplicate, onDelete }) {
+function DirectionCard({ d, index, count, readOnly, desktop, review, locked, onWrite, onMove, onDuplicate, onDelete }) {
   const toast = useToast();
   const fileRef = useRef(null);
   const drag = useRef(null);
@@ -123,6 +123,16 @@ function DirectionCard({ d, index, count, readOnly, desktop, onWrite, onMove, on
       </Row>
       <Input label="Name" value={d.name} maxLength={80} disabled={readOnly} placeholder="Warm and hand drawn"
         hint="What they will call it when they text you back." onChange={(e) => onWrite({ name: e.target.value.slice(0, 80) })} />
+      {review && (locked || readOnly
+        ? <p className="ce-note">{needsDecision(d) ? 'Needs a decision.' : 'For reference, no answer asked.'}{locked ? ' Locked until you reopen it for review.' : ''}</p>
+        : (
+          <div className="v-field">
+            <span className="v-field-label">What they do with it</span>
+            <SegmentedControl label={`Direction ${letter}, what the client does`} size="sm" options={[{ id: 'decide', label: 'Needs a decision' }, { id: 'ref', label: 'For reference' }]}
+              value={needsDecision(d) ? 'decide' : 'ref'} onChange={(id) => onWrite({ needsDecision: id === 'decide' })} />
+            {!needsDecision(d) && <p className="ce-note">Shown to them, but no answer asked. Good for a mood board or a color study.</p>}
+          </div>
+        ))}
       <Textarea label="Why this one" rows={3} maxLength={600} value={d.rationale} disabled={readOnly}
         placeholder="Two or three lines on what this direction does for them."
         hint={`They read this before the images. ${d.rationale.length} of 600.`} onChange={(e) => onWrite({ rationale: e.target.value.slice(0, 600) })} />
@@ -287,6 +297,14 @@ export default function AdminConceptsEditor({
     const ok = await onPatch(active._id, { archived: true });
     if (ok) toast.success('Set archived.'); else toast.error(COPY.error.save);
   }, [active, confirm, onPatch, toast]);
+  const reopen = useCallback(async () => {
+    if (!active) return;
+    const yes = await confirm({ title: 'Reopen for review?', body: 'Their answers are cleared from the items and kept in the history below. The set goes back to sent, so the same link lets them answer again.', confirmLabel: 'Reopen for review' });
+    if (!yes) return;
+    if (!(await saveFirst())) return;
+    const ok = await onPatch(active._id, { reopen: true });
+    if (ok) toast.success('Reopened. Their old answers are kept in history.'); else toast.error(COPY.error.save);
+  }, [active, confirm, saveFirst, onPatch, toast]);
   const copyLink = useCallback(async (url) => {
     try { await navigator.clipboard.writeText(url); toast.success('Link copied.'); } catch { toast.error(COPY.error.copy); }
   }, [toast]);
@@ -341,6 +359,15 @@ export default function AdminConceptsEditor({
   const used = project ? revisionsUsed(project) : 0;
   const max = project ? revisionsMax(project) : 0;
   const C = COPY.concepts.editor;
+  const review = isReview(draft);
+  const locked = !!active && isLocked(active);
+  const toAnswer = decisionItems(draft).length;
+  const forRef = draft.directions.length - toAnswer;
+  /* The live line under the mode: what the client will be asked, as it stands in the draft. */
+  const previewLine = review
+    ? (toAnswer ? `Client will review ${toAnswer} item${toAnswer === 1 ? '' : 's'}${forRef ? `, ${forRef} for reference` : ''}.` : 'Nothing needs a decision yet, so this cannot be sent.')
+    : `Client will pick one of ${draft.directions.length} direction${draft.directions.length === 1 ? '' : 's'}.`;
+  const modeLabel = (CONCEPT_APPROVAL_MODES.find(m => m.id === approvalModeOf(draft)) || CONCEPT_APPROVAL_MODES[0]).label;
   const setupCard = (
               <Card className="ce-setup">
                 <p className="pb-card-h">Setup</p>
@@ -354,10 +381,27 @@ export default function AdminConceptsEditor({
                     options={[{ id: '', label: 'None' }, ...leadProjects.map(p => ({ id: String(p._id), label: p.name || 'Project' }))]}
                     onChange={(e) => write({ projectId: e.target.value })} />
                 )}
+                <div className="ce-mode">
+                  <span className="v-field-label">Approval mode</span>
+                  {locked || readOnly ? (
+                    <>
+                      <p className="ce-mode-now">{modeLabel}{review && draft.allowPass ? ', Not this one allowed' : ''}{locked ? ', locked' : ''}</p>
+                      {locked && <p className="ce-note">{name} has sent their answers, so the mode and which items need one stay as they were. Reopen for review to change them. Their old answers stay in history.</p>}
+                      {locked && !readOnly && <Row gap={2} wrap><Button variant="secondary" size="md" icon="RefreshCw01" onClick={reopen} className="ce-reopen">Reopen for review</Button></Row>}
+                    </>
+                  ) : (
+                    <>
+                      <SegmentedControl label="Approval mode" full options={CONCEPT_APPROVAL_MODES.map(m => ({ id: m.id, label: m.label }))} value={approvalModeOf(draft)} onChange={(id) => write({ approvalMode: id })} />
+                      <p className="ce-note">{(CONCEPT_APPROVAL_MODES.find(m => m.id === approvalModeOf(draft)) || {}).hint}</p>
+                      {review && <Toggle checked={!!draft.allowPass} onChange={(v) => write({ allowPass: v })} label={'Allow "Not this one"'} description="They can pass on an item instead of approving it or asking for changes." className="ce-pass" />}
+                    </>
+                  )}
+                  <p className={`ce-preview${review && !toAnswer ? ' is-warn' : ''}`} role="status">{previewLine}</p>
+                </div>
               </Card>
   );
   const dirCard = (d, i) => (
-    <DirectionCard key={d.id} d={d} index={i} count={draft.directions.length} readOnly={readOnly} desktop={desktop}
+    <DirectionCard key={d.id} d={d} index={i} count={draft.directions.length} readOnly={readOnly} desktop={desktop} review={review} locked={locked}
                   onWrite={(next) => writeDirections(draft.directions.map(x => (x.id === d.id ? { ...x, ...next } : x)))}
                   onMove={(by) => moveDirection(i, by)} onDuplicate={() => duplicateDirection(i)} onDelete={() => deleteDirection(i)} />
   );
@@ -490,7 +534,7 @@ export default function AdminConceptsEditor({
               {!inStep && phone && (
                 <Stack gap={2}>
                   <ListRow title="Setup" subtitle={draft.title || `Concepts for ${name}`} onClick={() => openStep('Setup')} />
-                  {draft.directions.map((d, i) => <ListRow key={d.id} title={`Direction ${'ABCDEF'[i]}`} subtitle={d.name || 'Not named yet'} onClick={() => openStep(`dir:${d.id}`)} />)}
+                  {draft.directions.map((d, i) => <ListRow key={d.id} title={`Direction ${'ABCDEF'[i]}`} subtitle={`${d.name || 'Not named yet'}${review && !needsDecision(d) ? ', for reference' : ''}`} onClick={() => openStep(`dir:${d.id}`)} />)}
                   {!readOnly && <Button variant="secondary" icon="Plus" onClick={addDirection} disabled={draft.directions.length >= MAX_DIRECTIONS} className="ce-add-dir">Add direction</Button>}
                   <ListRow title="Send" subtitle={isDraft ? (blocked || 'Ready to send') : (active.sentAt ? `Sent ${relativeTime(active.sentAt)}` : 'Sent')} onClick={() => openStep('Send')} />
                   <ListRow title="Feedback" subtitle={approvedId ? `Picked ${directionLabel(active, approvedId)}` : `${timeline.length} ${timeline.length === 1 ? 'note' : 'notes'}`} onClick={() => openStep('Feedback')} />
@@ -518,6 +562,10 @@ export const ceStyles = `
   @media (max-width: 767px) { .pl-topbar .pl-back { display: none; } }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .pl-page-body { padding-top: var(--v-space-4); }
+  .ce-mode { display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .ce-mode-now { margin: 0; font-weight: var(--v-weight-bold); color: var(--v-text-1); }
+  .ce-preview { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .ce-preview.is-warn { color: var(--v-status-danger-text); }
   .ce-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .ce-sets .v-tabs { border-bottom: 0; }
   .ce-letter {

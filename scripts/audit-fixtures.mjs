@@ -343,14 +343,30 @@ export const sets = [
     directions: [{ id: 'dH', name: 'Serif', rationale: '', order: 0, items: [item('iH1', IMG.g, 'logo', '', 0)] }],
     feedback: [{ at: daysFrom(-4), directionId: 'dH', action: 'change', name: 'Lead Business 3', note: 'Heavier.' }],
     approvedDirectionId: '', approvedAt: '', projectId: '', token: 'cncpARCHIVEDtoken0123456789a', tokenCreatedAt: daysFrom(-8), sentAt: daysFrom(-8), lastViewedAt: daysFrom(-4), createdAt: daysFrom(-9), updatedAt: daysFrom(-3) },
+  /* Review each (Concepts review job): four items on one lead, three that need a decision and a mood board for reference. Four states of the same set on four leads: nothing answered
+   * (L12, token cncpREVIEWtoken0123456789abc), partly answered (L13), all answered but not sent (L14), sent (L15, with its submission). L16 is a locked set that Rob reopened. */
+  ...[['L12', 'cncpREVIEWtoken0123456789abc', 'sent', 0], ['L13', 'cncpPARTLYtoken0123456789abcd', 'viewed', 2], ['L14', 'cncpALLINtoken01234567890abcde', 'viewed', 3], ['L15', 'cncpSUBMITTEDtoken0123456789ab', 'changes', 3]].map(([leadId, token, status, answered]) => {
+    const need = [['rA', 'Logo', 'The primary mark', IMG.g, 'logo'], ['rB', 'Business card', 'Front and back', IMG.l, 'mockup'], ['rC', 'Homepage', 'The first screen', IMG.p, 'web']];
+    const ans = [{ status: 'approved', note: '', decidedAt: daysFrom(-1) }, { status: 'changes', note: 'Can the phone number be bigger? ' + UNBROKEN.slice(0, 18), decidedAt: daysFrom(-1) }, { status: 'approved', note: '', decidedAt: daysFrom(-1) }];
+    const directions = [
+      ...need.map(([id, name, cap, img, kind], i) => ({ id, name, rationale: `${name} for the new look. ` + (i === 0 ? 'A friendlier mark for a business people invite onto their driveway.' : 'Built from the same colors so the three sit together.'), order: i, needsDecision: true,
+        items: [item(id + '1', img, kind, cap, 0), ...(i === 1 ? [item(id + '2', IMG.s, 'mockup', 'The back', 1)] : [])], ...(i < answered ? { decision: ans[i] } : {}) })),
+      { id: 'rD', name: 'Mood board', rationale: 'Where the colors and the feel came from. Nothing to decide here.', order: 3, needsDecision: false, items: [item('rD1', IMG.f, 'board', 'Reference', 0)] },
+    ];
+    const submitted = leadId === 'L15';
+    return { _id: 'SR' + leadId, leadId, title: 'Your brand, three pieces', round: 1, intro: 'Take a look at each one.', status, archived: false, approvalMode: 'review', allowPass: leadId !== 'L12', directions,
+      feedback: submitted ? [{ at: daysFrom(-1), directionId: '', action: 'submit', name: 'Sam', note: '' }] : [], submissions: submitted ? [{ id: 'sub1', at: daysFrom(-1), name: 'Sam', status: 'changes', answers: need.map(([id, name], i) => ({ directionId: id, name, ...ans[i] })) }] : [], submittedAt: submitted ? daysFrom(-1) : '',
+      approvedDirectionId: '', approvedAt: '', projectId: '', token, tokenCreatedAt: daysFrom(-3), sentAt: daysFrom(-3), lastViewedAt: daysFrom(-1), createdAt: daysFrom(-4), updatedAt: daysFrom(-1) };
+  }),
 ];
 /* What /api/concepts?token= answers with for a set: the exact public shape. */
 export const publicConceptSet = (s) => {
   const lead = leads.find(l => String(l._id) === String(s.leadId));
+  const review = s.approvalMode === 'review';
   return {
     client: { displayName: lead?.showcase?.displayName || lead?.business || 'Client' },
-    set: { title: s.title, round: s.round, intro: s.intro, status: s.status, approvedDirectionId: s.approvedDirectionId },
-    directions: s.directions.map(d => ({ id: d.id, name: d.name, rationale: d.rationale, items: d.items.map(it => ({ id: it.id, kind: it.kind, image: it.image, caption: it.caption })) })),
+    set: { title: s.title, round: s.round, intro: s.intro, status: s.status, approvedDirectionId: s.approvedDirectionId, approvalMode: review ? 'review' : 'pick', allowPass: review && s.allowPass === true, submittedAt: review ? (s.submittedAt || '') : '' },
+    directions: s.directions.map(d => ({ id: d.id, name: d.name, rationale: d.rationale, needsDecision: !review || d.needsDecision !== false, decision: review && d.needsDecision !== false && d.decision ? { status: d.decision.status, note: d.decision.note || '', decidedAt: d.decision.decidedAt || '' } : null, items: d.items.map(it => ({ id: it.id, kind: it.kind, image: it.image, caption: it.caption })) })),
     feedback: s.feedback.map(f => ({ at: f.at, directionId: f.directionId, action: f.action, name: f.name })),
   };
 };
@@ -523,6 +539,31 @@ export async function mockRoutes(page, opts = {}) {
     if (r.request().method() === 'POST') {
       let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
       const d = s.directions.find(x => x.id === body.directionId);
+      const reply = (status, payload) => r.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) });
+      if (body.action === 'decide') {
+        if (s.approvalMode !== 'review') return reply(409, { error: 'This set is a pick one.' });
+        if (s.submittedAt) return reply(409, { error: 'Your answers are already sent.' });
+        if (!d) return dead();
+        if (d.needsDecision === false) return reply(400, { error: 'That one is for reference, nothing to decide.' });
+        if (!['approved', 'changes', 'pass'].includes(body.status) || (body.status === 'pass' && !s.allowPass)) return reply(400, { error: 'unknown answer' });
+        if (body.status === 'changes' && !String(body.note || '').trim()) return reply(400, { error: 'Say what should change first.' });
+        d.decision = { status: body.status, note: String(body.note || '').slice(0, 1000), decidedAt: new Date().toISOString() };
+        return reply(200, { ok: true, decision: d.decision });
+      }
+      if (body.action === 'submit') {
+        if (s.approvalMode !== 'review') return reply(409, { error: 'This set is a pick one.' });
+        if (s.submittedAt) return reply(409, { error: 'Your answers are already sent.' });
+        const need = s.directions.filter(x => x.needsDecision !== false);
+        const open = need.filter(x => !x.decision);
+        if (open.length) return reply(400, { error: 'Answer every one first.', remaining: open.map(x => x.id) });
+        const at = new Date().toISOString();
+        const answers = need.map(x => ({ directionId: x.id, name: x.name, ...x.decision }));
+        s.status = answers.some(a => a.status === 'changes') || answers.every(a => a.status === 'pass') ? 'changes' : 'approved';
+        s.submittedAt = at; s.submissions = [...(s.submissions || []), { id: 'subN', at, name: String(body.name || ''), status: s.status, answers }];
+        s.feedback.push({ at, directionId: '', action: 'submit', name: String(body.name || '').slice(0, 80), note: '' });
+        return reply(200, { ok: true, status: s.status });
+      }
+      if (s.approvalMode === 'review' && (body.action === 'approve' || body.action === 'change')) return reply(409, { error: 'This set is answered one by one.' });
       if (body.action !== 'note' && !d) return dead();
       if (s.status === 'approved') return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'This set is already decided.' }) });
       if (body.action === 'change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'note required' }) });
