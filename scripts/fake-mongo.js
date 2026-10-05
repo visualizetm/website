@@ -63,10 +63,10 @@ function collection(name) {
   const cursor = (items) => {
     let out = [...items]; let proj = null;
     const api = {
-      sort(spec) { const keys = Object.keys(spec || {}); out.sort((a, b) => { for (const k of keys) { const x = String(getPath(a, k) ?? ''); const y = String(getPath(b, k) ?? ''); if (x !== y) return (x < y ? -1 : 1) * (spec[k] < 0 ? -1 : 1); } return 0; }); return api; },
+      sort(spec) { const keys = Object.keys(spec || {}); out.sort((a, b) => { for (const k of keys) { const x = String(norm(getPath(a, k)) ?? ''); const y = String(norm(getPath(b, k)) ?? ''); if (x !== y) return (x < y ? -1 : 1) * (spec[k] < 0 ? -1 : 1); } return 0; }); return api; },
       limit(n) { out = out.slice(0, n); return api; },
       project(p) { proj = p; return api; },
-      async toArray() { return proj ? out.map(d => Object.fromEntries(Object.entries(d).filter(([k]) => k === '_id' || proj[k]))) : out; },
+      async toArray() { if (!proj) return out; const drop = Object.values(proj).every(v => !v); return out.map(d => Object.fromEntries(Object.entries(d).filter(([k]) => (drop ? !(k in proj) : (k === '_id' || proj[k]))))); },
     };
     return api;
   };

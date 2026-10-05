@@ -15,6 +15,7 @@ import { handler as calendlyEvents } from '../_routes/calendly-events.js';
 import { handler as callLeads } from '../_routes/call-leads.js';
 import { handler as conceptPacks } from '../_routes/concept-packs.js';
 import { handler as conceptSets } from '../_routes/concept-sets.js';
+import { handler as docs } from '../_routes/docs.js';
 import { handler as exportHandler } from '../_routes/export.js';
 import { handler as leadsImport } from '../_routes/leads-import.js';
 import { handler as lists } from '../_routes/lists.js';
@@ -36,6 +37,7 @@ const ROUTES = {
   'call-leads': route(callLeads, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 1024 * 1024 }),
   'concept-packs': route(conceptPacks, { methods: ['GET', 'POST', 'PATCH'] }),
   'concept-sets': route(conceptSets, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 512 * 1024 }),
+  'docs': route(docs, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 512 * 1024 }),
   'export': route(exportHandler, { methods: ['GET'] }),
   'lists': route(lists, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'suggestions': route(suggestions, { methods: ['GET', 'PATCH'] }),

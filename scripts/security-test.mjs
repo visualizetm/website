@@ -400,6 +400,21 @@ section('4c. concepts review: the guards on a client\'s answers');
   for (const r of await runReview(path.join(repoRoot, 'api'))) ok(r.pass, `${r.guard ? `[guard ${r.guard}] ` : ''}${r.desc}`);
 }
 
+/* ── 4d. Client docs: admin only, the block schema, references on the client ─ */
+section('4d. client docs: admin only, the block schema, references on the client');
+{
+  /* The checks live in scripts/docs-lib.mjs and run against a copy of api/. scripts/docs-guard-proof.mjs cuts each guard out of that copy and
+   * requires its check to fail. The last two lines are the render rule: nothing that draws a doc reads a stored string as markup. */
+  const { runDocs } = await import(pathToFileURL(path.join(repoRoot, 'scripts', 'docs-lib.mjs')).href);
+  for (const r of await runDocs(path.join(repoRoot, 'api'))) ok(r.pass, `${r.guard ? `[guard ${r.guard}] ` : ''}${r.desc}`);
+  const SINK = /dangerouslySetInnerHTML|\.innerHTML\s*[+]?=|\.outerHTML\s*=|insertAdjacentHTML|document\.write\(/;
+  const walk = (d) => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])) : [];
+  const docFiles = [...walk(path.join(repoRoot, 'src', 'components', 'docs')), ...walk(path.join(repoRoot, 'src', 'pages')).filter(f => /AdminDoc/.test(f)), path.join(repoRoot, 'src', 'lib', 'docs.js'), path.join(repoRoot, 'src', 'lib', 'docTemplates.js'), path.join(repoRoot, 'src', 'shared', 'docBlocks.js')].filter(f => fs.existsSync(f));
+  ok(SINK.test('<div dangerouslySetInnerHTML={{ __html: b.html }} />') && SINK.test('el.innerHTML = x') && !SINK.test('el.textContent = x'), 'the render rule\'s detector catches an HTML sink and passes plain text');
+  const sinks = docFiles.filter(f => SINK.test(fs.readFileSync(f, 'utf8')));
+  ok(docFiles.length > 0 && sinks.length === 0, `no file that draws or edits a doc writes HTML (${docFiles.length} files scanned${sinks.length ? `, found in ${sinks.map(f => path.relative(repoRoot, f)).join(', ')}` : ''})`);
+}
+
 /* ── 5. The admin guard and the login limiter ───────────────────────── */
 section('5. the admin guard and the login limiter');
 {
