@@ -39,6 +39,7 @@ const loaders = {
   showcase: () => import('./AdminShowcase'),
   planner: () => import('./AdminPlanner'),
   tasks: () => import('./AdminTasks'),
+  docEditor: () => import('./AdminDoc'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
@@ -60,6 +61,7 @@ const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
 const AdminTasks = lazy(loaders.tasks);
+const AdminDoc = lazy(loaders.docEditor);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
@@ -412,6 +414,7 @@ export default function AdminApp() {
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
     if (/^\/clients\/[^/]+\/tasks$/.test(p)) return 'tasks';
+    if (/^\/docs\/[^/]+$/.test(p)) return 'docEditor';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
@@ -433,6 +436,8 @@ export default function AdminApp() {
   const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
   // /clients/:id/tasks (the task system): the client's and their projects' checklists; ?project= opens one project's.
   const tasksId = (relPath.match(/^\/clients\/([^/]+)\/tasks$/) || [])[1] || '';
+  // /docs/:id (client docs): one doc in the editor.
+  const docId = (relPath.match(/^\/docs\/([^/]+)$/) || [])[1] || '';
   // /clients/:id/projects/new and /projects/new (nothing computer only): the new project page; /lists/:id/fill: fill from filters.
   const projectNewLeadId = (relPath.match(/^\/clients\/([^/]+)\/projects\/new$/) || [])[1] || '';
   const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
@@ -467,7 +472,8 @@ export default function AdminApp() {
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: a blank one for now; the template sheet replaces this call. */
   const newDoc = useCallback(async (lead) => { const item = await docsState.ops.create({ leadId: String(lead._id), type: 'general', title: 'Untitled', blocks: [] }); if (item) openDoc(item); return item; }, [docsState.ops, openDoc]);
-  const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc }), [docsState, openDoc, openClientDocs, newDoc]);
+  const openProject = useCallback((id) => { push(rootOf('projects'), { open: { section: 'projects', id: String(id), n: Date.now() }, selectedId: id }); }, [push]);
+  const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc, openProject }), [docsState, openDoc, openClientDocs, newDoc, openProject]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
   const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
   // Open a lead in whichever screen owns its stage: a push carrying the record on its state.
@@ -760,6 +766,10 @@ export default function AdminApp() {
           onPatchLead={patchCallLead} onPatchProject={patchProject}
           onBack={navBack ? navBack.back : () => go('clients')}
         />
+      )}
+      {section === 'docEditor' && (
+        <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi}
+          onBack={navBack ? navBack.back : () => go('clients')} />
       )}
       {section === 'conceptsEditor' && (
         <AdminConceptsEditor

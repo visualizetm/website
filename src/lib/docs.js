@@ -49,3 +49,5 @@ export const patchDoc = (id, set) => apiFetch(URL, { method: 'PATCH', body: { id
 export const removeDoc = (id, opts = {}) => apiFetch(URL, { method: 'DELETE', body: { id, ...(opts.purge ? { purge: true } : {}) } });
 export const restoreDoc = (id) => apiFetch(URL, { method: 'PATCH', body: { id, restore: true } });
 export const saveTemplatePrefs = (prefs) => apiFetch(URL, { method: 'PATCH', body: { prefs } });
+/** The pagehide save: a keepalive request outlives the page (best effort, the editor's own retry is the guarantee). */
+export const patchDocBeacon = (id, set) => { try { fetch(URL, { method: 'PATCH', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, set }) }).catch(() => {}); } catch { /* the editor's saver keeps the text */ } };

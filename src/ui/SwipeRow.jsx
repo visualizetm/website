@@ -15,12 +15,13 @@ import { durationMs } from './motion';
  * @param {{label: string, icon?: string, tone?: 'primary'|'danger'|'callback', onCommit: Function}} [props.left] revealed by dragging left
  * @param {Function} [props.onHold] long press
  * @param {boolean} [props.enabled=true] false renders the children alone (a computer, a select mode)
+ * @param {Function} [props.gate] (touchstart event) => false leaves this touch alone (the doc editor does not swipe a block whose text has focus)
  */
 export const SWIPE_AT = 88; // px past which a release commits
 export const HOLD_MS = 500;
 const MAX = 140;
 
-export default function SwipeRow({ right, left, onHold, enabled = true, className = '', children }) {
+export default function SwipeRow({ right, left, onHold, enabled = true, gate, className = '', children }) {
   const [dx, setDx] = useState(0);
   const [drag, setDrag] = useState(false);
   const st = useRef(null);
@@ -30,6 +31,7 @@ export default function SwipeRow({ right, left, onHold, enabled = true, classNam
   const cancelTimer = () => { if (st.current?.timer) clearTimeout(st.current.timer); };
   const onTouchStart = (e) => {
     if (e.touches.length !== 1) return;
+    if (gate && !gate(e)) return;
     for (let n = e.target; n && n !== e.currentTarget; n = n.parentElement) {
       const cs = getComputedStyle(n);
       if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && n.scrollWidth > n.clientWidth + 2) return;
