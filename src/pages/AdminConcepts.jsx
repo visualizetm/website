@@ -37,7 +37,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
           ) : showSkel ? (
             <Stack gap={3} aria-busy="true">
               <Row gap={2} wrap className="cl-chips">{[100, 94, 91, 108, 187, 125, 120].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</Row>
-              <Stack gap={2}>{(phone ? [124, 95, 124, 95] : [95, 95, 95, 95]).map((h, i) => <Card key={i} style={{ minHeight: h }}><SkeletonText lines={2} /></Card>)}</Stack>
+              <Stack gap={2}>{(phone ? [113, 124, 95, 95, 95] : [95, 95, 95, 95]).map((h, i) => <Card key={i} style={{ minHeight: h }}><SkeletonText lines={2} /></Card>)}</Stack>
             </Stack>
           ) : !rows.length ? (
             <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go('leads') }} /></Card>
