@@ -19,7 +19,7 @@ Final code commit: `aa7873b` (2026-10-05). This report and the progress notes ar
 |---|---|
 | lint, hex count | pass, hex 80 of 90 (unchanged) |
 | build | pass |
-| unit and handler tests | pass (security-test 1110 checks, was 1073 before section 4c; concepts-review-test 37; concepts-lib-test 19; guard proof 13 of 13) |
+| unit and handler tests | pass (security-test 1110 checks, 37 of them from the new section 4c; concepts-review-test 37; concepts-lib-test 19; guard proof 13 of 13) |
 | back-test, regression (90 steps), site-regression (16 steps, 2 new) | pass |
 | a11y-audit, both themes | pass, 484 rows, zero violations |
 | layout-audit, five widths | pass, zero offenders (the preship run: 443 views at 390 and 1280) |
