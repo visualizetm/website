@@ -326,7 +326,7 @@ function Skeleton() {
 }
 
 /* ── Review each: the summary sheet before sending ────────────────── */
-function SummarySheet({ rows, name, onName, busy, error, onSend, onClose }) {
+function SummarySheet({ rows, name, onName, busy, error, onSend, onClose, onJump }) {
   const ref = useDialog(onClose);
   return overlay(
     <div className="cp-panel-wrap cp-panel-wrap--sheet" role="dialog" aria-modal="true" aria-label={R.summaryTitle} ref={ref}>
@@ -339,6 +339,7 @@ function SummarySheet({ rows, name, onName, busy, error, onSend, onClose }) {
             <li key={d.id} className="cp-sum-row">
               <div className="cp-sum-head"><span className="cp-sum-name">{`Direction ${letterOf(i)}${d.name ? `, ${d.name}` : ''}`}</span><StateChip kind={answer.status} /></div>
               {answer.note ? <p className="cp-rv-note">{answer.note}</p> : null}
+              <button type="button" className="cp-link-btn" onClick={() => onJump(d.id)} aria-label={`${R.change}: Direction ${letterOf(i)}`}>{R.change}</button>
             </li>
           ))}
         </ul>
@@ -589,7 +590,7 @@ export default function Concepts() {
 
       {approving && <ApprovePanel d={approving} letter={letterOf(directions.indexOf(approving))} name={name} onName={setName} busy={busy} onConfirm={(extra) => approve(approving, extra)} onClose={() => setApproving(null)} />}
       {changing && <ChangePanel d={changing} letter={letterOf(directions.indexOf(changing))} token={token} name={name} onName={setName} busy={busy} error={formError} onSend={(text, clear) => change(changing, text, clear)} onClose={() => { setChanging(null); setFormError(''); }} />}
-      {summary && <SummarySheet rows={sumRows} name={name} onName={setName} busy={busy} error={sendError} onSend={submit} onClose={() => setSummary(false)} />}
+      {summary && <SummarySheet rows={sumRows} name={name} onName={setName} busy={busy} error={sendError} onSend={submit} onClose={() => setSummary(false)} onJump={(id) => { setSummary(false); jumpTo(id); }} />}
       {viewer && viewItems.length > 0 && <Viewer items={viewItems} index={Math.min(viewer.index, viewItems.length - 1)} onIndex={(k) => setViewer(v => ({ ...v, index: k }))} onClose={() => setViewer(null)} label={`Direction ${letterOf(viewer.dir)}`} />}
       {toast && overlay(<p className="cp-toast" role="status">{toast}</p>)}
       <style>{clientChromeStyles + conceptsStyles}</style>

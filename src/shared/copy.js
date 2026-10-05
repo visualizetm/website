@@ -349,6 +349,7 @@ export const COPY = {
       summaryBody: 'Have a last look. When you send, I get everything at once.',
       summaryName: 'Your name (optional)',
       keepLooking: 'Keep looking',
+      change: 'Change this one',
       sending: 'Sending',
       thanks: "Got it, thank you. I'll get back to you soon.",
       yourAnswers: 'Your answers',

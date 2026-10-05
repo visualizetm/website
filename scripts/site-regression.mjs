@@ -647,6 +647,14 @@ await step('15. Concepts review: answer each item, save as you go, the progress 
   const sumText = await sheet.innerText();
   if (!/Logo/.test(sumText) || !/Business card/.test(sumText) || !/Homepage/.test(sumText) || !/Make the phone number bigger\./.test(sumText) || !/Warmer\./.test(sumText)) throw new Error(`the summary was ${sumText.slice(0, 200)}`);
   if (/Mood board/.test(sumText)) throw new Error('the summary lists the For reference item');
+  /* A row in the summary jumps back to its section, whole. */
+  await sheet.getByRole('button', { name: /Change this one: Direction A/ }).click();
+  await page.waitForTimeout(800);
+  if (await page.getByRole('dialog', { name: "Here's what you picked" }).count()) throw new Error('the summary stayed open after Change this one');
+  const jy = await page.locator('#cp-d-rA').evaluate(el => Math.round(el.getBoundingClientRect().top));
+  if (jy > 200 || jy < -20) throw new Error(`the summary jump landed the first section at ${jy}px`);
+  await page.getByRole('button', { name: 'Send my answers' }).first().click();
+  await sheet.waitFor({ timeout: 4000 });
   const before = posts.length;
   await sheet.getByRole('button', { name: 'Send my answers' }).click();
   await page.waitForTimeout(800);
