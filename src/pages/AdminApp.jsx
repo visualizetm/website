@@ -499,7 +499,9 @@ export default function AdminApp() {
       return;
     }
     deepOpened.current = true;
-    navigate(location.pathname + location.search, { replace: true, state: { open: { section, id, n: Date.now() }, idx: 0 } });
+    /* ?sec=<section> opens that section's screen on a phone (a record's own sections); a computer keeps its tabs and ignores it. */
+    const sec = (new URLSearchParams(window.location.search).get('sec') || '').match(/^[a-z]{2,16}$/)?.[0] || '';
+    navigate(location.pathname + location.search, { replace: true, state: { open: { section, id, ...(sec ? { sec } : {}), n: Date.now() }, idx: 0 } });
   }, [authed, callLeadsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {

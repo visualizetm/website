@@ -348,9 +348,29 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
  * tabs and the first block of the first section; on a phone the header, the strip and one
  * 56px row per section. */
 const SKELETON_FACTS = { lead: 4, deal: 5, client: 8 };
-LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false, triage = false }) {
+LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false, triage = false, sec = '' }) {
   const m = deal ? 'deal' : mode;
   const phone = useMediaQuery('(max-width: 767px)');
+  /* A refresh on a phone's Profile screen (a section is a history entry): the screen's own shape, not the record's first screen under it. */
+  if (phone && m === 'client' && sec === 'profile') {
+    return (
+      <PageShell className="dt">
+        <ScrollArea bare className="dt-scroll">
+          <div className="rc-inner" aria-busy="true" aria-hidden="true">
+            <div className="rc-secscreen">
+              <div className="rc-profile">
+                <Row gap={2} align="center" justify="between" wrap className="rc-profile-head"><span className="rc-profile-h">Profile</span><Row gap={2} wrap><SkeletonBlock width={131} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={100} height={44} radius="var(--v-radius-md)" /></Row></Row>
+                {/* Four groups (contact, online, business, brand) at the height a typical client's rows make them. */}
+                {[135, 90, 315, 225].map((h, i) => (
+                  <section key={i} className="rc-pf-group"><p className="rc-label"><SkeletonBlock width={72} height={16} /></p><div className="rc-facts rc-pf-facts" style={{ minHeight: h }}>{Array.from({ length: Math.max(2, Math.round(h / 45)) }, (_, k) => <div key={k} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={k % 2 ? '50%' : '70%'} height={14} /></div>)}</div></section>
+                ))}
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+      </PageShell>
+    );
+  }
   const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
   const head = (
     <header className={`rc-head${phone ? ' rc-head--phone' : ''}`}>

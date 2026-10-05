@@ -548,7 +548,7 @@ await step('14. Concepts: open a set by token, scroll, request changes on one di
   const note = page.locator('.cp-panel textarea').first();
   if (!await note.isVisible()) throw new Error('the change request box is not visible');
   await note.fill('Warmer still, and drop the outline.');
-  await page.locator('.cp-panel').getByRole('button', { name: 'Send to Rob' }).click();
+  await page.locator('.cp-panel').getByRole('button', { name: 'Send to me' }).click();
   await page.waitForTimeout(900);
   const change = bodies.at(-1);
   if (change?.action !== 'change' || change?.directionId !== 'rA' || change?.note !== 'Warmer still, and drop the outline.') throw new Error(`the change body was ${JSON.stringify(change)}`);
@@ -562,7 +562,7 @@ await step('14. Concepts: open a set by token, scroll, request changes on one di
   await page.waitForTimeout(900);
   const approve = bodies.at(-1);
   if (approve?.action !== 'approve' || approve?.directionId !== 'rB') throw new Error(`the approve body was ${JSON.stringify(approve)}`);
-  if (!await page.locator('.cp-banner').count()) throw new Error('no approved banner after approving');
+  if (!await page.locator('.cp-thanks').count()) throw new Error('no approved banner after approving');
   if (await page.locator('.cp-beat .cp-btn').count()) throw new Error('decision buttons still showing after approval');
 
   // The admin: the two actions as notifications, and the set opens from the drawer.
@@ -581,6 +581,97 @@ await step('14. Concepts: open a set by token, scroll, request changes on one di
   if (!/\/admin\/leads\/SITECHECK\/concepts/.test(page.url())) throw new Error(`the notification opened ${page.url()} instead of the editor`);
   if (!await page.locator('.ce-approved').count()) throw new Error('the editor does not pin the approved direction');
   return 'the set by token, every scene scrolled, a change request on A and an approval on B with their bodies, both in the admin drawer, the drawer opening the editor';
+});
+
+/* Concepts review (Review each): the client's walk on a phone-sized page. Nothing answered to start (L12's set, three items and a mood board
+ * for reference): Send my answers waits, each answer saves as it is given, the count tells how many are left and jumps to the next, the
+ * summary sheet lists every answer, one send, and the page then reads back read-only, also after a reload. */
+await step('15. Concepts review: answer each item, save as you go, the progress bar, the summary sheet, send once, read back', async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockRoutes(page, { session: false });
+  const posts = [];
+  page.on('request', (r) => { if (r.method() === 'POST' && /\/api\/concepts/.test(r.url())) { try { posts.push(JSON.parse(r.postData() || '{}')); } catch { /* empty */ } } });
+  await page.goto(`${BASE}/concepts/cncpREVIEWtoken0123456789abc`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForSelector('.cp-sec', { timeout: 8000 });
+  await page.waitForTimeout(500);
+  if (await page.locator('.cp-sec').count() !== 4) throw new Error('four sections expected (three to answer, one for reference)');
+  if (!/Take a look at each one and let me know what you think\./.test(await page.locator('.cp-hint-p').innerText())) throw new Error('the review intro line is missing');
+  if (await page.locator('.cp-sec[data-state="reference"] .cp-rv-btn').count()) throw new Error('a For reference section shows decision buttons');
+  if (!/For reference/.test(await page.locator('.cp-sec[data-state="reference"] .cp-chip').innerText())) throw new Error('the reference chip is missing');
+  if (await page.getByRole('button', { name: 'Not this one' }).count()) throw new Error('Not this one shows although the set does not allow it');
+  const bar = page.locator('.cp-bar');
+  if (!/0 of 3 reviewed/.test(await bar.innerText())) throw new Error(`the bar says ${await bar.innerText()}`);
+  if (!await page.getByRole('button', { name: 'Send my answers' }).first().isDisabled()) throw new Error('Send my answers is enabled with nothing answered');
+  /* Approve the first, the count moves, and a tap on it goes to the next one. */
+  await page.locator('.cp-sec').nth(0).getByRole('button', { name: 'Approve' }).click();
+  await page.waitForTimeout(500);
+  if (posts.at(-1)?.action !== 'decide' || posts.at(-1)?.directionId !== 'rA' || posts.at(-1)?.status !== 'approved') throw new Error(`the first answer body was ${JSON.stringify(posts.at(-1))}`);
+  if (!/1 of 3 reviewed/.test(await bar.innerText())) throw new Error('the bar did not count the first answer');
+  if (!/Approved/.test(await page.locator('.cp-sec').nth(0).locator('.cp-chip').innerText())) throw new Error('no Approved chip on the first section');
+  await page.locator('.cp-bar-count').click();
+  await page.waitForTimeout(700);
+  const y = await page.locator('#cp-d-rB').evaluate(el => Math.round(el.getBoundingClientRect().top));
+  if (y > 200 || y < -20) throw new Error(`the jump landed the second section at ${y}px`);
+  if (!await page.locator('#cp-d-rB').evaluate(el => el.classList.contains('is-in'))) throw new Error('the jump target was not revealed');
+  /* Needs changes: a note is required, then saved. */
+  const second = page.locator('#cp-d-rB');
+  await second.getByRole('button', { name: 'Needs changes' }).click();
+  const box = second.getByPlaceholder('What would you change?');
+  if (!await box.isVisible()) throw new Error('the note box did not open');
+  if (!await second.getByRole('button', { name: 'Save', exact: true }).isDisabled()) throw new Error('Save is enabled with no note');
+  await box.fill('Make the phone number bigger.');
+  await second.getByRole('button', { name: 'Save', exact: true }).click();
+  await page.waitForTimeout(500);
+  if (posts.at(-1)?.status !== 'changes' || posts.at(-1)?.note !== 'Make the phone number bigger.') throw new Error(`the note body was ${JSON.stringify(posts.at(-1))}`);
+  /* Send waits for the last one; a changed answer overwrites. */
+  if (!await page.getByRole('button', { name: 'Send my answers' }).first().isDisabled()) throw new Error('Send is enabled with one left');
+  await page.locator('#cp-d-rC').scrollIntoViewIfNeeded();
+  await page.locator('#cp-d-rC').getByRole('button', { name: 'Approve' }).click();
+  await page.waitForTimeout(500);
+  if (!/3 of 3 reviewed/.test(await bar.innerText())) throw new Error('the bar did not reach 3 of 3');
+  await page.locator('#cp-d-rA').scrollIntoViewIfNeeded();
+  await page.locator('#cp-d-rA').getByRole('button', { name: 'Needs changes' }).click();
+  await page.locator('#cp-d-rA').getByPlaceholder('What would you change?').fill('Warmer.');
+  await page.locator('#cp-d-rA').getByRole('button', { name: 'Save', exact: true }).click();
+  await page.waitForTimeout(500);
+  if (!/Needs changes/.test(await page.locator('#cp-d-rA .cp-chip').innerText())) throw new Error('a changed answer did not overwrite the chip');
+  /* The bar never covers the last decision button at the bottom of the page. */
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+  await page.waitForTimeout(400);
+  const clear = await page.evaluate(() => { const top = document.querySelector('.cp-bar').getBoundingClientRect().top; const b = [...document.querySelectorAll('.cp-rv-btn')].pop().getBoundingClientRect(); return { ok: b.bottom <= top + 1, bottom: Math.round(b.bottom), top: Math.round(top), sy: Math.round(scrollY), h: document.documentElement.scrollHeight }; });
+  if (!clear.ok) throw new Error(`the progress bar covers the last decision button ${JSON.stringify(clear)}`);
+  /* The summary, then one send. */
+  await page.getByRole('button', { name: 'Send my answers' }).first().click();
+  const sheet = page.getByRole('dialog', { name: "Here's what you picked" });
+  await sheet.waitFor({ timeout: 4000 });
+  const sumText = await sheet.innerText();
+  if (!/Logo/.test(sumText) || !/Business card/.test(sumText) || !/Homepage/.test(sumText) || !/Make the phone number bigger\./.test(sumText) || !/Warmer\./.test(sumText)) throw new Error(`the summary was ${sumText.slice(0, 200)}`);
+  if (/Mood board/.test(sumText)) throw new Error('the summary lists the For reference item');
+  const before = posts.length;
+  await sheet.getByRole('button', { name: 'Send my answers' }).click();
+  await page.waitForTimeout(800);
+  if (posts.length !== before + 1 || posts.at(-1)?.action !== 'submit') throw new Error(`the send was ${JSON.stringify(posts.slice(before))}`);
+  if (!await page.getByText("Got it, thank you. I'll get back to you soon.").isVisible()) throw new Error('no thank you after sending');
+  if (await page.locator('.cp-rv-btn').count() || await page.locator('.cp-bar').count()) throw new Error('buttons or the bar are still there after sending');
+  /* Reading it back, also after a reload: read only, with their words. */
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.cp-sec', { timeout: 8000 });
+  await page.waitForTimeout(400);
+  if (!await page.getByText("Got it, thank you. I'll get back to you soon.").isVisible()) throw new Error('the thank you is gone after a reload');
+  if (!await page.getByText('Make the phone number bigger.').count()) throw new Error('their note is not read back');
+  if (await page.locator('.cp-rv-btn').count()) throw new Error('buttons came back after a reload');
+  return 'reference item with no buttons, Not this one hidden, save as you go, count and jump, a note required, a changed answer overwrites, the bar clears the last button, the summary, one send, read only after a reload';
+});
+
+/* Concepts review, reduced motion: every section is on the page, fully visible, from the first paint. */
+await step('16. Concepts review: reduced motion shows every section at once', async () => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${BASE}/concepts/cncpPARTLYtoken0123456789abcd`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForSelector('.cp-sec', { timeout: 8000 });
+  const hidden = await page.evaluate(() => [...document.querySelectorAll('.cp-sec')].filter(el => +getComputedStyle(el).opacity < 0.99 || el.getAttribute('data-reveal') === 'wait').length);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  if (hidden) throw new Error(`${hidden} section(s) hidden under reduced motion`);
+  return 'every section visible at first paint under reduced motion';
 });
 
 await browser.close();

@@ -85,7 +85,7 @@ export default function AdminClients({
     return (
       <>
         <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients"><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
-        <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton mode="client" />}</div>
+        <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton mode="client" sec={openEntry?.sec || ''} />}</div>
         <style>{clStyles}</style>
       </>
     );

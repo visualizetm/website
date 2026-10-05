@@ -62,6 +62,7 @@ const MAX_BAND = 0.15;
 const CENTRE_TOL = 32;
 const _INDICATOR_GAP = 16;
 const isHome = PATH === '/';
+const isConcepts = PATH.startsWith('/concepts/');
 
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -174,6 +175,35 @@ const SAMPLE = () => {
   return { y: Math.round(scrollY), vh, vw, docH: document.documentElement.scrollHeight, overlapNav, overlapInd, overlaps, wrapped, scenes, navBottom: navRect ? Math.round(navRect.bottom) : 0, surfaces: [tok('--bg'), tok('--bg-elevated')], footerVisible: !!fr && fr.top < vh && fr.bottom > 0, engine: !!performance.getEntriesByType('resource').find(e => /gsap/.test(e.name)) };
 };
 
+/* The concepts page (Concepts review job) has no scenes: each direction is one section that reveals as one unit. What the gate checks there,
+   a moment after every scroll, before the 240ms fade has finished: a section with any part on screen is already revealed (nothing waits for
+   scroll), no piece inside a section animates on its own, no element inside a section carries a step or its own reveal, and under reduced
+   motion every section is fully opaque and untransformed everywhere. */
+const CONCEPTS_QUICK = (reduce) => {
+  const vh = innerHeight; const out = [];
+  const secs = [...document.querySelectorAll('.cp-sec')];
+  if (!secs.length) out.push('no .cp-sec section found on the concepts page');
+  secs.forEach((el, i) => {
+    const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    const on = r.bottom > 0 && r.top < vh;
+    const name = `section ${i + 1} "${(el.querySelector('h2')?.textContent || '').trim().slice(0, 30)}"`;
+    if (on && !el.classList.contains('is-in') && !reduce) out.push(`${name} is on screen but not revealed yet`);
+    if (reduce && (+cs.opacity < 0.99 || (cs.transform !== 'none' && cs.transform !== 'matrix(1, 0, 0, 1, 0, 0)'))) out.push(`${name} is not fully shown under reduced motion (opacity ${cs.opacity}, transform ${cs.transform})`);
+    const own = typeof el.getAnimations === 'function' ? el.getAnimations({ subtree: true }).filter(a => a.effect && a.effect.target !== el && a.playState === 'running') : [];
+    if (own.length) out.push(`${name}: ${own.length} piece(s) inside it animate on their own`);
+    if (el.querySelector('[data-step], .m-reveal, [data-reveal]')) out.push(`${name} has a piece with its own step or reveal`);
+  });
+  return out;
+};
+const CONCEPTS_BAR = () => {
+  const bar = document.querySelector('.cp-bar'); if (!bar) return [];
+  const top = bar.getBoundingClientRect().top; const out = [];
+  const last = [...document.querySelectorAll('.cp-sec')].filter(e => e.querySelector('.cp-rv-btn')).pop();
+  const targets = [...(last ? last.querySelectorAll('.cp-rv-btn, .cp-link-btn, textarea') : []), ...document.querySelectorAll('.cpc-mail')];
+  for (const t of targets) { const q = t.getBoundingClientRect(); if (q.height && q.bottom > top + 1 && q.top < innerHeight) out.push(`${(t.textContent || t.tagName).trim().slice(0, 24)} sits under the progress bar at the bottom of the page (${Math.round(q.bottom)} past ${Math.round(top)})`); }
+  return out;
+};
+
 /* Painted rows: decode the screenshot in the page and scan every CSS
    pixel row. A row is empty when more than 90 percent of its pixels are
    within 8 units of a surface colour. */
@@ -223,7 +253,13 @@ async function walk(width) {
   const forward = [];
   const maxSeen = {};   // `${scene}:${step}` -> highest reveal seen while that scene was pinned
   for (const [k, y] of positions.entries()) {
-    await page.evaluate((v) => window.scrollTo(0, v), y); await page.waitForTimeout(settle);
+    await page.evaluate((v) => window.scrollTo(0, v), y);
+    if (isConcepts) {
+      await page.waitForTimeout(130);
+      for (const m of await page.evaluate(CONCEPTS_QUICK, REDUCE)) bad.push(`${Math.round((y / Math.max(1, max)) * 100)}%: ${m}`);
+      await page.waitForTimeout(Math.max(0, settle - 130));
+      if (k === positions.length - 1) for (const m of await page.evaluate(CONCEPTS_BAR)) bad.push(`end of page: ${m}`);
+    } else await page.waitForTimeout(settle);
     const s = await page.evaluate(SAMPLE);
     forward.push(s);
     const shot = path.join(dir, `${String(k).padStart(2, '0')}-${Math.round((y / Math.max(1, max)) * 100)}pct.png`);

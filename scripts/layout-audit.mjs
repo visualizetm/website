@@ -20,7 +20,7 @@ const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): 
 const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
 import { LONG, mockRoutes } from './audit-fixtures.mjs';
-import { phoneSection } from './audit-screens.mjs';
+import { phoneSection, SCREENS } from './audit-screens.mjs';
 
 
 // Elements allowed to scroll sideways on purpose (their CONTENT may be wide,
@@ -183,7 +183,7 @@ async function collectImageProblems(page) {
          page on its own opaque layer, so a preview inside one sitting on top
          of a thumbnail behind it is not an overlap anybody can see; only
          boxes on the SAME layer can really collide. */
-      const layer = frame.closest('.v-sheet, .v-modal, .pl-panel') ? 'overlay' : 'page';
+      const layer = frame.closest('.v-sheet, .v-modal, .pl-panel, .cp-panel-wrap, .cp-viewer') ? 'overlay' : 'page'; // the concepts page's approve panel, summary sheet and viewer are overlay layers too
       if (!boxes.has(frame)) boxes.set(frame, { name, r: f, layer, stacked: stackOk.some(sel => frame.closest(sel)) });
     }
     const list = [...boxes.values()];
@@ -549,6 +549,14 @@ for (const width of WIDTHS) {
       await emptyHome.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
       await check('marketing: Home (empty landing)', emptyHome);
       await emptyHome.close();
+    }
+    // Concepts (the client presentation) and Review each: every public state of the page at every width, overflow and 44px targets.
+    for (const sc of SCREENS.filter(x => x.id.startsWith('mkt-concepts') && !x.id.endsWith('-dead'))) {
+      await goto(sc.path);
+      await page.waitForSelector('.cp', { timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      if (sc.act) await sc.act(page, width).catch(() => {});
+      await check(`marketing: ${sc.screen.replace(' (marketing)', '')} (${sc.label})`);
     }
     await goto('/contact');
     await check('marketing: Contact');
