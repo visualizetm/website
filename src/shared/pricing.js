@@ -5,6 +5,7 @@
 export const SINGLE_CAP = 750;              // above this a payment plan is offered
 export const EXTRA_ROUND = { design: 50, web: 75 };
 export const REVISION_ROUNDS = 2;
+export const DEPOSIT_PCT = 50;             // the deposit before work starts, as a percent of the total (the contract template states it)
 
 /* kind: 'design' | 'web' decides the default retainer and the extra-round price. */
 export const PACKAGES = [

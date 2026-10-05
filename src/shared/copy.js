@@ -10,6 +10,12 @@
  * `secondary` a link-style second choice where the screen offers one.
  */
 export const COPY = {
+  /* Client docs (docs job): the lines that are not one screen's empty state. */
+  docs: {
+    savedHint: 'Save any doc as a template from its menu and it shows here.',
+    allEmpty: { title: 'No docs yet', description: 'Briefs, call notes, contracts and delivery notes you keep for a client show up here.' },
+    deletedHint: 'A deleted doc waits here until you purge it.',
+  },
   empty: {
     /* Next up (the first screen) */
     'dashboard.next': { title: 'Nothing next', description: 'No callbacks, meetings, invoices or reviews waiting. Start a call session.', action: 'Start call session' },

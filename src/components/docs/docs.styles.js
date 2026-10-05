@@ -70,6 +70,8 @@ export const docEditorStyles = `
   .dc-ref-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .dc-ref-kind { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .dc-ref-label { font-size: var(--v-text-md); line-height: var(--v-lh-md); overflow-wrap: anywhere; }
+  .dc-task { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); margin: 0 0 var(--v-space-1) var(--v-tap); padding: 0 var(--v-space-3); border: 1px solid var(--v-border-strong); border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text); font: inherit; font-size: var(--v-text-sm); cursor: pointer; }
+  .dc-task:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .dc-tail { display: flex; align-items: center; min-height: var(--v-tap); padding: 0 var(--v-space-2) 0 var(--v-tap); border: 0; background: transparent; color: var(--v-text-3); font: inherit; font-size: var(--v-text-sm); text-align: left; cursor: text; }
   .dc-tail:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; border-radius: var(--v-radius-md); }
 

@@ -27,6 +27,7 @@ import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
 import useDocs from '../lib/useDocs';
+import NewDocSheet from '../components/docs/NewDocSheet';
 
 /* Code split by screen (Prompt 15): the entry chunk is the shell plus the
  * Dashboard; every other screen is its own chunk, loaded on first visit.
@@ -470,8 +471,10 @@ export default function AdminApp() {
   const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
-  /* New doc: a blank one for now; the template sheet replaces this call. */
-  const newDoc = useCallback(async (lead) => { const item = await docsState.ops.create({ leadId: String(lead._id), type: 'general', title: 'Untitled', blocks: [] }); if (item) openDoc(item); return item; }, [docsState.ops, openDoc]);
+  /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
+  const [newDocLead, setNewDocLead] = useState(null);
+  const newDoc = useCallback((lead) => setNewDocLead(lead), []);
+  const createFromTemplate = useCallback(async (doc) => { const item = await docsState.ops.create(doc); if (item) openDoc(item); return !!item; }, [docsState.ops, openDoc]);
   const openProject = useCallback((id) => { push(rootOf('projects'), { open: { section: 'projects', id: String(id), n: Date.now() }, selectedId: id }); }, [push]);
   const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc, openProject }), [docsState, openDoc, openClientDocs, newDoc, openProject]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
@@ -768,7 +771,7 @@ export default function AdminApp() {
         />
       )}
       {section === 'docEditor' && (
-        <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi}
+        <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi} onPatchLead={patchCallLead}
           onBack={navBack ? navBack.back : () => go('clients')} />
       )}
       {section === 'conceptsEditor' && (
@@ -821,6 +824,7 @@ export default function AdminApp() {
           onPatch={patchCallLead} onDelete={deleteCallLead} onRestore={restoreCallLeads} onCapture={openCapture} />
       )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
+      {newDocLead && <NewDocSheet lead={newDocLead} projects={V.projects} onCreate={createFromTemplate} onClose={() => setNewDocLead(null)} />}
       {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}
       {section === 'deals' && (
         <AdminDeals

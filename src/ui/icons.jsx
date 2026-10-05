@@ -88,6 +88,8 @@ import Pin01 from '@untitled-ui/icons-react/build/esm/Pin01';
 import File02 from '@untitled-ui/icons-react/build/esm/File02';
 import CheckDone01 from '@untitled-ui/icons-react/build/esm/CheckDone01';
 import DotsHorizontal from '@untitled-ui/icons-react/build/esm/DotsHorizontal';
+import Pencil01 from '@untitled-ui/icons-react/build/esm/Pencil01';
+import EyeOff from '@untitled-ui/icons-react/build/esm/EyeOff';
 import Bold01 from '@untitled-ui/icons-react/build/esm/Bold01';
 import Italic01 from '@untitled-ui/icons-react/build/esm/Italic01';
 import Heading01 from '@untitled-ui/icons-react/build/esm/Heading01';
@@ -109,7 +111,7 @@ export const ICONS = {
   /* tasks (planner dashboard and task system) */
   Pin01, File02, CheckDone01, DotsHorizontal,
   /* client docs */
-  Bold01, Italic01, Heading01, Heading02, Dotpoints01, List, Minus, CheckSquare, FilePlus01, ArrowUp, ArrowDown, DotsGrid, Type01, MessageTextSquare01, Save01, ReverseLeft,
+  Pencil01, EyeOff, Bold01, Italic01, Heading01, Heading02, Dotpoints01, List, Minus, CheckSquare, FilePlus01, ArrowUp, ArrowDown, DotsGrid, Type01, MessageTextSquare01, Save01, ReverseLeft,
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
   CalendarCheck01, Trophy01, Briefcase01, XClose, Bell01, Mail01, MessageCircle01,
   CurrencyDollar, Package, Calendar, User01,

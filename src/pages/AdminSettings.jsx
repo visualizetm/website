@@ -16,6 +16,7 @@ import LeadImport from '../components/LeadImport';
 import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
 import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
+import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
@@ -29,9 +30,9 @@ import { readLocalOrders, planImport, itemSummary, orderSubtotal } from '../lib/
 
 export const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' },
-  { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
+  { id: 'templates', label: 'Doc templates', icon: 'File02' }, { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
-const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
+const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
 const nextRun = (lastRunAt, minutes) => { const base = lastRunAt ? new Date(lastRunAt).getTime() : Date.now(); return new Date(base + minutes * 60e3); };
@@ -193,7 +194,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
-  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, data: 4, danger: 3 };
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, templates: 4, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
   const tablet = useMediaQuery('(min-width: 768px)');
   const narrow = !desktop && !tablet; // descriptions wrap to two lines under 768
@@ -339,6 +340,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <Card className="st-card"><p className="pb-card-h">Nightly jobs outside this app</p><p className="dt-muted">The enrichment scan and the scraper write straight into call_leads from their own schedule. Their last run shows under Integrations, and the drawer warns when either is quiet for 36 hours.</p></Card>
       <ClientLogCard />
     </Stagger>
+  ) : tab === 'templates' ? (
+    <DocTemplatesPanel docsApi={shell?.docsApi} />
   ) : tab === 'data' ? (
     <Stagger className="v-stack st-stack">
       <Card className="st-card">

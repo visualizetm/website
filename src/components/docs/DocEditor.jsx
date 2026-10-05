@@ -88,7 +88,10 @@ function RefBody({ b, ctx, api }) {
   );
 }
 
-const Block = memo(function Block({ b, n, readOnly, phone, ctx, api, dragging }) {
+/** The line a call note ends with: Follow up on [date]. It carries the Make a task button. */
+export const isFollowUp = (b) => (b.type === 'check' || b.type === 'p') && /^follow up\b/i.test(textOf(b.runs));
+
+const Block = memo(function Block({ b, n, readOnly, phone, ctx, api, dragging, canTask }) {
   const type = b.type;
   const text = isText(b);
   const body = (() => {
@@ -112,7 +115,7 @@ const Block = memo(function Block({ b, n, readOnly, phone, ctx, api, dragging })
       left={{ label: 'Delete', icon: 'Trash01', tone: 'danger', onCommit: () => api.remove(b.id, true) }}>
       <div className={`dc-row dc-row--${type}${dragging ? ' is-dragging' : ''}`} data-block-id={b.id} data-type={type}>
         {!readOnly && <button type="button" className="dc-grip" aria-label={`${BLOCK_LABELS[type]} block, actions and reorder`} onPointerDown={(e) => api.gripDown(e, b.id)} onPointerMove={api.gripMove} onPointerUp={api.gripUp} onPointerCancel={api.gripCancel} onKeyDown={(e) => { if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); api.move(b.id, e.key === 'ArrowUp' ? -1 : 1); } else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); api.menu(b.id); } }}><Icon icon="DotsGrid" size={18} /></button>}
-        <div className="dc-body">{body}</div>
+        <div className="dc-body">{body}{canTask && !readOnly && isFollowUp(b) && <button type="button" className="dc-task" onClick={() => api.makeTask(b)}><Icon icon="CheckDone01" size={16} />Make a task</button>}</div>
       </div>
     </SwipeRow>
   );
@@ -150,17 +153,17 @@ function FormatBar({ visible, phone, inset, focusType, marks, onCmd, onType, onI
 }
 
 /* ── Sheets ──────────────────────────────────────────────────────────── */
-function InsertSheet({ onPick, onClose }) {
+function InsertSheet({ onPick, onClose, canRef }) {
   return (
     <Sheet open onClose={onClose} title="Add a block" label="Add a block" className="dc-sheet">
       <div className="dc-opts" role="group" aria-label="Block types">
-        {INSERT_ORDER.map(t => <button key={t} type="button" className="dc-opt" data-opt={t} onClick={() => { onClose(); onPick(t); }}><Icon icon={BLOCK_ICONS[t]} size={20} /><span>{BLOCK_LABELS[t]}</span></button>)}
+        {INSERT_ORDER.filter(t => canRef || t !== 'ref').map(t => <button key={t} type="button" className="dc-opt" data-opt={t} onClick={() => { onClose(); onPick(t); }}><Icon icon={BLOCK_ICONS[t]} size={20} /><span>{BLOCK_LABELS[t]}</span></button>)}
       </div>
     </Sheet>
   );
 }
 
-function BlockSheet({ block, index, count, onTurn, onMove, onDuplicate, onDelete, onClose }) {
+function BlockSheet({ block, index, count, onTurn, onMove, onDuplicate, onDelete, onMakeTask, onClose }) {
   const text = isText(block);
   return (
     <Sheet open onClose={onClose} title={BLOCK_LABELS[block.type]} label={`${BLOCK_LABELS[block.type]} block actions`} className="dc-sheet">
@@ -173,6 +176,7 @@ function BlockSheet({ block, index, count, onTurn, onMove, onDuplicate, onDelete
         <button type="button" className="dc-act" disabled={index === 0} onClick={() => { onClose(); onMove(-1); }}><Icon icon="ArrowUp" size={20} /><span>Move up</span></button>
         <button type="button" className="dc-act" disabled={index === count - 1} onClick={() => { onClose(); onMove(1); }}><Icon icon="ArrowDown" size={20} /><span>Move down</span></button>
         <button type="button" className="dc-act" onClick={() => { onClose(); onDuplicate(); }}><Icon icon="Copy01" size={20} /><span>Duplicate</span></button>
+        {text && onMakeTask && !!textOf(block.runs) && <button type="button" className="dc-act" data-act="task" onClick={() => { onClose(); onMakeTask(); }}><Icon icon="CheckDone01" size={20} /><span>Make a task</span></button>}
         <button type="button" className="dc-act is-danger" onClick={() => { onClose(); onDelete(); }}><Icon icon="Trash01" size={20} /><span>Delete</span></button>
       </div>
     </Sheet>
@@ -214,7 +218,7 @@ function LinkSheet({ collapsed, hasLink, onApply, onRemove, onClose }) {
 }
 
 /* ── The editor ──────────────────────────────────────────────────────── */
-export default function DocEditor({ blocks, onChange, readOnly = false, ctx, openRef }) {
+export default function DocEditor({ blocks, onChange, readOnly = false, ctx, openRef, onMakeTask, canRef = true }) {
   const toast = useToast();
   const phone = useMediaQuery('(max-width: 767px)');
   const inset = useKeyboardInset();
@@ -277,6 +281,7 @@ export default function DocEditor({ blocks, onChange, readOnly = false, ctx, ope
       move: (id, dir) => onChange(moveBlock(cur(), id, dir)),
       menu: (id) => setSheet({ kind: 'block', id }),
       openRef: (b) => openRef?.(b),
+      makeTask: (b) => onMakeTask?.(textOf(b.runs)),
       gripDown: (e, id) => {
         if (e.button !== undefined && e.button !== 0) return;
         const list = rootRef.current; if (!list) return;
@@ -307,7 +312,7 @@ export default function DocEditor({ blocks, onChange, readOnly = false, ctx, ope
       },
       gripCancel: () => { const d = dragRef.current; if (d?.sc) d.sc.style.scrollBehavior = ''; dragRef.current = null; setDrag(null); },
     };
-  }, [onChange, commit, toast, openRef]);
+  }, [onChange, commit, toast, openRef, onMakeTask]);
 
   /* A computer: the bar's actions run on the focused text block. */
   const typeToggle = (type) => {
@@ -364,16 +369,16 @@ export default function DocEditor({ blocks, onChange, readOnly = false, ctx, ope
       <div className="dc-blocks" ref={rootRef} role="group" aria-label="Doc blocks">
         {blocks.map((b, i) => (
           <div key={b.id} className="dc-slot" data-dropbefore={dropAt === b.id ? 'true' : undefined} style={drag?.id === b.id ? { transform: `translate3d(0, ${drag.dy}px, 0)`, zIndex: 4, pointerEvents: 'none' } : undefined}>
-            <Block b={b} n={nums[i]} readOnly={readOnly} phone={phone} ctx={ctx} api={api} dragging={drag?.id === b.id} />
+            <Block b={b} n={nums[i]} readOnly={readOnly} phone={phone} ctx={ctx} api={api} dragging={drag?.id === b.id} canTask={!!onMakeTask} />
           </div>
         ))}
         {drag && !dropAt && <div className="dc-slot" data-dropbefore="end" />}
         {!readOnly && blocks.length > 0 && <button type="button" className="dc-tail" onClick={() => { const last = blocks[blocks.length - 1]; if (last && last.type === 'p' && !textOf(last.runs)) { placeCaret(rootRef.current.querySelector(`[data-rt="${CSS.escape(last.id)}"]`), 0); return; } const nb = newBlock('p'); commit([...blocks, nb], { id: nb.id, at: 0 }); }} aria-label="Add a paragraph at the end"><span>Tap to keep writing</span></button>}
       </div>
       {phone && <FormatBar visible={barVisible} phone inset={inset} focusType={focusedBlock?.type} marks={marks} onCmd={exec} onType={typeToggle} onInsert={openInsert} onDone={() => document.activeElement?.blur?.()} readOnly={readOnly} />}
-      {sheet?.kind === 'insert' && <InsertSheet onPick={insertType} onClose={() => setSheet(null)} />}
+      {sheet?.kind === 'insert' && <InsertSheet onPick={insertType} onClose={() => setSheet(null)} canRef={canRef} />}
       {sheetBlock && <BlockSheet block={sheetBlock} index={indexOfBlock(blocks, sheetBlock.id)} count={blocks.length} onClose={() => setSheet(null)}
-        onTurn={(t) => commit(convertBlock(blocks, sheetBlock.id, t), { id: sheetBlock.id, at: 1e6 })} onMove={(d) => onChange(moveBlock(blocks, sheetBlock.id, d))} onDuplicate={() => onChange(duplicateBlock(blocks, sheetBlock.id))} onDelete={() => api.remove(sheetBlock.id, true)} />}
+        onTurn={(t) => commit(convertBlock(blocks, sheetBlock.id, t), { id: sheetBlock.id, at: 1e6 })} onMove={(d) => onChange(moveBlock(blocks, sheetBlock.id, d))} onDuplicate={() => onChange(duplicateBlock(blocks, sheetBlock.id))} onDelete={() => api.remove(sheetBlock.id, true)} onMakeTask={onMakeTask ? () => onMakeTask(textOf(sheetBlock.runs)) : undefined} />}
       {sheet?.kind === 'ref' && <RefSheet ctx={ctx} onPick={addRef} onClose={() => setSheet(null)} />}
       {sheet?.kind === 'link' && <LinkSheet collapsed={sheet.collapsed} hasLink={sheet.hasLink} onApply={applyLink} onRemove={removeLink} onClose={() => setSheet(null)} />}
     </div>

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PageShell, ScrollArea, Button, Sheet, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
+import { PageShell, ScrollArea, Button, Sheet, useConfirm, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
 import RowSheet from '../components/RowSheet';
 import DocEditor from '../components/docs/DocEditor';
 import TitleField from '../components/docs/TitleField';
+import MakeTaskSheet from '../components/docs/MakeTaskSheet';
+import { addTask } from '../shared/taskRules';
+import { checklistsPatch } from '../lib/taskWrite';
 import BlockView from '../components/docs/BlockView';
 import { docEditorStyles } from '../components/docs/docs.styles';
 import { copyText } from '../components/ClientWorkspace';
@@ -28,7 +31,7 @@ import { COPY } from '../shared/copy';
 
 const SAVE_LABEL = { saved: 'Saved', dirty: 'Saving...', saving: 'Saving...', failed: 'Not saved, retrying', rejected: 'Not saved' };
 
-export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, docsApi, onBack, onOpenProject }) {
+export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, docsApi, onBack, onOpenProject, onPatchLead }) {
   const toast = useToast();
   const shell = useShell();
   const phone = useMediaQuery('(max-width: 767px)');
@@ -40,6 +43,8 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const [blocks, setBlocks] = useState([]);
   const [saveState, setSaveState] = useState('saved');
   const [sheet, setSheet] = useState(null); // 'more' | 'template'
+  const [taskText, setTaskText] = useState(null); // the line a task is being made from
+  const [confirm, confirmDialog] = useConfirm();
   const saverRef = useRef(null);
   const live = useRef({});
   live.current = { title, type, blocks, docId };
@@ -61,6 +66,7 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   useEffect(() => { fetchIt(); }, [fetchIt]);
 
   const readOnly = !!load.doc?.deleted;
+  const isTemplate = !!load.doc?.template;
   /* The saver: one per open doc. */
   useEffect(() => {
     if (load.state !== 'ready' || readOnly || !ops) return undefined;
@@ -118,6 +124,13 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const copyAll = () => copyText(toast, docPlainText({ title: sanitizeTitle(title), blocks: tidy(blocks) }), 'Doc');
   const printIt = () => { setTimeout(() => window.print(), 50); };
   const remove = async () => {
+    if (isTemplate) {
+      if (!(await confirm({ title: 'Delete this template?', body: `${sanitizeTitle(title) || 'Untitled'} is removed from the New doc sheet. Docs already made from it stay.`, danger: true, confirmLabel: 'Delete' }))) return;
+      if (!(await ops.remove({ _id: docId, template: true }))) { toast.error(COPY.error.save); return; }
+      toast.success('Template deleted.');
+      onBack();
+      return;
+    }
     await saverRef.current?.flush();
     const d = { _id: docId, leadId: doc.leadId, title: sanitizeTitle(title) || doc.title };
     if (!(await ops.remove(d))) { toast.error(COPY.error.save); return; }
@@ -130,6 +143,13 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
     const item = await ops.create({ template: true, type, title: name, blocks: clean });
     if (item) toast.success('Saved as a template. Settings manages it.'); else toast.error(COPY.error.save);
     return !!item;
+  };
+  const makeTask = async ({ text, due, listId }) => {
+    if (!lead || !onPatchLead) return false;
+    const set = checklistsPatch(lead, addTask(lead.checklists || [], listId, { text, due, source: 'manual', listName: 'Tasks' }), { projects: ctx.projects, sets: ctx.sets });
+    const ok = await onPatchLead(lead._id, set);
+    if (ok) toast.success(`Task added to ${lead.business}.`); else toast.error(COPY.error.save);
+    return ok;
   };
   const openRef = async (b) => {
     const t = refTarget(b.ref, ctx);
@@ -144,9 +164,9 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   };
 
   useTopBar(load.state === 'ready' ? {
-    title: typeLabel(type), back: leave,
+    title: isTemplate ? 'Template' : typeLabel(type), back: leave,
     actions: readOnly ? null : [
-      { id: 'pin', label: pinned ? 'Unpin from card' : 'Pin to card', icon: 'Pin01', onClick: pin },
+      ...(isTemplate ? [] : [{ id: 'pin', label: pinned ? 'Unpin from card' : 'Pin to card', icon: 'Pin01', onClick: pin }]),
       { id: 'more', label: 'Doc actions', icon: 'DotsHorizontal', onClick: () => setSheet('more') },
     ],
   } : { title: 'Doc', back: leave });
@@ -154,10 +174,12 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const moreItems = [
     { id: 'copy', label: 'Copy as text', icon: 'Copy01', onSelect: copyAll },
     { id: 'print', label: 'Print or save as PDF', icon: 'Printer', onSelect: printIt },
-    { id: 'dup', label: 'Duplicate', icon: 'FilePlus01', onSelect: duplicate },
-    { id: 'tpl', label: 'Save as template', icon: 'Save01', onSelect: () => setSheet('template') },
+    ...(isTemplate ? [] : [
+      { id: 'dup', label: 'Duplicate', icon: 'FilePlus01', onSelect: duplicate },
+      { id: 'tpl', label: 'Save as template', icon: 'Save01', onSelect: () => setSheet('template') },
+    ]),
     'divider',
-    { id: 'del', label: 'Move to Recently Deleted', icon: 'Trash01', danger: true, onSelect: remove },
+    { id: 'del', label: isTemplate ? 'Delete template' : 'Move to Recently Deleted', icon: 'Trash01', danger: true, onSelect: remove },
   ];
 
   let body;
@@ -176,25 +198,25 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
         <div className="dd-head">
           <TitleField value={title} onChange={onTitle} readOnly={readOnly} onEnter={() => document.querySelector('.dc-rt')?.focus()} />
           <div className="dd-meta">
-            <p className="dd-client">{lead ? <button type="button" className="dd-clientbtn" onClick={() => flushThen(() => shell.openRecord(lead))}>{lead.business}</button> : (leadsLoading ? <SkeletonBlock width={120} height={16} /> : 'Client not found')}</p>
+            <p className="dd-client">{isTemplate ? 'Template, no client' : lead ? <button type="button" className="dd-clientbtn" onClick={() => flushThen(() => shell.openRecord(lead))}>{lead.business}</button> : (leadsLoading ? <SkeletonBlock width={120} height={16} /> : 'Client not found')}</p>
             <p className={`dd-status is-${saveState}`} role="status" aria-live="polite" data-save={saveState}>{readOnly ? '' : SAVE_LABEL[saveState]}</p>
           </div>
           <div className="dd-selects">
             <Select label="Type" value={type} disabled={readOnly} onChange={(e) => onType(e.target.value)} options={DOC_TYPES.map(t => ({ id: t.id, label: t.label }))} className="dd-type" />
-            {ctx.projects.length > 0 && (
+            {!isTemplate && ctx.projects.length > 0 && (
               <Select label="Project" value={projectId} disabled={readOnly} onChange={async (e) => { const v = e.target.value; setProjectId(v); const r = await ops.patch(docId, { projectId: v }); if (!r.ok) toast.error(COPY.error.save); }}
                 options={[{ id: '', label: 'None' }, ...ctx.projects.map(p => ({ id: String(p._id), label: p.name || 'Project' }))]} className="dd-project" />
             )}
           </div>
         </div>
-        <DocEditor blocks={blocks} onChange={onBlocks} readOnly={readOnly} ctx={ctx} openRef={openRef} />
+        <DocEditor blocks={blocks} onChange={onBlocks} readOnly={readOnly} ctx={ctx} openRef={openRef} canRef={!isTemplate} onMakeTask={lead && onPatchLead && !isTemplate ? setTaskText : undefined} />
       </>
     );
   }
 
   const printDoc = load.state === 'ready' && typeof document !== 'undefined' ? createPortal(
     <div className="dp-doc" aria-hidden="true">
-      <p className="dp-kicker">{typeLabel(type)}{lead ? `, ${lead.business}` : ''}</p>
+      <p className="dp-kicker">{isTemplate ? 'Template, ' : ''}{typeLabel(type)}{lead ? `, ${lead.business}` : ''}</p>
       <h1 className="dp-title">{sanitizeTitle(title) || 'Untitled'}</h1>
       <p className="dp-date">{fmtDate(new Date().toISOString())}</p>
       <BlockView blocks={tidy(blocks)} ctx={ctx} />
@@ -207,13 +229,15 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
           <div className="dd-topbar">
             <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="dd-back">Back</Button>
             <span className="dd-topspace" />
-            {load.state === 'ready' && !readOnly && <Button variant="ghost" icon="Pin01" onClick={pin} className="dd-pin" aria-pressed={pinned}>{pinned ? 'Pinned' : 'Pin to card'}</Button>}
+            {load.state === 'ready' && !readOnly && !isTemplate && <Button variant="ghost" icon="Pin01" onClick={pin} className="dd-pin" aria-pressed={pinned}>{pinned ? 'Pinned' : 'Pin to card'}</Button>}
             {load.state === 'ready' && !readOnly && <Button variant="secondary" icon="DotsHorizontal" onClick={() => setSheet('more')} className="dd-more">Doc actions</Button>}
           </div>
         )}
         <div className="dd-body">{body}</div>
       </ScrollArea>
       {sheet === 'more' && <RowSheet title={sanitizeTitle(title) || 'Untitled'} subtitle={`${typeLabel(type)}${lead ? `, ${lead.business}` : ''}`} items={moreItems} onClose={() => setSheet(null)} />}
+      {taskText !== null && lead && <MakeTaskSheet lead={lead} initial={taskText} onMake={makeTask} onClose={() => setTaskText(null)} />}
+      {confirmDialog}
       {sheet === 'template' && <TemplateNameSheet initial={sanitizeTitle(title)} onSave={saveTemplate} onClose={() => setSheet(null)} />}
       {printDoc}
       <style>{docEditorStyles}</style>
