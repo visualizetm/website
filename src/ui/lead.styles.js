@@ -178,6 +178,13 @@ export const leadDetailStyles = `
   /* From 768 up the row wraps instead (every button stays in view); the sideways scroller is a phone thing. */
   @media (min-width: 768px) { .rc-pf-actions { flex-wrap: wrap; overflow: visible; } }
   .rc-pf-actions::-webkit-scrollbar { display: none; }
+  /* A row that scrolls says so: the edge with more in it fades (useScrollFade sets data-fade), so no chip is cut off without a sign. */
+  @media (max-width: 767px) {
+    .rc-pf-actions, .rc-quick { padding-inline-end: 28px; }
+    .rc-pf-actions[data-fade='end'], .rc-quick[data-fade='end'] { -webkit-mask-image: linear-gradient(to right, black calc(100% - 36px), transparent); mask-image: linear-gradient(to right, black calc(100% - 36px), transparent); }
+    .rc-pf-actions[data-fade='start'], .rc-quick[data-fade='start'] { -webkit-mask-image: linear-gradient(to left, black calc(100% - 36px), transparent); mask-image: linear-gradient(to left, black calc(100% - 36px), transparent); }
+    .rc-pf-actions[data-fade='both'], .rc-quick[data-fade='both'] { -webkit-mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, black 36px, black calc(100% - 36px), transparent); }
+  }
   .rc-pf-act { flex: 0 0 auto; }
   .rc-pf-act.is-missing { opacity: 0.45; }
   .rc-pf-foot { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; }
@@ -196,11 +203,42 @@ export const leadDetailStyles = `
   .rc-ws-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .rc-ws-sub { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .rc-ws-tasks { display: flex; flex-direction: column; min-width: 0; }
+  /* The circle sits on the title's first line, not between the title and its due date; a title wraps to two lines (client docs job, part 5). */
+  .rc-ws-task { align-items: flex-start; padding-block: 11px; }
   .rc-ws-task .v-check-label { min-width: 0; white-space: normal; }
-  .rc-ws-task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--v-text-sm); }
+  .rc-ws-task .v-check-box { margin-top: calc((var(--v-lh-sm) - 22px) / 2); }
+  .rc-ws-task-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); }
+  .rc-ws-task-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .rc-ws-task-due { font-size: var(--v-text-xs); color: var(--v-text-3); }
   .rc-ws-task.is-overdue .rc-ws-task-due { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
   .rc-ws-foot { margin-top: auto; }
+  /* The Concepts middle: each direction and where it stands, so the card fills with what is true instead of air. */
+  .rc-ws-dirs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; }
+  .rc-ws-dir { display: flex; justify-content: space-between; align-items: baseline; gap: var(--v-space-2); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-2); min-width: 0; }
+  .rc-ws-dir-name { min-width: 0; overflow-wrap: anywhere; }
+  .rc-ws-dir-state { flex-shrink: 0; color: var(--v-text-3); }
+  .rc-ws-dir.is-approved .rc-ws-dir-state, .rc-ws-dir.is-picked .rc-ws-dir-state { color: var(--v-status-booked-text); font-weight: var(--v-weight-bold); }
+  .rc-ws-dir.is-changes .rc-ws-dir-state { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
+  /* Docs: one full width card at the end of the grid, whatever the column count. */
+  .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); }
+  .rc-docs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); min-width: 0; }
+  .rc-docs .rc-ws-title { margin: 0; }
+  .rc-docs-count { min-width: 22px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-3); color: var(--v-text); font-size: var(--v-text-xs); line-height: 22px; text-align: center; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
+  .rc-docs-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .rc-docs-row { position: relative; display: flex; flex-direction: column; gap: var(--v-space-1); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); background: var(--v-surface-1); border: 1px solid var(--v-border-1); border-radius: var(--v-radius-md); min-width: 0; }
+  .rc-docs-row:hover { border-color: var(--v-border-2); }
+  .rc-docs-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .rc-docs-row .v-stretch:focus-visible { outline: 0; }
+  .rc-docs-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); }
+  .rc-docs-pin { vertical-align: -2px; margin-right: var(--v-space-1); color: var(--v-text-3); }
+  .rc-docs-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
+  .rc-docs-edited { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
+  .rc-docs-err { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .rc-docs-empty { padding: var(--v-space-2) var(--v-space-2) var(--v-space-1); }
+  .rc-docs-empty .v-empty-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); text-transform: none; font-family: inherit; letter-spacing: 0; }
+  .rc-docs-empty .v-empty-desc { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); }
+  .rc-docs-empty .v-empty-actions { margin-top: var(--v-space-2); }
+  @media (min-width: 768px) { .rc-docs-row { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--v-space-3); } .rc-docs-title { flex: 1; } }
   /* Quick actions: one chip row; it scrolls sideways on a phone. */
   .rc-quick { display: flex; gap: var(--v-space-2); flex-wrap: wrap; min-width: 0; }
   @media (max-width: 767px) { .rc-quick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; } .rc-quick::-webkit-scrollbar { display: none; } .rc-quick-chip { flex: 0 0 auto; } }

@@ -476,6 +476,67 @@ export const SHOWCASE_PAYLOAD = {
 // Site Prompt 2 (Part 3): the landing settings document, same shape api/_routes/settings.js's landingShape() returns.
 export const LANDING_DOC = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: { years: 3 } } };
 export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, emails: { intro: true, onboarding: true, invoice: true, delivery: false }, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
+
+/* Client docs (docs job): a few docs on L11 (one pinned, one with a long title that wraps to two lines, one holding every block type), one on L12,
+ * none on the others (L13 is the empty state), a saved template, and the same handler the real route has in miniature (list without blocks,
+ * one with blocks, create, patch, delete and restore, purge, templates). A page gets its own copy (docsStore), so one audit's writes never reach another. */
+const DOC_IMG = 'https://res.cloudinary.com/demo/image/upload/sample.jpg';
+const tx = (t, extra = {}) => ({ t, ...extra });
+const blk = (id, type, extra = {}) => ({ id, type, ...extra });
+export const DOCS_ALL_BLOCKS = [
+  blk('b1', 'h1', { runs: [tx('Project brief')] }), blk('b2', 'p', { runs: [tx('A new logo and a one page site for the cafe. '), tx('Bold bit', { b: 1 }), tx(' and '), tx('italic bit', { i: 1 }), tx(' and '), tx('a link', { a: 'https://example.com/menu' }), tx('.')] }),
+  blk('b3', 'h2', { runs: [tx('What they need')] }), blk('b4', 'ul', { runs: [tx('Logo and a mark')] }), blk('b5', 'ul', { runs: [tx('A one page site')] }),
+  blk('b6', 'ol', { runs: [tx('Concepts first')] }), blk('b7', 'ol', { runs: [tx('Then the site')] }),
+  blk('b8', 'check', { runs: [tx('Deposit paid')], checked: true }), blk('b9', 'check', { runs: [tx('Menu photos sent')], checked: false }),
+  blk('b10', 'quote', { runs: [tx('We want it to feel like the neighbourhood.')] }), blk('b11', 'divider'),
+  blk('b12', 'link', { url: 'https://example.com/inspiration', text: 'Inspiration board' }), blk('b13', 'image', { url: DOC_IMG, alt: 'Storefront' }),
+  blk('b14', 'ref', { ref: { kind: 'concept', id: 'S11' }, label: 'Concepts' }), blk('b15', 'ref', { ref: { kind: 'project', id: 'P11' }, label: 'Launch Plan' }),
+  blk('b16', 'ref', { ref: { kind: 'task', id: 'tkL11a2' }, label: 'Make graphics' }), blk('b17', 'ref', { ref: { kind: 'invoice', id: 'm2' }, label: 'Month 2 of 6' }), blk('b18', 'ref', { ref: { kind: 'file', id: 'a1' }, label: 'Logo PNG' }),
+];
+const docAt = (id, leadId, type, title, over = {}) => ({ _id: id, leadId, template: false, projectId: '', type, title, pinned: false, blocks: [blk(`${id}p`, 'p', { runs: [tx(`Notes for ${title}.`)] })], deleted: false, createdAt: '2026-09-20T10:00:00.000Z', updatedAt: '2026-10-03T10:00:00.000Z', ...over });
+export const DOCS = [
+  docAt('DOC1', 'L11', 'brief', 'Project brief', { pinned: true, blocks: DOCS_ALL_BLOCKS, updatedAt: '2026-10-04T08:00:00.000Z' }),
+  docAt('DOC2', 'L11', 'call-notes', 'Call notes with the owner about the new storefront signage and the opening weekend plan for next month', { updatedAt: '2026-10-04T06:00:00.000Z' }),
+  docAt('DOC3', 'L11', 'contract', 'Contract', { updatedAt: '2026-10-02T10:00:00.000Z' }),
+  docAt('DOC4', 'L11', 'delivery', 'Delivery notes', { updatedAt: '2026-09-30T10:00:00.000Z' }),
+  docAt('DOC5', 'L11', 'brand-notes', 'Brand notes', { updatedAt: '2026-09-28T10:00:00.000Z' }),
+  docAt('DOC6', 'L12', 'general', 'Meeting notes', { updatedAt: '2026-10-01T10:00:00.000Z' }),
+  docAt('DOCT1', '', 'brief', 'My intake', { template: true, blocks: [blk('t1', 'h1', { runs: [tx('Intake for [client name]')] }), blk('t2', 'p', { runs: [tx('[what they need]')] })] }),
+];
+const metaOfDoc = (d) => { const { blocks, ...rest } = d; return { ...rest, text: (blocks || []).map(b => (b.runs || []).map(r => r.t).join('') || b.label || b.text || b.alt || '').join(' '), blockCount: (blocks || []).length }; };
+export const docsStore = (seed = DOCS) => JSON.parse(JSON.stringify(seed));
+/** The route in miniature: { status, body } for one request against one store. */
+export function docsHandler(store, method, query, body) {
+  const live = (d) => !d.deleted && !d.template;
+  if (method === 'GET') {
+    if (query.id) { const d = store.find(x => x._id === query.id); return d ? { status: 200, body: { item: d } } : { status: 404, body: { error: 'not found' } }; }
+    if (query.templates) return { status: 200, body: { items: store.filter(d => d.template && !d.deleted), prefs: { hidden: [], order: [] } } };
+    if (query.deleted) return { status: 200, body: { items: store.filter(d => d.deleted && !d.template).map(metaOfDoc) } };
+    return { status: 200, body: { items: store.filter(d => live(d) && (!query.leadId || d.leadId === query.leadId)).map(metaOfDoc).sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))) } };
+  }
+  const now = new Date().toISOString();
+  if (method === 'POST') {
+    const item = { _id: `DOCN${store.length + 1}`, leadId: body.template ? '' : String(body.leadId || ''), template: body.template === true, projectId: body.projectId || '', type: body.type || 'general', title: String(body.title || 'Untitled').slice(0, 160), pinned: false, blocks: Array.isArray(body.blocks) ? body.blocks : [], deleted: false, createdAt: now, updatedAt: now };
+    store.push(item);
+    return { status: 200, body: { ok: true, item } };
+  }
+  if (method === 'PATCH') {
+    if (body.prefs) return { status: 200, body: { ok: true } };
+    const d = store.find(x => x._id === body.id);
+    if (!d) return { status: 404, body: { error: 'not found' } };
+    if (body.restore) { d.deleted = false; return { status: 200, body: { ok: true } }; }
+    for (const k of ['title', 'type', 'projectId', 'pinned', 'blocks']) if (k in (body.set || {})) d[k] = body.set[k];
+    if (['blocks', 'title', 'type'].some(k => k in (body.set || {}))) d.updatedAt = now;
+    return { status: 200, body: { ok: true, updatedAt: d.updatedAt } };
+  }
+  if (method === 'DELETE') {
+    const i = store.findIndex(x => x._id === body.id);
+    if (i < 0) return { status: 404, body: { error: 'not found' } };
+    if (body.purge || store[i].template) store.splice(i, 1); else store[i].deleted = true;
+    return { status: 200, body: { ok: true } };
+  }
+  return { status: 405, body: { error: 'method not allowed' } };
+}
 /** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
 export const PAYLOADS = {
   submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),
@@ -490,8 +551,9 @@ export const PAYLOADS = {
   projects: () => ({ items: projects }),
   posts: () => ({ items: posts }),
   suggestions: () => ({ items: suggestions }),
+  docs: () => ({ items: docsStore().filter(d => !d.deleted && !d.template).map(metaOfDoc) }),
 };
-export const EMPTY = { settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+export const EMPTY = { docs: { items: [] }, settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, delivery: false };
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
@@ -586,6 +648,18 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill(json({ ok: true, item: { ...cur, ...(body.set || {}), updatedAt: NOW_ISO } }));
   });
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
+  const docStore = docsStore(opts.docs || DOCS);
+  await page.route('**/api/admin/docs**', async (r) => {
+    const method = r.request().method();
+    const u = new URL(r.request().url());
+    const query = Object.fromEntries(u.searchParams.entries());
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    if (failing.has('docs') && !(method === 'GET' && (query.id || query.templates || query.deleted))) return r.fulfill(fail());
+    if (method === 'GET' && !query.id && !query.templates && !query.deleted && !query.leadId) return respond(r, 'docs', { items: docsHandler(docStore, 'GET', {}, {}).body.items });
+    if (opts.docsSaveFails && method !== 'GET') return r.fulfill(fail());
+    const out = docsHandler(docStore, method, query, body);
+    return r.fulfill({ ...json(out.body), status: out.status });
+  });
   await page.route('**/api/admin/suggestions**', r => (r.request().method() === 'GET' ? respond(r, 'suggestions', PAYLOADS.suggestions()) : r.fulfill(json({ ok: true }))));
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));

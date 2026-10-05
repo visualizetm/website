@@ -1,8 +1,9 @@
 import { postsOf, kindOf } from './posts';
-import { setsOf, newestSet, statusOf as conceptStatusOf, itemCount, reviewLine } from './concepts';
+import { setsOf, newestSet, statusOf as conceptStatusOf, itemCount, reviewLine, approvalModeOf, needsDecision } from './concepts';
 import { conceptSetStatusOf } from '../shared/semantics';
 import { taskCounts, taskNextUp, openTasks } from '../shared/taskRules';
-import { completeness } from './showcaseMeter';
+import { completeness, imageCount } from './showcaseMeter';
+import { docsOf, sortDocs } from './docs';
 
 /* The client workspace's status lines (client page workspace redesign): one
  * selector per card, read by the Workspace cards, by the record's overflow
@@ -13,13 +14,15 @@ import { completeness } from './showcaseMeter';
 /** Showcase: none, draft, ready (every block the page shows is filled), published. The wording the menu used. */
 export function showcaseStatus(lead) {
   const sh = lead?.showcase && typeof lead.showcase === 'object' && Object.keys(lead.showcase).length > 0 ? lead.showcase : null;
-  if (!sh) return { state: 'none', label: 'none yet', images: 0, cover: '', ready: false, published: false };
-  const b = sh.brand || {}; const w = sh.website || {};
-  const images = (Array.isArray(b.images) ? b.images.length : 0) + (Array.isArray(w.screenshots) ? w.screenshots.length : 0);
+  if (!sh) return { state: 'none', empty: false, label: 'none yet', images: 0, cover: '', ready: false, published: false };
+  /* The count was the two galleries only, so a published page with a cover and a logo read "0 images on the page" (client docs job, part 5). */
+  const images = imageCount(sh);
   const c = completeness(sh, lead);
   const ready = c.total > 0 && c.done === c.total;
   const state = sh.published ? 'published' : ready ? 'ready' : 'draft';
-  return { state, label: state, images, cover: sh.cover || sh.logoUrl || '', ready, published: !!sh.published, done: c.done, total: c.total, slug: sh.slug || '' };
+  /* Published with nothing to look at is the one state worth a nudge; it never reads as a plain Published. */
+  const empty = !!sh.published && images === 0;
+  return { state, empty, label: empty ? 'published, no images yet' : state, images, cover: sh.cover || sh.logoUrl || '', ready, published: !!sh.published, done: c.done, total: c.total, slug: sh.slug || '' };
 }
 
 /** Planner: the private link's state and the month's items by state, with the posts and ads split (both already loaded at the shell). */
@@ -56,7 +59,29 @@ export function conceptsStatus(sets, leadId) {
   const st = set ? conceptSetStatusOf(conceptStatusOf(set)) : null;
   const review = set ? reviewLine(set) : undefined;
   return {
+    rows: set ? directionRows(set) : [], answeredAt: set?.submittedAt || '',
     count: all.length, set, status: st, label: review ? review[0].toLowerCase() + review.slice(1) : st ? st.label.toLowerCase() : 'none', review,
     items: set ? itemCount(set) : 0, lastViewedAt: set?.lastViewedAt || '', approved: !!set?.approvedDirectionId,
   };
+}
+
+/** The Concepts card's middle: up to three directions with where each stands. A Review each set shows the client's answer on each; a Pick one
+ * set shows the one they picked. state is approved, changes, pass, picked or waiting (nothing from them yet). */
+export function directionRows(set, n = 3) {
+  const dirs = [...(set?.directions || [])].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const review = approvalModeOf(set) === 'review';
+  return dirs.slice(0, n).map((d, i) => {
+    const letter = String.fromCharCode(65 + i);
+    const dec = d.decision?.status;
+    const state = review ? (!needsDecision(d) ? 'reference' : dec === 'approved' ? 'approved' : dec === 'changes' ? 'changes' : dec === 'pass' ? 'pass' : 'waiting')
+      : (set?.approvedDirectionId === d.id ? 'picked' : 'waiting');
+    return { id: d.id, name: d.name || `Direction ${letter}`, state };
+  });
+}
+
+/** Docs: the count and the three the card shows, pinned first then the latest edit. Nothing fetches: the list is what the shell holds. */
+export function docsStatus(docs, leadId, n = 3) {
+  const mine = docsOf(docs, leadId);
+  const sorted = sortDocs(mine, 'edited');
+  return { count: mine.length, pinned: mine.filter(d => d.pinned).length, rows: sorted.slice(0, n), more: Math.max(0, mine.length - n), label: mine.length ? `${mine.length} doc${mine.length === 1 ? '' : 's'}` : 'none yet' };
 }

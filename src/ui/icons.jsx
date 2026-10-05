@@ -88,10 +88,28 @@ import Pin01 from '@untitled-ui/icons-react/build/esm/Pin01';
 import File02 from '@untitled-ui/icons-react/build/esm/File02';
 import CheckDone01 from '@untitled-ui/icons-react/build/esm/CheckDone01';
 import DotsHorizontal from '@untitled-ui/icons-react/build/esm/DotsHorizontal';
+import Bold01 from '@untitled-ui/icons-react/build/esm/Bold01';
+import Italic01 from '@untitled-ui/icons-react/build/esm/Italic01';
+import Heading01 from '@untitled-ui/icons-react/build/esm/Heading01';
+import Heading02 from '@untitled-ui/icons-react/build/esm/Heading02';
+import Dotpoints01 from '@untitled-ui/icons-react/build/esm/Dotpoints01';
+import List from '@untitled-ui/icons-react/build/esm/List';
+import Minus from '@untitled-ui/icons-react/build/esm/Minus';
+import CheckSquare from '@untitled-ui/icons-react/build/esm/CheckSquare';
+import FilePlus01 from '@untitled-ui/icons-react/build/esm/FilePlus01';
+import ArrowUp from '@untitled-ui/icons-react/build/esm/ArrowUp';
+import ArrowDown from '@untitled-ui/icons-react/build/esm/ArrowDown';
+import DotsGrid from '@untitled-ui/icons-react/build/esm/DotsGrid';
+import Type01 from '@untitled-ui/icons-react/build/esm/Type01';
+import MessageTextSquare01 from '@untitled-ui/icons-react/build/esm/MessageTextSquare01';
+import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
+import ReverseLeft from '@untitled-ui/icons-react/build/esm/ReverseLeft';
 
 export const ICONS = {
   /* tasks (planner dashboard and task system) */
   Pin01, File02, CheckDone01, DotsHorizontal,
+  /* client docs */
+  Bold01, Italic01, Heading01, Heading02, Dotpoints01, List, Minus, CheckSquare, FilePlus01, ArrowUp, ArrowDown, DotsGrid, Type01, MessageTextSquare01, Save01, ReverseLeft,
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,
   CalendarCheck01, Trophy01, Briefcase01, XClose, Bell01, Mail01, MessageCircle01,
   CurrencyDollar, Package, Calendar, User01,

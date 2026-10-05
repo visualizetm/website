@@ -26,6 +26,7 @@ import { withDeal, dealAutoPatch, tickPatch, dealOf, isTicked, isStalled } from 
 import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
+import useDocs from '../lib/useDocs';
 
 /* Code split by screen (Prompt 15): the entry chunk is the shell plus the
  * Dashboard; every other screen is its own chunk, loaded on first visit.
@@ -262,6 +263,10 @@ export default function AdminApp() {
     return true;
   }, []);
   useEffect(() => { if (authed) loadSets(); }, [authed, loadSets]);
+  /* Client docs (docs job): the list's meta at the shell, the ops, and the three places a doc opens from. A created or deleted doc is logged on
+     the client's record the same moment the server logs it, so History says so without a refetch. */
+  const onDocLog = useCallback((leadId, entry) => setCallLeads(ls => ls.map(l => (String(l._id) === String(leadId) ? { ...l, docLog: [...(l.docLog || []), { at: new Date().toISOString(), ...entry }].slice(-100) } : l))), []);
+  const docsState = useDocs({ authed, onLog: onDocLog });
   /* Dial lists (CRM revamp, step 3), loaded at the shell level like the
      other collections. The ops below are the one place a list is written
      from a screen: the picker, the Lists screen and the Call Console all
@@ -458,6 +463,11 @@ export default function AdminApp() {
   const openPlanner = useCallback((lead, month) => { push(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openTasks = useCallback((lead, project) => { push(`${BASE}/clients/${lead._id}/tasks${project ? `?project=${project._id}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
+  const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
+  const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
+  /* New doc: a blank one for now; the template sheet replaces this call. */
+  const newDoc = useCallback(async (lead) => { const item = await docsState.ops.create({ leadId: String(lead._id), type: 'general', title: 'Untitled', blocks: [] }); if (item) openDoc(item); return item; }, [docsState.ops, openDoc]);
+  const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc }), [docsState, openDoc, openClientDocs, newDoc]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
   const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
   // Open a lead in whichever screen owns its stage: a push carrying the record on its state.
@@ -682,7 +692,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={null}>

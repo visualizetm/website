@@ -92,6 +92,7 @@ export const COPY = {
     'submissions.filter': { title: 'No submissions in this filter', description: 'Every submission is under All.', action: 'Show all' },
     'submissions.fields': { title: 'No answers on this one', description: 'This submission carries only the contact details above.' },
     /* Settings */
+    'clients.docs': { title: 'No docs yet', description: 'Start with a brief or call notes.' },
     'settings.deleted': { title: 'Nothing in the bin', description: 'Deleted leads and submissions wait here for 30 days, then purge on their own.' },
     'settings.reconcile': { title: 'Nothing to reconcile', description: 'Every payment the webhook stored matched a client.' },
     /* Shell */

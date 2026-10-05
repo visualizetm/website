@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { Avatar, Button, IconButton } from '../../ui';
+import useScrollFade from './useScrollFade';
 import { formatPhone } from '../../shared/phone';
 import { displayIndustry } from '../../shared/semantics';
 import { brandText } from '../../lib/projects';
@@ -33,6 +35,8 @@ export function actionValue(lead, id) {
 
 export default function ProfileCard({ rec, onOpenProfile, onAdd }) {
   const { lead, readOnly, run, toast, clientMode } = rec;
+  const actionsRef = useRef(null);
+  useScrollFade(actionsRef);
   const sms = lead.phone ? `sms:${String(lead.phone).replace(/[^0-9+]/g, '')}` : '';
   const open = (id, value) => {
     if (id === 'call') { run('call'); return; }
@@ -56,7 +60,7 @@ export default function ProfileCard({ rec, onOpenProfile, onAdd }) {
           {lead.email && <p className="rc-pf-line rc-pf-strong lay-truncate">{lead.email}</p>}
         </div>
       </div>
-      <div className="rc-pf-actions" role="group" aria-label="Reach them">
+      <div className="rc-pf-actions" role="group" aria-label="Reach them" ref={actionsRef}>
         {PROFILE_ACTIONS.map(a => {
           const value = actionValue(lead, a.id);
           if (value) return <IconButton key={a.id} icon={a.icon} label={a.label} variant="secondary" onClick={() => open(a.id, value)} className={`rc-pf-act rc-pf-act--${a.id}`} />;

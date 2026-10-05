@@ -1,6 +1,8 @@
-import { Button, Checkbox, Icon, Pill, ProgressBar } from '../../ui';
+import { Button, Checkbox, EmptyState, Icon, Pill, ProgressBar, SkeletonBlock } from '../../ui';
 import { relativeTime } from '../../shared/dates';
-import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus } from '../../lib/workspace';
+import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus, docsStatus } from '../../lib/workspace';
+import { typeLabel, editedLabel } from '../../lib/docs';
+import { COPY } from '../../shared/copy';
 import { completePatch, taskDueLabel, isOverdue } from '../../lib/taskWrite';
 import { safeHref } from '../../lib/safeUrl';
 
@@ -12,6 +14,47 @@ import { safeHref } from '../../lib/safeUrl';
  * and any other line that names it can never disagree. */
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const DIR_STATE = { approved: 'Approved', changes: 'Needs changes', pass: 'Passed', picked: 'Picked', waiting: 'Waiting', reference: 'For reference' };
+
+/* Docs (client docs job, part 1): full width under the four cards (it spans the whole grid at every width), the count, New doc, the three
+ * most recently edited rows with the pinned ones first, and All docs. One stretched button per row opens that doc. The count and the rows
+ * come from src/lib/workspace.js, the same list the More page and search read. */
+function DocsCard({ rec }) {
+  const { lead, shell, readOnly } = rec;
+  const api = shell?.docsApi;
+  if (!api) return null;
+  const st = docsStatus(api.docs, lead._id);
+  const now = Date.now();
+  const newDoc = () => api.newDoc(lead);
+  return (
+    <section className="rc-ws-card rc-docs" data-ws="docs" aria-label="Docs">
+      <div className="rc-docs-head">
+        <div className="rc-ws-head"><Icon icon="File02" size={16} className="rc-ws-icon" /><h3 className="rc-ws-title">Docs</h3>{st.count > 0 && <span className="rc-docs-count" aria-label={`${st.count} docs`}>{st.count}</span>}</div>
+        {!readOnly && <Button variant="secondary" size="md" icon="Plus" onClick={newDoc} className="rc-docs-new">New doc</Button>}
+      </div>
+      {api.loading ? (
+        <div className="rc-docs-rows" aria-hidden="true">{[0, 1, 2].map(i => <SkeletonBlock key={i} height={56} radius="var(--v-radius-md)" />)}</div>
+      ) : api.error ? (
+        <div className="rc-docs-err" role="alert"><span>Docs did not load.</span><Button variant="secondary" size="md" onClick={api.reload}>Retry</Button></div>
+      ) : st.count === 0 ? (
+        <EmptyState size="sm" className="rc-docs-empty" title={COPY.empty['clients.docs'].title} description={COPY.empty['clients.docs'].description} action={readOnly ? undefined : { label: 'New doc', icon: 'Plus', onClick: newDoc }} />
+      ) : (
+        <>
+          <ul className="rc-docs-rows" aria-label="Recent docs">
+            {st.rows.map(d => (
+              <li key={d._id} className={`rc-docs-row${d.pinned ? ' is-pinned' : ''}`} data-doc-id={d._id}>
+                <button type="button" className="v-stretch" onClick={() => api.openDoc(d)} aria-label={`Open ${d.title || 'Untitled'}`}>Open {d.title || 'Untitled'}</button>
+                <span className="rc-docs-title">{d.pinned && <><Icon icon="Pin01" size={14} className="rc-docs-pin" /><span className="v-sr-only">Pinned. </span></>}{d.title || 'Untitled'}</span>
+                <span className="rc-docs-meta"><Pill tone="neutral" label={typeLabel(d.type)} size="sm" icon={false} variant="soft" /><span className="rc-docs-edited">{editedLabel(d, now)}</span></span>
+              </li>
+            ))}
+          </ul>
+          <div className="rc-docs-foot v-above"><Button variant="secondary" size="md" onClick={() => api.openClientDocs(lead)} className="rc-docs-all">{st.more > 0 ? `All docs, ${st.count}` : 'All docs'}</Button></div>
+        </>
+      )}
+    </section>
+  );
+}
 
 function CardShell({ id, title, icon, open, openLabel, children, action }) {
   return (
@@ -45,9 +88,9 @@ export default function WorkspaceCards({ rec }) {
         action={<Button variant="secondary" size="md" full onClick={openShowcase} className="rc-ws-btn">Open showcase</Button>}>
         <div className="rc-ws-row">
           {sc.cover && <span className="img-fit img-fit--1x1 rc-ws-thumb"><img src={safeHref(sc.cover)} alt="" width={40} height={40} loading="lazy" decoding="async" /></span>}
-          <Pill tone={sc.state === 'published' ? 'booked' : sc.state === 'ready' ? 'progress' : 'neutral'} label={sc.state === 'none' ? 'None yet' : sc.state[0].toUpperCase() + sc.state.slice(1)} size="sm" icon={false} variant={sc.state === 'published' ? 'solid' : 'soft'} />
+          <Pill tone={sc.empty ? 'new' : sc.state === 'published' ? 'booked' : sc.state === 'ready' ? 'progress' : 'neutral'} label={sc.empty ? 'No images yet' : sc.state === 'none' ? 'None yet' : sc.state[0].toUpperCase() + sc.state.slice(1)} size="sm" icon={false} variant={sc.state === 'published' && !sc.empty ? 'solid' : 'soft'} />
         </div>
-        <p className="rc-ws-line">{sc.state === 'none' ? 'Nothing built yet.' : sc.state === 'published' ? `${plural(sc.images, 'image')} on the page.` : `${sc.done} of ${sc.total} filled, ${plural(sc.images, 'image')}.`}</p>
+        <p className="rc-ws-line">{sc.state === 'none' ? 'Nothing built yet.' : sc.empty ? 'Published, no images yet.' : sc.state === 'published' ? `${plural(sc.images, 'image')} on the page.` : `${sc.done} of ${sc.total} filled, ${plural(sc.images, 'image')}.`}</p>
       </CardShell>
 
       <CardShell id="planner" title="Planner" icon="Calendar" open={openPlanner} openLabel="Open planner"
@@ -70,7 +113,7 @@ export default function WorkspaceCards({ rec }) {
             {tk.next.map(t => (
               <Checkbox key={t.id} checked={false} disabled={readOnly} className={`rc-ws-task${isOverdue(t, now) ? ' is-overdue' : ''}`}
                 onChange={() => patch(completePatch(lead, t.id, true, ctx, now))}
-                label={<span className="rc-ws-task-text"><span className="lay-truncate">{t.text}</span>{taskDueLabel(t, now) && <span className="rc-ws-task-due">{taskDueLabel(t, now)}</span>}</span>} />
+                label={<span className="rc-ws-task-text"><span className="rc-ws-task-title">{t.text}</span>{taskDueLabel(t, now) && <span className="rc-ws-task-due">{taskDueLabel(t, now)}</span>}</span>} />
             ))}
           </div>
         )}
@@ -82,8 +125,15 @@ export default function WorkspaceCards({ rec }) {
           {cc.status ? <Pill tone={cc.status.tone} label={cc.status.label} size="sm" icon={false} variant={cc.status.id === 'approved' ? 'solid' : 'soft'} /> : <Pill tone="neutral" label="None yet" size="sm" icon={false} variant="soft" />}
         </div>
         <p className="rc-ws-line">{cc.review ? `${cc.review}.` : cc.set ? `${plural(cc.count, 'set')}, ${plural(cc.items, 'item')} in round ${cc.set.round || 1}.` : 'Nothing to show them yet.'}</p>
-        {cc.lastViewedAt && <p className="rc-ws-sub">Viewed {relativeTime(cc.lastViewedAt)}</p>}
+        {cc.rows.length > 0 && (
+          <ul className="rc-ws-dirs" aria-label="Directions">
+            {cc.rows.map(r => <li key={r.id} className={`rc-ws-dir is-${r.state}`}><span className="rc-ws-dir-name">{r.name}</span><span className="rc-ws-dir-state">{DIR_STATE[r.state]}</span></li>)}
+          </ul>
+        )}
+        {cc.set && <p className="rc-ws-sub">{cc.answeredAt ? `Answers sent ${relativeTime(cc.answeredAt)}` : cc.lastViewedAt ? `Viewed ${relativeTime(cc.lastViewedAt)}` : cc.set.status === 'draft' ? 'Not sent yet' : 'Not opened yet'}</p>}
       </CardShell>
+
+      <DocsCard rec={rec} />
     </div>
   );
 }

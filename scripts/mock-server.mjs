@@ -11,7 +11,7 @@ import http from 'node:http';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
-import { PAYLOADS, leads, orders, sets, lists, publicConceptSet, projects, posts, suggestions, plannerPayload, plannerPublicSuggestion, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
+import { PAYLOADS, docsStore, docsHandler, leads, orders, sets, lists, publicConceptSet, projects, posts, suggestions, plannerPayload, plannerPublicSuggestion, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
 const PORT = Number(process.env.PORT || 4350);
@@ -36,6 +36,8 @@ const send = (res, status, body, type = 'application/json; charset=utf-8', extra
 };
 const json = (res, data, status = 200) => send(res, status, JSON.stringify(data));
 
+const DOCS_STORE = docsStore();
+let currentBody = '';
 function api(req, res, url) {
   const p = url.pathname; const m = req.method;
   const get = (name) => setTimeout(() => json(res, PAYLOADS[name]()), m === 'GET' ? DELAY : 0);
@@ -50,6 +52,12 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/calendly')) return get('calendly');
   if (p.startsWith('/api/admin/call-leads')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('leads')) : json(res, { ok: true, item: { ...leads[0], _id: 'LNEW' } });
   if (p.startsWith('/api/admin/orders')) return m === 'GET' ? get('orders') : json(res, { ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } });
+  if (p.startsWith('/api/admin/docs')) {
+    const q = Object.fromEntries(url.searchParams.entries());
+    let b = {}; try { b = JSON.parse(currentBody || '{}'); } catch { /* empty */ }
+    const out = docsHandler(DOCS_STORE, m, q, b);
+    return setTimeout(() => json(res, out.body, out.status), m === 'GET' ? DELAY : 0);
+  }
   if (p.startsWith('/api/admin/suggestions')) return m === 'GET' ? json(res, { items: suggestions }) : json(res, { ok: true });
   if (p.startsWith('/api/admin/concept-packs')) return get('packs');
   if (p.startsWith('/api/admin/concept-sets')) return m === 'GET' ? get('sets') : json(res, { ok: true, item: { ...sets[0], _id: 'SNEW' } });
@@ -90,7 +98,7 @@ const server = http.createServer((req, res) => {
   currentReq = req;
   const url = new URL(req.url, `http://127.0.0.1:${PORT}`);
   if (url.pathname.startsWith('/api/')) {
-    req.on('data', () => {}); req.on('end', () => api(req, res, url));
+    const chunks = []; req.on('data', (c) => chunks.push(c)); req.on('end', () => { currentBody = Buffer.concat(chunks).toString('utf8'); api(req, res, url); });
     return;
   }
   let file = join(DIST, decodeURIComponent(url.pathname));

@@ -26,3 +26,19 @@ export function completeness(sh, lead) {
   ];
   return { items, done: items.filter(i => i.ok).length, total: items.length };
 }
+
+/** Every distinct image the public page would show: the cover, the logo, the brand images, the website screenshots, the Instagram posts,
+ * the card faces and the print items, each only while its block is on. One count, read by the Showcase card, so "images" means what the
+ * page has and not just the two galleries. */
+export function imageCount(sh) {
+  const b = sh?.brand || {}; const w = sh?.website || {}; const ig = sh?.instagram || {}; const c = sh?.cards || {}; const p = sh?.print || {};
+  const urls = [
+    sh?.cover, b.logo?.dark || b.logo?.light || sh?.logoUrl,
+    ...(b.enabled !== false && Array.isArray(b.images) ? b.images : []),
+    ...(w.enabled !== false && Array.isArray(w.screenshots) ? w.screenshots : []),
+    ...(ig.enabled && Array.isArray(ig.posts) ? ig.posts.map(x => x?.image) : []),
+    ...(c.enabled !== false ? [c.front, c.back] : []),
+    ...(p.enabled !== false && Array.isArray(p.items) ? p.items.map(x => x?.image) : []),
+  ].map(u => (typeof u === 'string' ? u : u?.url || '').trim()).filter(Boolean);
+  return new Set(urls).size;
+}
