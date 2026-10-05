@@ -220,28 +220,29 @@ export const leadDetailStyles = `
   .rc-ws-dir.is-approved .rc-ws-dir-state, .rc-ws-dir.is-picked .rc-ws-dir-state { color: var(--v-status-booked-text); font-weight: var(--v-weight-bold); }
   .rc-ws-dir.is-changes .rc-ws-dir-state { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
   /* Docs: one full width card at the end of the grid, whatever the column count. */
-  .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); }
+  /* --sk-a and --sk-b are what the skeleton's rows measure: a one line title row and a row whose title wraps to two lines. */
+  .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); --sk-a: 66px; --sk-b: 88px; }
   .rc-docs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); min-width: 0; }
   .rc-docs .rc-ws-title { margin: 0; }
   .rc-docs-count { min-width: 22px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-3); color: var(--v-text); font-size: var(--v-text-xs); line-height: 22px; text-align: center; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
   .rc-docs-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
-  .rc-docs-row { position: relative; display: flex; flex-direction: column; gap: var(--v-space-1); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); background: var(--v-surface-1); border: 1px solid var(--v-border-1); border-radius: var(--v-radius-md); min-width: 0; }
+  .rc-docs-row { position: relative; display: flex; flex-direction: column; gap: var(--v-space-1); min-height: var(--v-tap); border-radius: var(--v-radius-md); min-width: 0; list-style: none; }
   .rc-docs-row:hover { border-color: var(--v-border-2); }
   .rc-docs-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .rc-docs-row .v-stretch:focus-visible { outline: 0; }
   .rc-docs-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .rc-docs-pin { vertical-align: -2px; margin-right: var(--v-space-1); color: var(--v-text-3); }
-  .rc-docs-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
-  .rc-docs-client { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .rc-docs-meta { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; white-space: nowrap; }
+  .rc-docs-client { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-2); min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .rc-docs-controls { position: absolute; top: var(--v-space-1); right: var(--v-space-1); display: inline-flex; }
   .rc-docs-row:has(.rc-docs-controls) .rc-docs-title { padding-right: var(--v-tap); }
-  .rc-docs-edited { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
+  .rc-docs-edited { flex-shrink: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .rc-docs-err { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .rc-docs-empty { padding: var(--v-space-2) var(--v-space-2) var(--v-space-1); }
   .rc-docs-empty .v-empty-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); text-transform: none; font-family: inherit; letter-spacing: 0; }
   .rc-docs-empty .v-empty-desc { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); }
   .rc-docs-empty .v-empty-actions { margin-top: var(--v-space-2); }
-  @media (min-width: 768px) { .rc-docs-row { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--v-space-3); } .rc-docs-title { flex: 1; } }
+  @media (min-width: 768px) { .rc-docs { --sk-a: 44px; --sk-b: 62px; } .rc-docs-row { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--v-space-3); } .rc-docs-title { flex: 1; } }
   /* Quick actions: one chip row; it scrolls sideways on a phone. */
   .rc-quick { display: flex; gap: var(--v-space-2); flex-wrap: wrap; min-width: 0; }
   @media (max-width: 767px) { .rc-quick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; margin: -2px; } .rc-quick::-webkit-scrollbar { display: none; } .rc-quick-chip { flex: 0 0 auto; } }

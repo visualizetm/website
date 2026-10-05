@@ -489,9 +489,9 @@ export const DOCS_ALL_BLOCKS = [
   blk('b6', 'ol', { runs: [tx('Concepts first')] }), blk('b7', 'ol', { runs: [tx('Then the site')] }),
   blk('b8', 'check', { runs: [tx('Deposit paid')], checked: true }), blk('b9', 'check', { runs: [tx('Menu photos sent')], checked: false }),
   blk('b10', 'quote', { runs: [tx('We want it to feel like the neighbourhood.')] }), blk('b11', 'divider'),
-  blk('b12', 'link', { url: 'https://example.com/inspiration', text: 'Inspiration board' }), blk('b13', 'image', { url: DOC_IMG, alt: 'Storefront' }),
   blk('b14', 'ref', { ref: { kind: 'concept', id: 'S11' }, label: 'Concepts' }), blk('b15', 'ref', { ref: { kind: 'project', id: 'P11' }, label: 'Launch Plan' }),
   blk('b16', 'ref', { ref: { kind: 'task', id: 'tkL11a2' }, label: 'Make graphics' }), blk('b17', 'ref', { ref: { kind: 'invoice', id: 'm2' }, label: 'Month 2 of 6' }), blk('b18', 'ref', { ref: { kind: 'file', id: 'a1' }, label: 'Logo PNG' }),
+  blk('b12', 'link', { url: 'https://example.com/inspiration', text: 'Inspiration board' }), blk('b13', 'image', { url: DOC_IMG, alt: 'Storefront' }),
 ];
 const docAt = (id, leadId, type, title, over = {}) => ({ _id: id, leadId, template: false, projectId: '', type, title, pinned: false, blocks: [blk(`${id}p`, 'p', { runs: [tx(`Notes for ${title}.`)] })], deleted: false, createdAt: '2026-09-20T10:00:00.000Z', updatedAt: '2026-10-03T10:00:00.000Z', ...over });
 export const DOCS = [
@@ -501,6 +501,7 @@ export const DOCS = [
   docAt('DOC4', 'L11', 'delivery', 'Delivery notes', { updatedAt: '2026-09-30T10:00:00.000Z' }),
   docAt('DOC5', 'L11', 'brand-notes', 'Brand notes', { updatedAt: '2026-09-28T10:00:00.000Z' }),
   docAt('DOC6', 'L12', 'general', 'Meeting notes', { updatedAt: '2026-10-01T10:00:00.000Z' }),
+  docAt('DOCE', 'L14', 'general', 'Untitled', { blocks: [], updatedAt: '2026-10-02T09:00:00.000Z' }),
   docAt('DOCT1', '', 'brief', 'My intake', { template: true, blocks: [blk('t1', 'h1', { runs: [tx('Intake for [client name]')] }), blk('t2', 'p', { runs: [tx('[what they need]')] })] }),
 ];
 const metaOfDoc = (d) => { const { blocks, ...rest } = d; return { ...rest, text: (blocks || []).map(b => (b.runs || []).map(r => r.t).join('') || b.label || b.text || b.alt || '').join(' '), blockCount: (blocks || []).length }; };
@@ -654,7 +655,7 @@ export async function mockRoutes(page, opts = {}) {
     const u = new URL(r.request().url());
     const query = Object.fromEntries(u.searchParams.entries());
     let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
-    if (failing.has('docs') && !(method === 'GET' && (query.id || query.templates || query.deleted))) return r.fulfill(fail());
+    if (failing.has('docs')) return r.fulfill(fail());
     if (method === 'GET' && !query.id && !query.templates && !query.deleted && !query.leadId) return respond(r, 'docs', { items: docsHandler(docStore, 'GET', {}, {}).body.items });
     if (opts.docsSaveFails && method !== 'GET') return r.fulfill(fail());
     const out = docsHandler(docStore, method, query, body);

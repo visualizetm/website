@@ -8,17 +8,20 @@ export const docEditorStyles = `
   .dd-title { width: 100%; margin: 0; padding: var(--v-space-1) 0; min-height: var(--v-tap); color: var(--v-text); font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: anywhere; outline: none; }
   .dd-title:empty::before { content: attr(data-placeholder); color: var(--v-text-3); pointer-events: none; }
   .dd-title:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 4px; border-radius: var(--v-radius-sm); }
-  .dd-meta { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); min-width: 0; }
+  .dd-meta { min-height: var(--v-tap); display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); min-width: 0; }
   .dd-client { margin: 0; min-width: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .dd-clientbtn { min-height: var(--v-tap); padding: 0; border: 0; background: transparent; color: var(--v-text-2); font: inherit; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; overflow-wrap: anywhere; }
   .dd-clientbtn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
+  .dd-metaright { display: inline-flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
+  .dd-pinbtn[aria-pressed='true'] { color: var(--v-status-progress-text); }
   .dd-status { margin: 0; flex-shrink: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .dd-status.is-failed, .dd-status.is-rejected { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
   .dd-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); }
   .dd-selects > :only-child { grid-column: 1 / -1; }
-  @media (min-width: 768px) { .dd-selects { grid-template-columns: minmax(0, 220px) minmax(0, 280px); } }
+  @media (min-width: 768px) { .dd-selects { grid-template-columns: minmax(0, 220px) minmax(0, 280px); } .dd-selects > :only-child { grid-column: auto; } }
   .dd-deleted { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; padding: var(--v-space-3); border: 1px solid var(--v-status-danger-text); border-radius: var(--v-radius-md); background: var(--v-status-danger-soft); color: var(--v-text); font-size: var(--v-text-sm); }
-  .dd-skel { display: flex; flex-direction: column; gap: var(--v-space-3); }
+  .dd-skel { display: flex; flex-direction: column; gap: var(--v-space-3); margin-top: var(--v-space-3); }
+  .dd-title--skel { display: flex; align-items: center; }
   .dd-sheetfoot { display: flex; justify-content: flex-end; gap: var(--v-space-2); flex-wrap: wrap; }
 
   .dc { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }

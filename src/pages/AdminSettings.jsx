@@ -195,7 +195,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
-  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, templates: 4, data: 4, danger: 3 };
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, templates: 7, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
   const tablet = useMediaQuery('(min-width: 768px)');
   const narrow = !desktop && !tablet; // descriptions wrap to two lines under 768
@@ -213,9 +213,11 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     integrations: { n: [96, 222, 435], d: [78, 126, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
+    templates: { n: [124, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
+    : tab === 'templates' ? <Card key={i} className="st-card" style={{ minHeight: heightFor(i) }}>{line(160, 12)}</Card>
     : narrow && tab === 'integrations' && i === 0 ? <Card key={i} className="st-card" style={{ minHeight: 96 }}>{line(160, 12)}{line('70%', 14)}</Card>
     : <Card key={i} className="st-card" style={heightFor(i) ? { minHeight: heightFor(i) } : undefined}>{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
   const body = pending ? null : showSkel ? (

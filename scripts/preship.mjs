@@ -5,8 +5,8 @@
  *
  * It builds to its own directory and serves that (never dist/, so a rebuild cannot break a running audit), starts the mock server the
  * scene audit needs, and runs layout-audit and scene-audit as detached processes writing to .tmp-verify/preship/, polling them. One
- * pass or fail line each, with the first error on a fail. Then lint, the hex count, the gesture, chrome and empty audits run against the
- * same build. Exit code 1 when anything failed. A full run takes about forty minutes; quick takes about fifteen.
+ * pass or fail line each, with the first error on a fail. Then lint, the hex count, the gesture, chrome and empty audits and the two client docs
+ * browser audits (the editor, the flows) run against the same build. Exit code 1 when anything failed. A full run takes about forty minutes; quick takes about fifteen.
  */
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, openSync, readFileSync, existsSync, rmSync } from 'node:fs';
@@ -72,6 +72,8 @@ run('hex count', 'node', ['-e', "const s=require('child_process').spawnSync('nod
 run('gesture-test', 'node', ['scripts/gesture-test.mjs'], { AUDIT_BASE: base });
 run('chrome-audit', 'node', ['scripts/chrome-audit.mjs'], { AUDIT_BASE: base });
 run('empty-audit', 'node', ['scripts/empty-audit.mjs'], { AUDIT_BASE: base });
+run('docs-editor-audit', 'node', ['scripts/docs-editor-audit.mjs'], { AUDIT_BASE: base });
+run('docs-flow-audit', 'node', ['scripts/docs-flow-audit.mjs'], { AUDIT_BASE: base });
 
 for (const p of [preview, mock]) { try { process.kill(-p.pid); } catch { /* already gone */ } }
 console.log(failed ? `\nPRE-SHIP FAILED (${failed})` : '\nPRE-SHIP PASSED');

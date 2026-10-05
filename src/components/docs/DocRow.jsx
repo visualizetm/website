@@ -1,4 +1,4 @@
-import { Pill, Icon } from '../../ui';
+import { Card, Pill, Icon } from '../../ui';
 import { typeLabel, editedLabel } from '../../lib/docs';
 
 /* One doc as a row (docs job): the same row on the client's Docs card, on All docs and on the More page's Docs section. The title wraps to two
@@ -6,7 +6,7 @@ import { typeLabel, editedLabel } from '../../lib/docs';
  * `controls` (a menu) sits above it. `client` adds the client's name for the lists that span clients. */
 export default function DocRow({ doc, client, now = Date.now(), onOpen, controls }) {
   return (
-    <li className={`rc-docs-row${doc.pinned ? ' is-pinned' : ''}`} data-doc-id={doc._id} data-row-id={doc._id}>
+    <Card as="li" level={2} padding={0} style={{ padding: 'var(--v-space-2) var(--v-space-3)' }} className={`rc-docs-row${doc.pinned ? ' is-pinned' : ''}`} data-doc-id={doc._id} data-row-id={doc._id}>
       <button type="button" className="v-stretch" onClick={() => onOpen(doc)} aria-label={`Open ${doc.title || 'Untitled'}${client ? `, ${client}` : ''}`}>Open {doc.title || 'Untitled'}</button>
       <span className="rc-docs-title">{doc.pinned && <><Icon icon="Pin01" size={14} className="rc-docs-pin" /><span className="v-sr-only">Pinned. </span></>}{doc.title || 'Untitled'}</span>
       <span className="rc-docs-meta">
@@ -15,6 +15,6 @@ export default function DocRow({ doc, client, now = Date.now(), onOpen, controls
         <span className="rc-docs-edited">{editedLabel(doc, now)}</span>
       </span>
       {controls && <span className="rc-docs-controls v-above">{controls}</span>}
-    </li>
+    </Card>
   );
 }

@@ -142,11 +142,11 @@ for (const width of [390, 1280]) {
   ok(nr.kind === 'no-results' && nr.title.includes('zzqqxx') && await page.$('[data-state="empty"]') === null, `a search with no match says so and names the search, not the first time state (${nr.title})`);
   await page.getByRole('button', { name: /Clear search/ }).first().click();
   await page.waitForTimeout(300);
-  await page.getByRole('button', { name: /^Contract/ }).first().click();
+  await page.getByLabel('Type', { exact: true }).selectOption({ label: 'Contract, 1' });
   await page.waitForTimeout(300);
-  ok(await page.$$eval('.ad-group', e => e.length) === 1 && await page.$$eval('.rc-docs-row', e => e.length) === 1, 'the type chip narrows to one group');
-  await page.getByRole('button', { name: /^Contract/ }).first().click();
-  await page.getByRole('radio', { name: 'Created' }).click();
+  ok(await page.$$eval('.ad-group', e => e.length) === 1 && await page.$$eval('.rc-docs-row', e => e.length) === 1, 'the type filter narrows to one group');
+  await page.getByLabel('Type', { exact: true }).selectOption({ label: 'All types' });
+  await page.getByLabel('Sort', { exact: true }).selectOption({ label: 'Created' });
   await page.waitForTimeout(300);
   ok(await page.$eval('.ad-group:first-of-type .rc-docs-row', e => e.dataset.docId) === 'DOC1', 'sort by Created keeps the pinned doc first');
 
@@ -201,7 +201,7 @@ for (const width of [390, 1280]) {
   await page.waitForSelector('.rc-docs-row', { timeout: 8000 });
   const all = await page.$$eval('.rc-docs-row', e => e.map(x => ({ id: x.dataset.docId, client: x.querySelector('.rc-docs-client')?.textContent || '' })));
   ok(all.length >= 6 && all.every(r => r.client) && all.some(r => r.client === 'Lead Business 12'), `Docs across every client, each row naming its client (${all.length} rows)`);
-  await page.locator('select').first().selectOption({ label: 'Lead Business 12' }).catch(() => {});
+  await page.getByLabel('Client', { exact: true }).selectOption({ label: 'Lead Business 12' }).catch(() => {});
   await page.waitForTimeout(300);
   ok(await page.$$eval('.rc-docs-row', e => e.map(x => x.dataset.docId).join()) === 'DOC6', 'the client filter narrows to that client');
 

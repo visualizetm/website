@@ -173,6 +173,7 @@ export default function AppShell({
     { id: 'call', label: 'Log a call', icon: 'PhoneCall01', onSelect: () => go('calls') },
     { id: 'client', label: 'New client', icon: 'Briefcase01', onSelect: () => onNewClient() },
     { id: 'order', label: 'New order', icon: 'Package', onSelect: () => onNewOrder?.() },
+    ...(docsApi?.pickClient ? [{ id: 'doc', label: 'New doc', icon: 'File02', onSelect: () => docsApi.pickClient() }] : []),
   ];
 
   return (

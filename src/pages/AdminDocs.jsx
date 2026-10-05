@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Row, Stack, Button, ChipGroup, SegmentedControl, Select, Menu, Sheet, ListRow, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
+import { PageShell, ScrollArea, Row, Button, Select, Menu, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
 import RowSheet from '../components/RowSheet';
 import ListSearch from '../components/ListSearch';
 import DocRow from '../components/docs/DocRow';
@@ -7,8 +7,6 @@ import { copyText } from '../components/ClientWorkspace';
 import { useTopBar } from '../shell/ShellContext';
 import { DOC_TYPES, docPlainText } from '../shared/docBlocks';
 import { docsOf, groupByType, sortDocs, matchDoc, typeLabel, fetchDoc } from '../lib/docs';
-import { matchesSearch } from '../lib/leads';
-import { normalizeStage } from '../shared/semantics';
 import { COPY } from '../shared/copy';
 
 /* All docs (docs job, milestone 5), two doors into one screen:
@@ -19,45 +17,29 @@ import { COPY } from '../shared/copy';
  * Copy as text, Delete); on a computer the row has a menu with the same items. Deleting moves a doc to Recently Deleted. */
 const SORTS = [{ id: 'edited', label: 'Last edited' }, { id: 'created', label: 'Created' }];
 
-function ClientPickSheet({ leads, onPick, onClose }) {
-  const [q, setQ] = useState('');
-  const rank = (l) => (['won', 'client'].includes(normalizeStage(l)) ? 0 : 1);
-  const list = useMemo(() => leads.filter(l => !l.deleted && (!q.trim() || matchesSearch(l, q))).sort((a, b) => rank(a) - rank(b) || String(a.business).localeCompare(String(b.business))).slice(0, 40), [leads, q]);
-  return (
-    <Sheet open onClose={onClose} title="Which client?" label="Pick a client for the new doc" tall className="ad-pick">
-      <Stack gap={2}>
-        <ListSearch value={q} onChange={setQ} placeholder="Search by business or contact" label="Search clients" autoFocus />
-        {list.length === 0 ? <p className="ad-hint">No client matches "{q}".</p> : list.map(l => (
-          <ListRow key={l._id} title={l.business} subtitle={l.askFor || undefined} trailing={rank(l) === 0 ? <Pill tone="booked" label="Client" size="sm" icon={false} variant="soft" /> : null} onClick={() => { onClose(); onPick(l); }} />
-        ))}
-      </Stack>
-    </Sheet>
-  );
-}
-
-export default function AdminDocs({ lead = null, leads = [], docsApi, loading = false, onBack }) {
+export default function AdminDocs({ lead = null, forClient = false, leads = [], docsApi, loading = false, onBack }) {
   const toast = useToast();
   const phone = useMediaQuery('(max-width: 767px)');
   const [q, setQ] = useState('');
   const [sort, setSort] = useState('edited');
-  const [types, setTypes] = useState(new Set());
+  const [typeId, setTypeId] = useState('');
   const [clientId, setClientId] = useState('');
   const [sheet, setSheet] = useState(null);       // a doc whose row sheet is open
-  const [picking, setPicking] = useState(false);
   const ops = docsApi?.ops;
   const showSkel = useDelayedLoading(loading || !!docsApi?.loading);
   const now = Date.now();
 
   const byLead = useMemo(() => new Map(leads.map(l => [String(l._id), l])), [leads]);
   const mine = useMemo(() => (lead ? docsOf(docsApi?.docs, lead._id) : (docsApi?.docs || [])), [docsApi?.docs, lead]);
-  const shown = useMemo(() => mine.filter(d => matchDoc(d, q) && (!types.size || types.has(d.type || 'general')) && (!clientId || String(d.leadId) === clientId)), [mine, q, types, clientId]);
+  const shown = useMemo(() => mine.filter(d => matchDoc(d, q) && (!typeId || (d.type || 'general') === typeId) && (!clientId || String(d.leadId) === clientId)), [mine, q, typeId, clientId]);
   const counts = useMemo(() => Object.fromEntries(DOC_TYPES.map(t => [t.id, mine.filter(d => (d.type || 'general') === t.id).length])), [mine]);
   const clientsWithDocs = useMemo(() => [...new Set(mine.map(d => String(d.leadId)))].map(id => ({ id, label: byLead.get(id)?.business || 'Client' })).sort((a, b) => a.label.localeCompare(b.label)), [mine, byLead]);
-  const filterNames = [...[...types].map(typeLabel), clientId ? byLead.get(clientId)?.business : ''].filter(Boolean);
-  const clear = () => { setQ(''); setTypes(new Set()); setClientId(''); };
+  const filterNames = [typeId ? typeLabel(typeId) : '', clientId ? byLead.get(clientId)?.business : ''].filter(Boolean);
+  const clear = () => { setQ(''); setTypeId(''); setClientId(''); };
 
-  const newDoc = () => { if (lead) docsApi.newDoc(lead); else setPicking(true); };
-  useTopBar({ title: lead ? 'Docs' : 'Docs', back: onBack, actions: [{ id: 'new', label: 'New doc', icon: 'Plus', onClick: newDoc }] });
+  const newDoc = () => { if (lead) docsApi.newDoc(lead); else docsApi.pickClient(); };
+  /* A per client page is a focused screen and declares New doc; the all clients page is a tabs screen (More), whose top bar is Search, Quick add (it has New doc) and Notifications. */
+  useTopBar({ title: 'Docs', back: onBack, actions: lead || forClient ? [{ id: 'new', label: 'New doc', icon: 'Plus', onClick: newDoc }] : undefined });
 
   const pin = async (d) => { const r = await ops.patch(d._id, { pinned: !d.pinned }); if (!r.ok) toast.error(COPY.error.save); else toast.success(d.pinned ? 'Unpinned.' : 'Pinned to the card.'); };
   const dup = async (d) => { const item = await ops.duplicate(d); if (item) toast.success('Duplicated.'); else toast.error(COPY.error.save); };
@@ -85,7 +67,19 @@ export default function AdminDocs({ lead = null, leads = [], docsApi, loading = 
 
   let body;
   if (showSkel) {
-    body = <Stack gap={2} aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" />{[0, 1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={78} radius="var(--v-radius-md)" />)}</Stack>;
+    /* The shape of the loaded list: the search, the three controls, then the rows (grouped by type for one client). Row heights follow the rows' own: one line titles are 64, a title that wraps is 86. */
+    const perClient = !!lead || forClient;
+    const rowH = phone ? [66, 88, 66, 66, 66, 66, 66] : [44, 62, 44, 44, 44, 44, 44];
+    const rows = (hs) => hs.map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-md)" />);
+    body = (
+      <div className="ad-skel" aria-busy="true" aria-hidden="true">
+        <SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" />
+        <div className="ad-controls"><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" />{!perClient && <SkeletonBlock height={68} radius="var(--v-radius-md)" className="ad-client" />}</div>
+        {perClient ? <div className="ad-groups">{rowH.slice(0, 5).map((h, i) => <section key={i} className="ad-group"><p className="ad-group-h"><SkeletonBlock width={72} height={16} /></p><div className="ad-rows">{rows([h])}</div></section>)}</div> : <div className="ad-rows">{rows(rowH)}</div>}
+      </div>
+    );
+  } else if (forClient && !lead) {
+    body = <EmptyState icon="File02" title="This client is not here" description="They may have been deleted. Their docs are in Recently Deleted until you purge them." action={{ label: 'Back', onClick: onBack }} />;
   } else if (docsApi?.error) {
     body = <ErrorState title="Docs did not load" description="Nothing was lost. Try again." onRetry={docsApi.reload} />;
   } else if (!mine.length) {
@@ -96,12 +90,10 @@ export default function AdminDocs({ lead = null, leads = [], docsApi, loading = 
     body = (
       <>
         <ListSearch value={q} onChange={setQ} placeholder="Search titles and what is in them" label="Search docs" className="ad-search" />
-        <div className="ad-filters">
-          <ChipGroup label="Doc type" options={DOC_TYPES.filter(t => counts[t.id] > 0).map(t => ({ id: t.id, label: t.label, count: counts[t.id] }))} value={types} onChange={setTypes} />
-          <div className="ad-filter-row">
-            {!lead && clientsWithDocs.length > 1 && <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} options={[{ id: '', label: 'All clients' }, ...clientsWithDocs]} className="ad-client" />}
-            <SegmentedControl label="Sort" options={SORTS} value={sort} onChange={setSort} size="sm" className="ad-sort" />
-          </div>
+        <div className="ad-controls">
+          <Select label="Type" value={typeId} onChange={(e) => setTypeId(e.target.value)} options={[{ id: '', label: 'All types' }, ...DOC_TYPES.filter(t => counts[t.id] > 0).map(t => ({ id: t.id, label: `${t.label}, ${counts[t.id]}` }))]} className="ad-type" />
+          <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)} options={SORTS} className="ad-sort" />
+          {!lead && clientsWithDocs.length > 1 && <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} options={[{ id: '', label: 'All clients' }, ...clientsWithDocs]} className="ad-client" />}
         </div>
         {shown.length === 0 ? <NoResults noun="docs" query={q} filters={filterNames} onClear={clear} /> : lead ? (
           <Stagger className="ad-groups" cap={4}>
@@ -126,7 +118,7 @@ export default function AdminDocs({ lead = null, leads = [], docsApi, loading = 
           <div className="ad-top">
             <Row gap={2} align="center" justify="between" wrap>
               <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-                {lead && <Button variant="ghost" icon="ArrowLeft" onClick={onBack} className="ad-back">Back</Button>}
+                {(lead || forClient) && <Button variant="ghost" icon="ArrowLeft" onClick={onBack} className="ad-back">Back</Button>}
                 <h1 className="ad-title lay-title">{lead ? `${lead.business}, docs` : 'Docs'}</h1>
                 {mine.length > 0 && <Pill tone="neutral" label={`${mine.length}`} size="sm" icon={false} variant="soft" />}
               </Row>
@@ -134,11 +126,11 @@ export default function AdminDocs({ lead = null, leads = [], docsApi, loading = 
             </Row>
           </div>
         )}
-        {phone && lead && <h1 className="ad-title ad-title--phone lay-title">{lead.business}</h1>}
+        {phone && !lead && !forClient && (showSkel || mine.length > 0) && <div className="ad-phone-new">{showSkel ? <SkeletonBlock width={116} height={44} radius="var(--v-radius-md)" /> : <Button icon="Plus" variant="secondary" onClick={newDoc} className="ad-new">New doc</Button>}</div>}
+        {phone && (lead || forClient) && <h1 className="ad-title ad-title--phone lay-title">{lead ? lead.business : <SkeletonBlock width={140} height={16} />}</h1>}
         <div className="ad-body">{body}</div>
       </ScrollArea>
       {sheet && <RowSheet title={sheet.title || 'Untitled'} subtitle={`${typeLabel(sheet.type)}${lead ? '' : `, ${byLead.get(String(sheet.leadId))?.business || ''}`}`} items={itemsFor(sheet)} onClose={() => setSheet(null)} />}
-      {picking && <ClientPickSheet leads={leads} onPick={(l) => docsApi.newDoc(l)} onClose={() => setPicking(false)} />}
       <style>{adStyles}</style>
     </PageShell>
   );
@@ -147,11 +139,13 @@ export default function AdminDocs({ lead = null, leads = [], docsApi, loading = 
 const adStyles = `
   .ad-top { position: sticky; top: 0; z-index: var(--v-z-sticky); padding: var(--v-space-3) 0; background: var(--v-surface-1); border-bottom: 1px solid var(--v-border-1); }
   .ad-title { margin: 0; font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; }
-  .ad-title--phone { font-size: var(--v-text-md); color: var(--v-text-2); }
+  .ad-title--phone { font-size: var(--v-text-md); line-height: var(--v-lh-md); min-height: var(--v-lh-md); color: var(--v-text-2); }
   .ad-body { display: flex; flex-direction: column; gap: var(--v-space-3); padding-top: var(--v-space-4); padding-bottom: var(--v-space-6); min-width: 0; }
-  .ad-filters { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
-  .ad-filter-row { display: flex; align-items: flex-end; gap: var(--v-space-3); flex-wrap: wrap; }
-  .ad-client { flex: 1 1 200px; min-width: 0; }
+  .ad-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); min-width: 0; }
+  .ad-controls > .ad-client { grid-column: 1 / -1; }
+  @media (min-width: 768px) { .ad-controls { grid-template-columns: repeat(3, minmax(0, 240px)); } .ad-controls > .ad-client { grid-column: auto; } }
+  .ad-phone-new { display: flex; padding-top: var(--v-space-1); }
+  .ad-skel { display: flex; flex-direction: column; gap: var(--v-space-3); }
   .ad-groups, .ad-rows { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .ad-groups { gap: var(--v-space-4); }
   .ad-group { display: flex; flex-direction: column; gap: var(--v-space-2); }

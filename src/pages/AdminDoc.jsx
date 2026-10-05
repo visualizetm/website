@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PageShell, ScrollArea, Button, Sheet, useConfirm, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
+import { PageShell, ScrollArea, Button, IconButton, Sheet, Reveal, useConfirm, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
 import RowSheet from '../components/RowSheet';
 import DocEditor from '../components/docs/DocEditor';
 import TitleField from '../components/docs/TitleField';
@@ -49,7 +49,9 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const live = useRef({});
   live.current = { title, type, blocks, docId };
   const ops = docsApi?.ops;
-  const showSkel = useDelayedLoading(load.state === 'loading');
+  /* The doc waits for the clients too: it draws their name and the references read their records, so one skeleton covers both. */
+  const waiting = load.state === 'loading' || (leadsLoading && load.state === 'ready');
+  const showSkel = useDelayedLoading(waiting);
 
   /* Load the doc; text a closed editor could not save comes back with it and is sent again at once. */
   const fetchIt = useCallback(async () => {
@@ -165,13 +167,11 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
 
   useTopBar(load.state === 'ready' ? {
     title: isTemplate ? 'Template' : typeLabel(type), back: leave,
-    actions: readOnly ? null : [
-      ...(isTemplate ? [] : [{ id: 'pin', label: pinned ? 'Unpin from card' : 'Pin to card', icon: 'Pin01', onClick: pin }]),
-      { id: 'more', label: 'Doc actions', icon: 'DotsHorizontal', onClick: () => setSheet('more') },
-    ],
+    actions: readOnly ? null : [{ id: 'more', label: 'Doc actions', icon: 'DotsHorizontal', onClick: () => setSheet('more') }],
   } : { title: 'Doc', back: leave });
 
   const moreItems = [
+    ...(isTemplate ? [] : [{ id: 'pin', label: pinned ? 'Unpin from card' : 'Pin to card', icon: 'Pin01', onSelect: pin }]),
     { id: 'copy', label: 'Copy as text', icon: 'Copy01', onSelect: copyAll },
     { id: 'print', label: 'Print or save as PDF', icon: 'Printer', onSelect: printIt },
     ...(isTemplate ? [] : [
@@ -183,9 +183,16 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   ];
 
   let body;
-  if (load.state === 'loading') {
+  if (waiting) {
     body = showSkel ? (
-      <div className="dd-skel" aria-busy="true" aria-hidden="true"><SkeletonBlock height={40} width="70%" radius="var(--v-radius-md)" /><SkeletonBlock height={28} width="45%" radius="var(--v-radius-md)" />{[0, 1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={44} radius="var(--v-radius-md)" />)}</div>
+      <div aria-busy="true" aria-hidden="true">
+        <div className="dd-head">
+          <div className="dd-title dd-title--skel"><SkeletonBlock width="60%" height={28} /></div>
+          <div className="dd-meta"><SkeletonBlock width={120} height={16} /><SkeletonBlock width={48} height={14} /></div>
+          <div className="dd-selects"><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" /></div>
+        </div>
+        <div className="dd-skel">{[0, 1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={44} radius="var(--v-radius-md)" />)}</div>
+      </div>
     ) : null;
   } else if (load.state === 'missing') {
     body = <EmptyState icon="File02" title="This doc is not here" description="It may have been purged from Recently Deleted." action={{ label: 'Back', onClick: onBack }} />;
@@ -199,7 +206,10 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
           <TitleField value={title} onChange={onTitle} readOnly={readOnly} onEnter={() => document.querySelector('.dc-rt')?.focus()} />
           <div className="dd-meta">
             <p className="dd-client">{isTemplate ? 'Template, no client' : lead ? <button type="button" className="dd-clientbtn" onClick={() => flushThen(() => shell.openRecord(lead))}>{lead.business}</button> : (leadsLoading ? <SkeletonBlock width={120} height={16} /> : 'Client not found')}</p>
-            <p className={`dd-status is-${saveState}`} role="status" aria-live="polite" data-save={saveState}>{readOnly ? '' : SAVE_LABEL[saveState]}</p>
+            <span className="dd-metaright">
+              {!readOnly && !isTemplate && phone && <IconButton icon="Pin01" label={pinned ? 'Unpin from card' : 'Pin to card'} variant="ghost" onClick={pin} aria-pressed={pinned} className="dd-pinbtn" />}
+              <p className={`dd-status is-${saveState}`} role="status" aria-live="polite" data-save={saveState}>{readOnly ? '' : SAVE_LABEL[saveState]}</p>
+            </span>
           </div>
           <div className="dd-selects">
             <Select label="Type" value={type} disabled={readOnly} onChange={(e) => onType(e.target.value)} options={DOC_TYPES.map(t => ({ id: t.id, label: t.label }))} className="dd-type" />
@@ -229,11 +239,11 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
           <div className="dd-topbar">
             <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="dd-back">Back</Button>
             <span className="dd-topspace" />
-            {load.state === 'ready' && !readOnly && !isTemplate && <Button variant="ghost" icon="Pin01" onClick={pin} className="dd-pin" aria-pressed={pinned}>{pinned ? 'Pinned' : 'Pin to card'}</Button>}
-            {load.state === 'ready' && !readOnly && <Button variant="secondary" icon="DotsHorizontal" onClick={() => setSheet('more')} className="dd-more">Doc actions</Button>}
+            {!readOnly && !isTemplate && <Button variant="ghost" icon="Pin01" onClick={pin} disabled={load.state !== 'ready'} className="dd-pin" aria-pressed={pinned}>{pinned ? 'Pinned' : 'Pin to card'}</Button>}
+            {!readOnly && <Button variant="secondary" icon="DotsHorizontal" onClick={() => setSheet('more')} disabled={load.state !== 'ready'} className="dd-more">Doc actions</Button>}
           </div>
         )}
-        <div className="dd-body">{body}</div>
+        <Reveal as="div" className="dd-body">{body}</Reveal>
       </ScrollArea>
       {sheet === 'more' && <RowSheet title={sanitizeTitle(title) || 'Untitled'} subtitle={`${typeLabel(type)}${lead ? `, ${lead.business}` : ''}`} items={moreItems} onClose={() => setSheet(null)} />}
       {taskText !== null && lead && <MakeTaskSheet lead={lead} initial={taskText} onMake={makeTask} onClose={() => setTaskText(null)} />}

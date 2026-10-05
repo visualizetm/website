@@ -51,7 +51,7 @@ export default function DocTemplatesPanel({ docsApi }) {
     if (item) { toast.success('A copy is saved. Edit it here.'); docsApi.openDoc(item); } else toast.error(COPY.error.save);
   };
 
-  if (state.loading) return <Stack gap={3} aria-busy="true" aria-hidden="true">{[0, 1, 2, 3].map(i => <SkeletonBlock key={i} height={76} radius="var(--v-radius-md)" />)}</Stack>;
+  if (state.loading) return <Stack gap={3} aria-busy="true" aria-hidden="true">{[88, 104, 104, 104, 104, 104, 104].map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-lg)" />)}</Stack>;
   if (state.error) return <Card><ErrorState title={COPY.error.settings.title} description="The templates did not load." onRetry={load} /></Card>;
   return (
     <Stack gap={3}>
@@ -101,11 +101,12 @@ function RenameSheet({ row, onSave, onClose }) {
 
 
 const panelStyles = `
-  .dtp-rows { gap: var(--v-space-2); }
+  .dtp-rows { gap: var(--v-space-3); }
   .dtp-row { padding: var(--v-space-3); }
   .dtp-row.is-hidden { opacity: 0.7; }
   .dtp-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-  .dtp-name { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); overflow-wrap: anywhere; }
-  .dtp-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .dtp-name { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); }
+  .dtp-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dtp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dtp-pills { display: flex; gap: var(--v-space-2); flex-wrap: wrap; margin-top: var(--v-space-1); }
 `;

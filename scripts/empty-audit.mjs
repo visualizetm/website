@@ -30,6 +30,9 @@ const SCREENS = [
   { id: 'Concepts', path: '/admin/concepts', resource: 'sets', search: false, why: 'a status filter narrows it; the filter state is its own copy (concepts.filter)' },
   /* The task system (milestone 5): the first time state is a client with no checklists (emptyPath), not a missing client. */
   { id: 'Tasks', path: '/admin/clients/L11/tasks', emptyPath: '/admin/clients/L13/tasks', resource: 'leads', search: true },
+  /* Client docs (docs job): every client's docs and one client's, each with its first time state (nothing yet, New doc) and its no results state (the search is named). */
+  { id: 'Docs', path: '/admin/docs', resource: 'docs', search: true },
+  { id: 'Client docs', path: '/admin/clients/L11/docs', resource: 'docs', search: true },
 ];
 const grab = () => {
   const e = document.querySelector('.sh-content [data-state]');

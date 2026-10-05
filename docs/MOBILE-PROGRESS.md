@@ -12,6 +12,15 @@ Resume with: "Continue the concepts review job from docs/MOBILE-PROGRESS.md." Mi
 - [x] Milestone 6: audits for every state, docs, the report. Open: the push has no Settings switch; the feel audit's pre-existing gaps (see the report).
 - [x] Milestone 1: approvalMode, allowPass, needsDecision, decision and submissions on concept_sets; decide and submit on the public handler; admin lock, reopen, send validation; scripts/concepts-review-lib.mjs (37 checks), concepts-review-test.mjs, concepts-guard-proof.mjs (13 guards each cut out and shown to fail), security-test section 4c.
 
+## Client docs and workspace card fixes (docs job)
+Resume with: "Continue the client docs job from docs/MOBILE-PROGRESS.md." Milestones: 1 data model, route, schema and security tests; 2 the Docs card and the workspace card fixes; 3 the editor; 4 templates, client fields, Settings; 5 All docs, More, search, Recently Deleted, History; 6 audit states, docs, report.
+- [x] Milestone 1: api/_routes/docs.js behind route(), src/shared/docBlocks.js and its api mirror, scripts/docs-lib.mjs (43 checks), docs-test.mjs, docs-guard-proof.mjs (15 guards), security-test 4d.
+- [x] Milestone 2: the Docs card (full width, under the four cards), src/lib/workspace.js docsStatus, the five card fixes (Showcase count, Concepts middle, task rows, the edge handle logged, the scroll fade), fixtures and the mock server answer /api/admin/docs.
+- [x] Milestone 3: the editor (blocks, marks, the bar above the keyboard, reorder, swipe delete, autosave, export, print), docs-edit-test, docs-save-test, docs-editor-audit.
+- [x] Milestone 4: templates and client fields (docs-templates-test), the New doc sheet, Make a task, Settings Doc templates, docs-flow-audit.
+- [x] Milestone 5: All docs per client and across clients, the More page Docs row, global search, Recently Deleted and History.
+- [x] Milestone 6: audit states at five widths, the gate, docs, reports/CLIENT-DOCS-REPORT.md.
+
 ## Done
 - Guide committed (dc0beda). Milestone 1, measure (100d13f): docs/MOBILE-AUDIT.md, scripts/mobile-measure.mjs.
 - Milestone 2 (554418f onward): Settings regions, sheet and modal entrance, last rows clear the tab bar, ip-address fix, Back on Projects CLS.

@@ -177,6 +177,66 @@ await step('a row swipe does not fire on a sideways scroller', async (page) => {
   return `rail scrolled ${before} to ${await rail.evaluate(el => el.scrollLeft)}`;
 });
 
+/* ── Client docs (docs job) ───────────────────────────────────────────── */
+await step('a doc row: a swipe right pins, a swipe left deletes with Undo, a long press opens its sheet', async (page) => {
+  const writes = []; page.on('request', r => { if (['PATCH', 'DELETE'].includes(r.method()) && /admin\/docs/.test(r.url())) writes.push(`${r.method()} ${r.postData()}`); });
+  const g = await open(page, '/admin/clients/L11/docs'); await g.wait(800);
+  const rowBox = async (id) => { const loc = page.locator(`.rc-docs-row[data-doc-id="${id}"]`); await loc.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' })); await g.wait(400); return loc.boundingBox(); };
+  let box = await rowBox('DOC2');
+  await drag(g, 40, box.y + box.height / 2, 90, box.y + box.height / 2 + 1, 4); await g.wait(60);
+  const small = await page.locator('.v-swipe').filter({ has: page.locator('[data-doc-id="DOC2"]') }).evaluate(el => el.dataset.swipe);
+  need(small === 'dragging', `a short drag: ${small}`);
+  await g.t('touchEnd'); await g.wait(500); need(writes.length === 0, 'a short swipe wrote');
+  await drag(g, 40, box.y + box.height / 2, 260, box.y + box.height / 2 + 1, 8); await g.t('touchEnd'); await g.wait(700);
+  need(writes.some(w => /DOC2/.test(w) && /"pinned":true/.test(w)), `no pin write: ${JSON.stringify(writes)}`);
+  box = await rowBox('DOC4'); writes.length = 0;
+  await drag(g, 330, box.y + box.height / 2, 120, box.y + box.height / 2 + 1, 8); await g.t('touchEnd'); await g.wait(700);
+  need(writes.some(w => /^DELETE/.test(w) && /DOC4/.test(w)), `no delete write: ${JSON.stringify(writes)}`);
+  need(await page.locator('.v-toast-action', { hasText: 'Undo' }).count() === 1, 'no Undo');
+  box = await rowBox('DOC3');
+  await g.t('touchStart', box.x + 60, box.y + 20); await g.wait(700); await g.t('touchEnd'); await g.wait(500);
+  await page.waitForSelector('[role="dialog"]', { timeout: 3000 }); need(/Pin to card/.test(await page.locator('[role="dialog"]').innerText()), 'the long press sheet has no Pin');
+  need(!(await state(page)).path.includes('/docs/DOC3'), 'the long press also opened the doc');
+  return 'pinned, deleted with Undo, the sheet opened and nothing else did';
+});
+await step('a block: the grip drags it without scrolling the page, a swipe left deletes one that is not being typed in', async (page) => {
+  const g = await open(page, '/admin/docs/DOC1'); await g.wait(800);
+  await page.waitForSelector('.dc-blocks');
+  const order = () => page.$$eval('.dc-row', rs => rs.map(r => r.dataset.blockId));
+  const top0 = await page.evaluate(() => document.querySelector('.lay-scroll').scrollTop);
+  const gb = await page.locator('.dc-row[data-block-id="b3"] .dc-grip').boundingBox();
+  const tb = await page.locator('.dc-row[data-block-id="b7"]').boundingBox();
+  await g.t('touchStart', gb.x + gb.width / 2, gb.y + gb.height / 2);
+  for (let i = 1; i <= 12; i++) { await g.t('touchMove', gb.x + gb.width / 2, gb.y + gb.height / 2 + ((tb.y + tb.height - gb.y) * i) / 12); await g.wait(16); }
+  need(await page.locator('.dc-slot[data-dropbefore]').count() === 1, 'no drop line while dragging');
+  await g.t('touchEnd'); await g.wait(500);
+  const o = await order();
+  need(o.indexOf('b3') > o.indexOf('b6'), `the block did not move: ${o.join()}`);
+  need(await page.evaluate(() => document.querySelector('.lay-scroll').scrollTop) === top0, 'the page scrolled while the grip was dragged');
+  const q = await page.locator('.dc-row[data-block-id="b10"]'); await q.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' })); await g.wait(400);
+  const qb = await q.boundingBox(); const n0 = (await order()).length;
+  await drag(g, 330, qb.y + qb.height / 2, 120, qb.y + qb.height / 2 + 1, 8); await g.t('touchEnd'); await g.wait(600);
+  need((await order()).length === n0 - 1 && await page.locator('.v-toast-action', { hasText: 'Undo' }).count() === 1, 'the swipe did not delete the block');
+  await page.locator('.v-toast-action', { hasText: 'Undo' }).click(); await g.wait(400);
+  need((await order()).length === n0, 'Undo did not put it back');
+  const c = page.locator('.dc-row[data-block-id="b9"] .dc-rt'); await c.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' })); await g.wait(300); await c.click(); await g.wait(300);
+  const cb = await c.boundingBox();
+  await drag(g, 330, cb.y + cb.height / 2, 120, cb.y + cb.height / 2 + 1, 8); await g.t('touchEnd'); await g.wait(500);
+  need((await order()).length === n0, 'a swipe on the block being typed in deleted it');
+  return 'reordered by the grip with the page still, swipe deleted with Undo, a focused block is left alone';
+});
+await step('edge Back from a doc returns to the client\'s docs, and the doc was saved', async (page) => {
+  const writes = []; page.on('request', r => { if (r.method() === 'PATCH' && /admin\/docs/.test(r.url())) writes.push(r.postData()); });
+  const g = await open(page, '/admin/clients/L11/docs'); await g.wait(800);
+  await page.locator('.rc-docs-row[data-doc-id="DOC3"] .v-stretch').evaluate(el => el.click()); await page.waitForSelector('.dc-blocks'); await g.wait(500);
+  need((await state(page)).chrome === 'focused', 'the doc is not a focused screen');
+  await page.locator('.dc-row .dc-rt').first().click(); await page.keyboard.type(' edge');
+  await drag(g, 6, 400, 260, 402); await g.t('touchEnd'); await g.wait(1200);
+  need((await state(page)).path === '/admin/clients/L11/docs', `edge Back landed on ${(await state(page)).path}`);
+  need(writes.some(w => /edge/.test(w)), 'the typed text was not saved before leaving');
+  return 'back at the list, the text saved';
+});
+
 await browser.close();
 console.log('\n| Step | Result | Note |\n|---|---|---|');
 for (const r of results) console.log(`| ${r.name} | ${r.ok ? 'ok' : 'FAIL'} | ${r.note} |`);

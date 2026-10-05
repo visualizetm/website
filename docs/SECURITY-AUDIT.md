@@ -466,3 +466,29 @@ and planner endpoint tests do, and asserts:
   a client's answer by saving the editor. scripts/concepts-guard-proof.mjs
   cuts each of the 13 guards out of a copy of api/ in turn and requires the
   guard's own check to fail, so a guard nothing tests cannot sit there.
+
+## Client docs (the docs job)
+
+Docs are Rob's private notes per client, so the door is the admin session and nothing else: no public link, no public endpoint, nothing on the marketing site reads the collection. Section 4d of `scripts/security-test.mjs` runs the checks in `scripts/docs-lib.mjs` against a copy of `api/`; `scripts/docs-guard-proof.mjs` cuts each of the 15 guards out of a copy in turn and requires the guard's own check to fail.
+
+| Guard | What it stops | Check |
+|---|---|---|
+| admin-only | every docs method without the admin cookie is 401 and writes nothing | `admin: false` on the route makes it fail |
+| block-type | a block of a type the schema does not know (iframe, script, anything) is not written | the type check removed, an iframe block with a reference is stored |
+| text-cap | a paragraph is cut at 4,000 characters | the cap removed, 10,000 stored |
+| block-cap | a doc holds at most 400 blocks | the slice removed, 600 stored |
+| link-url | a link or link mark that is not http or https (javascript:, data:, spaces) is emptied; only bold, italic and link survive as marks | the check removed, javascript: stored |
+| image-host | an image keeps only an https URL on res.cloudinary.com | the host check removed, any https host stored |
+| ref-same-client | a reference to another client's concept set, project, task, invoice or file, or to nothing, is 400 and the doc is not written; a reference already stored stays savable | the check removed, all of them stored |
+| project-same-client | a doc cannot be attached to another client's project, on create or edit | the check removed |
+| whitelist | a PATCH writes title, type, projectId, pinned and blocks only: leadId (moving a doc to another client), deleted, template and createdAt are ignored | the fields added to sanitize(), the doc moves |
+| deleted-readonly | a doc in Recently Deleted cannot be edited | the filter removed |
+| purge-needs-deleted | purge removes a doc only after it is deleted | the check removed, a live doc is purged |
+| doc-cap | a client holds at most 300 docs | the cap removed |
+| lead-exists | a doc for a client that does not exist is 400 | the check removed |
+| type-whitelist | an unknown type is General, a title is cut at 160 | the whitelist removed |
+| list-meta | the list answers titles and the block text for search, never the blocks | the projection removed |
+
+Rendering: no stored string is ever read as markup. Text goes into the page as text nodes inside strong, em and a built with createElement, read back by `domToRuns` which keeps text, bold, italic and an http or https link and nothing else; paste is plain text; the print sheet draws React text and links through `safeHref`. The security test scans every file that draws or edits a doc (`src/components/docs`, the doc pages, `src/lib/docs.js`, `docTemplates.js`, `src/shared/docBlocks.js`) for `dangerouslySetInnerHTML`, `innerHTML =`, `outerHTML =`, `insertAdjacentHTML` and `document.write(`, and first shows the detector catches each. The browser audit types `<img src=x onerror=...>` and a script tag into a block and checks nothing ran and nothing was created.
+
+Not done: the doc images are uploaded to Cloudinary through the existing unsigned preset (the same flow as the showcase), so a deleted doc leaves its images on Cloudinary, as clearing any other image field does.

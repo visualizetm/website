@@ -436,3 +436,14 @@ Use when: the client record's first card. Not when: a lead or a deal (SocialsStr
 
 ### QuickActions
 `items [{ id, label, icon, onClick, disabled }]`. One Chip row (`.rc-quick`, chips `.rc-quick-chip--<id>`), sideways scrolling on a phone.
+
+
+## Client docs (docs job, src/components/docs and src/pages)
+
+- **DocRow** (`components/docs/DocRow.jsx`): one doc as a row, the same on the client's Docs card, All docs and the More page's Docs section. Title wraps to two lines, a type chip, "Edited 2h ago", a pin mark; one stretched button opens it, `controls` (a Menu) sits above. `client` adds the client's name for lists that span clients.
+- **Docs card** (`DocsCard` in `components/record/WorkspaceCards.jsx`): full width at the end of the workspace grid (`grid-column: 1 / -1`), the count, New doc, the three latest rows (pinned first), All docs; its own skeleton, empty state ("No docs yet. Start with a brief or call notes.") and error with Retry.
+- **DocEditor** (`components/docs/DocEditor.jsx`): the blocks, the formatting bar, the "+" sheet, the block menu (turn into, move up and down, duplicate, Make a task, delete), the Reference and Link sheets, reorder by dragging the grip (touch-action none on the grip only, so the page still scrolls), swipe a block left to delete with Undo (SwipeRow's new `gate` prop leaves a block alone while its text has focus), the follow up line's Make a task button. `useKeyboardInset()` is how far the keyboard covers the layout viewport.
+- **RichText** (`components/docs/RichText.jsx`): `renderRuns` and `domToRuns` are the only two places text crosses between the page and the runs. **TitleField**: the big title. **BlockView**: a doc drawn read only (the print sheet), every string as React text and every link through `safeHref`.
+- **NewDocSheet**, **MakeTaskSheet**, **DocTemplatesPanel** (Settings, Doc templates), **docs.styles.js** (the editor's and the print sheet's CSS).
+- **AdminDocs** (`pages/AdminDocs.jsx`): All docs per client and across clients; search by title and block text, type chips, a client select, sort by edited or created, swipe right pins, swipe left deletes with Undo, long press opens the row's sheet, a Menu on a computer.
+- **useScrollFade** (`components/record/useScrollFade.js`): a sideways row says which edge has more (`data-fade`) and the CSS fades it; the profile's channel row, the quick action chips and the formatting bar use it.
