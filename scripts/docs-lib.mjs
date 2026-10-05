@@ -59,6 +59,7 @@ export async function runDocs(apiSrc = path.join(repoRoot, 'api')) {
 
   const out = [];
   const check = (id, guard, desc, pass) => out.push({ id, guard, desc, pass: !!pass });
+  const ok_ = (pass, desc) => check(`ok-${out.length}`, null, desc, pass);
 
   /* ── Admin only ─────────────────────────────────────────────────────── */
   seed();
@@ -163,6 +164,16 @@ export async function runDocs(apiSrc = path.join(repoRoot, 'api')) {
   check('purge-needs-deleted', 'purge-needs-deleted', 'purge removes a deleted doc and refuses one that is not deleted', purgedDeleted === 200 && !stored(e1) && r._status === 400 && !!stored(live));
   r = await call('DELETE', { id: live }); r = await call('PATCH', { id: live, restore: true });
   check('restore', null, 'restore brings a deleted doc back', r._status === 200 && S(live).deleted === false && !S(live).deletedAt);
+
+  /* ── Recently Deleted: the window and the purge ─────────────────────── */
+  seed();
+  const keep = (await mk({ title: 'Recent' }))._json.item._id; const old = (await mk({ title: 'Old' }))._json.item._id; const live2 = (await mk({ title: 'Live' }))._json.item._id;
+  await call('DELETE', { id: keep }); await call('DELETE', { id: old });
+  stored(old).deletedAt = new Date(Date.now() - 31 * 864e5);
+  r = await call('GET', undefined, { deleted: '1' });
+  ok_(r._json.items.map(d => d.title).join() === 'Recent', 'Recently Deleted lists what was deleted in the last 30 days and no older');
+  r = await call('DELETE', undefined, { purgeDeleted: '1' });
+  check('purge-all', null, 'Purge all removes every deleted doc and leaves live docs and templates alone', r._status === 200 && !stored(keep) && !stored(old) && !!stored(live2));
 
   /* ── Caps ───────────────────────────────────────────────────────────── */
   seed();

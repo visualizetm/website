@@ -31,6 +31,9 @@ function ResultRow({ item, active, onPick, onHover, onAddToList }) {
     const pkg = l.servicesPlanned?.length ? l.servicesPlanned.slice(0, 2).map(serviceLabel).join(', ') + (l.servicesPlanned.length > 2 ? ` +${l.servicesPlanned.length - 2}` : '') : 'No package yet';
     return <ListRow {...common} title={l.business} subtitle={pkg} trailing={<Pill id="client" size="sm" />} />;
   }
+  if (item.type === 'doc') {
+    return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon="File02" size="var(--v-icon-md)" /></span>} title={item.doc.title || 'Untitled'} subtitle={<span className="sh-cmd-sub">{[item.lead?.business || 'Client', item.snippet || item.label].join(' · ')}</span>} trailing={<Pill tone="neutral" label={item.label} size="sm" icon={false} variant="soft" />} />;
+  }
   if (item.type === 'showcase') {
     return <ListRow {...common} leading={<span className="sh-cmd-jumpicon"><Icon icon="Image01" size="var(--v-icon-md)" /></span>} title={`Showcase: ${l.business}`} subtitle="Edit the public page" />;
   }
@@ -43,7 +46,7 @@ function ResultRow({ item, active, onPick, onHover, onAddToList }) {
   return <ListRow {...common} leading={<span className="sh-cmd-jumpicon sh-cmd-jumpicon--add"><UserPlus01 width={18} height={18} /></span>} title="Add as new lead" subtitle={`Start a lead with ${item.pretty}`} />;
 }
 
-export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onOpenPlanner, onJump, onNewLead, onAddToList }) {
+export default function CommandBar({ open, onOpenChange, leads, leadsLoading, onRefetch, onOpenLead, onOpenShowcase, onOpenPlanner, onJump, onNewLead, onAddToList, docs = [], onOpenDoc }) {
   const desktop = useMediaQuery(DESKTOP_QUERY);
   const [q, setQ] = useState('');
   const [mode, setMode] = useState('text');
@@ -55,7 +58,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
   const listRef = useRef(null);
   const showSkel = useDelayedLoading(leadsLoading || fetching);
 
-  const res = useMemo(() => searchAll(q, leads), [q, leads]);
+  const res = useMemo(() => searchAll(q, leads, { docs }), [q, leads, docs]);
   const flat = useMemo(() => {
     if (!q.trim()) {
       return recent.map(r => {
@@ -69,11 +72,12 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
       ...res.clients.map(x => ({ type: 'client', lead: x.lead, key: `c:${x.lead._id}` })),
       ...(onOpenShowcase ? res.showcases.map(x => ({ type: 'showcase', lead: x.lead, key: `s:${x.lead._id}` })) : []),
       ...(onOpenPlanner ? res.showcases.map(x => ({ type: 'planner', lead: x.lead, key: `pl:${x.lead._id}` })) : []),
+      ...(onOpenDoc ? res.docs.map(x => ({ type: 'doc', doc: x.doc, lead: x.lead, snippet: x.snippet, label: x.type, key: `d:${x.doc._id}` })) : []),
       ...res.jumps.map(n => ({ type: 'jump', nav: n, key: `j:${n.id}` })),
     ];
     if (res.digits && !out.length && !showSkel) out.push({ type: 'add', pretty: res.digitsPretty, digits: digitsOf(q), key: 'add' });
     return out;
-  }, [q, res, recent, leads, showSkel, onOpenShowcase, onOpenPlanner]);
+  }, [q, res, recent, leads, showSkel, onOpenShowcase, onOpenPlanner, onOpenDoc]);
 
   useEffect(() => { setIdx(0); }, [q]);
   useEffect(() => { if (!open) { setQ(''); setMode('text'); } else if (desktop) setTimeout(() => inputRef.current?.focus(), 0); }, [open, desktop]);
@@ -81,10 +85,10 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
 
   // Debounced refetch when memory has nothing for the query (keeps results fresh after the nightly jobs).
   useEffect(() => {
-    if (!open || !q.trim() || res.leads.length || res.clients.length || !onRefetch) return undefined;
+    if (!open || !q.trim() || res.leads.length || res.clients.length || res.docs.length || !onRefetch) return undefined;
     const t = setTimeout(async () => { setFetching(true); try { await onRefetch(); } finally { setFetching(false); } }, 350);
     return () => clearTimeout(t);
-  }, [q, open, res.leads.length, res.clients.length, onRefetch]);
+  }, [q, open, res.leads.length, res.clients.length, res.docs.length, onRefetch]);
 
   const remember = useCallback((item) => {
     const entry = item.type === 'jump' ? { type: 'jump', id: item.nav.id } : { type: item.type, id: item.lead._id };
@@ -94,13 +98,14 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
   const pick = useCallback((item) => {
     if (!item) return;
     if (item.type === 'add') { onOpenChange(false); onNewLead({ phone: item.pretty }); return; }
+    if (item.type === 'doc') { onOpenChange(false); onOpenDoc(item.doc); return; }
     remember(item);
     onOpenChange(false);
     if (item.type === 'jump') onJump(item.nav);
     else if (item.type === 'showcase') onOpenShowcase(item.lead);
     else if (item.type === 'planner') onOpenPlanner(item.lead);
     else onOpenLead(item.lead);
-  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onOpenPlanner, onNewLead, remember]);
+  }, [onOpenChange, onJump, onOpenLead, onOpenShowcase, onOpenPlanner, onOpenDoc, onNewLead, remember]);
 
   const onKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setIdx(i => Math.min(flat.length - 1, i + 1)); }
@@ -114,7 +119,7 @@ export default function CommandBar({ open, onOpenChange, leads, leadsLoading, on
     if (!q.trim()) return i === 0 ? 'Recent' : null;
     const item = flat[i]; const prev = flat[i - 1];
     if (prev && prev.type === item.type) return null;
-    return { lead: 'Leads', client: 'Clients', showcase: 'Jump to', planner: 'Jump to', jump: 'Jump to', add: 'No match' }[item.type];
+    return { lead: 'Leads', client: 'Clients', doc: 'Docs', showcase: 'Jump to', planner: 'Jump to', jump: 'Jump to', add: 'No match' }[item.type];
   };
 
   const results = (

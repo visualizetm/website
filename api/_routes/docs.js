@@ -15,7 +15,7 @@ import { DOC_TYPE_IDS, sanitizeBlocks, sanitizeTitle, searchTextOf, refsOf } fro
  *   PATCH  { id, set }         $set only title, type, projectId, pinned, blocks
  *          { id, restore }     bring a deleted doc back
  *          { prefs }           the built in templates' hidden and order
- *   DELETE { id }              Recently Deleted; { id, purge } removes one that is already deleted
+ *   DELETE { id }              Recently Deleted; { id, purge } removes one that is already deleted; ?purgeDeleted=1 empties the bin
  *
  * sanitize() is the schema (src/shared/docBlocks.js, mirrored in
  * api/_lib/docBlocks.js): a block type it does not know is not written. A
@@ -29,6 +29,7 @@ const oid = (v) => { try { return new ObjectId(String(v)); } catch { return null
 const str = (v, max = 64) => String(v ?? '').slice(0, max);
 const MAX_PER_CLIENT = 300;
 const MAX_TEMPLATES = 40;
+const RESTORE_DAYS = 30;
 const META = { blocks: 0 };
 
 const withText = (blocks) => ({ blocks, text: searchTextOf(blocks), blockCount: blocks.length });
@@ -96,7 +97,8 @@ export async function handler(req, res) {
       return res.status(200).json({ items, prefs: { hidden: prefs?.hidden || [], order: prefs?.order || [] } });
     }
     if (q.deleted) {
-      const items = await col.find({ deleted: true, template: { $ne: true } }, { projection: META }).sort({ deletedAt: -1 }).limit(500).toArray();
+      /* Restorable for 30 days, the same window the leads have; older ones are not listed (purge removes them). */
+      const items = await col.find({ deleted: true, template: { $ne: true }, deletedAt: { $gte: new Date(Date.now() - RESTORE_DAYS * 864e5) } }, { projection: META }).sort({ deletedAt: -1 }).limit(500).toArray();
       return res.status(200).json({ items });
     }
     const filter = { deleted: { $ne: true }, template: { $ne: true } };
@@ -173,6 +175,11 @@ export async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     const b = req.body && typeof req.body === 'object' ? req.body : {};
+    if (req.query?.purgeDeleted === '1') {
+      /* Settings, Purge all: every doc that is already in Recently Deleted goes for good. A live doc and a template are never touched. */
+      const r = await col.deleteMany({ deleted: true, template: { $ne: true } });
+      return res.status(200).json({ ok: true, purged: r.deletedCount || 0 });
+    }
     const _id = oid(b.id || req.query?.id);
     if (!_id) return res.status(400).json({ error: 'id required' });
     const cur = await col.findOne({ _id });

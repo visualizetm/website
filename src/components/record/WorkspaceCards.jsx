@@ -1,7 +1,7 @@
 import { Button, Checkbox, EmptyState, Icon, Pill, ProgressBar, SkeletonBlock } from '../../ui';
 import { relativeTime } from '../../shared/dates';
 import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus, docsStatus } from '../../lib/workspace';
-import { typeLabel, editedLabel } from '../../lib/docs';
+import DocRow from '../docs/DocRow';
 import { COPY } from '../../shared/copy';
 import { completePatch, taskDueLabel, isOverdue } from '../../lib/taskWrite';
 import { safeHref } from '../../lib/safeUrl';
@@ -41,13 +41,7 @@ function DocsCard({ rec }) {
       ) : (
         <>
           <ul className="rc-docs-rows" aria-label="Recent docs">
-            {st.rows.map(d => (
-              <li key={d._id} className={`rc-docs-row${d.pinned ? ' is-pinned' : ''}`} data-doc-id={d._id}>
-                <button type="button" className="v-stretch" onClick={() => api.openDoc(d)} aria-label={`Open ${d.title || 'Untitled'}`}>Open {d.title || 'Untitled'}</button>
-                <span className="rc-docs-title">{d.pinned && <><Icon icon="Pin01" size={14} className="rc-docs-pin" /><span className="v-sr-only">Pinned. </span></>}{d.title || 'Untitled'}</span>
-                <span className="rc-docs-meta"><Pill tone="neutral" label={typeLabel(d.type)} size="sm" icon={false} variant="soft" /><span className="rc-docs-edited">{editedLabel(d, now)}</span></span>
-              </li>
-            ))}
+            {st.rows.map(d => <DocRow key={d._id} doc={d} now={now} onOpen={api.openDoc} />)}
           </ul>
           <div className="rc-docs-foot v-above"><Button variant="secondary" size="md" onClick={() => api.openClientDocs(lead)} className="rc-docs-all">{st.more > 0 ? `All docs, ${st.count}` : 'All docs'}</Button></div>
         </>

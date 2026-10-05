@@ -5,6 +5,7 @@
 import { digitsOf, matchRank, formatPhone } from '../shared/phone';
 import { normalizeStage } from '../shared/semantics';
 import { NAV } from './nav';
+import { matchDoc, snippetFor, typeLabel } from '../lib/docs';
 
 export const isDigitQuery = (q) => /^[\s()+\-.\d]+$/.test(q) && digitsOf(q).length > 0;
 
@@ -23,12 +24,12 @@ function textScore(lead, needle) {
 }
 
 /**
- * @returns {{ leads: Array, clients: Array, showcases: Array, jumps: Array, digits: boolean }}
+ * @returns {{ leads: Array, clients: Array, showcases: Array, jumps: Array, docs: Array, digits: boolean }}
  * leads/clients/showcases entries are { lead, rank }; showcases are the same
  * client matches offered a second time as "Showcase: <business>", the jump
  * to that client's showcase editor (Site Prompt 7, Part 3).
  */
-export function searchAll(query, leads, { limit = 6 } = {}) {
+export function searchAll(query, leads, { limit = 6, docs = [] } = {}) {
   const q = String(query || '').trim();
   const digits = isDigitQuery(q);
   const needle = lower(q);
@@ -46,5 +47,12 @@ export function searchAll(query, leads, { limit = 6 } = {}) {
     ? NAV.filter(n => !n.soon && !n.phoneOnly && (lower(n.label).includes(needle) || lower(n.id).includes(needle))).slice(0, 4)
     : [];
   const showcases = digits ? [] : clients.slice(0, 3);
-  return { leads: leadsOut, clients, showcases, jumps, digits, digitsPretty: digits ? (formatPhone(digitsOf(q)) || digitsOf(q)) : '' };
+  /* Docs (client docs job): by title and by block text, each with its client's name; a title match ranks first. */
+  const byId = new Map(leads.map(l => [String(l._id), l]));
+  const docHits = q && !digits ? docs.filter(d => matchDoc(d, q)).map(d => {
+    const title = lower(d.title); const rank = title.startsWith(needle) ? 0 : title.includes(needle) ? 1 : 2;
+    return { doc: d, lead: byId.get(String(d.leadId)) || null, rank, snippet: snippetFor(d, q), type: typeLabel(d.type) };
+  }).sort((a, b) => a.rank - b.rank || String(b.doc.updatedAt).localeCompare(String(a.doc.updatedAt))).slice(0, limit) : [];
+  return {
+    docs: docHits, leads: leadsOut, clients, showcases, jumps, digits, digitsPretty: digits ? (formatPhone(digitsOf(q)) || digitsOf(q)) : '' };
 }

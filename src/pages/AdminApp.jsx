@@ -41,6 +41,7 @@ const loaders = {
   planner: () => import('./AdminPlanner'),
   tasks: () => import('./AdminTasks'),
   docEditor: () => import('./AdminDoc'),
+  docs: () => import('./AdminDocs'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
@@ -63,6 +64,7 @@ const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
 const AdminTasks = lazy(loaders.tasks);
 const AdminDoc = lazy(loaders.docEditor);
+const AdminDocs = lazy(loaders.docs);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
@@ -416,6 +418,8 @@ export default function AdminApp() {
     if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
     if (/^\/clients\/[^/]+\/tasks$/.test(p)) return 'tasks';
     if (/^\/docs\/[^/]+$/.test(p)) return 'docEditor';
+    if (/^\/clients\/[^/]+\/docs$/.test(p)) return 'clientDocs';
+    if (p === '/docs') return 'docs';
     if (p.startsWith('/clients')) return 'clients';
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
@@ -439,6 +443,8 @@ export default function AdminApp() {
   const tasksId = (relPath.match(/^\/clients\/([^/]+)\/tasks$/) || [])[1] || '';
   // /docs/:id (client docs): one doc in the editor.
   const docId = (relPath.match(/^\/docs\/([^/]+)$/) || [])[1] || '';
+  // /clients/:id/docs: one client's docs, grouped by type.
+  const clientDocsId = (relPath.match(/^\/clients\/([^/]+)\/docs$/) || [])[1] || '';
   // /clients/:id/projects/new and /projects/new (nothing computer only): the new project page; /lists/:id/fill: fill from filters.
   const projectNewLeadId = (relPath.match(/^\/clients\/([^/]+)\/projects\/new$/) || [])[1] || '';
   const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
@@ -770,6 +776,8 @@ export default function AdminApp() {
           onBack={navBack ? navBack.back : () => go('clients')}
         />
       )}
+      {section === 'docs' && <AdminDocs leads={V.leads} docsApi={docsApi} loading={forceLoading} />}
+      {section === 'clientDocs' && <AdminDocs lead={V.leads.find(l => String(l._id) === clientDocsId) || null} leads={V.leads} docsApi={docsApi} loading={callLeadsLoading || forceLoading} onBack={navBack ? navBack.back : () => go('clients')} />}
       {section === 'docEditor' && (
         <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi} onPatchLead={patchCallLead}
           onBack={navBack ? navBack.back : () => go('clients')} />

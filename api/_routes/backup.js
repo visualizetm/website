@@ -5,7 +5,7 @@ import { getDb } from '../_lib/mongo.js';
  * the rate limiter documents (rate:*) and the client error log are left
  * out: the backup is the data, not the plumbing. Restore is out of scope
  * (the file is for safekeeping). */
-const COLLECTIONS = ['call_leads', 'submissions', 'projects', 'orders', 'concept_packs', 'settings', 'stripe_events'];
+const COLLECTIONS = ['call_leads', 'submissions', 'projects', 'orders', 'concept_packs', 'docs', 'settings', 'stripe_events'];
 
 export async function handler(req, res) {
   const db = await getDb();

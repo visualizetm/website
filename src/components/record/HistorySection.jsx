@@ -7,7 +7,7 @@ import { COPY } from '../../shared/copy';
 /* History: the merged call and contact log, then their site submissions. */
 export const historySummary = (rec) => {
   const { lead } = rec;
-  const rows = [...(lead.callLog || []).map(e => ({ at: e.at, label: CALL_STATUSES.find(s => s.id === e.outcome)?.label || 'Call' })), ...(lead.contactLog || []).map(e => ({ at: e.at, label: `${CONTACT_TYPES.find(t => t.id === e.type)?.label || 'Contact'} logged` }))].sort((a, b) => toMs(b.at) - toMs(a.at));
+  const rows = [...(lead.callLog || []).map(e => ({ at: e.at, label: CALL_STATUSES.find(s => s.id === e.outcome)?.label || 'Call' })), ...(lead.contactLog || []).map(e => ({ at: e.at, label: `${CONTACT_TYPES.find(t => t.id === e.type)?.label || 'Contact'} logged` })), ...(Array.isArray(lead.docLog) ? lead.docLog : []).map(e => ({ at: e.at, label: e.action === 'deleted' ? 'Deleted doc' : 'Created doc' }))].sort((a, b) => toMs(b.at) - toMs(a.at));
   if (!rows.length) return 'No calls yet';
   return `${rows.length} entr${rows.length === 1 ? 'y' : 'ies'} · last: ${rows[0].label}, ${fmtDate(rows[0].at)}`;
 };

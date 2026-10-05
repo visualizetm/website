@@ -232,6 +232,9 @@ export const leadDetailStyles = `
   .rc-docs-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .rc-docs-pin { vertical-align: -2px; margin-right: var(--v-space-1); color: var(--v-text-3); }
   .rc-docs-meta { display: flex; align-items: center; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
+  .rc-docs-client { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .rc-docs-controls { position: absolute; top: var(--v-space-1); right: var(--v-space-1); display: inline-flex; }
+  .rc-docs-row:has(.rc-docs-controls) .rc-docs-title { padding-right: var(--v-tap); }
   .rc-docs-edited { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .rc-docs-err { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .rc-docs-empty { padding: var(--v-space-2) var(--v-space-2) var(--v-space-1); }

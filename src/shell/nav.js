@@ -27,6 +27,8 @@ export const NAV = [
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    group: 'Clients',  badge: 'clients',   more: 2 },
   // Projects is its own screen since CRM revamp step 7 (/clients?filter=active still redirects there).
   { id: 'projects',    label: 'Projects',         icon: 'Folder',          path: '/projects',   group: 'Clients',  badge: 'projects',  more: 3 },
+  // Docs (client docs job): every client's docs in one list, between Projects and Planner; a doc itself is /docs/:id.
+  { id: 'docs',        label: 'Docs',             icon: 'File02',          path: '/docs',       group: 'Clients',  badge: null,        more: 3.5 },
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', group: 'Clients', badge: 'planner' },
   // STUDIO
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     group: 'Studio',   badge: 'orders',    more: 4, moreLabel: 'Orders' },

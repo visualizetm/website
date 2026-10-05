@@ -17,6 +17,7 @@ import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
 import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
 import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
+import { fetchDeletedDocs, restoreDoc, typeLabel } from '../lib/docs';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
 import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
@@ -161,19 +162,19 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   /* Data */
   const [deleted, setDeleted] = useState(null);
   const loadDeleted = useCallback(async () => {
-    const [s, l] = await Promise.all([apiFetch('/api/admin/submissions?deleted=1'), apiFetch('/api/admin/call-leads?deleted=1')]);
-    setDeleted([...(s.data?.items || []).map(x => ({ ...x, _kind: 'submission' })), ...(l.data?.items || []).map(x => ({ ...x, _kind: 'lead' }))].sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0)));
+    const [s, l, d] = await Promise.all([apiFetch('/api/admin/submissions?deleted=1'), apiFetch('/api/admin/call-leads?deleted=1'), fetchDeletedDocs()]);
+    setDeleted([...(s.data?.items || []).map(x => ({ ...x, _kind: 'submission' })), ...(l.data?.items || []).map(x => ({ ...x, _kind: 'lead' })), ...(d.data?.items || []).map(x => ({ ...x, _kind: 'doc', name: x.title || 'Untitled' }))].sort((a, b) => new Date(b.deletedAt || 0) - new Date(a.deletedAt || 0)));
   }, []);
   useEffect(() => { if (tab === 'data' || tab === 'danger') loadDeleted(); }, [tab, loadDeleted]);
   const restore = async (row) => {
-    const r = row._kind === 'lead' ? await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } }) : await apiFetch('/api/admin/submissions', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } });
-    if (r.ok) { toast.success(`${row.business || row.name} restored.`); loadDeleted(); if (row._kind === 'lead') onRestoreLeads?.(); else onDataChanged?.(); } else toast.error(COPY.error.restore);
+    const r = row._kind === 'doc' ? await restoreDoc(row._id) : row._kind === 'lead' ? await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } }) : await apiFetch('/api/admin/submissions', { method: 'PATCH', body: { action: 'restore', ids: [row._id] } });
+    if (r.ok) { toast.success(`${row.business || row.name} restored.`); loadDeleted(); if (row._kind === 'lead') onRestoreLeads?.(); else if (row._kind === 'doc') shell?.docsApi?.reload?.(); else onDataChanged?.(); } else toast.error(COPY.error.restore);
   };
   const purge = async () => {
     const n = (deleted || []).length;
     if (!(await confirm({ title: `Permanently purge ${n} deleted record${n === 1 ? '' : 's'}?`, body: 'This empties Recently deleted immediately. There is no undo after a purge.', danger: true, confirmLabel: 'Purge all' }))) return;
-    const [a, b] = await Promise.all([post({ action: 'purge' }), apiFetch('/api/admin/call-leads?purgeDeleted=1', { method: 'DELETE' })]);
-    if (a.ok && b.ok) toast.success('Recently deleted is empty.'); else toast.error('Purge did not finish. Some records are still in the bin.');
+    const [a, b, c] = await Promise.all([post({ action: 'purge' }), apiFetch('/api/admin/call-leads?purgeDeleted=1', { method: 'DELETE' }), apiFetch('/api/admin/docs?purgeDeleted=1', { method: 'DELETE' })]);
+    if (a.ok && b.ok && c.ok) toast.success('Recently deleted is empty.'); else toast.error('Purge did not finish. Some records are still in the bin.');
     loadDeleted();
   };
   const [leadImport, setLeadImport] = useState(false);
@@ -351,7 +352,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <Table aria-label="Recently deleted" density="sm" columnChooser={false} rows={deleted} rowKey={(r) => `${r._kind}:${r._id}`} className="st-deleted"
             columns={[
               { id: 'name', label: 'Record', always: true, render: (r) => r.business || r.name || 'Untitled' },
-              { id: 'type', label: 'Type', render: (r) => (r._kind === 'lead' ? <Pill tone="neutral" label={r.industry || 'Lead'} size="sm" icon={false} variant="outline" /> : <Pill id={r.type} list={SUBMISSION_TYPES} size="sm" variant="outline" />) },
+              { id: 'type', label: 'Type', render: (r) => (r._kind === 'doc' ? <Pill tone="neutral" label={`Doc, ${typeLabel(r.type)}`} size="sm" icon={false} variant="outline" /> : r._kind === 'lead' ? <Pill tone="neutral" label={r.industry || 'Lead'} size="sm" icon={false} variant="outline" /> : <Pill id={r.type} list={SUBMISSION_TYPES} size="sm" variant="outline" />) },
               { id: 'deleted', label: 'Deleted', render: (r) => fmtDateTime(r.deletedAt) },
             ]} rowActions={(r) => <Button variant="secondary" size="md" icon={FlipBackward} onClick={() => restore(r)} className="st-restore">Restore</Button>} />
         ) : <EmptyState size="sm" icon="Trash01" title={COPY.empty['settings.deleted'].title} description={COPY.empty['settings.deleted'].description} />}

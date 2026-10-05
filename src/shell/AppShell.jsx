@@ -181,7 +181,7 @@ export default function AppShell({
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} funnel={funnel} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
           <TopBar title={title} onBack={topBar?.back || navBack?.back || null} focused={focused} actions={topBar?.actions || null}
-            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} />}
+            commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} docs={docsApi?.docs} onOpenDoc={docsApi?.openDoc} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
           {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}
           <div className={`sh-offline${online ? ' is-hidden' : ''}`} role="status" aria-live="polite">{!online && <><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></>}</div>
