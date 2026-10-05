@@ -391,6 +391,15 @@ section('4b. the concepts token');
   ok(_stores.settings.every(s => !String(s._id).includes(CN_ON)), 'the limiter key never carries the token');
 }
 
+/* ── 4c. Review each: the guards on the public answers ─────────────── */
+section('4c. concepts review: the guards on a client\'s answers');
+{
+  /* The checks live in scripts/concepts-review-lib.mjs and run against a copy of api/. scripts/concepts-guard-proof.mjs cuts each guard out of
+   * that copy, one at a time, and requires its check to fail: a guard that nothing tests, or that the check does not need, is caught there. */
+  const { runReview } = await import(pathToFileURL(path.join(repoRoot, 'scripts', 'concepts-review-lib.mjs')).href);
+  for (const r of await runReview(path.join(repoRoot, 'api'))) ok(r.pass, `${r.guard ? `[guard ${r.guard}] ` : ''}${r.desc}`);
+}
+
 /* ── 5. The admin guard and the login limiter ───────────────────────── */
 section('5. the admin guard and the login limiter');
 {

@@ -4,6 +4,10 @@ Resume with: "Continue the CRM mobile revamp from docs/MOBILE-PROGRESS.md."
 
 Rubric: docs/MOBILE-UI-GUIDE.md. Baseline and plan: docs/MOBILE-AUDIT.md. After: docs/MOBILE-AUDIT-AFTER.md. Decisions: docs/MOBILE-DECISIONS.md.
 
+## Concepts review job (Review each and whole section reveal), in progress
+Resume with: "Continue the concepts review job from docs/MOBILE-PROGRESS.md." Milestones: 1 data model, handler and guards; 2 CRM editor; 3 public page sections and reveal; 4 Review each flow; 5 CRM results, Log as a round, Concepts card, review task; 6 carried feel gaps, audits, docs.
+- [x] Milestone 1: approvalMode, allowPass, needsDecision, decision and submissions on concept_sets; decide and submit on the public handler; admin lock, reopen, send validation; scripts/concepts-review-lib.mjs (37 checks), concepts-review-test.mjs, concepts-guard-proof.mjs (13 guards each cut out and shown to fail), security-test section 4c.
+
 ## Done
 - Guide committed (dc0beda). Milestone 1, measure (100d13f): docs/MOBILE-AUDIT.md, scripts/mobile-measure.mjs.
 - Milestone 2 (554418f onward): Settings regions, sheet and modal entrance, last rows clear the tab bar, ip-address fix, Back on Projects CLS.

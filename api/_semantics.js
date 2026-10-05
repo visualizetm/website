@@ -48,7 +48,9 @@ export const CONCEPT_KIND_IDS = ['logo', 'brand-board', 'social', 'website', 'si
 // Concepts (the presentation rebuild): a set's life, an item's kind, and what a client can do.
 export const CONCEPT_SET_STATUS_IDS = ['draft', 'sent', 'viewed', 'approved', 'changes', 'archived'];
 export const CONCEPT_ITEM_KIND_IDS = ['logo', 'board', 'mockup', 'social', 'web', 'print', 'other'];
-export const CONCEPT_FEEDBACK_ACTION_IDS = ['approve', 'change', 'note'];
+export const CONCEPT_FEEDBACK_ACTION_IDS = ['approve', 'change', 'note', 'submit'];
+export const CONCEPT_APPROVAL_MODE_IDS = ['pick', 'review'];
+export const CONCEPT_DECISION_IDS = ['approved', 'changes', 'pass'];
 export const REVIEW_CHANNEL_IDS = ['nfc', 'text', 'email', 'in-person'];
 export const REVIEW_RESULT_IDS = ['asked', 'left', 'declined'];
 // Prompt 12: submission types accepted by api/submissions.js.

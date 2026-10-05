@@ -265,9 +265,24 @@ export const CONCEPT_FEEDBACK_ACTIONS = [
   { id: 'approve', label: 'Approved',          icon: 'Check',  order: 0, ...tone('booked') },
   { id: 'change',  label: 'Changes requested', icon: 'Edit02', order: 1, ...tone('danger') },
   { id: 'note',    label: 'Note',              icon: 'MessageCircle01', order: 2, ...tone('neutral') },
+  { id: 'submit',  label: 'Sent their answers', icon: 'Send01', order: 3, ...tone('progress') },
 ];
+/* Approval mode (Review each): pick one for the whole set, or an answer on every direction. */
+export const CONCEPT_APPROVAL_MODES = [
+  { id: 'pick',   label: 'Pick one',    hint: 'They choose one direction, or ask for changes.' },
+  { id: 'review', label: 'Review each', hint: 'They answer on every item that needs a decision.' },
+];
+export const CONCEPT_APPROVAL_MODE_IDS = CONCEPT_APPROVAL_MODES.map(m => m.id);
+/* A client's answer on one direction. */
+export const CONCEPT_DECISIONS = [
+  { id: 'approved', label: 'Approved',      icon: 'Check',  ...tone('booked') },
+  { id: 'changes',  label: 'Needs changes', icon: 'Edit02', ...tone('danger') },
+  { id: 'pass',     label: 'Not this one',  icon: 'XClose', ...tone('neutral') },
+];
+export const CONCEPT_DECISION_IDS = CONCEPT_DECISIONS.map(d => d.id);
+export const conceptDecisionOf = (id) => CONCEPT_DECISIONS.find(d => d.id === id) || null;
 export const CONCEPT_FEEDBACK_ACTION_IDS = CONCEPT_FEEDBACK_ACTIONS.map(a => a.id);
-export const conceptFeedbackActionOf = (id) => CONCEPT_FEEDBACK_ACTIONS.find(a => a.id === id) || CONCEPT_FEEDBACK_ACTIONS[2];
+export const conceptFeedbackActionOf = (id) => CONCEPT_FEEDBACK_ACTIONS.find(a => a.id === id) || CONCEPT_FEEDBACK_ACTIONS.find(a => a.id === 'note');
 export const REVIEW_CHANNELS = [
   { id: 'nfc',       label: 'NFC card',  icon: 'CreditCard01',    order: 0 },
   { id: 'text',      label: 'Text',      icon: 'MessageCircle01', order: 1 },
