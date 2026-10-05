@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
-import { DOC_TYPE_IDS, LIMITS, sanitizeBlocks, sanitizeTitle, searchTextOf, refsOf } from '../_lib/docBlocks.js';
+import { DOC_TYPE_IDS, sanitizeBlocks, sanitizeTitle, searchTextOf, refsOf } from '../_lib/docBlocks.js';
 
 /* Client docs (docs job): briefs, call notes, contracts, delivery notes and
  * brand notes kept per client. Admin only (route() guards it): there is no
