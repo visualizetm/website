@@ -25,7 +25,8 @@ const BLOCK_FONTS = !!process.env.LH_BLOCK_FONTS; // diagnostic: measure without
 // 'desktop' (1280-equivalent, lighthouse's own desktop-config.js settings).
 const FORM = process.env.LH_FORM === 'desktop' ? 'desktop' : 'mobile';
 const TARGETS = [
-  { id: 'dashboard', label: 'Dashboard', path: '/admin' },
+  { id: 'dashboard', label: 'Analytics', path: '/admin' },
+  { id: 'tasks', label: 'Tasks', path: '/admin/tasks' },
   { id: 'leads', label: 'Leads', path: '/admin/leads', ls: { vz_leads_view: JSON.stringify('list') } },
   { id: 'room', label: 'Call room', path: '/admin/calls', ls: { vz_call_session: JSON.stringify(SESSION('room')) } },
   // Site Prompt 3: the public /clients page and one detail, driven by /api/showcase.

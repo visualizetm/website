@@ -465,6 +465,11 @@ for (const width of WIDTHS) {
     await check('dashboard (settled)');
     await goto('/admin/?loading=1');
     await check('dashboard skeleton');
+    await goto('/admin/tasks');
+    await page.evaluate(() => localStorage.removeItem('vz_call_session'));
+    await check('tasks home');
+    await goto('/admin/tasks?loading=1');
+    await check('tasks home skeleton');
     if (width >= 768) {
       await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
       await check('sidebar collapsed: dashboard');
@@ -747,6 +752,11 @@ for (const width of WIDTHS) {
   await check('dashboard');
   await goto('/admin/?loading=1');
   await check('dashboard skeleton');
+  await goto('/admin/tasks');
+  await page.evaluate(() => localStorage.removeItem('vz_call_session'));
+  await check('tasks home');
+  await goto('/admin/tasks?loading=1');
+  await check('tasks home skeleton');
 
   await goto('/admin/orders');
   await check('orders list');

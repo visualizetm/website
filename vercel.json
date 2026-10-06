@@ -36,6 +36,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/admin/analytics",
+      "destination": "/api/admin/index?r=analytics"
+    },
+    {
       "source": "/api/admin/call-leads",
       "destination": "/api/admin/index?r=call-leads"
     },

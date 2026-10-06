@@ -84,13 +84,13 @@ section('2. the reminders cron: once per task, never done, toggle off, the diges
   const taskPushes = _pushes.filter(p => /^Task due: /.test(p.title));
   ok(r._status === 200 && r._json.tasks === 3 && taskPushes.length === 3, `three tasks past their reminder push once each, the pinned one once (${JSON.stringify(_pushes.map(p => p.title))})`);
   const sign = taskPushes.filter(p => p.title === 'Task due: Hang the sign');
-  ok(sign.length === 1 && sign[0].url.endsWith(`/?open=${L4}`), 'a checklist task pushes from the task, once, even though it is pinned as the next action');
+  ok(sign.length === 1 && sign[0].url.endsWith(`/tasks?open=${L4}`), 'a checklist task pushes from the task, once, even though it is pinned as the next action');
   const l4 = lead(L4);
   ok(!!l4.checklists[0].items[0].notifiedAt && !l4.checklists[0].items[1].notifiedAt && !l4.checklists[0].items[2].notifiedAt && !l4.nextAction.notifiedAt, 'notifiedAt is stamped on the one checklist item, not the done one, not the one still ahead, and not the pinned next action');
   const proof = taskPushes.find(p => p.title === 'Task due: Drop off the proof');
-  ok(!!proof && proof.url.endsWith(`/?open=${L1}`) && /^Due Co · due \d{1,2}:\d{2} (AM|PM)$/.test(proof.body), `the push carries the business, the time and the deep link (${proof?.body}, ${proof?.url})`);
+  ok(!!proof && proof.url.endsWith(`/tasks?open=${L1}`) && /^Due Co · due \d{1,2}:\d{2} (AM|PM)$/.test(proof.body), `the push carries the business, the time and the deep link (${proof?.body}, ${proof?.url})`);
   const vinyl = taskPushes.find(p => p.title === 'Task due: Pick up the vinyl');
-  ok(!!vinyl && vinyl.url.endsWith(`/?open=${L2}`) && vinyl.body.startsWith('Done Co · due'), 'a project task names the client and opens the client');
+  ok(!!vinyl && vinyl.url.endsWith(`/tasks?open=${L2}`) && vinyl.body.startsWith('Done Co · due'), 'a project task names the client and opens the client');
   ok(!!lead(L1).nextAction.notifiedAt && !!_stores.projects[0].nextAction.notifiedAt, 'notifiedAt is stamped on both');
   ok(!lead(L2).nextAction.notifiedAt && !taskPushes.some(p => p.title === 'Task due: Call about the sign'), 'a done task never pushes');
   ok(!lead(L3).nextAction.notifiedAt, 'a task whose reminder is still ahead waits');

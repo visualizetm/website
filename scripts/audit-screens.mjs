@@ -52,9 +52,12 @@ export const SCREENS = [
 
   // Next up with no folds: six sections always open (Overdue, Today, This week, Later, Meetings, Lists ready) under four tiles;
   // the skeleton draws the sections at fixed counts. The prep clears a stale call session.
-  { id: 'dashboard', screen: 'Next up', label: 'the queue', path: '/admin', resource: 'leads', prep: async (p) => { await rmLS(p, 'vz_call_session'); await p.waitForSelector('.nu-row, .v-empty', { timeout: 4000 }).catch(() => {}); } },
-  { id: 'dashboard-record', screen: 'Next up', label: 'a tapped record beside the queue', path: '/admin', resource: 'leads', minWidth: 1024, region: '.db-main', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.locator('.nu-row .v-stretch').first()) },
-  { id: 'dashboard-snooze', screen: 'Next up', label: 'the snooze picker', path: '/admin', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.locator('.nu-row button[aria-haspopup]').first()); await click(p.getByRole('menuitem', { name: 'Snooze until' })); } },
+  { id: 'analytics', screen: 'Analytics', label: 'the home: greeting, range, KPIs and charts', path: '/admin', resource: 'analytics', prep: (p) => p.waitForSelector('[data-card="kpis"], .v-error', { timeout: 4000 }).catch(() => {}) },
+  { id: 'analytics-year', screen: 'Analytics', label: 'the Year range', path: '/admin', resource: 'analytics', prep: (p) => p.waitForSelector('[data-card="kpis"], .v-error', { timeout: 4000 }).catch(() => {}), act: (p) => click(p.getByRole('radio', { name: 'Year' })) },
+  { id: 'analytics-empty', screen: 'Analytics', label: 'nothing recorded yet: every chart in its empty state', path: '/admin', resource: 'analytics', emptyResource: 'analytics', prep: (p) => p.waitForSelector('[data-card="kpis"], .v-error', { timeout: 4000 }).catch(() => {}) },
+  { id: 'tasks-home', screen: 'Tasks', label: 'the queue', path: '/admin/tasks', resource: 'leads', prep: async (p) => { await rmLS(p, 'vz_call_session'); await p.waitForSelector('.nu-row, .v-empty', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'tasks-home-record', screen: 'Tasks', label: 'a tapped record beside the queue', path: '/admin/tasks', resource: 'leads', minWidth: 1024, region: '.db-main', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: (p) => click(p.locator('.nu-row .v-stretch').first()) },
+  { id: 'tasks-home-snooze', screen: 'Tasks', label: 'the snooze picker', path: '/admin/tasks', resource: 'leads', region: '.v-sheet', detail: true, prep: (p) => rmLS(p, 'vz_call_session'), act: async (p) => { await click(p.locator('.nu-row button[aria-haspopup]').first()); await click(p.getByRole('menuitem', { name: 'Snooze until' })); } },
 
 
   /* Back, done once: one back state per section. The third row opens, Back (the top bar, or a phone sheet's Close) returns to the list with the row lit (.nav-restored). */

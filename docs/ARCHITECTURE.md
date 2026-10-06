@@ -83,7 +83,10 @@ Seven steps rebuilt the pipeline on main; each is described once here and the de
 
 | Path | Screen | File |
 |---|---|---|
-| / | Next up (CRM revamp, step 2): the greeting, then every lead and project next action, overdue first, then today, then Later this week folded; each row has the one control that does the action (call, log the outcome, build concepts, open payments, open the record), swipe right marks done and swipe left snoozes on a phone, a long press picks the snooze; a desktop shows the queue in the panel and the tapped record beside it; the numbers sit under Stats. Formerly the Dashboard: greeting, Today panel, the four numbers that matter, the pipeline strip, More stats (the rest and revenue) behind one tap, activity | pages/AdminDashboard.jsx |
+| / | Analytics (the nav revamp, milestone 6): the greeting, the range (Month, 90 days, Year, remembered), six KPIs with the change against the period before (income received, outstanding, clients gained, tasks completed with Tracking since, leads added, MRR), the charts (income by week or month, clients gained, tasks completed, the funnel, income by package), meetings, the five top open tasks. Reads /api/admin/analytics; a phone shows the overview strip on one line above. | pages/AdminAnalytics.jsx |
+| /tasks | Tasks (the Next up queue, moved here by the nav revamp): the greeting, then every lead and project next action, overdue first, then today, then Later this week folded; each row has the one control that does the action (call, log the outcome, build concepts, open payments, open the record), swipe right marks done and swipe left snoozes on a phone, a long press picks the snooze; a desktop shows the queue in the panel and the tapped record beside it; the numbers sit under Stats. Formerly the Dashboard: greeting, Today panel, the four numbers that matter, the pipeline strip, More stats (the rest and revenue) behind one tap, activity | pages/AdminTasksHome.jsx |
+| /pipeline | Pipeline dashboard (the nav revamp, milestone 5): the funnel bar (Triage, Leads, Contacted, Booked, Deals, Clients with the step conversion), the newest five in Triage with Accept (keepPatch, Undo) and Deny (the Decline sheet), calls today and the open hand list's progress against its target and due date, follow ups due, meetings in 7 days, deals ready to hand off. | pages/AdminPipeline.jsx |
+| /overview | Clients dashboard (the nav revamp, milestone 5): active clients, projects in progress, retainers and their monthly total, unpaid invoices, tasks due across clients, the planner's state, recent activity; the same card grid as /pipeline. | pages/AdminOverview.jsx |
 | /leads | Leads: kanban and table, filters, bulk, duplicates, LeadDetail | pages/AdminLeads.jsx |
 | /calls | Call Console: opens on the open dial lists with Start on each and Quick session for the filter builder; a list session runs its leads in order and every outcome updates the list on the same write (booked, no, wrong-number and callback take the lead off and clear its listId; no-answer moves it to the bottom); the summary shows what is left with Roll into tomorrow and Mark done; queue, call room, outcomes | pages/AdminCalls.jsx |
 | /triage | Triage (CRM revamp, step 4): the pile every new lead lands in (the scraper, the site's briefs and contacts, imports, the Capture sheet), sorted by score then newest. A phone shows one card at a time with the next peeking behind (business, industry, area, source pill, socials, up to three intel lines, the score): swipe right keeps, swipe left bins, swipe down opens Later and Decline; three round buttons under the card do the same. Keep opens a sheet (priority, best window, Add to list) and writes stage lead. A desktop shows a table with one row focused and the keys K, L, D, B, A, Up and Down, plus the same five in the row menu. Every action gets a six second undo | pages/AdminTriage.jsx, lib/triage.js, lib/score.js, lib/nurture.js, lib/capture.js, components/CaptureSheet.jsx |
@@ -122,6 +125,22 @@ Rob keeps a client's briefs, call notes, contracts, delivery notes and brand not
 - **Print and copy.** Export is Copy as text (`docPlainText`) and Print or save as PDF: a portal at the end of body holds the doc alone, a print stylesheet hides the app and sets black on white; the browser's print sheet does the rest.
 
 ## Navigation
+
+The nav revamp (reports/NAV-REVAMP-REPORT.md): one nav config
+(src/shell/nav.js) drives the sidebar, the tab bar, the More page, the
+command bar and the top bar title. The sidebar shows one workspace at a
+time through the WorkspaceSwitcher (Pipeline: Dashboard, Triage, Leads,
+Call Console, Lists, Deals, Calendar; Clients: Dashboard, Clients,
+Projects, Docs, Planner, Tasks, with the Studio rows under it), follows
+the route (workspaceOf) and remembers the pick; Analytics is pinned above
+both, Settings, Design, the account and Collapse below. Every screen's
+header is the PageHeader the top bar renders (breadcrumb workspace then
+page, title, Back, actions) with the OverviewStrip beside the search
+(meetings in 7 days, due today, overdue), which a phone shows on one line
+atop the home. Every list plus detail screen keeps its list in a
+CollapsiblePane (a rail of initials when collapsed, remembered per screen,
+independent of the sidebar). Moved routes keep working: /?open= redirects
+to /tasks?open=, `analytics` and `dashboard` both name the home.
 
 src/shell/nav-history.js is the one navigation model (Back, done once). Every open of a record, an editor, a setup page, a sheet sized page or a console mode is a history push, never a replace; the entry's state carries the request (`open { section, id, intent, mode }`, `create`, `preset`) and the `origin` captured from the screen that leaves at the moment of the push (path, search, scrollTop, panelScrollTop, selectedId, filters, view, tab), plus `idx`, the entry's depth. AdminApp reads the requests off the entry (no in-memory openReq, createReq or presetReq), `useSelection(section)` gives a screen its selected id, `open()` (a push on the same path) and `close()` (history back), `useScreenOrigin` registers what a screen holds beyond path and search, and `useRestore` hands the origin back to the screen that returns: it reapplies the filters, the search, the view and the tab, then restores the scroll and lights the row (`[data-row-id]`, `.nav-restored`) once the data is present, never on a skeleton. `useBack()` drives the top bar's Back on phone and computer and the record's inline Back; it is null at a section root, and a record reached by a deep link (?open=, ?submission=, a push notification) with no origin shows Back to its section root. Back is history.back(), so the browser's back and the phone's edge swipe run the same popstate path and Forward re-opens the record. The Call Console's queue, room and summary are entries with the builder as the root; the Settings tabs on a phone and Design opened from Settings are entries; the editors and the setup pages keep their leave guard on Back. Sheets and modals are not history entries. scripts/back-test.mjs walks it at 390 and 1280.
 
@@ -171,6 +190,7 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/admin/send-email | POST { leadId, kind intro | onboarding | invoice | delivery, invoiceId?, projectId? } or { kind, test: true } (CRM revamp, step 6): builds the payload from the record (api/_lib/email.js), posts it to the Zapier catch hook in ZAPIER_HOOK_<KIND>, stamps the deal checkpoint or delivery.emailSent, marks the invoice sent, appends a contactLog entry and recomputes nextAction; 503 with no hook, 502 when Zapier does not answer 2xx, 60 sends an hour. The hook URL is never in a response, a log or the settings document. Test: scripts/send-email-test.mjs; the payloads are in docs/RUNBOOK.md, Emails | the send modal (src/components/SendEmailModal.jsx) from DealCheckpoints, an Invoices row and the delivery card; Settings, Integrations, Emails (Send test) |
 | /api/admin/lists | GET (every open list plus the done ones from the last seven days; the system list Callbacks due is created on first read and its members refreshed from every stage lead with a callback due today or earlier, in callback order), POST, PATCH ({ id, set }; the system list takes leadIds only with sync: true, never a name, target or status), DELETE (?id, soft: status done; the system list answers 409). Test: scripts/lists-test.mjs | AdminApp (shell level), Lists, the Call Console, the list picker |
 | /api/admin/concept-sets | GET (?leadId, or every live set), POST (mints the token), PATCH ({ id, set }; regenerate: true revokes; reopen: true reopens a submitted Review each set; draft to sent stamps sentAt; answers a submitted review set has are 409 on mode, Not this one and which items need one; the stored document comes back as `item`), DELETE (tombstone) | AdminApp, AdminConcepts, the concepts editor |
+| /api/admin/analytics | GET ?range=month, 90 or year: the Analytics payload (api/_lib/analytics.js, mirrored in src/lib/analytics.js; KPIs with the previous period, three short series, the funnel, income by package, meetings), read only, projected fields, cached privately for a minute | AdminAnalytics |
 | /api/admin/settings | GET (prefs, dashboard, notifications, profile, health, stripe, cron, calendly), PATCH (dailyCallTarget, dashboardLayout, notifications, profile), POST (password, prefs, test-push, purge) | AppShell, AdminDashboard, AdminSettings |
 | /api/admin/calendly/events | GET ?from&to (5 minute cache) | AppShell |
 | /api/admin/stripe/events | GET ?days or ?stored=1&unmatched=1 | AdminSettings |
@@ -247,7 +267,8 @@ hostile data and the route mocks) and scripts/audit-screens.mjs (the screen
 and state table, including every marketing page's own `marketing: true`
 entries, added in Site Prompts 3-5); Lighthouse runs against
 scripts/mock-server.mjs over real HTTP. hex-count, css-orphans, and
-dates-test are the static checks. tasks-test (the task rule and its
+dates-test are the static checks. analytics-test (the Analytics rules, their
+server mirror in both zones, and the route). tasks-test (the task rule and its
 server mirror), share-test (Save to photos with navigator.share mocked),
 planner-endpoint-test, task-reminder-test and security-test cover the
 planner dashboard and the task system without a browser. scripts/site-regression.mjs

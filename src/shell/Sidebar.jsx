@@ -17,7 +17,7 @@ import { KEYS, readJSON, writeJSON } from './storage';
  */
 
 /* UI simplification, part B: badges only where a count is a to do list. */
-const SIDEBAR_BADGES = new Set(['dashboard', 'triage', 'lists', 'deals', 'projects', 'tasks']);
+const SIDEBAR_BADGES = new Set(['triage', 'lists', 'deals', 'projects', 'tasks']);
 
 export default function Sidebar({ collapsed, canToggle = true, onToggle, activeId, counts, countsLoading, onGo, menuItems }) {
   const routeWs = workspaceOf(activeId);

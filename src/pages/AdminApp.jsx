@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { normalizeLeads, pipelineFunnel } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AdminDashboard from './AdminDashboard';
+import AdminAnalytics from './AdminAnalytics';
 import AdminMore from './AdminMore';
 import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal, ErrorBoundary, Logo, LogoSpinner } from '../ui';
 import { wireClientLog } from '../shared/log';
@@ -43,6 +43,7 @@ const loaders = {
   docEditor: () => import('./AdminDoc'),
   docs: () => import('./AdminDocs'),
   pipeline: () => import('./AdminPipeline'),
+  tasksAll: () => import('./AdminTasksHome'),
   overview: () => import('./AdminOverview'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
@@ -68,6 +69,7 @@ const AdminTasks = lazy(loaders.tasks);
 const AdminDoc = lazy(loaders.docEditor);
 const AdminDocs = lazy(loaders.docs);
 const AdminPipeline = lazy(loaders.pipeline);
+const AdminTasksHome = lazy(loaders.tasksAll);
 const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
@@ -417,6 +419,7 @@ export default function AdminApp() {
     if (p.startsWith('/lists')) return 'lists';
     if (p.startsWith('/triage')) return 'triage';
     if (p.startsWith('/pipeline')) return 'pipeline';
+    if (p === '/tasks' || p.startsWith('/tasks/')) return 'tasksAll';
     if (p.startsWith('/overview')) return 'overview';
     if (p.startsWith('/projects')) return 'projects';
     if (p.startsWith('/calendar')) return 'calendar';
@@ -524,7 +527,9 @@ export default function AdminApp() {
     if (!authed || deepOpened.current) return;
     const id = new URLSearchParams(window.location.search).get('open');
     if (!id) return;
-    if (section === 'dashboard') {
+    /* The nav revamp: a task push still lands on /?open=; the home is Analytics now, so it moves to the Tasks page, which opens the lead in the screen that owns its stage once the leads are in. */
+    if (section === 'dashboard') { navigate(`${BASE}/tasks?open=${encodeURIComponent(id)}`, { replace: true }); return; }
+    if (section === 'tasksAll') {
       if (callLeadsLoading) return;
       deepOpened.current = true;
       const lead = callLeads.find(l => String(l._id) === String(id));
@@ -535,7 +540,7 @@ export default function AdminApp() {
     /* ?sec=<section> opens that section's screen on a phone (a record's own sections); a computer keeps its tabs and ignores it. */
     const sec = (new URLSearchParams(window.location.search).get('sec') || '').match(/^[a-z]{2,16}$/)?.[0] || '';
     navigate(location.pathname + location.search, { replace: true, state: { open: { section, id, ...(sec ? { sec } : {}), n: Date.now() }, idx: 0 } });
-  }, [authed, callLeadsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authed, callLeadsLoading, section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const load = useCallback(async () => {
     const r = await apiFetch('/api/admin/submissions');
@@ -708,7 +713,7 @@ export default function AdminApp() {
      already excludes deleted). It used to carry the planner's posts-in-review
      count, which is why it read 40 with six clients. Planner and Projects
      are their own entries now. */
-  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients + newIdeas, concepts: conceptsBadge(sets), dashboard: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
+  const counts = { triage: stageCounts.triage, leads: stageCounts.lead, booked: bookedCount, deals: stalledDeals, calls: callbacksDue, orders: newOrders, submissions: unreadSubs, calendar: calendarToday, reviews: reviewsDue, clients: stageCounts.client + stageCounts.won, projects: openProjects, planner: postsWithClients + newIdeas, concepts: conceptsBadge(sets), tasks: nextUpBadge(callLeads, projects, sets), lists: listsBadge(lists) };
   const createFor = (sec) => (createReq?.section === sec ? createReq : null);
   const presetFor = (sec) => (presetReq?.section === sec ? presetReq : null);
 
@@ -719,8 +724,9 @@ export default function AdminApp() {
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
-      {section === 'dashboard' && (
-        <AdminDashboard leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
+      {section === 'dashboard' && <AdminAnalytics leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} forceLoading={forceLoading} />}
+      {section === 'tasksAll' && (
+        <AdminTasksHome leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
       )}
       {section === 'more' && <AdminMore counts={counts} countsLoading={callLeadsLoading || forceLoading} onGo={goNav} onLogout={logout} />}
       {section === 'leads' && (

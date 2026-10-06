@@ -86,3 +86,14 @@ The numbers come from one pure function, `computeAnalytics`, in api/_lib/analyti
 - layout-audit: the dashboard block walks Analytics, Pipeline, Overview and Tasks, the collapsed panes and the collapsed sidebar.
 - gesture-test: the Tasks page row swipe (the queue's rows kept their gestures).
 - A new node test, analytics-test, pins the mirror, the buckets, the previous period and the empty state.
+
+## Plan changes (logged as built)
+
+- The home keeps the nav id `dashboard` (Analytics); `analytics` stays an alias. The plan said rename; the rename would have touched every `go('dashboard')`, `rootOf`, the audit ids and the chrome roots for no behaviour.
+- The Next up queue's AdminApp section is `tasksAll` at /tasks (nav id `tasks`), because `tasks` was already the per client Tasks screen's section (/clients/:id/tasks). The file is src/pages/AdminTasksHome.jsx (src/pages/AdminTasks.jsx is the per client screen).
+- computeDashboard (the Pipeline numbers) moved out of the old home into src/lib/dashboardStats.js so the Pipeline dashboard reads it without importing a screen.
+- The Clients dashboard reuses StatCard; no KpiCard. Deltas live on Analytics where a previous period exists.
+- The funnel's conversion starts at Contacted (Triage is the intake; Leads shows no percentage) and the later steps are cumulative (Deals counts deal, won and client), which is the only reading under which every step is a share of the one before.
+- The dashboards' cards carry one fixed height each (and the skeleton the same boxes) rather than a noFit exemption in the feel audit.
+- The home keeps the two quick actions the old home had (Start call session, Add lead) beside the range switch.
+- The More page renders from MORE_SECTIONS (Pipeline, Clients, Studio, System) in milestone 6 rather than 7, because the tab rename and the badge move landed together.

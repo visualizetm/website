@@ -1,14 +1,15 @@
 import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import { PageShell, ScrollArea, Section, Stack, Card, ListRow, Button, Avatar, SkeletonBlock, Icon, Stagger } from '../ui';
-import { MORE_NAV, NAV_GROUPS, NAV_GROUP_META } from '../shell/nav';
+import { MORE_SECTIONS, WORKSPACES, NAV_GROUP_META } from '../shell/nav';
 import { useTopBar } from '../shell/ShellContext';
 
 /* More (CRM mobile revamp, milestone 3): the phone's way to everything that is not a tab, as one screen
- * instead of a sheet of buttons. Sections as the sidebar groups them, one row per screen with its count on
+ * instead of a sheet of buttons. Sections as the sidebar groups them (Pipeline, Clients, Studio, System), one row per screen with its count on
  * the right, then the account row. A tab screen: the tab bar stays, More is the active tab. */
 export default function AdminMore({ counts = {}, countsLoading = false, onGo, onLogout }) {
   useTopBar(null);
-  const groups = NAV_GROUPS.map(g => ({ group: g, items: MORE_NAV.filter(n => n.group === g) })).filter(g => g.items.length);
+  /* The nav revamp (milestone 7): the sections are the workspaces (Pipeline, Clients), then Studio and System, the same rows the sidebar lists. */
+  const groups = MORE_SECTIONS.map(sec => ({ group: sec.label, blurb: WORKSPACES.find(w => w.id === sec.id)?.blurb || NAV_GROUP_META[sec.label]?.blurb, items: sec.items }));
   return (
     <PageShell className="aa-main aa-main--wide mo-shell">
       <ScrollArea wide className="mo-page">
@@ -16,7 +17,7 @@ export default function AdminMore({ counts = {}, countsLoading = false, onGo, on
         <Stack gap={5}>
           {groups.map(g => (
             <section key={g.group} className="mo-group" aria-label={g.group}>
-              <p className="mo-group-h">{g.group}<span className="mo-group-b">{NAV_GROUP_META[g.group]?.blurb}</span></p>
+              <p className="mo-group-h">{g.group}<span className="mo-group-b">{g.blurb}</span></p>
               <Stagger className="mo-rows" cap={4}>
                 {g.items.map(n => {
                   const count = n.badge ? counts?.[n.badge] || 0 : 0;

@@ -1,31 +1,26 @@
 import { useMemo, useRef, useState } from 'react';
-import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
-import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, CollapsiblePane,
+  PageShell, ScrollArea, Stack, Row, Card, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
-import { normalizeStage } from '../shared/semantics';
-import { fmtDateTime, fmtWeekdayDateTime, toMs, dayKey } from '../shared/dates';
-import { money } from '../shared/format';
+import { fmtDateTime, fmtWeekdayDateTime, dayKey } from '../shared/dates';
 import { telHref } from '../shared/phone';
 import { nextUpItems } from '../lib/nextAction';
 import { taskCounts } from '../shared/taskRules';
 import { completePatch, pinPatch, unpinPatch, checklistsPatch } from '../lib/taskWrite';
 import { patchTask } from '../shared/taskRules';
 import { buildEvents } from '../lib/events';
-import { isStalled } from '../lib/deal';
-import { invoicesOf, invoiceStatus } from '../lib/invoices';
 import { openLists, isFull, listCount } from '../lib/lists';
 import LeadDetail from '../components/LeadDetail';
 import { RescheduleSheet } from '../components/record/MeetingSection';
 import TaskSheet from '../components/TaskSheet';
 import { isTask, fmtTaskDue } from '../lib/tasks';
 
-/* Next up (CRM revamp, step 2; flat since the no folds pass): the one list
- * of what to do, first. Every lead and project carries its next action
+/* Tasks (the nav revamp, milestone 6: the Next up list moved here from the
+ * home, which is Analytics now; CRM revamp, step 2; flat since the no folds
+ * pass): the one list of what to do. Every lead and project carries its next action
  * (src/lib/nextAction.js); this screen lays them out as six open sections
  * with no fold anywhere: Overdue, Today, This week (grouped by day), Later
  * (dated, then undated custom actions), Meetings (the Calendar's own event
@@ -33,70 +28,11 @@ import { isTask, fmtTaskDue } from '../lib/tasks';
  * Each action row keeps its one control, its menu and the phone's swipes:
  * right is done, left snoozes a day, a long press picks the snooze. On a
  * desktop the queue is the left panel and the tapped record opens beside
- * it. Four stat tiles sit under the greeting, always visible. */
+ * it; the greeting and the stat tiles went to Analytics and the Pipeline
+ * dashboard. */
 
 const DAY = 864e5;
 
-function periods(now = new Date()) {
-  const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
-  const weekStart = new Date(dayStart); weekStart.setDate(dayStart.getDate() - ((dayStart.getDay() + 6) % 7)); // Monday
-  const lastWeekStart = new Date(weekStart); lastWeekStart.setDate(weekStart.getDate() - 7);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return { now: now.getTime(), dayStart: +dayStart, weekStart: +weekStart, lastWeekStart: +lastWeekStart, monthStart: +monthStart, lastMonthStart: +lastMonthStart };
-}
-
-/** Every number on the page, from the leads list. Formulas in reports/PROMPT-05-REPORT.md section 3. */
-export function computeDashboard(leads, subs, orders, P = periods()) {
-  const s = {
-    callsToday: 0, callsWeek: 0, callsLastWeek: 0, callsMonth: 0, callsLastMonth: 0,
-    logMonth: 0, logMonthConnected: 0, logLastMonth: 0, logLastMonthConnected: 0,
-    notCalled: 0, booked: 0, callbacks: 0, newLeads48h: 0,
-    funnel: { leads: 0, contacted: 0, booked: 0, clients: 0 },
-    revenue: 0, revenueMonth: 0, retainerClients: 0, clients: 0, mrr: 0,
-  };
-  const bump = (t) => {
-    if (!t) return;
-    if (t >= P.dayStart) s.callsToday++;
-    if (t >= P.weekStart) s.callsWeek++; else if (t >= P.lastWeekStart) s.callsLastWeek++;
-    if (t >= P.monthStart) s.callsMonth++; else if (t >= P.lastMonthStart) s.callsLastMonth++;
-  };
-  for (const l of leads) {
-    const stage = normalizeStage(l);
-    const created = new Date(l.createdAt || 0).getTime();
-    for (const e of (l.callLog || [])) {
-      const t = new Date(e.at).getTime();
-      bump(t);
-      if (t >= P.monthStart) { s.logMonth++; if (e.outcome !== 'no-answer') s.logMonthConnected++; }
-      else if (t >= P.lastMonthStart) { s.logLastMonth++; if (e.outcome !== 'no-answer') s.logLastMonthConnected++; }
-    }
-    for (const e of (l.contactLog || [])) if (e.type === 'call' || e.type === 'meeting') bump(new Date(e.at).getTime());
-    if (stage !== 'lost' && stage !== 'declined' && stage !== 'triage') {
-      s.funnel.leads++;
-      if ((l.callLog || []).length > 0 || (l.callStatus && l.callStatus !== 'not-called')) s.funnel.contacted++;
-      if (stage === 'booked' || stage === 'deal' || stage === 'won' || stage === 'client') s.funnel.booked++;
-      if (stage === 'won' || stage === 'client') s.funnel.clients++;
-    }
-    if (stage === 'lead' && (l.callStatus || 'not-called') === 'not-called') s.notCalled++;
-    if (stage === 'booked') s.booked++;
-    if (l.callStatus === 'callback' && stage !== 'lost' && stage !== 'declined') s.callbacks++;
-    if (created >= P.now - 2 * DAY) s.newLeads48h++;
-    for (const p of (l.purchases || [])) {
-      const amt = Number(p.amount) || 0;
-      s.revenue += amt;
-      const t = toMs(p.at);
-      if (t && t >= P.monthStart) s.revenueMonth += amt;
-    }
-    const onRetainer = stage === 'client' && ['active', 'ending'].includes(l.retainer?.status);
-    if (stage === 'client') { s.clients++; if (onRetainer) { s.retainerClients++; s.mrr += Number(l.retainer.amount) || 0; } }
-  }
-  s.connectRate = s.logMonth ? Math.round((s.logMonthConnected / s.logMonth) * 100) : null;
-  s.connectRateLast = s.logLastMonth ? Math.round((s.logLastMonthConnected / s.logLastMonth) * 100) : null;
-  return s;
-}
-
-const greetingFor = (h, name = 'Rob') => (h < 12 ? `Good morning, ${name}.` : h < 17 ? `Good afternoon, ${name}.` : `Good evening, ${name}.`);
-const inHours = (bh, d = new Date()) => { if (!bh?.start || !bh?.end) return true; const m = d.getHours() * 60 + d.getMinutes(); const [a, b] = [bh.start, bh.end].map(t => { const [hh, mm] = t.split(':').map(Number); return hh * 60 + mm; }); return m >= a && m < b; };
 const timeOf = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 /* UI simplification, part B: the due time shows, never a relative time beside it; an overdue row from another day names the day. */
 const dueLabel = (item, now = Date.now()) => (item.bucket === 'today' || (item.bucket === 'overdue' && dayKey(item.due) === dayKey(now)) ? timeOf(item.due) : item.bucket === 'overdue' ? new Date(item.due).toLocaleDateString([], { month: 'short', day: 'numeric' }) : new Date(item.due).toLocaleDateString([], { weekday: 'short' }) + ' ' + timeOf(item.due));
@@ -271,7 +207,7 @@ function NextUpSkeleton() {
   );
 }
 
-export default function AdminDashboard({ leads, projects = [], sets = [], loading, error, onRetry, subs, orders, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
+export default function AdminTasksHome({ leads, projects = [], sets = [], loading, error, onRetry, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
   const shell = useShell();
   const toast = useToast();
   const [retry, retrying] = useRetry(onRetry);
@@ -279,7 +215,7 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const phone = useMediaQuery('(max-width: 767px)');
   const showSkel = useDelayedLoading(loading);
   /* Back (done once): the record beside the queue rides on the history entry. */
-  const { selId, entry: openEntry, open: openSel, close } = useSelection('dashboard');
+  const { selId, entry: openEntry, open: openSel, close } = useSelection('tasksAll');
   const intent = openEntry?.intent || null;
   const [resched, setResched] = useState(null); // the meeting event a reschedule sheet is open for
   const [pick, setPick] = useState(null); // the item a snooze picker is open for
@@ -291,7 +227,6 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   useScreenOrigin(() => ({ selectedId: selId }));
   useRestore(() => {});
 
-  const s = useMemo(() => computeDashboard(leads || [], subs, orders), [leads, subs, orders]);
   const q = useMemo(() => nextUpItems(leads || [], projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
   const calendlyEvents = shell?.calendly?.events; const shellPosts = shell?.posts; const shellLists = shell?.lists;
   const meetings = useMemo(() => { const start = new Date(now); start.setHours(0, 0, 0, 0); return buildEvents(leads || [], calendlyEvents || [], now, projects, shellPosts || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= start.getTime()); }, [leads, projects, calendlyEvents, shellPosts, now]);
@@ -299,14 +234,6 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 
   /* The collapsed queue (CollapsiblePane): one avatar per record in the queue, in queue order, each once. */
   const railItems = useMemo(() => { const seen = new Set(); const out = []; for (const it of [...q.overdue, ...q.today, ...q.later, ...q.beyond, ...q.undated]) { const id = String(it.lead._id); if (seen.has(id)) continue; seen.add(id); out.push({ id, name: it.lead.business, selected: String(selId) === id, onOpen: () => openRecord(it) }); } return out; }, [q, selId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hour = new Date().getHours();
-  const name = (shell?.profile?.name || 'Rob').split(' ')[0];
-  const outside = !inHours(shell?.profile?.businessHours);
-  const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  const context = q.overdue.length ? `${q.overdue.length} overdue, ${q.today.length} due today.`
-    : q.today.length ? `${q.today.length} due today.`
-    : s.newLeads48h > 0 ? `${s.newLeads48h} new lead${s.newLeads48h === 1 ? '' : 's'} since yesterday.`
-    : outside ? 'Outside business hours. Plan tomorrow or prep concepts.' : 'Queue is clear. Good day to dial.';
 
   /* The writes: done stamps doneAt, a snooze moves dueAt and makes the
      action manual so the recompute leaves it be. Both optimistic through
@@ -385,16 +312,10 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   };
 
   if (loading) {
-    const body = (
-      <Stack gap={5}>
-        <div className="db-head"><Stack gap={1}><h2 className="db-greet">{greetingFor(hour, name)}</h2><SkeletonBlock width={260} height={22} /></Stack><Row gap={2} wrap className="db-head-actions"><SkeletonBlock width={desktop ? 164 : 175} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={desktop ? 112 : 175} height={44} radius="var(--v-radius-md)" /></Row></div>
-        <div className="db-tiles" aria-busy="true" aria-hidden="true">{[0, 1, 2, 3].map(i => <Card key={i} className="v-stat db-tile db-tile--skel" as="div"><span className="v-tile db-tile-skel"><SkeletonBlock width={40} height={40} radius="var(--v-radius-md)" /></span><div className="v-stat-body"><SkeletonBlock width={48} height={26} style={{ marginBottom: 2 }} /><SkeletonBlock width="80%" height={16} /></div></Card>)}</div>
-        {!desktop && <div className="db-next"><NextUpSkeleton /></div>}
-      </Stack>
-    );
+    const body = <Stack gap={5}>{!desktop && <div className="db-next"><NextUpSkeleton /></div>}</Stack>;
     return desktop ? (
       <>
-        <aside className="aa-panel db-panel" aria-label="Next up"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea></aside>
+        <aside className="aa-panel db-panel" aria-label="Tasks"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea></aside>
         <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
       </>
     ) : (
@@ -405,36 +326,12 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     const err = <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>;
     return desktop ? (
       <>
-        <aside className="aa-panel db-panel" aria-label="Next up"><ScrollArea bare className="db-panel-scroll">{err}</ScrollArea></aside>
+        <aside className="aa-panel db-panel" aria-label="Tasks"><ScrollArea bare className="db-panel-scroll">{err}</ScrollArea></aside>
         <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide" /><style>{dbStyles}</style></div>
       </>
     ) : <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide">{err}</div><style>{dbStyles}</style></div>;
   }
 
-  /* The four tiles (no folds pass): calls today, callbacks pending, deals stalled, the money due this week. */
-  const weekEnd = now + 7 * DAY;
-  const stalled = (leads || []).filter(l => { const st = normalizeStage(l); return (st === 'booked' || st === 'deal') && isStalled(l); }).length;
-  const dueWeek = (projects || []).filter(p => !p.archived).reduce((sum, p) => sum + invoicesOf(p).reduce((n, inv) => { const st = invoiceStatus(inv, now); if (st === 'paid' || st === 'draft' || !inv.dueAt) return n; const t = new Date(`${inv.dueAt}T12:00:00`).getTime(); return t <= weekEnd ? n + (Number(inv.amount) || 0) : n; }, 0), 0);
-  const tiles = [
-    { icon: 'PhoneCall01', tone: 'progress', value: s.callsToday, label: 'Calls today', go: () => shell.go('calls') },
-    { icon: 'PhoneIncoming01', tone: 'callback', value: s.callbacks, label: 'Callbacks pending', go: () => shell.go('calls', { status: ['callback'] }) },
-    { icon: 'Zap', tone: stalled ? 'danger' : 'neutral', value: stalled, label: 'Deals stalled', go: () => shell.go('deals') },
-    { icon: 'CurrencyDollar', tone: 'won', value: money(dueWeek), label: 'Due this week', go: () => shell.go('projects') },
-  ];
-
-  const header = (
-    <div className="db-head">
-      <Stack gap={1}>
-        <h2 className="db-greet">{greetingFor(hour, name)}</h2>
-        <p className="db-context">{dateLine}. {context}</p>
-      </Stack>
-      <Row gap={2} wrap className="db-head-actions">
-        <Button icon={PhoneCall01} onClick={() => shell.go('calls')}>Start call session</Button>
-        <Button variant="secondary" icon={Plus} onClick={() => shell.newLead({})}>Add lead</Button>
-      </Row>
-    </div>
-  );
-  const statsBlock = <div className="db-tiles" role="group" aria-label="Today in numbers">{tiles.map(c => <StatCard key={c.label} icon={c.icon} tone={c.tone} value={c.value} label={c.label} onClick={c.go} className="db-tile" />)}</div>;
   const list = <NextUpList q={q} meetings={meetings} lists={listsReady} phone={phone} now={now} act={act} onReschedule={setResched} onStartList={(l) => shell.go('calls', { listId: String(l._id) })} onOpenLists={() => shell.go('lists')} />;
   const taskSheet = taskEdit && <TaskSheet business={taskEdit.lead.business} task={taskEdit.action} onClose={() => setTaskEdit(null)} onSave={(na) => writeAction(taskEdit, na)} onDone={() => writeAction(taskEdit, { ...taskEdit.action, doneAt: new Date().toISOString() })} />;
   const reschedSheet = resched && <RescheduleSheet lead={resched.lead} onClose={() => setResched(null)} onSave={async (m) => { const l = resched.lead; const ok = await onPatchLead(l._id, { meeting: { date: '', time: '', type: 'call', location: '', ...(l.meeting || {}), ...m } }); if (ok) { setResched(null); toast.success('Meeting updated.'); } else toast.error(COPY.error.save); }} />;
@@ -452,8 +349,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     const clientProps = onCreateProject ? { projects, onCreateProject, onPatchProject } : null;
     return (
       <>
-        <CollapsiblePane id="tasks" label="Next up" className="db-panel" rail={railItems}
-          head={<div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Next up</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>}>
+        <CollapsiblePane id="tasks" label="Tasks" className="db-panel" rail={railItems}
+          head={<div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Tasks</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>}>
           <ScrollArea bare className="db-panel-scroll">{list}</ScrollArea>
         </CollapsiblePane>
         {sel ? (
@@ -461,11 +358,9 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
             <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatchLead} onLinkSubmission={onLinkSubmission} onClose={close} client={clientProps} intent={intent} />
           </PageShell>
         ) : (
-          <div className="aa-main aa-main--wide lay-scroll db-page">
-            <div className="lay-content lay-content--wide">
-              <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>{header}{statsBlock}</Stagger>
-            </div>
-          </div>
+          <PageShell className="aa-main aa-main--wide db-page" label="the record">
+            <div className="db-hint"><EmptyState icon="CheckDone01" title="Pick a task" description="The record opens here beside the list. Done, Snooze and the menu sit on every row." /></div>
+          </PageShell>
         )}
         {picker}
         {reschedSheet}{taskSheet}
@@ -477,10 +372,6 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
         <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
-          {/* The overview strip (the nav revamp): one line at the top of the phone Home. */}
-          {phone && shell?.overviewStrip ? <div className="db-overview">{shell.overviewStrip(true)}</div> : null}
-          {header}
-          {statsBlock}
           <div className="db-next">{list}</div>
         </Stagger>
       </div>
@@ -492,32 +383,14 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
 }
 
 const dbStyles = `
-  /* The skeleton tile is the height of a loaded one on a phone (icon, number, label, and the room for a two line label). */
-  @media (max-width: 767px) { .db-tiles .db-tile--skel { min-height: 94px; height: 94px; } }
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
-  .db-overview { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--v-space-1)); padding: 0 var(--v-space-1); }
-  .db-overview::-webkit-scrollbar { display: none; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */
   .db-panel { gap: var(--v-space-3); }
   @media (min-width: 768px) { .aa-panel.db-panel { width: 380px; } }
   .db-panel-head { display: flex; align-items: center; gap: var(--v-space-2); padding: 0 var(--v-space-1); }
   .db-panel-scroll { padding: 2px; }
-  .db-head { display: flex; flex-direction: column; gap: var(--v-space-4); min-width: 0; }
-  /* The greeting keeps a whole line: the actions sit beside it only when there is room for both (1440 up), under it otherwise. */
-  @media (min-width: 1440px) { .db-head { flex-direction: row; align-items: flex-start; justify-content: space-between; } }
-  .db-greet { margin: 0; font-family: var(--v-font-display); font-size: var(--v-display-md); line-height: var(--v-lh-display-md); letter-spacing: var(--v-ls-display-md); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); }
-  @media (max-width: 1279px) { .db-greet { font-size: var(--v-display-sm); line-height: var(--v-lh-display-sm); letter-spacing: var(--v-ls-display-sm); } }
-  .db-context { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }
-  .db-head-actions { flex-shrink: 0; }
-  @media (max-width: 767px) { .db-head-actions > .v-btn { flex: 1 1 45%; } }
-  /* Four small tiles in one row, always visible. */
-  .db-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--v-space-2); min-width: 0; }
-  .db-tiles .v-stat { min-height: 0; padding: var(--v-space-3); gap: var(--v-space-2); }
-  .db-tiles .v-stat-value { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); }
-  .db-tiles .v-stat-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); }
-  .db-tiles .v-stat-label { overflow-wrap: normal; word-break: normal; }
-  @media (max-width: 479px) { .db-tiles .v-tile { display: none; } .db-tiles .v-stat { padding: var(--v-space-2); } .db-tiles .v-stat-value { font-size: var(--v-text-lg); line-height: var(--v-lh-lg); letter-spacing: var(--v-ls-lg); white-space: nowrap; } }
+  .db-hint { display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: var(--v-space-5); }
   /* Next up rows */
   .nu-group { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .nu-group--danger { color: var(--v-status-danger-text); }

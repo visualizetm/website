@@ -168,6 +168,9 @@ Use when: the sidebar's workspaces. Not when: views of one list (SegmentedContro
 ### FunnelBar (the nav revamp)
 `steps [{ id, label, n, onClick }]`, `label`. The pipeline as one bar: a segment per step sized by its count (never under a readable minimum) with the count, the label and the conversion from the step before written on it. The bar is decorative to a screen reader; a visually hidden table carries the same numbers, and a row of 44px pill buttons under the bar opens the steps that have a screen. Tokens only: the red for the first step, neutrals after it. The Pipeline dashboard draws it from `pipelineFunnel()` plus the triage and deal counts.
 
+### BarChart, LineChart, DonutChart (the nav revamp)
+`data [{ label, value }]`, `format`, `label` (the table caption), `height`, `tone` (a chart token, `--v-chart-1` by default). Small SVG charts, tokens only, every value written on the chart (a bar's value, the line's last point, the donut's total and a named row per slice), the labels thinned past eight points so 320 stays readable. The SVG is decorative to a screen reader; a visually hidden table carries the same numbers. Chart colours are the `--v-chart-*` tokens (3:1 against every layer, docs/TOKENS.md). The Analytics home draws them from /api/admin/analytics; a skeleton stands in while it loads and an EmptyState says what would fill each one.
+
 ### PageHeader (the nav revamp)
 `crumbs [{ id, label, onClick }]`, `title`, `onBack`, `actions`, children (the centre). The one header shape: the breadcrumb (the workspace, then the page; the workspace crumb opens its dashboard), the title, Back when the history entry has one, the actions on the right. The shell's top bar renders it for every screen from useTopBar, so a screen never draws its own.
 

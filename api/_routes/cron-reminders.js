@@ -97,7 +97,7 @@ export async function handler(req, res) {
   const fmtZoneTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ZONE });
   let taskPushes = 0;
   for (const t of tasksDue) {
-    try { await sendPush(db, { title: `Task due: ${t.action.label}`, body: `${t.business} · due ${fmtZoneTime(t.action.dueAt || t.action.remindAt)}`, url: `${base}/?open=${t.leadId}` }); } catch { /* one bad subscription must not stop the rest */ }
+    try { await sendPush(db, { title: `Task due: ${t.action.label}`, body: `${t.business} · due ${fmtZoneTime(t.action.dueAt || t.action.remindAt)}`, url: `${base}/tasks?open=${t.leadId}` }); } catch { /* one bad subscription must not stop the rest */ }
     if (t.taskId) {
       /* A checklist task: stamp the one item, by id, writing the whole array back the way every checklist write does. */
       const rec = await db.collection(t.coll).findOne({ _id: t._id }, { projection: { checklists: 1 } });

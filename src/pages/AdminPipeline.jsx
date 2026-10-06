@@ -11,7 +11,7 @@ import { triageLeads, keepPatch, undoKeepPatch } from '../lib/triage';
 import { callbacksDueIds, handLists, listCount } from '../lib/lists';
 import { isTicked } from '../lib/deal';
 import { useDecline } from '../components/DeclineSheet';
-import { computeDashboard } from './AdminDashboard';
+import { computeDashboard } from '../lib/dashboardStats';
 
 /* The Pipeline dashboard (the nav revamp, milestone 5): the Pipeline
  * workspace's home for cold calling. The funnel as one bar (Triage, Leads,

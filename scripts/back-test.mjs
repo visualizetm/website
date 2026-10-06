@@ -31,7 +31,7 @@ const SCREENS = [
   { id: 'orders', path: '/admin/orders' },
   { id: 'reviews', path: '/admin/reviews' },
   { id: 'submissions', path: '/admin/submissions' },
-  { id: 'dashboard', path: '/admin' },
+  { id: 'tasks', path: '/admin/tasks' },
   { id: 'calendar', path: '/admin/calendar', ls: { vz_cal_view: 'day' } },
 ];
 

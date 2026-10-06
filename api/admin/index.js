@@ -10,6 +10,7 @@
  * its own file; the logic lives in api/_routes/<name>.js. Adding an endpoint
  * is a new file there, one line here, and one rewrite in vercel.json. */
 import { route } from '../_lib/handler.js';
+import { handler as analytics } from '../_routes/analytics.js';
 import { handler as backup } from '../_routes/backup.js';
 import { handler as calendlyEvents } from '../_routes/calendly-events.js';
 import { handler as callLeads } from '../_routes/call-leads.js';
@@ -32,6 +33,7 @@ import { handler as submissions } from '../_routes/submissions.js';
 import { handler as suggestions } from '../_routes/suggestions.js';
 
 const ROUTES = {
+  'analytics': route(analytics, { methods: ['GET'] }),
   'backup': route(backup, { methods: ['GET'] }),
   'calendly-events': route(calendlyEvents, { methods: ['GET'] }),
   'call-leads': route(callLeads, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 1024 * 1024 }),

@@ -15,6 +15,7 @@
  * (signed in, the default), false (the login screen), or 'hang' (never answers,
  * the boot frame).
  */
+import { computeAnalytics } from '../src/lib/analytics.js';
 // Hostile fixtures: very long unbroken + slash-joined names, long emails.
 export const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
 export const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat(40);
@@ -639,6 +640,8 @@ export async function mockRoutes(page, opts = {}) {
     if (s.status === 'sent') s.status = 'viewed';
     return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(publicConceptSet(s)) });
   });
+  /* Analytics (the nav revamp, milestone 6): the same rules the route runs, over the fixture records, for the range asked. */
+  await page.route('**/api/admin/analytics**', (r) => { if (failing.has('analytics')) return r.fulfill(fail()); const range = new URL(r.request().url()).searchParams.get('range') || 'month'; return r.fulfill(json(empty.has('analytics') ? computeAnalytics([], [], { range }) : computeAnalytics(leads, projects, { range }))); });
   await page.route('**/api/admin/lists**', (r) => {
     const m = r.request().method();
     if (m === 'GET') return respond(r, 'lists', PAYLOADS.lists());

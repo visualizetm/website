@@ -15,10 +15,10 @@
  *   soon       true = planned screen: rendered disabled, never a dead link
  */
 export const NAV = [
-  /* The home. Next up until the Analytics page lands (milestone 6), when this entry becomes Analytics and the queue moves to /tasks. */
-  { id: 'dashboard',   label: 'Next up',          icon: 'LayoutAlt01',     path: '',            workspace: 'top',      group: 'Pipeline', badge: 'dashboard', tab: true, tabOrder: 0, pinned: 'top' },
+  /* The home (milestone 6): Analytics, pinned above both workspaces; the phone's first tab reads Home. The Next up queue is /tasks. */
+  { id: 'dashboard',   label: 'Analytics',        icon: 'BarChart01',      path: '',            workspace: 'top',      group: 'Pipeline', badge: null,        tab: true, tabOrder: 0, tabLabel: 'Home', pinned: 'top' },
   // PIPELINE: the work of landing someone.
-  { id: 'pipeline',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/pipeline',  workspace: 'pipeline', group: 'Pipeline', badge: null },
+  { id: 'pipeline',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/pipeline',  workspace: 'pipeline', group: 'Pipeline', badge: null,        moreLabel: 'Pipeline dashboard' },
   { id: 'triage',      label: 'Triage',           icon: 'Inbox01',         path: '/triage',     workspace: 'pipeline', group: 'Pipeline', badge: 'triage',    more: 0 },
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      workspace: 'pipeline', group: 'Pipeline', badge: 'leads',     more: 1 },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      workspace: 'pipeline', group: 'Pipeline', badge: 'calls',     tab: true, tabOrder: 2, tabLabel: 'Call' },
@@ -26,13 +26,13 @@ export const NAV = [
   { id: 'deals',       label: 'Deals',            icon: 'Zap',             path: '/deals',      workspace: 'pipeline', group: 'Pipeline', badge: 'deals',     tab: true, tabOrder: 3 },
   { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   workspace: 'pipeline', group: 'Pipeline', badge: 'calendar',  more: 6 },
   // CLIENTS: the work after they say yes. Planner is the Clients screen with a filter applied (href carries the query; path is what the active state matches on).
-  { id: 'overview',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null },
+  { id: 'overview',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null,        moreLabel: 'Clients dashboard' },
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    workspace: 'clients',  group: 'Clients',  badge: 'clients',   more: 2 },
   { id: 'projects',    label: 'Projects',         icon: 'Folder',          path: '/projects',   workspace: 'clients',  group: 'Clients',  badge: 'projects',  more: 3 },
   // Docs (client docs job): every client's docs in one list, between Projects and Planner; a doc itself is /docs/:id.
   { id: 'docs',        label: 'Docs',             icon: 'File02',          path: '/docs',       workspace: 'clients',  group: 'Clients',  badge: null,        more: 3.5 },
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', workspace: 'clients', group: 'Clients', badge: 'planner' },
-  { id: 'tasks',       label: 'Tasks',            icon: 'CheckDone01',     path: '/tasks',      workspace: 'clients',  group: 'Clients',  badge: 'tasks',     soon: true },
+  { id: 'tasks',       label: 'Tasks',            icon: 'CheckDone01',     path: '/tasks',      workspace: 'clients',  group: 'Clients',  badge: 'tasks' },
   // STUDIO: what gets made and what comes in from the site. Rows under the Clients workspace (seven is the cap per workspace).
   { id: 'orders',      label: 'Print Orders',     icon: 'Package',         path: '/orders',     workspace: 'studio',   group: 'Studio',   badge: 'orders',    more: 4, moreLabel: 'Orders' },
   { id: 'concepts',    label: 'Concepts',         icon: 'Image01',         path: '/concepts',   workspace: 'studio',   group: 'Studio',   badge: 'concepts',  more: 9 },
@@ -92,8 +92,16 @@ export function workspaceOf(id) {
 /** The mobile thumb tabs, in order (More is appended by the tab bar itself). */
 export const TAB_NAV = NAV.filter(n => n.tab).sort((a, b) => (a.tabOrder ?? 99) - (b.tabOrder ?? 99));
 
-/** Everything that is not a thumb tab (the More page). */
-export const MORE_NAV = NAV.filter(n => typeof n.more === 'number').sort((a, b) => a.more - b.more);
+/** Everything that is not a thumb tab (the More page's flat list, the tab bar's badge sum). */
+export const MORE_NAV = NAV.filter(n => !n.tab && !n.phoneOnly);
+
+/** The More page by workspace (milestone 7): Pipeline, Clients, Studio, then System, each in NAV order, tabs left out. */
+export const MORE_SECTIONS = [
+  { id: 'pipeline', label: 'Pipeline', items: NAV.filter(n => n.workspace === 'pipeline' && !n.tab && !n.phoneOnly) },
+  { id: 'clients',  label: 'Clients',  items: NAV.filter(n => n.workspace === 'clients' && !n.tab && !n.phoneOnly) },
+  { id: 'studio',   label: 'Studio',   items: NAV.filter(n => n.workspace === 'studio' && !n.tab && !n.phoneOnly) },
+  { id: 'system',   label: 'System',   items: NAV.filter(n => n.workspace === 'system' && !n.tab && !n.phoneOnly) },
+].filter(s => s.items.length);
 
 /** Active entry for a path relative to the admin base. Longest path wins so
  *  '/settings/deleted' resolves to Recently Deleted, not Settings. */
@@ -116,6 +124,6 @@ export function navForPath(rel, search = '') {
 /** Section id AdminApp branches on for a nav entry. */
 export const sectionOf = (entry) => (entry.id === 'deleted' ? 'settings' : (entry.id === 'planner' || entry.id === 'declined') ? (entry.id === 'planner' ? 'clients' : 'leads') : entry.id);
 
-/* Older ids that other code still names: 'analytics' is the home entry until milestone 6 renames it. */
+/* Older ids that other code still names: 'analytics' and 'dashboard' are both the home. */
 const ALIASES = { analytics: 'dashboard' };
 export const navById = (id) => NAV.find(n => n.id === (ALIASES[id] || id)) || null;
