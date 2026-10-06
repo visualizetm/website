@@ -3,7 +3,7 @@
  *
  * Caches (all versioned; anything not in VERSION is deleted on activate):
  *   shell-v*   the navigation shell (index.html), the hashed /assets, /fonts,
- *              the icons and the manifest: cache first, filled as they load
+ *              the icons, the brand files and the manifest: cache first, filled as they load
  *              (the precache is tiny on purpose; the worker registers after
  *              first paint and never competes with the app's own requests)
  *   api-v*     the last successful GET of call-leads, projects, orders,
@@ -11,10 +11,10 @@
  *              network fails, so the admin opens and reads offline
  * Writes are never cached or replayed (the app refuses them offline).
  */
-const VERSION = 'v3.0.0';
+const VERSION = 'v3.1.0'; // bumped for Brand v3: installs fetch the new icons
 const SHELL = `shell-${VERSION}`;
 const API = `api-${VERSION}`;
-const PRECACHE = ['/', '/manifest.webmanifest', '/logo.svg', '/icons/icon-192.png', '/icons/badge-96.png']; // the rest of the shell, the fonts, and the chunks fill in as the app requests them
+const PRECACHE = ['/', '/manifest.webmanifest', '/brand/svg/visualize-icon-reversed.svg', '/brand/svg/visualize-wordmark-reversed.svg', '/icon-192.png', '/badge-96.png']; // the rest of the shell, the fonts, and the chunks fill in as the app requests them
 const API_CACHED = ['/api/admin/call-leads', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-packs', '/api/admin/settings'];
 
 self.addEventListener('install', (event) => {
@@ -24,7 +24,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== SHELL && k !== API).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
-const isShellAsset = (url) => url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/icons/') || url.pathname === '/logo.svg' || url.pathname === '/manifest.webmanifest';
+const isShellAsset = (url) => url.pathname.startsWith('/assets/') || url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/brand/') || /^\/(icon-\d+|icon-512-maskable|apple-touch-icon|badge-96)\.png$/.test(url.pathname) || url.pathname === '/manifest.webmanifest';
 const isCachedApi = (url) => API_CACHED.some((p) => url.pathname === p) && !url.searchParams.has('deleted');
 
 self.addEventListener('fetch', (event) => {
@@ -54,8 +54,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'New submission', {
       body: data.body || 'Open the admin panel to view it.',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/badge-96.png',
+      icon: '/icon-192.png',
+      badge: '/badge-96.png',
       data: { url: data.url || '/' },
     })
   );

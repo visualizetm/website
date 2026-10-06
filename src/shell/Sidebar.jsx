@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
 import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import ChevronDown from '@untitled-ui/icons-react/build/esm/ChevronDown';
-import { Badge, Tooltip, Menu, Avatar, Icon, SkeletonBlock, Collapsible } from '../ui';
+import { Badge, Tooltip, Menu, Avatar, Icon, SkeletonBlock, Collapsible, Logo } from '../ui';
 import { navGroups, NAV_GROUP_META } from './nav';
 import { KEYS, readJSON, writeJSON } from './storage';
 import { CONTACTED_STATUSES } from '../lib/leads';
@@ -82,10 +82,8 @@ export default function Sidebar({ collapsed, canToggle = true, onToggle, activeI
   return (
     <nav className={`sh-side${collapsed ? ' is-collapsed' : ''}`} aria-label="Admin sections">
       <button type="button" className="sh-side-brand" onClick={() => onGo('dashboard')} aria-label="Next up">
-        <span className="img-fit img-fit--1x1 img-fit--contain sh-side-mark">
-          <img src="/logo.svg" alt="" width="28" height="28" />
-        </span>
-        {!collapsed && <span className="sh-wordmark">Visualize<span className="sh-wordmark-dot">.</span></span>}
+        <Logo variant="icon" width={28} decorative />
+        {!collapsed && <Logo width={104} decorative />}
       </button>
       {!collapsed && <PipelineStrip funnel={funnel} onGo={onGo} />}
       <div className="sh-side-groups">
@@ -162,10 +160,7 @@ export const sidebarStyles = `
   @media (min-width: 768px) { .sh-side { display: flex; } }
   .sh-side-brand { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-2); margin-bottom: var(--v-space-2); border: 0; background: transparent; border-radius: var(--v-radius-md); color: var(--v-sidebar-text); cursor: pointer; }
   .sh-side-brand:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
-  .sh-side-mark { width: 28px; flex-shrink: 0; }
   .sh-side.is-collapsed .sh-side-brand { justify-content: center; padding: 0; }
-  .sh-wordmark { font-family: var(--v-font-body); font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); letter-spacing: -0.02em; white-space: nowrap; }
-  .sh-wordmark-dot { color: var(--v-red); }
   /* The pipeline strip: four numbers, the conversion between each. */
   .sh-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: var(--v-space-2) 0 var(--v-space-3); padding: var(--v-space-2) var(--v-space-1); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-md); background: var(--v-sidebar-hover); }
   .sh-strip-cell { position: relative; display: flex; min-width: 0; }

@@ -1,4 +1,5 @@
 import { logoSrc } from './logo.data';
+import { logoToneStyles } from './Logo';
 import { logoSpinnerStyles } from './logoSpinner.styles';
 
 /**
@@ -12,15 +13,18 @@ import { logoSpinnerStyles } from './logoSpinner.styles';
  * Use it for a full screen or a full panel. Inside a button or a row keep Spinner, the kit's small inline one.
  * @param {object} props
  * @param {number} [props.size=56] px, never below 24 (24 is the small inline size for a panel).
- * @param {'reversed'|'primary'} [props.tone='reversed']
+ * @param {'reversed'|'primary'|'auto'} [props.tone='reversed'] auto is for the admin: reversed on its dark theme, primary on its light one.
  * @param {'inline'|'panel'|'screen'|'page'} [props.layout='panel'] inline: just the icon; panel: fills its parent;
  *        screen: a fixed layer over the viewport (the marketing Suspense fallback); page: in flow, one viewport tall.
  */
 export default function LogoSpinner({ size = 56, tone = 'reversed', layout = 'panel', className = '', style, ...rest }) {
   const px = Math.max(24, Number(size) || 56);
+  const icon = (t, extra = '') => <img className={`lspin-icon ${extra}`.trim()} src={logoSrc('icon', t)} width={px} height={px} alt="" aria-hidden="true" draggable="false" style={{ '--lspin-size': `${px}px` }} />;
   return (
     <div className={`lspin lspin--${layout} ${className}`.trim()} role="status" aria-label="Loading" style={style} {...rest}>
-      <img className="lspin-icon" src={logoSrc('icon', tone)} width={px} height={px} alt="" aria-hidden="true" draggable="false" style={{ '--lspin-size': `${px}px` }} />
+      {tone === 'auto'
+        ? (<>{icon('reversed', 'v-logo-rev')}{icon('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>)
+        : icon(tone)}
       <span className="lspin-sr">Loading</span>
       <style>{logoSpinnerStyles}</style>
     </div>

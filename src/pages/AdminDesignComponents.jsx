@@ -15,7 +15,7 @@ import {
   Stack, Row, Grid, Section, Divider, Card, StatCard, IconTile, Pill, Badge, Avatar, EmptyState, ErrorState, ListRow,
   Button, IconButton, Chip, ChipGroup, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs,
   Sheet, Modal, ConfirmDialog, useToast, Tooltip, Popover, Menu,
-  SkeletonBlock, SkeletonText, SkeletonCircle, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, useDelayedLoading,
+  SkeletonBlock, SkeletonText, SkeletonCircle, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, Logo, LogoSpinner, useDelayedLoading,
   TONES,
 } from '../ui';
 import { CALL_STATUSES, PRIORITIES, STAGES } from '../shared/semantics';
@@ -210,8 +210,23 @@ export default function DesignComponents() {
               {['xs', 'sm', 'md', 'lg', 'xl'].map(s => <Avatar key={s} name="Garcia Landscaping" size={s} />)}
               <Avatar name="Working Class Coffee" status="booked" size="lg" />
               <Avatar name="Rob" status="won" />
-              <Avatar name="Delmarva Detailing" src="/logo.svg" />
+              <Avatar name="Delmarva Detailing" src="/brand/svg/visualize-icon-reversed.svg" />
               <Avatar.Skeleton size="lg" />
+            </Row>
+          </Demo>
+          <Demo label="Logo" note="Brand v3: wordmark, lockup, icon, stacked; reversed on ink, primary on paper" wide>
+            <div className="dc-logo-panels">
+              <div className="dc-logo-panel dc-logo-panel--ink">
+                <Logo width={160} tone="reversed" /><Logo variant="lockup" width={220} tone="reversed" /><Logo variant="icon" width={56} tone="reversed" /><Logo variant="stacked" width={140} tone="reversed" />
+              </div>
+              <div className="dc-logo-panel dc-logo-panel--paper">
+                <Logo width={160} tone="primary" /><Logo variant="lockup" width={220} tone="primary" /><Logo variant="icon" width={56} tone="primary" /><Logo variant="stacked" width={140} tone="primary" />
+              </div>
+            </div>
+          </Demo>
+          <Demo label="LogoSpinner" note="the loading screen: one turn every 1.1 s, still and pulsing under Reduce motion; 56 px, and 24 px for a small panel">
+            <Row gap={5} align="center" wrap>
+              <LogoSpinner tone="auto" layout="inline" /><LogoSpinner tone="auto" layout="inline" size={24} />
             </Row>
           </Demo>
           <Demo label="ListRow" note="tap, selected, skeleton" wide>
@@ -383,5 +398,10 @@ const dcStyles = `
   .dc-demo-body { min-width: 0; }
   .dc-dim { color: var(--v-text-3); font-size: var(--v-text-sm); }
   .dc-note { font-size: var(--v-text-sm); color: var(--v-text-3); }
+  .dc-logo-panels { display: grid; gap: var(--v-space-3); grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .dc-logo-panels { grid-template-columns: 1fr 1fr; } }
+  .dc-logo-panel { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-6); padding: var(--v-space-6); border-radius: var(--v-radius-md); border: 1px solid var(--v-border); }
+  .dc-logo-panel--ink { background: var(--v-sidebar-bg); }
+  .dc-logo-panel--paper { background: var(--v-sidebar-text); }
   .dc-key { width: 72px; flex-shrink: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); padding-top: 14px; }
 `;

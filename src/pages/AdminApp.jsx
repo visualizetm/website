@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { normalizeLeads, pipelineFunnel } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
-import Wordmark from '../components/Wordmark';
 import AdminDashboard from './AdminDashboard';
 import AdminMore from './AdminMore';
-import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal, ErrorBoundary } from '../ui';
+import { uiStyles, ToastProvider, Card, Stack, Input, Button, Reveal, ErrorBoundary, Logo, LogoSpinner } from '../ui';
 import { wireClientLog } from '../shared/log';
 
 import AppShell, { shellStyles } from '../shell/AppShell';
@@ -108,7 +107,7 @@ function Login() {
       <Reveal as="form" onSubmit={submit} className={`aa-login${err ? ' is-shaking' : ''}`}>
         <Card className="aa-login-card">
           <Stack gap={2} align="center">
-            <Wordmark size={22} />
+            <Logo width={128} tone="auto" clearSpace />
             <h1 className="aa-login-title">Admin</h1>
             <p className="aa-login-sub">Owner access only</p>
           </Stack>
@@ -713,7 +712,7 @@ export default function AdminApp() {
       leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
-      <Suspense fallback={null}>
+      <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
       {section === 'dashboard' && (
         <AdminDashboard leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} subs={subs} orders={orders} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
       )}
