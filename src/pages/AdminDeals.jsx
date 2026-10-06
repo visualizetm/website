@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
 import {
-  PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast,
+  PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -76,9 +76,9 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   if (pendingOpen || sel) {
     return (
       <>
-        <aside className={`aa-panel dl-panel${desktop ? '' : ' dl-panel--rail'}`} aria-label="Deals">
+        <CollapsiblePane id="deals" label="Deals" className={`dl-panel${desktop ? '' : ' dl-panel--rail'}`} rail={pool.map(l => ({ id: l._id, name: l.business, selected: sel?._id === l._id, onOpen: () => pick(l._id) }))}>
           <ScrollArea bare className="dl-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} menu={false} />) : <><p className="dl-muted">{pool.length} in play</p>{pool.map(l => <LeadCard key={l._id} lead={l} onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</>}</Stack></ScrollArea>
-        </aside>
+        </CollapsiblePane>
         <div className="aa-main dl-main">
           {sel ? <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onLinkSubmission={onLinkSubmission} onClose={back} intent={openEntry?.intent || null} /> : showSkel && <LeadDetail.Skeleton mode="deal" />}
         </div>

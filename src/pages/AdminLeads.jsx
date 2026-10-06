@@ -5,7 +5,7 @@ import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Badge, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Modal, Sheet, Table, EmptyState, NoResults, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry,
+  PageShell, ScrollArea, StickyFooterBar, ConfirmDialog, Section, Row, Stack, Card, Button, Badge, Input, Select, Chip, SegmentedControl, Pill, Avatar, Menu, Modal, Sheet, Table, EmptyState, NoResults, ErrorState, Stagger, Reveal, SkeletonBlock, useDelayedLoading, useMediaQuery, DESKTOP_QUERY, useToast, useRetry, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -308,7 +308,7 @@ export default function AdminLeads({
   if (pendingOpen) {
     return (
       <>
-        <aside className="aa-panel ld-panel" aria-label="Leads"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</Stack></ScrollArea></aside>
+        <CollapsiblePane id="leads" label="Leads" className="ld-panel"><ScrollArea bare className="ld-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3, 4].map(i => <LeadCard.Skeleton key={i} menu={false} />)}</Stack></ScrollArea></CollapsiblePane>
         <div className="aa-main ld-main">{showSkel && <LeadDetail.Skeleton mode="lead" />}</div>
         <style>{ldStyles}</style>
       </>
@@ -319,7 +319,7 @@ export default function AdminLeads({
   if (sel || creating) {
     return (
       <>
-        <aside className="aa-panel ld-panel" aria-label="Leads">
+        <CollapsiblePane id="leads" label="Leads" className="ld-panel" rail={sorted.slice(0, 80).map(l => ({ id: l._id, name: l.business, selected: sel?._id === l._id, onOpen: () => pick(l._id) }))}>
           <ScrollArea bare className="ld-panel-scroll">
             <Stack gap={2}>
               <ListSearch placeholder="Search leads" value={q} onChange={setQ} label="Search leads" />
@@ -327,7 +327,7 @@ export default function AdminLeads({
               <div className="ld-stack">{sorted.slice(0, 80).map(l => <LeadCard key={l._id} lead={l} onOpen={() => pick(l._id)} selected={sel?._id === l._id} />)}</div>
             </Stack>
           </ScrollArea>
-        </aside>
+        </CollapsiblePane>
         <div className="aa-main ld-main">
           {creating ? (
             <ScrollArea className="ld-create"><Card><Section title="New lead"><LeadForm creating lead={createPreset?.preset?.phone ? { phone: createPreset.preset.phone } : undefined} onSave={async (f) => { const ok = await onCreate(defaultLead(f)); if (ok) back(); else toast.error(COPY.error.create); }} onCancel={back} /></Section></Card></ScrollArea>

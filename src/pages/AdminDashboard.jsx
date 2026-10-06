@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
+  PageShell, ScrollArea, Stack, Row, Card, StatCard, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useShell, useTopBar } from '../shell/ShellContext';
@@ -297,6 +297,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
   const meetings = useMemo(() => { const start = new Date(now); start.setHours(0, 0, 0, 0); return buildEvents(leads || [], calendlyEvents || [], now, projects, shellPosts || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= start.getTime()); }, [leads, projects, calendlyEvents, shellPosts, now]);
   const listsReady = useMemo(() => openLists(shellLists || []).filter(isFull), [shellLists]);
 
+  /* The collapsed queue (CollapsiblePane): one avatar per record in the queue, in queue order, each once. */
+  const railItems = useMemo(() => { const seen = new Set(); const out = []; for (const it of [...q.overdue, ...q.today, ...q.later, ...q.beyond, ...q.undated]) { const id = String(it.lead._id); if (seen.has(id)) continue; seen.add(id); out.push({ id, name: it.lead.business, selected: String(selId) === id, onOpen: () => openRecord(it) }); } return out; }, [q, selId]); // eslint-disable-line react-hooks/exhaustive-deps
   const hour = new Date().getHours();
   const name = (shell?.profile?.name || 'Rob').split(' ')[0];
   const outside = !inHours(shell?.profile?.businessHours);
@@ -450,10 +452,10 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     const clientProps = onCreateProject ? { projects, onCreateProject, onPatchProject } : null;
     return (
       <>
-        <aside className="aa-panel db-panel" aria-label="Next up">
-          <div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Next up</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>
+        <CollapsiblePane id="tasks" label="Next up" className="db-panel" rail={railItems}
+          head={<div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Next up</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>}>
           <ScrollArea bare className="db-panel-scroll">{list}</ScrollArea>
-        </aside>
+        </CollapsiblePane>
         {sel ? (
           <PageShell className="aa-main db-main" label="the record">
             <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatchLead} onLinkSubmission={onLinkSubmission} onClose={close} client={clientProps} intent={intent} />
@@ -475,6 +477,8 @@ export default function AdminDashboard({ leads, projects = [], sets = [], loadin
     <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
         <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
+          {/* The overview strip (the nav revamp): one line at the top of the phone Home. */}
+          {phone && shell?.overviewStrip ? <div className="db-overview">{shell.overviewStrip(true)}</div> : null}
           {header}
           {statsBlock}
           <div className="db-next">{list}</div>
@@ -491,6 +495,8 @@ const dbStyles = `
   /* The skeleton tile is the height of a loaded one on a phone (icon, number, label, and the room for a two line label). */
   @media (max-width: 767px) { .db-tiles .db-tile--skel { min-height: 94px; height: 94px; } }
   .db-page { --v-stack-gap: var(--v-space-5); --v-content-w-wide: 1160px; }
+  .db-overview { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--v-space-1)); padding: 0 var(--v-space-1); }
+  .db-overview::-webkit-scrollbar { display: none; }
   .db-page .lay-content--wide { max-width: var(--v-content-w-wide); }
   /* The queue keeps its own width: the shared panel token narrowed to 280 for the record's list panels (UI simplification, part A), and a queue row needs the room for its two controls. */
   .db-panel { gap: var(--v-space-3); }

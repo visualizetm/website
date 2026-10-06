@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import FilterLines from '@untitled-ui/icons-react/build/esm/FilterLines';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Button, Menu, Table, Sheet, EmptyState, NoResults, ErrorState, Stagger, useDelayedLoading, useMediaQuery, useToast, useRetry,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Chip, Pill, Badge, Button, Menu, Table, Sheet, EmptyState, NoResults, ErrorState, Stagger, CollapsiblePane, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
@@ -84,7 +84,7 @@ export default function AdminClients({
   if (pendingOpen) {
     return (
       <>
-        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients"><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></aside>
+        <CollapsiblePane id="clients" label="Clients" className={`cl-panel${wide ? '' : ' cl-panel--rail'}`}><ScrollArea bare className="cl-panel-scroll"><Stack gap={2}>{showSkel && [1, 2, 3].map(i => <ClientCard.Skeleton key={i} />)}</Stack></ScrollArea></CollapsiblePane>
         <div className="aa-main cl-main">{showSkel && <LeadDetail.Skeleton mode="client" sec={openEntry?.sec || ''} />}</div>
         <style>{clStyles}</style>
       </>
@@ -94,9 +94,9 @@ export default function AdminClients({
   if (sel) {
     return (
       <>
-        <aside className={`aa-panel cl-panel${wide ? '' : ' cl-panel--rail'}`} aria-label="Clients">
+        <CollapsiblePane id="clients" label="Clients" className={`cl-panel${wide ? '' : ' cl-panel--rail'}`} rail={list.map(l => ({ id: l._id, name: l.business, selected: sel._id === l._id, onOpen: () => pick(l._id) }))}>
           <ScrollArea bare className="cl-panel-scroll"><Stack gap={2}><p className="cl-muted">{list.length} shown</p><div className="cl-stack">{list.map(l => <ClientCard key={l._id} lead={l} projects={projects} onOpen={() => pick(l._id)} selected={sel._id === l._id} />)}</div></Stack></ScrollArea>
-        </aside>
+        </CollapsiblePane>
         <div className="aa-main cl-main">
           <LeadDetail lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete ? async (id) => { const ok = await onDelete(id); if (ok) back(); else toast.error(COPY.error.del); return ok; } : undefined} onLinkSubmission={onLinkSubmission} onClose={back} intent={openEntry?.intent || null} client={clientProps} />
         </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Menu, Sheet, Table, Pill, Chip, SegmentedControl, EmptyState, NoResults, ErrorState, Stagger,
-  SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon,
+  SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { PRIORITIES, WINDOWS } from '../shared/semantics';
@@ -281,9 +281,9 @@ export default function AdminTriage({ leads = [], submissions = [], loading = fa
   if (pendingOpen || sel) {
     return (
       <>
-        <aside className={`aa-panel tr-panel${wide ? '' : ' tr-panel--rail'}`} aria-label="Triage">
+        <CollapsiblePane id="triage" label="Triage" className={`tr-panel${wide ? '' : ' tr-panel--rail'}`} rail={pile.map(l => ({ id: l._id, name: l.business, selected: String(l._id) === String(selId), onOpen: () => openRecord(l) }))}>
           <ScrollArea bare className="tr-panel-scroll"><Stack gap={2}>{pendingOpen && showSkel ? [1, 2, 3].map(i => <LeadCard.Skeleton key={i} menu={false} />) : <><p className="tr-muted">{pile.length} waiting</p>{pile.map(l => <LeadCard key={l._id} lead={l} onOpen={() => openRecord(l)} selected={String(l._id) === String(selId)} pill={<ScoreBadge score={scoreOf(l)} />} line={srcOf(l).label} />)}</>}</Stack></ScrollArea>
-        </aside>
+        </CollapsiblePane>
         <div className="aa-main tr-main">
           {sel ? <LeadDetail key={sel._id} lead={sel} submissions={submissions} onPatch={onPatch} onDelete={onDelete} onClose={close} triage={triageProps} /> : showSkel && <LeadDetail.Skeleton mode="lead" triage />}
         </div>
