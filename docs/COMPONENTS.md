@@ -154,6 +154,20 @@ Primary rests on `--v-red-hover` (white label 5.11:1), hovers to `--v-red`,
 presses to `--v-red-highlight`. Use `aria-label` with `variant="icon"`.
 Use when: an action. Not when: navigation between sections (a link styled as ghost is fine).
 
+### CollapsiblePane (the nav revamp)
+`id` (the storage key suffix, one per screen), `label`, `rail [{ id, name, selected, onOpen }]`, `head` (above the list when expanded), `className`, children (the list). The list pane of a list plus detail screen with one shared collapse: expanded it holds the list; collapsed it is a rail of avatars (initials, the name in a tooltip and the accessible name, the active one ringed, 44px targets) with the expand button on top. The state is remembered per screen in localStorage (try/catch, blocked storage only forgets), independent of the sidebar; both collapsed give the detail the full width. On a phone the pane is the whole list screen, so the toggle and the rail do not render. `data-pane` and `data-collapsed` on the aside for the audits.
+Use when: a list beside a record (Clients, Leads, Deals, Triage, the task queue). Not when: a list with no detail beside it.
+
+### WorkspaceSwitcher (the nav revamp)
+`options [{ id, label, icon }]`, `value`, `onChange(id)`, `collapsed`, `label`. The sidebar's Pipeline or Clients choice as one segmented control (radio semantics, arrow keys move, 44px targets); collapsed to the rail it is the same options stacked as icon buttons with tooltips. `data-ws` on each option for the audits.
+Use when: the sidebar's workspaces. Not when: views of one list (SegmentedControl).
+
+### OverviewStrip (the nav revamp)
+`meetings { count, next }`, `dueToday`, `overdue`, `onMeetings`, `onToday`, `onOverdue`, `compact`, `loading`. Three chips on one line, each a 44px button around a 36px pill: meetings in the next 7 days with the next one's day and time, tasks due today, overdue (red only above zero). `compact` drops the labels to icons plus counts. The shell computes the numbers once (the Calendar's events, nextUpItems) and renders the strip in the desktop top bar and hands `shell.overviewStrip(compact)` to the phone Home. `data-ov` on each chip for the audits.
+
+### PageHeader (the nav revamp)
+`crumbs [{ id, label, onClick }]`, `title`, `onBack`, `actions`, children (the centre). The one header shape: the breadcrumb (the workspace, then the page; the workspace crumb opens its dashboard), the title, Back when the history entry has one, the actions on the right. The shell's top bar renders it for every screen from useTopBar, so a screen never draws its own.
+
 ### IconButton
 `icon`, `label` (required: accessible name and tooltip), `variant`
 ghost|secondary|primary|danger, `size` md|lg, `active`, `badge`, `tooltip` (default true).

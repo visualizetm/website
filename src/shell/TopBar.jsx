@@ -1,7 +1,6 @@
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
-import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
-import { IconButton, Badge, Avatar, Menu, SkeletonBlock } from '../ui';
+import { IconButton, Badge, Avatar, Menu, SkeletonBlock, PageHeader } from '../ui';
 import QuickAdd from './QuickAdd';
 /**
  * Top bar: title (and back on detail screens), the command bar on desktop,
@@ -13,14 +12,14 @@ import QuickAdd from './QuickAdd';
  * replaced, never added to, and the clusters fade in when the mode changes. Desktop is unchanged.
  * actions: [{ id, label, icon, onClick, disabled }]
  */
-export default function TopBar({ title, onBack, focused = false, actions = null, commandBar, onOpenCommand, notifCount, notifLoading, onOpenNotifications, quickAdd, menuItems }) {
+export default function TopBar({ title, crumbs = [], onBack, focused = false, actions = null, commandBar, overview = null, onOpenCommand, notifCount, notifLoading, onOpenNotifications, quickAdd, menuItems }) {
   return (
     <header className={`sh-top${focused ? ' is-focused' : ''}`}>
+      {/* The one page header every screen has (PageHeader): the breadcrumb, the title, Back. */}
       <div className="sh-top-left" key={focused ? 'left-f' : 'left-t'}>
-        {onBack && <IconButton icon={ArrowLeft} label="Back" onClick={onBack} tooltip={false} className="sh-top-back" />}
-        <h1 className="sh-top-title lay-truncate">{title}</h1>
+        <PageHeader crumbs={crumbs} title={title} onBack={onBack} />
       </div>
-      <div className="sh-top-center">{commandBar}</div>
+      <div className="sh-top-center">{overview}{commandBar}</div>
       <div className="sh-top-right" key={focused ? 'right-f' : 'right-t'}>
         {actions && actions.map(a => <IconButton key={a.id} icon={a.icon} label={a.label} onClick={a.onClick} disabled={a.disabled} tooltip={false} className="sh-top-action" />)}
         <IconButton icon={SearchMd} label="Search" onClick={onOpenCommand} className="sh-top-searchbtn" tooltip={false} />
@@ -55,7 +54,10 @@ export const topBarStyles = `
   .sh-top-back { margin-left: calc(-1 * var(--v-space-2)); }
   .sh-top-title { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; }
   .sh-top-center { display: none; min-width: 0; justify-content: center; }
-  @media (min-width: 768px) { .sh-top-center { display: flex; } .sh-top-searchbtn { display: none; } }
+  @media (min-width: 768px) { .sh-top-center { display: flex; align-items: center; gap: var(--v-space-3); } .sh-top-searchbtn { display: none; } }
+  /* The overview strip (the nav revamp) sits left of the search; under 1100px it drops its labels. */
+  .sh-top-center .v-ov { flex-shrink: 0; }
+  @media (max-width: 1099px) { .sh-top-center .v-ov .v-ov-label, .sh-top-center .v-ov .v-ov-extra { display: none; } .sh-top-center .v-ov .v-ov-pill { padding: 0 var(--v-space-2); } }
   .sh-top-right { display: flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
   .sh-top-bell { position: relative; display: inline-flex; }
   .sh-bell-badge { top: 4px; right: 4px; pointer-events: none; }

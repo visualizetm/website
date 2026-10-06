@@ -12,7 +12,9 @@ import ShortcutsSheet, { shortcutsSheetStyles } from './ShortcutsSheet';
 import CommandBar, { commandBarStyles } from './CommandBar';
 import NotificationsDrawer, { notificationsStyles } from './NotificationsDrawer';
 import { quickAddStyles } from './QuickAdd';
-import { navById } from './nav';
+import { navById, workspaceOf, WORKSPACES, navWorkspace } from './nav';
+import { nextUpItems } from '../lib/nextAction';
+import { OverviewStrip } from '../ui';
 import { buildNotifications } from './notifications';
 import { KEYS, readJSON, writeJSON } from './storage';
 import { apiFetch } from '../shared/api';
@@ -117,6 +119,14 @@ export default function AppShell({
 
   const notifications = useMemo(() => buildNotifications(leads || [], { calendly: calendly.events, projects, posts, sets, health, lastSeenAt: notifDoc.lastSeenAt, snoozedUntil: notifDoc.snoozedUntil }), [leads, calendly.events, projects, posts, sets, health, notifDoc.lastSeenAt, notifDoc.snoozedUntil]);
   const events = useMemo(() => buildEvents(leads || [], calendly.events, Date.now(), projects), [leads, calendly.events, projects]);
+  /* The overview strip (the nav revamp): meetings in the next 7 days from the Calendar's own event source, due today and overdue from the task rules (nextUpItems), the same numbers the Tasks page shows. */
+  const overview = useMemo(() => {
+    const now = Date.now(); const week = now + 7 * 864e5;
+    const up = events.filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= now && e.at <= week).sort((a, b) => a.at - b.at);
+    const next = up[0] ? new Date(up[0].at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }).replace(',', '') : '';
+    const q = nextUpItems(leads || [], projects, sets, now);
+    return { meetings: { count: up.length, next }, dueToday: q.today.length, overdue: q.overdue.length };
+  }, [events, leads, projects, sets]);
   const todayUnread = notifications.filter(n => (n.group === 'today' || n.group === 'overdue') && !readIds.has(n.id)).length;
   const markRead = (ids) => { const next = [...new Set([...(notifDoc.readIds || []), ...ids])].slice(-500); saveNotif({ readIds: next, lastSeenAt: new Date().toISOString() }); };
   const snoozeUntil = (kind) => { const d = new Date(); if (kind === '1h') d.setTime(d.getTime() + 3600e3); else if (kind === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); } else { d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); d.setHours(9, 0, 0, 0); } return d; };
@@ -139,14 +149,16 @@ export default function AppShell({
   }, []);
 
   const go = useCallback((navId, preset) => { setNotifOpen(false); onGo(navId, preset); }, [onGo]);
+  const tasksTarget = navById('tasks')?.soon ? 'dashboard' : 'tasks';
+  const overviewStrip = useCallback((compact) => <OverviewStrip meetings={overview.meetings} dueToday={overview.dueToday} overdue={overview.overdue} loading={leadsLoading} compact={compact} onMeetings={() => go('calendar')} onToday={() => go(tasksTarget)} onOverdue={() => go(tasksTarget)} />, [overview, leadsLoading, go, tasksTarget]);
   const openLead = useCallback((lead, intent) => { setNotifOpen(false); onOpenLead(lead, intent); }, [onOpenLead]);
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openTasks: onOpenTasks, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
     newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts, openProjectNew: onOpenProjectNew, openListFill: onOpenListFill,
-    lists, openListPicker: onOpenListPicker, listOps, docsApi,
-  }), [docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+    lists, openListPicker: onOpenListPicker, listOps, docsApi, overview, overviewStrip,
+  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   /* Chrome mode (src/shell/chrome.js): tabs on a section root, focused on a record, an editor, a setup page or the call room. */
   const location = useLocation();
@@ -156,6 +168,11 @@ export default function AppShell({
   useEdgeBack({ enabled: !!backFn, onBack: backFn, idx: location.state?.idx || 0, locKey: location.key });
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
+  /* The breadcrumb: the workspace, then the page; the workspace crumb opens its dashboard once that screen exists. */
+  const wsId = workspaceOf(nav.id);
+  const wsMeta = wsId ? WORKSPACES.find(w => w.id === wsId) : null;
+  const wsHome = wsId ? navWorkspace(wsId).items[0] : null;
+  const crumbs = wsMeta ? [{ id: wsId, label: wsMeta.label, onClick: wsHome && !wsHome.soon ? () => go(wsHome.id) : null }, { id: nav.id, label: title }] : [];
   // Theme in the account menu: one item that steps Dark, Light, System (the full picker is in Settings Profile).
   const nextMode = { dark: 'light', light: 'system', system: 'dark' }[appearance.mode] || 'dark';
   const modeLabel = (m) => THEME_MODES.find(x => x.id === m)?.label || m;
@@ -181,7 +198,7 @@ export default function AppShell({
       <div className={`sh-root lay-root${collapsed ? ' is-collapsed' : ''}${focused ? ' is-focused' : ''}`} data-chrome={chrome} data-v-theme={appearance.theme} data-v-motion={appearance.reduce || appearance.reduceOS ? 'reduce' : undefined}>
         <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
-          <TopBar title={title} onBack={topBar?.back || navBack?.back || null} focused={focused} actions={topBar?.actions || null}
+          <TopBar title={title} crumbs={crumbs} onBack={topBar?.back || navBack?.back || null} focused={focused} actions={topBar?.actions || null} overview={overviewStrip(false)}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} docs={docsApi?.docs} onOpenDoc={docsApi?.openDoc} />}
             onOpenCommand={() => setCmdOpen(true)} notifCount={todayUnread} notifLoading={countsLoading} onOpenNotifications={() => setNotifOpen(true)} quickAdd={quickAdd} menuItems={menuItems} />
           {/* One polite region for the connection state; it stays in the tree so the change is announced (Prompt 15). */}

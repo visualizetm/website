@@ -897,6 +897,19 @@ for (const width of WIDTHS) {
   await check('clients skeleton');
   await openClient('Lead Business 11');
   await check('client detail (project, plan client)');
+  /* The nav revamp: the list pane collapses to a rail of avatars (CollapsiblePane), on its own and with the sidebar. */
+  if (width >= 1024) {
+    await page.locator('.v-pane-toggle').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('client detail (list pane collapsed to the rail)');
+    await page.locator('.sh-side-toggle').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('client detail (list pane and sidebar collapsed)');
+    await page.locator('.sh-side-toggle').first().click({ timeout: 3000 }).catch(() => {});
+    await page.locator('.v-pane-toggle').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await page.evaluate(() => { try { localStorage.removeItem('vz_pane_clients'); localStorage.removeItem('vz_shell_collapsed'); } catch {} }).catch(() => {});
+  }
   /* The workspace redesign: the full profile (a side panel on a computer, a pushed screen on a phone) and its Add a detail sheet. */
   await page.locator('.rc-pf-open').first().click({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
@@ -1216,20 +1229,22 @@ for (const width of WIDTHS) {
     await check('sidebar collapsed: concepts');
     await goto('/admin/reviews');
     await check('sidebar collapsed: reviews');
-    /* The rail's group menu (the sidebar rebuild): one icon per group, its items in a menu. */
-    await page.locator('.sh-side-group--rail .sh-nav--group').first().click({ timeout: 3000 }).catch(() => {});
-    await check('sidebar rail: group menu open');
-    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+    /* The rail's workspace switcher (the nav revamp): two stacked icons; the Clients workspace lists its items and the Studio rows. */
+    await page.locator('.v-ws--rail [data-ws="clients"]').first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    await check('sidebar rail: Clients workspace');
     await page.locator('.sh-side-toggle').click({ timeout: 4000 }).catch(() => {});
     await page.evaluate(() => localStorage.removeItem('vz_shell_collapsed')).catch(() => {});
-    /* The groups (the sidebar rebuild): every one open, then every one closed. */
+    /* The switcher expanded: Pipeline, then Clients with the Studio rows. */
     await goto('/admin');
     await page.waitForTimeout(400);
-    for (const b of await page.locator('.sh-group-btn[aria-expanded="false"]').all()) await b.click({ timeout: 2000 }).catch(() => {});
-    await check('sidebar: every group open');
-    for (const b of await page.locator('.sh-group-btn[aria-expanded="true"]').all()) await b.click({ timeout: 2000 }).catch(() => {});
-    await check('sidebar: every group closed');
-    await page.evaluate(() => localStorage.removeItem('vz_side_groups')).catch(() => {});
+    await page.locator('.sh-side-ws [data-ws="clients"]').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    await check('sidebar: Clients workspace');
+    await page.locator('.sh-side-ws [data-ws="pipeline"]').first().click({ timeout: 2000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    await check('sidebar: Pipeline workspace');
+    await page.evaluate(() => localStorage.removeItem('vz_workspace')).catch(() => {});
   }
   if (only) { await ctx.close(); continue; }
 

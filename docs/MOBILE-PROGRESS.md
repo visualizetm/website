@@ -61,5 +61,12 @@ Plan: 1. Profile card and the full profile (grouped rows, inline edit, Add a det
 Plan: 1. The plan, the single nav config with workspaces, the route aliases. 2. CollapsiblePane on every list plus detail screen. 3. The new sidebar (switcher, pinned items, rail). 4. PageHeader, OverviewStrip, the phone Home line. 5. The Pipeline and Clients dashboards. 6. Analytics, the Tasks page, the analytics action. 7. The phone pass, the docs, the full audits.
 - Milestone 1: docs/NAV-REVAMP-PLAN.md (the route map, the redirects, the data field of every KPI and chart); src/shell/nav.js carries workspace, pinned and soon on every entry plus WORKSPACES, navWorkspace, PINNED_TOP, PINNED_BOTTOM and workspaceOf; the chart icons are registered.
 
+- Milestone 2: src/ui/CollapsiblePane.jsx on Clients, Leads, Deals, Triage and the Next up queue; the layout walk, an audit-screens entry (clients-pane-rail) and regression 16c (collapse, switch from the rail, reload, expand) check it.
+
+- Milestone 3: src/ui/WorkspaceSwitcher.jsx and the rebuilt src/shell/Sidebar.jsx (the home pinned on top, the switcher, one list per workspace with the Studio rows under Clients, Settings, Design, the profile row and Collapse pinned at the bottom, the rail with tooltips and badges, the workspace following the route); the funnel strip is gone (its numbers return on the Pipeline dashboard in milestone 5).
+
+- Milestone 4: src/ui/PageHeader.jsx (rendered by the top bar for every screen: breadcrumb, title, Back, actions) and src/ui/OverviewStrip.jsx (meetings in 7 days with the next one's day and time, due today, overdue; computed once in AppShell from the Calendar's events and nextUpItems, in the desktop top bar and as the phone Home's first line).
+
+
 ## Next
-- Milestone 2: CollapsiblePane.
+- Milestone 5: the Pipeline and Clients dashboards.
