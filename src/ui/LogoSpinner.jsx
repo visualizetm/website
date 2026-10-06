@@ -19,12 +19,12 @@ import { logoSpinnerStyles } from './logoSpinner.styles';
  */
 export default function LogoSpinner({ size = 56, tone = 'reversed', layout = 'panel', className = '', style, ...rest }) {
   const px = Math.max(24, Number(size) || 56);
-  const icon = (t, extra = '') => <img className={`lspin-icon ${extra}`.trim()} src={logoSrc('icon', t)} width={px} height={px} alt="" aria-hidden="true" draggable="false" style={{ '--lspin-size': `${px}px` }} />;
+  const icon = (t, extra = '') => <img className={extra} src={logoSrc('icon', t)} width={px} height={px} alt="" aria-hidden="true" draggable="false" />;
   return (
     <div className={`lspin lspin--${layout} ${className}`.trim()} role="status" aria-label="Loading" style={style} {...rest}>
-      {tone === 'auto'
-        ? (<>{icon('reversed', 'v-logo-rev')}{icon('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>)
-        : icon(tone)}
+      <span className="img-fit img-fit--contain lspin-icon" style={{ '--lspin-size': `${px}px` }}>
+        {tone === 'auto' ? (<>{icon('reversed', 'v-logo-rev')}{icon('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>) : icon(tone)}
+      </span>
       <span className="lspin-sr">Loading</span>
       <style>{logoSpinnerStyles}</style>
     </div>

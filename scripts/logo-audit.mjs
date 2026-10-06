@@ -34,9 +34,9 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
     await p.route('**/assets/*.js', r => r.abort());
     await p.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
     await p.waitForTimeout(500);
-    const r = await p.evaluate(() => { const el = document.querySelector('.vz-splash'); const i = el?.querySelector('img'); const cs = i && getComputedStyle(i); return { before: !!el, name: cs?.animationName, dur: cs?.animationDuration, timing: cs?.animationTimingFunction, iter: cs?.animationIterationCount, bg: el && getComputedStyle(el).backgroundColor, pos: el && getComputedStyle(el).position }; });
+    const r = await p.evaluate(() => { const el = document.querySelector('.vz-splash'); const i = el?.querySelector('.lspin-icon'); const cs = i && getComputedStyle(i); return { before: !!el, name: cs?.animationName, dur: cs?.animationDuration, timing: cs?.animationTimingFunction, iter: cs?.animationIterationCount, bg: el && getComputedStyle(el).backgroundColor, pos: el && getComputedStyle(el).position }; });
     // sample the rotation: the icon's transform matrix at two moments
-    const spin = await p.evaluate(async () => { const i = document.querySelector('.vz-splash img'); const m = () => getComputedStyle(i).transform; const a = m(); await new Promise(r => setTimeout(r, 275)); const b = m(); return { a, b }; });
+    const spin = await p.evaluate(async () => { const i = document.querySelector('.vz-splash .lspin-icon'); const m = () => getComputedStyle(i).transform; const a = m(); await new Promise(r => setTimeout(r, 275)); const b = m(); return { a, b }; });
     await ctx.close();
     return { ...r, ...spin };
   };
@@ -64,7 +64,7 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
   await mockRoutes(q, { session: true });
   await q.goto(BASE + '/admin/design', { waitUntil: 'networkidle' }).catch(() => {});
   await q.waitForTimeout(800);
-  const demo = await q.evaluate(() => { const el = [...document.querySelectorAll('.lspin .lspin-icon')].find(e => e.offsetParent); const cs = el && getComputedStyle(el); const w = document.querySelector('.lspin[role="status"]'); return { name: cs?.animationName, dur: cs?.animationDuration, label: w?.getAttribute('aria-label'), sr: w?.textContent.includes('Loading'), hidden: el?.getAttribute('aria-hidden') }; });
+  const demo = await q.evaluate(() => { const el = [...document.querySelectorAll('.lspin .lspin-icon')].find(e => e.offsetParent); const cs = el && getComputedStyle(el); const w = document.querySelector('.lspin[role="status"]'); return { name: cs?.animationName, dur: cs?.animationDuration, label: w?.getAttribute('aria-label'), sr: w?.textContent.includes('Loading'), hidden: el?.querySelector('img')?.getAttribute('aria-hidden') }; });
   ok(demo.name === 'lspin-turn' && demo.dur === '1.1s' && demo.label === 'Loading' && demo.sr && demo.hidden === 'true', `LogoSpinner in the admin: rotates, role status, label Loading, icon aria-hidden (${JSON.stringify(demo)})`);
   await c2.close();
 }

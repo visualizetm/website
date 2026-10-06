@@ -12,7 +12,7 @@ import { logoSpinnerStyles } from './src/ui/logoSpinner.styles.js';
  * fixed, so it takes no space and moves nothing. The admin host has its own frame above, so the splash is
  * hidden wherever the pre-paint script set data-vz-boot. */
 const SPLASH_CSS = `${logoSpinnerStyles}\nhtml[data-vz-boot] .vz-splash{display:none}`.replace(/\n\s*/g, '');
-const SPLASH_HTML = '<div class="lspin lspin--screen vz-splash" role="status" aria-label="Loading"><img class="lspin-icon" src="/brand/svg/visualize-icon-reversed.svg" width="56" height="56" alt="" aria-hidden="true" draggable="false"><span class="lspin-sr">Loading</span></div>';
+const SPLASH_HTML = '<div class="lspin lspin--screen vz-splash" role="status" aria-label="Loading"><span class="img-fit img-fit--contain lspin-icon"><img src="/brand/svg/visualize-icon-reversed.svg" width="56" height="56" alt="" aria-hidden="true" draggable="false"></span><span class="lspin-sr">Loading</span></div>';
 
 /* Prompt 14: inject the admin boot frame (src/shell/bootFrame.js) into
  * index.html at build and dev time, so the parser paints the shell outline

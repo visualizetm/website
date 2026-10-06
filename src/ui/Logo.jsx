@@ -23,25 +23,27 @@ import { logoSrc, logoSize } from './logo.data';
  */
 export default function Logo({ variant = 'wordmark', tone = 'reversed', height, width, decorative = false, clearSpace = false, className = '', style, ...rest }) {
   const size = logoSize(variant, { width, height });
-  const one = (t, extra = '') => (
+  const imgFor = (t, extra = '') => (
     <img
-      className={`v-logo v-logo--${variant} ${extra} ${className}`.replace(/\s+/g, ' ').trim()}
+      className={`v-logo v-logo--${variant} ${extra}`.trim()}
       src={logoSrc(variant, t)}
       width={size.width} height={size.height}
       alt={decorative ? '' : 'Visualize'}
       aria-hidden={decorative ? 'true' : undefined}
       draggable="false" decoding="async"
-      style={{ display: 'block', flexShrink: 0, maxWidth: 'none', width: size.width, height: size.height, ...style }}
       {...rest}
     />
   );
-  /* auto: the admin's own surfaces change with its theme (a cream card in the light theme), so both
-   * tones are in the markup and the stylesheet shows the one that reads on the ground. The one that is
-   * hidden is out of the accessibility tree by display: none. */
-  const img = tone === 'auto'
-    ? (<>{one('reversed', 'v-logo-rev')}{one('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>)
-    : one(tone);
-  return clearSpace ? <span className="v-logo-clear" style={{ display: 'inline-flex', padding: size.height / 2 }}>{img}</span> : img;
+  /* Every image on the site sits in an .img-fit box (the layout audit's rule; --contain is the one made for logos):
+   * the box is the logo's exact size, so nothing can crop or stretch it. auto: the admin's own surfaces change
+   * with its theme (a cream card in the light theme), so both tones are in the box and the stylesheet shows the
+   * one that reads on the ground; the hidden one is out of the accessibility tree by display: none. */
+  const box = (
+    <span className={`img-fit img-fit--contain v-logo-box ${className}`.trim()} style={{ display: 'block', flexShrink: 0, width: size.width, height: size.height, ...style }}>
+      {tone === 'auto' ? (<>{imgFor('reversed', 'v-logo-rev')}{imgFor('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>) : imgFor(tone)}
+    </span>
+  );
+  return clearSpace ? <span className="v-logo-clear" style={{ display: 'inline-flex', padding: size.height / 2 }}>{box}</span> : box;
 }
 
 export const logoToneStyles = `
