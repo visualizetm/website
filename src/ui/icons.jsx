@@ -85,6 +85,11 @@ import WifiOff from '@untitled-ui/icons-react/build/esm/WifiOff';
 /* landing (Site Prompt 2, Part 3) */
 import Browser from '@untitled-ui/icons-react/build/esm/Browser';
 import Pin01 from '@untitled-ui/icons-react/build/esm/Pin01';
+import BarChartSquare01 from '@untitled-ui/icons-react/build/esm/BarChartSquare01';
+import BarChart01 from '@untitled-ui/icons-react/build/esm/BarChart01';
+import LineChartUp01 from '@untitled-ui/icons-react/build/esm/LineChartUp01';
+import PieChart01 from '@untitled-ui/icons-react/build/esm/PieChart01';
+import TrendUp01 from '@untitled-ui/icons-react/build/esm/TrendUp01';
 import File02 from '@untitled-ui/icons-react/build/esm/File02';
 import CheckDone01 from '@untitled-ui/icons-react/build/esm/CheckDone01';
 import DotsHorizontal from '@untitled-ui/icons-react/build/esm/DotsHorizontal';
@@ -110,6 +115,8 @@ import ReverseLeft from '@untitled-ui/icons-react/build/esm/ReverseLeft';
 export const ICONS = {
   /* tasks (planner dashboard and task system) */
   Pin01, File02, CheckDone01, DotsHorizontal,
+  /* the nav revamp: the dashboards and the analytics charts */
+  BarChartSquare01, BarChart01, LineChartUp01, PieChart01, TrendUp01,
   /* client docs */
   Pencil01, EyeOff, Bold01, Italic01, Heading01, Heading02, Dotpoints01, List, Minus, CheckSquare, FilePlus01, ArrowUp, ArrowDown, DotsGrid, Type01, MessageTextSquare01, Save01, ReverseLeft,
   Phone, PhoneIncoming01, Voicemail, Check, PhoneHangUp, Zap, Sun, Snowflake01, Users01,

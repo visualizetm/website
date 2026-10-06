@@ -57,5 +57,9 @@ Plan: 1. Profile card and the full profile (grouped rows, inline edit, Add a det
 - Milestone 4: a container query sizes the workspace by the record's width; the client skeleton draws the profile card, the four cards and the chips; the profile screen goes through nav-history.
 - Milestone 5: see reports/CLIENT-WORKSPACE-REPORT.md.
 
+## CRM nav revamp (docs/NAV-REVAMP-PLAN.md)
+Plan: 1. The plan, the single nav config with workspaces, the route aliases. 2. CollapsiblePane on every list plus detail screen. 3. The new sidebar (switcher, pinned items, rail). 4. PageHeader, OverviewStrip, the phone Home line. 5. The Pipeline and Clients dashboards. 6. Analytics, the Tasks page, the analytics action. 7. The phone pass, the docs, the full audits.
+- Milestone 1: docs/NAV-REVAMP-PLAN.md (the route map, the redirects, the data field of every KPI and chart); src/shell/nav.js carries workspace, pinned and soon on every entry plus WORKSPACES, navWorkspace, PINNED_TOP, PINNED_BOTTOM and workspaceOf; the chart icons are registered.
+
 ## Next
-- Nothing queued.
+- Milestone 2: CollapsiblePane.
