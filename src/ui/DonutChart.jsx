@@ -3,7 +3,7 @@ const TONES = ['--v-chart-1', '--v-chart-2', '--v-chart-3', '--v-chart-4', '--v-
 /**
  * DonutChart (the nav revamp): shares of one total, the total written in
  * the middle and every slice named in a row beside it with its value (the
- * colour is never the only cue). Decorative SVG plus a visually hidden table.
+ * colour is never the only cue). Decorative SVG plus a visually hidden list.
  * @param {object} props
  * @param {Array<{ label: string, value: number }>} props.data
  * @param {(n: number) => string} [props.format]
@@ -29,7 +29,7 @@ export default function DonutChart({ data = [], format = (n) => String(n), label
       <div className="v-donut-rows" aria-hidden="true">
         {rows.map((d, i) => <div key={i} className="v-donut-row"><span className="v-donut-swatch" style={{ background: `var(${TONES[i % TONES.length]})` }} /><span className="v-donut-name">{d.label}</span><span className="v-donut-val">{format(Number(d.value) || 0)}</span></div>)}
       </div>
-      <div className="v-sr-only"><table className="v-chart-table"><caption>{label}</caption><thead><tr><th scope="col">Share</th><th scope="col">Value</th></tr></thead><tbody>{rows.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}<tr><th scope="row">Total</th><td>{format(total)}</td></tr></tbody></table></div>
+      <ul className="v-sr-only" aria-label={label}>{rows.map((d, i) => <li key={i}>{d.label}: {format(Number(d.value) || 0)}</li>)}<li>Total: {format(total)}</li></ul>
     </div>
   );
 }

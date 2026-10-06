@@ -1,7 +1,7 @@
 /**
  * LineChart (the nav revamp): one series as a line over a soft area, the
  * last value written at its point and the first label and the last on the
- * baseline, tokens only. Decorative SVG plus a visually hidden table.
+ * baseline, tokens only. Decorative SVG plus a visually hidden list.
  * @param {object} props
  * @param {Array<{ label: string, value: number }>} props.data
  * @param {(n: number) => string} [props.format]
@@ -32,7 +32,7 @@ export default function LineChart({ data = [], format = (n) => String(n), label,
         {last && <circle cx={x(n - 1)} cy={y(last.value)} r={3.5} className="v-chart-point" style={{ stroke: `var(${tone})` }} />}
         {last && <text x={x(n - 1)} y={y(last.value) - 7} textAnchor="end" className="v-chart-value">{format(Number(last.value) || 0)}</text>}
       </svg>
-      <div className="v-sr-only"><table className="v-chart-table"><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table></div>
+      <ul className="v-sr-only" aria-label={label}>{data.map((d, i) => <li key={i}>{d.label}: {format(Number(d.value) || 0)}</li>)}</ul>
     </div>
   );
 }

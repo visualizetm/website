@@ -4,7 +4,7 @@
  * the count and the step conversion written on it, and a button when the
  * step opens a screen. Tokens only: the red for the first step, neutrals
  * fading after it; never colour alone, every number is text, and a
- * visually hidden table carries the same numbers for a screen reader.
+ * visually hidden list carries the same numbers for a screen reader.
  * @param {object} props
  * @param {Array<{ id, label, n, onClick, pct }>} props.steps  in order; the conversion of each step is n over the previous n (pct: false hides it, for an intake step)
  * @param {string} [props.label]
@@ -28,11 +28,7 @@ export default function FunnelBar({ steps = [], label = 'Pipeline funnel', class
           );
         })}
       </div>
-      <div className="v-sr-only"><table className="v-chart-table">
-        <caption>{label}</caption>
-        <thead><tr><th scope="col">Step</th><th scope="col">Count</th><th scope="col">Of the step before</th></tr></thead>
-        <tbody>{steps.map((s, i) => { const conv = i > 0 && s.pct !== false ? pct(Number(s.n) || 0, Number(steps[i - 1].n) || 0) : null; return <tr key={s.id}><th scope="row">{s.label}</th><td>{Number(s.n) || 0}</td><td>{conv === null ? '' : `${conv}%`}</td></tr>; })}</tbody>
-      </table></div>
+      <ul className="v-sr-only" aria-label={label}>{steps.map((s, i) => { const conv = i > 0 && s.pct !== false ? pct(Number(s.n) || 0, Number(steps[i - 1].n) || 0) : null; return <li key={s.id}>{s.label}: {Number(s.n) || 0}{conv === null ? '' : `, ${conv}% of the step before`}</li>; })}</ul>
       {steps.some(s => s.onClick) && (
         <div className="v-funnel-links">
           {steps.filter(s => s.onClick).map(s => <button key={s.id} type="button" className="v-funnel-link" onClick={s.onClick}>{s.label} {Number(s.n) || 0}</button>)}
