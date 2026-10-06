@@ -24,7 +24,7 @@ const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linu
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const ONLY = process.env.AUDIT_ONLY || '';
 
-const MUST_TABS = /^(dashboard|docs-all|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|design|more|settings-profile|back-[a-z]+)$/;
+const MUST_TABS = /^(dashboard|pipeline|overview|docs-all|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|design|more|settings-profile|back-[a-z]+)$/;
 const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|clients-profile.*|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|doc-templates|data|danger-zone|emails)|docs-client|clients-docs-empty|doc-(empty|blocks|keyboard|save-failed))$/;
 const GLOBAL = ['Search', 'Quick add', 'Notifications'];
 

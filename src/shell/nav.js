@@ -18,7 +18,7 @@ export const NAV = [
   /* The home. Next up until the Analytics page lands (milestone 6), when this entry becomes Analytics and the queue moves to /tasks. */
   { id: 'dashboard',   label: 'Next up',          icon: 'LayoutAlt01',     path: '',            workspace: 'top',      group: 'Pipeline', badge: 'dashboard', tab: true, tabOrder: 0, pinned: 'top' },
   // PIPELINE: the work of landing someone.
-  { id: 'pipeline',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/pipeline',  workspace: 'pipeline', group: 'Pipeline', badge: null,        soon: true },
+  { id: 'pipeline',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/pipeline',  workspace: 'pipeline', group: 'Pipeline', badge: null },
   { id: 'triage',      label: 'Triage',           icon: 'Inbox01',         path: '/triage',     workspace: 'pipeline', group: 'Pipeline', badge: 'triage',    more: 0 },
   { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      workspace: 'pipeline', group: 'Pipeline', badge: 'leads',     more: 1 },
   { id: 'calls',       label: 'Call Console',     icon: 'PhoneCall01',     path: '/calls',      workspace: 'pipeline', group: 'Pipeline', badge: 'calls',     tab: true, tabOrder: 2, tabLabel: 'Call' },
@@ -26,7 +26,7 @@ export const NAV = [
   { id: 'deals',       label: 'Deals',            icon: 'Zap',             path: '/deals',      workspace: 'pipeline', group: 'Pipeline', badge: 'deals',     tab: true, tabOrder: 3 },
   { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   workspace: 'pipeline', group: 'Pipeline', badge: 'calendar',  more: 6 },
   // CLIENTS: the work after they say yes. Planner is the Clients screen with a filter applied (href carries the query; path is what the active state matches on).
-  { id: 'overview',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null,        soon: true },
+  { id: 'overview',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null },
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    workspace: 'clients',  group: 'Clients',  badge: 'clients',   more: 2 },
   { id: 'projects',    label: 'Projects',         icon: 'Folder',          path: '/projects',   workspace: 'clients',  group: 'Clients',  badge: 'projects',  more: 3 },
   // Docs (client docs job): every client's docs in one list, between Projects and Planner; a doc itself is /docs/:id.

@@ -84,6 +84,9 @@ export const SCREENS = [
   { id: 'calls-summary', screen: 'Call Console', label: 'summary', path: '/admin/calls', resource: 'leads', region: '.cc-page', detail: true, prep: (p) => setLS(p, 'vz_call_session', SESSION('summary')) },
 
   // Triage (CRM revamp, step 4): the stack on a phone, the table on a desktop, the Keep sheet, the Capture sheet.
+  { id: 'pipeline', screen: 'Pipeline dashboard', label: 'the funnel and the six cards', path: '/admin/pipeline', resource: 'leads', prep: (p) => p.waitForSelector('.dash-grid, .v-error', { timeout: 4000 }).catch(() => {}) },
+  { id: 'pipeline-deny', screen: 'Pipeline dashboard', label: 'Deny from the Triage card opens the decline sheet', path: '/admin/pipeline', resource: 'leads', region: '.v-sheet', detail: true, act: (p) => click(p.locator('.pd-deny').first()) },
+  { id: 'overview', screen: 'Clients dashboard', label: 'the stat row and the six cards', path: '/admin/overview', resource: 'leads', prep: (p) => p.waitForSelector('.dash-grid, .v-error', { timeout: 4000 }).catch(() => {}) },
   { id: 'triage-pile', screen: 'Triage', label: 'the pile (stack on a phone, table on a desktop)', path: '/admin/triage', resource: 'leads', region: '.tr-shell' },
   /* Look before you decide: the record opened from the stack or the table, the search and a chip on. */
   { id: 'triage-record', screen: 'Triage', label: 'the record with the decision bar', path: '/admin/triage', open: 'L16', resource: 'leads', region: '.tr-main', detail: true },

@@ -68,5 +68,8 @@ Plan: 1. The plan, the single nav config with workspaces, the route aliases. 2. 
 - Milestone 4: src/ui/PageHeader.jsx (rendered by the top bar for every screen: breadcrumb, title, Back, actions) and src/ui/OverviewStrip.jsx (meetings in 7 days with the next one's day and time, due today, overdue; computed once in AppShell from the Calendar's events and nextUpItems, in the desktop top bar and as the phone Home's first line).
 
 
+- Milestone 5: src/ui/FunnelBar.jsx; src/pages/AdminPipeline.jsx at /pipeline (the funnel, the Triage card with Accept and Deny, calling progress against the open hand list's target and due date, follow ups due, meetings in 7 days, ready to hand off) and src/pages/AdminOverview.jsx at /overview (six StatCards: active clients, projects in progress, retainers and the monthly total, unpaid invoices, tasks due, the planner; then tasks, unpaid invoices, projects, retainers and recent activity cards). The nav entries lose `soon`; the workspace crumb opens them. Audits: audit-screens pipeline, pipeline-deny and overview; chrome MUST_TABS; regression 25d (funnel segments and table rows, Accept then Undo, the Deny sheet) and 25e (six stats, the clients stat equals the All chip on Clients).
+
+
 ## Next
-- Milestone 5: the Pipeline and Clients dashboards.
+- Milestone 6: Analytics at /, the Tasks page, the analytics route.

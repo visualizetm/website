@@ -165,6 +165,9 @@ Use when: the sidebar's workspaces. Not when: views of one list (SegmentedContro
 ### OverviewStrip (the nav revamp)
 `meetings { count, next }`, `dueToday`, `overdue`, `onMeetings`, `onToday`, `onOverdue`, `compact`, `loading`. Three chips on one line, each a 44px button around a 36px pill: meetings in the next 7 days with the next one's day and time, tasks due today, overdue (red only above zero). `compact` drops the labels to icons plus counts. The shell computes the numbers once (the Calendar's events, nextUpItems) and renders the strip in the desktop top bar and hands `shell.overviewStrip(compact)` to the phone Home. `data-ov` on each chip for the audits.
 
+### FunnelBar (the nav revamp)
+`steps [{ id, label, n, onClick }]`, `label`. The pipeline as one bar: a segment per step sized by its count (never under a readable minimum) with the count, the label and the conversion from the step before written on it. The bar is decorative to a screen reader; a visually hidden table carries the same numbers, and a row of 44px pill buttons under the bar opens the steps that have a screen. Tokens only: the red for the first step, neutrals after it. The Pipeline dashboard draws it from `pipelineFunnel()` plus the triage and deal counts.
+
 ### PageHeader (the nav revamp)
 `crumbs [{ id, label, onClick }]`, `title`, `onBack`, `actions`, children (the centre). The one header shape: the breadcrumb (the workspace, then the page; the workspace crumb opens its dashboard), the title, Back when the history entry has one, the actions on the right. The shell's top bar renders it for every screen from useTopBar, so a screen never draws its own.
 

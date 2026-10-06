@@ -42,6 +42,8 @@ const loaders = {
   tasks: () => import('./AdminTasks'),
   docEditor: () => import('./AdminDoc'),
   docs: () => import('./AdminDocs'),
+  pipeline: () => import('./AdminPipeline'),
+  overview: () => import('./AdminOverview'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   lists: () => import('./AdminLists'),
   triage: () => import('./AdminTriage'),
@@ -65,6 +67,8 @@ const AdminPlanner = lazy(loaders.planner);
 const AdminTasks = lazy(loaders.tasks);
 const AdminDoc = lazy(loaders.docEditor);
 const AdminDocs = lazy(loaders.docs);
+const AdminPipeline = lazy(loaders.pipeline);
+const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
@@ -412,6 +416,8 @@ export default function AdminApp() {
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     if (p.startsWith('/lists')) return 'lists';
     if (p.startsWith('/triage')) return 'triage';
+    if (p.startsWith('/pipeline')) return 'pipeline';
+    if (p.startsWith('/overview')) return 'overview';
     if (p.startsWith('/projects')) return 'projects';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
@@ -779,6 +785,12 @@ export default function AdminApp() {
         />
       )}
       {section === 'docs' && <AdminDocs leads={V.leads} docsApi={docsApi} loading={forceLoading} />}
+      {section === 'pipeline' && (
+        <AdminPipeline leads={V.leads} lists={V.lists} subs={subs} orders={orders} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatch={patchCallLead} />
+      )}
+      {section === 'overview' && (
+        <AdminOverview leads={V.leads} projects={V.projects} posts={V.posts} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} />
+      )}
       {section === 'clientDocs' && <AdminDocs forClient lead={V.leads.find(l => String(l._id) === clientDocsId) || null} leads={V.leads} docsApi={docsApi} loading={callLeadsLoading || forceLoading} onBack={navBack ? navBack.back : () => go('clients')} />}
       {section === 'docEditor' && (
         <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi} onPatchLead={patchCallLead}
