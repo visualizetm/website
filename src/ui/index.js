@@ -26,6 +26,7 @@ import ListRow, { listRowStyles } from './ListRow';
 import Button, { buttonStyles } from './Button';
 import IconButton, { iconButtonStyles } from './IconButton';
 import CollapsiblePane, { collapsiblePaneStyles } from './CollapsiblePane';
+import WorkspaceSwitcher, { workspaceSwitcherStyles } from './WorkspaceSwitcher';
 import Chip, { ChipGroup, chipStyles } from './Chip';
 import FieldShell, { fieldShellStyles } from './FieldShell';
 import Input from './Input';
@@ -71,14 +72,14 @@ export const uiStyles = [
   stackStyles, rowStyles, gridStyles, sectionStyles, dividerStyles,
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
   emptyStateStyles, swipeRowStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
-  spinnerStyles, logoStyles, buttonStyles, iconButtonStyles, collapsiblePaneStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
+  spinnerStyles, logoStyles, buttonStyles, iconButtonStyles, collapsiblePaneStyles, workspaceSwitcherStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
   staggerStyles, revealStyles, progressRingStyles, progressBarStyles, recordSkeletonStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
 ].join('\n');
 
 export {
-  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider, CollapsiblePane,
+  PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider, CollapsiblePane, WorkspaceSwitcher,
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, NoResults, SwipeRow, ErrorState, ErrorBoundary, ListRow,
   Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,

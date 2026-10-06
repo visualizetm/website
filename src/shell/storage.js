@@ -2,6 +2,7 @@
 export const KEYS = {
   collapsed: 'vz_shell_collapsed',
   sideGroups: 'vz_side_groups',
+  workspace: 'vz_workspace',
   recent: 'vz_cmd_recent',
   notifRead: 'vz_notif_read',
 };

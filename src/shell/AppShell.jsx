@@ -39,7 +39,7 @@ import { COPY } from '../shared/copy';
  *  styles          the stylesheet string to inject once
  */
 export default function AppShell({
-  activeNavId, counts, countsLoading, funnel, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
+  activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
   onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenProjectNew, onOpenListFill, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, leadOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenListPicker, listOps = null, docsApi = null, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
@@ -179,7 +179,7 @@ export default function AppShell({
   return (
     <ShellCtx.Provider value={ctx}>
       <div className={`sh-root lay-root${collapsed ? ' is-collapsed' : ''}${focused ? ' is-focused' : ''}`} data-chrome={chrome} data-v-theme={appearance.theme} data-v-motion={appearance.reduce || appearance.reduceOS ? 'reduce' : undefined}>
-        <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} funnel={funnel} onGo={go} menuItems={menuItems} />
+        <Sidebar collapsed={collapsed} canToggle={!narrowDesktop} onToggle={toggleCollapsed} activeId={activeNavId} counts={counts} countsLoading={countsLoading} onGo={go} menuItems={menuItems} />
         <div className="sh-col">
           <TopBar title={title} onBack={topBar?.back || navBack?.back || null} focused={focused} actions={topBar?.actions || null}
             commandBar={<CommandBar open={cmdOpen} onOpenChange={setCmdOpen} leads={leads || []} leadsLoading={leadsLoading} onRefetch={onRefetchLeads} onOpenLead={openLead} onOpenShowcase={onOpenShowcase} onOpenPlanner={onOpenPlanner} onJump={(n) => go(n.id)} onNewLead={onNewLead}  onAddToList={onOpenListPicker ? (lead) => onOpenListPicker([lead]) : undefined} docs={docsApi?.docs} onOpenDoc={docsApi?.openDoc} />}

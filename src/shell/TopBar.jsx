@@ -1,6 +1,6 @@
-import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import SearchMd from '@untitled-ui/icons-react/build/esm/SearchMd';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
+import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
 import { IconButton, Badge, Avatar, Menu, SkeletonBlock } from '../ui';
 import QuickAdd from './QuickAdd';
 /**
