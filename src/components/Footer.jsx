@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
-import Wordmark from './Wordmark';
+import Logo from '../ui/Logo';
 import InstagramGlyph from './InstagramGlyph';
 import { Reveal, Stagger } from '../marketing/motion';
 import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '../marketing/links';
@@ -13,7 +13,7 @@ export default function Footer() {
         <div className="footer-top">
           <Reveal as="div" className="footer-brand">
             <Link to="/" className="footer-logo">
-              <Wordmark size={22} />
+              <Logo width={128} />
             </Link>
             <p className="footer-tagline">Brand Development and Website Design</p>
           </Reveal>

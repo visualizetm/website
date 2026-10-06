@@ -6,7 +6,6 @@
 :root {
   /* Brand */
   --brand: #d44c43;
-  --brand-deep: #cc2222;
   --brand-dark: #a83a32;
   --brand-light: #e66b63;
   /* The three browser window dots drawn on Hero, Services, CaseStudy, LeadPartner */
@@ -411,27 +410,9 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 0.95;
 }
 
-/* Wordmark, always "Visualize." with the red period */
-.wordmark {
-  font-family: var(--font-body);
-  font-weight: 800;
-  letter-spacing: -0.045em;
-  line-height: 1;
-  /* currentColor, not --text: this component is also used inside the
-     admin, whose light theme is still real. Hard-coding the marketing
-     text colour here put a near-white wordmark on the admin's cream login
-     card the moment the marketing light theme was deleted (Site Prompt 7,
-     Part 5), which is exactly the 1.12:1 the a11y audit then caught. */
-  color: inherit;
-  display: inline-flex;
-  align-items: baseline;
-  white-space: nowrap;
-}
-.wordmark-dot { color: var(--brand); }
-
 /* ── Marketing motion primitives (src/marketing/motion) ───────────────
-   One shared stylesheet for every instance, same convention as .wordmark
-   above (a component that renders many times does not carry its own
+   One shared stylesheet for every instance, same convention as the
+   utility classes above (a component that renders many times does not carry its own
    <style> tag per instance). See docs/MARKETING-MOTION.md. */
 
 /* Reveal / Stagger: fade in and rise --m-rise on first viewport entry, once. */
@@ -914,13 +895,10 @@ h1, h2, h3, h4, h5, h6 {
 .uc-mark img { width: 100%; height: auto; display: block; }
 
 .uc-wordmark {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.9rem, 6vw, 2.75rem);
-  letter-spacing: -0.01em;
-  line-height: 1;
-  color: var(--uc-text);
-  margin-bottom: var(--space-8);
+  display: flex;
+  justify-content: center;
+  margin: 0 0 var(--space-8);
+  line-height: 0;
   opacity: 0;
   transform: translateY(var(--m-rise));
   animation: ucRise var(--m-dur) var(--m-ease) forwards;

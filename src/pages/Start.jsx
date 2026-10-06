@@ -13,7 +13,7 @@ import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
 import Lightbulb01 from '@untitled-ui/icons-react/build/esm/Lightbulb01';
 import LayersTwo01 from '@untitled-ui/icons-react/build/esm/LayersTwo01';
-import Wordmark from '../components/Wordmark';
+import Logo from '../ui/Logo';
 import { Reveal } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 
@@ -314,7 +314,7 @@ export default function Start() {
       <div className="st-shell">
         <section className="st-intro">
           <div className="st-intro-inner">
-            <Wordmark size={18} className="st-intro-mark" />
+            <Logo width={112} className="st-intro-mark" />
             <h1 className="st-intro-title display">Let's build<br />something<br /><span className="st-intro-red">you're proud of.</span></h1>
             <p className="st-intro-sub">
               Six short steps, about 10 minutes. The more detail you give,

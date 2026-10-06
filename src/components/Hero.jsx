@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Scene } from '../marketing/motion';
-import Wordmark from './Wordmark';
+import Logo from '../ui/Logo';
 import { capImageWidth, IMG_W } from '../marketing/showcase';
 import { CALENDLY_URL } from '../marketing/links';
 
@@ -47,7 +47,7 @@ export default function Hero({ items, tone = 'a' }) {
       )}
     >
       <div className="wrap hero-copy">
-        <div data-step="1" className="hero-mark"><Wordmark size={34} /></div>
+        <div data-step="1" className="hero-mark"><Logo width={160} /></div>
         <h1 data-step="1" className="hero-title display">Branding and websites for local businesses.</h1>
         <p data-step="2" className="hero-sub">Solo studio in Delaware. Brand, website, print, all in one place.</p>
         <div data-step="3" className="hero-cta">

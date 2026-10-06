@@ -1,6 +1,6 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
-import Wordmark from './components/Wordmark';
+import LogoSpinner from './ui/LogoSpinner';
 import BootFrame from './shell/BootFrame';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 
@@ -38,107 +38,20 @@ function RedirectWorkSlug() {
   return <Navigate to={`/clients/${slug}`} replace />;
 }
 
-function LoadingScreen({ done }) {
-  return (
-    <div className={`app-loader ${done ? 'app-loader--done' : ''}`} aria-hidden="true">
-      <div className="app-loader-inner">
-        <span className="app-loader-logo"><Wordmark size={26} /></span>
-        <div className="app-loader-bar">
-          <div className="app-loader-fill" />
-        </div>
-      </div>
-      <style>{`
-        .app-loader {
-          position: fixed; inset: 0; z-index: 9999;
-          background: var(--bg-deep, #080808);
-          display: flex; align-items: center; justify-content: center;
-          transition: opacity 0.5s ease, visibility 0.5s ease;
-        }
-        .app-loader--done {
-          opacity: 0;
-          visibility: hidden;
-          pointer-events: none;
-        }
-        .app-loader-inner {
-          display: flex; flex-direction: column; align-items: center; gap: 28px;
-        }
-        .app-loader-logo {
-          display: inline-flex;
-          animation: loaderPulse 1.4s ease-in-out infinite;
-        }
-        @keyframes loaderPulse {
-          0%, 100% { opacity: 0.5; transform: scale(0.95); }
-          50%       { opacity: 1;   transform: scale(1.02); filter: drop-shadow(0 0 18px rgba(212,76,67,0.5)); }
-        }
-        .app-loader-bar {
-          width: 120px; height: 2px;
-          background: rgba(255,255,255,0.1);
-          border-radius: 999px; overflow: hidden;
-        }
-        .app-loader-fill {
-          height: 100%; width: 0%;
-          background: linear-gradient(90deg, var(--brand), var(--brand-light));
-          border-radius: 999px;
-          animation: loaderBar 1.2s var(--ease) forwards;
-        }
-        @keyframes loaderBar {
-          0%   { width: 0%; }
-          60%  { width: 80%; }
-          100% { width: 100%; }
-        }
-      `}</style>
-    </div>
-  );
-}
+/* The marketing site's loading screen: the Logo spinner, a fixed layer over the page, shown only while a
+ * chunk is on its way (it is the Suspense fallback; the parser painted one before this ran, index.html).
+ * No timer and no minimum time: when the page is ready it is gone. The `app-loader` class is how the
+ * layout audit recognizes the one full viewport layer a marketing route may have. */
+const SiteLoading = () => <LogoSpinner layout="screen" className="app-loader" />;
 
-/* The two standalone client pages get this while their chunk is on the way,
- * instead of the marketing splash. It sits in the page's own flow rather
- * than in a fixed, full screen layer, so the arriving page takes its place
- * and it can never end up on top of content that has already rendered.
- * A fixed layer can: see the standalone branch below. */
-function ClientBoot() {
-  return (
-    <div className="client-boot" role="status">
-      <span className="client-boot-logo" aria-hidden="true"><Wordmark size={22} /></span>
-      <span className="visually-hidden">Loading</span>
-      <style>{`
-        .client-boot {
-          min-height: calc(100 * var(--svh, 1vh));
-          display: flex; align-items: center; justify-content: center;
-          background: var(--bg);
-        }
-        .client-boot-logo {
-          display: inline-flex;
-          animation: clientBootPulse 1.4s ease-in-out infinite;
-        }
-        @keyframes clientBootPulse {
-          0%, 100% { opacity: 0.45; }
-          50%      { opacity: 1; }
-        }
-      `}</style>
-    </div>
-  );
-}
+/* The two standalone client pages and the concepts page get this while their chunk is on the way. It sits
+ * in the page's own flow rather than in a fixed, full screen layer, so the arriving page takes its place
+ * and it can never end up on top of content that has already rendered. A fixed layer can: see the
+ * standalone branch below. */
+const ClientBoot = () => <LogoSpinner layout="page" className="client-boot" />;
 
 export default function App() {
-  const location                  = useLocation();
-  const [loading, setLoading]     = useState(true);
-  /* The splash is removed from the tree once it has faded, rather than left
-   * behind at opacity 0. A fixed, full screen, z-index 9999 element that
-   * lives forever is one stray style away from covering the site again. */
-  const [splashGone, setSplashGone] = useState(false);
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1300);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    if (loading) return undefined;
-    const t = setTimeout(() => setSplashGone(true), 600); // the 0.5s fade, plus a frame
-    return () => clearTimeout(t);
-  }, [loading]);
-
+  const location = useLocation();
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
@@ -207,8 +120,7 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<LoadingScreen done={false} />}>
-      {!splashGone && <LoadingScreen done={!loading} />}
+    <Suspense fallback={<SiteLoading />}>
       <ScrollRoot />
       <Navbar />
       <main className="page-shell page-fade" key={location.pathname}>

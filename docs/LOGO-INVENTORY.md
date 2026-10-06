@@ -1,7 +1,7 @@
 # Logo inventory (Brand v3 rollout)
 
-The checklist for the rollout. Milestone 5 re-runs every search and proves nothing is left. Status is `todo`
-until the milestone named in the last column lands it, then `done`. New logo files: `public/brand/svg/`,
+The checklist for the rollout. Milestone 5 re-runs every search and proves nothing is left. The last column names the
+milestone that lands the row; M5 ends with the proof that every row is landed. New logo files: `public/brand/svg/`,
 `public/brand/png/`, and the root icons in `public/`. The shared component is `src/ui/Logo.jsx`; the loading
 screen is `src/ui/LogoSpinner.jsx`.
 

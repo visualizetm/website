@@ -6,6 +6,7 @@ import ShellCrash from './shell/ShellCrash';
 import { warm } from './shared/api';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 import { useMotionPreference } from './marketing/motion/shared';
+import Logo from './ui/Logo';
 import './fonts.css';
 import './index.css';
 
@@ -80,10 +81,10 @@ function Maintenance() {
       <div className="uc-glow" aria-hidden="true" />
       <div className="uc-wrap">
         <div className="uc-mark">
-          <img src="/logo.svg" alt="" width="64" height="51" />
+          <Logo variant="icon" width={56} decorative />
         </div>
         <h1 className="uc-wordmark">
-          Visualize<span className="wordmark-dot">.</span>
+          <Logo width={220} />
         </h1>
         <p className="uc-line" aria-live="off" aria-hidden="true">
           {line}<span className="uc-cursor" aria-hidden="true" />

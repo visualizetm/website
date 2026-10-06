@@ -54,7 +54,7 @@ const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 function pageFor(template, client) {
   const title = `${client.displayName} | Visualize.`;
   const description = (client.blurb || '').replace(/"/g, '&quot;');
-  const image = client.cover ? (client.cover.startsWith('http') ? client.cover : `${SITE}${client.cover}`) : `${SITE}/og-default.png`;
+  const image = client.cover ? (client.cover.startsWith('http') ? client.cover : `${SITE}${client.cover}`) : `${SITE}/og-image.png`;
 
   let html = template;
   html = html.replace(/<title>.*?<\/title>/s, `<title>${title}</title>`);
@@ -62,6 +62,13 @@ function pageFor(template, client) {
   html = html.replace(/<meta property="og:title" content=".*?" \/>/s, `<meta property="og:title" content="${title}" />`);
   html = html.replace(/<meta property="og:description" content=".*?" \/>/s, `<meta property="og:description" content="${description}" />`);
   html = html.replace(/<meta property="og:image" content=".*?" \/>/s, `<meta property="og:image" content="${image}" />`);
+  html = html.replace(/<meta name="twitter:image" content=".*?" \/>/s, `<meta name="twitter:image" content="${image}" />`);
+  // The 1200 x 630 and the alt text describe the site's own share image. A client's cover is the client's
+  // picture at its own size, so those tags say what is true of it: no size, and the client's name.
+  if (client.cover) {
+    html = html.replace(/ *<meta property="og:image:(width|height)" content=".*?" \/>\n?/g, '');
+    html = html.replace(/<meta property="og:image:alt" content=".*?" \/>/s, `<meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}" />`);
+  }
   return html;
 }
 

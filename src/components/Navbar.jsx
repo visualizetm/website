@@ -7,7 +7,7 @@ import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Home01 from '@untitled-ui/icons-react/build/esm/Home01';
 import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import Phone from '@untitled-ui/icons-react/build/esm/Phone';
-import Wordmark from './Wordmark';
+import Logo from '../ui/Logo';
 import { CALENDLY_URL, CONTACT_EMAIL } from '../marketing/links';
 
 export default function Navbar() {
@@ -41,7 +41,7 @@ export default function Navbar() {
         <div className="navbar-pill">
           {/* Logo */}
           <Link to="/" className="navbar-logo" onClick={() => setOpen(false)}>
-            <Wordmark size={17} />
+            <Logo width={104} />
           </Link>
 
           {/* Desktop nav links */}
@@ -99,7 +99,7 @@ export default function Navbar() {
         inert={open ? undefined : ''}
       >
         <div className="navbar-drawer-header">
-          <Wordmark size={20} />
+          <Logo width={112} />
           <button
             type="button"
             className="navbar-drawer-close"

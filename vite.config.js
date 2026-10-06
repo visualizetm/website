@@ -3,6 +3,16 @@ import react from '@vitejs/plugin-react';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { BOOT_CSS, BOOT_FRAME_HTML } from './src/shell/bootFrame.js';
+import { logoSpinnerStyles } from './src/ui/logoSpinner.styles.js';
+
+/* Brand v3: the public site's loading screen before any JS. The Logo spinner (src/ui/LogoSpinner.jsx
+ * renders the same markup, from the same stylesheet string) is painted by the parser inside #root, so it
+ * shows while the bundle downloads. React's first commit replaces #root's children, which removes it; the
+ * Suspense fallback that takes over is the same fixed layer in the same place, so nothing jumps. It is
+ * fixed, so it takes no space and moves nothing. The admin host has its own frame above, so the splash is
+ * hidden wherever the pre-paint script set data-vz-boot. */
+const SPLASH_CSS = `${logoSpinnerStyles}\nhtml[data-vz-boot] .vz-splash{display:none}`.replace(/\n\s*/g, '');
+const SPLASH_HTML = '<div class="lspin lspin--screen vz-splash" role="status" aria-label="Loading"><img class="lspin-icon" src="/brand/svg/visualize-icon-reversed.svg" width="56" height="56" alt="" aria-hidden="true" draggable="false"><span class="lspin-sr">Loading</span></div>';
 
 /* Prompt 14: inject the admin boot frame (src/shell/bootFrame.js) into
  * index.html at build and dev time, so the parser paints the shell outline
@@ -12,8 +22,8 @@ function vzBootFrame() {
     name: 'vz-boot-frame',
     transformIndexHtml(html) {
       return html
-        .replace('<!-- vz-boot-css -->', `<style id="vz-boot-css">${BOOT_CSS}</style>`)
-        .replace('<!-- vz-boot -->', BOOT_FRAME_HTML);
+        .replace('<!-- vz-boot-css -->', `<style id="vz-boot-css">${BOOT_CSS}${SPLASH_CSS}</style>`)
+        .replace('<!-- vz-boot -->', BOOT_FRAME_HTML + SPLASH_HTML);
     },
   };
 }

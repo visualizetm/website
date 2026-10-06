@@ -24,7 +24,7 @@ Resume with: "Continue the client docs job from docs/MOBILE-PROGRESS.md." Milest
 ## Logo rollout (Brand v3), one run, five milestones
 Resume with: "Continue the logo rollout from docs/MOBILE-PROGRESS.md." Checklist: docs/LOGO-INVENTORY.md. Decisions: the "Logo rollout" section of docs/MOBILE-DECISIONS.md.
 - [x] M1: pack files placed (staging folder was the repo root, upload commit 55292f2), badge-96 and the two 480 wordmarks rendered (scripts/brand-render.mjs), src/ui/Logo.jsx, src/ui/LogoSpinner.jsx, scripts/logo-test.mjs, docs/LOGO-INVENTORY.md (37 rows: public 18, public and admin 2, admin 8, system 6, docs 2, staging 1).
-- [ ] M2: public site.
+- [x] M2: public site. Rows 1 to 17, 21 to 23 of the inventory: head block from the pack, JSON-LD, the parser splash (vite plugin, same stylesheet string as LogoSpinner), SiteLoading and ClientBoot on LogoSpinner with the 1300 ms timer gone, every public Wordmark call is Logo, maintenance page, og-default.png deleted, useHead and prerender on og-image, one manifest per host (the pre-paint script points the admin host at /manifest.webmanifest). Wordmark.jsx and the admin rows wait for M3.
 - [ ] M3: admin CRM.
 - [ ] M4: emails, templates, generated files, docs/LOGO-ROLLOUT.md.
 - [ ] M5: verification and docs.

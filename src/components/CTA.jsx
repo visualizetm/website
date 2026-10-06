@@ -1,5 +1,5 @@
 import { Scene } from '../marketing/motion';
-import Wordmark from './Wordmark';
+import Logo from '../ui/Logo';
 import { CALENDLY_URL, CONTACT_EMAIL, INSTAGRAM_HANDLE, INSTAGRAM_URL } from '../marketing/links';
 
 /* Scene 8, the close (Site Prompt 11): not pinned. The wordmark, the line,
@@ -8,7 +8,7 @@ export default function CTA({ tone = 'b' }) {
   return (
     <Scene steps={0} tone={tone} label="Get in touch" className="cta">
       <div className="wrap cta-inner">
-        <div data-step="1"><Wordmark size={28} className="cta-wordmark" /></div>
+        <div data-step="1"><Logo width={160} className="cta-wordmark" /></div>
         <h2 data-step="2" className="cta-title">Your vision, our creation.</h2>
         <div data-step="3"><a href={CALENDLY_URL} className="btn btn-primary cta-btn" target="_blank" rel="noreferrer">Book a free call</a></div>
         <div data-step="4" className="cta-reach">

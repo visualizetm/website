@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="vz-admin-chunk" content="" />
+  <!-- The public site's manifest (the logo pack's site.webmanifest). It sits above the script so the script can point
+       the admin host at its own manifest before the browser reads the tag. -->
+  <link rel="manifest" href="/site.webmanifest" />
   <script>
     // Pre-paint (Prompt 14, self hosted fonts in Prompt 15): the theme for both
     // halves, the admin's motion switch, and which boot frame to show, all read
@@ -28,6 +31,8 @@
         de.dataset.vzBoot = ls.boot === '1' ? 'shell' : 'login';
         if (ls.side === 'true') de.dataset.vzSide = 'rail';
       }
+      // One manifest per host: the pack's site.webmanifest on the public site, the admin's own on the admin host.
+      if (admin) { var mf = document.querySelector('link[rel="manifest"]'); if (mf) mf.setAttribute('href', '/manifest.webmanifest'); }
       var fonts = admin ? ['barlow-condensed-700'] : ['barlow-condensed-700', 'barlow-condensed-800'];
       for (var i = 0; i < fonts.length; i++) {
         var l = document.createElement('link'); l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous'; l.href = '/fonts/' + fonts[i] + '.woff2';
@@ -45,18 +50,28 @@
   <!-- The static default a crawler or link preview sees on any route this
        build does not prerender (see docs/RUNBOOK.md, "Prerender"); every
        page's own useHead() call (src/marketing/useHead.js) overwrites these
-       after the SPA's JS runs. -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Visualize: Brand & Website Design Studio" />
-  <meta property="og:description" content="Visualize: a solo brand development and website design studio. I create logos, brand identity, websites, print design, and digital business setup for local businesses." />
-  <meta property="og:image" content="https://visualizestudio.org/og-default.png" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-  <meta name="theme-color" content="#080808" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+       after the SPA's JS runs. The icon, theme-color and share
+       image tags (and the manifest link above the script) are the logo pack's head-snippet.html (Brand v3), one
+       block: scripts/logo-check.mjs asserts every file they name exists.
+       The admin host is served this same file; the pre-paint script above
+       points its manifest link at the admin's own manifest. -->
+  <link rel="icon" href="/favicon.ico" sizes="48x48" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0A0A0A" />
   <meta name="apple-mobile-web-app-title" content="Visualize." />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta property="og:site_name" content="Visualize." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Visualize. Brand and website design for local businesses" />
+  <meta property="og:description" content="Visualize: a solo brand development and website design studio. I create logos, brand identity, websites, print design, and digital business setup for local businesses." />
+  <meta property="og:image" content="https://visualizestudio.org/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Visualize. Brand and website design" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://visualizestudio.org/og-image.png" />
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Visualize.","url":"https://visualizestudio.org","logo":"https://visualizestudio.org/icon-512.png","image":"https://visualizestudio.org/og-image.png"}</script>
 </head>
 <body>
   <div id="root"><!-- vz-boot --></div>

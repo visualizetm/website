@@ -1,4 +1,4 @@
-import Wordmark from './Wordmark';
+import Logo from '../ui/Logo';
 import { CONTACT_EMAIL } from '../marketing/links';
 
 /* The chrome for the two pages a client reaches by a link Rob sends: the
@@ -15,7 +15,7 @@ import { CONTACT_EMAIL } from '../marketing/links';
 export function ClientBar({ label }) {
   return (
     <div className="cpc-bar">
-      <span className="cpc-mark"><Wordmark size={20} /></span>
+      <span className="cpc-mark"><Logo width={104} /></span>
       {label && <><span className="cpc-div" aria-hidden="true" /><span className="cpc-name">{label}</span></>}
     </div>
   );
@@ -24,7 +24,7 @@ export function ClientBar({ label }) {
 export function ClientFoot() {
   return (
     <footer className="cpc-foot">
-      <span className="cpc-mark"><Wordmark size={16} /></span>
+      <span className="cpc-mark"><Logo width={96} /></span>
       <a className="cpc-mail" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
     </footer>
   );
