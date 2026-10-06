@@ -52,6 +52,9 @@ import Reveal, { revealStyles } from './Reveal';
 import ProgressRing, { progressRingStyles } from './ProgressRing';
 import ProgressBar, { progressBarStyles } from './ProgressBar';
 import Spinner, { spinnerStyles } from './Spinner';
+import Logo, { logoStyles } from './Logo';
+import { logoSrc, logoSize, LOGO_VARIANTS } from './logo.data';
+import LogoSpinner from './LogoSpinner';
 import RecordSkeleton, { recordSkeletonStyles } from './RecordSkeleton';
 import { durationMs, motionReduced } from './motion';
 import useDelayedLoading from './useDelayedLoading';
@@ -67,7 +70,7 @@ export const uiStyles = [
   stackStyles, rowStyles, gridStyles, sectionStyles, dividerStyles,
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
   emptyStateStyles, swipeRowStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
-  spinnerStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
+  spinnerStyles, logoStyles, buttonStyles, iconButtonStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
   staggerStyles, revealStyles, progressRingStyles, progressBarStyles, recordSkeletonStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
@@ -78,7 +81,7 @@ export {
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, NoResults, SwipeRow, ErrorState, ErrorBoundary, ListRow,
   Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
-  SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, durationMs, motionReduced,
+  SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, Logo, LogoSpinner, logoSrc, logoSize, LOGO_VARIANTS, durationMs, motionReduced,
   useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock, useRetry, useOnline,
   Icon, ICONS, iconFor, entryOf, toneOf, resolveSemantic, TONES,
 };

@@ -21,6 +21,14 @@ Resume with: "Continue the client docs job from docs/MOBILE-PROGRESS.md." Milest
 - [x] Milestone 5: All docs per client and across clients, the More page Docs row, global search, Recently Deleted and History.
 - [x] Milestone 6: audit states at five widths, the gate, docs, reports/CLIENT-DOCS-REPORT.md.
 
+## Logo rollout (Brand v3), one run, five milestones
+Resume with: "Continue the logo rollout from docs/MOBILE-PROGRESS.md." Checklist: docs/LOGO-INVENTORY.md. Decisions: the "Logo rollout" section of docs/MOBILE-DECISIONS.md.
+- [x] M1: pack files placed (staging folder was the repo root, upload commit 55292f2), badge-96 and the two 480 wordmarks rendered (scripts/brand-render.mjs), src/ui/Logo.jsx, src/ui/LogoSpinner.jsx, scripts/logo-test.mjs, docs/LOGO-INVENTORY.md (37 rows: public 18, public and admin 2, admin 8, system 6, docs 2, staging 1).
+- [ ] M2: public site.
+- [ ] M3: admin CRM.
+- [ ] M4: emails, templates, generated files, docs/LOGO-ROLLOUT.md.
+- [ ] M5: verification and docs.
+
 ## Done
 - Guide committed (dc0beda). Milestone 1, measure (100d13f): docs/MOBILE-AUDIT.md, scripts/mobile-measure.mjs.
 - Milestone 2 (554418f onward): Settings regions, sheet and modal entrance, last rows clear the tab bar, ip-address fix, Back on Projects CLS.
