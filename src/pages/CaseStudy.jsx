@@ -95,7 +95,7 @@ export default function CaseStudy() {
     return (
       <div className="cs-loading">
         <div className="wrap">
-          <p className="wk-state-title">Could not load this client.</p>
+          <h1 className="wk-state-title">Could not load this client.</h1>
           <button type="button" className="btn btn-secondary" onClick={load}>Retry</button>
         </div>
         <style>{csStyles}</style>
@@ -360,6 +360,7 @@ export default function CaseStudy() {
 }
 
 const csStyles = `
+  .wk-state-title { font-family: var(--font-body); font-size: 1.25rem; font-weight: 700; letter-spacing: 0; text-transform: none; line-height: 1.3; color: var(--text); margin: 0; }
   .cs-loading { min-height: 60vh; display: flex; align-items: center; padding: var(--space-16) 0; }
   .cs-skel { background: var(--bg-elevated); border-radius: 8px; position: relative; overflow: hidden; }
   .cs-skel::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%); background-size: 240% 100%; animation: csShimmer 1.4s linear infinite; }

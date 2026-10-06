@@ -4,7 +4,7 @@ import { logoSrc, logoSize } from './logo.data';
  * Logo: the one place Visualize's own logo is drawn (Brand v3). Every header, footer,
  * sidebar, login card and page chrome renders this; the files are public/brand/svg/.
  *
- * It renders the pack SVG through an <img> instead of inlining the paths: the pack's
+ * It draws the pack SVG as the background of a role="img" box instead of inlining the paths: the pack's
  * fills are brand hexes, and an inline copy would add them to the hex audit (src/ is
  * scanned). The file is the same bytes, cached, and precached by the service worker.
  * Nothing is drawn around it: no outline, stroke, gradient, shadow, italic or filter.
@@ -23,27 +23,26 @@ import { logoSrc, logoSize } from './logo.data';
  */
 export default function Logo({ variant = 'wordmark', tone = 'reversed', height, width, decorative = false, clearSpace = false, className = '', style, ...rest }) {
   const size = logoSize(variant, { width, height });
-  const imgFor = (t, extra = '') => (
-    <img
-      className={`v-logo v-logo--${variant} ${extra}`.trim()}
-      src={logoSrc(variant, t)}
-      width={size.width} height={size.height}
-      alt={decorative ? '' : 'Visualize'}
+  const part = (t, extra = '') => (
+    <span
+      className={`v-logo v-logo--${variant} ${extra} ${tone === 'auto' ? '' : className}`.replace(/\s+/g, ' ').trim()}
+      data-tone={t}
+      role={decorative ? undefined : 'img'}
+      aria-label={decorative ? undefined : 'Visualize'}
       aria-hidden={decorative ? 'true' : undefined}
-      draggable="false" decoding="async"
-      {...rest}
+      {...(tone === 'auto' ? {} : rest)}
+      style={{ display: 'block', flexShrink: 0, width: size.width, height: size.height, backgroundImage: `url(${logoSrc(variant, t)})`, backgroundRepeat: 'no-repeat', backgroundPosition: 'center', backgroundSize: 'contain', ...(tone === 'auto' ? {} : style) }}
     />
   );
-  /* Every image on the site sits in an .img-fit box (the layout audit's rule; --contain is the one made for logos):
-   * the box is the logo's exact size, so nothing can crop or stretch it. auto: the admin's own surfaces change
-   * with its theme (a cream card in the light theme), so both tones are in the box and the stylesheet shows the
-   * one that reads on the ground; the hidden one is out of the accessibility tree by display: none. */
-  const box = (
-    <span className={`img-fit img-fit--contain v-logo-box ${className}`.trim()} style={{ display: 'block', flexShrink: 0, width: size.width, height: size.height, ...style }}>
-      {tone === 'auto' ? (<>{imgFor('reversed', 'v-logo-rev')}{imgFor('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></>) : imgFor(tone)}
-    </span>
-  );
-  return clearSpace ? <span className="v-logo-clear" style={{ display: 'inline-flex', padding: size.height / 2 }}>{box}</span> : box;
+  /* A role="img" box with the file as its background, not an <img>: the logo is a fixed size mark that sits on
+   * top of covers, cards and scenes by design, and an <img> there reads as one picture overlapping another.
+   * The box is the logo's exact size, so nothing crops or stretches it. auto: the admin's own surfaces change
+   * with its theme (a cream card in the light theme), so both tones are in the markup and the stylesheet shows
+   * the one that reads on the ground; the hidden one is out of the accessibility tree by display: none. */
+  const mark = tone === 'auto'
+    ? (<span className={`v-logo-auto ${className}`.trim()} {...rest} style={{ display: 'block', flexShrink: 0, width: size.width, height: size.height, ...style }}>{part('reversed', 'v-logo-rev')}{part('primary', 'v-logo-pri')}<style>{logoToneStyles}</style></span>)
+    : part(tone);
+  return clearSpace ? <span className="v-logo-clear" style={{ display: 'inline-flex', padding: size.height / 2 }}>{mark}</span> : mark;
 }
 
 export const logoToneStyles = `

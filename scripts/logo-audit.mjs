@@ -70,24 +70,26 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 }
 
 /* ── 2. every logo, measured ─────────────────────────────────────── */
+import { LOGO_VARIANTS } from '../src/ui/logo.data.js';
+const RATIOS = Object.fromEntries(Object.entries(LOGO_VARIANTS).map(([k, v]) => [k, v.ratio]));
 const MIN = { wordmark: 96, icon: 24, lockup: 160, stacked: 120 };
-const measure = () => {
+const measure = (RATIOS) => {
   const lum = (c) => { const [r, g, b] = c.map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
   const parse = (s) => { const m = s.match(/rgba?\(([^)]+)\)/); if (!m) return null; const [r, g, b, a = 1] = m[1].split(',').map(Number); return { r, g, b, a }; };
   const groundOf = (el) => { const stack = []; for (let e = el; e; e = e.parentElement) stack.push(e); let col = { r: 255, g: 255, b: 255 };
     for (const e of stack.reverse()) { const c = parse(getComputedStyle(e).backgroundColor); if (c && c.a > 0) col = { r: c.r * c.a + col.r * (1 - c.a), g: c.g * c.a + col.g * (1 - c.a), b: c.b * c.a + col.b * (1 - c.a) }; } return col; };
   const visible = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity) > 0; };
-  const logos = [...document.querySelectorAll('img.v-logo')].filter(visible);
+  const logos = [...document.querySelectorAll('.v-logo')].filter(visible);
   const others = [...document.querySelectorAll('body *')].filter(e => visible(e) && (e.tagName === 'IMG' || e.tagName === 'SVG' || e.tagName === 'svg' || e.tagName === 'BUTTON' || e.tagName === 'INPUT' || [...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())));
   return logos.map((img) => {
     const r = img.getBoundingClientRect();
     const variant = [...img.classList].find(c => c.startsWith('v-logo--'))?.slice(8) || 'wordmark';
-    const tone = /primary/.test(img.getAttribute('src')) ? 'primary' : 'reversed';
+    const tone = img.dataset.tone === 'primary' ? 'primary' : 'reversed';
     const ground = groundOf(img);
     const ink = tone === 'primary' ? [10, 10, 10] : [250, 250, 250];
     const l1 = lum(ink), l2 = lum([ground.r, ground.g, ground.b]);
     const contrast = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
-    const ratioFile = img.naturalWidth / img.naturalHeight, ratioBox = r.width / r.height;
+    const ratioFile = RATIOS[variant], ratioBox = r.width / r.height;
     const pad = r.height / 2; const zone = { l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad };
     const intruder = others.find(e => e !== img && !e.contains(img) && !img.contains(e) && (() => { const q = e.getBoundingClientRect(); if (q.left <= r.left && q.right >= r.right && q.top <= r.top && q.bottom >= r.bottom) return false; /* a backdrop under the logo, not a neighbor */ return q.right > zone.l && q.left < zone.r && q.bottom > zone.t && q.top < zone.b; })());
     const clash = intruder ? `${intruder.tagName.toLowerCase()}.${String(intruder.className).split(' ')[0]} "${(intruder.textContent || '').trim().slice(0, 24)}"` : '';
@@ -111,7 +113,7 @@ for (const t of targets) for (const w of t.widths || [390, 1280]) {
   await mockRoutes(p, { session: t.session });
   await p.goto(BASE + t.path, { waitUntil: 'networkidle' }).catch(() => {});
   await p.waitForTimeout(t.id === 'home' ? 2500 : 1200);
-  const rows = await p.evaluate(measure);
+  const rows = await p.evaluate(measure, RATIOS);
   const file = join(OUT, `${t.id}-${w}.png`);
   await p.screenshot({ path: file }); shots.push({ id: `${t.id} ${w}`, file });
   ok(rows.length > 0, `${t.id} at ${w}: ${rows.length} logo(s) found`);

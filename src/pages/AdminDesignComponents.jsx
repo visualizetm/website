@@ -217,10 +217,10 @@ export default function DesignComponents() {
           <Demo label="Logo" note="Brand v3: wordmark, lockup, icon, stacked; reversed on ink, primary on paper" wide>
             <div className="dc-logo-panels">
               <div className="dc-logo-panel dc-logo-panel--ink">
-                <Logo width={160} tone="reversed" /><Logo variant="lockup" width={220} tone="reversed" /><Logo variant="icon" width={56} tone="reversed" /><Logo variant="stacked" width={140} tone="reversed" />
+                <Logo width={128} tone="reversed" /><Logo variant="lockup" width={176} tone="reversed" /><Logo variant="icon" width={48} tone="reversed" /><Logo variant="stacked" width={120} tone="reversed" />
               </div>
               <div className="dc-logo-panel dc-logo-panel--paper">
-                <Logo width={160} tone="primary" /><Logo variant="lockup" width={220} tone="primary" /><Logo variant="icon" width={56} tone="primary" /><Logo variant="stacked" width={140} tone="primary" />
+                <Logo width={128} tone="primary" /><Logo variant="lockup" width={176} tone="primary" /><Logo variant="icon" width={48} tone="primary" /><Logo variant="stacked" width={120} tone="primary" />
               </div>
             </div>
           </Demo>
@@ -400,7 +400,8 @@ const dcStyles = `
   .dc-note { font-size: var(--v-text-sm); color: var(--v-text-3); }
   .dc-logo-panels { display: grid; gap: var(--v-space-3); grid-template-columns: 1fr; }
   @media (min-width: 900px) { .dc-logo-panels { grid-template-columns: 1fr 1fr; } }
-  .dc-logo-panel { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-6); padding: var(--v-space-6); border-radius: var(--v-radius-md); border: 1px solid var(--v-border); }
+  .dc-logo-panels > * { min-width: 0; }
+  .dc-logo-panel { display: flex; flex-wrap: wrap; align-items: center; gap: var(--v-space-4); padding: var(--v-space-4); border-radius: var(--v-radius-md); border: 1px solid var(--v-border); }
   .dc-logo-panel--ink { background: var(--v-sidebar-bg); }
   .dc-logo-panel--paper { background: var(--v-sidebar-text); }
   .dc-key { width: 72px; flex-shrink: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); padding-top: 14px; }
