@@ -63,3 +63,12 @@ url(), background-image, Barlow, #CC2222, brain, "Visualize Studio LLC".
 ## Counts by surface (37 rows)
 
 public 18 (16 site, 2 client facing), public and admin 2, admin 8 (7 admin, 1 admin and print), system 6 (5 system, 1 admin and system), docs 2, staging 1.
+
+## Final status
+
+All 37 rows landed (M1 to M5); rows left: 0. Leftover search at the end of M5 (source, scripts, config, public; docs and reports excluded
+because they describe the old files): `brain` 0, `cc2222` 0, "Visualize Studio LLC" 0, `logo.svg` 0, `og-default` 0, `VisualizeWordmark` 0,
+`/icons/` 0. `Barlow` 13 hits, all the display typeface (src/fonts.css, tokens, the preload list in index.html, fetch-fonts, the
+`fontDisplay` field and its placeholder, test fixtures), explained in MOBILE-DECISIONS. `Wordmark` 35 hits, all the word in comments, class names
+(`cta-wordmark`, `uc-wordmark`), the `wordmark` variant and files, and test captions; the component `Wordmark.jsx` is gone.
+`node scripts/logo-check.mjs` (every referenced path resolves, source and dist, 124 references) and `node scripts/brand-check.mjs` (85 brand rules) pass.
