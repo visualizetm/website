@@ -35,16 +35,46 @@ const KIND_OPTIONS = CONCEPT_ITEM_KINDS.map(k => ({ id: k.id, label: k.label }))
 
 /* ── One item in a direction ──────────────────────────────────────── */
 function ItemCard({ item, letter, index, count, readOnly, onWrite, onMove, onDelete, dragProps }) {
+  const toast = useToast();
   const [broken, setBroken] = useState(false);
+  const [busy, setBusy] = useState(false); // this item's own upload
+  const fileRef = useRef(null);
+  /* The upload outlives a render, so the write goes through the latest onWrite: a caption typed while the
+     file is on its way is kept, and only the image is set. */
+  const writeRef = useRef(onWrite);
+  writeRef.current = onWrite;
   useEffect(() => { setBroken(false); }, [item.image]);
   const src = safeHref(item.image);
+  const empty = !(src && !broken);
+  const canPick = cloudinaryEnabled && !readOnly;
+  const fill = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || busy) return;
+    setBusy(true);
+    const res = await uploadToCloudinary(file);
+    setBusy(false);
+    if (res.url) { writeRef.current({ image: res.url }); toast.success('Image added.'); } else toast.error(res.error);
+  };
+  const label = `${letter}${index + 1}`;
   return (
     <div className="ce-item" {...dragProps}>
-      <span className="img-fit ce-item-img">
-        {src && !broken
-          ? <img src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />
-          : <span className="ce-item-empty" aria-hidden="true"><Icon icon={broken ? 'AlertTriangle' : 'Image01'} size="var(--v-icon-md)" /></span>}
+      <span className="img-fit ce-item-img" aria-busy={busy || undefined}>
+        {!empty && <img src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />}
+        {empty && (
+          <span className="ce-item-empty">
+            <span className="ce-item-empty-in" aria-hidden="true">
+              <Icon icon={broken ? 'AlertTriangle' : 'Image01'} size="var(--v-icon-md)" />
+              {canPick && <span className="ce-item-hint">{busy ? 'Uploading' : 'Tap to add the image'}</span>}
+            </span>
+            {busy && <span className="ce-item-shimmer" aria-hidden="true" />}
+          </span>
+        )}
         {broken && <span className="visually-hidden">This image did not load.</span>}
+        {canPick && <input ref={fileRef} type="file" accept={ACCEPT_ATTR} hidden onChange={fill} aria-label={`Choose the image for ${label}`} />}
+        {empty && canPick && (
+          <button type="button" className="v-stretch ce-item-pick" disabled={busy} aria-label={busy ? `Uploading the image for ${label}` : `Add the image for ${label}`} onClick={() => fileRef.current?.click()}>Add the image for {label}</button>
+        )}
       </span>
       <Stack gap={2}>
         <Row gap={2} align="center" justify="between" wrap={false}>
@@ -53,6 +83,7 @@ function ItemCard({ item, letter, index, count, readOnly, onWrite, onMove, onDel
             <Menu label={`Item ${letter}${index + 1} actions`} items={[
               { id: 'up', label: 'Move up', icon: 'ChevronLeft', disabled: index === 0, onSelect: () => onMove(-1) },
               { id: 'down', label: 'Move down', icon: 'ChevronDown', disabled: index === count - 1, onSelect: () => onMove(1) },
+              ...(canPick && !empty ? [{ id: 'replace', label: 'Replace image', icon: 'Image01', onSelect: () => fileRef.current?.click() }] : []),
               'divider',
               { id: 'del', label: 'Delete image', icon: 'Trash01', danger: true, onSelect: onDelete },
             ]} />
@@ -644,7 +675,16 @@ export const ceStyles = `
   .ce-item { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; padding: var(--v-space-2); border: 1px solid var(--v-border); border-radius: var(--v-radius-md); background: var(--v-surface-2); }
   .ce-item-img { aspect-ratio: 1 / 1; background: var(--v-surface-3); border: 1px solid var(--v-border); }
   .ce-item-img img { object-fit: contain; }
-  .ce-item-empty { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--v-text-3); }
+  .ce-item-empty { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--v-text-3); }
+  .ce-item-empty-in { display: flex; flex-direction: column; align-items: center; gap: var(--v-space-2); padding: var(--v-space-2); text-align: center; }
+  .ce-item-hint { font-size: var(--v-text-sm); color: var(--v-text-2); }
+  .ce-item-shimmer { position: absolute; inset: 0; background: linear-gradient(105deg, transparent 38%, var(--v-surface-2) 50%, transparent 62%); background-size: 240% 100%; animation: ce-shimmer calc(var(--v-dur-slow) * 4) linear infinite; }
+  @keyframes ce-shimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+  @media (prefers-reduced-motion: reduce) { .ce-item-shimmer { animation: none; } }
+  [data-v-motion='reduce'] .ce-item-shimmer { animation: none; }
+  .ce-item-img:has(> .ce-item-pick:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .ce-item-pick:focus-visible { outline: 0; }
+  .ce-item-pick:disabled { cursor: progress; }
   .ce-item-n { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .ce-item-link { max-width: 100%; min-width: 0; }
   .ce-item-link .v-inline-text, .ce-paste .v-inline-text { font-size: var(--v-text-xs); }
