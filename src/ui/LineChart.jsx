@@ -32,7 +32,7 @@ export default function LineChart({ data = [], format = (n) => String(n), label,
         {last && <circle cx={x(n - 1)} cy={y(last.value)} r={3.5} className="v-chart-point" style={{ stroke: `var(${tone})` }} />}
         {last && <text x={x(n - 1)} y={y(last.value) - 7} textAnchor="end" className="v-chart-value">{format(Number(last.value) || 0)}</text>}
       </svg>
-      <table className="v-sr-only"><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table>
+      <div className="v-sr-only"><table><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table></div>
     </div>
   );
 }

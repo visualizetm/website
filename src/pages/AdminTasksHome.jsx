@@ -316,7 +316,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     return desktop ? (
       <>
         <aside className="aa-panel db-panel" aria-label="Tasks"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea></aside>
-        <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
+        <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="db-hint">{showSkel && <SkeletonBlock width={320} height={240} radius="var(--v-radius-lg)" className="db-hint-box" />}</div><style>{dbStyles}</style></div>
       </>
     ) : (
       <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
@@ -359,7 +359,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
           </PageShell>
         ) : (
           <PageShell className="aa-main aa-main--wide db-page" label="the record">
-            <div className="db-hint"><EmptyState icon="CheckDone01" title="Pick a task" description="The record opens here beside the list. Done, Snooze and the menu sit on every row." /></div>
+            <Stagger className="db-hint"><EmptyState icon="CheckDone01" title="Pick a task" description="The record opens here beside the list. Done, Snooze and the menu sit on every row." className="db-hint-box" /></Stagger>
           </PageShell>
         )}
         {picker}
@@ -391,6 +391,7 @@ const dbStyles = `
   .db-panel-head { display: flex; align-items: center; gap: var(--v-space-2); padding: 0 var(--v-space-1); }
   .db-panel-scroll { padding: 2px; }
   .db-hint { display: flex; align-items: center; justify-content: center; min-height: 60vh; padding: var(--v-space-5); }
+  .db-hint-box { min-height: 240px; height: 240px; box-sizing: border-box; }
   /* Next up rows */
   .nu-group { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .nu-group--danger { color: var(--v-status-danger-text); }

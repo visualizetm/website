@@ -36,7 +36,7 @@ export default function BarChart({ data = [], format = (n) => String(n), label, 
           );
         })}
       </svg>
-      <table className="v-sr-only"><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table>
+      <div className="v-sr-only"><table><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table></div>
     </div>
   );
 }

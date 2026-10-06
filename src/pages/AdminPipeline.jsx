@@ -188,9 +188,10 @@ export const dashStyles = `
   @media (min-width: 1200px) { .dash-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   /* One height per card (and one per stat, one for the funnel card): five rows, a chart or an empty state all fit, and the
    * skeleton draws the same boxes, so every row lands where the loaded one does. */
-  .dash-card { gap: var(--v-space-3); min-width: 0; min-height: 360px; }
-  .dash-card--funnel { min-height: 200px; }
-  .dash-stats .v-stat { min-height: 176px; }
+  .dash-card { gap: var(--v-space-3); min-width: 0; min-height: 400px; }
+  .dash-card--funnel { min-height: 260px; }
+  @media (min-width: 768px) { .dash-card--funnel { min-height: 200px; } }
+  .dash-stats .v-stat { min-height: 208px; }
   .dash-grid > * { min-width: 0; }
   /* Stagger wraps each card, so the wide card's wrapper is the grid child that spans. */
   .dash-card--wide, .dash-grid > :has(> .dash-card--wide) { grid-column: 1 / -1; }

@@ -28,11 +28,11 @@ export default function FunnelBar({ steps = [], label = 'Pipeline funnel', class
           );
         })}
       </div>
-      <table className="v-sr-only">
+      <div className="v-sr-only"><table>
         <caption>{label}</caption>
         <thead><tr><th scope="col">Step</th><th scope="col">Count</th><th scope="col">Of the step before</th></tr></thead>
         <tbody>{steps.map((s, i) => { const conv = i > 0 && s.pct !== false ? pct(Number(s.n) || 0, Number(steps[i - 1].n) || 0) : null; return <tr key={s.id}><th scope="row">{s.label}</th><td>{Number(s.n) || 0}</td><td>{conv === null ? '' : `${conv}%`}</td></tr>; })}</tbody>
-      </table>
+      </table></div>
       {steps.some(s => s.onClick) && (
         <div className="v-funnel-links">
           {steps.filter(s => s.onClick).map(s => <button key={s.id} type="button" className="v-funnel-link" onClick={s.onClick}>{s.label} {Number(s.n) || 0}</button>)}

@@ -29,7 +29,7 @@ export default function DonutChart({ data = [], format = (n) => String(n), label
       <div className="v-donut-rows" aria-hidden="true">
         {rows.map((d, i) => <div key={i} className="v-donut-row"><span className="v-donut-swatch" style={{ background: `var(${TONES[i % TONES.length]})` }} /><span className="v-donut-name">{d.label}</span><span className="v-donut-val">{format(Number(d.value) || 0)}</span></div>)}
       </div>
-      <table className="v-sr-only"><caption>{label}</caption><thead><tr><th scope="col">Share</th><th scope="col">Value</th></tr></thead><tbody>{rows.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}<tr><th scope="row">Total</th><td>{format(total)}</td></tr></tbody></table>
+      <div className="v-sr-only"><table><caption>{label}</caption><thead><tr><th scope="col">Share</th><th scope="col">Value</th></tr></thead><tbody>{rows.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}<tr><th scope="row">Total</th><td>{format(total)}</td></tr></tbody></table></div>
     </div>
   );
 }

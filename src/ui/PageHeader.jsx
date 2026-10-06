@@ -50,7 +50,7 @@ export const pageHeaderStyles = `
   .v-ph-crumb { display: inline-flex; align-items: center; gap: var(--v-space-1); white-space: nowrap; }
   .v-ph-crumb--here { color: var(--v-text-2); }
   /* A 44px target that reads as a small word: the box is tall, the negative margins keep the line height. */
-  .v-ph-crumb-btn { display: inline-flex; align-items: center; min-height: var(--v-tap); margin: -12px 0; padding: 0; border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; font: inherit; }
+  .v-ph-crumb-btn { display: inline-flex; align-items: center; justify-content: center; min-height: var(--v-tap); min-width: var(--v-tap); margin: -12px calc(-1 * var(--v-space-1)); padding: 0 var(--v-space-1); border: 0; background: transparent; color: var(--v-text-3); cursor: pointer; font: inherit; }
   .v-ph-crumb-btn:hover { color: var(--v-text); text-decoration: underline; }
   .v-ph-crumb-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; border-radius: var(--v-radius-sm); }
   .v-ph-sep { color: var(--v-text-3); }
