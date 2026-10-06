@@ -98,7 +98,7 @@ const SAMPLE = () => {
     let cTop = Infinity, cBottom = -Infinity;
     if (body) for (const el of body.querySelectorAll('*')) {
       const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
-      const box = /(^|\s)(btn|pk-bar|pk-chip|bt-icon|pk-node|hero-cover-name)(\s|$)/.test(String(el.className || '')) || el.tagName === 'IMG';
+      const box = /(^|\s)(btn|pk-bar|pk-chip|bt-icon|pk-node|hero-cover-name|v-logo)(\s|$)/.test(String(el.className || '')) || el.tagName === 'IMG';
       if (!own && !box) continue;
       if (alpha(el) < 0.05) continue;
       const q = el.getBoundingClientRect(); if (q.height < 2 || q.width < 2) continue;

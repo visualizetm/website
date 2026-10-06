@@ -327,7 +327,7 @@ everything after arrives with the last. Plays once per mount, never on re-render
 
 ### Logo
 `variant` wordmark | icon | lockup | stacked, `tone` reversed | primary | auto, `width` or `height` (one of them), `decorative`, `clearSpace`.
-Visualize's own logo (Brand v3), the only place it is drawn: an `<img>` of `public/brand/svg/visualize-*.svg` (not an inline copy,
+Visualize's own logo (Brand v3), the only place it is drawn: a `role="img"` box that draws `public/brand/svg/visualize-*.svg` (not an inline copy,
 so the pack's brand hexes stay out of the hex audit), sized by the artwork's ratio and never under the brand minimum (wordmark 96 px wide,
 icon 24). Reversed on dark surfaces, primary on light, auto on the admin's own theme-following surfaces. No stroke, gradient, shadow
 or filter. The public site imports `src/ui/Logo` by path (the index would pull the whole admin kit). docs/LOGO-ROLLOUT.md has the file map.

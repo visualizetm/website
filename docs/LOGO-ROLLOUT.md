@@ -42,7 +42,7 @@ import Logo from '../ui/Logo';                       // the public site: by path
 - `variant`: `wordmark` (default), `icon`, `lockup` (horizontal), `stacked`. `tone`: `reversed`, `primary`, `auto`.
 - Give `width` or `height`, never both; the other follows the artwork's ratio. Minimums are enforced: wordmark 96 px wide
   (lockup 160, stacked 120), icon 24.
-- It renders the pack SVG through an `<img>`, not an inline copy: the pack's fills are brand hexes and the hex audit
+- It draws the pack SVG as the background of a `role="img"` box (`aria-label="Visualize"`, or `aria-hidden` with `decorative`), not an inline copy: the pack's fills are brand hexes and the hex audit
   scans `src/` (80 of 90 at the start of the rollout, 78 now). Same bytes, cached, precached by the service worker.
 - Nothing is ever drawn around it: no outline, stroke, gradient, shadow, italic or filter. `scripts/brand-check.mjs`
   proves that on the pack files.
