@@ -39,9 +39,9 @@ export default function WorkspaceSwitcher({ options, value, onChange, collapsed 
 export const workspaceSwitcherStyles = `
   .v-ws { display: flex; align-items: stretch; gap: 2px; padding: 2px; background: var(--v-sidebar-hover); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-md); min-width: 0; }
   .v-ws--rail { flex-direction: column; align-items: center; background: transparent; border: 0; padding: 0; gap: var(--v-space-1); }
-  .v-ws-opt { min-height: var(--v-tap);
+  .v-ws-opt {
     flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--v-space-2);
-    min-height: 40px; min-width: 0; padding: 0 var(--v-space-2); border: 0; border-radius: calc(var(--v-radius-md) - 2px);
+    min-height: var(--v-tap); min-width: 0; padding: 0 var(--v-space-2); border: 0; border-radius: calc(var(--v-radius-md) - 2px);
     background: transparent; color: var(--v-sidebar-text-2); cursor: pointer;
     font-family: var(--v-font-body); font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold);
     transition: background var(--v-dur-fast) var(--v-ease-out), color var(--v-dur-fast) var(--v-ease-out);

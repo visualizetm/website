@@ -36,7 +36,7 @@ export default function BarChart({ data = [], format = (n) => String(n), label, 
           );
         })}
       </svg>
-      <div className="v-sr-only"><table><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table></div>
+      <div className="v-sr-only"><table className="v-chart-table"><caption>{label}</caption><thead><tr><th scope="col">Period</th><th scope="col">Value</th></tr></thead><tbody>{data.map((d, i) => <tr key={i}><th scope="row">{d.label}</th><td>{format(Number(d.value) || 0)}</td></tr>)}</tbody></table></div>
     </div>
   );
 }
@@ -45,6 +45,8 @@ export const chartStyles = `
   .v-chart { position: relative; min-width: 0; width: 100%; }
   .v-chart-svg { display: block; width: 100%; overflow: visible; }
   .v-chart-axis { stroke: var(--v-border); stroke-width: 1; }
+  /* The hidden table keeps to its 1px box (a table ignores the width of its hidden parent and would push the page wide at 320). */
+  .v-chart-table { width: 1px; table-layout: fixed; }
   .v-chart-grid { stroke: var(--v-border); stroke-width: 1; stroke-dasharray: 2 4; }
   .v-chart-value { font-family: var(--v-font-body); font-size: 10px; font-weight: var(--v-weight-bold); fill: var(--v-text-2); font-variant-numeric: tabular-nums; }
   .v-chart-label { font-family: var(--v-font-body); font-size: 10px; fill: var(--v-text-3); }
