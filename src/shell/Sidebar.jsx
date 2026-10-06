@@ -158,7 +158,7 @@ export const sidebarStyles = `
   }
   .sh-side.is-collapsed { width: var(--v-sidebar-rail-w); }
   @media (min-width: 768px) { .sh-side { display: flex; } }
-  .sh-side-brand { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-2); margin-bottom: var(--v-space-2); border: 0; background: transparent; border-radius: var(--v-radius-md); color: var(--v-sidebar-text); cursor: pointer; }
+  .sh-side-brand { display: flex; align-items: center; gap: var(--v-space-4); min-height: var(--v-tap); padding: 0 var(--v-space-2); margin-bottom: var(--v-space-2); border: 0; background: transparent; border-radius: var(--v-radius-md); color: var(--v-sidebar-text); cursor: pointer; }
   .sh-side-brand:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .sh-side.is-collapsed .sh-side-brand { justify-content: center; padding: 0; }
   /* The pipeline strip: four numbers, the conversion between each. */

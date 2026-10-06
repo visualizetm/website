@@ -67,7 +67,7 @@ function pageFor(template, client) {
   // picture at its own size, so those tags say what is true of it: no size, and the client's name.
   if (client.cover) {
     html = html.replace(/ *<meta property="og:image:(width|height)" content=".*?" \/>\n?/g, '');
-    html = html.replace(/<meta property="og:image:alt" content=".*?" \/>/s, `<meta property="og:image:alt" content="${title.replace(/"/g, '&quot;')}" />`);
+    html = html.replace(/<meta property="og:image:alt" content=".*?" \/>/s, `<meta property="og:image:alt" content="${title.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}" />`);
   }
   return html;
 }

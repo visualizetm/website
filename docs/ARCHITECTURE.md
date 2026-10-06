@@ -46,7 +46,7 @@ api/                       Vercel functions (10 total: the Hobby plan caps a dep
                            connection to the CRM (published clients only, an exact field whitelist);
                            planner.js is one client's own planner (posts, ads, suggestions), behind their planner token
 docs/                      this file, COMPONENTS.md, TOKENS.md, RUNBOOK.md, QA-CHECKLIST.md, RELEASE-NOTES-3.0.md, MIGRATION-MAP.md
-public/                    logo, wordmark, PWA icons, manifest, sw.js, fonts/ (latin woff2 subsets)
+public/                    favicon and app icons, site.webmanifest (public) and manifest.webmanifest (admin), og-image.png, brand/svg and brand/png (the logo pack, docs/LOGO-ROLLOUT.md), sw.js, fonts/ (latin woff2 subsets)
 reports/                   one build report per prompt
 scripts/                   layout-audit, feel-audit, a11y-audit, regression, render-profile, lighthouse, mock-server, audit-fixtures, audit-screens, fetch-fonts, hex-count, css-orphans, dates-test, migrate-mongo
 src/

@@ -82,7 +82,7 @@ Both are useless headless — they open no window and produce no observable outp
 
 - **SPA routing**: All routes return the same `index.html` shell. The React Router handles client-side routing. `vite preview` does this automatically. In production, `vercel.json` has `rewrites: [{ source: "/(.*)", destination: "/index.html" }]`.
 - **`/portal`, `/prints`, `/admin`** render outside the Navbar/Footer layout (hardcoded check in `App.jsx` by `location.pathname`). They have their own full-screen styles.
-- **`VisualizeWordmark.png`** must be in `public/` — referenced by Navbar, Footer, App loader, and SplashScreen. If missing, logos render broken but the app still loads.
+- **`public/brand/svg/`** holds the logo files the `Logo` component loads (`src/ui/Logo.jsx`); the root icons, `site.webmanifest` and `og-image.png` are in `public/`. If a brand file is missing, logos render broken but the app still loads. `node scripts/logo-check.mjs` lists every referenced icon or logo path and confirms it exists.
 - **`chromium-cli` not available** in this container. All verification is curl-based (HTTP status checks). For visual inspection, use the human path and a local browser.
 - **Vercel serverless functions** live in `api/` (e.g. `api/calendly-meetings.js`). They don't run locally via `vite dev` — they need `vercel dev` or deployment.
 

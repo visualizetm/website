@@ -10,9 +10,9 @@ import { logoSrc, logoSize } from './logo.data';
  * Nothing is drawn around it: no outline, stroke, gradient, shadow, italic or filter.
  *
  * @param {object} props
- * @param {'wordmark'|'icon'|'lockup'|'stacked'|'tagline'} [props.variant='wordmark']
- *        lockup is the horizontal lockup (icon beside the wordmark); stacked is the icon over it;
- *        tagline is the wordmark with the tagline. The V. submark was not in the pack, so it has no variant.
+ * @param {'wordmark'|'icon'|'lockup'|'stacked'} [props.variant='wordmark']
+ *        lockup is the horizontal lockup (icon beside the wordmark); stacked is the icon over it.
+ *        The V. submark and the tagline wordmark are not variants (see logo.data.js).
  * @param {'reversed'|'primary'|'auto'} [props.tone='reversed'] reversed = light letters for dark surfaces (the site, the admin sidebar);
  *        primary = ink letters, for light surfaces (print, invoices on white); auto = the admin's own surfaces,
  *        reversed on its dark theme and primary on its light one.

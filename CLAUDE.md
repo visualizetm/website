@@ -104,7 +104,7 @@ ShellCrash), src/pages (one file per admin screen, lazy chunks; the
 marketing pages are lazy too), src/components/record (the record: RecordHeader,
 NextActionStrip, FactsGrid, one section component each, the registry of
 sections by mode), src/components (lead and client record
-pieces, and the marketing shell: Navbar, Footer, Wordmark, ThemeToggle, and
+pieces, and the marketing shell: Navbar, Footer, ThemeToggle, and
 Home's own sections), src/marketing (showcase.jsx, motion/, scroll.js and
 ScrollRoot.jsx (the gsap + lenis scroll engine, marketing host only),
 links.js, useHead.js, useTheme.js, the public site's own layer), src/lib (pure logic), src/shared

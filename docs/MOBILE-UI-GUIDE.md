@@ -484,3 +484,11 @@ Before approving a mobile interface, ask:
 * Does the user always know what they can do next?
 
 If the answers are strong, the interface is much closer to the mobile design philosophy taught throughout the video.
+
+## Brand and loading (Brand v3)
+
+* Visualize's own logo is drawn by one component, `Logo` (src/ui/Logo.jsx), from the files in `public/brand/`. Never a text "Visualize." in a typeface, never an inline copy, never the V. as a favicon or app icon (the favicon and app icon are the Aperture crosshair).
+* The mark is the Aperture Round (four round ended arcs around a red dot); the wordmark is "Visualize." with the period. Reversed (light letters) on dark surfaces, primary (ink) on light ones; the admin's own surfaces use `tone="auto"`.
+* Minimums: wordmark 96 px wide, icon 24 px. Clear space is half the V cap height. No outline, stroke, gradient, shadow, italic or filter.
+* A full screen or full panel that waits shows `LogoSpinner`: the icon turning once per 1.1 s, flat, still with a slow pulse under Reduce motion. It appears only while something is really loading and never holds on a timer. Small content skeletons stay gray blocks; a button keeps its small `Spinner`.
+* The service worker's push `icon` is `/icon-192.png` and the `badge` is `/badge-96.png` (white on transparent). docs/LOGO-ROLLOUT.md has the file map and the list of places only Rob can upload to.
