@@ -111,7 +111,9 @@ export const sidebarStyles = `
   .sh-group-items { display: flex; flex-direction: column; gap: 2px; }
   .sh-side.is-collapsed .sh-group-items { align-items: center; }
   .sh-group-items--studio { padding-top: var(--v-space-1); }
-  .sh-side-label { margin: 0; padding: var(--v-space-1) var(--v-space-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-sidebar-text-3); }
+  .sh-side-label { margin: 0; padding: var(--v-space-1) var(--v-space-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  /* The drawer borrows the label; only inside the sidebar does it read the sidebar's own text token (light theme contrast). */
+  .sh-side .sh-side-label { color: var(--v-sidebar-text-3); }
   .sh-side-rule { display: block; width: 24px; height: 1px; margin: var(--v-space-1) 0; background: var(--v-sidebar-border); }
   .sh-nav {
     position: relative; display: flex; align-items: center; gap: var(--v-space-3); width: 100%;
