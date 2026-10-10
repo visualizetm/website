@@ -77,6 +77,8 @@ node scripts/score-test.mjs                     # the lead score: every rule, th
 node scripts/send-email-test.mjs                # the four emails: whitelist, payload shapes, 503 and 502, the stamps, the rate limit, hook URLs never leak
 node scripts/tasks-test.mjs                     # the task rule (src/shared/taskRules.js and its api mirror byte for byte): pinned, due, ties, undated, templates, the checklist sanitizer on leads and projects, the retainer delivered count by kind
 node scripts/share-test.mjs                     # Save to photos (src/lib/share.js) with navigator.share and canShare mocked: share, download, cancel, every fallback, the attachment link
+node scripts/review-link-test.mjs; node scripts/review-guard-proof.mjs   # review links: the token, the public door's whitelist, validations and limits, the consent gate, the landing and showcase rules, the average rating; then each of the 23 guards cut out in turn, its check must fail
+node scripts/qr-test.mjs                        # the QR encoder decoded by jsqr down to 160px with and without the Aperture panel, module for module against qrcode
 node scripts/analytics-test.mjs                 # the Analytics rules (src/lib/analytics.js and api/_lib/analytics.js byte for byte below ANALYTICS_RANGES) in both zones, and the route
 node scripts/deals-test.mjs                     # the deal: every transition, every next action rule, stalledSince, the mark paid conversion and its undo, invoiceStatus across month ends, the mirrors, the handlers
 node scripts/planner-endpoint-test.mjs; node scripts/showcase-endpoint-test.mjs; node scripts/concepts-endpoint-test.mjs   # the three public doors: exact whitelists, identical 404s, the limiters

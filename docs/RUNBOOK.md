@@ -258,6 +258,22 @@ must-revalidate`, since these prerendered files are only ever as fresh as
 the last build and should never be cached as if immutable, unlike /assets
 and /fonts.
 
+## Review links
+
+A client's review link is minted on the Reviews screen (open the client,
+Review Visualize, Generate review link); Copy, the QR's Download PNG and
+Share do the sending, Mark as sent stamps it and ticks the project's step.
+Regenerate kills the old link and the old QR the moment it runs, so print a
+new card after it. What comes back is pending until you Approve it (only
+with consent) and Feature puts it on the landing. Set your own Google
+review link under Settings, Profile: the thank you page offers it after a
+review. The public door is /api/review on the showcase function (no new
+function, no new variable); its limits are one submission per link every
+ten minutes and five a day, and one counted view an hour.
+`node scripts/review-link-test.mjs` runs the rules and the route,
+`node scripts/review-guard-proof.mjs` cuts each guard out in turn,
+`node scripts/qr-test.mjs` decodes the QR with an independent reader.
+
 ## Scripts
 
 ```

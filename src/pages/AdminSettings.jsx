@@ -244,6 +244,11 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <p className="dt-muted">Next up says when you are outside them and the best window reads against them.</p>
         <Grid minColumnWidth={140} gap={2}><Input label="Start" type="time" value={profile.businessHours?.start || '09:00'} onChange={(e) => saveProfile({ businessHours: { start: e.target.value } })} /><Input label="End" type="time" value={profile.businessHours?.end || '17:00'} onChange={(e) => saveProfile({ businessHours: { end: e.target.value } })} /></Grid>
       </Card>
+      <Card className="st-card" data-card="google-review">
+        <p className="pb-card-h">Google review link</p>
+        <p className="dt-muted">My own Google review link. After a client reviews me through their link, the thank you page offers Leave it on Google too; empty, it offers nothing.</p>
+        <div className="v-field"><span className="v-field-label">Google review link</span><InlineEdit value={profile.googleReviewUrl || ''} onSave={(v) => saveProfile({ googleReviewUrl: String(v).trim() })} placeholder="Paste the g.page review link" label="Google review link" type="url" className="st-google-review" /></div>
+      </Card>
       <PasswordCard />
     </Stagger>
   ) : tab === 'notifications' ? (
