@@ -67,6 +67,7 @@ import PauseCircle from '@untitled-ui/icons-react/build/esm/PauseCircle';
 /* studio (Prompt 11) */
 import Scissors01 from '@untitled-ui/icons-react/build/esm/Scissors01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
+import Share01 from '@untitled-ui/icons-react/build/esm/Share01';
 import Upload01 from '@untitled-ui/icons-react/build/esm/Upload01';
 /* settings + submissions (Prompt 12) */
 import File06 from '@untitled-ui/icons-react/build/esm/File06';
@@ -130,7 +131,7 @@ export const ICONS = {
   /* clients */
   RefreshCw01, Link01, Folder, CreditCard01, Send01, LinkExternal01, Colors, PauseCircle,
   /* studio */
-  Scissors01, Download01, Upload01,
+  Scissors01, Download01, Share01, Upload01,
   /* settings + submissions */
   File06, Key01, Archive, Printer, Database01, AlertTriangle, CheckCircle, Download04,
   /* appearance + shell state (Prompt 14) */

@@ -167,6 +167,8 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchPro
   };
 
   /* Delivery checklist (Delivered stage). */
+  /* Review links: the Delivery checklist's Send review link step opens this client's Reviews card with the link minted if it is missing. */
+  const sendReviewLink = () => { shell?.go?.('reviews', { leadId: String(lead._id), generate: true }); };
   const setDelivery = async (p, id, v) => {
     const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(p.delivery || {}) };
     if (id === 'followUp') {
@@ -224,7 +226,7 @@ export function useClientWorkspace({ lead, projects, patch, patchRaw, onPatchPro
     lead, readOnly, patch, patchRaw, toast, confirm, email, busy,
     mine, work, current, setProjId, ret, retPlan, retProject, months, ledger, posts, plannerOn, paidPulse, retPulse,
     openNew, openRet, openRound, openPay, openManual, openLogDel,
-    pp, ppRaw, setStage, advance, archive, payInvoice, setRet, cancelRetainer, cancelNow, setDelivery, writeInvoices,
+    pp, ppRaw, setStage, advance, archive, payInvoice, setRet, cancelRetainer, cancelNow, setDelivery, writeInvoices, sendReviewLink,
     modals,
   };
 }

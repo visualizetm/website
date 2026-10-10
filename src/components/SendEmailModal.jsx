@@ -69,6 +69,7 @@ export default function SendEmailModal({ lead, kind, invoice = null, project = n
         {kind === 'onboarding' && <Field label="Variant" value={payload.variant} />}
         {kind === 'invoice' && <Field label="Invoice" value={payload.invoice ? `${payload.invoice.label || 'Invoice'}, ${money(payload.invoice.amount)}, due ${fmtDate(payload.invoice.dueAt) || payload.invoice.dueAt}` : 'None picked'} />}
         {kind === 'delivery' && <Field label="Drive link" value={payload.driveLink || 'No Drive link yet'} />}
+        {kind === 'delivery' && <Field label="Review link" value={payload.reviewLink || 'No review link yet, generate one on Reviews'} />}
         <Field label="Meeting link" value={payload.calendlyLink} />
         <p className="dt-muted">Zapier sends it from the studio address. The record gets a stamp and a contact log entry when it goes.</p>
       </Stack>

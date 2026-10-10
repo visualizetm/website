@@ -50,6 +50,8 @@ export const tokenStyles = `
     --v-chart-1: #d44c43; --v-chart-2: #60a5fa; --v-chart-3: #22c55e;
     --v-chart-4: #f59e0b; --v-chart-5: #a78bfa; --v-chart-6: #34d399;
     --v-chart-text: var(--v-text-inverse);
+    /* The review link's QR (review links job): Visualize ink on paper in every theme, a canvas reads these. */
+    --v-qr-ink: var(--v-text-inverse); --v-qr-paper: var(--v-text-on-red);
 
     /* Typography */
     --v-font-display: 'Barlow Condensed', 'Inter', -apple-system, sans-serif;

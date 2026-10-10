@@ -36,5 +36,7 @@ export function buildEmailPayload(kind, { lead, project = null, invoice = null, 
   if (kind === 'onboarding') payload.variant = variantOf(packageId);
   if (kind === 'invoice') payload.invoice = invoice ? { label: str(invoice.label, 120), amount: Number(invoice.amount) || 0, dueAt: str(invoice.dueAt, 10) } : null;
   if (kind === 'delivery') payload.driveLink = str(project?.links?.drive || lead?.links?.drive, 400);
+  // Review links: the delivery email names the client's Visualize review link once it exists (the Reviews card mints it).
+  if (kind === 'delivery') payload.reviewLink = lead?.reviews?.visualize?.token ? `https://visualizestudio.org/r/${str(lead.reviews.visualize.token, 64)}` : '';
   return payload;
 }

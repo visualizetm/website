@@ -171,6 +171,9 @@ Use when: the sidebar's workspaces. Not when: views of one list (SegmentedContro
 ### BarChart, LineChart, DonutChart (the nav revamp)
 `data [{ label, value }]`, `format`, `label` (the table caption), `height`, `tone` (a chart token, `--v-chart-1` by default). Small SVG charts, tokens only, every value written on the chart (a bar's value, the line's last point, the donut's total and a named row per slice), the labels thinned past eight points so 320 stays readable. The SVG is decorative to a screen reader; a visually hidden table carries the same numbers. Chart colours are the `--v-chart-*` tokens (3:1 against every layer, docs/TOKENS.md). The Analytics home draws them from /api/admin/analytics; a skeleton stands in while it loads and an EmptyState says what would fill each one.
 
+### QrCode (review links)
+`value`, `size` (CSS pixels a side, 160 by default), `icon` (the Aperture mark on a paper panel in the middle, on by default), `label`, `downloadName`. A QR code painted on a canvas from src/lib/qr.js (byte mode, versions 1 to 10, no library), Visualize ink on paper in every theme (`--v-qr-ink`, `--v-qr-paper`), with Download PNG under it. With the icon the code is error correction level H and the panel is 22 percent of the side, which scripts/qr-test.mjs decodes with an independent reader down to 160px; without it the code is level M. The Reviews card draws the client's review link with it.
+
 ### PageHeader (the nav revamp)
 `crumbs [{ id, label, onClick }]`, `title`, `onBack`, `actions`, children (the centre). The one header shape: the breadcrumb (the workspace, then the page; the workspace crumb opens its dashboard), the title, Back when the history entry has one, the actions on the right. The shell's top bar renders it for every screen from useTopBar, so a screen never draws its own.
 

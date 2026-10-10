@@ -835,7 +835,7 @@ export default function AdminApp() {
         <AdminConcepts sets={V.sets} leads={V.leads} loading={setsLoading || callLeadsLoading || forceLoading} error={errors.sets} onRetry={loadSets} />
       )}
       {section === 'reviews' && (
-        <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} />
+        <AdminReviews leads={V.leads} projects={V.projects} submissions={V.items} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatch={patchCallLead} onPatchSubmission={patch} onPatchProject={patchProject} preset={presetFor('reviews')} />
       )}
       {section === 'landing' && (
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Chip, Pill, Avatar, Input, Select, Button, InlineEdit, Toggle, ListRow, Sheet, EmptyState, NoResults, ErrorState, Stagger, IconTile, SkeletonBlock, RecordSkeleton, useDelayedLoading, useToast, useRetry,
+  QrCode, useConfirm,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
@@ -13,7 +14,9 @@ import { REVIEW_CHANNELS, REVIEW_RESULTS, normalizeStage } from '../shared/seman
 import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
 import { matchesSearch } from '../lib/leads';
 import { today } from '../lib/projects';
-import { reviewsOf, asksOf, lastAsk, reviewDelta, REVIEW_FILTERS, reviewPasses, askTexts, releasedProject, reviewAskDue } from '../lib/reviews';
+import { reviewsOf, asksOf, lastAsk, reviewDelta, REVIEW_FILTERS, reviewPasses, askTexts, releasedProject, reviewAskDue, reviewUrl, visualizeOf, generateLinkPatch, markSentPatch, reviewMessage, submissionsOf, testimonialPatch } from '../lib/reviews';
+import { projectsOf, deliveryStepsAfter } from '../lib/projects';
+import { canApprove, quoteOf, REVIEW_PULL_MAX } from '../lib/reviewPublic';
 
 /* Reviews (Prompt 11): Google reviews per client, NFC cards, asks, and the
  * website review form submissions. */
@@ -40,7 +43,130 @@ export function ReviewCard({ lead, projects, onOpen, selected }) {
 }
 ReviewCard.Skeleton = function ReviewCardSkeleton() { return <Card padding={3} aria-busy="true" className="rv-skel"><Row gap={2}><SkeletonBlock width={32} height={32} radius="50%" /><SkeletonBlock width="50%" height={14} /></Row><SkeletonBlock width="60%" height={12} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>; };
 
-function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onClose }) {
+
+/* ── Review Visualize (review links job) ───────────────────────────
+ * The link for this client to review me: minted on the server when the
+ * button is pressed (src/lib/reviews.js generateLinkPatch), shown with
+ * Copy, a QR to print, Open and Regenerate behind a confirm (the old link
+ * dies). The message is in my voice; Share uses the phone's sheet. Marking
+ * it sent stamps the link and ticks the newest project's review step. */
+const STARS = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+function ReviewVisualizeCard({ lead, projects, onPatch, onPatchProject, preset }) {
+  const toast = useToast();
+  const [confirm, confirmDialog] = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const v = visualizeOf(lead);
+  const url = reviewUrl(lead);
+  const subs = submissionsOf(lead);
+  const message = reviewMessage(lead);
+  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const generate = async (regenerate = false) => {
+    setBusy(true);
+    const ok = await onPatch(lead._id, generateLinkPatch(lead, regenerate));
+    setBusy(false);
+    if (ok) toast.success(regenerate ? 'New link made. The old one is dead.' : 'Review link ready.');
+    return ok;
+  };
+  /* The delivery hook: opened from a project's Send review link step with the link still missing. Once per request. */
+  const did = useRef(0);
+  useEffect(() => {
+    const p = preset?.preset;
+    if (!p?.generate || String(p.leadId) !== String(lead._id) || did.current === preset.n || v?.token) return;
+    did.current = preset.n;
+    generate(false);
+  }, [preset, lead._id, v?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const regenerate = async () => {
+    if (!(await confirm({ title: 'Make a new link?', body: 'The old link and the old QR stop working the moment the new one exists. Anyone who still has them sees the expired page.', danger: true, confirmLabel: 'Regenerate' }))) return;
+    await generate(true);
+  };
+  const share = async () => { try { await navigator.share({ text: message }); } catch { /* cancelled */ } };
+  const markSent = async () => {
+    setBusy(true);
+    const ok = await onPatch(lead._id, markSentPatch(lead));
+    const latest = projectsOf(projects, lead._id)[0];
+    if (ok && latest && onPatchProject) {
+      const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(latest.delivery || {}) };
+      await onPatchProject(latest._id, { delivery: { ...d, reviewLinkSent: true, steps: deliveryStepsAfter(d, 'reviewLinkSent', true) } });
+    }
+    setBusy(false);
+    if (ok) toast.success(latest ? `Marked sent, and ticked on ${latest.name}.` : 'Marked sent.');
+  };
+  if (!url) {
+    return (
+      <Card level={2} padding={3} className="rv-vz" data-card="review-visualize">
+        <EmptyState size="sm" icon="Star01" title={COPY.empty['reviews.visualize'].title} description={COPY.empty['reviews.visualize'].description} action={{ label: COPY.empty['reviews.visualize'].action, onClick: () => generate(false), loading: busy }} />
+        {confirmDialog}
+      </Card>
+    );
+  }
+  return (
+    <Card level={2} padding={3} className="rv-vz" data-card="review-visualize">
+      <p className="pb-card-h">The link</p>
+      <Row gap={2} align="center" wrap={false} className="rv-vz-link"><span className="rv-vz-url lay-truncate">{url}</span><Button variant="secondary" size="md" icon={Copy01} onClick={() => copyText(toast, url, 'Link')} className="rv-vz-copy" aria-label="Copy the review link">Copy</Button></Row>
+      <Row gap={3} align="start" wrap className="rv-vz-body">
+        <QrCode value={url} size={160} icon label={`QR code for ${lead.business}'s review link`} downloadName={`${lead.showcase?.slug || String(lead.business || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-review-qr`} />
+        <Stack gap={2} className="rv-vz-side">
+          <p className="dt-muted rv-vz-stats">{Number(v.views) || 0} view{Number(v.views) === 1 ? '' : 's'}, {subs.length} submission{subs.length === 1 ? '' : 's'}{v.lastViewedAt ? `, last opened ${relativeTime(v.lastViewedAt)}` : ''}.</p>
+          {v.sentAt ? <Pill tone="booked" label={`Sent ${fmtDate(v.sentAt)}`} size="sm" icon={false} /> : <Pill tone="neutral" label="Not sent yet" size="sm" icon={false} />}
+          <Row gap={2} wrap>
+            <Button variant="secondary" size="md" icon="LinkExternal01" href={url} target="_blank" rel="noopener noreferrer" className="rv-vz-open">Open</Button>
+            <Button variant="ghost" size="md" icon="RefreshCw01" onClick={regenerate} loading={busy} className="rv-vz-regen">Regenerate</Button>
+          </Row>
+        </Stack>
+      </Row>
+      <p className="pb-card-h">Send it</p>
+      <div className="rv-text"><p className="rv-text-body">{message}</p>
+        <Row gap={2} wrap>
+          <Button variant="secondary" size="md" icon={Copy01} onClick={() => copyText(toast, message, 'Message')} className="rv-vz-copy-msg">Copy</Button>
+          {canShare && <Button variant="secondary" size="md" icon="Share01" onClick={share} className="rv-vz-share">Share</Button>}
+          <Button size="md" icon={Check} onClick={markSent} loading={busy} className="rv-vz-sent">{v.sentAt ? 'Sent again' : 'Mark as sent'}</Button>
+        </Row>
+      </div>
+      {confirmDialog}
+    </Card>
+  );
+}
+
+/* What came back through the link: pending first. The text is never edited;
+ * the pull quote is the one line Rob writes for the card. Approve needs
+ * consent (the server refuses it too); Hide takes it off the site; Feature
+ * puts an approved one on the landing. */
+function SubmissionsCard({ lead, onPatch, onPatchRaw }) {
+  const toast = useToast();
+  const subs = submissionsOf(lead);
+  const write = async (id, set, said) => { const ok = await onPatch(lead._id, testimonialPatch(lead, id, set)); if (ok && said) toast.success(said); return ok; };
+  const tone = (st) => (st === 'approved' ? 'booked' : st === 'hidden' ? 'neutral' : 'new');
+  return (
+    <Card level={2} padding={3} className="rv-subs" data-card="review-submissions">
+      <p className="pb-card-h">What they said</p>
+      {!subs.length ? <EmptyState size="sm" icon="Inbox01" title={COPY.empty['reviews.submissions'].title} description={COPY.empty['reviews.submissions'].description} /> : (
+        <Stack gap={2}>
+          {subs.map(t => (
+            <Card key={t.id} level={3} padding={3} className="rv-sub" data-status={t.status}>
+              <Row gap={2} align="center" justify="between" wrap>
+                <span className="rv-sub-who"><strong>{t.name || 'Someone'}</strong>{t.role ? `, ${t.role}` : ''}{t.business && t.business !== lead.business ? `, ${t.business}` : ''}</span>
+                <Row gap={1} align="center"><span className="rv-stars" aria-label={`${t.rating} of 5 stars`}>{STARS(t.rating || 0)}</span><Pill tone={tone(t.status)} label={t.status === 'approved' ? 'Approved' : t.status === 'hidden' ? 'Hidden' : 'Pending'} size="sm" icon={false} /></Row>
+              </Row>
+              <p className="rv-sub-text">{t.text}</p>
+              <p className="dt-muted">{t.createdAt ? fmtDateTime(t.createdAt) : ''}{t.consent ? ', ok to share on the site' : ', not to be shared: read it, never publish it'}</p>
+              {t.status === 'approved' && (
+                <div className="v-field"><span className="v-field-label">Pull quote, {REVIEW_PULL_MAX} characters at most</span><InlineEdit value={t.pullQuote || ''} onSave={(val) => (onPatchRaw || onPatch)(lead._id, testimonialPatch(lead, t.id, { pullQuote: String(val).trim().slice(0, REVIEW_PULL_MAX) }))} placeholder={quoteOf(t)} label="Pull quote" multiline className="rv-sub-pull" /></div>
+              )}
+              <Row gap={2} wrap className="rv-sub-acts">
+                {t.status !== 'approved' && <Button size="md" variant="secondary" icon={Check} disabled={!canApprove(t)} title={canApprove(t) ? undefined : 'No consent to share, so it cannot be approved'} onClick={() => write(t.id, { status: 'approved', approvedAt: new Date().toISOString() }, 'Approved. It shows on their showcase.')} className="rv-sub-approve">Approve</Button>}
+                {t.status !== 'hidden' && <Button size="md" variant="ghost" icon="EyeOff" onClick={() => write(t.id, { status: 'hidden', featured: false }, 'Hidden.')} className="rv-sub-hide">Hide</Button>}
+                {t.status === 'approved' && <Button size="md" variant={t.featured ? 'primary' : 'ghost'} icon="Star01" onClick={() => write(t.id, { featured: !t.featured }, t.featured ? 'Off the landing.' : 'On the landing.')} className="rv-sub-feature" aria-pressed={!!t.featured}>{t.featured ? 'Featured' : 'Feature'}</Button>}
+                {!canApprove(t) && t.status === 'pending' && <span className="dt-muted rv-sub-note">No consent to share.</span>}
+              </Row>
+            </Card>
+          ))}
+        </Stack>
+      )}
+    </Card>
+  );
+}
+
+function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onPatchProject, preset, onClose }) {
   const toast = useToast();
   const r = reviewsOf(lead);
   const [counts, setCounts] = useState({ count: r.latest?.count ?? '', rating: r.latest?.rating ?? '' });
@@ -65,6 +191,7 @@ function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onClose }) {
   return (
     <Sheet open onClose={onClose} title={lead.business} description={rp ? `${rp.name} released ${fmtDate(rp.releasedAt)}` : undefined} tall width={520} className="rv-sheet">
       <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
+        <div className="rv-half" data-half="theirs"><p className="rv-half-h">Their reviews</p><p className="rv-half-sub">{lead.business}'s own Google reviews: the link, the NFC card, the counts and every ask.</p></div>
         <Card level={2} padding={3}>
           <div className="v-field"><span className="v-field-label">Google link</span><InlineEdit value={r.googleLink || ''} onSave={(v) => writeRaw({ googleLink: v.trim() })} placeholder="Paste the review link" label="Google review link" className="rv-link-edit" /></div>
           {r.googleLink && <Button variant="secondary" size="md" full icon="Star01" iconEnd="LinkExternal01" onClick={() => window.open(r.googleLink, '_blank', 'noopener')}>Open Google reviews</Button>}
@@ -89,12 +216,15 @@ function ReviewSheet({ lead, projects, onPatch, onPatchRaw, onClose }) {
           {askTexts(lead).map(t => <div key={t.id} className="rv-text"><p className="rv-text-body">{t.text}</p><Button variant="secondary" size="md" icon={Copy01} onClick={() => copyText(toast, t.text, t.label)} className="rv-copy">Copy {t.label.toLowerCase()}</Button></div>)}
           {!r.googleLink && <p className="dt-muted">Add the Google link above and it is appended to both texts.</p>}
         </Card>
+        <div className="rv-half" data-half="visualize"><p className="rv-half-h">Review Visualize</p><p className="rv-half-sub">A link for {lead.business} to review me. What comes back lands below, pending until I approve it.</p></div>
+        <ReviewVisualizeCard lead={lead} projects={projects} onPatch={onPatch} onPatchProject={onPatchProject} preset={preset} />
+        <SubmissionsCard lead={lead} onPatch={onPatch} onPatchRaw={onPatchRaw} />
       </Stagger>
     </Sheet>
   );
 }
 
-export default function AdminReviews({ leads = [], projects = [], submissions = [], loading, error, onRetry, onPatch, onPatchSubmission }) {
+export default function AdminReviews({ leads = [], projects = [], submissions = [], loading, error, onRetry, onPatch, onPatchSubmission, onPatchProject, preset }) {
   const toast = useToast();
   const shell = useShell();
   const [retry, retrying] = useRetry(onRetry);
@@ -112,6 +242,9 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
   useScreenOrigin(() => ({ filters: { filter, q }, selectedId: selId }));
   useRestore((o) => { if (o.filters) { if (o.filters.filter) setFilter(o.filters.filter); setQ(o.filters.q || ''); } });
   const pendingOpen = !!selId && loading;
+  /* Review links: a project's Send review link step lands here with the client to open (the card mints the link). */
+  const openedPreset = useRef(0);
+  useEffect(() => { const id = preset?.preset?.leadId; if (!id || openedPreset.current === preset.n) return; openedPreset.current = preset.n; if (String(selId) !== String(id)) openSel(id, { replace: true }); }, [preset, selId, openSel]);
 
   const clients = useMemo(() => leads.filter(l => normalizeStage(l) === 'client').sort((a, b) => (reviewAskDue(b, projects, now) ? 1 : 0) - (reviewAskDue(a, projects, now) ? 1 : 0) || String(a.business).localeCompare(String(b.business))), [leads, projects, now]);
   const counts = useMemo(() => Object.fromEntries(REVIEW_FILTERS.map(([id]) => [id, clients.filter(l => reviewPasses(l, projects, id, now)).length])), [clients, projects, now]);
@@ -167,7 +300,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
         )}
       </ScrollArea>
       {pendingOpen && !sel && <Sheet open onClose={close} title={<SkeletonBlock width={140} height={22} />} tall width={520} className="rv-sheet">{showSkel && <RecordSkeleton cards={3} header={false} heights={[300, 220, 350]} />}</Sheet>}
-      {sel && <ReviewSheet lead={sel} projects={projects} onPatch={patch} onPatchRaw={onPatch} onClose={close} />}
+      {sel && <ReviewSheet lead={sel} projects={projects} onPatch={patch} onPatchRaw={onPatch} onPatchProject={onPatchProject} preset={preset} onClose={close} />}
       {linkSub && <LeadPicker leads={leads} title="Link to client" description={`${linkSub.business || linkSub.name}: logs an ask with result left.`} filter={(l) => normalizeStage(l) === 'client'} onClose={() => setLinkSub(null)} onPick={(l) => linkForm(linkSub, l)} />}
       <style>{rvStyles}</style>
     </PageShell>
@@ -187,4 +320,21 @@ const rvStyles = `
   .rv-text { display: flex; flex-direction: column; gap: var(--v-space-2); padding: var(--v-space-3); background: var(--v-surface-3); border-radius: var(--v-radius-md); }
   .rv-text-body { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .rv-link-edit .v-inline-text { overflow-wrap: anywhere; }
+  /* The two halves of a client's sheet (review links job): Their reviews, then Review Visualize. */
+  .rv-half { display: flex; flex-direction: column; gap: 2px; padding-top: var(--v-space-2); }
+  .rv-half-h { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-lg); line-height: var(--v-lh-lg); font-weight: var(--v-weight-bold); color: var(--v-text); text-transform: uppercase; letter-spacing: var(--v-ls-lg); }
+  .rv-half-sub { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .rv-vz { gap: var(--v-space-3); }
+  .rv-vz-link { min-width: 0; }
+  .rv-vz-url { flex: 1; min-width: 0; font-size: var(--v-text-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; }
+  .rv-vz-body { min-width: 0; }
+  /* A basis of 160 (not 0): the side wraps under the QR when the two do not fit, as at 320. */
+  .rv-vz-side { flex: 1 1 160px; min-width: 0; }
+  .rv-vz-stats { margin: 0; }
+  .rv-subs { gap: var(--v-space-3); }
+  .rv-sub { gap: var(--v-space-2); }
+  .rv-sub-who { font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; }
+  .rv-stars { color: var(--v-status-callback-text); letter-spacing: 1px; font-size: var(--v-text-sm); }
+  .rv-sub-text { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .rv-sub-acts { align-items: center; }
 `;

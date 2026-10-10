@@ -93,11 +93,17 @@ export const PIPE_EXTRA = {
           updatedAt: NOW_ISO,
         } },
   12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
-        reviews: { nfcCard: true, nfcGivenAt: daysFrom(-20), googleLink: 'https://g.page/r/' + UNBROKEN, baseline: { count: 12, rating: 4.3, at: daysFrom(-30) }, latest: { count: 19, rating: 4.6, at: daysFrom(-2) }, asks: [{ at: new Date(Date.now() - 5 * 864e5).toISOString(), channel: 'nfc', result: 'asked', note: 'Handed the card ' + UNBROKEN.slice(0, 30) }, { at: NOW_ISO, channel: 'text', result: 'left', note: '' }],
+        reviews: {
+          /* Review links: the Visualize review link with views and three submissions (pending with consent, pending without, approved and featured). */
+          visualize: { token: 'rvwTESTtoken0123456789abcd', createdAt: daysFrom(-10), regeneratedAt: '', views: 7, lastViewedAt: new Date(Date.now() - 2 * 3600e3).toISOString(), sentAt: daysFrom(-9) },
+          nfcCard: true, nfcGivenAt: daysFrom(-20), googleLink: 'https://g.page/r/' + UNBROKEN, baseline: { count: 12, rating: 4.3, at: daysFrom(-30) }, latest: { count: 19, rating: 4.6, at: daysFrom(-2) }, asks: [{ at: new Date(Date.now() - 5 * 864e5).toISOString(), channel: 'nfc', result: 'asked', note: 'Handed the card ' + UNBROKEN.slice(0, 30) }, { at: NOW_ISO, channel: 'text', result: 'left', note: '' }],
           // Site Prompt 2/3 fixture: 2 published testimonials (one also featured) and 1 draft, split across two clients.
           testimonials: [
             { id: 'ts1', quote: 'Rob turned our whole brand around in three weeks.', author: 'Dana K.', role: 'Owner', rating: 5, source: 'nfc', published: true, featured: true, order: 0, at: daysFrom(-10) },
             { id: 'ts2', quote: 'Draft quote waiting on approval.', author: '', role: '', rating: null, source: 'text', published: false, featured: false, order: 1, at: daysFrom(-2) },
+            { id: 'rs1', name: 'Priya N.', role: 'Owner', business: 'Lead Business 12', rating: 5, text: 'Rob made the whole thing easy. The site went live in two weeks and the first week of bookings paid for it. ' + UNBROKEN.slice(0, 40), consent: true, status: 'pending', featured: false, pullQuote: '', createdAt: daysFrom(-1), approvedAt: '', source: 'website', published: false, quote: '', author: 'Priya N.', order: 2, at: daysFrom(-1) },
+            { id: 'rs2', name: 'Sam O.', role: '', business: 'Lead Business 12', rating: 4, text: 'Good work, quick turnaround, would hire again for the next round of prints.', consent: false, status: 'pending', featured: false, pullQuote: '', createdAt: daysFrom(-3), approvedAt: '', source: 'website', published: false, quote: '', author: 'Sam O.', order: 3, at: daysFrom(-3) },
+            { id: 'rs3', name: 'Dana K.', role: 'Owner', business: 'Lead Business 12', rating: 5, text: 'Three weeks from the first call to a brand I am proud to put on the van. Rob listened, pushed back where it mattered, and delivered on the day he said.', consent: true, status: 'approved', featured: true, pullQuote: 'A brand I am proud to put on the van.', createdAt: daysFrom(-14), approvedAt: daysFrom(-12), source: 'website', published: false, quote: '', author: 'Dana K.', order: 4, at: daysFrom(-14) },
           ] },
         retainer: { projectId: 'P12', planId: 'content-kit', amount: 250, status: 'active', startedAt: monthsAgo(2, 12), billDay: 12, nextBillAt: daysFrom(3), cancelAt: '' },
         purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }],

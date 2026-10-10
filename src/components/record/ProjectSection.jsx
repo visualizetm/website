@@ -58,7 +58,12 @@ export default function ProjectSection({ rec }) {
           <div className="rc-group">
             <p className="rc-label">Send delivery</p>
             <Stack gap={0}>
-              {DELIVERY_STEPS.map(st => st.id === 'emailSent' ? (
+              {DELIVERY_STEPS.map(st => st.id === 'reviewLinkSent' ? (
+                <Row key={st.id} gap={2} align="center" justify="between" wrap className="cw-deliv-review">
+                  <Checkbox label="Send review link" checked={!!p.delivery?.reviewLinkSent} onChange={(v) => cw.setDelivery(p, st.id, v)} disabled={readOnly} />
+                  {!readOnly && <Button variant="secondary" size="md" icon="Star01" onClick={() => cw.sendReviewLink(p)} className="cw-send-review">Send review link</Button>}
+                </Row>
+              ) : st.id === 'emailSent' ? (
                 <Row key={st.id} gap={2} align="center" justify="between" wrap className="cw-deliv-email">
                   <Checkbox label={st.label} checked={!!p.delivery?.emailSent} onChange={(v) => cw.setDelivery(p, st.id, v)} disabled={readOnly} />
                   {!readOnly && <Button variant="secondary" size="md" icon="Send01" onClick={() => cw.email.open('delivery', { project: p })} className="cw-send-delivery">Send</Button>}
