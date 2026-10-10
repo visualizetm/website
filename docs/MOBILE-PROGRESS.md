@@ -93,6 +93,8 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 2: src/pages/Portal.jsx at /c/<token> (the standalone branch, no navbar): the ClientBar with the business, the add to home screen hint once per device, the home card (the mark on a brand seamed panel, Hey first name, the status line, Made by Rob) and the Message Rob card (Text me, Email me, Instagram, hours); the expired state with the contact buttons; the audit mocks (PORTAL_TOKEN, PORTAL_RESOLVE, PORTAL_PIN_RESOLVE in audit-fixtures, the mock server's /api/portal), three marketing screens in audit-screens (a11y: 6 rows, 0 violations) and the layout audit's marketing walk (clean at 320, 390, 430, 768, 1280).
 
+- Milestone 3: the Book a call card (Pick a time, a new tab), Your documents (a row per link with its kind, snap stops), Your showcase (See it, Share this with the share sheet or the clipboard), the locked card and the PIN sheet (four digits, a wrong one says so, the limit's 429 says to wait, a right one keeps the unlock on the device for thirty days and reads again); three more marketing screens (locked, the sheet, a wrong PIN); layout marketing walk clean at five widths, a11y 12 rows, 0 violations.
+
 ## Next
-- Portal milestone 3: the book, documents and showcase cards, the PIN sheet and the unlock on the device.
+- Portal milestone 4: the CRM Portal card on the client record.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

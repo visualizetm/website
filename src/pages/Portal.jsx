@@ -1,10 +1,21 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import MessageTextSquare02 from '@untitled-ui/icons-react/build/esm/MessageTextSquare02';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import AtSign from '@untitled-ui/icons-react/build/esm/AtSign';
 import Clock from '@untitled-ui/icons-react/build/esm/Clock';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
+import Calendar from '@untitled-ui/icons-react/build/esm/Calendar';
+import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
+import File06 from '@untitled-ui/icons-react/build/esm/File06';
+import FileAttachment04 from '@untitled-ui/icons-react/build/esm/FileAttachment04';
+import Table from '@untitled-ui/icons-react/build/esm/Table';
+import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
+import Share01 from '@untitled-ui/icons-react/build/esm/Share01';
+import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
+import Lock01 from '@untitled-ui/icons-react/build/esm/Lock01';
+import Check from '@untitled-ui/icons-react/build/esm/Check';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useHead } from '../marketing/useHead';
 import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL } from '../marketing/links';
 import { safeHref } from '../lib/safeUrl';
@@ -80,14 +91,136 @@ function ContactCard({ card }) {
   );
 }
 
+function BookCard({ card }) {
+  const url = safeHref(card.url);
+  if (!url) return null;
+  return (
+    <section className="pt-card" aria-labelledby="pt-book-h">
+      <h2 className="pt-card-h" id="pt-book-h">Book a call</h2>
+      <p className="pt-lead pt-lead--sm">Pick a time that suits you and I'll be on the other end.</p>
+      <div className="pt-actions"><a className="pt-btn" href={url} target="_blank" rel="noreferrer"><Calendar width={18} height={18} aria-hidden="true" />Pick a time<ArrowUpRight width={16} height={16} aria-hidden="true" /></a></div>
+    </section>
+  );
+}
+
+const KIND_ICON = { doc: File06, pdf: FileAttachment04, sheet: Table, drive: Link01, link: Link01 };
+const KIND_LABEL = { doc: 'Doc', pdf: 'PDF', sheet: 'Sheet', drive: 'Drive', link: 'Link' };
+function DocumentsCard({ card }) {
+  const items = (Array.isArray(card.items) ? card.items : []).map(d => ({ ...d, href: safeHref(d.url) })).filter(d => d.href && d.label);
+  if (!items.length) return null;
+  return (
+    <section className="pt-card" aria-labelledby="pt-docs-h">
+      <h2 className="pt-card-h" id="pt-docs-h">Your documents</h2>
+      <ul className="pt-docs">
+        {items.map((d) => { const Icon = KIND_ICON[d.kind] || Link01; return (
+          <li key={d.id || d.href} className="pt-doc">
+            <a className="pt-doc-link" href={d.href} target="_blank" rel="noreferrer">
+              <span className="pt-doc-icon" aria-hidden="true"><Icon width={18} height={18} /></span>
+              <span className="pt-doc-text"><span className="pt-doc-label">{d.label}</span><span className="pt-doc-kind">{KIND_LABEL[d.kind] || 'Link'}</span></span>
+              <ArrowUpRight width={16} height={16} aria-hidden="true" className="pt-doc-arrow" />
+            </a>
+          </li>
+        ); })}
+      </ul>
+    </section>
+  );
+}
+
+/* Share this: the system share sheet with the message when the device has one, else the message goes to the clipboard. */
+function ShowcaseCard({ card }) {
+  const url = safeHref(card.url);
+  const [said, setSaid] = useState('');
+  if (!url) return null;
+  const message = String(card.message || url);
+  const share = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') { await navigator.share({ title: 'Made with Visualize', text: message, url }); setSaid(''); return; }
+      await navigator.clipboard.writeText(message); setSaid('Copied. Paste it anywhere.');
+    } catch (e) { if (e?.name !== 'AbortError') setSaid('Copy the link above and share it anywhere.'); }
+  };
+  return (
+    <section className="pt-card" aria-labelledby="pt-show-h">
+      <h2 className="pt-card-h" id="pt-show-h">Your showcase</h2>
+      <p className="pt-lead pt-lead--sm">Your work is up on visualizestudio.org. Share it with anyone.</p>
+      <div className="pt-actions">
+        <a className="pt-btn" href={url} target="_blank" rel="noreferrer">See it<ArrowUpRight width={16} height={16} aria-hidden="true" /></a>
+        <button type="button" className="pt-btn pt-btn--ghost" onClick={share}><Share01 width={18} height={18} aria-hidden="true" />Share this</button>
+      </div>
+      {said && <p className="pt-line" role="status"><Copy01 width={16} height={16} aria-hidden="true" /><span>{said}</span></p>}
+    </section>
+  );
+}
+
+/* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
+function LockedCard({ card, onUnlock }) {
+  return (
+    <section className="pt-card pt-card--locked" aria-label={`${card.title}, locked`}>
+      <h2 className="pt-card-h">{card.title}</h2>
+      <p className="pt-lead pt-lead--sm">This one is behind your PIN.</p>
+      <div className="pt-actions"><button type="button" className="pt-btn" onClick={onUnlock}><Lock01 width={18} height={18} aria-hidden="true" />Enter PIN</button></div>
+    </section>
+  );
+}
+
+const overlay = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
+/* The PIN sheet: four digits, one input, the answer from /api/portal's pin door; a right PIN's unlock is kept on the device for thirty days and the page reads again. */
+function PinSheet({ token, onClose, onUnlocked }) {
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const submit = async (ev) => {
+    ev?.preventDefault();
+    if (busy) return;
+    if (!/^\d{4}$/.test(pin)) { setError('Four digits.'); return; }
+    setBusy(true); setError('');
+    try {
+      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', pin }) });
+      if (res.status === 401) { setError('That PIN is not it.'); setPin(''); inputRef.current?.focus(); return; }
+      if (res.status === 429) { setError('That is a few tries. Give it fifteen minutes.'); return; }
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const d = await res.json();
+      writeLS(unlockKey(token), String(d.unlock || ''));
+      onUnlocked();
+    } catch { setError('That did not go through. Try again.'); }
+    finally { setBusy(false); }
+  };
+  return overlay(
+    <div className="pt-panel-wrap" role="dialog" aria-modal="true" aria-label="Enter your PIN">
+      <button type="button" className="pt-scrim" aria-label="Close" onClick={onClose} />
+      <form className="pt-panel" onSubmit={submit} noValidate>
+        <div className="pt-panel-head">
+          <span className="pt-panel-title">Enter your PIN</span>
+          <button type="button" className="pt-hint-x" onClick={onClose} aria-label="Close"><XClose width={18} height={18} aria-hidden="true" /></button>
+        </div>
+        <div className="pt-panel-body">
+          <label className="pt-label" htmlFor="pt-pin">The four digits Rob gave you</label>
+          <input id="pt-pin" ref={inputRef} className="pt-input pt-input--pin" type="password" inputMode="numeric" pattern="[0-9]*" autoComplete="one-time-code" maxLength={4} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, '').slice(0, 4)); if (error) setError(''); }} aria-invalid={error ? 'true' : undefined} aria-describedby={error ? 'pt-pin-err' : 'pt-pin-note'} />
+          <p className="pt-note" id="pt-pin-note">Remembered on this device for thirty days.</p>
+          {error && <p className="pt-err" id="pt-pin-err" role="alert">{error}</p>}
+          <button type="submit" className="pt-btn" disabled={busy} aria-busy={busy ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />{busy ? 'Checking' : 'Unlock'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
   const [data, setData] = useState(null);     // { client, cards, pinned, unlocked }
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
   const [hint, setHint] = useState(() => readLS(A2HS_KEY, '') !== 'seen');
+  const [pinOpen, setPinOpen] = useState(false);
+  const [gen, setGen] = useState(0); // bumps to read again after an unlock
 
   const business = data?.client?.business || '';
   useHead({ title: `${business || 'Your portal'} | Visualize.`, description: 'Everything about your work with Visualize, in one place.', noindex: true });
@@ -100,9 +233,11 @@ export default function Portal() {
       .then(async (r) => { if (!live) return; if (r.status === 404) { setState('expired'); return; } if (!r.ok) { setState('failed'); return; } const d = await r.json(); setData(d); setState('ready'); })
       .catch(() => { if (live) setState('failed'); });
     return () => { live = false; };
-  }, [token]);
+  }, [token, gen]);
 
   const dismissHint = () => { setHint(false); writeLS(A2HS_KEY, 'seen'); };
+  const closePin = useCallback(() => setPinOpen(false), []);
+  const unlocked = useCallback(() => { setPinOpen(false); setGen(g => g + 1); }, []);
 
   let body;
   if (state === 'loading') body = <p className="pt-lead" aria-busy="true">One second.</p>;
@@ -127,7 +262,8 @@ export default function Portal() {
           <button type="button" className="pt-hint-x" onClick={dismissHint} aria-label="Dismiss"><XClose width={18} height={18} aria-hidden="true" /></button>
         </div>
       )}
-      {(data?.cards || []).map((card) => { const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} /> : null; })}
+      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} /> : null; })}
+      {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
     </div>
   );
 
@@ -179,4 +315,33 @@ const ptStyles = `
   .pt-hint-x { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; background: transparent; border: 0; border-radius: var(--radius); color: var(--text-secondary); cursor: pointer; }
   .pt-hint-x:hover { background: var(--hover-soft); color: var(--text); }
   .pt-hint-x:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .pt-lead--sm { font-size: 0.9375rem; line-height: 1.5; }
+  /* Documents: one row per link, the whole row the target, snap stop per row so a flick lands on one. */
+  .pt-docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); scroll-snap-type: y proximity; }
+  .pt-doc { scroll-snap-align: start; }
+  .pt-doc-link { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--bg); color: var(--text); text-decoration: none; }
+  .pt-doc-link:hover { background: var(--hover-soft); }
+  .pt-doc-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .pt-doc-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: var(--radius); background: var(--bg-card); color: var(--text-secondary); }
+  .pt-doc-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pt-doc-label { font-size: 0.9375rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .pt-doc-kind { font-size: 0.75rem; color: var(--text-muted); }
+  .pt-doc-arrow { flex-shrink: 0; color: var(--text-muted); }
+  .pt-card--locked { border-left: 6px solid var(--brand); }
+  /* The PIN sheet: a bottom sheet on a phone, a side panel from 768 up (the planner's). */
+  .pt-panel-wrap { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; font-family: var(--font-body); }
+  .pt-scrim { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; background: rgba(0, 0, 0, 0.6); border: 0; cursor: pointer; }
+  .pt-panel { position: relative; display: flex; flex-direction: column; width: 100%; max-height: 92vh; margin-top: auto; background: var(--bg-elevated); border-top: 1px solid var(--border); border-radius: var(--radius-lg) var(--radius-lg) 0 0; animation: ptUp 0.28s var(--ease); }
+  @keyframes ptUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .pt-panel { animation: none; } }
+  @media (min-width: 768px) { .pt-panel { width: min(480px, 100%); max-height: none; height: 100%; margin-top: 0; border-radius: 0; border-top: 0; border-left: 1px solid var(--border); } }
+  .pt-panel-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5); border-bottom: 1px solid var(--border); }
+  .pt-panel-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+  .pt-panel-body { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-3); padding: var(--space-5); overflow-y: auto; }
+  .pt-label { font-size: 0.9375rem; font-weight: 700; color: var(--text); }
+  .pt-note { margin: 0; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
+  .pt-err { margin: 0; font-size: 0.8125rem; font-weight: 600; color: var(--brand-text); }
+  .pt-input { width: 100%; min-height: 48px; padding: var(--space-3) var(--space-4); background: var(--bg-card); color: var(--text); border: 0; border-bottom: 2px solid var(--border-light); border-radius: var(--radius) var(--radius) 0 0; font: inherit; font-size: 1rem; }
+  .pt-input:focus-visible { outline: 0; border-bottom-color: var(--brand); }
+  .pt-input--pin { max-width: 200px; font-size: 1.75rem; letter-spacing: 0.4em; text-align: center; }
 `;
