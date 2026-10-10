@@ -274,6 +274,25 @@ ten minutes and five a day, and one counted view an hour.
 `node scripts/review-guard-proof.mjs` cuts each guard out in turn,
 `node scripts/qr-test.mjs` decodes the QR with an independent reader.
 
+## Client portal
+
+A client's portal link is made on the client record (the Portal card in
+the workspace, Generate link, then the Portal sheet): Copy, the QR's
+Download PNG, Open as the client (the real page in a new tab), Send it
+(the message in my voice, Copy or Share, Mark as sent) and Regenerate,
+which kills the old link, the old QR and every device's unlock. The
+template sets every card's state; each card has Off, On or Auto with its
+Auto rule written under it; the PIN toggle asks for four digits (stored as
+a hash, Reset PIN sets new ones); the documents list takes a label, a link
+and a kind. My phone, email, Calendly link and hours live once under
+Settings, Profile, Client portal, and feed every client's Message Rob and
+Book a call cards. A dead token shows the expired page with my Instagram
+and email. Checks: `node scripts/portal-test.mjs` (the route and the
+registry against the real handlers), `node scripts/portal-guard-proof.mjs`
+(each guard cut in turn) and `node scripts/portal-crm-test.mjs` (the CRM
+helpers); the audits walk /c/<token> in every state (mkt-portal*) and the
+Portal sheet (clients-portal*).
+
 ## Scripts
 
 ```

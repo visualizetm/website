@@ -174,6 +174,22 @@ Use when: the sidebar's workspaces. Not when: views of one list (SegmentedContro
 ### QrCode (review links)
 `value`, `size` (CSS pixels a side, 160 by default), `icon` (the Aperture mark on a paper panel in the middle, on by default), `label`, `downloadName`. A QR code painted on a canvas from src/lib/qr.js (byte mode, versions 1 to 10, no library), Visualize ink on paper in every theme (`--v-qr-ink`, `--v-qr-paper`), with Download PNG under it. With the icon the code is error correction level H and the panel is 22 percent of the side, which scripts/qr-test.mjs decodes with an independent reader down to 160px; without it the code is level M. The Reviews card draws the client's review link with it.
 
+### Portal card and PortalSheet (client portal)
+
+The Portal workspace card (src/components/record/WorkspaceCards.jsx, full
+width under the four like Docs) reads `portalStatus` from src/lib/workspace.js
+and opens `PortalSheet` (src/components/record/PortalSheet.jsx), a tall
+Sheet built from the kit: QrCode for the link, SegmentedControl for the
+template and for each card's Off, On, Auto (the module's Auto rule in a
+line under it), Toggle plus Input for the PIN, InlineEdit for the hours and
+each document's label and link, Menu for a document row's moves, kind and
+Remove (toast.undo brings it back), and the add row of Input, Input, Select
+and Button. Every control sends one small portal patch from src/lib/portal.js
+through rec.patch; the server merges it. Read only hides the controls and
+shows the values. The public page (src/pages/Portal.jsx) is not kit: it is
+the planner's flat client shell on the marketing token set, one drawing per
+module id in its CARD map.
+
 ### PageHeader (the nav revamp)
 `crumbs [{ id, label, onClick }]`, `title`, `onBack`, `actions`, children (the centre). The one header shape: the breadcrumb (the workspace, then the page; the workspace crumb opens its dashboard), the title, Back when the history entry has one, the actions on the right. The shell's top bar renders it for every screen from useTopBar, so a screen never draws its own.
 

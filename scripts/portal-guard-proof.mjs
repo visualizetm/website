@@ -12,7 +12,7 @@ const PP = '_routes/portal-public.js';
 const PM = '_lib/portalModules.js';
 const ST = '_routes/settings.js';
 const CUTS = {
-  mint: [[CL, "token: mint ? randomBytes(18).toString('base64url') : had.token,", "token: mint ? randomBytes(6).toString('base64url') : had.token,"]],
+  mint: [[CL, "token: !mint ? had.token : randomBytes(18).toString('base64url'),", "token: !mint ? had.token : randomBytes(6).toString('base64url'),"]],
   'carry-forward': [
     [CL, "    portal: b.portal && typeof b.portal === 'object' ? {\n      regenerate: b.portal.regenerate === true,", "    portal: b.portal && typeof b.portal === 'object' ? {\n      ...b.portal,\n      regenerate: b.portal.regenerate === true,"],
     [CL, "        views: Number(had.views) || 0,", "        views: Number(asked.views ?? had.views) || 0,"],

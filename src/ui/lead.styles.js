@@ -240,7 +240,6 @@ export const leadDetailStyles = `
   @media (min-width: 560px) { .ps-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px auto; align-items: end; } }
   .ps-pin-row { display: flex; align-items: flex-end; gap: var(--v-space-2); flex-wrap: wrap; }
   .ps-pin-row .v-field { flex: 0 1 140px; }
-  .ps-h { margin: var(--v-space-2) 0 0; font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--v-text-3); }
   .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); --sk-a: 66px; --sk-b: 88px; }
   .rc-docs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); min-width: 0; }
   .rc-docs .rc-ws-title { margin: 0; }

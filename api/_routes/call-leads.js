@@ -535,7 +535,7 @@ export async function handler(req, res) {
       const mint = asked.regenerate || !had.token;
       const now = new Date().toISOString();
       allowed.portal = {
-        token: mint ? randomBytes(18).toString('base64url') : had.token,
+        token: !mint ? had.token : randomBytes(18).toString('base64url'),
         createdAt: had.createdAt || now,
         regeneratedAt: asked.regenerate && had.token ? now : (had.regeneratedAt || ''),
         sentAt: asked.sentAt !== undefined ? asked.sentAt : (had.sentAt || ''),
