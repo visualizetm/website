@@ -97,6 +97,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 4: the Portal workspace card (src/components/record/WorkspaceCards.jsx: Link on or No link, PIN and Sent pills, views and last open, template, cards off, documents, Generate link when there is none) and the Portal sheet (PortalSheet.jsx: the link with Copy, the QR with Download PNG, Open as the client, Regenerate behind a confirm; Send it with the message in my voice, Copy, Share on a device with a share sheet, Mark as sent; the template picker; a three way Off, On, Auto control per card with its Auto rule under it; the PIN toggle, Set and Reset; the hours line; the documents editor with reorder, kind, remove with undo and the add row); src/lib/portal.js (scripts/portal-crm-test.mjs, 10 checks); Grid01 and ChevronUp in the kit's icon map; two more audit screens (clients-portal, clients-portal-none); the fixture client L12 carries a portal.
 
+- Milestone 5: docs (ARCHITECTURE's Client portal section and the /api/portal row, RUNBOOK's Client portal, COMPONENTS' Portal card and PortalSheet, CLAUDE.md's script lines), the mint line fix so each guard proof cuts its own, the orphaned rule removed, the full gate on the final build (reports/PORTAL-1-REPORT.md has every result; the full a11y run, three feel runs and preship were still running when the report was written, after the targeted portal runs had passed).
+
 ## Next
-- Portal milestone 5: the phone pass, the docs, the full gate, the report.
+- Prompt 2: the first sensitive module (Money) and the Project card on the registry; the PIN gate is already proven with a test only module.
+- If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.
