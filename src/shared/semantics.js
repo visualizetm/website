@@ -309,6 +309,7 @@ export const TESTIMONIAL_SOURCES = [
   { id: 'google',    label: 'Google',    icon: 'Star01',          order: 5 },
 ];
 export const TESTIMONIAL_SOURCE_IDS = TESTIMONIAL_SOURCES.map(s => s.id);
+export const TESTIMONIAL_STATUS_IDS = ['pending', 'approved', 'hidden'];
 
 /* ── Submission types (Prompt 12) ──────────────────────────────── */
 export const SUBMISSION_TYPES = [

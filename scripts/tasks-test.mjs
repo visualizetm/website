@@ -78,7 +78,7 @@ section('2. normalize, add, remove, templates');
   const zoned = T.applyTemplate(tpl, '2026-10-30', (k) => `${k}T13:00:00.000Z`);
   ok(zoned.items[0].due === '2026-11-02T13:00:00.000Z', 'a dueAtFor callback turns each day key into an instant and crosses the month end');
   ok(T.applyTemplate(T.templateOf('onboarding'), '').items.every(it => it.due === ''), 'no start date, no due dates');
-  ok(T.CHECKLIST_TEMPLATES.map(t => t.id).join(',') === 'onboarding,brand,website,content-month,ads-launch', 'the five templates are seeded');
+  ok(T.CHECKLIST_TEMPLATES.map(t => t.id).join(',') === 'onboarding,brand,website,content-month,delivery,ads-launch', 'the six templates are seeded');
 }
 
 section('3. the next action a client or a project carries');

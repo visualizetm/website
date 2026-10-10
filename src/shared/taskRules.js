@@ -85,6 +85,8 @@ export const CHECKLIST_TEMPLATES = [
   { id: 'brand', name: 'Brand project', tasks: [['Build concepts', 3], ['Present concepts', 5], ['Revision 1', 10], ['Revision 2', 15], ['Final payment', 18], ['Deliver files', 20], ['Retainer pitch', 23]] },
   { id: 'website', name: 'Website project', tasks: [['Collect content', 3], ['Design pages', 8], ['Build', 15], ['Revision 1', 19], ['Revision 2', 23], ['Launch', 27], ['Final payment', 28], ['Handover', 30]] },
   { id: 'content-month', name: 'Content month', tasks: [['Plan the month', 1], ['Make graphics', 7], ['Write captions', 9], ['Send for approval', 10], ['Chase approvals', 14], ['Report', 28]] },
+  // Review links: the delivery walk as tasks, the review link its own step.
+  { id: 'delivery', name: 'Delivery', tasks: [['Share the Drive folder', 0], ['Send the delivery email', 0], ['Send review link', 0], ['Retainer pitch', 3], ['Follow up', 6]] },
   { id: 'ads-launch', name: 'Meta ads launch', tasks: [['Creative ready', 2], ['Copy and button', 3], ['Audience and budget', 4], ['Client approval', 6], ['Launch', 7], ['Day 3 check', 10], ['Week 1 report', 14], ['Wrap up', 28]] },
 ];
 export const templateOf = (id) => CHECKLIST_TEMPLATES.find(t => t.id === id) || null;

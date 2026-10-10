@@ -12,7 +12,7 @@ import {
   CALL_STATUS_IDS as CALL_STATUSES, PRIORITY_IDS as PRIORITIES, STAGE_IDS as STAGES, DECLINE_REASON_IDS,
   MEETING_TYPE_IDS as MEETING_TYPES, PLAN_IDS, CONTACT_TYPE_IDS,
   RETAINER_STATUS_IDS, CLIENT_STATUS_IDS, REVIEW_CHANNEL_IDS, REVIEW_RESULT_IDS,
-  TESTIMONIAL_SOURCE_IDS,
+  TESTIMONIAL_SOURCE_IDS, TESTIMONIAL_STATUS_IDS,
 } from '../_semantics.js';
 const SOCIAL_KEYS = ['website', 'instagram', 'facebook', 'tiktok', 'google', 'yelp', 'linkedin', 'x', 'youtube'];
 const TLDS = ['com','net','org','co','io','us','de','biz','app','shop','site','store','me','tv','xyz','info'];
@@ -138,7 +138,17 @@ function sanitizeShowcase(sh) {
     },
   };
 }
+/* Review links: a submission from /r/<token> carries name, role, business,
+ * text, consent, status, pullQuote, createdAt and approvedAt beside the typed
+ * testimonial's quote, author, published and order (api/_lib/reviewPublic.js
+ * reads both). The text is never edited here, only carried; the pull quote is
+ * the one line Rob writes. Approving needs consent: a status of approved on
+ * a submission without consent true is stored as pending. */
+const plainText = (v, max) => String(v ?? '').replace(/<\/?[a-z!][^>]*>/gi, '').trim().slice(0, max);
 function sanitizeTestimonial(t) {
+  const consent = t?.consent === true;
+  const statusIn = TESTIMONIAL_STATUS_IDS.includes(t?.status) ? t.status : (t?.status === undefined || t?.status === '' ? '' : 'pending');
+  const status = statusIn === 'approved' && !consent ? 'pending' : statusIn;
   return {
     id: str(t?.id, 40) || String(Math.random()).slice(2, 10),
     quote: str(t?.quote, 400),
@@ -150,6 +160,11 @@ function sanitizeTestimonial(t) {
     featured: !!t?.featured,
     order: Number.isFinite(Number(t?.order)) ? Math.round(Number(t.order)) : 0,
     at: str(t?.at, 40),
+    ...(status || typeof t?.text === 'string' ? {
+      name: str(t?.name, 120), business: str(t?.business, 120), text: plainText(t?.text, 2000), consent,
+      status: status || 'pending', pullQuote: plainText(t?.pullQuote, 140),
+      createdAt: str(t?.createdAt, 40), approvedAt: status === 'approved' ? (str(t?.approvedAt, 40) || new Date().toISOString()) : str(t?.approvedAt, 40),
+    } : {}),
   };
 }
 const strArr = (v, max = 30) => Array.isArray(v) ? v.slice(0, max).map(x => str(x, 600)) : [];
@@ -337,6 +352,8 @@ function sanitize(b) {
       // Site Prompt 2 additive: showcase testimonials, from an ask, a website
       // review submission, or entered by hand.
       testimonials: Array.isArray(b.reviews.testimonials) ? b.reviews.testimonials.slice(0, 100).map(sanitizeTestimonial) : [],
+      // Review links: the Visualize review link. Only regenerate and sentAt are the caller's; the token, the counts and the stamps are resolved below.
+      visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40) } : undefined,
     } : undefined,
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
@@ -492,6 +509,29 @@ export async function handler(req, res) {
      * { planner: { regenerate: true } }, which is the revoke: the old link
      * stops resolving the moment the new token is stored. Turning enabled
      * off keeps the token, so switching it back on revives the same link. */
+    /* Review links: reviews is a full replacement object, so the Visualize
+     * link rides on the record and is carried forward here. A token is
+     * minted when the caller sends reviews.visualize for the first time
+     * (Generate review link) and again only on { regenerate: true }, which
+     * kills the old link the moment the new token is stored; views,
+     * lastViewedAt and createdAt are never taken from the request. */
+    if (allowed.reviews) {
+      const before = await col.findOne({ _id: oidOf }, { projection: { 'reviews.visualize': 1 } });
+      const had = before?.reviews?.visualize || null;
+      const asked = allowed.reviews.visualize;
+      if (asked || had) {
+        const mint = !!asked?.regenerate || !had?.token;
+        const now = new Date().toISOString();
+        allowed.reviews.visualize = {
+          token: mint ? randomBytes(18).toString('base64url') : had.token,
+          createdAt: had?.createdAt || now,
+          regeneratedAt: asked?.regenerate && had?.token ? now : (had?.regeneratedAt || ''),
+          views: Number(had?.views) || 0,
+          lastViewedAt: had?.lastViewedAt || '',
+          sentAt: asked?.sentAt || had?.sentAt || '',
+        };
+      } else delete allowed.reviews.visualize;
+    }
     if (allowed.planner) {
       const before = await col.findOne({ _id: oidOf }, { projection: { planner: 1 } });
       const had = before?.planner || {};

@@ -52,3 +52,27 @@ export function askTexts(lead) {
     { id: 'thanks', label: 'After delivery', text: `Loved working on this with you. If you're happy with how it turned out, a Google review helps more than you know. Here's the link:${tail}` },
   ];
 }
+
+/* ── Review Visualize (review links job) ───────────────────────────
+ * The per client link to the studio's own review page, its message, and
+ * the submissions that come back. The token is minted by the server
+ * (api/_routes/call-leads.js) when reviews.visualize is first sent and on
+ * { regenerate: true }; nothing here invents one. */
+export const REVIEW_LINK_BASE = 'https://visualizestudio.org/r/';
+export const visualizeOf = (lead) => lead?.reviews?.visualize || null;
+export const reviewUrl = (lead) => { const v = visualizeOf(lead); return v?.token ? `${REVIEW_LINK_BASE}${v.token}` : ''; };
+/** The patch that asks the server for a link (first time) or a fresh one (regenerate). */
+export const generateLinkPatch = (lead, regenerate = false) => ({ reviews: { ...reviewsOf(lead), visualize: { ...(visualizeOf(lead) || {}), regenerate } } });
+/** The patch that stamps the link as sent. */
+export const markSentPatch = (lead, now = Date.now()) => ({ reviews: { ...reviewsOf(lead), visualize: { ...(visualizeOf(lead) || {}), sentAt: new Date(now).toISOString() } } });
+/** The message in Rob's voice, the link included. */
+export function reviewMessage(lead) {
+  const url = reviewUrl(lead);
+  const who = String(lead?.askFor || '').trim().split(/[\s,]+/)[0];
+  return `Hey${who ? ` ${who}` : ''}! Loved working on this with you. If you have a minute, I'd really appreciate a few words about how it went. It takes about a minute and it helps me more than you'd think: ${url}`;
+}
+export const testimonialsOf = (lead) => (Array.isArray(lead?.reviews?.testimonials) ? lead.reviews.testimonials : []);
+/** Submissions from the link: pending first, then newest. */
+export const submissionsOf = (lead) => testimonialsOf(lead).filter(t => typeof t.status === 'string' && t.status).sort((a, b) => (a.status === 'pending' ? 0 : 1) - (b.status === 'pending' ? 0 : 1) || (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0));
+/** One testimonial changed, the list otherwise untouched (the text is never edited: only status, featured and the pull quote move). */
+export const testimonialPatch = (lead, id, set) => ({ reviews: { ...reviewsOf(lead), testimonials: testimonialsOf(lead).map(t => (t.id === id ? { ...t, ...set } : t)) } });

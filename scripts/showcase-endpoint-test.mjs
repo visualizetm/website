@@ -251,7 +251,8 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
   ok(res._json.landing.logoStrip.some(c => c.slug === 'full-client'), 'logoStrip includes the client with featured.logoStrip true');
   ok(res._json.landing.work.some(c => c.slug === 'full-client'), 'work includes the client with featured.work true');
   ok(res._json.landing.testimonials.length === 2, 'landing.testimonials includes every published+featured testimonial across all clients');
-  ok(res._json.landing.stats.averageRating === 4.5, `landing.stats.averageRating is the live average of published ratings (got ${res._json.landing.stats.averageRating})`);
+  // Review links: the average is real from three public ratings; the fixtures hold two, and no override is set, so the stat is left out (scripts/review-link-test.mjs covers two with an override and three).
+  ok(!('averageRating' in res._json.landing.stats), `landing.stats.averageRating is absent with two ratings and no override (got ${res._json.landing.stats.averageRating})`);
 }
 {
   const res = await callShowcase({ slug: 'brand-only' });

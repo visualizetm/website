@@ -9,6 +9,7 @@
  * /api/showcase           -> { clients: [...], landing: {...} }
  * /api/showcase?slug=x    -> one client's full object, or 404
  * /api/concepts?token=x   -> api/_routes/concepts-public.js, by the rewrite (r=concepts)
+ * /api/review?token=x     -> api/_routes/review-public.js, by the rewrite (r=review)
  *
  * brand.palette and brand.typography are never stored on showcase.brand;
  * they are read from the lead's own top-level brand block at serve time
@@ -16,8 +17,12 @@
  */
 import { getDb } from './_lib/mongo.js';
 import conceptsPublic from './_routes/concepts-public.js';
+import reviewPublic from './_routes/review-public.js';
+import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from './_lib/reviewPublic.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
+const hexOf = (v) => { const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(v ?? '').trim()); return m ? `#${(m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1]).toLowerCase()}` : ''; };
+const brandHexOf = (lead) => { const b = lead?.brand || {}; for (const c of [b.primary, ...(Array.isArray(b.colors) ? b.colors : [])]) { const h = hexOf(c && typeof c === 'object' ? c.hex : c); if (h) return h; } return ''; };
 // Mirror of src/lib/socials.js instagramHandle(): the handle inside an Instagram URL, or ''.
 const igHandle = (url) => { const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]+)/i); return m ? m[1].replace(/^@+/, '') : ''; };
 
@@ -36,11 +41,10 @@ function typographyOf(brand) {
   ].filter(Boolean);
 }
 
+/* Review links: approved and consented submissions and the typed, published
+ * testimonials, newest first (api/_lib/reviewPublic.js is the rule). */
 function publicTestimonials(list) {
-  return (Array.isArray(list) ? list : [])
-    .filter(t => t?.published)
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
-    .map(t => ({ quote: t.quote || '', author: t.author || '', role: t.role || '', rating: t.rating ?? null, source: t.source || 'text' }));
+  return (Array.isArray(list) ? list : []).filter(isPublicTestimonial).sort(newestFirst).map(publicCard);
 }
 
 function publicSocials(socials) {
@@ -128,15 +132,16 @@ function sortClients(leads) {
   });
 }
 
-async function computeStats(db, published) {
-  const [landingDoc, projectsDelivered, ratings] = await Promise.all([
+/* Every record that holds a testimonial, published showcase or not: a review
+ * from a client without a showcase still counts and still shows. */
+async function leadsWithTestimonials(db) {
+  const rows = await db.collection('call_leads').find({ deleted: { $ne: true } }).toArray();
+  return rows.filter(l => Array.isArray(l.reviews?.testimonials) && l.reviews.testimonials.length);
+}
+async function computeStats(db, published, withTestimonials) {
+  const [landingDoc, projectsDelivered] = await Promise.all([
     db.collection('settings').findOne({ _id: 'landing' }),
     db.collection('projects').countDocuments({ stage: 'delivered' }),
-    db.collection('call_leads').aggregate([
-      { $unwind: '$reviews.testimonials' },
-      { $match: { 'reviews.testimonials.published': true, 'reviews.testimonials.rating': { $ne: null } } },
-      { $group: { _id: null, avg: { $avg: '$reviews.testimonials.rating' }, n: { $sum: 1 } } },
-    ]).toArray(),
   ]);
   const clientsServed = await db.collection('call_leads').countDocuments({ stage: 'client' });
   const clientSinceYears = published
@@ -145,16 +150,16 @@ async function computeStats(db, published) {
   const years = clientSinceYears.length ? Math.max(1, new Date().getFullYear() - Math.min(...clientSinceYears)) : 1;
   const toggles = landingDoc?.stats?.toggles || {};
   const overrides = landingDoc?.stats?.overrides || {};
-  const live = {
-    clientsServed,
-    projectsDelivered,
-    averageRating: ratings[0]?.n ? Math.round(ratings[0].avg * 10) / 10 : null,
-    years,
-  };
+  const live = { clientsServed, projectsDelivered, years };
   const out = {};
-  for (const key of ['clientsServed', 'projectsDelivered', 'averageRating', 'years']) {
+  for (const key of ['clientsServed', 'projectsDelivered', 'years']) {
     if (toggles[key] === false) continue;
     out[key] = Number.isFinite(Number(overrides[key])) ? Number(overrides[key]) : live[key];
+  }
+  /* Review links: the average is real once three or more public ratings exist (reviewPublic.averageRatingStat), the typed override until then. */
+  if (toggles.averageRating !== false) {
+    const stat = averageRatingStat(withTestimonials.flatMap(l => l.reviews.testimonials), overrides.averageRating);
+    if (stat.value !== null) out.averageRating = stat.value;
   }
   return out;
 }
@@ -171,14 +176,18 @@ async function buildLanding(db, published) {
     .slice(0, 6)
     .map(l => ({ slug: l.showcase.slug, displayName: l.showcase.displayName || l.business, type: l.showcase.type || l.industry || '', blurb: l.showcase.blurb || '', cover: l.showcase.cover || '' }));
 
+  /* Review links: featured, approved and consented (or typed and published) testimonials from every client, newest first, at most six.
+   * The card links to the showcase only when it is published; the logo mark and the brand colour ride along for the card's accent. */
+  const withTestimonials = await leadsWithTestimonials(db);
   const testimonials = [];
-  for (const l of published) {
-    for (const t of (l.reviews?.testimonials || [])) {
-      if (t.published && t.featured) testimonials.push({ quote: t.quote || '', author: t.author || '', role: t.role || '', rating: t.rating ?? null, business: l.showcase.displayName || l.business, slug: l.showcase.slug, order: Number(t.order) || 0 });
+  for (const l of withTestimonials) {
+    const sh = l.showcase || {};
+    for (const t of l.reviews.testimonials) {
+      if (!isFeaturedTestimonial(t)) continue;
+      testimonials.push({ ...publicCard(t), business: sh.displayName || l.business || '', slug: sh.published && sh.slug ? sh.slug : '', logo: sh.brand?.logo?.dark || sh.brand?.logo?.light || sh.logoUrl || '', brandHex: brandHexOf(l) });
     }
   }
-  testimonials.sort((a, b) => a.order - b.order);
-  const testimonialsOut = testimonials.slice(0, 6).map(({ order, ...t }) => t);
+  const testimonialsOut = testimonials.sort(newestFirst).slice(0, 6);
 
   // Fallback: nothing featured shows the newest published clients instead.
   const fallbackWork = work.length ? work : sortClients(published).slice(0, 6)
@@ -188,7 +197,7 @@ async function buildLanding(db, published) {
     logoStrip,
     work: fallbackWork,
     testimonials: testimonialsOut,
-    stats: await computeStats(db, published),
+    stats: await computeStats(db, published, withTestimonials),
   };
 }
 
@@ -198,6 +207,7 @@ export default async function handler(req, res) {
    * and the count stays at ten. Its own route() wrapper carries its methods,
    * body cap and try/catch. */
   if (req.query?.r === 'concepts') return conceptsPublic(req, res);
+  if (req.query?.r === 'review') return reviewPublic(req, res);
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });

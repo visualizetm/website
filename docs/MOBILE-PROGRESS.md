@@ -75,3 +75,10 @@ Plan: 1. The plan, the single nav config with workspaces, the route aliases. 2. 
 
 ## Next
 - Nothing open from the nav revamp. Rob's phone: the rail tooltips on touch, the strip's nudge at 320, push links landing on /tasks.
+
+## Review links (per client review link, the public /r/<token> page, the landing reviews section)
+Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the public route, the handler tests. 2. the Reviews page's Review Visualize card and the delivery hook. 3. the public page. 4. the landing section, the showcase block, the real average. 5. the phone pass, docs, the full audits, the report.
+- Milestone 1: src/shared/color.js normalizeBrandColor and brandHexOf; src/lib/reviewPublic.js mirrored in api/_lib/reviewPublic.js (public, featured, the pull quote cut, newest first, the average rating rule); api/_routes/call-leads.js (the submission fields on sanitizeTestimonial, the consent gate, the reviews.visualize token minted and carried forward, regenerate); api/_routes/review-public.js on api/showcase.js by the /api/review rewrite (GET resolve and the hourly view count, POST with every validation, the honeypot, one per ten minutes and five a day, the pending testimonial, the push and the Next up task); the profile's googleReviewUrl; the Delivery template in both taskRules; src/lib/reviews.js helpers for the card. Tests: scripts/review-link-test.mjs (40 checks) and scripts/review-guard-proof.mjs (23 guards cut in turn).
+
+## Next
+- Milestone 2: the Reviews page's Review Visualize card (generate, copy, QR, share, regenerate, the testimonials with Approve, Hide, Feature and the pull quote) and the delivery hook.

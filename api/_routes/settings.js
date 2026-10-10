@@ -1,4 +1,5 @@
 import { getDb } from '../_lib/mongo.js';
+import { safeUrl } from '../_lib/url.js';
 import { emailsConfigured } from '../_lib/email.js';
 import { sendPush } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
@@ -8,7 +9,7 @@ const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true, ideas: true } };
 // Prompt 12: the profile document (greeting name, business hours for the best window).
 // Prompt 14 adds the additive appearance fields: theme (system, dark, light; default dark) and reduceMotion.
-const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false };
+const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false, googleReviewUrl: '' };
 const hhmm = (v, d) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
 const THEMES = new Set(['system', 'dark', 'light']);
 const profileShape = (d = {}) => ({
@@ -16,6 +17,8 @@ const profileShape = (d = {}) => ({
   businessHours: { start: hhmm(d.businessHours?.start, '09:00'), end: hhmm(d.businessHours?.end, '17:00') },
   theme: THEMES.has(d.theme) ? d.theme : PROFILE_DEFAULTS.theme,
   reduceMotion: d.reduceMotion === true,
+  // Review links: the studio's own Google review link, offered on the public thank you state when set.
+  googleReviewUrl: safeUrl(d.googleReviewUrl, 400),
 });
 const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
 const notifShape = (d = {}) => ({

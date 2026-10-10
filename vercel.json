@@ -92,6 +92,10 @@
       "destination": "/api/showcase?r=concepts"
     },
     {
+      "source": "/api/review",
+      "destination": "/api/showcase?r=review"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },
