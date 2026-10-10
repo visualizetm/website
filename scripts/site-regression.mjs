@@ -137,6 +137,33 @@ await step('5. Unpublish: disappears from /clients', async () => {
   if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
 });
 
+await step('5a. The review link page: greeted by name with their mark, sends, thanks with my Google link; a dead token is the expired page', async () => {
+  const TOKEN = 'rvwSITEtoken0123456789abcde';
+  let posted = null;
+  await page.route('**/api/review**', (r) => {
+    const u = new URL(r.request().url()); const token = u.searchParams.get('token') || '';
+    if (token !== TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (r.request().method() === 'POST') { try { posted = JSON.parse(r.request().postData() || '{}'); } catch { posted = {}; } return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true }) }); }
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ business: 'Site Check Co', firstName: 'Sam', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize/review' }) });
+  });
+  await mockAndGoto(page, `/r/${TOKEN}`);
+  const title = (await page.locator('.rl-title').textContent()).trim();
+  if (title !== 'Hey Sam.') throw new Error(`greeting "${title}"`);
+  if (!(await page.locator('.rl-mark img').count())) throw new Error('no client mark');
+  const stars = page.locator('.rvw-star'); if (await stars.count() !== 5) throw new Error('not five stars');
+  const box = await stars.first().boundingBox(); if (!box || box.width < 48 || box.height < 48) throw new Error(`a star is ${box?.width}x${box?.height}`);
+  if ((await page.locator('#rl-role').inputValue()) !== 'Site Check Co' || (await page.locator('#rl-name').inputValue()) !== 'Sam') throw new Error('name and business not prefilled');
+  await page.getByRole('radio', { name: '5 stars' }).click(); await page.locator('#rl-text').fill('Rob made the whole thing easy and the site looks sharp.'); await page.locator('.rl-check').check();
+  await page.getByRole('button', { name: /^Send it/ }).click(); await page.waitForSelector('.rl-done[data-state="done"]', { timeout: 5000 });
+  if (!posted || posted.rating !== 5 || posted.consent !== true || posted.business !== 'Site Check Co' || posted.company !== '') throw new Error(`posted ${JSON.stringify(posted)}`);
+  const google = await page.locator('.rl-done a[href="https://g.page/r/visualize/review"]').count(); if (!google) throw new Error('no Leave it on Google too');
+  await mockAndGoto(page, '/r/deadTOKENxxxxxxxxxxxxxxxx');
+  const dead = (await page.locator('.rl-done[data-state="expired"] .rl-title').textContent().catch(() => '')).trim();
+  if (dead !== 'This link expired.') throw new Error(`expired state reads "${dead}"`);
+  await page.unroute('**/api/review**').catch(() => {});
+  return 'greeted, 48px stars, prefilled, posted with consent, Google offered, expired page';
+});
+
 await step('6. A price in pricing.js reads live on Services, and Home shows no price at all', async () => {
   const brandStarter = PACKAGES.find(p => p.id === 'brand-starter');
   const stickers = ADDONS.find(a => a.id === 'stickers');

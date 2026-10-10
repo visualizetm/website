@@ -190,6 +190,11 @@ export const SCREENS = [
      after a four or five star review). Nothing on the site links here; it
      is noindex and out of the sitemap, but it is still a public page and
      gets audited like one. */
+  /* Review links: /r/<token>, the client's own review page for Visualize. Static (no admin session, no resource), marketing so the a11y audit walks it. */
+  { id: 'mkt-rlink', screen: 'Review link (marketing)', label: 'the form, greeted by name with their mark', path: '/r/rvwTESTtoken0123456789abcd', session: false, static: true, marketing: true },
+  { id: 'mkt-rlink-errors', screen: 'Review link (marketing)', label: 'sent empty: every field says what it needs', path: '/r/rvwTESTtoken0123456789abcd', session: false, static: true, marketing: true, act: (p) => click(p.getByRole('button', { name: /^Send it/ })) },
+  { id: 'mkt-rlink-thanks', screen: 'Review link (marketing)', label: 'the thank you, with Leave it on Google too', path: '/r/rvwTESTtoken0123456789abcd', session: false, static: true, marketing: true, act: async (p) => { await click(p.getByRole('radio', { name: '5 stars' })); await p.locator('#rl-text').fill('Rob made the whole thing easy and the site looks sharp.'); await p.locator('#rl-name').fill('Damian'); await p.locator('.rl-check').check(); await click(p.getByRole('button', { name: /^Send it/ })); await p.waitForSelector('.rl-done[data-state="done"]', { timeout: 4000 }).catch(() => {}); } },
+  { id: 'mkt-rlink-expired', screen: 'Review link (marketing)', label: 'a dead token: the expired state', path: '/r/deadTOKENxxxxxxxxxxxxxxxx', session: false, static: true, marketing: true },
   { id: 'mkt-review', screen: 'Review (marketing)', label: 'form, no slug', path: '/review', session: false, static: true, marketing: true },
   { id: 'mkt-review-slug', screen: 'Review (marketing)', label: 'form, client slug', path: '/review/full-showcase-co', session: false, static: true, marketing: true },
   { id: 'mkt-review-unknown', screen: 'Review (marketing)', label: 'unknown slug falls back to the generic form', path: '/review/does-not-exist', session: false, static: true, marketing: true },

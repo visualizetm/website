@@ -20,6 +20,7 @@ const SceneTest = lazy(() => import('./pages/SceneTest'));   // Site Prompt 11: 
 /* The review form. Nothing links to it: it is a link Rob sends after a
  * delivery, so it is noindex and out of the sitemap. */
 const Review = lazy(() => import('./pages/Review'));
+const ReviewLink = lazy(() => import('./pages/ReviewLink'));   // review links: /r/<token>, a client reviewing me
 /* The client facing Content Planner, opened with a token Rob sends. Also
  * unlinked and noindex: it is somebody's own month, not a page to browse. */
 const Concepts = lazy(() => import('./pages/Concepts'));
@@ -98,7 +99,7 @@ export default function App() {
       </Suspense>
     );
   }
-  if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/')) {
+  if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/') || location.pathname.startsWith('/r/')) {
     /* No splash here. The marketing splash is a fixed, opaque, z-index 9999
      * layer on a 1300ms timer that has nothing to do with whether the page
      * is ready, and its Suspense fallback is hard coded to done={false},
@@ -112,6 +113,7 @@ export default function App() {
           <Routes location={location}>
             <Route path="/review" element={<Review />} />
             <Route path="/review/:slug" element={<Review />} />
+            <Route path="/r/:token" element={<ReviewLink />} />
             <Route path="/planner/:token" element={<Planner />} />
           </Routes>
         </main>

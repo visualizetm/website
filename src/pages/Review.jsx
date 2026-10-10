@@ -40,7 +40,8 @@ const readDraft = (key) => {
  * the first when nothing is picked yet), arrow keys move and pick, so it
  * behaves the way a screen reader user expects a radio group to behave.
  */
-function StarRating({ value, onChange, invalid, describedBy }) {
+/* Shared with the token review page (src/pages/ReviewLink.jsx): `size` is the button's side, 44 here and 48 there. */
+export function StarRating({ value, onChange, invalid, describedBy, size = 44 }) {
   const ref = useRef(null);
 
   const move = (next) => {
@@ -78,9 +79,10 @@ function StarRating({ value, onChange, invalid, describedBy }) {
           aria-label={`${n} star${n === 1 ? '' : 's'}`}
           tabIndex={value === n || (!value && n === 1) ? 0 : -1}
           className={`rvw-star${n <= value ? ' is-on' : ''}`}
+          style={size !== 44 ? { width: size, height: size } : undefined}
           onClick={() => onChange(n)}
         >
-          <Star01 width={26} height={26} aria-hidden="true" />
+          <Star01 width={size > 44 ? 30 : 26} height={size > 44 ? 30 : 26} aria-hidden="true" />
         </button>
       ))}
     </div>

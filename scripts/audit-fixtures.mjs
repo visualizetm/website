@@ -566,6 +566,9 @@ EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, deliv
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
+export const REVIEW_TOKEN = 'rvwTESTtoken0123456789abcd';
+export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review' };
+
 export async function mockRoutes(page, opts = {}) {
   const empty = new Set(opts.empty || []);
   const failing = new Set(opts.fail || []);
@@ -647,6 +650,8 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(publicConceptSet(s)) });
   });
   /* Analytics (the nav revamp, milestone 6): the same rules the route runs, over the fixture records, for the range asked. */
+  /* Review links: the public /api/review door, by the fixture token on Lead Business 12; anything else is the 404 the real route sends. A POST answers ok. */
+  await page.route('**/api/review**', (r) => { const u = new URL(r.request().url()); const token = u.searchParams.get('token') || ''; if (token !== REVIEW_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') return r.fulfill(json({ ok: true })); return r.fulfill(json(REVIEW_RESOLVE)); });
   await page.route('**/api/admin/analytics**', (r) => { if (failing.has('analytics')) return r.fulfill(fail()); const range = new URL(r.request().url()).searchParams.get('range') || 'month'; return r.fulfill(json(empty.has('analytics') ? computeAnalytics([], [], { range }) : computeAnalytics(leads, projects, { range }))); });
   await page.route('**/api/admin/lists**', (r) => {
     const m = r.request().method();

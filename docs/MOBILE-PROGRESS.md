@@ -82,5 +82,7 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 2: src/lib/qr.js and src/ui/QrCode.jsx (scripts/qr-test.mjs: decoded by jsqr at 160, 264 and 512px with and without the Aperture panel, module for module against qrcode); src/pages/AdminReviews.jsx's sheet in two halves (Their reviews unchanged; Review Visualize: Generate, the link with Copy, the QR with Download PNG, Open, Regenerate behind a confirm, views and submissions, the message with Copy, Share and Mark as sent; What they said: pending first, Approve only with consent, Hide, Feature, the pull quote); the project's Send review link step (src/components/record/ProjectSection.jsx, ClientWorkspace.sendReviewLink, the Reviews preset); the delivery email's reviewLink field.
 
+- Milestone 3: src/pages/ReviewLink.jsx at /r/<token> (App.jsx's standalone branch): the greeting by first name, the client's mark on a brand seamed panel, five 48px stars, the 20 to 800 character text, name and business prefilled, the one consent checkbox, the honeypot, the thank you with Leave it on Google too when the profile holds the link, the expired page for a dead token, every error in my voice. Mocks for /api/review in audit-fixtures and the mock server; audit screens mkt-rlink, mkt-rlink-errors, mkt-rlink-thanks, mkt-rlink-expired; site-regression 5a walks it end to end.
+
 ## Next
-- Milestone 3: the public /r/<token> page.
+- Milestone 4: the landing reviews section, the showcase block, the real average rating.
