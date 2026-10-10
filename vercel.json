@@ -96,6 +96,10 @@
       "destination": "/api/showcase?r=review"
     },
     {
+      "source": "/api/portal",
+      "destination": "/api/showcase?r=portal"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },

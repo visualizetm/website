@@ -10,6 +10,7 @@
  * /api/showcase?slug=x    -> one client's full object, or 404
  * /api/concepts?token=x   -> api/_routes/concepts-public.js, by the rewrite (r=concepts)
  * /api/review?token=x     -> api/_routes/review-public.js, by the rewrite (r=review)
+ * /api/portal?token=x     -> api/_routes/portal-public.js, by the rewrite (r=portal)
  *
  * brand.palette and brand.typography are never stored on showcase.brand;
  * they are read from the lead's own top-level brand block at serve time
@@ -18,6 +19,7 @@
 import { getDb } from './_lib/mongo.js';
 import conceptsPublic from './_routes/concepts-public.js';
 import reviewPublic from './_routes/review-public.js';
+import portalPublic from './_routes/portal-public.js';
 import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from './_lib/reviewPublic.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
@@ -208,6 +210,7 @@ export default async function handler(req, res) {
    * body cap and try/catch. */
   if (req.query?.r === 'concepts') return conceptsPublic(req, res);
   if (req.query?.r === 'review') return reviewPublic(req, res);
+  if (req.query?.r === 'portal') return portalPublic(req, res);
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });

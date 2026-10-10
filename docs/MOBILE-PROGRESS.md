@@ -88,5 +88,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 5: the Google review link on Settings, Profile (regression 30a); docs (ARCHITECTURE's Review links section and the /api/review row, RUNBOOK's Review links, COMPONENTS' QrCode, CLAUDE.md's scripts, the decisions); the full gate on the final build (layout at five widths, a11y both themes, feel in both themes and motions, regression, site-regression, back, gesture, chrome, empty, the docs audits, the scene audits for Home and Concepts normal and reduced, the mobile trace, every node test, preship); reports/REVIEW-LINKS-REPORT.md.
 
+## Client portal, prompt 1 (shell, module system, core cards)
+- Milestone 1: the `portal` object on the client record (api/_routes/call-leads.js: minted token, regenerate, carry forward, the hashed PIN, module states, template, documents through safeUrl, hours); the module registry src/shared/portalModules.js and its mirror (home, contact, book, documents, showcase, all auto; PORTAL_TEMPLATES; portalStateOf, cardOf, portalCards, portalClient); api/_routes/portal-public.js on api/showcase.js (GET resolve with the hourly view count, POST pin with the 5 per 15 minute limit and the thirty day unlock); the profile fields phone, email, calendlyLink, hours on the settings route and a Client portal card on Settings, Profile; docs/PORTAL-DESIGN.md; scripts/portal-test.mjs (68 checks) and portal-guard-proof.mjs (28 guards, each cut in turn).
+
 ## Next
+- Portal milestone 2: src/pages/Portal.jsx at /c/:token, the mocks, the 404 state, home and contact cards, the add to home screen hint.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

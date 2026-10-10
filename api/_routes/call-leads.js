@@ -1,5 +1,7 @@
 import { ObjectId } from 'mongodb';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
+import { PORTAL_MODULE_IDS, PORTAL_STATE_IDS, PORTAL_TEMPLATE_IDS, PORTAL_TEMPLATES, DOCUMENT_KIND_IDS } from '../_lib/portalModules.js';
+import { sessionSecret } from '../_lib/config.js';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
@@ -61,6 +63,8 @@ function slugify(v) {
 // Every image and link field goes through safeUrl (api/_lib/url.js): http, https, or a root relative path, else ''.
 const imgLink = (v) => safeUrl(v, 500);
 const link = (v, max = 400) => safeUrl(v, max);
+/* Client portal: the PIN's hash, salted with the session secret so a dumped record never shows four digits. Mirrored in api/_routes/portal-public.js. */
+const hashPin = (pin) => createHash('sha256').update(`${sessionSecret()}:${pin}`).digest('base64url');
 function showcaseImageList(v, max) {
   return Array.isArray(v) ? v.slice(0, max).map(x => ({ link: imgLink(x?.link), caption: str(x?.caption, 200) })) : [];
 }
@@ -343,6 +347,17 @@ function sanitize(b) {
       stripeSubscriptionId: str(b.retainer.stripeSubscriptionId, 80), stripeCancelledAt: str(b.retainer.stripeCancelledAt, 40),
     } : b.retainer === null ? null : undefined,
     clientStatus: b.clientStatus !== undefined ? (CLIENT_STATUS_IDS.includes(b.clientStatus) ? b.clientStatus : '') : undefined,
+    /* Client portal (prompt 1): what the CRM may set. The token, the counts and the stamps are resolved in the PATCH handler below;
+     * the PIN arrives as digits here and is stored as a hash there; documents are capped, every url through safeUrl. */
+    portal: b.portal && typeof b.portal === 'object' ? {
+      regenerate: b.portal.regenerate === true,
+      sentAt: b.portal.sentAt !== undefined ? str(b.portal.sentAt, 40) : undefined,
+      pin: b.portal.pin !== undefined ? (/^\d{4}$/.test(String(b.portal.pin)) ? String(b.portal.pin) : '') : undefined,
+      modules: b.portal.modules && typeof b.portal.modules === 'object' ? Object.fromEntries(Object.entries(b.portal.modules).filter(([k, v]) => PORTAL_MODULE_IDS.includes(k) && k !== 'home' && PORTAL_STATE_IDS.includes(v))) : undefined,
+      template: b.portal.template !== undefined ? (PORTAL_TEMPLATE_IDS.includes(b.portal.template) ? b.portal.template : '') : undefined,
+      documents: Array.isArray(b.portal.documents) ? b.portal.documents.slice(0, 50).map(d => ({ id: str(d?.id, 40) || String(Math.random()).slice(2, 10), label: str(d?.label, 120), url: link(d?.url, 600), kind: DOCUMENT_KIND_IDS.includes(d?.kind) ? d.kind : 'link', addedAt: str(d?.addedAt, 40) || new Date().toISOString() })).filter(d => d.label && d.url) : undefined,
+      hours: b.portal.hours !== undefined ? str(b.portal.hours, 120) : undefined,
+    } : undefined,
     // Prompt 11 additive: Google reviews tracking.
     reviews: b.reviews && typeof b.reviews === 'object' ? {
       nfcCard: !!b.reviews.nfcCard, nfcGivenAt: str(b.reviews.nfcGivenAt, 40), googleLink: link(b.reviews.googleLink),
@@ -509,6 +524,31 @@ export async function handler(req, res) {
      * { planner: { regenerate: true } }, which is the revoke: the old link
      * stops resolving the moment the new token is stored. Turning enabled
      * off keeps the token, so switching it back on revives the same link. */
+    /* Client portal (prompt 1): the portal object is merged, never replaced: the token is minted on the first
+     * ask and on regenerate (which kills the old link), the PIN is hashed with the session secret as salt and
+     * cleared by an empty string, module states and documents replace only what the caller sent; views,
+     * lastViewedAt and createdAt are never taken from a request. */
+    if (allowed.portal) {
+      const before = await col.findOne({ _id: oidOf }, { projection: { portal: 1 } });
+      const had = before?.portal || {};
+      const asked = allowed.portal;
+      const mint = asked.regenerate || !had.token;
+      const now = new Date().toISOString();
+      allowed.portal = {
+        token: mint ? randomBytes(18).toString('base64url') : had.token,
+        createdAt: had.createdAt || now,
+        regeneratedAt: asked.regenerate && had.token ? now : (had.regeneratedAt || ''),
+        sentAt: asked.sentAt !== undefined ? asked.sentAt : (had.sentAt || ''),
+        views: Number(had.views) || 0,
+        lastViewedAt: had.lastViewedAt || '',
+        pin: asked.pin === undefined ? (had.pin || '') : (asked.pin ? hashPin(asked.pin) : ''),
+        modules: { ...(had.modules && typeof had.modules === 'object' ? had.modules : {}), ...(asked.modules || {}) },
+        template: asked.template !== undefined ? asked.template : (had.template || ''),
+        documents: asked.documents !== undefined ? asked.documents : (Array.isArray(had.documents) ? had.documents : []),
+        hours: asked.hours !== undefined ? asked.hours : (had.hours || ''),
+      };
+      if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };
+    }
     /* Review links: reviews is a full replacement object, so the Visualize
      * link rides on the record and is carried forward here. A token is
      * minted when the caller sends reviews.visualize for the first time

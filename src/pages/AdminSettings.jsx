@@ -249,6 +249,16 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <p className="dt-muted">My own Google review link. After a client reviews me through their link, the thank you page offers Leave it on Google too; empty, it offers nothing.</p>
         <div className="v-field"><span className="v-field-label">Google review link</span><InlineEdit value={profile.googleReviewUrl || ''} onSave={(v) => saveProfile({ googleReviewUrl: String(v).trim() })} placeholder="Paste the g.page review link" label="Google review link" type="url" className="st-google-review" /></div>
       </Card>
+      <Card className="st-card" data-card="portal-profile">
+        <p className="pb-card-h">Client portal</p>
+        <p className="dt-muted">What every client's portal shows on its Message Rob and Book a call cards. Empty, that card does not render.</p>
+        <Stack gap={2}>
+          <div className="v-field"><span className="v-field-label">My phone</span><InlineEdit value={profile.phone || ''} onSave={(v) => saveProfile({ phone: String(v).trim() })} placeholder="Digits only, for the Text me button" label="My phone" type="tel" className="st-portal-phone" /></div>
+          <div className="v-field"><span className="v-field-label">My email</span><InlineEdit value={profile.email || ''} onSave={(v) => saveProfile({ email: String(v).trim() })} placeholder="contact@visualizeclients.com" label="My email" type="email" className="st-portal-email" /></div>
+          <div className="v-field"><span className="v-field-label">Calendly link</span><InlineEdit value={profile.calendlyLink || ''} onSave={(v) => saveProfile({ calendlyLink: String(v).trim() })} placeholder="https://calendly.com/..." label="Calendly link" type="url" className="st-portal-calendly" /></div>
+          <div className="v-field"><span className="v-field-label">Hours, in words</span><InlineEdit value={profile.hours || ''} onSave={(v) => saveProfile({ hours: String(v).trim() })} placeholder="Weekdays 9 to 5" label="Hours, in words" className="st-portal-hours" /></div>
+        </Stack>
+      </Card>
       <PasswordCard />
     </Stagger>
   ) : tab === 'notifications' ? (

@@ -9,7 +9,7 @@ const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true, ideas: true } };
 // Prompt 12: the profile document (greeting name, business hours for the best window).
 // Prompt 14 adds the additive appearance fields: theme (system, dark, light; default dark) and reduceMotion.
-const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false, googleReviewUrl: '' };
+const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false, googleReviewUrl: '', phone: '', email: '', calendlyLink: '', hours: '' };
 const hhmm = (v, d) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
 const THEMES = new Set(['system', 'dark', 'light']);
 const profileShape = (d = {}) => ({
@@ -19,6 +19,11 @@ const profileShape = (d = {}) => ({
   reduceMotion: d.reduceMotion === true,
   // Review links: the studio's own Google review link, offered on the public thank you state when set.
   googleReviewUrl: safeUrl(d.googleReviewUrl, 400),
+  // Client portal (prompt 1): what the Contact and Book a call cards read. The phone is digits, plus, spaces and dashes only; the link goes through safeUrl.
+  phone: String(d.phone || '').replace(/[^\d+()\s-]/g, '').trim().slice(0, 32),
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.email || '').trim()) ? String(d.email).trim().slice(0, 120) : '',
+  calendlyLink: safeUrl(d.calendlyLink, 400),
+  hours: String(d.hours || '').replace(/\s+/g, ' ').trim().slice(0, 120),
 });
 const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
 const notifShape = (d = {}) => ({
