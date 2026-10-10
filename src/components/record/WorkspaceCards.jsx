@@ -1,6 +1,9 @@
+import { useState } from 'react';
 import { Button, Checkbox, EmptyState, Icon, Pill, ProgressBar, SkeletonBlock } from '../../ui';
 import { relativeTime } from '../../shared/dates';
-import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus, docsStatus } from '../../lib/workspace';
+import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus, docsStatus, portalStatus } from '../../lib/workspace';
+import { generatePortalPatch } from '../../lib/portal';
+import PortalSheet from './PortalSheet';
 import DocRow from '../docs/DocRow';
 import { COPY } from '../../shared/copy';
 import { completePatch, taskDueLabel, isOverdue } from '../../lib/taskWrite';
@@ -47,6 +50,32 @@ function DocsCard({ rec }) {
         </>
       )}
     </section>
+  );
+}
+
+/* Portal (client portal, prompt 1): the one link, its views and last open, the PIN and the documents; the whole card opens the
+ * Portal sheet (PortalSheet.jsx), where every control lives. Full width under the four, like Docs. */
+function PortalCard({ rec }) {
+  const { lead, readOnly, patch } = rec;
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const st = portalStatus(lead);
+  const generate = async () => { setBusy(true); await patch(generatePortalPatch(lead, false)); setBusy(false); setOpen(true); };
+  const label = st.on ? 'Open portal' : 'Set up the portal';
+  return (
+    <>
+      <CardShell id="portal" title="Portal" icon="Grid01" open={() => setOpen(true)} openLabel={label}
+        action={st.on || readOnly ? <Button variant="secondary" size="md" full onClick={() => setOpen(true)} className="rc-ws-btn">{label}</Button> : <Button variant="secondary" size="md" full onClick={generate} loading={busy} className="rc-ws-btn rc-ws-portal-gen">{COPY.empty['clients.portal'].action}</Button>}>
+        <div className="rc-ws-row">
+          <Pill tone={st.on ? 'booked' : 'neutral'} label={st.on ? 'Link on' : 'No link'} size="sm" icon={false} variant="soft" />
+          {st.on && st.pinned && <Pill tone="progress" label="PIN" size="sm" icon={false} variant="soft" />}
+          {st.on && st.sentAt && <Pill tone="neutral" label="Sent" size="sm" icon={false} variant="soft" />}
+        </div>
+        <p className="rc-ws-line">{!st.on ? COPY.empty['clients.portal'].title + '.' : st.views ? `${plural(st.views, 'view')}${st.lastViewedAt ? `, last opened ${relativeTime(st.lastViewedAt)}` : ''}.` : st.sentAt ? 'Sent, not opened yet.' : 'Not sent yet.'}</p>
+        {st.on && <p className="rc-ws-sub">{[st.template ? `${st.template[0].toUpperCase()}${st.template.slice(1)} template` : 'No template', st.off ? `${st.off} of ${st.modules} cards off` : 'every card on Auto', plural(st.documents, 'document')].join(', ')}</p>}
+      </CardShell>
+      {open && <PortalSheet rec={rec} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -127,6 +156,7 @@ export default function WorkspaceCards({ rec }) {
         {cc.set && <p className="rc-ws-sub">{cc.answeredAt ? `Answers sent ${relativeTime(cc.answeredAt)}` : cc.lastViewedAt ? `Viewed ${relativeTime(cc.lastViewedAt)}` : cc.set.status === 'draft' ? 'Not sent yet' : 'Not opened yet'}</p>}
       </CardShell>
 
+      <PortalCard rec={rec} />
       <DocsCard rec={rec} />
     </div>
   );

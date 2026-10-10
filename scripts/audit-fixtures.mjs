@@ -94,6 +94,8 @@ export const PIPE_EXTRA = {
           updatedAt: NOW_ISO,
         } },
   12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
+        /* Client portal: a live link with views, a PIN, the brand template, one card off and two documents (the Portal card and sheet). */
+        portal: { token: 'prtlTESTtoken0123456789abcd', createdAt: daysFrom(-8), regeneratedAt: '', sentAt: daysFrom(-7), views: 12, lastViewedAt: new Date(Date.now() - 5 * 3600e3).toISOString(), pin: 'hashed-not-the-digits', modules: { contact: 'auto', book: 'off', documents: 'auto', showcase: 'auto' }, template: 'brand', documents: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf', addedAt: daysFrom(-7) }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet', addedAt: daysFrom(-6) }], hours: '' },
         reviews: {
           /* Review links: the Visualize review link with views and three submissions (pending with consent, pending without, approved and featured). */
           visualize: { token: 'rvwTESTtoken0123456789abcd', createdAt: daysFrom(-10), regeneratedAt: '', views: 7, lastViewedAt: new Date(Date.now() - 2 * 3600e3).toISOString(), sentAt: daysFrom(-9) },

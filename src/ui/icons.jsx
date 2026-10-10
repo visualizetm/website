@@ -75,6 +75,8 @@ import Key01 from '@untitled-ui/icons-react/build/esm/Key01';
 import Archive from '@untitled-ui/icons-react/build/esm/Archive';
 import Eye from '@untitled-ui/icons-react/build/esm/Eye';
 import LayersThree01 from '@untitled-ui/icons-react/build/esm/LayersThree01';
+import Grid01 from '@untitled-ui/icons-react/build/esm/Grid01';
+import ChevronUp from '@untitled-ui/icons-react/build/esm/ChevronUp';
 import Printer from '@untitled-ui/icons-react/build/esm/Printer';
 import Database01 from '@untitled-ui/icons-react/build/esm/Database01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
@@ -115,7 +117,7 @@ import ReverseLeft from '@untitled-ui/icons-react/build/esm/ReverseLeft';
 
 export const ICONS = {
   /* tasks (planner dashboard and task system) */
-  Pin01, File02, CheckDone01, DotsHorizontal,
+  Pin01, File02, CheckDone01, DotsHorizontal, Grid01, ChevronUp,
   /* the nav revamp: the dashboards and the analytics charts */
   BarChartSquare01, BarChart01, LineChartUp01, PieChart01, TrendUp01,
   /* client docs */

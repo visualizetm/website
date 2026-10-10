@@ -95,6 +95,8 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 3: the Book a call card (Pick a time, a new tab), Your documents (a row per link with its kind, snap stops), Your showcase (See it, Share this with the share sheet or the clipboard), the locked card and the PIN sheet (four digits, a wrong one says so, the limit's 429 says to wait, a right one keeps the unlock on the device for thirty days and reads again); three more marketing screens (locked, the sheet, a wrong PIN); layout marketing walk clean at five widths, a11y 12 rows, 0 violations.
 
+- Milestone 4: the Portal workspace card (src/components/record/WorkspaceCards.jsx: Link on or No link, PIN and Sent pills, views and last open, template, cards off, documents, Generate link when there is none) and the Portal sheet (PortalSheet.jsx: the link with Copy, the QR with Download PNG, Open as the client, Regenerate behind a confirm; Send it with the message in my voice, Copy, Share on a device with a share sheet, Mark as sent; the template picker; a three way Off, On, Auto control per card with its Auto rule under it; the PIN toggle, Set and Reset; the hours line; the documents editor with reorder, kind, remove with undo and the add row); src/lib/portal.js (scripts/portal-crm-test.mjs, 10 checks); Grid01 and ChevronUp in the kit's icon map; two more audit screens (clients-portal, clients-portal-none); the fixture client L12 carries a portal.
+
 ## Next
-- Portal milestone 4: the CRM Portal card on the client record.
+- Portal milestone 5: the phone pass, the docs, the full gate, the report.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

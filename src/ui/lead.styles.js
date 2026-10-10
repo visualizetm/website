@@ -221,6 +221,26 @@ export const leadDetailStyles = `
   .rc-ws-dir.is-changes .rc-ws-dir-state { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
   /* Docs: one full width card at the end of the grid, whatever the column count. */
   /* --sk-a and --sk-b are what the skeleton's rows measure: a one line title row and a row whose title wraps to two lines. */
+  /* Portal (client portal, prompt 1): full width under the four cards; the sheet's rows. */
+  .rc-ws-card--portal { grid-column: 1 / -1; }
+  .ps-url { font-family: var(--v-font-mono, var(--v-font-body)); font-size: var(--v-text-sm); color: var(--v-text-2); min-width: 0; flex: 1; }
+  .ps-side { flex: 1 1 160px; min-width: 0; }
+  .ps-stats { margin: 0; }
+  .ps-msg { margin: 0; padding: var(--v-space-3); background: var(--v-surface-3); border-radius: var(--v-radius-md); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-1); overflow-wrap: anywhere; }
+  .ps-mod { display: flex; flex-direction: column; gap: var(--v-space-1); padding: var(--v-space-3) 0; border-top: 1px solid var(--v-border-1); min-width: 0; }
+  .ps-mod-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; min-width: 0; }
+  .ps-mod-title { font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); color: var(--v-text-1); }
+  .ps-mod-auto { margin: 0; font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
+  .ps-doc { display: flex; flex-direction: column; gap: var(--v-space-1); padding: var(--v-space-2) 0; border-top: 1px solid var(--v-border-1); min-width: 0; }
+  .ps-doc.is-dragging { opacity: 0.5; }
+  .ps-doc-row { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; }
+  .ps-doc-row .v-inline { flex: 1; min-width: 0; }
+  .ps-doc-url { font-size: var(--v-text-xs); color: var(--v-text-3); min-width: 0; }
+  .ps-add { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--v-space-2); }
+  @media (min-width: 560px) { .ps-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px auto; align-items: end; } }
+  .ps-pin-row { display: flex; align-items: flex-end; gap: var(--v-space-2); flex-wrap: wrap; }
+  .ps-pin-row .v-field { flex: 0 1 140px; }
+  .ps-h { margin: var(--v-space-2) 0 0; font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.04em; text-transform: uppercase; color: var(--v-text-3); }
   .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); --sk-a: 66px; --sk-b: 88px; }
   .rc-docs-head { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-2); min-width: 0; }
   .rc-docs .rc-ws-title { margin: 0; }

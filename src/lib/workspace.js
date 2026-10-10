@@ -85,3 +85,6 @@ export function docsStatus(docs, leadId, n = 3) {
   const sorted = sortDocs(mine, 'edited');
   return { count: mine.length, pinned: mine.filter(d => d.pinned).length, rows: sorted.slice(0, n), more: Math.max(0, mine.length - n), label: mine.length ? `${mine.length} doc${mine.length === 1 ? '' : 's'}` : 'none yet' };
 }
+
+/** Portal (client portal, prompt 1): the link, the views, the PIN, the documents and the modules off, from src/lib/portal.js. */
+export { portalStatus } from './portal';

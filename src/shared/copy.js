@@ -88,6 +88,7 @@ export const COPY = {
     /* Reviews */
     'reviews.none': { title: 'No clients yet', description: 'Reviews track per client. Win a booked meeting or add a client first.', action: 'Open Clients' },
     'reviews.filter': { title: 'No clients in this filter', description: 'Every client is under All.', action: 'Show all' },
+    'clients.portal': { title: 'No portal link yet', description: 'One link per client: a home screen of cards about their work with me, and the quickest way to reach me.', action: 'Generate link' },
     'reviews.visualize': { title: 'No review link yet', description: 'One link per client, a QR to print on the card, and a message in my voice to send with it.', action: 'Generate review link' },
     'reviews.submissions': { title: 'Nothing in yet', description: 'What comes back through the link lands here, pending until I approve it.' },
     'reviews.forms': { title: 'Nothing from the website review form yet', description: 'When the site posts a review submission, it lands here to link.' },
