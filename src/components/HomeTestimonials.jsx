@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Scene } from '../marketing/motion';
 import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 
-/* Site Prompt 4, Part 1.6: landing.testimonials (already published, featured,
- * capped at 6 by the endpoint). A three-up grid on desktop; on mobile the
+/* Site Prompt 4, Part 1.6: landing.testimonials (approved and consented, or
+ * typed and published; featured; newest first; capped at 6 by the endpoint:
+ * api/_lib/reviewPublic.js). A three-up grid on desktop; on mobile the
  * same cards become a swipeable single-card row (scroll-snap, dot
  * indicators tracking scroll position via IntersectionObserver, no
  * autoplay, since dragging is the only motion here). Hidden when empty. */
@@ -49,7 +50,7 @@ export default function HomeTestimonials({ testimonials, tone = 'b' }) {
           <div className="ht-dots" role="tablist" aria-label="Testimonials">
             {items.map((t, i) => (
               <button
-                key={`${t.slug}-${t.author}-dot`}
+                key={`${t.id || `${t.slug}-${t.author}`}-dot`}
                 type="button"
                 role="tab"
                 aria-selected={i === active}
@@ -67,18 +68,19 @@ export default function HomeTestimonials({ testimonials, tone = 'b' }) {
           margin-top: var(--space-10);
         }
         .ht-dots { display: none; }
-        @media (max-width: 860px) {
+        @media (max-width: 767px) {
           .ht-track {
             display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-            gap: var(--space-4); margin: var(--space-8) calc(-1 * var(--space-4)) 0;
+            gap: var(--space-4); margin: var(--space-6) calc(-1 * var(--space-4)) 0;
             padding: 0 var(--space-4);
             scrollbar-width: none;
           }
           .ht-track::-webkit-scrollbar { display: none; }
-          .ht-slide { flex: 0 0 100%; scroll-snap-align: center; }
+          /* The next card peeks (review links): each slide is 86 percent of the track, snapped to its start. */
+          .ht-slide { flex: 0 0 86%; scroll-snap-align: start; }
           .ht-dots {
             display: flex; justify-content: center; gap: var(--space-2);
-            margin-top: var(--space-6);
+            margin-top: var(--space-4);
           }
           .ht-dot {
             width: 44px; height: 44px; padding: 0;

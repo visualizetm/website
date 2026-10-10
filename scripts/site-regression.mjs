@@ -50,7 +50,7 @@ const client = () => ({
 });
 
 /** The one client this walk publishes, toggles, and unpublishes. Steps mutate this in place. */
-const state = { published: false, c: client() };
+const state = { published: false, c: client(), others: [] };
 
 function payloadFor(slug) {
   const list = state.published ? [state.c] : [];
@@ -60,7 +60,8 @@ function payloadFor(slug) {
     landing: {
       logoStrip: list.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo })),
       work: list.filter(c => c.featured.work).map(c => ({ slug: c.slug, displayName: c.displayName, type: c.type, blurb: c.blurb, cover: c.cover })),
-      testimonials: list.flatMap(c => c.testimonials.filter(t => t.published && t.featured).map(t => ({ ...t, business: c.displayName, slug: c.slug }))),
+      // Review links: the landing shows featured public cards from every client, the link only when published (api/_lib/reviewPublic.js is the rule).
+      testimonials: [state.c, ...state.others].flatMap(c => c.testimonials.filter(t => ((t.status === 'approved' && t.consent === true) || (!t.status && t.published)) && t.featured).map(t => ({ ...t, quote: t.pullQuote || t.quote || t.text, author: t.name || t.author, business: c.displayName, slug: (c === state.c ? state.published : c.published) && c.slug ? c.slug : '', logo: c.brand?.logo || '', brandHex: c.brandHex || '' }))),
       stats: {},
     },
   };
@@ -128,6 +129,24 @@ await step('4. Publish a testimonial: shows on Home and /clients', async () => {
   const onClients = await page.locator('.tc-business', { hasText: 'Site Check Co' }).count();
   if (!onHome) throw new Error('missing on Home');
   if (!onClients) throw new Error('missing on /clients');
+});
+
+await step('4a. A featured review from a client without a published showcase shows on Home with their mark and no link; nothing featured hides the section', async () => {
+  state.c.testimonials = [];
+  state.others = [{ slug: 'quiet-co', displayName: 'Quiet Co', published: false, brand: { logo: '/showcase/fixtures/logo.svg' }, brandHex: '#1d4ed8', testimonials: [{ id: 'q1', name: 'Jo Quiet', role: 'Owner', rating: 5, text: 'Rob made the whole thing easy and the site looks sharp.', pullQuote: 'The site looks sharp.', consent: true, status: 'approved', featured: true }] }];
+  await mockAndGoto(page, '/');
+  const card = page.locator('.ht .tc-card', { hasText: 'Jo Quiet' });
+  if (!(await card.count())) throw new Error('the card is missing on Home');
+  if ((await card.locator('.tc-quote').textContent()).indexOf('The site looks sharp.') < 0) throw new Error('the pull quote is not the card line');
+  if (!(await card.locator('.tc-mark img').count())) throw new Error('no mark on the card');
+  if (await card.locator('a.tc-business').count()) throw new Error('an unpublished client got a link');
+  if (!(await card.locator('.tc-business--plain', { hasText: 'Quiet Co' }).count())) throw new Error('the business name is missing');
+  const seam = await card.evaluate(el => getComputedStyle(el).borderLeftColor);
+  if (seam !== 'rgb(29, 78, 216)') throw new Error(`the seam is ${seam}, not the brand colour`);
+  state.others = [];
+  await mockAndGoto(page, '/');
+  if (await page.locator('.ht').count()) throw new Error('the section rendered with nothing featured');
+  return 'card without a link, brand seam, pull quote; section gone when empty';
 });
 
 await step('5. Unpublish: disappears from /clients', async () => {

@@ -11,6 +11,9 @@
 import { Link } from 'react-router-dom';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import { Parallax, ScaleIn } from './motion';
+import { normalizeBrandColor } from '../shared/color';
+import { safeHref } from '../lib/safeUrl';
+import { logoSrc } from '../ui/logo.data';
 
 const CACHE_MS = 60000;
 let listCache = null; // { at, data: { clients, landing } }
@@ -113,25 +116,40 @@ export function ClientCard({ client, parallax = false }) {
 /** One testimonial: quote, author, role, stars, and the business name linking to that client. Used on the Clients page (Part 4) and reusable on Home. */
 export function TestimonialCard({ testimonial }) {
   const t = testimonial;
+  const brand = normalizeBrandColor(t.brandHex).hex;
+  const logo = safeHref(t.logo);
   return (
-    <figure className="tc-card">
-      {t.rating != null && (
-        <div className="tc-stars" aria-label={`${t.rating} of 5 stars`}>
-          {[1, 2, 3, 4, 5].map(n => <span key={n} className={`tc-star${n <= t.rating ? ' is-on' : ''}`}>&#9733;</span>)}
-        </div>
-      )}
+    <figure className="tc-card" style={brand ? { '--tc-brand': brand } : undefined}>
+      <div className="tc-top">
+        {t.rating != null && (
+          <div className="tc-stars" aria-label={`${t.rating} of 5 stars`}>
+            {[1, 2, 3, 4, 5].map(n => <span key={n} className={`tc-star${n <= t.rating ? ' is-on' : ''}`}>&#9733;</span>)}
+          </div>
+        )}
+        {/* The client's mark (review links): their logo on a paper panel, the brand colour as the card's seam only, never under text. */}
+        {(logo || t.business) && (
+          <span className={`img-fit img-fit--contain tc-mark${logo ? '' : ' tc-mark--fallback'}`} aria-hidden="true">
+            {logo ? <img src={logo} alt="" className="tc-mark-img" loading="lazy" width={32} height={32} /> : <img src={logoSrc('icon', 'reversed')} alt="" className="tc-mark-img tc-mark-img--icon" loading="lazy" width={32} height={32} />}
+          </span>
+        )}
+      </div>
       <blockquote className="tc-quote">&ldquo;{t.quote}&rdquo;</blockquote>
       <figcaption className="tc-attr">
         <span className="tc-name">{t.author}</span>
         {t.role && <span className="tc-role">, {t.role}</span>}
-        {t.business && t.slug && <Link to={`/clients/${t.slug}`} className="tc-business">{t.business}</Link>}
+        {t.business && t.slug ? <Link to={`/clients/${t.slug}`} className="tc-business">{t.business}</Link> : t.business ? <span className="tc-business tc-business--plain">{t.business}</span> : null}
       </figcaption>
     </figure>
   );
 }
 
 export const testimonialCardStyles = `
-  .tc-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+  .tc-card { background: var(--bg-card); border: 1px solid var(--border); border-left: 6px solid var(--tc-brand, var(--border-light)); border-radius: var(--radius-lg); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+  .tc-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .tc-card .tc-mark { width: 32px; height: 32px; padding: 4px; border-radius: var(--radius); background: var(--text); flex-shrink: 0; }
+  .tc-card .tc-mark--fallback { background: var(--brand); padding: 6px; }
+  .tc-card .tc-mark > .tc-mark-img { object-fit: contain; }
+  .tc-business--plain { color: var(--text-secondary); }
   .tc-stars { display: flex; gap: 2px; }
   .tc-star { color: var(--border-light); font-size: 0.9rem; }
   .tc-star.is-on { color: var(--brand-text); }

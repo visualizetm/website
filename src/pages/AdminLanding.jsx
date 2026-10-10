@@ -6,6 +6,7 @@ import {
   EmptyState, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useToast, useRetry,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { averageRating, MIN_RATINGS_FOR_AVERAGE } from '../lib/reviewPublic';
 import { useTopBar } from '../shell/ShellContext';
 import { apiFetch } from '../shared/api';
 import { reviewsOf } from '../lib/reviews';
@@ -48,10 +49,9 @@ function computeLiveStats(leads, projects) {
   const published = leads.filter(l => l.showcase?.published);
   const sinceYears = published.map(l => l.clientSince && new Date(l.clientSince).getFullYear()).filter(y => Number.isFinite(y));
   const years = sinceYears.length ? Math.max(1, new Date().getFullYear() - Math.min(...sinceYears)) : 1;
-  let sum = 0, n = 0;
-  for (const l of leads) for (const t of (l.reviews?.testimonials || [])) { if (t.published && t.rating != null) { sum += Number(t.rating) || 0; n++; } }
-  const averageRating = n ? Math.round((sum / n) * 10) / 10 : null;
-  return { clientsServed, projectsDelivered, averageRating, years };
+  /* Review links: the same rule the endpoint runs (averageRating in src/lib/reviewPublic.js): real from three public ratings. */
+  const avg = averageRating(leads.flatMap(l => l.reviews?.testimonials || []));
+  return { clientsServed, projectsDelivered, averageRating: avg.value, ratingCount: avg.count, years };
 }
 
 const mergeLanding = (s, partial) => ({
@@ -263,6 +263,13 @@ const STAT_ROWS = [
   { key: 'years', label: 'Years' },
 ];
 
+/* Review links: which number the site shows for the average rating. The real average wins from three approved ratings; the typed value holds until then; with neither the stat is hidden. */
+function ratingLine(live, count, override) {
+  const typed = override != null && override !== '' && Number.isFinite(Number(override));
+  if (live != null) return `Using the real average of ${count} approved review${count === 1 ? '' : 's'} (${Number(live).toFixed(1)})${typed ? `, the fixed value is not in use` : ''}.`;
+  if (typed) return `Using the fixed value until ${MIN_RATINGS_FOR_AVERAGE} reviews are approved (${count} so far).`;
+  return `Hidden until ${MIN_RATINGS_FOR_AVERAGE} reviews are approved (${count} so far), or set a fixed value.`;
+}
 function StatsSection({ landing, landingLoading, landingError, onRetryLanding, liveStats, onToggle, onSaveOverride }) {
   const [retry, retrying] = useRetry(onRetryLanding);
   const showSkel = useDelayedLoading(landingLoading);
@@ -282,7 +289,7 @@ function StatsSection({ landing, landingLoading, landingError, onRetryLanding, l
             return (
               <Card key={key} padding={3}>
                 <Row gap={4} align="center" wrap>
-                  <Toggle checked={on} onChange={(v) => onToggle(key, v)} label={label} description={on ? `Live value: ${liveShown}` : 'Hidden on the site.'} className="ld-stat-toggle" />
+                  <Toggle checked={on} onChange={(v) => onToggle(key, v)} label={label} description={!on ? 'Hidden on the site.' : key === 'averageRating' ? ratingLine(liveRaw, liveStats?.ratingCount || 0, override) : `Live value: ${liveShown}`} className="ld-stat-toggle" />
                   <div className="ld-override">
                     <span className="v-field-label">Fixed value (optional)</span>
                     <InlineEdit

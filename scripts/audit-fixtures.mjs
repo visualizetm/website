@@ -16,6 +16,7 @@
  * the boot frame).
  */
 import { computeAnalytics } from '../src/lib/analytics.js';
+import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from '../src/lib/reviewPublic.js';
 // Hostile fixtures: very long unbroken + slash-joined names, long emails.
 export const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
 export const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat(40);
@@ -103,7 +104,7 @@ export const PIPE_EXTRA = {
             { id: 'ts2', quote: 'Draft quote waiting on approval.', author: '', role: '', rating: null, source: 'text', published: false, featured: false, order: 1, at: daysFrom(-2) },
             { id: 'rs1', name: 'Priya N.', role: 'Owner', business: 'Lead Business 12', rating: 5, text: 'Rob made the whole thing easy. The site went live in two weeks and the first week of bookings paid for it. ' + UNBROKEN.slice(0, 40), consent: true, status: 'pending', featured: false, pullQuote: '', createdAt: daysFrom(-1), approvedAt: '', source: 'website', published: false, quote: '', author: 'Priya N.', order: 2, at: daysFrom(-1) },
             { id: 'rs2', name: 'Sam O.', role: '', business: 'Lead Business 12', rating: 4, text: 'Good work, quick turnaround, would hire again for the next round of prints.', consent: false, status: 'pending', featured: false, pullQuote: '', createdAt: daysFrom(-3), approvedAt: '', source: 'website', published: false, quote: '', author: 'Sam O.', order: 3, at: daysFrom(-3) },
-            { id: 'rs3', name: 'Dana K.', role: 'Owner', business: 'Lead Business 12', rating: 5, text: 'Three weeks from the first call to a brand I am proud to put on the van. Rob listened, pushed back where it mattered, and delivered on the day he said.', consent: true, status: 'approved', featured: true, pullQuote: 'A brand I am proud to put on the van.', createdAt: daysFrom(-14), approvedAt: daysFrom(-12), source: 'website', published: false, quote: '', author: 'Dana K.', order: 4, at: daysFrom(-14) },
+            { id: 'rs3', name: 'Theo R.', role: 'Owner', business: 'Lead Business 12', rating: 5, text: 'Three weeks from the first call to a brand I am proud to put on the van. Rob listened, pushed back where it mattered, and delivered on the day he said.', consent: true, status: 'approved', featured: true, pullQuote: 'A brand I am proud to put on the van.', createdAt: daysFrom(-14), approvedAt: daysFrom(-12), source: 'website', published: false, quote: '', author: 'Theo R.', order: 4, at: daysFrom(-14) },
           ] },
         retainer: { projectId: 'P12', planId: 'content-kit', amount: 250, status: 'active', startedAt: monthsAgo(2, 12), billDay: 12, nextBillAt: daysFrom(3), cancelAt: '' },
         purchases: [{ id: 'lg12a', label: 'Content Kit retainer: Month 1', amount: 250, at: monthsAgo(2, 12), notes: '', projectId: 'P12' }, { id: 'lg12b', label: 'Content Kit retainer: Month 2', amount: 250, at: monthsAgo(1, 12), notes: '', projectId: 'P12' }],
@@ -460,7 +461,8 @@ function publicClientOf(lead) {
     cards: { enabled: sh.cards?.enabled !== false, front: sh.cards?.front || '', back: sh.cards?.back || '', notes: sh.cards?.notes || '' },
     print: { enabled: sh.print?.enabled !== false, items: sh.print?.items || [], notes: sh.print?.notes || '' },
     featured: sh.featured || { landing: false, logoStrip: false, work: false, order: 0 },
-    testimonials: (lead.reviews?.testimonials || []).filter(t => t.published).map(t => ({ quote: t.quote, author: t.author, role: t.role, rating: t.rating, source: t.source })),
+    // Review links: approved and consented, or typed and published, newest first (src/lib/reviewPublic.js, the same rule api/showcase.js runs).
+    testimonials: (lead.reviews?.testimonials || []).filter(isPublicTestimonial).sort(newestFirst).map(publicCard),
     socials: { instagram: lead.socials?.instagram || null, facebook: lead.socials?.facebook || null, website: lead.socials?.website || null },
     // The review prompt: /review/<slug> reads this to offer Google after a
     // four or five star review.
@@ -469,14 +471,18 @@ function publicClientOf(lead) {
 }
 export const SHOWCASE_PUBLISHED = leads.filter(l => l.showcase?.published);
 export const SHOWCASE_CLIENTS = SHOWCASE_PUBLISHED.map(publicClientOf).sort((a, b) => (a.featured.order || 0) - (b.featured.order || 0));
-export const SHOWCASE_TESTIMONIALS = SHOWCASE_CLIENTS.flatMap(c => c.testimonials.map(t => ({ ...t, business: c.displayName, slug: c.slug })));
+/* Review links: the landing's cards come from every client with a featured, public testimonial, published showcase or not; the link only when published. */
+const brandHexOf = (lead) => { const b = lead?.brand || {}; for (const c of [b.primary, ...(Array.isArray(b.colors) ? b.colors : [])]) { const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(c ?? '').trim()); if (m) return `#${(m[1].length === 3 ? m[1].split('').map(x => x + x).join('') : m[1]).toLowerCase()}`; } return ''; };
+export const SHOWCASE_TESTIMONIALS = leads.flatMap(l => (l.reviews?.testimonials || []).filter(isFeaturedTestimonial).map(t => ({ ...publicCard(t), business: l.showcase?.displayName || l.business, slug: l.showcase?.published && l.showcase?.slug ? l.showcase.slug : '', logo: l.showcase?.brand?.logo?.dark || l.showcase?.brand?.logo?.light || l.showcase?.logoUrl || '', brandHex: brandHexOf(l) }))).sort(newestFirst);
+export const SHOWCASE_AVERAGE = averageRatingStat(leads.flatMap(l => l.reviews?.testimonials || []), 5);
 export const SHOWCASE_PAYLOAD = {
   clients: SHOWCASE_CLIENTS,
   landing: {
     logoStrip: SHOWCASE_CLIENTS.filter(c => c.featured.logoStrip).map(c => ({ slug: c.slug, displayName: c.displayName, logo: c.brand.logo || '' })),
     work: SHOWCASE_CLIENTS.filter(c => c.featured.work).map(c => ({ slug: c.slug, displayName: c.displayName, type: c.type, blurb: c.blurb, cover: c.cover })),
     testimonials: SHOWCASE_TESTIMONIALS.filter((t, i) => i < 6),
-    stats: { clientsServed: 4, projectsDelivered: 3, averageRating: 4.5, years: 3 },
+    // Review links: the average follows the rule over the fixture testimonials (three public ratings here), the rest stay typed.
+    stats: { clientsServed: 4, projectsDelivered: 3, averageRating: SHOWCASE_AVERAGE.value ?? 5, years: 3 },
   },
 };
 
