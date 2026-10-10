@@ -573,6 +573,21 @@ const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.s
 
 /** Register every admin API mock on a Playwright page. */
 export const REVIEW_TOKEN = 'rvwTESTtoken0123456789abcd';
+/* Client portal: the public /api/portal door's answer for the fixture token on Lead Business 12: every prompt 1 card with data, all Auto, no PIN. PORTAL_PIN_RESOLVE is the same portal behind a PIN before the device unlocked it. */
+export const PORTAL_TOKEN = 'prtlTESTtoken0123456789abcd';
+export const PORTAL_RESOLVE = {
+  client: { firstName: 'Damian', business: 'Lead Business 12', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8' },
+  cards: [
+    { id: 'home', title: 'Home', sensitive: false, status: 'Website: Design' },
+    { id: 'contact', title: 'Message Rob', sensitive: false, sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com', instagram: 'visualizetm', hours: 'Weekdays 9 to 5' },
+    { id: 'book', title: 'Book a call', sensitive: false, url: 'https://calendly.com/contactvisualize/studio-meeting' },
+    { id: 'documents', title: 'Your documents', sensitive: false, items: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf' }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet' }, { id: 'd3', label: 'Shared folder', url: 'https://drive.google.com/drive/folders/fixture', kind: 'drive' }] },
+    { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
+  ],
+  pinned: false, unlocked: true,
+};
+export const PORTAL_PIN_RESOLVE = { ...PORTAL_RESOLVE, cards: [...PORTAL_RESOLVE.cards, { id: 'secret', title: 'Secret', sensitive: true, locked: true }], pinned: true, unlocked: false };
+export const PORTAL_PIN = '1234';
 export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review' };
 
 export async function mockRoutes(page, opts = {}) {
@@ -657,6 +672,8 @@ export async function mockRoutes(page, opts = {}) {
   });
   /* Analytics (the nav revamp, milestone 6): the same rules the route runs, over the fixture records, for the range asked. */
   /* Review links: the public /api/review door, by the fixture token on Lead Business 12; anything else is the 404 the real route sends. A POST answers ok. */
+  /* Client portal: the public /api/portal door by the fixture token; the pin door answers the fixture PIN with an unlock and 401 otherwise. `?pin=1` on the page URL is the audit's way to the locked state. */
+  await page.route('**/api/portal**', (r) => { const u = new URL(r.request().url()); const token = u.searchParams.get('token') || ''; if (token !== PORTAL_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') { let pin = ''; try { pin = String(JSON.parse(r.request().postData() || '{}').pin || ''); } catch { pin = ''; } return pin === PORTAL_PIN ? r.fulfill(json({ unlock: '9999999999999.fixtureunlock' })) : r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'That PIN is not it.' }) }); } const locked = page.url().includes('pin=1') && !u.searchParams.get('unlock'); return r.fulfill(json(locked ? PORTAL_PIN_RESOLVE : PORTAL_RESOLVE)); });
   await page.route('**/api/review**', (r) => { const u = new URL(r.request().url()); const token = u.searchParams.get('token') || ''; if (token !== REVIEW_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') return r.fulfill(json({ ok: true })); return r.fulfill(json(REVIEW_RESOLVE)); });
   await page.route('**/api/admin/analytics**', (r) => { if (failing.has('analytics')) return r.fulfill(fail()); const range = new URL(r.request().url()).searchParams.get('range') || 'month'; return r.fulfill(json(empty.has('analytics') ? computeAnalytics([], [], { range }) : computeAnalytics(leads, projects, { range }))); });
   await page.route('**/api/admin/lists**', (r) => {

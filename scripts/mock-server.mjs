@@ -9,7 +9,7 @@
  */
 import http from 'node:http';
 import { computeAnalytics } from '../src/lib/analytics.js';
-import { REVIEW_TOKEN, REVIEW_RESOLVE } from './audit-fixtures.mjs';
+import { REVIEW_TOKEN, REVIEW_RESOLVE, PORTAL_TOKEN, PORTAL_RESOLVE } from './audit-fixtures.mjs';
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
@@ -63,6 +63,7 @@ function api(req, res, url) {
   if (p.startsWith('/api/admin/suggestions')) return m === 'GET' ? json(res, { items: suggestions }) : json(res, { ok: true });
   if (p.startsWith('/api/admin/concept-packs')) return get('packs');
   if (p.startsWith('/api/admin/concept-sets')) return m === 'GET' ? get('sets') : json(res, { ok: true, item: { ...sets[0], _id: 'SNEW' } });
+  if (p === '/api/portal') { const token = url.searchParams.get('token') || ''; if (token !== PORTAL_TOKEN) return json(res, { error: 'not found' }, 404); return json(res, m === 'POST' ? { unlock: '' } : PORTAL_RESOLVE); }
   if (p === '/api/review') { const token = url.searchParams.get('token') || ''; if (token !== REVIEW_TOKEN) return json(res, { error: 'not found' }, 404); return json(res, m === 'POST' ? { ok: true } : REVIEW_RESOLVE); }
   if (p.startsWith('/api/admin/analytics')) return json(res, computeAnalytics(leads, projects, { range: url.searchParams.get('range') || 'month' }));
   if (p.startsWith('/api/admin/lists')) return m === 'GET' ? get('lists') : json(res, { ok: true, item: { ...lists[1], _id: 'LSNEW' } });

@@ -565,6 +565,15 @@ for (const width of WIDTHS) {
       if (sc.act) await sc.act(page, width).catch(() => {});
       await check(`marketing: ${sc.screen.replace(' (marketing)', '')} (${sc.label})`);
     }
+    // Client portal (prompt 1): every public state of /c/<token> at every width; the add to home screen hint is cleared after so the next width sees it again.
+    for (const sc of SCREENS.filter(x => x.id.startsWith('mkt-portal'))) {
+      await goto(sc.path);
+      await page.waitForSelector('.pt', { timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      if (sc.act) await sc.act(page, width).catch(() => {});
+      await check(`marketing: ${sc.screen.replace(' (marketing)', '')} (${sc.label})`);
+      await page.evaluate(() => localStorage.removeItem('vz_portal_a2hs')).catch(() => {});
+    }
     await goto('/contact');
     await check('marketing: Contact');
     await goto('/start');
