@@ -151,6 +151,85 @@ function ShowcaseCard({ card }) {
   );
 }
 
+const fmtDay = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); if (!m) return String(d || ''); return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
+const copyToClipboard = async (text) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+
+/* Pay (prompt 2): the open invoice and the ways to pay it, each a full width row in Settings' order. Zelle has no link: the address with Copy. */
+function PayCard({ card }) {
+  const [said, setSaid] = useState('');
+  const methods = (Array.isArray(card.methods) ? card.methods : []).map(m => ({ ...m, href: m.url ? safeHref(m.url) : '' })).filter(m => m.id === 'zelle' ? !!m.copy : !!m.href);
+  return (
+    <section className="pt-card" aria-labelledby="pt-pay-h">
+      <h2 className="pt-card-h" id="pt-pay-h">Pay</h2>
+      <div className="pt-pay-head">
+        <span className="pt-pay-label">{card.label}</span>
+        <span className="pt-pay-amount">{card.amountText}</span>
+        {card.due && <span className="pt-pay-due">{card.plan ? 'Next installment' : 'Due'} {fmtDay(card.due)}{card.pastDue ? ', past due' : ''}</span>}
+      </div>
+      {methods.length > 0 && (
+        <ul className="pt-pay-list">
+          {methods.map(m => (
+            <li key={m.id} className="pt-pay-row" data-method={m.id}>
+              {m.id === 'zelle' ? (
+                <div className="pt-pay-zelle">
+                  <span className="pt-pay-text"><span className="pt-pay-name">{m.name}</span><span className="pt-pay-line">{m.copy}. {m.line}</span></span>
+                  <button type="button" className="pt-btn pt-btn--ghost pt-pay-copy" onClick={async () => setSaid((await copyToClipboard(m.copy)) ? `${m.kind === 'phone' ? 'Number' : 'Email'} copied. Send ${card.amountText}.` : `Send ${card.amountText} to ${m.copy}.`)}><Copy01 width={18} height={18} aria-hidden="true" />Copy</button>
+                </div>
+              ) : (
+                <a className="pt-pay-link" href={m.href} target="_blank" rel="noreferrer">
+                  <span className="pt-pay-text"><span className="pt-pay-name">{m.name}</span><span className="pt-pay-line">{m.line}</span></span>
+                  <ArrowUpRight width={16} height={16} aria-hidden="true" className="pt-doc-arrow" />
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {said && <p className="pt-line" role="status"><Check width={16} height={16} aria-hidden="true" /><span>{said}</span></p>}
+      {card.hint && <p className="pt-note">{card.hint}</p>}
+    </section>
+  );
+}
+
+/* Payment plan: which installment is next and a dot per installment. */
+function PlanCard({ card }) {
+  const dots = Array.isArray(card.dots) ? card.dots : [];
+  return (
+    <section className="pt-card" aria-labelledby="pt-plan-h">
+      <h2 className="pt-card-h" id="pt-plan-h">Payment {card.n} of {card.of}</h2>
+      {card.nextDue && <p className="pt-lead pt-lead--sm">{card.nextAmountText} on {fmtDay(card.nextDue)}.</p>}
+      <ul className="pt-dots" aria-label={`${dots.filter(d => d === 'paid').length} of ${dots.length} paid`}>{dots.map((d, i) => <li key={i} className={`pt-dot${d === 'paid' ? ' is-paid' : ''}`} aria-hidden="true" />)}</ul>
+      {card.line && <p className="pt-note">{card.line}</p>}
+    </section>
+  );
+}
+
+/* Retainer: the active plan, or the one plan to keep it running after delivery. */
+function RetainerCard({ card }) {
+  const sms = smsHref(card.sms); const mailto = mailHref(card.mailto); const url = safeHref(card.url);
+  if (card.mode === 'offer' && !url) return null;
+  return (
+    <section className="pt-card" aria-labelledby="pt-ret-h">
+      <h2 className="pt-card-h" id="pt-ret-h">{card.mode === 'offer' ? 'Keep it running' : 'Your retainer'}</h2>
+      <div className="pt-pay-head"><span className="pt-pay-label">{card.name}</span><span className="pt-pay-amount">{card.priceText}</span>{card.renews && <span className="pt-pay-due">{card.renews}</span>}</div>
+      {card.mode === 'offer' ? (
+        <>
+          {card.pitch && <p className="pt-lead pt-lead--sm">{card.pitch}</p>}
+          <div className="pt-actions"><a className="pt-btn" href={url} target="_blank" rel="noreferrer">Start {card.name}<ArrowUpRight width={16} height={16} aria-hidden="true" /></a></div>
+        </>
+      ) : (
+        <>
+          {card.notice && <p className="pt-note">{card.notice}.</p>}
+          <div className="pt-actions">
+            {sms && <a className="pt-btn pt-btn--ghost" href={sms}><MessageTextSquare02 width={18} height={18} aria-hidden="true" />Message Rob</a>}
+            {!sms && mailto && <a className="pt-btn pt-btn--ghost" href={mailto}><Mail01 width={18} height={18} aria-hidden="true" />Message Rob</a>}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -212,7 +291,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -236,6 +315,8 @@ export default function Portal() {
   }, [token, gen]);
 
   const dismissHint = () => { setHint(false); writeLS(A2HS_KEY, 'seen'); };
+  const [thanks, setThanks] = useState(false);
+  useEffect(() => { if (data?.paid) { setThanks(true); const t = setTimeout(() => setThanks(false), 6000); return () => clearTimeout(t); } return undefined; }, [data]);
   const closePin = useCallback(() => setPinOpen(false), []);
   const unlocked = useCallback(() => { setPinOpen(false); setGen(g => g + 1); }, []);
 
@@ -264,6 +345,7 @@ export default function Portal() {
       )}
       {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} /> : null; })}
       {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
+      {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}
     </div>
   );
 
@@ -344,4 +426,22 @@ const ptStyles = `
   .pt-input { width: 100%; min-height: 48px; padding: var(--space-3) var(--space-4); background: var(--bg-card); color: var(--text); border: 0; border-bottom: 2px solid var(--border-light); border-radius: var(--radius) var(--radius) 0 0; font: inherit; font-size: 1rem; }
   .pt-input:focus-visible { outline: 0; border-bottom-color: var(--brand); }
   .pt-input--pin { max-width: 200px; font-size: 1.75rem; letter-spacing: 0.4em; text-align: center; }
+  /* Money (prompt 2): the invoice head, the full width pay rows, the plan dots, the one line thanks. */
+  .pt-pay-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); }
+  .pt-pay-label { font-size: 1rem; font-weight: 600; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+  .pt-pay-amount { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  .pt-pay-due { flex-basis: 100%; font-size: 0.875rem; color: var(--text-secondary); }
+  .pt-pay-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+  .pt-pay-link, .pt-pay-zelle { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--bg); color: var(--text); text-decoration: none; }
+  .pt-pay-link:hover { background: var(--hover-soft); }
+  .pt-pay-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .pt-pay-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pt-pay-name { font-size: 0.9375rem; font-weight: 600; line-height: 1.3; }
+  .pt-pay-line { font-size: 0.8125rem; color: var(--text-muted); overflow-wrap: anywhere; }
+  .pt-pay-copy { min-height: 44px; padding: 0 var(--space-3); flex-shrink: 0; }
+  .pt-note { margin: 0; font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
+  .pt-dots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .pt-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border-light); }
+  .pt-dot.is-paid { background: var(--brand); border-color: var(--brand); }
+  .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;

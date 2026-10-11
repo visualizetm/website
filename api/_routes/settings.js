@@ -3,6 +3,7 @@ import { safeUrl } from '../_lib/url.js';
 import { emailsConfigured } from '../_lib/email.js';
 import { sendPush } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
+import { RETAINERS } from '../_lib/pricing.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
@@ -24,6 +25,15 @@ const profileShape = (d = {}) => ({
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.email || '').trim()) ? String(d.email).trim().slice(0, 120) : '',
   calendlyLink: safeUrl(d.calendlyLink, 400),
   hours: String(d.hours || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+  /* Client portal (prompt 2): the ways a client can pay (the Pay card) and the Stripe link per retainer (the Retainer card's offer). All optional; empty means the row does not render. */
+  payMethods: {
+    stripe: safeUrl(d.payMethods?.stripe, 400),
+    cashapp: String(d.payMethods?.cashapp || '').trim().replace(/^\$/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20),
+    venmo: String(d.payMethods?.venmo || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 30),
+    zelle: String(d.payMethods?.zelle || '').trim().slice(0, 120),
+    zelleKind: d.payMethods?.zelleKind === 'phone' ? 'phone' : 'email',
+  },
+  retainerLinks: Object.fromEntries(RETAINERS.map(r => [r.id, safeUrl(d.retainerLinks?.[r.id], 400)])),
 });
 const strList = (v, max) => (Array.isArray(v) ? v.filter(x => typeof x === 'string').map(x => x.slice(0, 200)).slice(-max) : []);
 const notifShape = (d = {}) => ({

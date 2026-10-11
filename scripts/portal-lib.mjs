@@ -13,8 +13,8 @@ const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, headersSent: f
 const LEAD = '507f1f77bcf86cd799439061';
 const OTHER = '507f1f77bcf86cd799439062';
 /* The prompt's forbidden keys: no card payload may carry any of them. */
-export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists'];
-const PRIVATE = ['555-0199', 'owner@sharpless.example', 'internal only note', 'https://drive.example/private', LEAD, 'inv-9001', 'purchase-77'];
+export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists', 'ledgerId', 'note', 'stripeEventId', 'schedule'];
+const PRIVATE = ['555-0199', 'owner@sharpless.example', 'internal only note', 'https://drive.example/private', LEAD, 'inv-9001', 'purchase-77', 'ledger-77'];
 const keysDeep = (v, out = new Set()) => { if (Array.isArray(v)) v.forEach(x => keysDeep(x, out)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.add(k); keysDeep(x, out); } return out; };
 
 export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
@@ -43,10 +43,14 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
       { _id: OTHER, business: 'SS Guns and Ammo', stage: 'client', showcase: { published: false, slug: '' }, checklists: [] },
     ];
     _stores.projects = [
-      { _id: 'p1', leadId: LEAD, name: 'Website', kind: 'website', stage: 'design', createdAt: '2026-09-01T00:00:00.000Z', invoices: [{ id: 'inv-9001' }] },
-      { _id: 'p0', leadId: LEAD, name: 'Old logo', kind: 'brand', stage: 'delivered', createdAt: '2026-01-01T00:00:00.000Z' },
+      { _id: 'p1', leadId: LEAD, name: 'Website', kind: 'website', stage: 'design', createdAt: '2026-09-01T00:00:00.000Z', invoices: [
+        { id: 'inv-9000', label: 'Deposit', amount: 350, dueAt: '2026-09-01', status: 'paid', sentAt: '2026-08-30T00:00:00.000Z', paidAt: '2026-09-01T12:00:00.000Z', note: 'internal only note', ledgerId: 'ledger-77' },
+        { id: 'inv-9001', label: 'Balance', amount: 350, dueAt: '2026-10-20', status: 'sent', sentAt: '2026-10-01T00:00:00.000Z', paidAt: '', note: 'internal only note' },
+      ] },
+      { _id: 'p0', leadId: LEAD, name: 'Old logo', kind: 'brand', stage: 'delivered', deliveredAt: '2026-02-01T00:00:00.000Z', createdAt: '2026-01-01T00:00:00.000Z', invoices: [{ id: 'inv-8000', label: 'Logo', amount: 300, dueAt: '2026-01-05', status: 'paid', sentAt: '2026-01-01T00:00:00.000Z', paidAt: '2026-01-05T00:00:00.000Z' }] },
     ];
-    _stores.settings = [{ _id: 'profile', name: 'Rob', phone: '555 0100', email: 'contact@visualizeclients.com', calendlyLink: 'https://calendly.com/visualize/call', hours: 'Weekdays 9 to 5' }];
+    _stores.settings = [{ _id: 'profile', name: 'Rob', phone: '555 0100', email: 'contact@visualizeclients.com', calendlyLink: 'https://calendly.com/visualize/call', hours: 'Weekdays 9 to 5',
+      payMethods: { stripe: 'https://buy.stripe.com/test', cashapp: 'visualize', venmo: 'visualize', zelle: 'pay@visualizeclients.com', zelleKind: 'email' }, retainerLinks: { 'content-kit': 'https://buy.stripe.com/content-kit', 'site-care': '', growth: '', 'ad-creatives': '' } }];
   };
   const cardIds = (res) => (res._json?.cards || []).map(c => c.id).join(',');
   const card = (res, id) => (res._json?.cards || []).find(c => c.id === id);
@@ -81,7 +85,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
 
   /* 3. GET resolves exactly the whitelist */
   const top = Object.keys(live._json || {}).sort().join(',');
-  ok(top === 'cards,client,pinned,unlocked', `GET answers exactly { client, cards, pinned, unlocked } (${top})`, 'get-whitelist');
+  ok(top === 'cards,client,paid,pinned,unlocked', `GET answers exactly { client, cards, pinned, unlocked, paid } (${top})`, 'get-whitelist');
   const ck = Object.keys(live._json?.client || {}).sort().join(',');
   ok(ck === 'brandHex,business,firstName,logoUrl', `client is exactly { firstName, business, logoUrl, brandHex } (${ck})`, 'get-whitelist');
   ok(live._json?.client?.firstName === 'Dan' && live._json.client.business === 'Sharpless Detailing' && live._json.client.logoUrl === 'https://img.example/sharpless.png' && live._json.client.brandHex === '#1d4ed8', `the values are the first name, the business, the logo and the first brand colour (${JSON.stringify(live._json?.client)})`);
@@ -95,7 +99,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,contact,book,documents,showcase'.replace(',documents', ''), `all Auto with data: home, contact, book, showcase render in order, documents (empty) does not (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,contact,book,showcase,pay,retainer', `all Auto with data: home, contact, book, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -103,12 +107,84 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   _stores.projects = _stores.projects.filter(p => p._id !== 'p1');
   let r2 = await pub('GET', { token: t2 });
   ok(card(r2, 'home')?.status === 'All set', `no active project: the status line is All set (${card(r2, 'home')?.status})`, 'home-status');
-  seed(); await admin({ id: LEAD, set: { portal: {} } }); const t3 = lead().portal.token;
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); let t3 = lead().portal.token;
+
+  /* 4b. money (prompt 2): the pay card, its methods and links, the schedule, the plan card, the retainer card, the paid thanks */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tM = lead().portal.token;
+  let rm = await pub('GET', { token: tM });
+  let pay = card(rm, 'pay');
+  ok(pay && pay.label === 'Balance' && pay.amount === 350 && pay.amountText === '$350' && pay.due === '2026-10-20' && pay.plan === false, `the pay card is the open, sent invoice (${JSON.stringify({ label: pay?.label, amount: pay?.amount, due: pay?.due })})`);
+  ok(pay && pay.methods.map(m => m.id).join(',') === 'card,cashapp,venmo,zelle', `the four ways to pay, in order (${pay?.methods?.map(m => m.id).join(',')})`, 'pay-methods');
+  ok(pay && pay.methods[1].url === 'https://cash.app/$visualize/350' && pay.methods[2].url === 'https://venmo.com/u/visualize?txn=pay&amount=350&note=Balance', `Cash App and Venmo links carry the amount and the label (${pay?.methods?.[1]?.url}, ${pay?.methods?.[2]?.url})`, 'pay-links');
+  ok(pay && pay.methods[3].copy === 'pay@visualizeclients.com' && pay.methods[3].kind === 'email' && !pay.methods[3].url && /confirm/.test(pay.methods[3].line), 'Zelle is an address to copy, no link, with the confirm line', 'pay-methods');
+  ok(pay && /show as paid once I see it/.test(pay.hint), 'the quiet line under the manual rows');
+  _stores.projects.push({ _id: 'p2', leadId: LEAD, name: 'Cards', kind: 'brand', stage: 'design', createdAt: '2026-09-15T00:00:00.000Z', invoices: [{ id: 'inv-9100', label: 'Cards deposit', amount: 120, dueAt: '2026-10-05', status: 'sent', sentAt: '2026-10-02T00:00:00.000Z' }] });
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay?.label === 'Cards deposit' && pay?.pastDue === true, `two open invoices: the oldest due wins and past due is a quiet flag (${pay?.label}, pastDue ${pay?.pastDue})`, 'pay-oldest');
+  _stores.projects.find(p => p._id === 'p2').invoices[0].sentAt = '';
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay?.label === 'Balance', 'a line I have not sent yet is never shown', 'pay-sent-only');
+  _stores.projects.push({ _id: 'pr', leadId: LEAD, name: 'Site Care', kind: 'retainer', stage: 'kickoff', createdAt: '2026-05-01T00:00:00.000Z', invoices: [{ id: 'inv-r1', label: 'September', amount: 100, dueAt: '2026-09-15', status: 'sent', sentAt: '2026-09-10T00:00:00.000Z' }] });
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay?.label === 'Balance', 'a retainer line never reaches the pay card (Stripe bills it)', 'pay-no-retainer');
+  _stores.projects = _stores.projects.filter(p => p._id !== 'p2' && p._id !== 'pr');
+  profile().payMethods = { stripe: '', cashapp: '', venmo: 'visualize', zelle: '', zelleKind: 'email' };
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay && pay.methods.map(m => m.id).join(',') === 'venmo', `a method with no identifier does not render (${pay?.methods?.map(m => m.id).join(',')})`, 'pay-methods');
+  profile().payMethods = { stripe: 'https://buy.stripe.com/test', cashapp: '', venmo: '', zelle: '', zelleKind: 'email' };
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay && pay.methods.length === 1 && pay.hint === '', 'card only: no quiet line about manual payments');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tP = lead().portal.token;
+  _stores.projects.find(p => p._id === 'p1').invoices.forEach(l => { l.status = 'paid'; l.paidAt = '2026-09-01T00:00:00.000Z'; });
+  rm = await pub('GET', { token: tP });
+  ok(!card(rm, 'pay'), 'nothing open: no pay card', 'pay-hide');
+  ok(!card(rm, 'plan'), 'no schedule: no plan card');
+  _stores.projects.push({ _id: 'pp', leadId: LEAD, name: 'Launch', kind: 'combined', stage: 'build', createdAt: '2026-09-20T00:00:00.000Z', plan: { months: 6, monthly: 200 }, invoices: ['2026-08-10', '2026-09-10', '2026-10-10', '2026-11-10', '2026-12-10', '2027-01-10'].map((dueAt, k) => ({ id: `pl${k + 1}`, label: `Payment ${k + 1} of 6`, amount: 200, dueAt, status: k < 2 ? 'paid' : 'sent', sentAt: '2026-08-01T00:00:00.000Z', paidAt: k < 2 ? '2026-08-15T00:00:00.000Z' : '' })).concat([{ id: 'plx', label: 'Extra round', amount: 75, dueAt: '2026-09-01', status: 'sent', sentAt: '2026-08-20T00:00:00.000Z', extra: true }]) });
+  rm = await pub('GET', { token: tP }); pay = card(rm, 'pay'); const plan = card(rm, 'plan');
+  ok(pay?.plan === true && pay?.label === 'Payment 3 of 6' && pay?.amount === 200, `a payment plan: the pay card is the next installment, not the oldest line (${pay?.label})`, 'pay-schedule');
+  ok(plan && plan.n === 3 && plan.of === 6 && plan.dots.join('') === 'paidpaidopenopenopenopen' && plan.nextAmountText === '$200' && /unlock after the last payment/.test(plan.line), `the plan card: payment 3 of 6, the dots, the unlock line (${JSON.stringify(plan)})`, 'plan-next');
+  _stores.projects.find(p => p._id === 'pp').invoices.forEach(l => { if (!l.extra) { l.status = 'paid'; l.paidAt = '2026-09-01T00:00:00.000Z'; } });
+  rm = await pub('GET', { token: tP });
+  ok(!card(rm, 'plan'), 'every installment paid: no plan card', 'plan-next');
+  /* the retainer card: the one offer after delivery, null without its link, the active plan, never two */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tR = lead().portal.token;
+  rm = await pub('GET', { token: tR }); let ret = card(rm, 'retainer');
+  ok(ret?.mode === 'offer' && ret?.name === 'Content Kit' && ret?.url === 'https://buy.stripe.com/content-kit' && ret?.priceText === '$250 a month', `a delivered brand project and no retainer: the Content Kit offer with its link (${JSON.stringify(ret)})`, 'retainer-offer');
+  ok((rm._json?.cards || []).filter(c => c.id === 'retainer').length === 1, 'never more than one retainer card');
+  profile().retainerLinks['content-kit'] = '';
+  rm = await pub('GET', { token: tR });
+  ok(!card(rm, 'retainer'), 'the offer needs its link: empty map, no card', 'retainer-link-empty');
+  _stores.projects.find(p => p._id === 'p1').deliveredAt = '2026-10-01T00:00:00.000Z'; profile().retainerLinks.growth = 'https://buy.stripe.com/growth';
+  rm = await pub('GET', { token: tR }); ret = card(rm, 'retainer');
+  ok(ret?.name === 'Growth', 'brand and website both delivered: Growth is the one offer', 'retainer-offer');
+  lead().retainer = { planId: 'site-care', amount: 100, status: 'active', billDay: 15, nextBillAt: '2026-11-15', stripeSubscriptionId: 'sub_123' };
+  rm = await pub('GET', { token: tR }); ret = card(rm, 'retainer');
+  ok(ret?.mode === 'active' && ret?.name === 'Site Care' && ret?.priceText === '$100 a month' && ret?.renews === 'Renews 2026-11-15' && ret?.notice === '30 day cancel notice' && ret?.sms === 'sms:5550100' && !ret?.url, `an active retainer: plan, price, renewal, notice, Message Rob (${JSON.stringify(ret)})`, 'retainer-active');
+  ok(!JSON.stringify(ret).includes('sub_123'), 'the Stripe subscription id never leaves', 'card-fields');
+  lead().retainer.status = 'cancelled';
+  rm = await pub('GET', { token: tR }); ret = card(rm, 'retainer');
+  ok(ret?.mode === 'offer', 'a cancelled retainer is not active: the offer again', 'retainer-active');
+  /* the paid thanks: once, server stamped */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tT = lead().portal.token;
+  rm = await pub('GET', { token: tT });
+  ok(rm._json?.paid === false, 'payments before the link existed do not thank');
+  _stores.projects.find(p => p._id === 'p1').invoices[1].status = 'paid'; _stores.projects.find(p => p._id === 'p1').invoices[1].paidAt = new Date(Date.now() + 1000).toISOString();
+  rm = await pub('GET', { token: tT });
+  ok(rm._json?.paid === true && !card(rm, 'pay') && lead().portal.lastPaidSeenAt, 'a new payment: paid once, the pay card gone, lastPaidSeenAt stamped', 'paid-once');
+  rm = await pub('GET', { token: tT });
+  ok(rm._json?.paid === false, 'the next read does not thank again', 'paid-once');
+  /* sensitive: behind a PIN the money cards come locked, with nothing in them */
+  await admin({ id: LEAD, set: { portal: { pin: '4321' } } });
+  rm = await pub('GET', { token: tT });
+  const lockedRet = card(rm, 'retainer');
+  ok(lockedRet && lockedRet.locked === true && lockedRet.name === undefined && lockedRet.url === undefined, `with a PIN the retainer card is locked and empty (${JSON.stringify(lockedRet)})`, 'pin-gate');
+  await admin({ id: LEAD, set: { portal: { pin: '' } } });
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });
-  ok(!card(r2, 'contact') && !card(r2, 'showcase') && card(r2, 'book'), `off never renders even with data (${cardIds(r2)})`, 'state-off');
+  ok(!card(r2, 'contact') && !card(r2, 'showcase') && card(r2, 'book') && card(r2, 'pay'), `off never renders even with data (${cardIds(r2)})`, 'state-off');
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'on', showcase: 'on', documents: 'on' } } } });
   r2 = await pub('GET', { token: t3 });
   ok(card(r2, 'contact') && card(r2, 'showcase') && !card(r2, 'documents'), `on renders only when resolve returns data: contact and showcase yes, documents (empty) no (${cardIds(r2)})`, 'state-on-empty');

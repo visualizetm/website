@@ -541,6 +541,7 @@ export async function handler(req, res) {
         sentAt: asked.sentAt !== undefined ? asked.sentAt : (had.sentAt || ''),
         views: Number(had.views) || 0,
         lastViewedAt: had.lastViewedAt || '',
+        lastPaidSeenAt: had.lastPaidSeenAt || '',
         pin: asked.pin === undefined ? (had.pin || '') : (asked.pin ? hashPin(asked.pin) : ''),
         modules: { ...(had.modules && typeof had.modules === 'object' ? had.modules : {}), ...(asked.modules || {}) },
         template: asked.template !== undefined ? asked.template : (had.template || ''),

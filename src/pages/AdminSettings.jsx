@@ -8,6 +8,7 @@ import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, Icon } from '../ui';
 import { COPY } from '../shared/copy';
+import { RETAINERS } from '../shared/pricing';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, usePushRel } from '../shell/nav-history';
 import { canPrompt, isStandalone, isIOS, promptInstall, onInstallChange } from '../shell/install';
@@ -257,6 +258,23 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <div className="v-field"><span className="v-field-label">My email</span><InlineEdit value={profile.email || ''} onSave={(v) => saveProfile({ email: String(v).trim() })} placeholder="contact@visualizeclients.com" label="My email" type="email" className="st-portal-email" /></div>
           <div className="v-field"><span className="v-field-label">Calendly link</span><InlineEdit value={profile.calendlyLink || ''} onSave={(v) => saveProfile({ calendlyLink: String(v).trim() })} placeholder="https://calendly.com/..." label="Calendly link" type="url" className="st-portal-calendly" /></div>
           <div className="v-field"><span className="v-field-label">Hours, in words</span><InlineEdit value={profile.hours || ''} onSave={(v) => saveProfile({ hours: String(v).trim() })} placeholder="Weekdays 9 to 5" label="Hours, in words" className="st-portal-hours" /></div>
+        </Stack>
+      </Card>
+      <Card className="st-card" data-card="portal-pay">
+        <p className="pb-card-h">Ways to pay</p>
+        <p className="dt-muted">The Pay card on every portal lists these, in this order, for the open invoice. Empty means that row does not show. Retainers bill through Stripe only.</p>
+        <Stack gap={2}>
+          <div className="v-field"><span className="v-field-label">Stripe payment link (card, Apple Pay)</span><InlineEdit value={profile.payMethods?.stripe || ''} onSave={(v) => saveProfile({ payMethods: { ...(profile.payMethods || {}), stripe: String(v).trim() } })} placeholder="https://buy.stripe.com/..." label="Stripe payment link" type="url" className="st-pay-stripe" /></div>
+          <div className="v-field"><span className="v-field-label">Cash App cashtag</span><InlineEdit value={profile.payMethods?.cashapp || ''} onSave={(v) => saveProfile({ payMethods: { ...(profile.payMethods || {}), cashapp: String(v).trim() } })} placeholder="visualize" label="Cash App cashtag" className="st-pay-cashapp" /></div>
+          <div className="v-field"><span className="v-field-label">Venmo username</span><InlineEdit value={profile.payMethods?.venmo || ''} onSave={(v) => saveProfile({ payMethods: { ...(profile.payMethods || {}), venmo: String(v).trim() } })} placeholder="visualize" label="Venmo username" className="st-pay-venmo" /></div>
+          <div className="v-field"><span className="v-field-label">Zelle email or phone</span><InlineEdit value={profile.payMethods?.zelle || ''} onSave={(v) => saveProfile({ payMethods: { ...(profile.payMethods || {}), zelle: String(v).trim(), zelleKind: /@/.test(String(v)) ? 'email' : 'phone' } })} placeholder="contact@visualizeclients.com" label="Zelle email or phone" className="st-pay-zelle" /></div>
+        </Stack>
+      </Card>
+      <Card className="st-card" data-card="portal-retainers">
+        <p className="pb-card-h">Retainer links</p>
+        <p className="dt-muted">The Stripe subscription link per plan. After a delivered project, the portal offers the one plan that fits, only when its link is here.</p>
+        <Stack gap={2}>
+          {RETAINERS.map(r => <div key={r.id} className="v-field"><span className="v-field-label">{r.label}, ${r.price} a month</span><InlineEdit value={profile.retainerLinks?.[r.id] || ''} onSave={(v) => saveProfile({ retainerLinks: { ...(profile.retainerLinks || {}), [r.id]: String(v).trim() } })} placeholder="https://buy.stripe.com/..." label={`${r.label} link`} type="url" className={`st-retainer-${r.id}`} /></div>)}
         </Stack>
       </Card>
       <PasswordCard />

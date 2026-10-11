@@ -99,7 +99,10 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 5: docs (ARCHITECTURE's Client portal section and the /api/portal row, RUNBOOK's Client portal, COMPONENTS' Portal card and PortalSheet, CLAUDE.md's script lines), the mint line fix so each guard proof cuts its own, the orphaned rule removed, the full gate on the final build (reports/PORTAL-1-REPORT.md has every result; the full a11y run, three feel runs and preship were still running when the report was written, after the targeted portal runs had passed).
 
+## Client portal, prompt 2 (money and project cards)
+- Milestone 1: the pay, plan and retainer modules on the registry and its mirror (the registry now imports the invoice rules and pricing on each side, above the marker); profile.payMethods (Stripe link, Cash App, Venmo, Zelle) and profile.retainerLinks on the settings route and two Settings cards; the public route's projections widened to what resolve may read and the paid thanks stamp; the three cards on the page; portal-test 68 -> 96 checks, portal-guard-proof 28 -> 40 guards.
+
 ## Next
-- Prompt 2: the first sensitive module (Money) and the Project card on the registry; the PIN gate is already proven with a test only module.
+- Prompt 2 milestone 2: progress, revisions, needs_you with the client toggle on checklist items.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

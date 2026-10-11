@@ -42,6 +42,18 @@ const CUTS = {
   'pin-gate': [[PM, "    if (m.sensitive && !unlocked) { cards.push({ id: m.id, title: m.title, sensitive: true, locked: true }); continue; }\n", ""]],
   'unlock-verify': [[PP, "const unlockOk = (token, v) => { const [exp, sig] = String(v || '').split('.'); if (!exp || !sig || !(Number(exp) > Date.now())) return false; const a = Buffer.from(sig); const b = Buffer.from(hmac(`${token}:${exp}`)); return a.length === b.length && timingSafeEqual(a, b); };", "const unlockOk = (token, v) => { const [exp, sig] = String(v || '').split('.'); return !!(exp && sig && Number(exp) > Date.now()); };"]],
   'unlock-days': [[PP, "const UNLOCK_DAYS = 30;", "const UNLOCK_DAYS = 3;"]],
+  'pay-hide': [[PM, "      const hit = oldestOpenInvoice(client, projects);\n      if (!hit) return null;", "      const hit = oldestOpenInvoice(client, projects) || { line: { label: 'Invoice', amount: 0 }, project: {} };"]],
+  'pay-methods': [[PM, "  if (cashtag(pm.cashapp)) out.push(", "  if (true) out.push("], [PM, "  if (str(pm.zelle, 120)) out.push(", "  if (true) out.push("]],
+  'pay-links': [[PM, "const amt = Math.round(Number(amount) * 100) / 100;", "const amt = 0;"]],
+  'pay-oldest': [[PM, "  found.sort((a, b) => (dateOf(a.line.dueAt) || '9999').localeCompare(dateOf(b.line.dueAt) || '9999') || String(a.line.sentAt).localeCompare(String(b.line.sentAt)));\n", ""]],
+  'pay-sent-only': [[PM, "    for (const l of openLines(p, now)) if (l.sentAt) found.push({ line: l, project: p });", "    for (const l of openLines(p, now)) found.push({ line: l, project: p });"]],
+  'pay-no-retainer': [[PM, "    if (p.kind === 'retainer') continue;\n    for (const l of openLines(p, now))", "    for (const l of openLines(p, now))"]],
+  'pay-schedule': [[PM, "      if (project.plan?.months) { const next = planLines(project).find(l => !isPaid(l)); if (next) line = next; }\n", ""]],
+  'plan-next': [[PM, "const paid = lines.filter(l => isPaid(l)).length; const next = lines.find(l => !isPaid(l)); if (!next) continue;", "const paid = lines.filter(l => isPaid(l)).length; const next = lines.find(l => !isPaid(l)) || lines[0];"]],
+  'retainer-offer': [[PM, "  return retainerOf(web && brand ? 'growth' : web ? 'site-care' : 'content-kit');", "  return retainerOf('site-care');"]],
+  'retainer-link-empty': [[PM, "      if (!/^https:\\/\\//i.test(url)) return null;\n", ""]],
+  'retainer-active': [[PM, "export const activeRetainer = (client) => { const r = client?.retainer; if (!r || r.status !== 'active') return null;", "export const activeRetainer = (client) => { const r = client?.retainer; if (!r) return null;"]],
+  'paid-once': [[PM, "  return latest && latest > since ? latest : '';", "  return latest;"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

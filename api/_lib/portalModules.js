@@ -1,6 +1,9 @@
-/* Server mirror of src/shared/portalModules.js (client portal, prompt 1): the same registry byte for byte below
- * PORTAL_MODULE_IDS; scripts/portal-test.mjs asserts it. */
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase'];
+/* Server mirror of src/shared/portalModules.js (client portal, prompts 1 and 2): the same registry byte for byte below
+ * PORTAL_MODULE_IDS; scripts/portal-test.mjs asserts it. The imports above the marker point at this side's mirrors. */
+import { invoicesOf, invoiceStatus } from './invoices.js';
+import { RETAINERS, retainerOf, money } from './pricing.js';
+
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -18,6 +21,59 @@ export const portalBusiness = (client) => str(client?.showcase?.displayName || c
 export const newestActiveProject = (client, projects) => (Array.isArray(projects) ? projects : [])
   .filter(p => p && String(p.leadId) === String(client?._id) && !p.archived && p.kind !== 'retainer' && p.stage !== 'delivered')
   .sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))[0] || null;
+
+/* Money (prompt 2). The lines a project carries are invoicesOf (invoices[], else the old schedule[]); paid is invoiceStatus paid
+ * (status paid or a ledgerId the Stripe webhook wrote). Anything else is unpaid. */
+export const clientProjects = (client, projects) => (Array.isArray(projects) ? projects : []).filter(p => p && String(p.leadId) === String(client?._id) && !p.archived);
+const isPaid = (line, now) => invoiceStatus(line, now) === 'paid';
+const openLines = (p, now) => invoicesOf(p).filter(l => !isPaid(l, now));
+/** Paid in full: every line paid (and there is at least one), or delivered with no open line. No lines and not delivered is unpaid. */
+export const paidInFull = (p, now = Date.now()) => { const lines = invoicesOf(p); if (lines.some(l => !isPaid(l, now))) return false; return lines.length > 0 || !!p?.deliveredAt; };
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const dateOf = (v) => (DATE_ONLY.test(String(v || '').slice(0, 10)) ? String(v).slice(0, 10) : '');
+/** The oldest open, sent line across the client's projects (never a retainer's: those bill through Stripe), with its project. */
+export function oldestOpenInvoice(client, projects, now = Date.now()) {
+  const found = [];
+  for (const p of clientProjects(client, projects)) {
+    if (p.kind === 'retainer') continue;
+    for (const l of openLines(p, now)) if (l.sentAt) found.push({ line: l, project: p });
+  }
+  found.sort((a, b) => (dateOf(a.line.dueAt) || '9999').localeCompare(dateOf(b.line.dueAt) || '9999') || String(a.line.sentAt).localeCompare(String(b.line.sentAt)));
+  return found[0] || null;
+}
+/** A payment plan's installments: the project's non extra lines in due order. */
+export const planLines = (p) => (p?.plan?.months ? invoicesOf(p).filter(l => !l.extra).sort((a, b) => (dateOf(a.dueAt) || '9999').localeCompare(dateOf(b.dueAt) || '9999')) : []);
+const cashtag = (v) => String(v || '').trim().replace(/^\$/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20);
+const handle = (v) => String(v || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 30);
+/** The ways to pay one line, in order: card (the Stripe link from Settings), Cash App, Venmo, Zelle. A method with no identifier is left out. */
+export function payMethods(profile, amount, label) {
+  const pm = profile?.payMethods || {};
+  const out = [];
+  const amt = Math.round(Number(amount) * 100) / 100;
+  if (/^https:\/\//i.test(String(pm.stripe || ''))) out.push({ id: 'card', name: 'Card or Apple Pay', line: 'Pay securely through Stripe', url: String(pm.stripe).slice(0, 400) });
+  if (cashtag(pm.cashapp)) out.push({ id: 'cashapp', name: 'Cash App', line: `$${cashtag(pm.cashapp)}, the amount filled in`, url: `https://cash.app/$${cashtag(pm.cashapp)}/${amt}` });
+  if (handle(pm.venmo)) out.push({ id: 'venmo', name: 'Venmo', line: `@${handle(pm.venmo)}, the amount filled in`, url: `https://venmo.com/u/${handle(pm.venmo)}?txn=pay&amount=${amt}&note=${encodeURIComponent(String(label || '').slice(0, 80))}` });
+  if (str(pm.zelle, 120)) out.push({ id: 'zelle', name: 'Zelle', line: "Send it here and I'll confirm", copy: str(pm.zelle, 120), kind: pm.zelleKind === 'phone' ? 'phone' : 'email' });
+  return out;
+}
+/** The client's active retainer (lead.retainer, status active, a known plan). */
+export const activeRetainer = (client) => { const r = client?.retainer; if (!r || r.status !== 'active') return null; const plan = retainerOf(r.planId); return plan ? { plan, r } : null; };
+/** The one retainer to offer after delivery: Site Care for web, Content Kit for brand, Growth when both kinds were delivered. */
+export function retainerToOffer(client, projects) {
+  const done = clientProjects(client, projects).filter(p => p.kind !== 'retainer' && (p.deliveredAt || p.stage === 'delivered'));
+  if (!done.length) return null;
+  const web = done.some(p => p.kind === 'website' || p.kind === 'web' || p.kind === 'combined');
+  const brand = done.some(p => p.kind === 'brand' || p.kind === 'combined');
+  return retainerOf(web && brand ? 'growth' : web ? 'site-care' : 'content-kit');
+}
+/** The newest payment the client has not been thanked for yet, as its paidAt, or ''. Only payments after the link existed count. */
+export function unseenPayment(client, projects) {
+  const since = String(client?.portal?.lastPaidSeenAt || client?.portal?.createdAt || '');
+  let latest = '';
+  for (const p of clientProjects(client, projects)) for (const l of invoicesOf(p)) if (isPaid(l) && l.paidAt && String(l.paidAt) > latest) latest = String(l.paidAt);
+  return latest && latest > since ? latest : '';
+}
+const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export const PORTAL_MODULES = [
   {
@@ -72,12 +128,63 @@ export const PORTAL_MODULES = [
       return { url, slug: str(sh.slug, 80), message: `New look for ${portalBusiness(client)}, made with Visualize: ${url}` };
     },
   },
+  {
+    id: 'pay', title: 'Pay', order: 50, sensitive: true, defaultState: 'auto',
+    auto: 'Shows the oldest open invoice I have sent (a payment plan shows its next installment); gone once it is paid.',
+    fields: ['label', 'amountText', 'amount', 'due', 'pastDue', 'plan', 'methods', 'hint'],
+    resolve(client, projects, settings) {
+      const hit = oldestOpenInvoice(client, projects);
+      if (!hit) return null;
+      let { line, project } = hit;
+      if (project.plan?.months) { const next = planLines(project).find(l => !isPaid(l)); if (next) line = next; }
+      const methods = payMethods(settings?.profile, line.amount, line.label);
+      return {
+        label: str(line.label, 120) || 'Invoice', amountText: money(line.amount), amount: Number(line.amount) || 0, due: dateOf(line.dueAt),
+        pastDue: invoiceStatus(line) === 'past-due', plan: !!project.plan?.months, methods,
+        hint: methods.some(m => m.id !== 'card') ? "Sent one of these? It'll show as paid once I see it, usually the same day." : '',
+      };
+    },
+  },
+  {
+    id: 'plan', title: 'Payment plan', order: 55, sensitive: true, defaultState: 'auto',
+    auto: 'Shows on a payment plan with installments still to pay: which one is next and the dots so far.',
+    fields: ['n', 'of', 'nextAmountText', 'nextDue', 'dots', 'line'],
+    resolve(client, projects) {
+      for (const p of clientProjects(client, projects)) {
+        const lines = planLines(p); if (!lines.length) continue;
+        const paid = lines.filter(l => isPaid(l)).length; const next = lines.find(l => !isPaid(l)); if (!next) continue;
+        return { n: paid + 1, of: lines.length, nextAmountText: money(next.amount), nextDue: dateOf(next.dueAt), dots: lines.map(l => (isPaid(l) ? 'paid' : 'open')), line: 'Your files unlock after the last payment.' };
+      }
+      return null;
+    },
+  },
+  {
+    id: 'retainer', title: 'Retainer', order: 60, sensitive: true, defaultState: 'auto',
+    auto: 'Shows the active retainer (plan, price, renewal, the cancel notice). With none and a delivered project, offers the one plan that fits when its Stripe link is set in Settings.',
+    fields: ['mode', 'name', 'priceText', 'renews', 'notice', 'sms', 'mailto', 'url', 'pitch'],
+    resolve(client, projects, settings) {
+      const pr = settings?.profile || {};
+      const digits = str(pr.phone, 32).replace(/[^\d+]/g, ''); const email = str(pr.email, 120);
+      const active = activeRetainer(client);
+      if (active) {
+        const { plan, r } = active;
+        const next = dateOf(r.nextBillAt);
+        return { mode: 'active', name: plan.label, priceText: `${money(r.amount || plan.price)} a month`, renews: next ? `Renews ${next}` : `Renews on the ${ordinal(Number(r.billDay) || 1)} each month`, notice: '30 day cancel notice', sms: digits ? `sms:${digits}` : '', mailto: email ? `mailto:${email}` : '' };
+      }
+      const offer = retainerToOffer(client, projects);
+      if (!offer) return null;
+      const url = str(pr.retainerLinks?.[offer.id], 400);
+      if (!/^https:\/\//i.test(url)) return null;
+      return { mode: 'offer', name: offer.label, priceText: `${money(offer.price)} a month`, url, pitch: `Keep it running: ${offer.included.slice(0, 3).join(', ').toLowerCase()}. Cancel any time with 30 days notice.` };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto' },
 };
+export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;
 /** The state a module is in for this client: the stored one, else its default; home is always on. */
 export const portalStateOf = (client, id, mod = null) => { const m = mod || portalModuleOf(id); if (!m) return 'off'; if (m.fixed) return 'on'; const s = client?.portal?.modules?.[id]; return PORTAL_STATE_IDS.includes(s) ? s : m.defaultState; };

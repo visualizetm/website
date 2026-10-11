@@ -585,10 +585,19 @@ export const PORTAL_RESOLVE = {
     { id: 'book', title: 'Book a call', sensitive: false, url: 'https://calendly.com/contactvisualize/studio-meeting' },
     { id: 'documents', title: 'Your documents', sensitive: false, items: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf' }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet' }, { id: 'd3', label: 'Shared folder', url: 'https://drive.google.com/drive/folders/fixture', kind: 'drive' }] },
     { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
+    /* Prompt 2: the money cards, all four ways to pay, a plan at its third installment, an active retainer. */
+    { id: 'pay', title: 'Pay', sensitive: true, label: 'Payment 3 of 6', amountText: '$200', amount: 200, due: '2026-10-15', pastDue: false, plan: true, methods: [
+      { id: 'card', name: 'Card or Apple Pay', line: 'Pay securely through Stripe', url: 'https://buy.stripe.com/fixture' },
+      { id: 'cashapp', name: 'Cash App', line: '$visualize, the amount filled in', url: 'https://cash.app/$visualize/200' },
+      { id: 'venmo', name: 'Venmo', line: '@visualize, the amount filled in', url: 'https://venmo.com/u/visualize?txn=pay&amount=200&note=Payment%203%20of%206' },
+      { id: 'zelle', name: 'Zelle', line: "Send it here and I'll confirm", copy: 'contact@visualizeclients.com', kind: 'email' },
+    ], hint: "Sent one of these? It'll show as paid once I see it, usually the same day." },
+    { id: 'plan', title: 'Payment plan', sensitive: true, n: 3, of: 6, nextAmountText: '$200', nextDue: '2026-10-15', dots: ['paid', 'paid', 'open', 'open', 'open', 'open'], line: 'Your files unlock after the last payment.' },
+    { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },
   ],
-  pinned: false, unlocked: true,
+  pinned: false, unlocked: true, paid: false,
 };
-export const PORTAL_PIN_RESOLVE = { ...PORTAL_RESOLVE, cards: [...PORTAL_RESOLVE.cards, { id: 'secret', title: 'Secret', sensitive: true, locked: true }], pinned: true, unlocked: false };
+export const PORTAL_PIN_RESOLVE = { ...PORTAL_RESOLVE, cards: [...PORTAL_RESOLVE.cards.map(c => (c.sensitive ? { id: c.id, title: c.title, sensitive: true, locked: true } : c)), { id: 'secret', title: 'Secret', sensitive: true, locked: true }], pinned: true, unlocked: false };
 export const PORTAL_PIN = '1234';
 export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review' };
 
