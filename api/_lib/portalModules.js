@@ -1,9 +1,9 @@
 /* Server mirror of src/shared/portalModules.js (client portal, prompts 1 and 2): the same registry byte for byte below
  * PORTAL_MODULE_IDS; scripts/portal-test.mjs asserts it. The imports above the marker point at this side's mirrors. */
 import { invoicesOf, invoiceStatus } from './invoices.js';
-import { RETAINERS, retainerOf, money } from './pricing.js';
+import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -72,6 +72,29 @@ export function unseenPayment(client, projects) {
   let latest = '';
   for (const p of clientProjects(client, projects)) for (const l of invoicesOf(p)) if (isPaid(l) && l.paidAt && String(l.paidAt) > latest) latest = String(l.paidAt);
   return latest && latest > since ? latest : '';
+}
+/* Project (prompt 2). The stages a project walks, the same list src/lib/projects.js stagesFor draws. */
+export const stagesFor = (kind) => (kind === 'retainer' ? ['kickoff', 'delivered'] : (kind === 'web' || kind === 'website' || kind === 'combined') ? ['kickoff', 'design', 'revisions', 'build', 'delivery', 'delivered'] : ['kickoff', 'design', 'revisions', 'delivery', 'delivered']);
+export const revisionsUsed = (p) => Math.max(Number(p?.revisions?.used) || 0, (Array.isArray(p?.revisions?.log) ? p.revisions.log : []).filter(r => !r.extra).length);
+export const revisionsMax = (p) => Number(p?.revisions?.max) || 0;
+const stageLine = (p, kind) => {
+  switch (p?.stage) {
+    case 'kickoff': return "I'm getting set up";
+    case 'design': return "I'm building your first concepts";
+    case 'revisions': return `Round ${revisionsUsed(p)} of ${revisionsMax(p)}`;
+    case 'build': return "I'm building it out";
+    case 'delivery': return 'Final files are coming';
+    case 'delivered': return `Delivered on ${dateOf(p.deliveredAt) || 'schedule'}`;
+    default: return kind === 'retainer' ? 'Running' : 'In progress';
+  }
+};
+/** The open items the client has to do, on the client and its active projects, in list order. */
+export function clientItems(client, projects) {
+  const out = [];
+  const take = (record, owner) => (Array.isArray(record?.checklists) ? record.checklists : []).forEach(l => (Array.isArray(l?.items) ? l.items : []).forEach(it => { if (it && it.client && !it.done) out.push({ id: str(it.id, 24), text: str(it.text, 300), url: /^https:\/\/[^\s]+$/i.test(String(it.url || '')) ? String(it.url).slice(0, 400) : '', owner }); }));
+  take(client, '');
+  for (const p of clientProjects(client, projects).filter(p => p.stage !== 'delivered')) take(p, str(p.name, 80));
+  return out;
 }
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
@@ -178,11 +201,40 @@ export const PORTAL_MODULES = [
       return { mode: 'offer', name: offer.label, priceText: `${money(offer.price)} a month`, url, pitch: `Keep it running: ${offer.included.slice(0, 3).join(', ').toLowerCase()}. Cancel any time with 30 days notice.` };
     },
   },
+  {
+    id: 'progress', title: 'Your project', order: 15, sensitive: false, defaultState: 'auto',
+    auto: 'Shows the newest active project: its stages as a track and where it is, in one line.',
+    fields: ['name', 'pkg', 'stages', 'stage', 'line'],
+    resolve(client, projects) {
+      const p = newestActiveProject(client, projects) || clientProjects(client, projects).filter(x => x.kind !== 'retainer').sort((a, b) => (Date.parse(b.deliveredAt || b.createdAt || '') || 0) - (Date.parse(a.deliveredAt || a.createdAt || '') || 0))[0];
+      if (!p) return null;
+      const stages = (Array.isArray(p.stages) && p.stages.length ? p.stages : stagesFor(p.kind)).map(id => ({ id: str(id, 20), label: STAGE_LABELS[id] || str(id, 20) }));
+      return { name: str(p.name, 80) || 'Your project', pkg: str(p.packageId, 40).replace(/-/g, ' '), stages, stage: str(p.stage, 20), line: stageLine(p, p.kind) };
+    },
+  },
+  {
+    id: 'revisions', title: 'Revisions', order: 16, sensitive: false, defaultState: 'auto',
+    auto: 'Shows during the revisions stage: the round in use of the rounds included, and the extra round price on the last included one.',
+    fields: ['used', 'max', 'line', 'last'],
+    resolve(client, projects) {
+      const p = newestActiveProject(client, projects);
+      if (!p || p.stage !== 'revisions') return null;
+      const used = revisionsUsed(p); const max = revisionsMax(p); const last = max > 0 && used === max - 1;
+      const kind = (p.kind === 'web' || p.kind === 'website' || p.kind === 'combined') ? 'web' : 'design';
+      return { used, max, last, line: last ? `This is your last included round. Extra rounds are ${money(EXTRA_ROUND.design)} for design and ${money(EXTRA_ROUND.web)} for web.` : `Round ${used} of ${max} used.${used >= max ? ` Extra rounds are ${money(extraRoundFee(kind))} each.` : ''}` };
+    },
+  },
+  {
+    id: 'needs_you', title: 'Needs you', order: 5, sensitive: false, defaultState: 'auto',
+    auto: 'Shows what is waiting on them: open checklist items marked Needs the client, on the client and the active project. Sits right after home.',
+    fields: ['items'],
+    resolve(client, projects) { const items = clientItems(client, projects); return items.length ? { items } : null; },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

@@ -230,6 +230,52 @@ function RetainerCard({ card }) {
   );
 }
 
+/* Your project (prompt 2): the stages as a track with the current one lit, and one line in my voice. */
+function ProgressCard({ card }) {
+  const stages = Array.isArray(card.stages) ? card.stages : [];
+  const at = Math.max(0, stages.findIndex(s => s.id === card.stage));
+  return (
+    <section className="pt-card" aria-labelledby="pt-prog-h">
+      <h2 className="pt-card-h" id="pt-prog-h">{card.name}</h2>
+      {card.pkg && <p className="pt-note">{card.pkg}</p>}
+      <ol className="pt-track" aria-label={`Stage ${at + 1} of ${stages.length}: ${stages[at]?.label || ''}`}>
+        {stages.map((s, i) => <li key={s.id} className={`pt-stage${i < at ? ' is-done' : ''}${i === at ? ' is-now' : ''}`} aria-current={i === at ? 'step' : undefined}><span className="pt-stage-dot" aria-hidden="true" /><span className="pt-stage-label">{s.label}</span></li>)}
+      </ol>
+      {stages[at] && <p className="pt-stage-now" aria-hidden="true">{stages[at].label}, stage {at + 1} of {stages.length}</p>}
+      {card.line && <p className="pt-lead pt-lead--sm">{card.line}.</p>}
+    </section>
+  );
+}
+
+function RevisionsCard({ card }) {
+  return (
+    <section className="pt-card" aria-labelledby="pt-rev-h">
+      <h2 className="pt-card-h" id="pt-rev-h">Revisions</h2>
+      <p className="pt-pay-amount">Round {card.used} of {card.max}</p>
+      {card.line && <p className={`pt-lead pt-lead--sm${card.last ? ' pt-last' : ''}`}>{card.line}</p>}
+    </section>
+  );
+}
+
+/* Needs you: what is waiting on them, a row per item, a button when the item has a link. */
+function NeedsYouCard({ card }) {
+  const items = (Array.isArray(card.items) ? card.items : []).map(it => ({ ...it, href: it.url ? safeHref(it.url) : '' }));
+  if (!items.length) return null;
+  return (
+    <section className="pt-card pt-card--needs" aria-labelledby="pt-needs-h">
+      <h2 className="pt-card-h" id="pt-needs-h">Needs you</h2>
+      <ul className="pt-needs">
+        {items.map(it => (
+          <li key={it.id} className="pt-need">
+            <span className="pt-need-text"><span className="pt-need-label">{it.text}</span>{it.owner && <span className="pt-doc-kind">{it.owner}</span>}</span>
+            {it.href && <a className="pt-btn pt-btn--ghost pt-need-btn" href={it.href} target="_blank" rel="noreferrer">Open<ArrowUpRight width={16} height={16} aria-hidden="true" /></a>}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -291,7 +337,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -443,5 +489,24 @@ const ptStyles = `
   .pt-dots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .pt-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border-light); }
   .pt-dot.is-paid { background: var(--brand); border-color: var(--brand); }
+  /* Project (prompt 2): the stage track (a dot and a label per stage, the current one lit), the needs you rows. */
+  .pt-track { list-style: none; margin: 0; padding: 0; display: flex; gap: var(--space-1); min-width: 0; }
+  .pt-stage { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); text-align: center; }
+  .pt-stage-dot { display: block; width: 100%; height: 6px; border-radius: 3px; background: var(--bg); border: 1px solid var(--border-light); }
+  .pt-stage.is-done .pt-stage-dot { background: var(--text-faint); border-color: var(--text-faint); }
+  .pt-stage.is-now .pt-stage-dot { background: var(--brand); border-color: var(--brand); }
+  /* Six columns are too narrow for a word like Revisions on a phone: the dots carry the track there and one line names the stage; the labels return from 480px. */
+  .pt-stage-label { display: none; font-size: 0.6875rem; line-height: 1.2; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .pt-stage.is-now .pt-stage-label { color: var(--text); font-weight: 700; }
+  .pt-stage-now { margin: 0; font-size: 0.8125rem; font-weight: 600; color: var(--text); }
+  @media (min-width: 480px) { .pt-stage-label { display: block; } .pt-stage-now { display: none; } }
+  .pt-last { font-weight: 600; color: var(--text); }
+  .pt-card--needs { border-left: 6px solid var(--brand); }
+  .pt-needs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+  .pt-need { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: var(--space-2) 0; border-top: 1px solid var(--border); }
+  .pt-need:first-child { border-top: 0; }
+  .pt-need-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pt-need-label { font-size: 0.9375rem; line-height: 1.4; overflow-wrap: anywhere; }
+  .pt-need-btn { flex-shrink: 0; min-height: 44px; padding: 0 var(--space-3); }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;

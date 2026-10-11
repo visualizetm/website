@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sheet, Stack, Row, Button, Input, Textarea, Select, ChipGroup } from '../ui';
+import { Sheet, Stack, Row, Button, Input, Textarea, Select, ChipGroup, Toggle } from '../ui';
 import { REMIND_CHOICES, buildTask, taskTimes, dateKeyOf, timeKeyOf, remindChoiceOf } from '../lib/tasks';
 
 /* Set task: the one editor for a task with a due date. Label, Due date
@@ -26,6 +26,8 @@ export default function TaskSheet({ business = '', task = null, item = null, lis
   const [time, setTime] = useState(dueOk ? timeKeyOf(due) : '09:00');
   const [remind, setRemind] = useState(isItem ? (item.due ? remindChoiceOf({ dueAt: item.due, remindAt: item.remindAt }) : 'off') : has ? remindChoiceOf(task) : 'at');
   const [note, setNote] = useState(isItem ? item.note || '' : '');
+  const [client, setClient] = useState(isItem ? !!item.client : false);
+  const [url, setUrl] = useState(isItem ? item.url || '' : '');
   const [listId, setListId] = useState(isItem ? item.listId || lists[0]?.id || '' : '');
   const [busy, setBusy] = useState(false);
   const dateRef = useRef(null);
@@ -38,7 +40,7 @@ export default function TaskSheet({ business = '', task = null, item = null, lis
       let ok;
       if (isItem) {
         const { dueAt, remindAt } = date ? taskTimes({ date, time, remind }) : { dueAt: '', remindAt: '' };
-        ok = await onSave({ text: label.trim().slice(0, 300), due: dueAt, remindAt, note: note.trim().slice(0, 300), listId });
+        ok = await onSave({ text: label.trim().slice(0, 300), due: dueAt, remindAt, note: note.trim().slice(0, 300), listId, client, url: client ? url.trim().slice(0, 400) : '' });
       } else ok = await onSave(buildTask({ label, date, time, remind }));
       if (ok) onClose();
     } finally { setBusy(false); }
@@ -61,6 +63,8 @@ export default function TaskSheet({ business = '', task = null, item = null, lis
           <>
             {lists.length > 1 && <Select label="Checklist" value={listId} onChange={(e) => setListId(e.target.value)} options={lists.map(l => ({ id: l.id, label: l.name }))} className="ts-list" />}
             <Textarea label="Note" rows={3} maxLength={300} value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Where, who, what to bring" hint={`${note.length} of 300.`} className="ts-note" />
+            {isItem && <Toggle label="Needs the client" description={client ? 'On their portal, under Needs you.' : 'Just for me.'} checked={client} onChange={setClient} className="ts-client" />}
+            {isItem && client && <Input label="Link for them" type="url" value={url} onChange={(e) => setUrl(e.target.value.slice(0, 400))} placeholder="https://... (a form, a folder, a doc)" className="ts-client-url" />}
           </>
         )}
       </Stack>

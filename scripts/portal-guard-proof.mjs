@@ -54,6 +54,13 @@ const CUTS = {
   'retainer-link-empty': [[PM, "      if (!/^https:\\/\\//i.test(url)) return null;\n", ""]],
   'retainer-active': [[PM, "export const activeRetainer = (client) => { const r = client?.retainer; if (!r || r.status !== 'active') return null;", "export const activeRetainer = (client) => { const r = client?.retainer; if (!r) return null;"]],
   'paid-once': [[PM, "  return latest && latest > since ? latest : '';", "  return latest;"]],
+  'progress-line': [[PM, "    case 'design': return \"I'm building your first concepts\";\n", ""], [PM, "    case 'revisions': return `Round ${revisionsUsed(p)} of ${revisionsMax(p)}`;\n", ""]],
+  'revisions-stage': [[PM, "      if (!p || p.stage !== 'revisions') return null;", "      if (!p) return null;"]],
+  'revisions-last': [[PM, "const last = max > 0 && used === max - 1;", "const last = max > 0 && used === max;"]],
+  'client-field': [['_lib/taskRules.js', "      client: !!it?.client, url:", "      client: false, url:"]],
+  'needs-client': [[PM, "forEach(it => { if (it && it.client && !it.done) out.push(", "forEach(it => { if (it && !it.done) out.push("]],
+  'needs-open': [[PM, "forEach(it => { if (it && it.client && !it.done) out.push(", "forEach(it => { if (it && it.client) out.push("]],
+  'needs-order': [[PM, "    id: 'needs_you', title: 'Needs you', order: 5,", "    id: 'needs_you', title: 'Needs you', order: 45,"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

@@ -99,7 +99,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,contact,book,showcase,pay,retainer', `all Auto with data: home, contact, book, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,contact,progress,book,showcase,pay,retainer', `all Auto with data: home, contact, progress, book, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -179,6 +179,46 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   const lockedRet = card(rm, 'retainer');
   ok(lockedRet && lockedRet.locked === true && lockedRet.name === undefined && lockedRet.url === undefined, `with a PIN the retainer card is locked and empty (${JSON.stringify(lockedRet)})`, 'pin-gate');
   await admin({ id: LEAD, set: { portal: { pin: '' } } });
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4c. project (prompt 2): progress, revisions, needs you */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tJ = lead().portal.token;
+  let rj = await pub('GET', { token: tJ }); let prog = card(rj, 'progress');
+  ok(prog && prog.name === 'Website' && prog.stage === 'design' && prog.stages.map(x => x.id).join(',') === 'kickoff,design,revisions,build,delivery,delivered' && prog.line === "I'm building your first concepts", `progress is the newest active project with its track and the design line (${JSON.stringify(prog)})`, 'progress-line');
+  ok(!card(rj, 'revisions') && !card(rj, 'needs_you'), 'not in revisions and nothing marked for the client: no revisions card, no needs you card', 'revisions-stage');
+  const p1 = () => _stores.projects.find(p => p._id === 'p1');
+  p1().stage = 'revisions'; p1().revisions = { max: 2, used: 1, log: [{ at: '2026-10-01', note: '', extra: false }] };
+  rj = await pub('GET', { token: tJ }); let rev = card(rj, 'revisions'); prog = card(rj, 'progress');
+  ok(rev && rev.used === 1 && rev.max === 2 && rev.last === true && rev.line === 'This is your last included round. Extra rounds are $50 for design and $75 for web.', `the last included round says so with the prices from pricing.js (${JSON.stringify(rev)})`, 'revisions-last');
+  ok(prog?.line === 'Round 1 of 2', `the progress line in revisions is the round (${prog?.line})`, 'progress-line');
+  p1().revisions.used = 0; p1().revisions.log = [];
+  rj = await pub('GET', { token: tJ }); rev = card(rj, 'revisions');
+  ok(rev && rev.last === false && rev.line === 'Round 0 of 2 used.', `an earlier round is plain (${rev?.line})`, 'revisions-last');
+  p1().stage = 'build';
+  rj = await pub('GET', { token: tJ });
+  ok(!card(rj, 'revisions') && card(rj, 'progress')?.line === "I'm building it out", 'out of revisions: no revisions card', 'revisions-stage');
+  _stores.projects = [];
+  rj = await pub('GET', { token: tJ });
+  ok(!card(rj, 'progress'), 'no project at all: no progress card', 'auto-empty');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tN = lead().portal.token;
+  await admin({ id: LEAD, set: { checklists: [{ id: 'l1', name: 'Kickoff', items: [
+    { id: 't1', text: 'Send me the photos', done: false, client: true, url: 'https://drive.google.com/drive/folders/x' },
+    { id: 't2', text: 'Rob picks the fonts', done: false, client: false },
+    { id: 't3', text: 'Sign the contract', done: true, client: true },
+    { id: 't4', text: 'Bad link', done: false, client: true, url: 'javascript:alert(1)' },
+  ] }] } });
+  ok(lead().checklists[0].items[0].client === true && lead().checklists[0].items[0].url === 'https://drive.google.com/drive/folders/x' && lead().checklists[0].items[1].client === false && lead().checklists[0].items[3].url === '', 'the route stores client and an https url on an item, drops a javascript: one', 'client-field');
+  _stores.projects.find(p => p._id === 'p1').checklists = [{ id: 'pl', name: 'Website', items: [{ id: 'pt1', text: 'Fill in the content sheet', done: false, client: true, url: 'https://docs.google.com/x' }] }];
+  _stores.projects.find(p => p._id === 'p0').checklists = [{ id: 'dl', name: 'Logo', items: [{ id: 'dt1', text: 'Old delivered item', done: false, client: true }] }];
+  rj = await pub('GET', { token: tN }); const needs = card(rj, 'needs_you');
+  ok(needs && needs.items.map(i => i.id).join(',') === 't1,t4,pt1', `needs you lists the open client items on the client and the active project, not the delivered one (${needs?.items?.map(i => i.id).join(',')})`, 'needs-client');
+  ok(needs && needs.items[0].url === 'https://drive.google.com/drive/folders/x' && needs.items[1].url === '' && needs.items[2].owner === 'Website', 'each row carries its link when it has one and the project it belongs to');
+  ok(cardIds(rj).startsWith('home,needs_you,'), `needs you sits right after home (${cardIds(rj)})`, 'needs-order');
+  const nk = Object.keys(needs?.items?.[0] || {}).sort().join(',');
+  ok(nk === 'id,owner,text,url', `a needs you row is exactly { id, text, url, owner } (${nk})`, 'card-fields');
+  lead().checklists[0].items[0].done = true; lead().checklists[0].items[3].client = false; _stores.projects.find(p => p._id === 'p1').checklists = [];
+  rj = await pub('GET', { token: tN });
+  ok(!card(rj, 'needs_you'), 'done or not for the client: nothing waits, no card', 'needs-open');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */

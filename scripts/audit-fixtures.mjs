@@ -66,7 +66,7 @@ export const PIPE_EXTRA = {
           { name: 'Launch', items: [{ text: 'Domain live', done: true }] },
           { id: 'ckL11a', name: 'Content month', templateId: 'content-month', items: [
             { id: 'tkL11a1', text: 'Plan the month', done: true, doneAt: daysFrom(-3), due: daysFrom(-3), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
-            { id: 'tkL11a2', text: 'Make graphics', done: false, doneAt: '', due: daysFrom(-2), note: 'Three squares and one story', order: 1, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
+            { id: 'tkL11a2', text: 'Make graphics', done: false, doneAt: '', due: daysFrom(-2), note: 'Three squares and one story', order: 1, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' , client: true, url: 'https://docs.google.com/spreadsheets/d/fixture-content'},
             { id: 'tkL11a3', text: 'Write captions', done: false, doneAt: '', due: daysFrom(1), note: '', order: 2, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
             { id: 'tkL11a4', text: 'Send for approval', done: false, doneAt: '', due: '', note: '', order: 3, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' },
           ] },
@@ -594,6 +594,9 @@ export const PORTAL_RESOLVE = {
     ], hint: "Sent one of these? It'll show as paid once I see it, usually the same day." },
     { id: 'plan', title: 'Payment plan', sensitive: true, n: 3, of: 6, nextAmountText: '$200', nextDue: '2026-10-15', dots: ['paid', 'paid', 'open', 'open', 'open', 'open'], line: 'Your files unlock after the last payment.' },
     { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },
+    { id: 'progress', title: 'Your project', sensitive: false, name: 'Website', pkg: 'web complete', stages: [{ id: 'kickoff', label: 'Kickoff' }, { id: 'design', label: 'Design' }, { id: 'revisions', label: 'Revisions' }, { id: 'build', label: 'Build' }, { id: 'delivery', label: 'Delivery' }, { id: 'delivered', label: 'Delivered' }], stage: 'revisions', line: 'Round 1 of 2' },
+    { id: 'revisions', title: 'Revisions', sensitive: false, used: 1, max: 2, last: true, line: 'This is your last included round. Extra rounds are $50 for design and $75 for web.' },
+    { id: 'needs_you', title: 'Needs you', sensitive: false, items: [{ id: 'n1', text: 'Fill in the content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', owner: 'Website' }, { id: 'n2', text: 'Send me the photos from the shoot', url: '', owner: '' }] },
   ],
   pinned: false, unlocked: true, paid: false,
 };

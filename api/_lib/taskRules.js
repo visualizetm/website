@@ -16,6 +16,8 @@ export function normalizeChecklists(lists) {
       id: str(it?.id, 24) || `list${li}item${ii}`, text: str(it?.text, 300), done: !!it?.done, doneAt: str(it?.doneAt, 40), due: str(it?.due, 40), note: str(it?.note, 300),
       order: Number.isFinite(Number(it?.order)) ? Number(it.order) : ii, pinned: !!it?.pinned, remindAt: str(it?.remindAt, 40), notifiedAt: str(it?.notifiedAt, 40),
       source: ['manual', 'template', 'suggestion'].includes(it?.source) ? it.source : 'manual', suggestionId: str(it?.suggestionId, 64),
+      /* Client portal (prompt 2): an item the client has to do shows on their Needs you card, with a link when one is set (https only). */
+      client: !!it?.client, url: /^https:\/\/[^\s]+$/i.test(String(it?.url || '')) ? String(it.url).slice(0, 400) : '',
     })),
   }));
 }
@@ -28,6 +30,8 @@ export function allTasks(record) {
 }
 export const openTasks = (record) => allTasks(record).filter(t => !t.done);
 export const taskCounts = (record) => { const all = allTasks(record); const done = all.filter(t => t.done).length; return { done, total: all.length, open: all.length - done, pct: all.length ? Math.round((done / all.length) * 100) : 0 }; };
+/** The open items the client has to do (client: true), the count a list head shows as a chip. */
+export const clientOpenCount = (list) => (list?.items || []).filter(t => t.client && !t.done).length;
 export const listCounts = (list) => { const all = list?.items || []; const done = all.filter(t => t.done).length; return { done, total: all.length, pct: all.length ? Math.round((done / all.length) * 100) : 0 }; };
 
 /* The Next up rule, once: the pinned task wins; otherwise the earliest due open task, overdue first; ties break by checklist order then task order; tasks with no date only win when nothing has a date. */

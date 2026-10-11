@@ -6,7 +6,7 @@ import {
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
-import { taskCounts, listCounts, taskNextUp, addTask, removeTask, patchTask, normalizeChecklists, CHECKLIST_TEMPLATES, applyTemplate } from '../shared/taskRules';
+import { taskCounts, listCounts, taskNextUp, addTask, removeTask, patchTask, normalizeChecklists, CHECKLIST_TEMPLATES, applyTemplate, clientOpenCount } from '../shared/taskRules';
 import { completePatch, pinPatch, unpinPatch, checklistsPatch, QUICK_DAYS, quickDue, dueAtFor, taskDueLabel, isOverdue } from '../lib/taskWrite';
 import { dateKeyOf } from '../lib/tasks';
 import RowSheet from '../components/RowSheet';
@@ -39,7 +39,7 @@ const TEMPLATE_BLURB = {
  * the editor, the due label turns accent when overdue, the pin shows which
  * one is Next up. Swipe right completes; swipe left or a long press opens
  * the task's sheet with Pin, Reschedule and Delete; the menu has the same. */
-function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onUnpin, onReschedule, onDelete }) {
+function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onUnpin, onReschedule, onDelete, onClient }) {
   const [sheet, setSheet] = useState(false);
   const due = taskDueLabel(t, now);
   const overdue = isOverdue(t, now);
@@ -49,6 +49,7 @@ function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onU
       : { id: 'pin', label: 'Pin as Next up', icon: 'Pin01', onSelect: onPin }]),
     { id: 'when', label: 'Reschedule', icon: 'Calendar', onSelect: onReschedule },
     { id: 'edit', label: 'Edit task', icon: 'Edit02', onSelect: onEdit },
+    ...(onClient && !t.done ? [{ id: 'client', label: t.client ? 'Just for me' : 'Needs the client', icon: 'Grid01', onSelect: () => onClient(!t.client) }] : []),
     'divider',
     { id: 'del', label: 'Delete task', icon: 'Trash01', danger: true, onSelect: onDelete },
   ];
@@ -61,7 +62,7 @@ function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onU
         onHold={openSheet}>
         <div className={`tk-row${t.done ? ' is-done' : ''}${isNext ? ' is-next' : ''}${overdue ? ' is-overdue' : ''}`} data-task-id={t.id}>
           <Checkbox checked={!!t.done} onChange={(v) => onToggle(v)} disabled={readOnly} className="tk-check"
-            label={<span className="tk-text"><span className="tk-title">{t.text}</span>{(due || t.note || t.pinned) && <span className="tk-meta">{t.pinned && <span className="tk-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned as Next up.</span></span>}{due && <span className={`tk-due${overdue ? ' is-overdue' : ''}`}>{due}</span>}{t.note && <span className="tk-note-dot" title="Has a note"><Icon icon="File02" size={12} /><span className="v-sr-only">Has a note.</span></span>}</span>}</span>} />
+            label={<span className="tk-text"><span className="tk-title">{t.text}</span>{(due || t.note || t.pinned || t.client) && <span className="tk-meta">{t.client && <span className="tk-client" title="Needs the client"><Icon icon="Grid01" size={12} /></span>}{t.pinned && <span className="tk-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned as Next up.</span></span>}{due && <span className={`tk-due${overdue ? ' is-overdue' : ''}`}>{due}</span>}{t.note && <span className="tk-note-dot" title="Has a note"><Icon icon="File02" size={12} /><span className="v-sr-only">Has a note.</span></span>}</span>}</span>} />
           {!readOnly && <span className="tk-ctl"><Menu label={`${t.text} actions`} items={items} /></span>}
         </div>
       </SwipeRow>
@@ -206,6 +207,8 @@ export default function AdminTasks({
     if (ok && done) toast.undo(`${t.text} done.`, () => write(o, completePatch(o.record, t.id, false, ctx, now)), { seconds: 6 });
   };
   const pin = async (l, t) => { const o = ownerOf(l.ownerKey); const ok = await write(o, pinPatch(o.record, t.id, ctx)); if (ok) toast.success(`${t.text} is the Next up for ${o.name}.`); };
+  /* Client portal (prompt 2): an item the client has to do shows on their Needs you card. */
+  const setClient = async (l, t, v) => { const o = ownerOf(l.ownerKey); const ok = await write(o, checklistsPatch(o.record, patchTask(o.record.checklists || [], t.id, { client: v, url: v ? (t.url || '') : '' }), ctx)); if (ok) toast.success(v ? `${t.text} is on their portal, under Needs you.` : `${t.text} is just for you again.`); };
   const unpin = async (l) => { const o = ownerOf(l.ownerKey); const ok = await write(o, unpinPatch(o.record, ctx)); if (ok) toast.success('Back to auto: the task due soonest is the Next up.'); };
   const del = async (l, t) => {
     const o = ownerOf(l.ownerKey);
@@ -246,7 +249,7 @@ export default function AdminTasks({
   const saveEdit = async (l, t, fields) => {
     const o = ownerOf(l.ownerKey);
     const target = lists.find(x => x.id === fields.listId) || l;
-    const set = { text: fields.text, due: fields.due, remindAt: fields.remindAt, note: fields.note, notifiedAt: fields.due !== t.due ? '' : t.notifiedAt };
+    const set = { text: fields.text, due: fields.due, remindAt: fields.remindAt, note: fields.note, notifiedAt: fields.due !== t.due ? '' : t.notifiedAt, client: !!fields.client, url: fields.client ? String(fields.url || '') : '' };
     if (target.key === l.key) return write(o, checklistsPatch(o.record, patchTask(o.record.checklists || [], t.id, set), ctx));
     /* Moved: out of one list (maybe another owner), into the other. */
     const removed = removeTask(o.record.checklists || [], t.id);
@@ -277,7 +280,7 @@ export default function AdminTasks({
       {l.shown.map(t => (
         <TaskRow key={t.id} t={{ ...t, listName: l.name }} isNext={nextIds.has(t.id)} phone={phone} readOnly={readOnly} now={now}
           onToggle={(v) => toggle(l, t, v)} onEdit={() => setEdit({ l, t, mode: 'edit' })} onReschedule={() => setEdit({ l, t, mode: 'when' })}
-          onPin={() => pin(l, t)} onUnpin={() => unpin(l)} onDelete={() => del(l, t)} />
+          onPin={() => pin(l, t)} onUnpin={() => unpin(l)} onDelete={() => del(l, t)} onClient={(v) => setClient(l, t, v)} />
       ))}
     </Stack>
   );
@@ -288,6 +291,7 @@ export default function AdminTasks({
         <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
           {withName && <span className="tk-list-name lay-truncate">{l.name || 'Tasks'}{l.isProject ? <span className="tk-list-owner">, {l.ownerName}</span> : null}</span>}
           <ProgressBar value={c.pct} tone={c.total && c.done === c.total ? 'booked' : 'progress'} size="sm" label={`${c.done} of ${c.total} done`} className="tk-list-bar" />
+          {clientOpenCount(l) > 0 && <Pill tone="progress" label={`${clientOpenCount(l)} for the client`} size="sm" icon={false} variant="soft" className="tk-list-client" />}
         </Stack>
         {!readOnly && (
           <span className="v-above">
@@ -409,6 +413,9 @@ const tkStyles = `
   .tk-list-name { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .tk-list-owner { font-weight: var(--v-weight-regular); color: var(--v-text-3); }
   .tk-list-bar { margin-top: var(--v-space-1); }
+  /* Client portal (prompt 2): the chip of items the client has to do, and the mark on such a row. */
+  .tk-list-client { margin-top: var(--v-space-2); align-self: flex-start; }
+  .tk-client { display: inline-flex; align-items: center; color: var(--v-text-3); }
   .tk-row-bar { display: inline-flex; width: 56px; }
   .tk-rows { min-width: 0; }
   /* One task: a 44px row whose checkbox is the control, text that opens the editor, the pin and the due label. */
