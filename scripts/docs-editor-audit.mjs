@@ -85,6 +85,8 @@ for (const width of [390, 1280]) {
   ok(JSON.stringify(lastPatch(S.patches).blocks).includes('"b":1'), 'the bold run is saved');
   await page.locator('.dc-fb[data-fmt="link"]').click();
   await page.waitForSelector('.dc-link-apply', { timeout: 3000 });
+  /* The sheet's focus trap moves focus into the Link input on a zero timeout after mount; typing before that lands nowhere and Apply stays disabled on the untouched https:// (a race, seen under load). The assertion below is unchanged. */
+  await page.waitForFunction(() => !!document.activeElement?.closest('.dc-linkform'), null, { timeout: 3000 });
   await page.keyboard.type('example.com/menu');
   await page.locator('.dc-link-apply').click();
   await page.waitForTimeout(1500);
