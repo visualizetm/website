@@ -291,7 +291,13 @@ and email. Checks: `node scripts/portal-test.mjs` (the route and the
 registry against the real handlers), `node scripts/portal-guard-proof.mjs`
 (each guard cut in turn) and `node scripts/portal-crm-test.mjs` (the CRM
 helpers); the audits walk /c/<token> in every state (mkt-portal*) and the
-Portal sheet (clients-portal*).
+Portal sheet (clients-portal*). Money and project cards (prompt 2): the
+ways to pay and the retainer links live under Settings, Profile (Ways to
+pay, Retainer links); an invoice shows on the Pay card once it is sent and
+leaves once it is paid (the Stripe webhook or Mark paid); a task shows on
+the client's Needs you card once Needs the client is on (the task row's
+menu or the task sheet, a link optional); files unlock on their own when
+every invoice is paid, or when the project is delivered with nothing open.
 
 ## Scripts
 

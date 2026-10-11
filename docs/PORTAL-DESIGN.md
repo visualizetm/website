@@ -69,10 +69,26 @@ url through safeUrl.
 | documents | at least one document on portal.documents |
 | showcase | showcase.published is true |
 
+## Auto rules (prompt 2)
+
+Money cards (pay, plan, retainer) and files are `sensitive: true`: behind a
+PIN they come as their title only until the device unlocks.
+
+| Module | Shows when |
+|---|---|
+| needs_you (order 5, right after home) | an open checklist item marked Needs the client (`client: true`) exists on the client or an active project; each row is the text, the project and a button when the item has an https `url` |
+| progress | any project exists: the newest active one, else the newest delivered; the stages as a track with the current lit and one line per stage in my voice |
+| revisions | the newest active project is in its revisions stage: Round used of max; on the last included round the extra round prices from pricing.js EXTRA_ROUND |
+| files | the project (newest active with deliverables, else newest delivered) has deliverables; names only until paidInFull (every line paid, or delivered with no open line), then every link with the Drive folder first; the gate runs inside resolve, a locked row is `{ label }` |
+| brand_kit | a brand (or combined) project is delivered and the record has at least one brand colour; the mark, the colours (name and hex) and brand.fontDisplay / fontBody |
+| pay | the oldest open invoice Rob has sent across the client's non retainer projects (a payment plan swaps in its next installment); the rows are Card or Apple Pay (settings.profile.payMethods.stripe), Cash App (the cashtag, amount filled), Venmo (the username, amount and label filled), Zelle (the address with Copy); a method with no identifier is left out; past due is a quiet flag; gone once paid, and the next read answers `paid: true` once (portal.lastPaidSeenAt, server stamped) |
+| plan | a project has `plan.months` and an unpaid installment: Payment n of m, the next date and amount, a dot per installment, the unlock line |
+| retainer | lead.retainer is active with a plan pricing.js knows (name, price, renewal from nextBillAt or the bill day, the 30 day notice, Message Rob); else, after a delivered project, the one offer (Site Care for web, Content Kit for brand, Growth for both) when settings.profile.retainerLinks[id] is set; never two |
+
 ## Templates
 
 Brand, Website, Retainer. Choosing one sets `portal.modules` to that
-template's map (`PORTAL_TEMPLATES`); in prompt 1 every map is all Auto, and
+template's map (`PORTAL_TEMPLATES`); every map is all Auto (Brand: pay, plan, progress, revisions, needs_you, files, brand_kit, retainer; Website: the same without brand_kit; Retainer: pay, retainer, needs_you; plus the prompt 1 cards), and
 later prompts put their modules into the maps where they belong.
 
 ## The security model
@@ -95,12 +111,14 @@ later prompts put their modules into the maps where they belong.
 - Nothing leaves the server that the registry did not whitelist; the page
   never receives a raw client or project record. scripts/portal-test.mjs
   fails if any card payload carries _id, email, phone, purchases, invoices,
-  notes or checklists, and that every card carries only its module's fields.
+  notes, checklists, ledgerId, note, stripeEventId, schedule, link or
+  deliverables, and that every card carries only its module's fields; a locked
+  files payload is asserted free of every link.
   scripts/portal-guard-proof.mjs cuts each guard out in turn (28 guards) and
   requires its check to fail.
 - Every string the CRM stores is capped and every url goes through safeUrl.
 
-## How to add a module (prompts 2 to 4)
+## How to add a module (prompts 3 and 4)
 
 1. Add one entry to `src/shared/portalModules.js` with id, title, order,
    sensitive, defaultState, auto, fields and resolve; copy the file's body

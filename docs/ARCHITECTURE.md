@@ -164,6 +164,15 @@ workspace card and src/components/record/PortalSheet.jsx over
 src/lib/portal.js; my phone, email, Calendly link and hours are profile
 fields on Settings. docs/PORTAL-DESIGN.md is the contract; the tests are
 scripts/portal-test.mjs, portal-guard-proof.mjs and portal-crm-test.mjs.
+Prompt 2 added the money and project modules: pay (the oldest open sent
+invoice from invoicesOf, with Card or Apple Pay, Cash App, Venmo and Zelle
+rows from settings.profile.payMethods), plan, retainer (lead.retainer, or
+the one offer from settings.profile.retainerLinks), progress, revisions,
+needs_you (checklist items carrying `client: true` and an https `url`, new
+fields in src/shared/taskRules.js and its mirror), files (the payment gate
+inside resolve: no link leaves the server before paidInFull) and brand_kit.
+The registry imports the invoice rules and pricing above its mirror marker,
+each side from its own mirrors.
 
 ## Client docs (docs job)
 
