@@ -106,7 +106,7 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 3: the files module with the payment gate inside resolve (names only before full payment, every link and the Drive folder after) and the brand kit (the mark, colour chips with Copy, the fonts); the forbidden keys gain link and deliverables; the paid in full audit state (mkt-portal-paid); portal-test 110 -> 123 checks, guards 47 -> 51.
 
-- Milestone 4: the templates carry every new module, the Portal sheet's card list reads them from the registry with their Auto lines, the Tasks screen's list head chip; docs/PORTAL-DESIGN.md (the prompt 2 Auto rules table, the templates, the forbidden keys), ARCHITECTURE and RUNBOOK paragraphs, CLAUDE.md's counts; regression 17d (Needs the client) and 26b (12 card rows); the full gate detached on the final build; reports/PORTAL-2-REPORT.md.
+- Milestone 4: the templates carry every new module, the Portal sheet's card list reads them from the registry with their Auto lines, the Tasks screen's list head chip; docs/PORTAL-DESIGN.md (the prompt 2 Auto rules table, the templates, the forbidden keys), ARCHITECTURE and RUNBOOK paragraphs, CLAUDE.md's counts; regression 17d (Needs the client) and 26b (12 card rows); the full gate detached on the final build (every run complete, preship passed; the results are in reports/PORTAL-2-REPORT.md).
 
 ## Next
 - Prompt 3: the planner, the concepts and the review link as portal modules.
