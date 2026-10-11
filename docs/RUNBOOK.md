@@ -294,7 +294,11 @@ helpers); the audits walk /c/<token> in every state (mkt-portal*) and the
 Portal sheet (clients-portal*). Money and project cards (prompt 2): the
 ways to pay and the retainer links live under Settings, Profile (Ways to
 pay, Retainer links); an invoice shows on the Pay card once it is sent and
-leaves once it is paid (the Stripe webhook or Mark paid); a task shows on
+leaves once it is paid (the Stripe webhook or Mark paid); sending the invoice
+email also makes the invoice's own Stripe link (STRIPE_SECRET_KEY must allow
+writes; without it the card falls back to the Settings link and the client
+types the amount shown); a payment that matched no amount lands on the oldest
+open invoice with a Stripe mismatch note on the line; a task shows on
 the client's Needs you card once Needs the client is on (the task row's
 menu or the task sheet, a link optional); files unlock on their own when
 every invoice is paid, or when the project is delivered with nothing open.

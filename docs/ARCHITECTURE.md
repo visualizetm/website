@@ -172,7 +172,11 @@ needs_you (checklist items carrying `client: true` and an https `url`, new
 fields in src/shared/taskRules.js and its mirror), files (the payment gate
 inside resolve: no link leaves the server before paidInFull) and brand_kit.
 The registry imports the invoice rules and pricing above its mirror marker,
-each side from its own mirrors.
+each side from its own mirrors. An invoice gets its own Stripe payment link
+when its email is sent (api/_lib/stripe.js createPaymentLink, stored as
+payUrl and paymentLinkId on the line); the webhook matches that link id
+first, then the amount, then the oldest open sent line with stripeMismatch
+written on it (scripts/stripe-pay-test.mjs).
 
 ## Client docs (docs job)
 

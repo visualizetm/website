@@ -18,6 +18,11 @@ export function sanitizeInvoice(s) {
     id: str(s?.id, 40) || uid(), label: str(s?.label, 120), amount: num(s?.amount), dueAt: DATE_ONLY.test(String(s?.dueAt || '')) ? String(s.dueAt) : '',
     status: INVOICE_STATUS_IDS.includes(s?.status) ? s.status : 'draft', sentAt: str(s?.sentAt, 40), paidAt: str(s?.paidAt, 40), note: str(s?.note, 300),
     ...(s?.ledgerId ? { ledgerId: str(s.ledgerId, 40) } : {}), ...(s?.extra ? { extra: true } : {}),
+    /* Client portal (prompt 2 fix): the invoice's own Stripe payment link, made when the invoice email goes out, and the
+     * webhook's note when a payment had to fall back to this line because no open line matched its amount. */
+    ...(/^https:\/\/[^\s]+$/i.test(String(s?.payUrl || '')) ? { payUrl: str(s.payUrl, 400) } : {}),
+    ...(s?.paymentLinkId ? { paymentLinkId: str(s.paymentLinkId, 80) } : {}),
+    ...(s?.stripeMismatch ? { stripeMismatch: str(s.stripeMismatch, 160) } : {}),
   };
 }
 export const sanitizeInvoices = (list) => (Array.isArray(list) ? list.slice(0, 120).map(sanitizeInvoice) : undefined);

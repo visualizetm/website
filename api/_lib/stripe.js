@@ -27,6 +27,40 @@ export async function stripeGet(path, params = {}) {
   return { configured: true, cached: false, ...body };
 }
 
+/** POST a Stripe endpoint (form encoded, the API's shape). { ok, body } or { ok: false, error }; never throws. */
+export async function stripePost(path, params = {}) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return { ok: false, configured: false, error: 'not configured' };
+  const form = new URLSearchParams();
+  const put = (k, v) => { if (v && typeof v === 'object') Object.entries(v).forEach(([kk, vv]) => put(`${k}[${kk}]`, vv)); else if (v !== undefined && v !== null) form.append(k, String(v)); };
+  Object.entries(params).forEach(([k, v]) => put(k, v));
+  try {
+    const res = await fetch(`${API}${path}`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/x-www-form-urlencoded' }, body: form.toString(), signal: AbortSignal.timeout(8000) });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, configured: true, error: body?.error?.message || `Stripe ${res.status}` };
+    return { ok: true, configured: true, body };
+  } catch (e) { return { ok: false, configured: true, error: String(e?.message || e) }; }
+}
+
+/** A live payment link for one invoice (client portal, prompt 2 fix): a price for the amount, then a payment link carrying the
+ * invoice, lead and project ids in its metadata so the webhook matches it exactly. { url, id } or null when Stripe is not
+ * configured or refused; the caller falls back to the studio link from Settings. */
+export async function createPaymentLink({ amount, label, invoiceId, leadId, projectId = '' }) {
+  const cents = Math.round(Number(amount) * 100);
+  if (!stripeConfigured() || !(cents > 0) || !invoiceId) return null;
+  const price = await stripePost('/prices', { currency: 'usd', unit_amount: cents, product_data: { name: String(label || 'Invoice').slice(0, 120) } });
+  if (!price.ok || !price.body?.id) return null;
+  const link = await stripePost('/payment_links', { 'line_items[0][price]': price.body.id, 'line_items[0][quantity]': 1, metadata: { invoiceId: String(invoiceId).slice(0, 40), leadId: String(leadId || '').slice(0, 40), projectId: String(projectId || '').slice(0, 40) } });
+  if (!link.ok || !link.body?.url) return null;
+  return { url: String(link.body.url).slice(0, 400), id: String(link.body.id || '').slice(0, 80) };
+}
+/** The invoice with its own link, made now if it has none. Never throws; an invoice without a link stays as it was. */
+export async function attachPaymentLink(invoice, { leadId, projectId = '' } = {}) {
+  if (!invoice || invoice.payUrl) return invoice;
+  const made = await createPaymentLink({ amount: invoice.amount, label: invoice.label, invoiceId: invoice.id, leadId, projectId });
+  return made ? { ...invoice, payUrl: made.url, paymentLinkId: made.id } : invoice;
+}
+
 /** Stripe-Signature: t=<ts>,v1=<hex>. Signed payload is `${t}.${rawBody}`. */
 export function verifyStripeSignature(rawBody, header, secret, toleranceSec = 300) {
   if (!secret || !header) return false;
@@ -104,23 +138,34 @@ export async function applyPayment(db, row, lead) {
   if ((fresh.purchases || []).some(p => p.stripeEventId === row.id)) return { ledgerId: (fresh.purchases || []).find(p => p.stripeEventId === row.id).id, already: true };
   const ledgerId = crypto.randomBytes(5).toString('hex');
   const entry = { id: ledgerId, label: row.description || `Stripe ${row.type.split('.')[0]}`, amount: row.amount, at: dayKey(row.at), notes: '', source: 'stripe', stripeEventId: row.id };
-  // A schedule item with the same amount, due or past due, becomes paid with this ledger id.
+  /* Which line this payment pays (client portal, prompt 2 fix), in order: the line whose own payment link was used; a
+   * line with the same amount, due or past due; else the oldest open line Rob has sent, with the mismatch written on
+   * it so the Money section says what happened. The ledger entry is written either way. */
   const projects = db.collection('projects');
   const mine = await projects.find({ leadId: String(lead._id), archived: { $ne: true } }).toArray();
   const today = dayKey(new Date());
+  const open = (s) => s.status !== 'paid' && !s.ledgerId;
   let marked = null;
-  for (const p of mine) {
+  let pick = null;
+  if (row.paymentLinkId) for (const p of mine) { const item = invoicesOf(p).find(s => open(s) && s.paymentLinkId === row.paymentLinkId); if (item) { pick = { p, item }; break; } }
+  if (!pick) for (const p of mine) { const item = invoicesOf(p).find(s => open(s) && Math.abs(Number(s.amount) - row.amount) < 0.01 && String(s.dueAt) <= today); if (item) { pick = { p, item }; break; } }
+  if (!pick) {
+    const sent = [];
+    for (const p of mine) for (const s of invoicesOf(p)) if (open(s) && s.sentAt) sent.push({ p, item: s });
+    sent.sort((a, b) => String(a.item.dueAt || '9999').localeCompare(String(b.item.dueAt || '9999')) || String(a.item.sentAt).localeCompare(String(b.item.sentAt)));
+    if (sent[0]) pick = { ...sent[0], mismatch: `Paid $${row.amount} against $${Number(sent[0].item.amount) || 0} (${row.id})` };
+  }
+  if (pick) {
+    const { p, item, mismatch } = pick;
     const lines = invoicesOf(p);
-    const item = lines.find(s => s.status !== 'paid' && !s.ledgerId && Math.abs(Number(s.amount) - row.amount) < 0.01 && String(s.dueAt) <= today);
-    if (item) {
+    {
       entry.projectId = String(p._id);
-      await projects.updateOne({ _id: p._id }, { $set: { invoices: lines.map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: row.at } : s)), updatedAt: new Date() } });
-      marked = { projectId: String(p._id), itemId: item.id };
+      await projects.updateOne({ _id: p._id }, { $set: { invoices: lines.map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: row.at, ...(mismatch ? { stripeMismatch: mismatch } : {}) } : s)), updatedAt: new Date() } });
+      marked = { projectId: String(p._id), itemId: item.id, mismatch: mismatch || '' };
       if (p.kind === 'retainer' && fresh.retainer) {
         const next = lines.filter(s => s.id !== item.id && s.status !== 'paid' && !s.ledgerId).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
         await leads.updateOne({ _id: lead._id }, { $set: { 'retainer.nextBillAt': next?.dueAt || '' } });
       }
-      break;
     }
   }
   await leads.updateOne({ _id: lead._id }, { $push: { purchases: entry }, $set: { updatedAt: new Date() } });

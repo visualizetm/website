@@ -46,11 +46,13 @@ export const planLines = (p) => (p?.plan?.months ? invoicesOf(p).filter(l => !l.
 const cashtag = (v) => String(v || '').trim().replace(/^\$/, '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20);
 const handle = (v) => String(v || '').trim().replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 30);
 /** The ways to pay one line, in order: card (the Stripe link from Settings), Cash App, Venmo, Zelle. A method with no identifier is left out. */
-export function payMethods(profile, amount, label) {
+export function payMethods(profile, amount, label, payUrl = '') {
   const pm = profile?.payMethods || {};
   const out = [];
   const amt = Math.round(Number(amount) * 100) / 100;
-  if (/^https:\/\//i.test(String(pm.stripe || ''))) out.push({ id: 'card', name: 'Card or Apple Pay', line: 'Pay securely through Stripe', url: String(pm.stripe).slice(0, 400) });
+  /* The invoice's own Stripe link carries its amount; the studio link from Settings is the fallback and the client types the amount shown above. */
+  if (/^https:\/\//i.test(String(payUrl || ''))) out.push({ id: 'card', name: 'Card or Apple Pay', line: 'Through Stripe, the amount filled in', url: String(payUrl).slice(0, 400) });
+  else if (/^https:\/\//i.test(String(pm.stripe || ''))) out.push({ id: 'card', name: 'Card or Apple Pay', line: `Through Stripe: enter ${money(amt)} when it asks`, url: String(pm.stripe).slice(0, 400) });
   if (cashtag(pm.cashapp)) out.push({ id: 'cashapp', name: 'Cash App', line: `$${cashtag(pm.cashapp)}, the amount filled in`, url: `https://cash.app/$${cashtag(pm.cashapp)}/${amt}` });
   if (handle(pm.venmo)) out.push({ id: 'venmo', name: 'Venmo', line: `@${handle(pm.venmo)}, the amount filled in`, url: `https://venmo.com/u/${handle(pm.venmo)}?txn=pay&amount=${amt}&note=${encodeURIComponent(String(label || '').slice(0, 80))}` });
   if (str(pm.zelle, 120)) out.push({ id: 'zelle', name: 'Zelle', line: "Send it here and I'll confirm", copy: str(pm.zelle, 120), kind: pm.zelleKind === 'phone' ? 'phone' : 'email' });
@@ -170,7 +172,7 @@ export const PORTAL_MODULES = [
       if (!hit) return null;
       let { line, project } = hit;
       if (project.plan?.months) { const next = planLines(project).find(l => !isPaid(l)); if (next) line = next; }
-      const methods = payMethods(settings?.profile, line.amount, line.label);
+      const methods = payMethods(settings?.profile, line.amount, line.label, line.payUrl);
       return {
         label: str(line.label, 120) || 'Invoice', amountText: money(line.amount), amount: Number(line.amount) || 0, due: dateOf(line.dueAt),
         pastDue: invoiceStatus(line) === 'past-due', plan: !!project.plan?.months, methods,

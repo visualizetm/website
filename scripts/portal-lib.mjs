@@ -118,6 +118,11 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(pay && pay.methods[1].url === 'https://cash.app/$visualize/350' && pay.methods[2].url === 'https://venmo.com/u/visualize?txn=pay&amount=350&note=Balance', `Cash App and Venmo links carry the amount and the label (${pay?.methods?.[1]?.url}, ${pay?.methods?.[2]?.url})`, 'pay-links');
   ok(pay && pay.methods[3].copy === 'pay@visualizeclients.com' && pay.methods[3].kind === 'email' && !pay.methods[3].url && /confirm/.test(pay.methods[3].line), 'Zelle is an address to copy, no link, with the confirm line', 'pay-methods');
   ok(pay && /show as paid once I see it/.test(pay.hint), 'the quiet line under the manual rows');
+  ok(pay && pay.methods[0].url === 'https://buy.stripe.com/test' && /enter \$350/.test(pay.methods[0].line), `no link on the invoice: the Settings link with the amount in the line (${pay?.methods?.[0]?.line})`, 'pay-link-invoice');
+  _stores.projects.find(p => p._id === 'p1').invoices[1].payUrl = 'https://buy.stripe.com/inv-9001-own'; _stores.projects.find(p => p._id === 'p1').invoices[1].paymentLinkId = 'plink_9001';
+  rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
+  ok(pay && pay.methods[0].url === 'https://buy.stripe.com/inv-9001-own' && /amount filled in/.test(pay.methods[0].line) && !JSON.stringify(pay).includes('plink_9001'), `the invoice's own link wins and the link id never leaves (${pay?.methods?.[0]?.url})`, 'pay-link-invoice');
+  delete _stores.projects.find(p => p._id === 'p1').invoices[1].payUrl;
   _stores.projects.push({ _id: 'p2', leadId: LEAD, name: 'Cards', kind: 'brand', stage: 'design', createdAt: '2026-09-15T00:00:00.000Z', invoices: [{ id: 'inv-9100', label: 'Cards deposit', amount: 120, dueAt: '2026-10-05', status: 'sent', sentAt: '2026-10-02T00:00:00.000Z' }] });
   rm = await pub('GET', { token: tM }); pay = card(rm, 'pay');
   ok(pay?.label === 'Cards deposit' && pay?.pastDue === true, `two open invoices: the oldest due wins and past due is a quiet flag (${pay?.label}, pastDue ${pay?.pastDue})`, 'pay-oldest');

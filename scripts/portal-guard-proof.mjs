@@ -44,6 +44,7 @@ const CUTS = {
   'unlock-days': [[PP, "const UNLOCK_DAYS = 30;", "const UNLOCK_DAYS = 3;"]],
   'pay-hide': [[PM, "      const hit = oldestOpenInvoice(client, projects);\n      if (!hit) return null;", "      const hit = oldestOpenInvoice(client, projects) || { line: { label: 'Invoice', amount: 0 }, project: {} };"]],
   'pay-methods': [[PM, "  if (cashtag(pm.cashapp)) out.push(", "  if (true) out.push("], [PM, "  if (str(pm.zelle, 120)) out.push(", "  if (true) out.push("]],
+  'pay-link-invoice': [[PM, "  if (/^https:\\/\\//i.test(String(payUrl || ''))) out.push(", "  if (false) out.push("]],
   'pay-links': [[PM, "const amt = Math.round(Number(amount) * 100) / 100;", "const amt = 0;"]],
   'pay-oldest': [[PM, "  found.sort((a, b) => (dateOf(a.line.dueAt) || '9999').localeCompare(dateOf(b.line.dueAt) || '9999') || String(a.line.sentAt).localeCompare(String(b.line.sentAt)));\n", ""]],
   'pay-sent-only': [[PM, "    for (const l of openLines(p, now)) if (l.sentAt) found.push({ line: l, project: p });", "    for (const l of openLines(p, now)) found.push({ line: l, project: p });"]],

@@ -7,6 +7,7 @@ import { hookFor, buildEmailPayload, samplePayload, EMAIL_NOTE, EMAIL_CHECKPOINT
 import { dealOf, isTicked } from '../_lib/deal.js';
 import { invoicesOf, markSent, replaceInvoice } from '../_lib/invoices.js';
 import { nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
+import { attachPaymentLink } from '../_lib/stripe.js';
 
 /* Send one of the four branded emails (CRM revamp, step 6).
  *   POST /api/admin/send-email { leadId, kind intro | onboarding | invoice | delivery, invoiceId?, projectId? }
@@ -64,6 +65,8 @@ export async function handler(req, res) {
       const list = project ? invoicesOf(project) : invoicesOf(dealOf(lead));
       invoice = list.find(i => i.id === String(b.invoiceId || '')) || null;
       if (!invoice) return res.status(400).json({ error: 'invoiceId required' });
+      /* Client portal (prompt 2 fix): the invoice's own Stripe link, made now so the email and the Pay card carry it. */
+      invoice = await attachPaymentLink(invoice, { leadId: String(lead._id), projectId: project ? String(project._id) : '' });
     }
     payload = buildEmailPayload(kind, { lead, project, invoice });
   }
