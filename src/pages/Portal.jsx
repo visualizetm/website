@@ -276,6 +276,59 @@ function NeedsYouCard({ card }) {
   );
 }
 
+/* Your files (prompt 2): names only until the project is paid in full (the server sends no link before that), then every link with the Drive folder first. */
+function FilesCard({ card }) {
+  const groups = Array.isArray(card.groups) ? card.groups : [];
+  const drive = card.unlocked ? safeHref(card.drive) : '';
+  return (
+    <section className={`pt-card${card.unlocked ? '' : ' pt-card--locked-files'}`} aria-labelledby="pt-files-h">
+      <h2 className="pt-card-h" id="pt-files-h">Your files</h2>
+      {card.line && <p className="pt-note">{card.line}</p>}
+      {drive && <ul className="pt-docs"><li className="pt-doc"><a className="pt-doc-link" href={drive} target="_blank" rel="noreferrer"><span className="pt-doc-icon" aria-hidden="true"><Link01 width={18} height={18} /></span><span className="pt-doc-text"><span className="pt-doc-label">Your Drive folder</span><span className="pt-doc-kind">Everything, in one place</span></span><ArrowUpRight width={16} height={16} aria-hidden="true" className="pt-doc-arrow" /></a></li></ul>}
+      {groups.map(g => (
+        <div key={g.group} className="pt-files-group">
+          <h3 className="pt-files-h">{g.group}</h3>
+          <ul className="pt-docs">
+            {(Array.isArray(g.items) ? g.items : []).map((it, i) => { const href = card.unlocked && it.url ? safeHref(it.url) : ''; return (
+              <li key={`${g.group}-${i}`} className="pt-doc">
+                {href ? <a className="pt-doc-link" href={href} target="_blank" rel="noreferrer"><span className="pt-doc-icon" aria-hidden="true"><File06 width={18} height={18} /></span><span className="pt-doc-text"><span className="pt-doc-label">{it.label}</span></span><ArrowUpRight width={16} height={16} aria-hidden="true" className="pt-doc-arrow" /></a>
+                  : <span className="pt-doc-link pt-doc-link--off"><span className="pt-doc-icon" aria-hidden="true">{card.unlocked ? <File06 width={18} height={18} /> : <Lock01 width={18} height={18} />}</span><span className="pt-doc-text"><span className="pt-doc-label">{it.label}</span>{!card.unlocked && <span className="pt-doc-kind">Locked</span>}</span></span>}
+              </li>
+            ); })}
+          </ul>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/* Brand kit: the mark, a chip per colour with Copy for the hex, the fonts. */
+function BrandKitCard({ card, client }) {
+  const [said, setSaid] = useState('');
+  const colors = Array.isArray(card.colors) ? card.colors.map(c => ({ ...c, hex: normalizeBrandColor(c.hex).hex })).filter(c => c.hex) : [];
+  const fonts = Array.isArray(card.fonts) ? card.fonts : [];
+  const logo = safeHref(card.logoUrl);
+  return (
+    <section className="pt-card" aria-labelledby="pt-kit-h">
+      <h2 className="pt-card-h" id="pt-kit-h">Brand kit</h2>
+      {logo && <span className="img-fit img-fit--contain pt-kit-logo"><img src={logo} alt={`${client?.business || 'Your'} logo`} width={96} height={96} loading="lazy" /></span>}
+      {colors.length > 0 && (
+        <ul className="pt-chips" aria-label="Brand colours">
+          {colors.map(c => (
+            <li key={c.hex} className="pt-chip">
+              <span className="pt-chip-swatch" style={{ '--pt-swatch': c.hex }} aria-hidden="true" />
+              <span className="pt-chip-text"><span className="pt-chip-name">{c.name || c.hex}</span>{c.name && <span className="pt-doc-kind">{c.hex}</span>}</span>
+              <button type="button" className="pt-btn pt-btn--ghost pt-chip-copy" onClick={async () => setSaid((await copyToClipboard(c.hex)) ? `${c.hex} copied.` : `The colour is ${c.hex}.`)} aria-label={`Copy ${c.hex}`}><Copy01 width={16} height={16} aria-hidden="true" /></button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {fonts.length > 0 && <p className="pt-line"><span>Fonts: {fonts.join(' and ')}</span></p>}
+      {said && <p className="pt-line" role="status"><Check width={16} height={16} aria-hidden="true" /><span>{said}</span></p>}
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -337,7 +390,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -508,5 +561,18 @@ const ptStyles = `
   .pt-need-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .pt-need-label { font-size: 0.9375rem; line-height: 1.4; overflow-wrap: anywhere; }
   .pt-need-btn { flex-shrink: 0; min-height: 44px; padding: 0 var(--space-3); }
+  /* Files and brand kit (prompt 2): greyed rows before payment, the group headings, the colour chips. */
+  .pt-doc-link--off { cursor: default; color: var(--text-muted); }
+  .pt-doc-link--off:hover { background: var(--bg); }
+  .pt-card--locked-files .pt-doc-label { color: var(--text-muted); }
+  .pt-files-group { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .pt-files-h { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+  .pt-kit-logo { width: 96px; height: 96px; background: transparent; }
+  .pt-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+  .pt-chip { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3); border-radius: var(--radius); background: var(--bg); }
+  .pt-chip-swatch { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--pt-swatch); border: 1px solid var(--border-light); }
+  .pt-chip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pt-chip-name { font-size: 0.9375rem; font-weight: 600; overflow-wrap: anywhere; }
+  .pt-chip-copy { min-width: 44px; min-height: 44px; padding: 0; }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;

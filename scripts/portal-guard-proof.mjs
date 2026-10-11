@@ -61,6 +61,10 @@ const CUTS = {
   'needs-client': [[PM, "forEach(it => { if (it && it.client && !it.done) out.push(", "forEach(it => { if (it && !it.done) out.push("]],
   'needs-open': [[PM, "forEach(it => { if (it && it.client && !it.done) out.push(", "forEach(it => { if (it && it.client) out.push("]],
   'needs-order': [[PM, "    id: 'needs_you', title: 'Needs you', order: 5,", "    id: 'needs_you', title: 'Needs you', order: 45,"]],
+  'files-gate': [[PM, "        row.items.push(unlocked ? { label: str(d.label, 120), url: /^https?:\\/\\//i.test(String(d.link || '')) ? str(d.link, 400) : '' } : { label: str(d.label, 120) });", "        row.items.push({ label: str(d.label, 120), url: /^https?:\\/\\//i.test(String(d.link || '')) ? str(d.link, 400) : '' });"], [PM, "      const drive = unlocked && /^https?:\\/\\//i.test(String(p.links?.drive || '')) ? str(p.links.drive, 400) : '';", "      const drive = /^https?:\\/\\//i.test(String(p.links?.drive || '')) ? str(p.links.drive, 400) : '';"], [PM, "export const paidInFull = (p, now = Date.now()) => { const lines = invoicesOf(p); if (lines.some(l => !isPaid(l, now))) return false; return lines.length > 0 || !!p?.deliveredAt; };", "export const paidInFull = (p, now = Date.now()) => { const lines = invoicesOf(p); if (lines.some(l => !isPaid(l, now))) return false; return true; };"]],
+  'files-unlock': [[PM, "export const paidInFull = (p, now = Date.now()) => { const lines = invoicesOf(p); if (lines.some(l => !isPaid(l, now))) return false; return lines.length > 0 || !!p?.deliveredAt; };", "export const paidInFull = () => false;"]],
+  'kit-delivered': [[PM, "      if (!deliveredBrandProject(client, projects)) return null;\n", ""]],
+  'kit-colors': [[PM, "      if (!colors.length) return null;\n", ""]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

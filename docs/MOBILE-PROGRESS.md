@@ -104,7 +104,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 2: the progress, revisions and needs_you modules (the stage track, the round lines from pricing.js, the open client items on the client and the active projects, right after home); client and url on checklist items (src/shared/taskRules.js and its mirror), the Needs the client toggle in the task sheet and the row menu, the chip on a list head; the three cards on the page; portal-test 96 -> 110 checks, guards 40 -> 47.
 
+- Milestone 3: the files module with the payment gate inside resolve (names only before full payment, every link and the Drive folder after) and the brand kit (the mark, colour chips with Copy, the fonts); the forbidden keys gain link and deliverables; the paid in full audit state (mkt-portal-paid); portal-test 110 -> 123 checks, guards 47 -> 51.
+
 ## Next
-- Prompt 2 milestone 3: files with the server side payment gate, brand_kit, the whitelist test extension.
+- Prompt 2 milestone 4: templates, the CRM module list and project chip, the phone pass, docs, the full gate, the report.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

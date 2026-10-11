@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -96,6 +96,16 @@ export function clientItems(client, projects) {
   for (const p of clientProjects(client, projects).filter(p => p.stage !== 'delivered')) take(p, str(p.name, 80));
   return out;
 }
+/* Files and brand kit (prompt 2). */
+const isBrandKind = (k) => k === 'brand' || k === 'combined';
+const newestFirst = (a, b) => (Date.parse(b.deliveredAt || b.createdAt || '') || 0) - (Date.parse(a.deliveredAt || a.createdAt || '') || 0);
+/** The project whose files the client sees: the newest active one with deliverables, else the newest delivered one with deliverables. */
+export function filesProject(client, projects) {
+  const mine = clientProjects(client, projects).filter(p => p.kind !== 'retainer' && Array.isArray(p.deliverables) && p.deliverables.some(d => d && str(d.label, 120)));
+  const active = mine.filter(p => p.stage !== 'delivered' && !p.deliveredAt).sort(newestFirst)[0];
+  return active || mine.filter(p => p.stage === 'delivered' || p.deliveredAt).sort(newestFirst)[0] || null;
+}
+export const deliveredBrandProject = (client, projects) => clientProjects(client, projects).filter(p => isBrandKind(p.kind) && (p.deliveredAt || p.stage === 'delivered')).sort(newestFirst)[0] || null;
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export const PORTAL_MODULES = [
@@ -230,10 +240,45 @@ export const PORTAL_MODULES = [
     fields: ['items'],
     resolve(client, projects) { const items = clientItems(client, projects); return items.length ? { items } : null; },
   },
+  {
+    id: 'files', title: 'Your files', order: 35, sensitive: true, defaultState: 'auto',
+    auto: 'Shows the project\'s deliverables: names only until the project is paid in full, then every link, with the Drive folder first. The gate runs on the server.',
+    fields: ['unlocked', 'line', 'drive', 'groups'],
+    resolve(client, projects) {
+      const p = filesProject(client, projects);
+      if (!p) return null;
+      const unlocked = paidInFull(p);
+      const groups = [];
+      for (const d of p.deliverables) {
+        if (!d || !str(d.label, 120)) continue;
+        const g = str(d.group, 8) || 'files';
+        let row = groups.find(x => x.group === g); if (!row) { row = { group: g, items: [] }; groups.push(row); }
+        /* The gate: before full payment a row is its label and nothing else; the link never leaves the server. */
+        row.items.push(unlocked ? { label: str(d.label, 120), url: /^https?:\/\//i.test(String(d.link || '')) ? str(d.link, 400) : '' } : { label: str(d.label, 120) });
+      }
+      if (!groups.length) return null;
+      const drive = unlocked && /^https?:\/\//i.test(String(p.links?.drive || '')) ? str(p.links.drive, 400) : '';
+      return { unlocked, line: unlocked ? 'Everything is yours. Keep a copy somewhere safe.' : 'Unlocks when the project is paid in full.', drive, groups };
+    },
+  },
+  {
+    id: 'brand_kit', title: 'Brand kit', order: 36, sensitive: false, defaultState: 'auto',
+    auto: 'Shows after a brand project is delivered and the record has brand colours: the mark, the colours to copy, the fonts.',
+    fields: ['logoUrl', 'colors', 'fonts'],
+    resolve(client, projects) {
+      if (!deliveredBrandProject(client, projects)) return null;
+      const b = client?.brand || {};
+      const colors = [];
+      for (const c of [b.primary, ...(Array.isArray(b.colors) ? b.colors : [])]) { const hex = hexOf(c); if (hex && !colors.some(x => x.hex === hex)) colors.push({ hex, name: c && typeof c === 'object' ? str(c.name, 60) : '' }); }
+      if (!colors.length) return null;
+      const fonts = [str(b.fontDisplay, 120), str(b.fontBody, 120)].filter(Boolean).filter((f, i, a) => a.indexOf(f) === i);
+      return { logoUrl: portalLogo(client), colors, fonts };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto' },
   retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);

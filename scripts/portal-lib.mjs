@@ -13,7 +13,7 @@ const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, headersSent: f
 const LEAD = '507f1f77bcf86cd799439061';
 const OTHER = '507f1f77bcf86cd799439062';
 /* The prompt's forbidden keys: no card payload may carry any of them. */
-export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists', 'ledgerId', 'note', 'stripeEventId', 'schedule'];
+export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists', 'ledgerId', 'note', 'stripeEventId', 'schedule', 'link', 'deliverables'];
 const PRIVATE = ['555-0199', 'owner@sharpless.example', 'internal only note', 'https://drive.example/private', LEAD, 'inv-9001', 'purchase-77', 'ledger-77'];
 const keysDeep = (v, out = new Set()) => { if (Array.isArray(v)) v.forEach(x => keysDeep(x, out)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.add(k); keysDeep(x, out); } return out; };
 
@@ -99,7 +99,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,contact,progress,book,showcase,pay,retainer', `all Auto with data: home, contact, progress, book, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,contact,progress,book,brand_kit,showcase,pay,retainer', `all Auto with data: home, contact, progress, book, brand kit, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -219,6 +219,44 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   lead().checklists[0].items[0].done = true; lead().checklists[0].items[3].client = false; _stores.projects.find(p => p._id === 'p1').checklists = [];
   rj = await pub('GET', { token: tN });
   ok(!card(rj, 'needs_you'), 'done or not for the client: nothing waits, no card', 'needs-open');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4d. files (prompt 2): the gate on the server, both directions; the brand kit after a delivered brand project */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tF = lead().portal.token;
+  const pw = () => _stores.projects.find(p => p._id === 'p1');
+  pw().deliverables = [{ id: 'd1', group: 'web', label: 'Site source', done: true, link: 'https://github.com/secret/site' }, { id: 'd2', group: 'logo', label: 'Logo files', done: true, link: 'https://drive.google.com/file/d/secret-logo' }, { id: 'd3', group: 'logo', label: 'Not yet', done: false, link: '' }];
+  pw().links = { drive: 'https://drive.google.com/drive/folders/secret-drive' };
+  let rf = await pub('GET', { token: tF }); let files = card(rf, 'files');
+  ok(files && files.unlocked === false && /paid in full/.test(files.line) && files.drive === '' && files.groups.map(g => g.group).join(',') === 'web,logo' && files.groups[0].items[0].label === 'Site source', `an open invoice: the files card lists names only, locked (${JSON.stringify(files)})`, 'files-gate');
+  ok(!JSON.stringify(files).includes('secret'), 'no link and no Drive folder leaves the server before full payment', 'files-gate');
+  ok(files && files.groups.every(g => g.items.every(it => Object.keys(it).join(',') === 'label')), 'a locked row is exactly { label }', 'files-gate');
+  pw().invoices.forEach(l => { l.status = 'paid'; l.paidAt = l.paidAt || '2026-10-02T00:00:00.000Z'; });
+  rf = await pub('GET', { token: tF }); files = card(rf, 'files');
+  ok(files && files.unlocked === true && files.drive === 'https://drive.google.com/drive/folders/secret-drive' && files.groups[0].items[0].url === 'https://github.com/secret/site' && files.groups[1].items[1].url === '', `every invoice paid: the links and the Drive folder (${JSON.stringify(files)})`, 'files-unlock');
+  pw().invoices[1].status = 'sent'; pw().invoices[1].paidAt = ''; pw().deliveredAt = '2026-10-05T00:00:00.000Z'; pw().stage = 'delivered';
+  rf = await pub('GET', { token: tF }); files = card(rf, 'files');
+  ok(files && files.unlocked === false && !JSON.stringify(files).includes('secret'), 'delivered with an open invoice is still locked', 'files-gate');
+  pw().invoices = []; pw().schedule = undefined;
+  rf = await pub('GET', { token: tF }); files = card(rf, 'files');
+  ok(files && files.unlocked === true, 'delivered with no invoice at all is unlocked (nothing is owed)', 'files-unlock');
+  pw().deliveredAt = ''; pw().stage = 'design';
+  rf = await pub('GET', { token: tF }); files = card(rf, 'files');
+  ok(files && files.unlocked === false, 'no invoice yet and not delivered: unpaid, locked (unsure means unpaid)', 'files-gate');
+  pw().deliverables = [];
+  rf = await pub('GET', { token: tF });
+  ok(!card(rf, 'files'), 'no deliverables: no files card', 'auto-empty');
+  /* the brand kit */
+  rf = await pub('GET', { token: tF }); let kit = card(rf, 'brand_kit');
+  ok(kit && kit.colors.map(c => c.hex).join(',') === '#1d4ed8,#ffffff' && kit.logoUrl === 'https://img.example/sharpless.png', `a delivered brand project and colours: the kit with the mark and the colours (${JSON.stringify(kit)})`, 'kit-delivered');
+  lead().brand.fontDisplay = 'Inter'; lead().brand.fontBody = 'Georgia';
+  rf = await pub('GET', { token: tF }); kit = card(rf, 'brand_kit');
+  ok(kit && kit.fonts.join(',') === 'Inter,Georgia', 'the fonts come from brand.fontDisplay and brand.fontBody');
+  lead().brand = { primary: '', colors: [] };
+  rf = await pub('GET', { token: tF });
+  ok(!card(rf, 'brand_kit'), 'no colours: no brand kit', 'kit-colors');
+  lead().brand = { primary: '#1d4ed8', colors: [] }; _stores.projects.find(p => p._id === 'p0').deliveredAt = ''; _stores.projects.find(p => p._id === 'p0').stage = 'design';
+  rf = await pub('GET', { token: tF });
+  ok(!card(rf, 'brand_kit'), 'the brand project not delivered: no brand kit', 'kit-delivered');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
