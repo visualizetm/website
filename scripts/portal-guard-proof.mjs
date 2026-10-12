@@ -39,7 +39,7 @@ const CUTS = {
   'pin-shape': [[CL, "pin: b.portal.pin !== undefined ? (/^\\d{4}$/.test(String(b.portal.pin)) ? String(b.portal.pin) : '') : undefined,", "pin: b.portal.pin !== undefined ? String(b.portal.pin) : undefined,"]],
   'pin-check': [[PP, "  if (a.length !== want.length || !timingSafeEqual(a, want)) { await rateHit(db, key, st.hits); return res.status(401).json({ error: 'That PIN is not it.' }); }\n", ""]],
   'pin-limit': [[PP, "  if (st.exceeded) { res.setHeader('Retry-After', String(st.retryAfter)); return res.status(429).json({ error: 'That is a few tries. Give it fifteen minutes.' }); }\n", ""]],
-  'pin-gate': [[PM, "    if (m.sensitive && !unlocked) { cards.push({ id: m.id, title: m.title, sensitive: true, locked: true }); continue; }\n", ""]],
+  'pin-gate': [[PM, "card: m.sensitive && !unlocked ? { id: m.id, title: m.title, sensitive: true, locked: true } : cardOf(m, data)", "card: cardOf(m, data)"]],
   'unlock-verify': [[PP, "const unlockOk = (token, v) => { const [exp, sig] = String(v || '').split('.'); if (!exp || !sig || !(Number(exp) > Date.now())) return false; const a = Buffer.from(sig); const b = Buffer.from(hmac(`${token}:${exp}`)); return a.length === b.length && timingSafeEqual(a, b); };", "const unlockOk = (token, v) => { const [exp, sig] = String(v || '').split('.'); return !!(exp && sig && Number(exp) > Date.now()); };"]],
   'unlock-days': [[PP, "const UNLOCK_DAYS = 30;", "const UNLOCK_DAYS = 3;"]],
   'pay-hide': [[PM, "      const hit = oldestOpenInvoice(client, projects);\n      if (!hit) return null;", "      const hit = oldestOpenInvoice(client, projects) || { line: { label: 'Invoice', amount: 0 }, project: {} };"]],
@@ -66,6 +66,15 @@ const CUTS = {
   'files-unlock': [[PM, "export const paidInFull = (p, now = Date.now()) => { const lines = invoicesOf(p); if (lines.some(l => !isPaid(l, now))) return false; return lines.length > 0 || !!p?.deliveredAt; };", "export const paidInFull = () => false;"]],
   'kit-delivered': [[PM, "      if (!deliveredBrandProject(client, projects)) return null;\n", ""]],
   'kit-colors': [[PM, "      if (!colors.length) return null;\n", ""]],
+  'planner-gate': [[PM, "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ?", "export const plannerLink = (client) => (client?.planner?.token ?"]],
+  'planner-counts': [[PM, "  const week = wk ? mine.filter(p => String(p.date || '').slice(0, 10) >= wk.start && String(p.date || '').slice(0, 10) <= wk.end) : [];", "  const week = mine;"]],
+  'concepts-newest': [[PM, "  .filter(s => s && String(s.leadId) === String(client?._id) && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')", "  .filter(s => s && String(s.leadId) === String(client?._id) && !s.deleted && s.token)"]],
+  'concepts-state': [[PM, "export const conceptState = (set) => (set?.approvedDirectionId || set?.status === 'approved' ? 'approved' : set?.status === 'changes' ? 'changes' : 'waiting');", "export const conceptState = () => 'waiting';"]],
+  'concepts-order': [[PM, "    const order = Number.isFinite(Number(data._order)) ? Number(data._order) : m.order;", "    const order = m.order;"]],
+  'token-isolation': [
+    [PP, "db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true } })", "db.collection('concept_sets').find({ deleted: { $ne: true } })"],
+    [PM, "  .filter(s => s && String(s.leadId) === String(client?._id) && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')", "  .filter(s => s && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')"],
+  ],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

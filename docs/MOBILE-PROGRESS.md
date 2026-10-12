@@ -108,7 +108,10 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 4: the templates carry every new module, the Portal sheet's card list reads them from the registry with their Auto lines, the Tasks screen's list head chip; docs/PORTAL-DESIGN.md (the prompt 2 Auto rules table, the templates, the forbidden keys), ARCHITECTURE and RUNBOOK paragraphs, CLAUDE.md's counts; regression 17d (Needs the client) and 26b (12 card rows); the full gate detached on the final build (every run complete, preship passed; the results are in reports/PORTAL-2-REPORT.md).
 
+## Client portal, prompt 3 (the token pages as cards)
+- Milestone 1: the planner and concepts modules (this week's counts, the set's state and cover, the links with the way back), the ctx bag and the per card order override in portalCards, the Back to your portal chip on the shared client bar read by the planner and the concepts page; portal-test 125 -> 136, guards 52 -> 58.
+
 ## Next
-- Prompt 3: the planner, the concepts and the review link as portal modules.
+- Prompt 3 milestone 2: the review and their_reviews cards.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

@@ -6,7 +6,7 @@ import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
 import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
-import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
+import { ClientBar, ClientFoot, clientChromeStyles, portalBackHref } from '../components/ClientPageChrome';
 import { useMotionPreference } from '../marketing/motion/shared';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
@@ -357,6 +357,7 @@ function SummarySheet({ rows, name, onName, busy, error, onSend, onClose, onJump
 export default function Concepts() {
   const { token = '' } = useParams();
   const { search } = useLocation();
+  const back = portalBackHref(search); // the portal's back chip, when this page was opened from it
   const present = new URLSearchParams(search).get('present') === '1';
   const reduced = useMotionPreference();
   const C = COPY.concepts;
@@ -491,7 +492,7 @@ export default function Concepts() {
     return (
       <section className="cp cp-dead section">
         <div className="wrap cp-narrow">
-          <ClientBar label="Concepts" />
+          <ClientBar label="Concepts" back={back} />
           <h1 className="cp-dead-h display">{C.dead.title}</h1>
           <p className="cp-lead">{C.dead.body} <a className="cp-mail" href={`mailto:${C.dead.email}`}>{C.dead.email}</a></p>
           <ClientFoot />
@@ -504,7 +505,7 @@ export default function Concepts() {
     return (
       <section className="cp cp-dead section">
         <div className="wrap cp-narrow">
-          <ClientBar label="Concepts" />
+          <ClientBar label="Concepts" back={back} />
           <h1 className="cp-dead-h display">{COPY.planner.error.title}</h1>
           <p className="cp-lead">{COPY.planner.error.body}</p>
           <button type="button" className="cp-btn" onClick={() => load()}>{COPY.planner.error.retry}</button>
@@ -526,7 +527,7 @@ export default function Concepts() {
     <section className={`cp${present ? ' is-present' : ''}${decided ? ' is-decided' : ''}${review ? ' is-review' : ''}${submitted ? ' is-submitted' : ''}`}>
       <header className="cp-intro">
         <div className="wrap cp-narrow-head">
-          <ClientBar label={client} />
+          <ClientBar label={client} back={back} />
           <h1 className="cp-h1 display">{heading}</h1>
           {data.set.intro && <p className="cp-lead">{data.set.intro}</p>}
           <p className="cp-hint-p">{review ? C.intro.review : C.intro.hint}</p>

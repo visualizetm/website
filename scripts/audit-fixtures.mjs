@@ -599,6 +599,9 @@ export const PORTAL_RESOLVE = {
     { id: 'needs_you', title: 'Needs you', sensitive: false, items: [{ id: 'n1', text: 'Fill in the content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', owner: 'Website' }, { id: 'n2', text: 'Send me the photos from the shoot', url: '', owner: '' }] },
     { id: 'files', title: 'Your files', sensitive: true, unlocked: false, line: 'Unlocks when the project is paid in full.', drive: '', groups: [{ group: 'logo', items: [{ label: 'Logo, full colour' }, { label: 'Logo, one colour' }] }, { group: 'web', items: [{ label: 'Site source' }] }] },
     { id: 'brand_kit', title: 'Brand kit', sensitive: false, logoUrl: '/showcase/fixtures/logo.svg', colors: [{ hex: '#1d4ed8', name: 'Blue' }, { hex: '#111111', name: '' }], fonts: ['Inter', 'Georgia'] },
+    /* Prompt 3: the token pages as cards, each linking to its page with the way back. */
+    { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
+    { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
   ],
   pinned: false, unlocked: true, paid: false,
 };

@@ -3,6 +3,7 @@ import { getDb } from '../_lib/mongo.js';
 import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit, rateClear } from '../_lib/limit.js';
 import { sessionSecret, meetingLink } from '../_lib/config.js';
+import { zoneDayKey } from '../_lib/zone.js';
 import { portalCards, portalClient, unseenPayment } from '../_lib/portalModules.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
@@ -34,7 +35,9 @@ const PIN_WINDOW = 15 * 60 * 1000;
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_-]{16,64}$/.test(t) ? t : ''; };
 /* The second half of the whitelist: what resolve may read at all (prompt 2 adds the money, project and brand fields). */
-const PROJECTION = { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.logoUrl': 1, 'showcase.brand.logo': 1, 'showcase.published': 1, 'showcase.slug': 1, brand: 1, portal: 1, retainer: 1, checklists: 1 };
+const PROJECTION = { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.logoUrl': 1, 'showcase.brand.logo': 1, 'showcase.published': 1, 'showcase.slug': 1, brand: 1, portal: 1, retainer: 1, checklists: 1, 'planner.enabled': 1, 'planner.token': 1 };
+const POST_PROJECTION = { leadId: 1, date: 1, kind: 1, status: 1, deleted: 1, archived: 1 };
+const SET_PROJECTION = { leadId: 1, title: 1, round: 1, status: 1, archived: 1, deleted: 1, token: 1, approvedDirectionId: 1, updatedAt: 1, directions: 1 };
 const PROJECT_PROJECTION = { leadId: 1, name: 1, kind: 1, packageId: 1, stage: 1, stages: 1, archived: 1, createdAt: 1, invoices: 1, schedule: 1, plan: 1, deliveredAt: 1, revisions: 1, deliverables: 1, links: 1, checklists: 1 };
 /* The PIN hash, the same salt and digest as api/_routes/call-leads.js hashPin. */
 const hashPin = (pin) => createHash('sha256').update(`${sessionSecret()}:${pin}`).digest('base64url');
@@ -56,10 +59,14 @@ export async function handler(req, res) {
   if (!lead) return notFound(res);
 
   if (req.method === 'GET') {
-    const [profile, projects] = await Promise.all([
+    const [profile, projects, posts, sets] = await Promise.all([
       db.collection('settings').findOne({ _id: 'profile' }),
       db.collection('projects').find({ leadId: String(lead._id) }).project(PROJECT_PROJECTION).limit(50).toArray(),
+      db.collection('posts').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(POST_PROJECTION).limit(400).toArray(),
+      db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(SET_PROJECTION).limit(40).toArray(),
     ]);
+    /* Prompt 3: what the token page cards read, beside the records: this client's posts and concept sets, and today's key in the studio's zone. */
+    const ctx = { posts, sets, todayKey: zoneDayKey(Date.now()) };
     const key = rateKey('pview', token);
     const st = await rateState(db, key, { max: 1, windowMs: HOUR });
     if (!st.exceeded) {
@@ -71,7 +78,7 @@ export async function handler(req, res) {
     /* Prompt 2: a payment landed since the last read (the webhook or Rob marking it): the page thanks them once, and the stamp moves so it never repeats. Server owned. */
     const paidAt = unseenPayment(lead, projects);
     if (paidAt) await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.lastPaidSeenAt': paidAt } });
-    return res.status(200).json({ client: portalClient(lead), cards: portalCards(lead, projects, settings, { unlocked }), pinned: !!lead.portal?.pin, unlocked, paid: !!paidAt });
+    return res.status(200).json({ client: portalClient(lead), cards: portalCards(lead, projects, settings, { unlocked, ctx }), pinned: !!lead.portal?.pin, unlocked, paid: !!paidAt });
   }
 
   const b = req.body && typeof req.body === 'object' ? req.body : {};

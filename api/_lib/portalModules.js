@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -108,6 +108,24 @@ export function filesProject(client, projects) {
   return active || mine.filter(p => p.stage === 'delivered' || p.deliveredAt).sort(newestFirst)[0] || null;
 }
 export const deliveredBrandProject = (client, projects) => clientProjects(client, projects).filter(p => isBrandKind(p.kind) && (p.deliveredAt || p.stage === 'delivered')).sort(newestFirst)[0] || null;
+/* The token pages as cards (prompt 3). Each links to the page with its own token, never a new one, and ?from=portal&c=<portal token>
+ * so the page can show the way back. ctx is the fourth argument the route hands resolve: { posts, sets, todayKey, ... }. */
+const fromPortal = (client) => (client?.portal?.token ? `?from=portal&c=${client.portal.token}` : '');
+const weekOf = (todayKey) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(todayKey || '')); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); const dow = (d.getUTCDay() + 6) % 7; const start = new Date(d.getTime() - dow * 864e5); const end = new Date(start.getTime() + 6 * 864e5); const k = (x) => x.toISOString().slice(0, 10); return { start: k(start), end: k(end) }; };
+export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal(client)}` : '');
+/** This week's posts for the client: how many, how many wait on them (in review), and the ads live. */
+export function plannerCounts(client, posts, todayKey) {
+  const wk = weekOf(todayKey);
+  const mine = (Array.isArray(posts) ? posts : []).filter(p => p && String(p.leadId) === String(client?._id) && !p.deleted && !p.archived);
+  const week = wk ? mine.filter(p => String(p.date || '').slice(0, 10) >= wk.start && String(p.date || '').slice(0, 10) <= wk.end) : [];
+  return { posts: week.filter(p => p.kind !== 'ad').length, needYou: week.filter(p => p.status === 'review').length, adsLive: mine.filter(p => p.kind === 'ad' && p.status === 'live').length };
+}
+/** The newest shared concept set: not archived, not a draft, with its token. */
+export const sharedConceptSet = (client, sets) => (Array.isArray(sets) ? sets : [])
+  .filter(s => s && String(s.leadId) === String(client?._id) && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')
+  .sort((a, b) => (Number(b.round) || 0) - (Number(a.round) || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0] || null;
+export const conceptState = (set) => (set?.approvedDirectionId || set?.status === 'approved' ? 'approved' : set?.status === 'changes' ? 'changes' : 'waiting');
+const CONCEPT_STATE_LABEL = { approved: 'Approved', changes: 'Changes requested', waiting: 'Waiting on you' };
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export const PORTAL_MODULES = [
@@ -277,11 +295,36 @@ export const PORTAL_MODULES = [
       return { logoUrl: portalLogo(client), colors, fonts };
     },
   },
+  {
+    id: 'planner', title: 'Content planner', order: 17, sensitive: false, defaultState: 'auto',
+    auto: 'Shows when the planner is on and has its link: this week\'s posts, how many need them, the ads live. Opens the planner with a way back.',
+    fields: ['url', 'posts', 'needYou', 'adsLive', 'line'],
+    resolve(client, projects, settings, ctx = {}) {
+      const url = plannerLink(client);
+      if (!url) return null;
+      const c = plannerCounts(client, ctx.posts, ctx.todayKey);
+      const line = `This week: ${c.posts} post${c.posts === 1 ? '' : 's'}, ${c.needYou} need${c.needYou === 1 ? 's' : ''} you${c.adsLive ? `. ${c.adsLive} ad${c.adsLive === 1 ? '' : 's'} live` : ''}`;
+      return { url, posts: c.posts, needYou: c.needYou, adsLive: c.adsLive, line };
+    },
+  },
+  {
+    id: 'concepts', title: 'Concepts', order: 7, sensitive: false, defaultState: 'auto',
+    auto: 'Shows the newest shared concept set (sent, not archived) with where it stands; an approved set sinks to the bottom. Opens the presentation with a way back.',
+    fields: ['url', 'name', 'state', 'stateLabel', 'cover'],
+    resolve(client, projects, settings, ctx = {}) {
+      const set = sharedConceptSet(client, ctx.sets);
+      if (!set) return null;
+      const state = conceptState(set);
+      const first = (Array.isArray(set.directions) ? set.directions : []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))[0];
+      const cover = (Array.isArray(first?.items) ? first.items : []).map(it => str(it?.image, 600)).find(u => /^https?:\/\//i.test(u)) || '';
+      return { url: `/concepts/${set.token}${fromPortal(client)}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 31 : undefined };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;
@@ -290,17 +333,18 @@ export const portalStateOf = (client, id, mod = null) => { const m = mod || port
 /** Only the whitelisted fields of a resolve's answer. */
 export const cardOf = (m, data) => { const out = { id: m.id, title: m.title, sensitive: !!m.sensitive }; for (const k of m.fields) if (data && data[k] !== undefined) out[k] = data[k]; return out; };
 /** Every card the page gets, in order: off never renders, on and auto render when resolve has data; a sensitive card is locked until the device unlocked it. */
-export function portalCards(client, projects, settings, { unlocked = false, modules = PORTAL_MODULES } = {}) {
-  const cards = [];
-  for (const m of [...modules].sort((a, b) => a.order - b.order)) {
+export function portalCards(client, projects, settings, { unlocked = false, modules = PORTAL_MODULES, ctx = {} } = {}) {
+  const rows = [];
+  for (const m of modules) {
     if (portalStateOf(client, m.id, m) === 'off') continue;
     let data = null;
-    try { data = m.resolve(client, projects, settings); } catch { data = null; }
+    try { data = m.resolve(client, projects, settings, ctx); } catch { data = null; }
     if (!data) continue;
-    if (m.sensitive && !unlocked) { cards.push({ id: m.id, title: m.title, sensitive: true, locked: true }); continue; }
-    cards.push(cardOf(m, data));
+    /* A resolve may move its own card (_order) for one state, an approved concept set for one; the key never leaves. */
+    const order = Number.isFinite(Number(data._order)) ? Number(data._order) : m.order;
+    rows.push({ order, card: m.sensitive && !unlocked ? { id: m.id, title: m.title, sensitive: true, locked: true } : cardOf(m, data) });
   }
-  return cards;
+  return rows.sort((a, b) => a.order - b.order).map(r => r.card);
 }
 /** What the page may know about the client, and nothing else. */
 export const portalClient = (client) => ({ firstName: portalFirstName(client), business: portalBusiness(client), logoUrl: portalLogo(client), brandHex: portalBrandHex(client) });

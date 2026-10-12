@@ -1,3 +1,4 @@
+import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
 import Logo from '../ui/Logo';
 import { CONTACT_EMAIL } from '../marketing/links';
 
@@ -12,11 +13,18 @@ import { CONTACT_EMAIL } from '../marketing/links';
  * the bottom in case they want to reply to something.
  */
 
-export function ClientBar({ label }) {
+/* The portal's back chip (client portal, prompt 3): a token page opened from the portal carries ?from=portal&c=<portal token>
+ * and shows one small chip back to /c/<token>. The token is checked for shape only; nothing else on the page changes. */
+const PORTAL_TOKEN = /^[A-Za-z0-9_-]{16,64}$/;
+export function portalBackHref(search) {
+  try { const q = new URLSearchParams(String(search || '')); const c = String(q.get('c') || ''); return q.get('from') === 'portal' && PORTAL_TOKEN.test(c) ? `/c/${c}` : ''; } catch { return ''; }
+}
+export function ClientBar({ label, back = '' }) {
   return (
     <div className="cpc-bar">
       <span className="cpc-mark"><Logo width={104} /></span>
       {label && <><span className="cpc-div" aria-hidden="true" /><span className="cpc-name">{label}</span></>}
+      {back && <a className="cpc-back" href={back}><ChevronLeft width={16} height={16} aria-hidden="true" />Back to your portal</a>}
     </div>
   );
 }
@@ -31,10 +39,13 @@ export function ClientFoot() {
 }
 
 export const clientChromeStyles = `
-  .cpc-bar { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-10); }
+  .cpc-bar { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-10); flex-wrap: wrap; row-gap: var(--space-2); }
   .cpc-mark { display: inline-flex; }
   .cpc-div { width: 1px; height: 20px; background: var(--border-light); }
   .cpc-name { font-size: 0.9375rem; font-weight: 600; color: var(--text-secondary); }
+  .cpc-back { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-pill, 999px); background: var(--bg-card); color: var(--text); font-size: 0.8125rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .cpc-back:hover { background: var(--hover-soft); }
+  .cpc-back:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .cpc-foot {
     display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap;
     margin-top: var(--space-16); padding-top: var(--space-6);

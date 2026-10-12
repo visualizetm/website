@@ -17,7 +17,7 @@ import Play from '@untitled-ui/icons-react/build/esm/Play';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
 import Link01 from '@untitled-ui/icons-react/build/esm/Link01';
-import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
+import { ClientBar, ClientFoot, clientChromeStyles, portalBackHref } from '../components/ClientPageChrome';
 import { Reveal, Stagger } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
@@ -917,6 +917,7 @@ function ItemDetail({ item, token, onClose, onApprove, onChange, busy, formError
 export default function Planner() {
   const { token = '' } = useParams();
   const [params, setParams] = useSearchParams();
+  const back = portalBackHref(params.toString()); // the portal's back chip, when this page was opened from it
   const C = COPY.planner;
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'home';
 
@@ -1061,7 +1062,7 @@ export default function Planner() {
     return (
       <section className="pl section pl-dead-wrap">
         <div className="wrap pl-narrow">
-          <ClientBar label={C.heading} />
+          <ClientBar label={C.heading} back={back} />
           <Reveal as="h1" className="pl-title display">{C.dead.title}</Reveal>
           <Reveal as="p" className="pl-lead" delay={60}>
             {C.dead.body} <a className="pl-mail" href={`mailto:${C.dead.email}`}>{C.dead.email}</a>
@@ -1076,7 +1077,7 @@ export default function Planner() {
   return (
     <section className={`pl section${desktop ? '' : ' pl--phone'}`}>
       <div className="wrap pl-wrap">
-        <ClientBar label={C.heading} />
+        <ClientBar label={C.heading} back={back} />
         {desktop && state === 'ready' && <Tabs tab={tab} onPick={pickTab} needs={needs} bottom={false} />}
 
         {state === 'loading' && <Skeleton kind={tab === 'home' ? 'home' : 'list'} />}

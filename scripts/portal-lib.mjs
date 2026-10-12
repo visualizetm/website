@@ -264,6 +264,58 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rf, 'brand_kit'), 'the brand project not delivered: no brand kit', 'kit-delivered');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
+  /* 4e. the token pages as cards (prompt 3): the planner, the concepts, and no other client's token ever */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tK = lead().portal.token;
+  const OTHER_PLANNER = 'otherPLANNERtoken0123456789abcdef'; const OTHER_SET = 'otherSETtoken0123456789abcdefgh';
+  _stores.call_leads.find(l => String(l._id) === OTHER).planner = { enabled: true, token: OTHER_PLANNER };
+  _stores.concept_sets = [
+    { _id: 'cs-other', leadId: OTHER, title: 'Theirs', round: 1, status: 'sent', token: OTHER_SET, directions: [] },
+    { _id: 'cs-draft', leadId: LEAD, title: 'Draft one', round: 3, status: 'draft', token: 'draftSETtoken0123456789abcdefgh', directions: [] },
+    { _id: 'cs-old', leadId: LEAD, title: 'Round one', round: 1, status: 'approved', approvedDirectionId: 'd1', token: 'oldSETtoken0123456789abcdefghij', directions: [{ id: 'd1', order: 0, items: [{ image: 'https://img.example/old.png', order: 0 }] }] },
+    { _id: 'cs-new', leadId: LEAD, title: 'Round two', round: 2, status: 'viewed', token: 'newSETtoken0123456789abcdefghij', directions: [{ id: 'a', order: 1, items: [{ image: 'https://img.example/a.png', order: 0 }] }, { id: 'b', order: 0, items: [{ image: 'javascript:alert(1)', order: 0 }, { image: 'https://img.example/b.png', order: 1 }] }] },
+  ];
+  const { zoneDayKey } = await load('_lib/zone.js');
+  const todayKey = zoneDayKey(Date.now()); const [ty, tm, td] = todayKey.split('-').map(Number); const today = new Date(Date.UTC(ty, tm - 1, td)); const key = (d) => d.toISOString().slice(0, 10);
+  const dow = (today.getUTCDay() + 6) % 7; const monday = new Date(today.getTime() - dow * 864e5); const inWeek = (n) => key(new Date(monday.getTime() + n * 864e5)); const lastWeek = key(new Date(monday.getTime() - 3 * 864e5));
+  _stores.posts = [
+    { _id: 'po1', leadId: LEAD, date: inWeek(0), kind: 'post', status: 'review' },
+    { _id: 'po2', leadId: LEAD, date: inWeek(2), kind: 'post', status: 'approved' },
+    { _id: 'po3', leadId: LEAD, date: inWeek(4), kind: 'post', status: 'making' },
+    { _id: 'po4', leadId: LEAD, date: lastWeek, kind: 'post', status: 'review' },
+    { _id: 'po5', leadId: LEAD, date: inWeek(1), kind: 'ad', status: 'live' },
+    { _id: 'po6', leadId: LEAD, date: lastWeek, kind: 'ad', status: 'live' },
+    { _id: 'po7', leadId: LEAD, date: inWeek(3), kind: 'post', status: 'review', deleted: true },
+    { _id: 'po8', leadId: OTHER, date: inWeek(0), kind: 'post', status: 'review' },
+  ];
+  let rk = await pub('GET', { token: tK });
+  ok(!card(rk, 'planner'), 'no planner on the client: no planner card', 'planner-gate');
+  lead().planner = { enabled: false, token: 'myPLANNERtoken0123456789abcdefgh' };
+  rk = await pub('GET', { token: tK });
+  ok(!card(rk, 'planner'), 'the planner off keeps its token but shows no card', 'planner-gate');
+  lead().planner.enabled = true;
+  rk = await pub('GET', { token: tK }); let pl = card(rk, 'planner');
+  ok(pl && pl.url === `/planner/myPLANNERtoken0123456789abcdefgh?from=portal&c=${tK}` && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
+  let cc = card(rk, 'concepts');
+  ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === `/concepts/newSETtoken0123456789abcdefghij?from=portal&c=${tK}` && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
+  ok(cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('contact'), `a waiting set sits near the top (${cardIds(rk)})`, 'concepts-order');
+  _stores.concept_sets.find(x => x._id === 'cs-new').status = 'changes';
+  rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
+  ok(cc?.state === 'changes' && cc?.stateLabel === 'Changes requested', 'changes requested maps', 'concepts-state');
+  _stores.concept_sets.find(x => x._id === 'cs-new').approvedDirectionId = 'a';
+  await admin({ id: LEAD, set: { portal: { documents: [{ id: 'dk', label: 'Brand guide', url: 'https://drive.google.com/file/d/k', kind: 'pdf' }] } } });
+  rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
+  ok(cc?.state === 'approved' && cc?.stateLabel === 'Approved', 'an approved direction maps to Approved', 'concepts-state');
+  ok(cardIds(rk).indexOf('documents') > 0 && cardIds(rk).indexOf('concepts') > cardIds(rk).indexOf('documents'), `an approved set sinks below the documents (${cardIds(rk)})`, 'concepts-order');
+  _stores.concept_sets.find(x => x._id === 'cs-new').archived = true;
+  rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
+  ok(cc?.name === 'Round one' && cc?.state === 'approved', 'the newest archived: the older shared set shows', 'concepts-newest');
+  _stores.concept_sets.forEach(x => { if (x.leadId === LEAD) x.archived = true; });
+  rk = await pub('GET', { token: tK });
+  ok(!card(rk, 'concepts'), 'every set archived or a draft: no concepts card', 'concepts-newest');
+  const flatK = JSON.stringify(rk._json);
+  ok(!flatK.includes(OTHER_PLANNER) && !flatK.includes(OTHER_SET) && !flatK.includes('draftSETtoken'), 'no other client\'s planner or concept token, and no draft token, ever leaves', 'token-isolation');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });

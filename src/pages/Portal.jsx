@@ -329,6 +329,35 @@ function BrandKitCard({ card, client }) {
   );
 }
 
+/* Content planner (prompt 3): the week's counts and one way into the planner, which shows the way back. */
+function PlannerCard({ card }) {
+  const url = safeHref(card.url);
+  if (!url) return null;
+  return (
+    <section className="pt-card" aria-labelledby="pt-planner-h">
+      <h2 className="pt-card-h" id="pt-planner-h">Content planner</h2>
+      <p className="pt-lead pt-lead--sm">{card.line}.</p>
+      <div className="pt-actions"><a className={`pt-btn${card.needYou ? '' : ' pt-btn--ghost'}`} href={url}><Calendar width={18} height={18} aria-hidden="true" />{card.needYou ? `Review ${card.needYou === 1 ? 'it' : 'them'}` : 'Open the planner'}</a></div>
+    </section>
+  );
+}
+
+/* Concepts: the newest shared set, where it stands, its cover, and the way into the presentation. */
+function ConceptsCard({ card }) {
+  const url = safeHref(card.url); const cover = safeHref(card.cover);
+  if (!url) return null;
+  return (
+    <section className={`pt-card pt-card--concepts${card.state === 'waiting' ? ' pt-card--needs' : ''}`} aria-labelledby="pt-concepts-h">
+      <h2 className="pt-card-h" id="pt-concepts-h">Concepts</h2>
+      <div className="pt-concepts-row">
+        {cover && <span className="img-fit img-fit--1x1 pt-concepts-cover"><img src={cover} alt="" width={72} height={72} loading="lazy" decoding="async" /></span>}
+        <span className="pt-pay-text"><span className="pt-pay-name">{card.name}</span><span className="pt-pay-line">{card.stateLabel}</span></span>
+      </div>
+      <div className="pt-actions"><a className={`pt-btn${card.state === 'waiting' ? '' : ' pt-btn--ghost'}`} href={url}>{card.state === 'waiting' ? 'Have a look' : 'Open the concepts'}<ArrowUpRight width={16} height={16} aria-hidden="true" /></a></div>
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -390,7 +419,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -574,5 +603,8 @@ const ptStyles = `
   .pt-chip-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .pt-chip-name { font-size: 0.9375rem; font-weight: 600; overflow-wrap: anywhere; }
   .pt-chip-copy { min-width: 44px; min-height: 44px; padding: 0; }
+  /* The token page cards (prompt 3): a cover beside the set's name. */
+  .pt-concepts-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+  .pt-concepts-cover { flex-shrink: 0; width: 72px; height: 72px; border-radius: var(--radius); background: var(--bg); }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;
