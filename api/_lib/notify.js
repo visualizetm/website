@@ -10,10 +10,22 @@ function initVapid() {
   return true;
 }
 
-// Send a web push to every subscribed device; prune subscriptions that are gone.
+/* Two kinds of device (client portal, prompt 4): Rob's, saved from the admin with no role, and a client's, saved from their
+ * portal with role 'client' and the client's leadId. Rob's pushes go to his devices only; a client's go to that client's only. */
+export const ownerSubs = (db) => db.collection('push_subscriptions').find({ role: { $ne: 'client' } }).toArray();
+export const clientSubs = (db, leadId) => db.collection('push_subscriptions').find({ role: 'client', leadId: String(leadId) }).toArray();
+
+// Send a web push to every one of Rob's devices; prune subscriptions that are gone.
 export async function sendPush(db, { title, body, url }) {
   if (!initVapid()) return;
-  const subs = await db.collection('push_subscriptions').find({}).toArray();
+  return sendTo(db, await ownerSubs(db), { title, body, url });
+}
+// Send a web push to one client's devices (the portal's Notifications toggle).
+export async function sendClientPush(db, leadId, { title, body, url }) {
+  if (!initVapid()) return;
+  return sendTo(db, await clientSubs(db, leadId), { title, body, url });
+}
+async function sendTo(db, subs, { title, body, url }) {
   const payload = JSON.stringify({ title, body, url });
   await Promise.allSettled(subs.map(async (s) => {
     try {

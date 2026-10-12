@@ -9,6 +9,10 @@ import { runPortal, repoRoot } from './portal-lib.mjs';
 
 const CL = '_routes/call-leads.js';
 const SB = 'submissions.js';
+const CP = '_lib/clientPush.js';
+const NT = '_lib/notify.js';
+const PJ = '_routes/projects.js';
+const CR = '_routes/cron-reminders.js';
 const PP = '_routes/portal-public.js';
 const PM = '_lib/portalModules.js';
 const ST = '_routes/settings.js';
@@ -122,6 +126,21 @@ const CUTS = {
   'referral-keep': [[SB, "return { code, leadId: lead ? String(lead._id) : '', business: lead ? String(lead.business || '').slice(0, 120) : '' };", "return lead ? { code, leadId: String(lead._id), business: String(lead.business || '').slice(0, 120) } : undefined;"]],
   'referral-shape': [[SB, "const refCode = doc.type === 'start' && REF_RE.test(String(b.referredBy ?? '').trim()) ? String(b.referredBy).trim() : '';", "const refCode = doc.type === 'start' ? String(b.referredBy ?? '').trim() : '';"]],
   'referral-prefix': [[SB, "if (!lead && code.length >= REF_PREFIX) lead =", "if (!lead) lead ="]],
+  'push-role': [[PP, "{ $set: { role: 'client', leadId, subscription:", "{ $set: { leadId, subscription:"]],
+  'push-devices': [[PP, "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': devices,", "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': 0,"], [CP, "  if (!lead || !(Number(lead.portal?.pushDevices) > 0) || !portalPath(lead)) return { sent: false, reason: 'no devices' };", "  if (!lead || !portalPath(lead)) return { sent: false, reason: 'no devices' };"]],
+  'push-filter': [[NT, "export const ownerSubs = (db) => db.collection('push_subscriptions').find({ role: { $ne: 'client' } }).toArray();", "export const ownerSubs = (db) => db.collection('push_subscriptions').find({}).toArray();"]],
+  'push-own': [[PP, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client' });"]],
+  'push-off': [[PP, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    void endpoint;"]],
+  'push-limit': [[PP, "const PUSH_MAX = 10;", "const PUSH_MAX = 100;"]],
+  'push-keys': [[CP, "  for (const it of clientItems(lead, projects)) keys.push(`needs:${it.id}`);", "  for (const it of clientItems(lead, projects)) if (it.id !== 'ct1') keys.push(`needs:${it.id}`);"]],
+  'push-message': [[CP, "  const onlyFiles = files && !needs && !appr && !inv;", "  const onlyFiles = true;"]],
+  'push-batch': [[CP, "  await leads.updateOne({ _id: lead._id }, { $set: { 'portal.pushSeen': [...seen, ...fresh].slice(-PUSH_SEEN_KEPT), 'portal.lastClientPushAt': new Date(now).toISOString() } });", "  await leads.updateOne({ _id: lead._id }, { $set: { 'portal.pushSeen': [...seen, ...fresh].slice(-PUSH_SEEN_KEPT) } });"]],
+  'push-seen': [[CP, "  if (!fresh.length) return { sent: false, reason: 'nothing new' };", "  if (!keys.length) return { sent: false, reason: 'nothing new' };"]],
+  'push-gap': [[CP, "  if (now - last < CLIENT_PUSH_GAP_MS) return { sent: false, reason: 'within six hours', pending: fresh.length };", "  if (now - last < 0) return { sent: false, reason: 'within six hours', pending: fresh.length };"]],
+  'push-hook-lead': [[CL, "    if (allowed.checklists || allowed.portal) { try { await clientPushTick(db, oidOf); } catch { /* the write is done; the sweep tries again */ } }\n", ""]],
+  'push-hook-project': [[PJ, "    if (allowed.deliverables || allowed.invoices || allowed.deliveredAt !== undefined || allowed.stage || allowed.checklists) { try { const p = await col.findOne({ _id }, { projection: { leadId: 1 } }); if (p?.leadId) await clientPushTick(db, oid(p.leadId) || p.leadId); } catch { /* the write is done; the sweep tries again */ } }\n", ""]],
+  'push-hook-cron': [[CR, "  try { clientPushes = await clientPushSweep(db, now.getTime()); } catch { /* the digest is done; next run */ }\n", ""]],
+  'push-carry': [[CL, "        pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '', pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], lastClientPushAt: had.lastClientPushAt || '', // the client's devices and what they were pushed: the public door and clientPush.js write these\n", ""]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

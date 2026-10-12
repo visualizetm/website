@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { clientPushTick } from './clientPush.js';
 
 /* Stripe, read only (Prompt 12). The secret key and the webhook secret come
  * from the environment and nowhere else. Every helper degrades to
@@ -169,6 +170,7 @@ export async function applyPayment(db, row, lead) {
     }
   }
   await leads.updateOne({ _id: lead._id }, { $push: { purchases: entry }, $set: { updatedAt: new Date() } });
+  try { await clientPushTick(db, lead._id); } catch { /* the ledger is written; the sweep tries again */ }
   return { ledgerId, marked };
 }
 

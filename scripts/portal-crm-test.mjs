@@ -27,7 +27,7 @@ ok(P.portalMessage(lead).includes('everything about your work in one place') && 
 const msg = P.portalMessage(lead, [{ id: 'planner', url: '/planner/x?from=portal' }, { id: 'concepts', url: '/concepts/y?from=portal' }, { id: 'review', url: '/r/z?from=portal' }]);
 ok(msg.split(lead.portal.token).length === 2 && msg.endsWith(P.portalUrl(lead)) && !/\/(planner|concepts|r)\//.test(msg), 'the Send portal message carries the portal link once and no other page\'s url');
 const nowCards = P.portalCardsNow({ ...lead, planner: { enabled: true, token: 'plnTOKEN0123456789abcdefghijkl' } }, { projects: [], posts: [], sets: [], profile: { phone: '555 0100' }, meetingLink: 'https://calendly.com/x' });
-ok(nowCards.map(c => c.id).join(',') === 'home,planner,documents,book', `the CRM side renders the cards from what it holds, in the home order; contact is off on this record (${nowCards.map(c => c.id).join(',')})`);
+ok(nowCards.map(c => c.id).join(',') === 'home,planner,documents,book,notifications', `the CRM side renders the cards from what it holds, in the home order; contact is off on this record (${nowCards.map(c => c.id).join(',')})`);
 /* the .ics builder (prompt 3) */
 const ics = buildIcs({ title: 'Studio meeting; with Rob', start: '2026-10-20T14:00:00.000Z', end: '2026-10-20T14:30:00.000Z', url: 'https://zoom.us/j/123', description: 'Line one\nline two, with a comma' }, Date.UTC(2026, 9, 12));
 ok(ics.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0') && ics.endsWith('END:VCALENDAR\r\n'), 'the file opens and closes as a calendar, CRLF lines');

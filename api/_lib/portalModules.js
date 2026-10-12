@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND, PRINT_PRODUCTS } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder', 'site_changes', 'referral'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder', 'site_changes', 'referral', 'notifications'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -415,6 +415,14 @@ export const PORTAL_MODULES = [
     resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },
   },
   {
+    id: 'notifications', title: 'Notifications', order: 165, sensitive: false, defaultState: 'auto',
+    auto: 'Always offered: one toggle for web push on this device; the page hides it on a browser without push.',
+    fields: ['line', 'devices'],
+    resolve(client) {
+      return { line: 'Get a ping when I need something from you or your files are ready.', devices: Number(client?.portal?.pushDevices) || 0 };
+    },
+  },
+  {
     id: 'referral', title: 'Know someone who needs this?', order: 125, sensitive: false, defaultState: 'auto',
     auto: 'Renders once a project is delivered: the link with their code and a line to send with it.',
     fields: ['url', 'code', 'message'],
@@ -449,9 +457,9 @@ export const PORTAL_MODULES = [
   },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto', referral: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto', referral: 'auto', notifications: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto', notifications: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto', notifications: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

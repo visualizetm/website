@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { clientPushTick } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { clientIp } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit } from '../_lib/limit.js';
@@ -95,5 +96,6 @@ export async function handler(req, res) {
   ]);
   set.nextAction = resolveNextAction(after, nextActionFor(after, { projects: mine, sets }, Date.now()));
   await leads.updateOne({ _id: lead._id }, { $set: set });
+  if (kind === 'invoice') { try { await clientPushTick(db, lead._id); } catch { /* the email went; the sweep tries again */ } }
   return res.status(200).json({ ok: true, sentAt });
 }

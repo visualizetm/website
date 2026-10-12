@@ -126,7 +126,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 3: the referral link end to end (Know someone who needs this?: the link with the slug or the token's first ten characters, Copy and Share; the site keeps ?ref= for the tab, the Start form sends referredBy, the public form resolves it to the client and stamps Referred by on the submission and the lead; the fact on the record, the line on the submission), regression 26b at twenty one card rows; portal-test 204 -> 217, guards 96 -> 103, portal-crm-test gains the referral helper.
 
+- Milestone 4: client push (the Notifications switch on the portal, the push_on and push_off door with role client rows, the owner and client senders apart in notify.js, api/_lib/clientPush.js with the keys, the six hour rule and the batch, the hooks on the lead route, the project route, the invoice email and the Stripe payment, the sweep on the reminders cron, the bell on the CRM Portal card), regression 26b at twenty two card rows; portal-test 217 -> 243, guards 103 -> 118.
+
 ## Next
-- Prompt 4, milestone 4: client push.
+- Prompt 4, milestone 5: the polish pass, the activity buffer, the docs, the gate.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

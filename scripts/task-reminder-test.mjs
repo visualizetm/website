@@ -52,7 +52,7 @@ section('2. the reminders cron: once per task, never done, toggle off, the diges
   fs.cpSync(path.join(repoRoot, 'api'), apiDst, { recursive: true });
   fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
   /* The push sender records instead of sending. */
-  fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const _pushes = [];\nexport async function sendPush(db, p) { _pushes.push(p); }\n");
+  fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const _pushes = [];\nexport async function sendPush(db, p) { _pushes.push(p); }\nexport async function sendClientPush() {}\n");
   process.env.CRON_SECRET = 'cron-test-secret'; delete process.env.VERCEL;
   const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
   const { _stores, _reset } = await load('_lib/mongo.js');

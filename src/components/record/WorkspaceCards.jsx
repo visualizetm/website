@@ -70,6 +70,7 @@ function PortalCard({ rec }) {
           <Pill tone={st.on ? 'booked' : 'neutral'} label={st.on ? 'Link on' : 'No link'} size="sm" icon={false} variant="soft" />
           {st.on && st.pinned && <Pill tone="progress" label="PIN" size="sm" icon={false} variant="soft" />}
           {st.on && st.sentAt && <Pill tone="neutral" label="Sent" size="sm" icon={false} variant="soft" />}
+          {st.on && Number(lead?.portal?.pushDevices) > 0 && <Pill tone="booked" label="Pushes" size="sm" icon="Bell01" variant="soft" className="rc-ws-bell" aria-label="Gets pushes on their phone" />}
         </div>
         <p className="rc-ws-line">{!st.on ? COPY.empty['clients.portal'].title + '.' : st.views ? `${plural(st.views, 'view')}${st.lastViewedAt ? `, last opened ${relativeTime(st.lastViewedAt)}` : ''}.` : st.sentAt ? 'Sent, not opened yet.' : 'Not sent yet.'}</p>
         {st.on && <p className="rc-ws-sub">{[st.template ? `${st.template[0].toUpperCase()}${st.template.slice(1)} template` : 'No template', st.off ? `${st.off} of ${st.modules} cards off` : 'every card on Auto', plural(st.documents, 'document')].join(', ')}</p>}

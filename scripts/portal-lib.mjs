@@ -100,7 +100,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,pay,progress,brand_kit,referral,showcase,retainer,book,contact', `all Auto with data, in the home order: home, pay, progress, brand kit, referral, showcase, retainer, book, contact; documents (empty) and plan (no schedule) do not render (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,pay,progress,brand_kit,referral,showcase,retainer,book,notifications,contact', `all Auto with data, in the home order: home, pay, progress, brand kit, referral, showcase, retainer, book, notifications, contact; documents (empty) and plan (no schedule) do not render (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -586,6 +586,99 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   const aw = await admin({ id: LEAD, set: { referredBy: { code: 'typed', leadId: 'x', business: 'Typed In', extra: 'no' } } });
   ok(aw._status === 200 && lead().referredBy?.business === 'Typed In' && lead().referredBy?.extra === undefined, 'the lead route carries referredBy in its shape and nothing more');
   _stores.submissions = []; seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4l. notifications (prompt 4): the device rows, the owner and client senders kept apart, the keys, one push per six hours,
+   * the batch, the hooks (the lead route, the project route, the cron) and the CRM's device count */
+  {
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tN = lead().portal.token;
+  _stores.push_subscriptions = [{ _id: 'rob1', subscription: { endpoint: 'https://push.example/rob', keys: { p256dh: 'r', auth: 'r' } } }];
+  const notify = await load('_lib/notify.js'); const cp = await load('_lib/clientPush.js'); const dbN = await (await load('_lib/mongo.js')).getDb();
+  const subBody = (n) => ({ endpoint: `https://push.example/client-${n}`, expirationTime: null, keys: { p256dh: 'BPub'.repeat(5), auth: 'auth1234' } });
+  let pn = await pub('GET', { token: tN }); let nc = card(pn, 'notifications');
+  ok(nc && nc.devices === 0 && /ping/.test(nc.line), `the card is offered with no device yet (${JSON.stringify(nc)})`);
+  const nk = Object.keys(nc || {}).sort().join(',');
+  ok(nk === 'devices,id,line,sensitive,title', `the card is exactly its fields (${nk})`, 'card-fields');
+  pn = await pub('POST', { token: tN }, { action: 'push_on', subscription: subBody(1) });
+  const clientRows = () => _stores.push_subscriptions.filter(x => x.role === 'client');
+  ok(pn._status === 200 && pn._json?.on === true && pn._json?.devices === 1 && clientRows().length === 1 && clientRows()[0].leadId === LEAD && clientRows()[0].subscription.endpoint === 'https://push.example/client-1', `push_on saves the device with role client and the client's id (${JSON.stringify(clientRows()[0])})`, 'push-role');
+  ok(lead().portal.pushDevices === 1 && !!lead().portal.pushAt, 'the record counts the device (the CRM bell) and stamps when', 'push-devices');
+  pn = await pub('POST', { token: tN }, { action: 'push_on', subscription: subBody(1) });
+  ok(pn._json?.devices === 1 && clientRows().length === 1, 'the same endpoint twice is one row');
+  pn = await pub('POST', { token: tN }, { action: 'push_on', subscription: { endpoint: 'http://plain.example/x', keys: { p256dh: 'a', auth: 'b' } } });
+  const pn2 = await pub('POST', { token: tN }, { action: 'push_on', subscription: { endpoint: 'https://push.example/nokeys' } });
+  ok(pn._status === 400 && pn2._status === 400 && clientRows().length === 1, 'a plain http endpoint or a subscription without keys is refused');
+  await pub('POST', { token: tN }, { action: 'push_on', subscription: subBody(2) });
+  ok(lead().portal.pushDevices === 2, 'two devices');
+  const owner = await notify.ownerSubs(dbN); const mine = await notify.clientSubs(dbN, LEAD); const theirs = await notify.clientSubs(dbN, OTHER);
+  ok(owner.length === 1 && owner[0]._id === 'rob1' && mine.length === 2 && theirs.length === 0, `Rob's sender sees only his devices, the client's only that client's (${owner.length},${mine.length},${theirs.length})`, 'push-filter');
+  /* push_off is scoped to this client */
+  seed(); _stores.call_leads.push({ _id: OTHER, business: 'Other Co', stage: 'client', callStatus: 'booked', portal: { token: 'otherTOKENtoken0123456789ab', createdAt: '2026-01-01T00:00:00.000Z' } });
+  await admin({ id: LEAD, set: { portal: {} } }); const tN2 = lead().portal.token;
+  _stores.push_subscriptions = [];
+  await pub('POST', { token: tN2 }, { action: 'push_on', subscription: subBody(1) });
+  pn = await pub('POST', { token: 'otherTOKENtoken0123456789ab' }, { action: 'push_off', endpoint: 'https://push.example/client-1' });
+  ok(pn._status === 200 && clientRows().length === 1 && lead().portal.pushDevices === 1, 'another client cannot switch this device off', 'push-own');
+  pn = await pub('POST', { token: tN2 }, { action: 'push_off', endpoint: 'https://push.example/client-1' });
+  ok(pn._status === 200 && pn._json?.devices === 0 && clientRows().length === 0 && lead().portal.pushDevices === 0, 'push_off removes the row and the count goes to zero', 'push-off');
+  const lim4 = await load('_lib/limit.js'); await lim4.rateClear(dbN, lim4.rateKey('ppsh', tN2));
+  const pcodes = []; for (let i = 0; i < 11; i++) { const r = await pub('POST', { token: tN2 }, { action: 'push_on', subscription: subBody(100 + i) }); pcodes.push(r._status); }
+  ok(pcodes.slice(0, 10).every(c => c === 200) && pcodes[10] === 429, `ten toggles a day per token, the eleventh is 429 (${pcodes.join(',')})`, 'push-limit');
+  await lim4.rateClear(dbN, lim4.rateKey('ppsh', tN2));
+  /* the keys and the message */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tN3 = lead().portal.token; void tN3;
+  _stores.push_subscriptions = [];
+  const T0 = Date.parse('2026-10-12T15:00:00.000Z');
+  lead().checklists = [{ id: 'ckc', name: 'Portal', items: [{ id: 'ct1', text: 'Send the logo files', done: false, client: true, url: '' }, { id: 'ct2', text: 'Rob only', done: false, client: false }, { id: 'ct3', text: 'Done one', done: true, client: true }] }];
+  lead().portal.approvals = [{ id: 'apA', label: 'Hero', url: '', status: 'pending', note: '', requestedAt: '2026-10-11T00:00:00.000Z', respondedAt: '' }, { id: 'apB', label: 'Card', url: '', status: 'approved', note: '', requestedAt: '2026-10-01T00:00:00.000Z', respondedAt: '2026-10-02T00:00:00.000Z' }];
+  const pf = _stores.projects.find(p => p._id === 'p0'); pf.deliverables = [{ label: 'Logo pack', url: 'https://drive.example/logo' }]; pf.invoices = [{ id: 'invA', label: 'Deposit', amount: 100, dueAt: '2026-09-01', status: 'paid', sentAt: '2026-08-20T00:00:00.000Z', paidAt: '2026-08-25T00:00:00.000Z' }];
+  const pw = _stores.projects.find(p => p._id === 'p1'); pw.invoices = [{ id: 'invB', label: 'Balance', amount: 300, dueAt: '2026-10-20', status: 'sent', sentAt: '2026-10-10T00:00:00.000Z' }, { id: 'invC', label: 'Draft', amount: 50, dueAt: '2026-11-01', status: 'draft', sentAt: '' }];
+  let keys = cp.clientPushKeys(lead(), _stores.projects, T0);
+  ok(keys.length === 4 && keys.includes('needs:ct1') && keys.includes('appr:apA:2026-10-11T00:00:00.000Z') && keys.includes('files:p0') && keys.includes('inv:invB:2026-10-10T00:00:00.000Z'), `the keys: the open client task, the pending approval, the paid files, the sent unpaid invoice (${keys.join(' ')})`, 'push-keys');
+  let msg = cp.clientPushMessage(lead(), keys);
+  ok(msg.title === 'Rob needs something from you' && msg.body === '1 thing to do, 1 thing to approve, your files are ready, 1 invoice to pay.' && msg.url === `https://visualizestudio.org/c/${lead().portal.token}`, `one message for the batch, the portal as the link (${JSON.stringify(msg)})`, 'push-message');
+  msg = cp.clientPushMessage(lead(), ['files:p0']);
+  ok(msg.title === 'Your files are ready' && msg.body === 'Your files are ready.', 'only the files: the title says so');
+  /* the tick: one push, then silence for six hours, then only what is new */
+  const sentC = []; cp.senders.client = async (db, leadId, m) => { sentC.push({ leadId, ...m }); };
+  let tr = await cp.clientPushTick(dbN, LEAD, { now: T0 });
+  ok(tr.sent === false && tr.reason === 'no devices' && sentC.length === 0, 'no device: never a push', 'push-devices');
+  lead().portal.pushDevices = 1;
+  tr = await cp.clientPushTick(dbN, LEAD, { now: T0 });
+  ok(tr.sent === true && tr.fresh === 4 && sentC.length === 1 && sentC[0].leadId === LEAD && sentC[0].body.startsWith('1 thing to do') && lead().portal.pushSeen.length === 4 && lead().portal.lastClientPushAt === new Date(T0).toISOString(), `the first tick sends one batched push and stamps what it covered (${JSON.stringify(tr)})`, 'push-batch');
+  tr = await cp.clientPushTick(dbN, LEAD, { now: T0 + 60e3 });
+  ok(tr.sent === false && tr.reason === 'nothing new' && sentC.length === 1, 'nothing new: no push', 'push-seen');
+  lead().checklists[0].items.push({ id: 'ct4', text: 'Pick a font', done: false, client: true, url: '' });
+  tr = await cp.clientPushTick(dbN, LEAD, { now: T0 + 2 * 3600e3 });
+  ok(tr.sent === false && tr.reason === 'within six hours' && tr.pending === 1 && sentC.length === 1, 'something new two hours later waits: never more than one push per six hours', 'push-gap');
+  tr = await cp.clientPushTick(dbN, LEAD, { now: T0 + 6 * 3600e3 + 1 });
+  ok(tr.sent === true && tr.fresh === 1 && sentC.length === 2 && sentC[1].body === '1 thing to do.' && lead().portal.pushSeen.length === 5, `six hours on, one push with only the new thing (${sentC[1]?.body})`, 'push-gap');
+  lead().checklists[0].items[0].done = true;
+  tr = await cp.clientPushTick(dbN, LEAD, { now: T0 + 13 * 3600e3 });
+  ok(tr.sent === false && sentC.length === 2, 'a task done is not news');
+  /* the hooks: the lead route, the project route, the cron */
+  lead().portal.lastClientPushAt = new Date(T0 - 9 * 3600e3).toISOString();
+  const beforeHook = sentC.length;
+  await admin({ id: LEAD, set: { checklists: [...lead().checklists, { id: 'ckd', name: 'Launch', items: [{ id: 'ct9', text: 'Approve the colours', done: false, client: true, url: '' }] }] } });
+  ok(sentC.length === beforeHook + 1 && /thing to do/.test(sentC[sentC.length - 1].body), `a client task written from the CRM pings them (${sentC[sentC.length - 1]?.body})`, 'push-hook-lead');
+  lead().portal.lastClientPushAt = new Date(T0 - 9 * 3600e3).toISOString();
+  const PX = '507f1f77bcf86cd7994390e1'; _stores.projects.push({ _id: PX, leadId: LEAD, name: 'Site', kind: 'website', stage: 'build', createdAt: '2026-10-01T00:00:00.000Z', invoices: [{ id: 'invX', label: 'Balance', amount: 300, dueAt: '2026-10-20', status: 'sent', sentAt: '2026-10-10T00:00:00.000Z' }], deliverables: [] });
+  lead().portal.pushSeen = [...lead().portal.pushSeen, 'inv:invX:2026-10-10T00:00:00.000Z'];
+  const pr2 = await admin({ id: PX, set: { deliverables: [{ label: 'Site files', url: 'https://drive.example/site' }], invoices: [{ id: 'invX', label: 'Balance', amount: 300, dueAt: '2026-10-20', status: 'paid', sentAt: '2026-10-10T00:00:00.000Z', paidAt: '2026-10-12T00:00:00.000Z', ledgerId: 'lg1' }] } }, 'projects');
+  ok(pr2._status === 200 && sentC.length === beforeHook + 2 && /files/.test(sentC[sentC.length - 1].body), `a project write that unlocks files pings them (${pr2._status}, ${sentC[sentC.length - 1]?.body})`, 'push-hook-project');
+  lead().portal.lastClientPushAt = new Date(T0 - 9 * 3600e3).toISOString(); lead().portal.pushSeen = [];
+  process.env.CRON_SECRET = 'cron-test-secret';
+  const cronH = (await load('_routes/cron-reminders.js')).handler;
+  _stores.settings = [..._stores.settings.filter(x => x._id !== 'notifications'), { _id: 'notifications', reminders: {}, sentReminderKeys: [] }];
+  const cres = fakeRes(); await cronH({ method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }, cres);
+  ok(cres._status === 200 && cres._json?.clientPushes === 1 && sentC.length === beforeHook + 3, `the reminders cron sweeps every client with a device and pushes the batch (${cres._status}, ${cres._json?.clientPushes})`, 'push-hook-cron');
+  const cres2 = fakeRes(); await cronH({ method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }, cres2);
+  ok(cres2._json?.clientPushes === 0 && sentC.length === beforeHook + 3, 'a second sweep in the same six hours sends nothing');
+  /* the lead route carries the push fields forward and never takes them from the body */
+  await admin({ id: LEAD, set: { portal: { modules: { book: 'on' }, pushDevices: 9, pushSeen: ['x'], lastClientPushAt: '2020-01-01T00:00:00.000Z' } } });
+  ok(lead().portal.pushDevices === 1 && !lead().portal.pushSeen.includes('x') && lead().portal.lastClientPushAt !== '2020-01-01T00:00:00.000Z', 'a portal write from the CRM carries the device count and the push stamps forward and never writes them', 'push-carry');
+  cp.senders.client = notify.sendClientPush; delete process.env.CRON_SECRET;
+  _stores.push_subscriptions = []; seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+  }
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });

@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { clientPushSweep } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, ZONE } from '../_lib/zone.js';
@@ -169,7 +170,10 @@ export async function handler(req, res) {
     await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
+  /* Client pushes (portal prompt 4): one batched push per client with a device, six hours apart at most. */
+  let clientPushes = { checked: 0, sent: 0 };
+  try { clientPushes = await clientPushSweep(db, now.getTime()); } catch { /* the digest is done; next run */ }
   const didSend = total > 0 && !alreadySent;
   await stampHealth(total, didSend ? 1 : 0);
-  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes });
+  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes, clientPushes: clientPushes.sent });
 }

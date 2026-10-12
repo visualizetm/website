@@ -24,6 +24,7 @@ import { encodeQr } from '../lib/qr';
 import { buildIcs, icsDataUrl } from '../lib/portalIcs';
 import { cloudinaryEnabled, uploadToCloudinary, validateUploadFile, ACCEPT_ATTR } from '../lib/cloudinary';
 import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
+import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { logoSrc } from '../ui/logo.data';
@@ -585,6 +586,54 @@ function ReorderCard({ card, pending }) {
 }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`;
 
+/* Notifications (prompt 4): one switch for web push on this device, through the same service worker and VAPID key as the
+ * admin's, saved with role client on the server. Hidden where the browser has no push. Approve, files, invoices and tasks
+ * for the client are batched on the server, one ping at most every six hours. */
+const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const keyBytes = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); };
+function NotificationsCard({ card, token }) {
+  const [on, setOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [said, setSaid] = useState('');
+  const supported = pushSupported();
+  useEffect(() => {
+    if (!supported) return undefined;
+    let alive = true;
+    navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => { if (alive && sub) setOn(true); }).catch(() => {});
+    return () => { alive = false; };
+  }, [supported]);
+  if (!supported) return null;
+  const post = (body) => fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const turnOn = async () => {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { setSaid(perm === 'denied' ? 'Notifications are blocked for this site in your browser settings.' : 'No permission given, so nothing changes.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    const key = (await (await fetch('/api/push-key')).json().catch(() => ({})))?.key;
+    if (!key) { setSaid('Pushes are not set up on my end yet. Try again another day.'); return; }
+    const sub = (await reg.pushManager.getSubscription()) || (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(key) }));
+    const res = await post({ action: 'push_on', subscription: sub.toJSON() });
+    if (!res.ok) { setSaid(res.status === 429 ? 'That is a lot of changes for one day.' : 'That did not go through. Try again.'); return; }
+    setOn(true); setSaid('On. I will keep it to one ping at a time.');
+  };
+  const turnOff = async () => {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) { await post({ action: 'push_off', endpoint: sub.endpoint }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+    setOn(false); setSaid('Off. No more pings on this device.');
+  };
+  const toggle = async () => { if (busy) return; setBusy(true); setSaid(''); try { if (on) await turnOff(); else await turnOn(); } catch { setSaid('That did not go through. Try again.'); } finally { setBusy(false); } };
+  return (
+    <section className="pt-card" aria-labelledby="pt-push-h">
+      <h2 className="pt-card-h" id="pt-push-h">Notifications</h2>
+      <button type="button" className="pt-switch" role="switch" aria-checked={on ? 'true' : 'false'} aria-busy={busy ? 'true' : undefined} onClick={toggle} disabled={busy}>
+        <span className="pt-switch-text"><Bell01 width={18} height={18} aria-hidden="true" /><span>{card.line}</span></span>
+        <span className="pt-switch-knob" aria-hidden="true"><span /></span>
+      </button>
+      {said && <p className="pt-line" role="status"><span>{said}</span></p>}
+    </section>
+  );
+}
+
 /* Know someone who needs this? (prompt 4): the referral link with their code, Copy and Share. Nothing else is promised. */
 function ReferralCard({ card }) {
   const url = safeHref(card.url);
@@ -741,7 +790,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard, referral: ReferralCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard, referral: ReferralCard, notifications: NotificationsCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -947,6 +996,17 @@ const ptStyles = `
   .pt-qty { width: 84px; flex-shrink: 0; text-align: center; }
   .pt-undo { min-height: 44px; padding: 0 var(--space-3); background: transparent; border: 0; border-radius: var(--radius); color: var(--brand-text); font: inherit; font-weight: 700; cursor: pointer; }
   .pt-undo:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  /* Notifications (prompt 4): the switch is one button, the whole row the target. */
+  .pt-switch { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 56px; padding: var(--space-2) var(--space-3); background: var(--bg); color: var(--text); border: 0; border-radius: var(--radius); font: inherit; text-align: left; cursor: pointer; }
+  .pt-switch:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  .pt-switch[disabled] { opacity: 0.7; cursor: progress; }
+  .pt-switch-text { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-2); font-size: 0.9375rem; line-height: 1.4; }
+  .pt-switch-text svg { flex-shrink: 0; color: var(--text-muted); }
+  .pt-switch-knob { flex-shrink: 0; width: 44px; height: 26px; padding: 3px; border-radius: 999px; background: var(--border-light); transition: background var(--dur-fast, 160ms) ease; }
+  .pt-switch-knob span { display: block; width: 20px; height: 20px; border-radius: 50%; background: var(--bg-elevated); transition: transform var(--dur-fast, 160ms) ease; }
+  .pt-switch[aria-checked="true"] .pt-switch-knob { background: var(--brand); }
+  .pt-switch[aria-checked="true"] .pt-switch-knob span { transform: translateX(18px); background: white; }
+  @media (prefers-reduced-motion: reduce) { .pt-switch-knob, .pt-switch-knob span { transition: none; } }
   /* Referral (prompt 4) */
   .pt-ref-url { display: flex; align-items: center; gap: var(--space-2); margin: 0; min-height: 44px; overflow-wrap: anywhere; }
   .pt-ref-url svg { flex-shrink: 0; color: var(--text-muted); }

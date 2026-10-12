@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { clientPushTick } from '../_lib/clientPush.js';
 import { randomBytes, createHash } from 'node:crypto';
 import { PORTAL_MODULE_IDS, PORTAL_STATE_IDS, PORTAL_TEMPLATE_IDS, PORTAL_TEMPLATES, DOCUMENT_KIND_IDS } from '../_lib/portalModules.js';
 import { sessionSecret } from '../_lib/config.js';
@@ -553,6 +554,7 @@ export async function handler(req, res) {
         hours: asked.hours !== undefined ? asked.hours : (had.hours || ''),
         approvals: asked.approvals !== undefined ? asked.approvals : (Array.isArray(had.approvals) ? had.approvals : []),
         siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door
+        pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '', pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], lastClientPushAt: had.lastClientPushAt || '', // the client's devices and what they were pushed: the public door and clientPush.js write these
       };
       if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };
     }
@@ -620,6 +622,8 @@ export async function handler(req, res) {
     }
 
     await col.updateOne({ _id: oidOf }, { $set: allowed });
+    /* Client push (prompt 4): a task for the client or an approval asked is a reason to ping them, six hours apart at most. */
+    if (allowed.checklists || allowed.portal) { try { await clientPushTick(db, oidOf); } catch { /* the write is done; the sweep tries again */ } }
     return res.status(200).json({ ok: true });
   }
 

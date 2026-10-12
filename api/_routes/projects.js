@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { clientPushTick } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, DELIVERY_STEP_IDS, CRON_RULE_IDS } from '../_semantics.js';
@@ -101,6 +102,7 @@ export async function handler(req, res) {
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();
     await col.updateOne({ _id }, { $set: allowed });
+    if (allowed.deliverables || allowed.invoices || allowed.deliveredAt !== undefined || allowed.stage || allowed.checklists) { try { const p = await col.findOne({ _id }, { projection: { leadId: 1 } }); if (p?.leadId) await clientPushTick(db, oid(p.leadId) || p.leadId); } catch { /* the write is done; the sweep tries again */ } }
     return res.status(200).json({ ok: true });
   }
 
