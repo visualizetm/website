@@ -3,11 +3,12 @@ import { getDb } from '../_lib/mongo.js';
 import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit, rateClear } from '../_lib/limit.js';
 import { sessionSecret, meetingLink } from '../_lib/config.js';
+import { money } from '../_lib/pricing.js';
 import { zoneDayKey, zoneDateAt } from '../_lib/zone.js';
 import { addTask } from '../_lib/taskRules.js';
 import { sendPush } from '../_lib/notify.js';
 import { nextMeetingFor } from '../_lib/calendly.js';
-import { portalCards, portalClient, unseenPayment } from '../_lib/portalModules.js';
+import { portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY } from '../_lib/portalModules.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
  * route from the existing public function: vercel.json rewrites /api/portal
@@ -37,11 +38,14 @@ const PIN_TRIES = 5;
 const PIN_WINDOW = 15 * 60 * 1000;
 const APPROVE_MAX = 20;
 const APPROVE_WINDOW = 60 * 60 * 1000;
+const REORDER_MAX = 5;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_-]{16,64}$/.test(t) ? t : ''; };
 /* The second half of the whitelist: what resolve may read at all (prompt 2 adds the money, project and brand fields). */
 const PROJECTION = { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.logoUrl': 1, 'showcase.brand.logo': 1, 'showcase.published': 1, 'showcase.slug': 1, brand: 1, portal: 1, retainer: 1, checklists: 1, 'planner.enabled': 1, 'planner.token': 1, 'reviews.visualize.token': 1, 'reviews.nfcCard': 1, 'reviews.googleLink': 1, 'reviews.baseline': 1, 'reviews.latest': 1, 'reviews.testimonials.status': 1, 'reviews.testimonials.published': 1 };
 const POST_PROJECTION = { leadId: 1, date: 1, kind: 1, status: 1, deleted: 1, archived: 1 };
+const ORDER_PROJECTION = { leadId: 1, status: 1, items: 1 };
 const SET_PROJECTION = { leadId: 1, title: 1, round: 1, status: 1, archived: 1, deleted: 1, token: 1, approvedDirectionId: 1, updatedAt: 1, directions: 1 };
 const PROJECT_PROJECTION = { leadId: 1, name: 1, kind: 1, packageId: 1, stage: 1, stages: 1, archived: 1, createdAt: 1, invoices: 1, schedule: 1, plan: 1, deliveredAt: 1, revisions: 1, deliverables: 1, links: 1, checklists: 1 };
 /* The PIN hash, the same salt and digest as api/_routes/call-leads.js hashPin. */
@@ -64,17 +68,18 @@ export async function handler(req, res) {
   if (!lead) return notFound(res);
 
   if (req.method === 'GET') {
-    const [profile, projects, posts, sets] = await Promise.all([
+    const [profile, projects, posts, sets, orders] = await Promise.all([
       db.collection('settings').findOne({ _id: 'profile' }),
       db.collection('projects').find({ leadId: String(lead._id) }).project(PROJECT_PROJECTION).limit(50).toArray(),
       db.collection('posts').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(POST_PROJECTION).limit(400).toArray(),
       db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(SET_PROJECTION).limit(40).toArray(),
+      db.collection('orders').find({ leadId: String(lead._id), archived: { $ne: true } }).project(ORDER_PROJECTION).limit(100).toArray(),
     ]);
     /* Prompt 3: what the token page cards read, beside the records: this client's posts and concept sets, today's key in the studio's
      * zone, and the next Calendly call under their email (read apart, so the record resolve sees never carries the email). */
     const who = await db.collection('call_leads').findOne({ _id: lead._id }, { projection: { email: 1 } });
     const meeting = await nextMeetingFor(db, lead._id, who?.email);
-    const ctx = { posts, sets, todayKey: zoneDayKey(Date.now()), meeting };
+    const ctx = { posts, sets, orders, todayKey: zoneDayKey(Date.now()), meeting };
     const key = rateKey('pview', token);
     const st = await rateState(db, key, { max: 1, windowMs: HOUR });
     if (!st.exceeded) {
@@ -91,6 +96,7 @@ export async function handler(req, res) {
 
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   if (b.action === 'approve') return approve(db, lead, token, b, res);
+  if (b.action === 'reorder') return reorder(db, lead, token, b, res);
   if (b.action !== 'pin') return res.status(400).json({ error: 'unknown action' });
   if (!lead.portal?.pin) return res.status(200).json({ unlock: '' });
   const key = rateKey('ppin', token);
@@ -134,6 +140,50 @@ async function approve(db, lead, token, b, res) {
     await sendPush(db, { title: decision === 'approved' ? `${business} approved ${label}` : `${business} wants changes`, body: decision === 'approved' ? 'Signed off from their portal.' : `${label}: ${note}`.slice(0, 200), url: `${base}/clients?open=${String(lead._id)}` });
   } catch { /* the answer is stored; a push failure must not undo that */ }
   return res.status(200).json({ ok: true, item: { id: next.id, label: String(next.label).slice(0, 120), status: next.status, note: next.note, respondedAt: next.respondedAt } });
+}
+
+/* A print reorder (prompt 4): { action: 'reorder', items: [{ id, qty }], note }. Every id must be one of this client's own picks
+ * (recomputed here from their print history), every qty an integer from 1 to 500, the note 600 characters; five a day per token
+ * (rate:prdr). It writes one Print Order with status new linked to the client, priced from pricing.js, a Next up task on the client
+ * and a push to Rob. No payment here: Rob invoices from the CRM as today. */
+async function reorder(db, lead, token, b, res) {
+  const key = rateKey('prdr', token);
+  const st = await rateState(db, key, { max: REORDER_MAX, windowMs: DAY_MS });
+  if (st.exceeded) { res.setHeader('Retry-After', String(st.retryAfter)); return res.status(429).json({ error: 'That is a few orders for one day. Message me and I will sort it.' }); }
+  const [projects, orders, who] = await Promise.all([
+    db.collection('projects').find({ leadId: String(lead._id) }).project(PROJECT_PROJECTION).limit(50).toArray(),
+    db.collection('orders').find({ leadId: String(lead._id), archived: { $ne: true } }).project(ORDER_PROJECTION).limit(100).toArray(),
+    db.collection('call_leads').findOne({ _id: lead._id }, { projection: { email: 1, phone: 1, askFor: 1 } }),
+  ]);
+  const picks = reorderPicks(lead, projects, orders);
+  if (!picks.length) return res.status(404).json({ error: 'not found' });
+  const wanted = Array.isArray(b.items) ? b.items.slice(0, 10) : [];
+  const items = [];
+  for (const w of wanted) {
+    const pick = picks.find(p => p.id === String(w?.id || ''));
+    const qty = Number(w?.qty);
+    if (!pick) return res.status(400).json({ error: 'that is not one of your picks' });
+    if (!Number.isInteger(qty) || qty < 1 || qty > REORDER_MAX_QTY) return res.status(400).json({ error: `quantity must be 1 to ${REORDER_MAX_QTY}` });
+    if (items.some(i => i.productId === pick.id)) continue;
+    items.push({ id: `${Date.now().toString(36)}${items.length}`, productId: pick.id, name: pick.label, label: pick.label, qty, options: {}, artworkLink: '', priceTotal: Math.round(pick.price * qty * 100) / 100, quote: false });
+  }
+  if (!items.length) return res.status(400).json({ error: 'pick at least one thing' });
+  const note = String(b.note || '').replace(/<\/?[a-z!][^>]*>/gi, '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  await rateHit(db, key, st.hits);
+  const now = new Date();
+  const business = String(lead.showcase?.displayName || lead.business || 'A client').slice(0, 120);
+  const subtotal = Math.round(items.reduce((n, i) => n + i.priceTotal, 0) * 100) / 100;
+  const order = { source: 'client', status: 'new', leadId: String(lead._id), projectId: '', customer: { name: String(who?.askFor || business).slice(0, 200), email: String(who?.email || '').slice(0, 200), phone: String(who?.phone || '').slice(0, 60) }, items, subtotal, rush: false, dueAt: '', notes: note ? `From their portal: ${note}` : 'From their portal.', paid: null, createdAt: now, updatedAt: now };
+  const r = await db.collection('orders').insertOne(order);
+  const summary = items.map(i => `${i.qty} x ${i.label}`).join(', ');
+  const due = zoneDateAt(zoneDayKey(Date.now()), 17, 0);
+  const lists = addTask(Array.isArray(lead.checklists) ? lead.checklists : [], (lead.checklists || []).find(l => l.name === 'Portal')?.id || '', { text: `Print reorder from ${business}: ${summary}. Send the payment link`, due: new Date(due).toISOString(), source: 'manual', listName: 'Portal' });
+  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, updatedAt: new Date() } });
+  try {
+    const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+    await sendPush(db, { title: `Print reorder from ${business}`, body: `${summary} (${money(subtotal)}). Send the payment link.`, url: `${base}/orders?open=${String(r.insertedId)}` });
+  } catch { /* the order is stored; a push failure must not undo that */ }
+  return res.status(200).json({ ok: true, summary, subtotalText: money(subtotal), line: "Got it. I'll send you a payment link." });
 }
 
 export default route(handler, { methods: ['GET', 'POST'], admin: false, maxBody: 4 * 1024 });

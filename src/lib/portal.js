@@ -36,7 +36,7 @@ export const PORTAL_STATE_OPTIONS = [['off', 'Off'], ['on', 'On'], ['auto', 'Aut
 export const moduleRows = (lead) => PORTAL_MODULES.filter(m => !m.fixed).sort((a, b) => a.order - b.order).map(m => ({ id: m.id, title: m.title, auto: m.auto, sensitive: !!m.sensitive, state: portalStateOf(lead, m.id) }));
 export const templateHasModule = (template, id) => !!PORTAL_TEMPLATES[template]?.[id];
 /** What each card is, in a sentence about the portal (prompt 3). */
-export const PORTAL_PHRASES = { needs_you: 'what I need from you', pay: 'your invoice', plan: 'your payment plan', approvals: 'things to approve', concepts: 'the concepts', planner: 'the content planner', progress: 'where your project is', revisions: 'your revision rounds', meetings: 'your next call', files: 'your files', brand_kit: 'your brand kit', review: 'a way to tell me how I did', their_reviews: 'your reviews', showcase: 'your showcase', retainer: 'your retainer', documents: 'your documents', book: 'a quick way to book a call', contact: 'a quick way to reach me' };
+export const PORTAL_PHRASES = { needs_you: 'what I need from you', pay: 'your invoice', plan: 'your payment plan', approvals: 'things to approve', concepts: 'the concepts', planner: 'the content planner', progress: 'where your project is', revisions: 'your revision rounds', meetings: 'your next call', files: 'your files', reorder: 'a way to order more print', brand_kit: 'your brand kit', review: 'a way to tell me how I did', their_reviews: 'your reviews', showcase: 'your showcase', retainer: 'your retainer', documents: 'your documents', book: 'a quick way to book a call', contact: 'a quick way to reach me' };
 /** One short sentence from the cards that render right now: "Your portal has your files, the content planner and a quick way to book a call." */
 export function portalSummary(cards) {
   const parts = (Array.isArray(cards) ? cards : []).map(c => PORTAL_PHRASES[c?.id]).filter(Boolean);
@@ -46,9 +46,9 @@ export function portalSummary(cards) {
   return `Your portal has ${list}${rest > 0 ? `, and ${rest} more` : ''}.`;
 }
 /** The cards the client would see right now, from what the CRM holds (no Calendly here: the next call is left unsaid). */
-export const portalCardsNow = (lead, { projects = [], posts = [], sets = [], profile = null, meetingLink = '' } = {}, now = Date.now()) => {
+export const portalCardsNow = (lead, { projects = [], posts = [], sets = [], orders = [], profile = null, meetingLink = '' } = {}, now = Date.now()) => {
   const d = new Date(now); const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  return portalCards(lead, projects, { profile: profile || {}, meetingLink }, { unlocked: true, ctx: { posts, sets, todayKey, meeting: null } });
+  return portalCards(lead, projects, { profile: profile || {}, meetingLink }, { unlocked: true, ctx: { posts, sets, orders, todayKey, meeting: null } });
 };
 /** The message in my voice, the link included, naming what is in the portal right now when the cards are known. */
 export function portalMessage(lead, cards = null) {

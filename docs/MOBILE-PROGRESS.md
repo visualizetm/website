@@ -119,7 +119,10 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 5: the home order encoded in the registry, the templates (Brand adds concepts, review, approvals; Website adds meetings too; Retainer adds planner, their_reviews, meetings, approvals), the send message from the cards that render now, regression 26b at eighteen card rows, docs/PORTAL-DESIGN.md (the prompt 3 Auto rules, the order table, the back chip contract, the approve door), ARCHITECTURE, RUNBOOK, CLAUDE.md; the full gate detached (every run complete, preship passed, the 320 layout width rerun after the reference row fix; the results are in reports/PORTAL-3-REPORT.md).
 
+## Prompt 4: the extras
+- Milestone 1: the reorder module (Need more printed?: the five quick picks from their print history, a quantity each, a note, the confirm, the thirty second undo, the answer line), the reorder door on /api/portal (one Print Order in orders, one Next up task, one push, five a day per token, the picks recomputed on the server), PORTAL_PHRASES, regression 26b at nineteen card rows; portal-test 173 -> 186, guards 78 -> 86.
+
 ## Next
-- Prompt 4: the extras.
+- Prompt 4, milestone 2: site_changes.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

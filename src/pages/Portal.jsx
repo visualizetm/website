@@ -497,6 +497,92 @@ function ApprovalsCard({ card, token, onChanged }) {
   );
 }
 
+/* A costly action (prompt 4): one confirm step, then thirty seconds of Undo before the request goes; the request is flushed with
+ * sendBeacon if the page closes first, so a closed tab never loses an order. Approvals stay immediate: they are final. */
+const UNDO_MS = 30000;
+function usePending(token) {
+  const [pending, setPending] = useState(null); // { label, body, onDone, onFail, timer, left }
+  const ref = useRef(null);
+  const fire = useCallback(async (p) => {
+    try {
+      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body) });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) p.onDone?.(d); else p.onFail?.(res.status, d);
+    } catch { p.onFail?.(0, {}); }
+  }, [token]);
+  useEffect(() => {
+    const flush = () => { const p = ref.current; if (!p) return; ref.current = null; clearTimeout(p.timer); try { navigator.sendBeacon(`/api/portal?token=${encodeURIComponent(token)}`, new Blob([JSON.stringify(p.body)], { type: 'application/json' })); } catch { /* nothing more to do */ } };
+    window.addEventListener('pagehide', flush);
+    return () => window.removeEventListener('pagehide', flush);
+  }, [token]);
+  const start = (p) => {
+    const timer = setTimeout(() => { ref.current = null; setPending(null); fire(p); }, UNDO_MS);
+    const entry = { ...p, timer, at: Date.now() };
+    ref.current = entry; setPending(entry);
+  };
+  const undo = () => { const p = ref.current; if (!p) return; clearTimeout(p.timer); ref.current = null; setPending(null); p.onUndo?.(); };
+  return { pending, start, undo };
+}
+function UndoBar({ pending, onUndo }) {
+  const [left, setLeft] = useState(UNDO_MS);
+  useEffect(() => { if (!pending) return undefined; const t = setInterval(() => setLeft(Math.max(0, UNDO_MS - (Date.now() - pending.at))), 500); return () => clearInterval(t); }, [pending]);
+  if (!pending) return null;
+  return <p className="pt-toast pt-toast--undo" role="status"><span>{pending.label}</span><button type="button" className="pt-undo" onClick={onUndo}>Undo ({Math.ceil(left / 1000)}s)</button></p>;
+}
+
+/* Need more printed? (prompt 4): the quick picks with a quantity each, a note, Send, the confirm and the undo. */
+function ReorderCard({ card, pending }) {
+  const picks = Array.isArray(card.picks) ? card.picks : [];
+  const max = Number(card.maxQty) || 500;
+  const [qty, setQty] = useState({});
+  const [note, setNote] = useState('');
+  const [step, setStep] = useState('pick'); // pick | confirm | sent
+  const [said, setSaid] = useState('');
+  const chosen = picks.filter(p => Number(qty[p.id]) > 0).map(p => ({ ...p, qty: Math.min(max, Math.max(1, Math.round(Number(qty[p.id])))) }));
+  const total = chosen.reduce((n, p) => n + p.price * p.qty, 0);
+  const setN = (id, v) => setQty(q => ({ ...q, [id]: v === '' ? '' : Math.min(max, Math.max(0, Math.round(Number(v) || 0))) }));
+  const send = () => {
+    const body = { action: 'reorder', items: chosen.map(p => ({ id: p.id, qty: p.qty })), note: note.trim().slice(0, 600) };
+    setStep('sent'); setSaid('');
+    pending.start({ label: `Sending your order: ${chosen.map(p => `${p.qty} x ${p.label}`).join(', ')}.`, body,
+      onDone: (d) => setSaid(d?.line || "Got it. I'll send you a payment link."),
+      onFail: (status) => { setStep('pick'); setSaid(status === 429 ? 'That is a few orders for one day. Message me and I will sort it.' : 'That did not go through. Try again.'); },
+      onUndo: () => { setStep('pick'); setSaid('Cancelled. Nothing was sent.'); } });
+  };
+  return (
+    <section className="pt-card" aria-labelledby="pt-reorder-h">
+      <h2 className="pt-card-h" id="pt-reorder-h">Need more printed?</h2>
+      {step !== 'sent' && <p className="pt-lead pt-lead--sm">{card.line}</p>}
+      {step === 'sent' && !said && <p className="pt-lead pt-lead--sm">Sending it. You have thirty seconds to undo below.</p>}
+      {step === 'pick' && (
+        <>
+          <ul className="pt-picks">
+            {picks.map(p => (
+              <li key={p.id} className="pt-pick">
+                <label className="pt-pick-text" htmlFor={`pt-qty-${p.id}`}><span className="pt-need-label">{p.label}</span><span className="pt-doc-kind">{p.priceText} each</span></label>
+                <input id={`pt-qty-${p.id}`} className="pt-input pt-qty" type="number" inputMode="numeric" min={0} max={max} value={qty[p.id] ?? ''} onChange={(e) => setN(p.id, e.target.value)} placeholder="0" aria-label={`How many ${p.label}`} />
+              </li>
+            ))}
+          </ul>
+          <label className="pt-label" htmlFor="pt-reorder-note">Anything I should know?</label>
+          <textarea id="pt-reorder-note" className="pt-input pt-textarea" rows={2} maxLength={600} value={note} onChange={(e) => setNote(e.target.value.slice(0, 600))} placeholder="A new address, a colour change, a date you need it by" />
+          <div className="pt-actions"><button type="button" className="pt-btn" disabled={!chosen.length} onClick={() => setStep('confirm')}>Order {chosen.length ? `(${money(total)})` : ''}</button></div>
+        </>
+      )}
+      {step === 'confirm' && (
+        <div className="pt-appr-box" role="group" aria-label="Confirm the order">
+          <p className="pt-pay-label">Send this order?</p>
+          <ul className="pt-needs">{chosen.map(p => <li key={p.id} className="pt-need"><span className="pt-need-text"><span className="pt-need-label">{p.qty} x {p.label}</span><span className="pt-doc-kind">{money(p.price * p.qty)}</span></span></li>)}</ul>
+          <p className="pt-note">{money(total)} before any rush or extras. No payment now: I'll send you a payment link.</p>
+          <div className="pt-actions"><button type="button" className="pt-btn" onClick={send}><Check width={18} height={18} aria-hidden="true" />Yes, send it</button><button type="button" className="pt-btn pt-btn--ghost" onClick={() => setStep('pick')}>Not yet</button></div>
+        </div>
+      )}
+      {said && <p className="pt-line" role="status"><span>{said}</span></p>}
+    </section>
+  );
+}
+const money = (n) => `$${Number(n || 0).toLocaleString()}`;
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -558,7 +644,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -585,6 +671,7 @@ export default function Portal() {
   const [thanks, setThanks] = useState(false);
   useEffect(() => { if (data?.paid) { setThanks(true); const t = setTimeout(() => setThanks(false), 6000); return () => clearTimeout(t); } return undefined; }, [data]);
   const closePin = useCallback(() => setPinOpen(false), []);
+  const pending = usePending(token);
   const unlocked = useCallback(() => { setPinOpen(false); setGen(g => g + 1); }, []);
 
   let body;
@@ -610,7 +697,8 @@ export default function Portal() {
           <button type="button" className="pt-hint-x" onClick={dismissHint} aria-label="Dismiss"><XClose width={18} height={18} aria-hidden="true" /></button>
         </div>
       )}
-      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} onChanged={() => setGen(g => g + 1)} /> : null; })}
+      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} /> : null; })}
+      <UndoBar pending={pending.pending} onUndo={pending.undo} />
       {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
       {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}
     </div>
@@ -755,5 +843,15 @@ const ptStyles = `
   .pt-appr-box { display: flex; flex-direction: column; gap: var(--space-2); }
   .pt-textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
   .pt-appr-box .pt-actions { align-items: center; }
+  /* Reorder (prompt 4): the picks with a quantity each, the undo bar. */
+  .pt-picks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+  .pt-pick { display: flex; align-items: center; gap: var(--space-3); min-height: 56px; padding: var(--space-2) var(--space-3); border-radius: var(--radius); background: var(--bg); }
+  .pt-pick-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; cursor: pointer; }
+  .pt-qty { width: 84px; flex-shrink: 0; text-align: center; }
+  .pt-undo { min-height: 44px; padding: 0 var(--space-3); background: transparent; border: 0; border-radius: var(--radius); color: var(--brand-text); font: inherit; font-weight: 700; cursor: pointer; }
+  .pt-undo:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
+  .pt-toast--undo { left: var(--space-4); right: var(--space-4); transform: none; width: auto; max-width: none; justify-content: space-between; gap: var(--space-3); padding-right: var(--space-2); }
+  .pt-toast--undo span { flex: 1; min-width: 0; }
+  @media (min-width: 640px) { .pt-toast--undo { left: 50%; right: auto; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); } }
 `;

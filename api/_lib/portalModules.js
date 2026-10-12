@@ -1,9 +1,9 @@
 /* Server mirror of src/shared/portalModules.js (client portal, prompts 1 and 2): the same registry byte for byte below
  * PORTAL_MODULE_IDS; scripts/portal-test.mjs asserts it. The imports above the marker point at this side's mirrors. */
 import { invoicesOf, invoiceStatus } from './invoices.js';
-import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
+import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND, PRINT_PRODUCTS } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -146,6 +146,21 @@ export function approvalsOf(client, now = Date.now()) {
   const list = Array.isArray(client?.portal?.approvals) ? client.portal.approvals : [];
   return list.filter(a => a && str(a.label, 120)).filter(a => a.status === 'pending' || ((a.status === 'approved' || a.status === 'changes') && Date.parse(a.respondedAt || '') > now - APPROVAL_DAYS * 864e5))
     .map(a => ({ id: str(a.id, 40), label: str(a.label, 120), url: /^https?:\/\//i.test(String(a.url || '')) ? str(a.url, 600) : '', status: a.status, note: str(a.note, 400), requestedAt: str(a.requestedAt, 40), respondedAt: str(a.respondedAt, 40) }));
+}
+/* Reorder (prompt 4): what they have had printed before, from delivered print orders and from delivered packages that
+ * include stickers or cards, as quick picks priced from pricing.js. Never had print: nothing to show. */
+export const PRINT_PACKAGES = { 'brand-complete': ['cards-250'], 'web-complete': ['cards-250'], 'launch-plan': ['nfc-card', 'stickers-50'], 'build-plan': ['nfc-card', 'cards-250', 'stickers-50'] };
+export const REORDER_PICK_IDS = ['stickers-50', 'cards-250', 'cards-500', 'nfc-card', 'vinyl'];
+export const REORDER_MAX_QTY = 500;
+const pickOf = (id) => { const p = PRINT_PRODUCTS.find(x => x.id === id); if (!p) return null; const price = Array.isArray(p.sizes) && p.sizes.length ? p.sizes[0].price : p.price; return { id: p.id, label: str(p.label, 80), price: Number(price) || 0, priceText: money(price) }; };
+/** The quick picks for this client: their past products first, then what their delivered packages included; [] without any print. */
+export function reorderPicks(client, projects, orders) {
+  const had = new Set();
+  for (const o of (Array.isArray(orders) ? orders : [])) if (o && String(o.leadId) === String(client?._id) && o.status === 'delivered') for (const it of (Array.isArray(o.items) ? o.items : [])) if (it?.productId) had.add(String(it.productId));
+  for (const p of clientProjects(client, projects)) if ((p.deliveredAt || p.stage === 'delivered') && PRINT_PACKAGES[p.packageId]) PRINT_PACKAGES[p.packageId].forEach(id => had.add(id));
+  if (!had.size) return [];
+  const ids = [...REORDER_PICK_IDS.filter(id => had.has(id)), ...REORDER_PICK_IDS.filter(id => !had.has(id))];
+  return ids.map(pickOf).filter(Boolean);
 }
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
@@ -382,11 +397,21 @@ export const PORTAL_MODULES = [
     fields: ['items'],
     resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },
   },
+  {
+    id: 'reorder', title: 'Need more printed?', order: 95, sensitive: false, defaultState: 'auto',
+    auto: 'Shows once they have had print from me (a delivered print order, or a delivered package with stickers or cards): quick picks priced from pricing.js, a note, and I invoice as today.',
+    fields: ['picks', 'maxQty', 'line'],
+    resolve(client, projects, settings, ctx = {}) {
+      const picks = reorderPicks(client, projects, ctx.orders);
+      if (!picks.length) return null;
+      return { picks, maxQty: REORDER_MAX_QTY, line: "Pick what you need and I'll send you a payment link." };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

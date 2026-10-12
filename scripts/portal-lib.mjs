@@ -42,6 +42,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
       { _id: LEAD, business: 'Sharpless Detailing', stage: 'client', askFor: 'Dan the owner', phone: '555-0199', email: 'owner@sharpless.example', notes: 'internal only note', links: { drive: 'https://drive.example/private' }, purchases: [{ id: 'purchase-77' }], invoices: [{ id: 'inv-9001' }], brand: { primary: '#1d4ed8', colors: ['#fff'] }, showcase: { published: true, slug: 'sharpless-detailing', displayName: 'Sharpless Detailing', logoUrl: 'https://img.example/sharpless.png' }, checklists: [{ id: 'l1', name: 'Kickoff', tasks: [] }] },
       { _id: OTHER, business: 'SS Guns and Ammo', stage: 'client', showcase: { published: false, slug: '' }, checklists: [] },
     ];
+    _stores.orders = [];
     _stores.projects = [
       { _id: 'p1', leadId: LEAD, name: 'Website', kind: 'website', stage: 'design', createdAt: '2026-09-01T00:00:00.000Z', invoices: [
         { id: 'inv-9000', label: 'Deposit', amount: 350, dueAt: '2026-09-01', status: 'paid', sentAt: '2026-08-30T00:00:00.000Z', paidAt: '2026-09-01T12:00:00.000Z', note: 'internal only note', ledgerId: 'ledger-77' },
@@ -438,6 +439,46 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   let statuses = [];
   for (let i = 0; i < 21; i++) { const pr = await pub('POST', { token: tA }, { action: 'approve', id: `m${i}`, decision: 'approved' }); statuses.push(pr._status); }
   ok(statuses.slice(0, 20).every(x => x === 200) && statuses[20] === 429, `twenty answers an hour, the twenty first is 429 (${statuses.slice(18).join(',')})`, 'approve-limit');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4i. reorder (prompt 4): the picks from their print history, the order and the task through the door, the guards */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tO = lead().portal.token;
+  _stores.orders = [];
+  _stores.projects.find(p => p._id === 'p0').packageId = 'brand-starter';
+  let ro = await pub('GET', { token: tO });
+  ok(!card(ro, 'reorder'), 'no print order and no package with print: no reorder card', 'reorder-gate');
+  _stores.orders = [{ _id: 'o-old', leadId: LEAD, status: 'delivered', items: [{ productId: 'nfc-card', qty: 1 }] }, { _id: 'o-new', leadId: LEAD, status: 'new', items: [{ productId: 'vinyl', qty: 2 }] }, { _id: 'o-other', leadId: OTHER, status: 'delivered', items: [{ productId: 'cards-500', qty: 1 }] }];
+  ro = await pub('GET', { token: tO }); let re = card(ro, 'reorder');
+  ok(re && re.picks[0].id === 'nfc-card' && re.picks.length === 5 && re.maxQty === 500, `a delivered order: the picks, theirs first (${re?.picks?.map(p => p.id).join(',')})`, 'reorder-gate');
+  ok(re && re.picks.find(p => p.id === 'stickers-50').price === 40 && re.picks.find(p => p.id === 'cards-250').price === 35 && re.picks.find(p => p.id === 'vinyl').price === 15 && re.picks.find(p => p.id === 'nfc-card').priceText === '$25', 'every pick is priced from pricing.js', 'reorder-price');
+  _stores.orders = []; _stores.projects.find(p => p._id === 'p0').packageId = 'build-plan';
+  ro = await pub('GET', { token: tO }); re = card(ro, 'reorder');
+  ok(re && re.picks.slice(0, 3).map(p => p.id).join(',') === 'stickers-50,cards-250,nfc-card', `a delivered Build Plan counts as print (${re?.picks?.map(p => p.id).join(',')})`, 'reorder-package');
+  const rk2 = Object.keys(re?.picks?.[0] || {}).sort().join(',');
+  ok(rk2 === 'id,label,price,priceText', `a pick is exactly { id, label, price, priceText } (${rk2})`, 'card-fields');
+  /* the door */
+  let rp = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'stickers-50', qty: 2 }, { id: 'cards-250', qty: 1 }], note: '  Ship to the <b>new</b> shop   please  ' });
+  const made = () => _stores.orders.filter(o => o.source === 'client');
+  ok(rp._status === 200 && made().length === 1 && made()[0].status === 'new' && made()[0].leadId === LEAD && made()[0].items.length === 2 && made()[0].items[0].productId === 'stickers-50' && made()[0].items[0].qty === 2 && made()[0].items[0].priceTotal === 80 && made()[0].subtotal === 115 && made()[0].notes === 'From their portal: Ship to the new shop please', `Order: one Print Order, status new, linked, priced from pricing.js, the note cleaned (${JSON.stringify({ status: rp._status, n: made().length, subtotal: made()[0]?.subtotal, notes: made()[0]?.notes })})`, 'reorder-order');
+  ok(made()[0]?.customer?.email === 'owner@sharpless.example' && rp._json?.subtotalText === '$115' && /payment link/.test(rp._json?.line || ''), 'the order carries their contact for the invoice, and the answer says a payment link is coming');
+  const portalList2 = () => (lead().checklists || []).find(l => l.name === 'Portal');
+  ok(portalList2() && portalList2().items.some(t => /^Print reorder from Sharpless Detailing: 2 x Stickers, 50 pack, 1 x Business cards, 250\. Send the payment link$/.test(t.text) && !t.done), `one Next up task on the client (${JSON.stringify(portalList2()?.items?.map(t => t.text))})`, 'reorder-task');
+  rp = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'card-design', qty: 1 }] });
+  ok(rp._status === 400 && made().length === 1, 'a product outside their picks is refused', 'reorder-own');
+  rp = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'stickers-50', qty: 501 }] });
+  const post0 = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'stickers-50', qty: 0 }] });
+  const postF = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'stickers-50', qty: 1.5 }] });
+  ok(rp._status === 400 && post0._status === 400 && postF._status === 400 && made().length === 1, `501, 0 and 1.5 are refused (${rp._status},${post0._status},${postF._status})`, 'reorder-qty');
+  rp = await pub('POST', { token: tO }, { action: 'reorder', items: [] });
+  ok(rp._status === 400, 'nothing picked is refused');
+  const lim2 = await load('_lib/limit.js'); await lim2.rateClear(await (await load('_lib/mongo.js')).getDb(), lim2.rateKey('prdr', tO));
+  const codes = [];
+  for (let i = 0; i < 6; i++) { const pr = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'nfc-card', qty: 1 }] }); codes.push(pr._status); }
+  ok(codes.slice(0, 5).every(c => c === 200) && codes[5] === 429 && made().length === 6, `five orders a day per token, the sixth is 429 (${codes.join(',')})`, 'reorder-limit');
+  _stores.orders = []; _stores.projects.find(p => p._id === 'p0').packageId = 'brand-starter';
+  await lim2.rateClear(await (await load('_lib/mongo.js')).getDb(), lim2.rateKey('prdr', tO));
+  rp = await pub('POST', { token: tO }, { action: 'reorder', items: [{ id: 'nfc-card', qty: 1 }] });
+  ok(rp._status === 404 && _stores.orders.length === 0, 'the door is shut for a client who never had print', 'reorder-gate');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */

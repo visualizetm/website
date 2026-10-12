@@ -96,6 +96,14 @@ const CUTS = {
   'approve-own': [[PP, "const findApproval = (lead, id) => (Array.isArray(lead.portal?.approvals) ? lead.portal.approvals : []).find(a => a && a.id === id) || null;", "const findApproval = (lead, id) => ({ id, label: 'Their hero', status: 'pending' });"]],
   'approve-limit': [[PP, "const APPROVE_MAX = 20;", "const APPROVE_MAX = 200;"]],
   'back-no-token': [[PM, "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal()}` : '');", "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}?from=portal&c=${client.portal?.token || ''}` : '');"]],
+  'reorder-gate': [[PM, "  if (!had.size) return [];\n", ""]],
+  'reorder-price': [[PM, "const price = Array.isArray(p.sizes) && p.sizes.length ? p.sizes[0].price : p.price;", "const price = 0;"]],
+  'reorder-package': [[PM, "if ((p.deliveredAt || p.stage === 'delivered') && PRINT_PACKAGES[p.packageId]) PRINT_PACKAGES[p.packageId].forEach(id => had.add(id));", "void p;"]],
+  'reorder-order': [[PP, "priceTotal: Math.round(pick.price * qty * 100) / 100,", "priceTotal: 0,"]],
+  'reorder-task': [[PP, "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, updatedAt: new Date() } });\n  try {\n    const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';\n    await sendPush(db, { title: `Print reorder", "  void lists;\n  try {\n    const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';\n    await sendPush(db, { title: `Print reorder"]],
+  'reorder-own': [[PP, "    const pick = picks.find(p => p.id === String(w?.id || ''));", "    const pick = picks.find(p => p.id === String(w?.id || '')) || { id: String(w?.id || ''), label: String(w?.id || ''), price: 30 };"]],
+  'reorder-qty': [[PP, "    if (!Number.isInteger(qty) || qty < 1 || qty > REORDER_MAX_QTY) return res.status(400).json({ error: `quantity must be 1 to ${REORDER_MAX_QTY}` });", "    if (!(qty > 0)) return res.status(400).json({ error: `quantity must be 1 to ${REORDER_MAX_QTY}` });"]],
+  'reorder-limit': [[PP, "const REORDER_MAX = 5;", "const REORDER_MAX = 50;"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 
