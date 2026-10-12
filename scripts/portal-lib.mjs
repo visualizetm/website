@@ -391,6 +391,48 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   } finally { globalThis.fetch = realFetch; delete process.env.CALENDLY_TOKEN; }
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
+  /* 4h. approvals (prompt 3): the list Rob keeps, the client's answers through the door, the task and the guards */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tA = lead().portal.token;
+  const otherLead = _stores.call_leads.find(l => String(l._id) === OTHER);
+  otherLead.portal = { token: 'otherPORTALtoken0123456789abcd', approvals: [{ id: 'theirs-1', label: 'Their hero', url: '', status: 'pending', note: '', requestedAt: '2026-10-01T00:00:00.000Z', respondedAt: '' }] };
+  let ra = await pub('GET', { token: tA });
+  ok(!card(ra, 'approvals'), 'no approvals: no card', 'approvals-pending');
+  r = await admin({ id: LEAD, set: { portal: { approvals: [{ id: 'ap-1', label: 'Homepage hero', url: 'https://drive.google.com/file/d/hero', status: 'pending', note: '' }, { id: 'ap-old', label: 'Old one', status: 'approved', respondedAt: '2026-01-01T00:00:00.000Z', requestedAt: '2025-12-30T00:00:00.000Z' }, { id: 'ap-bad', label: 'Bad link', url: 'javascript:alert(1)', status: 'weird' }] } } });
+  ok(r._status === 200 && lead().portal.approvals.length === 3 && lead().portal.approvals[0].requestedAt && lead().portal.approvals[2].url === '' && lead().portal.approvals[2].status === 'pending', `the route stores the list: requestedAt stamped, a bad link dropped, an unknown status pending (${JSON.stringify(lead().portal.approvals[2])})`, 'approvals-shape');
+  ra = await pub('GET', { token: tA }); let ap = card(ra, 'approvals');
+  ok(ap && ap.items.map(a => a.id).join(',') === 'ap-1,ap-bad', `pending items show; an answer older than seven days does not (${ap?.items?.map(a => a.id).join(',')})`, 'approvals-days');
+  const ak = Object.keys(ap?.items?.[0] || {}).sort().join(',');
+  ok(ak === 'id,label,note,requestedAt,respondedAt,status,url', `an item is exactly { id, label, url, status, note, requestedAt, respondedAt } (${ak})`, 'card-fields');
+  /* the door */
+  let post = await pub('POST', { token: tA }, { action: 'approve', id: 'ap-1', decision: 'approved' });
+  const one = () => lead().portal.approvals.find(a => a.id === 'ap-1');
+  ok(post._status === 200 && post._json?.item?.status === 'approved' && one().status === 'approved' && one().respondedAt, `Approve: the item is approved with respondedAt (${post._status})`, 'approve-write');
+  const portalList = () => (lead().checklists || []).find(l => l.name === 'Portal');
+  ok(portalList() && portalList().items.some(t => t.text === 'Sharpless Detailing approved Homepage hero' && !t.done && t.due), `a Next up task on the client says who approved what (${JSON.stringify(portalList()?.items?.map(t => t.text))})`, 'approve-task');
+  post = await pub('POST', { token: tA }, { action: 'approve', id: 'ap-1', decision: 'changes', note: 'again' });
+  ok(post._status === 409 && one().status === 'approved', 'an answered item cannot be answered again', 'approve-pending');
+  post = await pub('POST', { token: tA }, { action: 'approve', id: 'ap-bad', decision: 'changes', note: '' });
+  ok(post._status === 400, 'changes without a note is refused', 'approve-note');
+  post = await pub('POST', { token: tA }, { action: 'approve', id: 'ap-bad', decision: 'changes', note: '  Make the <b>red</b> less   bright, please  ' + 'x'.repeat(500) });
+  const bad = () => lead().portal.approvals.find(a => a.id === 'ap-bad');
+  ok(post._status === 200 && bad().status === 'changes' && bad().note.startsWith('Make the red less bright, please') && bad().note.length <= 400, `Request changes: the note stripped of tags, one spaced and capped (${bad().note.slice(0, 40)}...)`, 'approve-write');
+  ok(portalList().items.some(t => t.text.startsWith('Sharpless Detailing wants changes on Bad link: Make the red')), 'the changes task carries the note', 'approve-task');
+  ra = await pub('GET', { token: tA }); ap = card(ra, 'approvals');
+  ok(!card(ra, 'approvals'), `nothing pending any more: the card is gone (${cardIds(ra)})`, 'approvals-pending');
+  post = await pub('POST', { token: tA }, { action: 'approve', id: 'theirs-1', decision: 'approved' });
+  ok(post._status === 404 && otherLead.portal.approvals[0].status === 'pending', 'an item from another client is not found and not touched', 'approve-own');
+  post = await pub('POST', { token: tA }, { action: 'approve', id: 'nope', decision: 'approved' });
+  ok(post._status === 404, 'an unknown id is 404');
+  ok(!JSON.stringify(ra._json).includes('theirs-1') && !JSON.stringify(ra._json).includes('Their hero'), 'the other client\'s approvals never show', 'token-isolation');
+  /* the limit: twenty an hour per token */
+  const many = Array.from({ length: 25 }, (_, i) => ({ id: `m${i}`, label: `Item ${i}`, status: 'pending' }));
+  await admin({ id: LEAD, set: { portal: { approvals: many } } });
+  const lim = await load('_lib/limit.js'); await lim.rateClear(await (await load('_lib/mongo.js')).getDb(), lim.rateKey('papp', tA));
+  let statuses = [];
+  for (let i = 0; i < 21; i++) { const pr = await pub('POST', { token: tA }, { action: 'approve', id: `m${i}`, decision: 'approved' }); statuses.push(pr._status); }
+  ok(statuses.slice(0, 20).every(x => x === 200) && statuses[20] === 429, `twenty answers an hour, the twenty first is 429 (${statuses.slice(18).join(',')})`, 'approve-limit');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });

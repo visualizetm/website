@@ -115,7 +115,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 3: the meetings module over api/_lib/calendly.js (the next call under their email, cached fifteen minutes per client in settings with the rate key pattern, the soonest of two), the card with the time in the device's zone, Join and Add to calendar from src/lib/portalIcs.js; portal-test 147 -> 156, guards 62 -> 68, portal-crm-test gains the .ics checks.
 
+- Milestone 4: approvals on the client record (portal.approvals through the lead route), the approve door on /api/portal (own item only, pending only, a note for changes, twenty an hour), the Next up task and the push, the Approvals card with Approve and Request changes, the CRM Approvals editor in the Portal sheet (Ask, Resend, Delete with undo); portal-test 156 -> 171, guards 68 -> 77.
+
 ## Next
-- Prompt 3 milestone 4: approvals, the approve POST, Next up and push, the CRM list.
+- Prompt 3 milestone 5: the card order, the templates, the send message, the phone pass, docs, the full gate, the report.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

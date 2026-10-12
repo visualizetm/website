@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -136,6 +136,13 @@ export function theirReviewsLine(reviews) {
   if (!Number.isFinite(latest)) return '';
   const diff = Number.isFinite(base) ? latest - base : 0;
   return `${latest} review${latest === 1 ? '' : 's'}${diff > 0 ? `, up ${diff} since we started` : ''}`;
+}
+/* Approvals (prompt 3): what Rob asked the client to sign off on. Pending always; an answer stays for seven days. */
+export const APPROVAL_DAYS = 7;
+export function approvalsOf(client, now = Date.now()) {
+  const list = Array.isArray(client?.portal?.approvals) ? client.portal.approvals : [];
+  return list.filter(a => a && str(a.label, 120)).filter(a => a.status === 'pending' || ((a.status === 'approved' || a.status === 'changes') && Date.parse(a.respondedAt || '') > now - APPROVAL_DAYS * 864e5))
+    .map(a => ({ id: str(a.id, 40), label: str(a.label, 120), url: /^https?:\/\//i.test(String(a.url || '')) ? str(a.url, 600) : '', status: a.status, note: str(a.note, 400), requestedAt: str(a.requestedAt, 40), respondedAt: str(a.respondedAt, 40) }));
 }
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
@@ -366,11 +373,17 @@ export const PORTAL_MODULES = [
       return { at: str(m.at, 40), end: str(m.end, 40), name: str(m.title, 120) || 'Call with Rob', join: /^https:\/\//i.test(String(m.join || '')) ? str(m.join, 400) : '' };
     },
   },
+  {
+    id: 'approvals', title: 'Approvals', order: 6, sensitive: false, defaultState: 'auto',
+    auto: 'Shows when something waits on their sign off; an answer stays on the card for seven days.',
+    fields: ['items'],
+    resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

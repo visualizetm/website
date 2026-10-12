@@ -237,7 +237,7 @@ export const leadDetailStyles = `
   .ps-doc-row .v-inline { flex: 1; min-width: 0; }
   .ps-doc-url { font-size: var(--v-text-xs); color: var(--v-text-3); min-width: 0; }
   .ps-add { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--v-space-2); }
-  @media (min-width: 560px) { .ps-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px auto; align-items: end; } }
+  @media (min-width: 560px) { .ps-add { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 120px auto; align-items: end; } .ps-add--two { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; } }
   .ps-pin-row { display: flex; align-items: flex-end; gap: var(--v-space-2); flex-wrap: wrap; }
   .ps-pin-row .v-field { flex: 0 1 140px; }
   .rc-docs { grid-column: 1 / -1; gap: var(--v-space-3); --sk-a: 66px; --sk-b: 88px; }

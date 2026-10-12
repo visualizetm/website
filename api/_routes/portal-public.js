@@ -3,7 +3,9 @@ import { getDb } from '../_lib/mongo.js';
 import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit, rateClear } from '../_lib/limit.js';
 import { sessionSecret, meetingLink } from '../_lib/config.js';
-import { zoneDayKey } from '../_lib/zone.js';
+import { zoneDayKey, zoneDateAt } from '../_lib/zone.js';
+import { addTask } from '../_lib/taskRules.js';
+import { sendPush } from '../_lib/notify.js';
 import { nextMeetingFor } from '../_lib/calendly.js';
 import { portalCards, portalClient, unseenPayment } from '../_lib/portalModules.js';
 
@@ -33,6 +35,8 @@ const HOUR = 60 * 60 * 1000;
 const UNLOCK_DAYS = 30;
 const PIN_TRIES = 5;
 const PIN_WINDOW = 15 * 60 * 1000;
+const APPROVE_MAX = 20;
+const APPROVE_WINDOW = 60 * 60 * 1000;
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_-]{16,64}$/.test(t) ? t : ''; };
 /* The second half of the whitelist: what resolve may read at all (prompt 2 adds the money, project and brand fields). */
@@ -86,6 +90,7 @@ export async function handler(req, res) {
   }
 
   const b = req.body && typeof req.body === 'object' ? req.body : {};
+  if (b.action === 'approve') return approve(db, lead, token, b, res);
   if (b.action !== 'pin') return res.status(400).json({ error: 'unknown action' });
   if (!lead.portal?.pin) return res.status(200).json({ unlock: '' });
   const key = rateKey('ppin', token);
@@ -96,6 +101,39 @@ export async function handler(req, res) {
   if (a.length !== want.length || !timingSafeEqual(a, want)) { await rateHit(db, key, st.hits); return res.status(401).json({ error: 'That PIN is not it.' }); }
   await rateClear(db, key);
   return res.status(200).json({ unlock: mintUnlock(token) });
+}
+
+/* One answer on one approval (prompt 3): { action: 'approve', id, decision: 'approved' | 'changes', note }. The item must be on this
+ * token's own record and still pending; twenty answers an hour per token (rate:papp). The answer writes the item, a Next up task on
+ * the client due today at five and a push to Rob; the response is the item as the card will show it. */
+const findApproval = (lead, id) => (Array.isArray(lead.portal?.approvals) ? lead.portal.approvals : []).find(a => a && a.id === id) || null;
+async function approve(db, lead, token, b, res) {
+  const key = rateKey('papp', token);
+  const st = await rateState(db, key, { max: APPROVE_MAX, windowMs: APPROVE_WINDOW });
+  if (st.exceeded) { res.setHeader('Retry-After', String(st.retryAfter)); return res.status(429).json({ error: 'That is a lot of answers. Give it an hour.' }); }
+  const id = String(b.id || '').trim().slice(0, 40);
+  const decision = b.decision === 'approved' ? 'approved' : b.decision === 'changes' ? 'changes' : '';
+  const note = String(b.note || '').replace(/<\/?[a-z!][^>]*>/gi, '').replace(/\s+/g, ' ').trim().slice(0, 400);
+  if (!id || !decision) return res.status(400).json({ error: 'id and decision required' });
+  if (decision === 'changes' && !note) return res.status(400).json({ error: 'say what to change' });
+  const item = findApproval(lead, id);
+  if (!item) return res.status(404).json({ error: 'not found' });
+  if (item.status !== 'pending') return res.status(409).json({ error: 'already answered' });
+  await rateHit(db, key, st.hits);
+  const now = new Date().toISOString();
+  const next = { ...item, status: decision, note: decision === 'changes' ? note : '', respondedAt: now };
+  const approvals = lead.portal.approvals.map(a => (a.id === id ? next : a));
+  const business = String(lead.showcase?.displayName || lead.business || 'A client').slice(0, 120);
+  const label = String(item.label || 'it').slice(0, 120);
+  const text = decision === 'approved' ? `${business} approved ${label}` : `${business} wants changes on ${label}: ${note}`;
+  const due = zoneDateAt(zoneDayKey(Date.now()), 17, 0);
+  const lists = addTask(Array.isArray(lead.checklists) ? lead.checklists : [], (lead.checklists || []).find(l => l.name === 'Portal')?.id || '', { text, due: new Date(due).toISOString(), source: 'manual', listName: 'Portal' });
+  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.approvals': approvals, checklists: lists, updatedAt: new Date() } });
+  try {
+    const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+    await sendPush(db, { title: decision === 'approved' ? `${business} approved ${label}` : `${business} wants changes`, body: decision === 'approved' ? 'Signed off from their portal.' : `${label}: ${note}`.slice(0, 200), url: `${base}/clients?open=${String(lead._id)}` });
+  } catch { /* the answer is stored; a push failure must not undo that */ }
+  return res.status(200).json({ ok: true, item: { id: next.id, label: String(next.label).slice(0, 120), status: next.status, note: next.note, respondedAt: next.respondedAt } });
 }
 
 export default route(handler, { methods: ['GET', 'POST'], admin: false, maxBody: 4 * 1024 });

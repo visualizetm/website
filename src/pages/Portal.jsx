@@ -446,6 +446,57 @@ function MeetingsCard({ card }) {
   );
 }
 
+/* Approvals (prompt 3): a row per item; Approve, or Request changes with a short note. The answer goes to the approve door and the page reads again. */
+function ApprovalsCard({ card, token, onChanged }) {
+  const items = Array.isArray(card.items) ? card.items : [];
+  const [open, setOpen] = useState('');      // the item whose changes box is open
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState('');
+  const [said, setSaid] = useState('');
+  const answer = async (id, decision) => {
+    if (busy) return;
+    if (decision === 'changes' && !note.trim()) { setSaid('Say what to change, in a line or two.'); return; }
+    setBusy(id); setSaid('');
+    try {
+      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve', id, decision, note: decision === 'changes' ? note.trim().slice(0, 400) : '' }) });
+      if (res.status === 429) { setSaid('That is a lot of answers. Give it an hour.'); return; }
+      if (!res.ok) { setSaid('That did not go through. Try again.'); return; }
+      setOpen(''); setNote(''); setSaid(decision === 'approved' ? 'Approved. Rob gets a heads up.' : 'Sent. Rob gets a heads up.');
+      onChanged?.();
+    } catch { setSaid('That did not go through. Try again.'); }
+    finally { setBusy(''); }
+  };
+  return (
+    <section className="pt-card pt-card--needs" aria-labelledby="pt-appr-h">
+      <h2 className="pt-card-h" id="pt-appr-h">Approvals</h2>
+      <ul className="pt-needs">
+        {items.map(it => { const href = it.url ? safeHref(it.url) : ''; return (
+          <li key={it.id} className="pt-need pt-appr" data-approval={it.id} data-status={it.status}>
+            <div className="pt-appr-row">
+              <span className="pt-need-text"><span className="pt-need-label">{it.label}</span>{it.status !== 'pending' && <span className="pt-doc-kind">{it.status === 'approved' ? 'You approved this' : `You asked for changes: ${it.note}`}</span>}</span>
+              {href && <a className="pt-btn pt-btn--ghost pt-need-btn" href={href} target="_blank" rel="noreferrer">Open<ArrowUpRight width={16} height={16} aria-hidden="true" /></a>}
+            </div>
+            {it.status === 'pending' && (
+              <div className="pt-actions">
+                <button type="button" className="pt-btn" onClick={() => answer(it.id, 'approved')} disabled={busy === it.id} aria-busy={busy === it.id ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />Approve</button>
+                <button type="button" className="pt-btn pt-btn--ghost" onClick={() => { setOpen(open === it.id ? '' : it.id); setNote(''); }} aria-expanded={open === it.id}>Request changes</button>
+              </div>
+            )}
+            {it.status === 'pending' && open === it.id && (
+              <div className="pt-appr-box">
+                <label className="pt-label" htmlFor={`pt-appr-note-${it.id}`}>What should change?</label>
+                <textarea id={`pt-appr-note-${it.id}`} className="pt-input pt-textarea" rows={3} maxLength={400} value={note} onChange={(e) => setNote(e.target.value.slice(0, 400))} placeholder="The colour, the wording, the photo..." />
+                <div className="pt-actions"><button type="button" className="pt-btn" onClick={() => answer(it.id, 'changes')} disabled={busy === it.id}>Send</button><span className="pt-note">{note.length} of 400</span></div>
+              </div>
+            )}
+          </li>
+        ); })}
+      </ul>
+      {said && <p className="pt-line" role="status"><span>{said}</span></p>}
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -507,7 +558,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -559,7 +610,7 @@ export default function Portal() {
           <button type="button" className="pt-hint-x" onClick={dismissHint} aria-label="Dismiss"><XClose width={18} height={18} aria-hidden="true" /></button>
         </div>
       )}
-      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} /> : null; })}
+      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} onChanged={() => setGen(g => g + 1)} /> : null; })}
       {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
       {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}
     </div>
@@ -698,5 +749,11 @@ const ptStyles = `
   .pt-stars { display: inline-flex; gap: var(--space-1); color: var(--brand-text); }
   .pt-qr { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
   .pt-qr-svg { display: block; border-radius: var(--radius); }
+  /* Approvals (prompt 3): the row, its buttons, the changes box. */
+  .pt-appr { flex-direction: column; align-items: stretch; gap: var(--space-2); }
+  .pt-appr-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+  .pt-appr-box { display: flex; flex-direction: column; gap: var(--space-2); }
+  .pt-textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
+  .pt-appr-box .pt-actions { align-items: center; }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;

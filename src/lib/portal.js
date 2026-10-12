@@ -23,6 +23,12 @@ export const hoursPatch = (hours) => ({ portal: { hours: String(hours || '').tri
 export const documentsPatch = (documents) => ({ portal: { documents } });
 export const documentsOf = (lead) => (Array.isArray(portalOf(lead)?.documents) ? portalOf(lead).documents : []);
 export const newDocument = (label, url, kind = 'link', now = Date.now()) => ({ id: `d${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, label: String(label || '').trim(), url: String(url || '').trim(), kind: DOCUMENT_KIND_IDS.includes(kind) ? kind : 'link', addedAt: new Date(now).toISOString() });
+/* Approvals (prompt 3): Rob's list on the client; the client's answers come only through the public door. */
+export const approvalsPatch = (approvals) => ({ portal: { approvals } });
+export const approvalsOf = (lead) => (Array.isArray(portalOf(lead)?.approvals) ? portalOf(lead).approvals : []);
+export const newApproval = (label, url = '', now = Date.now()) => ({ id: `a${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, label: String(label || '').trim().slice(0, 120), url: String(url || '').trim().slice(0, 600), status: 'pending', note: '', requestedAt: new Date(now).toISOString(), respondedAt: '' });
+/** Resend: the item is pending again with a fresh requestedAt, its old answer kept nowhere. */
+export const resendApproval = (a, now = Date.now()) => ({ ...a, status: 'pending', note: '', requestedAt: new Date(now).toISOString(), respondedAt: '' });
 export const DOCUMENT_KINDS = [['doc', 'Doc'], ['sheet', 'Sheet'], ['pdf', 'PDF'], ['drive', 'Drive folder'], ['link', 'Link']];
 export const PORTAL_TEMPLATE_OPTIONS = [['brand', 'Brand'], ['website', 'Website'], ['retainer', 'Retainer']];
 export const PORTAL_STATE_OPTIONS = [['off', 'Off'], ['on', 'On'], ['auto', 'Auto']];

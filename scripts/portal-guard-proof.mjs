@@ -86,6 +86,15 @@ const CUTS = {
   'cal-ttl': [[CA, "export const MEETING_CACHE_MS = 15 * 60e3;", "export const MEETING_CACHE_MS = 15 * 60e9;"]],
   'cal-soonest': [[CA, "    const sorted = [...collection].sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));", "    const sorted = [...collection];"]],
   'cal-past': [[PM, "      if (!m || !m.at || Date.parse(m.at) < Date.now() - 60 * 60e3) return null;", "      if (!m || !m.at) return null;"]],
+  'approvals-pending': [[PM, "    resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },", "    resolve(client) { const items = approvalsOf(client); return items.length ? { items } : null; },"]],
+  'approvals-shape': [[CL, "status: ['pending', 'approved', 'changes'].includes(a?.status) ? a.status : 'pending', note: str(a?.note, 400),", "status: str(a?.status, 20) || 'pending', note: str(a?.note, 400),"]],
+  'approvals-days': [[PM, "export const APPROVAL_DAYS = 7;", "export const APPROVAL_DAYS = 7000;"]],
+  'approve-write': [[PP, "  const next = { ...item, status: decision, note: decision === 'changes' ? note : '', respondedAt: now };", "  const next = { ...item, status: decision, note: decision === 'changes' ? String(b.note || '') : '', respondedAt: now };"]],
+  'approve-task': [[PP, "  const lists = addTask(Array.isArray(lead.checklists) ? lead.checklists : [], (lead.checklists || []).find(l => l.name === 'Portal')?.id || '', { text, due: new Date(due).toISOString(), source: 'manual', listName: 'Portal' });", "  const lists = Array.isArray(lead.checklists) ? lead.checklists : []; void addTask; void text; void due;"]],
+  'approve-pending': [[PP, "  if (item.status !== 'pending') return res.status(409).json({ error: 'already answered' });\n", ""]],
+  'approve-note': [[PP, "  if (decision === 'changes' && !note) return res.status(400).json({ error: 'say what to change' });\n", ""]],
+  'approve-own': [[PP, "const findApproval = (lead, id) => (Array.isArray(lead.portal?.approvals) ? lead.portal.approvals : []).find(a => a && a.id === id) || null;", "const findApproval = (lead, id) => ({ id, label: 'Their hero', status: 'pending' });"]],
+  'approve-limit': [[PP, "const APPROVE_MAX = 20;", "const APPROVE_MAX = 200;"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

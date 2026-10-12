@@ -5,7 +5,7 @@ import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import { Sheet, Button, Row, Stack, Pill, QrCode, SegmentedControl, Toggle, Input, Select, InlineEdit, Menu, EmptyState, useConfirm, useMediaQuery } from '../../ui';
 import { COPY } from '../../shared/copy';
 import { relativeTime, fmtDate } from '../../shared/dates';
-import { portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
+import { approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
 
 /* The Portal sheet (client portal, prompt 1): everything about one client's
  * portal link, opened from the workspace's Portal card. The link (copy,
@@ -65,6 +65,53 @@ function DocumentsEditor({ lead, patch, toast, readOnly }) {
           <Input label="Link" type="url" value={url} onChange={(e) => setUrl(e.target.value.slice(0, 600))} placeholder="https://drive.google.com/..." onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
           <Select label="Kind" value={kind} onChange={(e) => setKind(e.target.value)} options={opts(DOCUMENT_KINDS)} />
           <Button variant="secondary" icon={Plus} onClick={add} loading={busy} className="ps-add-btn">Add</Button>
+        </div>
+      )}
+    </Stack>
+  );
+}
+
+/* Approvals (prompt 3): what Rob asks the client to sign off on. Add, Resend (pending again, requestedAt now), Delete with undo. */
+const APPROVAL_TONE = { pending: 'new', approved: 'booked', changes: 'danger' };
+const APPROVAL_LABEL = { pending: 'Waiting', approved: 'Approved', changes: 'Changes' };
+function ApprovalsEditor({ lead, patch, toast, readOnly }) {
+  const list = approvalsOf(lead);
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  const [busy, setBusy] = useState(false);
+  const save = (next) => patch(approvalsPatch(next));
+  const add = async () => {
+    const a = newApproval(label, url);
+    if (!a.label) { toast.error('Give it a label.'); return; }
+    if (a.url && !/^https?:\/\//i.test(a.url)) { toast.error('A link that starts with https.'); return; }
+    setBusy(true); const ok = await save([...list, a]); setBusy(false);
+    if (ok) { setLabel(''); setUrl(''); toast.success(`${a.label} is on their portal, waiting on them.`); }
+  };
+  const resend = async (a) => { const ok = await save(list.map(x => (x.id === a.id ? resendApproval(x) : x))); if (ok) toast.success(`${a.label} is waiting on them again.`); };
+  const remove = (a) => { const i = list.findIndex(x => x.id === a.id); save(list.filter(x => x.id !== a.id)); toast.undo(`${a.label} removed.`, () => save([...approvalsOf(lead).slice(0, i), a, ...approvalsOf(lead).slice(i)]), { seconds: 6 }); };
+  return (
+    <Stack gap={2} className="ps-approvals" data-section="approvals">
+      {list.length === 0 && <p className="dt-muted">Nothing waiting on them. An item here is a row on their Approvals card with Approve and Request changes.</p>}
+      {list.map(a => (
+        <div key={a.id} className="ps-doc" data-approval={a.id}>
+          <div className="ps-doc-row">
+            <span className="ps-doc-label lay-truncate">{a.label}</span>
+            <Pill tone={APPROVAL_TONE[a.status] || 'neutral'} label={APPROVAL_LABEL[a.status] || a.status} size="sm" icon={false} variant={a.status === 'pending' ? 'solid' : 'soft'} />
+            {!readOnly && <Menu label={`${a.label} actions`} items={[
+              { id: 'resend', label: 'Resend', icon: 'RefreshCw01', onSelect: () => resend(a) },
+              { id: 'remove', label: 'Delete', icon: 'Trash01', danger: true, onSelect: () => remove(a) },
+            ]} />}
+          </div>
+          {a.url && <span className="ps-doc-url lay-truncate">{a.url}</span>}
+          {a.note && <span className="ps-doc-url">They said: {a.note}</span>}
+          <span className="ps-doc-url">{a.status === 'pending' ? `Asked ${relativeTime(a.requestedAt)}` : `Answered ${relativeTime(a.respondedAt)}`}</span>
+        </div>
+      ))}
+      {!readOnly && (
+        <div className="ps-add ps-add--two">
+          <Input label="What to approve" value={label} onChange={(e) => setLabel(e.target.value.slice(0, 120))} placeholder="Homepage hero, round two" />
+          <Input label="Link (optional)" type="url" value={url} onChange={(e) => setUrl(e.target.value.slice(0, 600))} placeholder="https://... (an image, a doc)" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
+          <Button variant="secondary" icon={Plus} onClick={add} loading={busy} className="ps-add-approval">Ask</Button>
         </div>
       )}
     </Stack>
@@ -166,6 +213,10 @@ export default function PortalSheet({ rec, onClose }) {
           <Stack gap={2} data-section="hours">
             <p className="pb-card-h">Hours on their card</p>
             {readOnly ? <p className="rc-ws-line">{p.hours || 'From Settings'}</p> : <InlineEdit value={p.hours || ''} onSave={(v) => patch(hoursPatch(v))} placeholder="Leave empty for the hours in Settings" label="Hours on their card" className="ps-hours" />}
+          </Stack>
+          <Stack gap={2} data-section="approvals-section">
+            <p className="pb-card-h">Approvals</p>
+            <ApprovalsEditor lead={lead} patch={patch} toast={toast} readOnly={readOnly} />
           </Stack>
           <Stack gap={2} data-section="documents">
             <p className="pb-card-h">Documents</p>

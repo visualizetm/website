@@ -357,6 +357,8 @@ function sanitize(b) {
       template: b.portal.template !== undefined ? (PORTAL_TEMPLATE_IDS.includes(b.portal.template) ? b.portal.template : '') : undefined,
       documents: Array.isArray(b.portal.documents) ? b.portal.documents.slice(0, 50).map(d => ({ id: str(d?.id, 40) || String(Math.random()).slice(2, 10), label: str(d?.label, 120), url: link(d?.url, 600), kind: DOCUMENT_KIND_IDS.includes(d?.kind) ? d.kind : 'link', addedAt: str(d?.addedAt, 40) || new Date().toISOString() })).filter(d => d.label && d.url) : undefined,
       hours: b.portal.hours !== undefined ? str(b.portal.hours, 120) : undefined,
+      /* Prompt 3: the approval list Rob keeps per client; the client's answers come only through the public door. */
+      approvals: Array.isArray(b.portal.approvals) ? b.portal.approvals.slice(0, 50).map(a => ({ id: str(a?.id, 40) || String(Math.random()).slice(2, 10), label: str(a?.label, 120), url: link(a?.url, 600), status: ['pending', 'approved', 'changes'].includes(a?.status) ? a.status : 'pending', note: str(a?.note, 400), requestedAt: str(a?.requestedAt, 40) || new Date().toISOString(), respondedAt: str(a?.respondedAt, 40) })).filter(a => a.label) : undefined,
     } : undefined,
     // Prompt 11 additive: Google reviews tracking.
     reviews: b.reviews && typeof b.reviews === 'object' ? {
@@ -547,6 +549,7 @@ export async function handler(req, res) {
         template: asked.template !== undefined ? asked.template : (had.template || ''),
         documents: asked.documents !== undefined ? asked.documents : (Array.isArray(had.documents) ? had.documents : []),
         hours: asked.hours !== undefined ? asked.hours : (had.hours || ''),
+        approvals: asked.approvals !== undefined ? asked.approvals : (Array.isArray(had.approvals) ? had.approvals : []),
       };
       if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };
     }
