@@ -55,7 +55,7 @@ export const PIPE_EXTRA = {
               packageId: 'web-complete', addonIds: ['rush'], plan: null, invoices: [{ id: 'dv1', label: 'Web Complete', amount: 770, dueAt: daysFrom(-2).slice(0, 10), status: 'sent', sentAt: daysFrom(-9), paidAt: '', note: 'Half now, half on delivery ' + UNBROKEN.slice(0, 30) }], contractLink: 'https://example.com/contract/' + UNBROKEN.slice(0, 20), metAt: daysFrom(-12), stalledSince: daysFrom(-2) } },
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
         servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
-  11: { stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
+  11: { referredBy: { code: 'business-13', leadId: 'L13', business: 'Business 13' }, stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
         /* Planner prompt 2: the client with a planner switched ON and a full
            month, including a post in review carrying a client note. */
         planner: { enabled: true, token: 'plnrTESTtoken0123456789abcdEF', tokenCreatedAt: daysFrom(-30), lastViewedAt: new Date(Date.now() - 4 * 3600e3).toISOString(), postsPerMonth: 8, welcome: 'Here is what is going out this month. Tap any post to read it.' },
@@ -426,6 +426,7 @@ export const items = Array.from({ length: 13 }, (_, i) => ({
   business: i === 0 ? LONG : i === 1 ? UNBROKEN : 'Business ' + i,
   email: i === 2 ? 'a.very.long.email.address.that.goes.on@extremelylongdomainnamefortesting.com' : `p${i}@x.com`,
   linkedLeadId: i === 3 ? 'L0' : undefined,
+  referredBy: i === 3 ? { code: 'business-13', leadId: 'L13', business: 'Business 13' } : i === 5 ? { code: 'nobody-here', leadId: '', business: '' } : undefined,
   phone: '(302) 555-0100', status: ['new', 'contacted', 'replied', 'landed', 'denied'][i % 5],
   read: i % 2 === 0, notes: '', socials: {},
   fields: i === 12 ? { rating: 5, text: 'Rob nailed the logo. ' + UNBROKEN } : i === 2 ? { Message: 'Can you do a quick logo? ' + UNBROKEN } : { 'Business Description': UNBROKEN, Budget: '$600', 'What do you sell': 'Mobile detailing for busy people.\nSecond line of the answer.', Timeline: 'Two weeks' },
@@ -603,6 +604,7 @@ export const PORTAL_RESOLVE = {
     { id: 'reorder', title: 'Need more printed?', sensitive: false, picks: [{ id: 'stickers-50', label: 'Stickers, 50 pack', price: 40, priceText: '$40' }, { id: 'cards-250', label: 'Business cards, 250', price: 35, priceText: '$35' }, { id: 'cards-500', label: 'Business cards, 500', price: 50, priceText: '$50' }, { id: 'nfc-card', label: 'NFC card', price: 25, priceText: '$25' }, { id: 'vinyl', label: 'Custom vinyl', price: 15, priceText: '$15' }], maxQty: 500, line: "Pick what you need and I'll send you a payment link." },
     { id: 'brand_kit', title: 'Brand kit', sensitive: false, logoUrl: '/showcase/fixtures/logo.svg', colors: [{ hex: '#1d4ed8', name: 'Blue' }, { hex: '#111111', name: '' }], fonts: ['Inter', 'Georgia'] },
     { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal', line: 'A minute of your time, and it helps more than you know.' },
+    { id: 'referral', title: 'Know someone who needs this?', sensitive: false, url: 'https://visualizestudio.org/?ref=sharpless-detailing', code: 'sharpless-detailing', message: 'Rob at Visualize did the look for Sharpless Detailing. If you need a site or a brand, start here: https://visualizestudio.org/?ref=sharpless-detailing' },
     { id: 'their_reviews', title: 'Your reviews', sensitive: false, googleLink: 'https://g.page/r/fixture-business/review', count: 19, diff: 7, line: '19 reviews, up 7 since we started', nfcCard: true },
     { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
     { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },

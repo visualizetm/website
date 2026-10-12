@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { readRef } from '../lib/referral';
 import { Link } from 'react-router-dom';
 import ArrowRight from '@untitled-ui/icons-react/build/esm/ArrowRight';
 import ArrowLeft from '@untitled-ui/icons-react/build/esm/ArrowLeft';
@@ -279,6 +280,7 @@ export default function Start() {
           email: f.email,
           phone: f.phone,
           fields: answers,
+          referredBy: readRef(),
         }),
       });
       if (!res.ok) throw new Error('api');

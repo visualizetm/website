@@ -312,6 +312,8 @@ function sanitize(b) {
           ...(p?.stripeEventId ? { stripeEventId: str(p.stripeEventId, 80) } : {}),
         }))
       : undefined,
+    // Referral (portal prompt 4): who sent them, written by the public form and carried, never typed.
+    referredBy: b.referredBy && typeof b.referredBy === 'object' ? { code: str(b.referredBy.code, 80), leadId: str(b.referredBy.leadId, 40), business: str(b.referredBy.business, 120) } : undefined,
     // ── Prompt 10 client fields (all additive) ──
     links: b.links && typeof b.links === 'object' ? {
       website: link(b.links.website), drive: link(b.links.drive), instagram: link(b.links.instagram),

@@ -17,6 +17,17 @@ const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
  * than newline and tab removed, so nothing that arrives here can carry a
  * CR, an escape sequence or a null into the database, the CSV or an email. */
 const clean = (v, max) => String(v ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim().slice(0, max);
+const REF_RE = /^[A-Za-z0-9_-]{3,80}$/;
+const REF_PREFIX = 10;
+/* The client a referral code names: a published showcase slug, else a portal token that starts with the code (ten characters
+ * or more, so a short code never matches by prefix). Unknown: the code alone, so Rob still sees it came with one. */
+async function resolveReferral(db, code) {
+  const leads = db.collection('call_leads');
+  const esc = code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let lead = await leads.findOne({ deleted: { $ne: true }, 'showcase.published': true, 'showcase.slug': code }, { projection: { business: 1 } });
+  if (!lead && code.length >= REF_PREFIX) lead = await leads.findOne({ deleted: { $ne: true }, 'portal.token': { $regex: `^${esc}` } }, { projection: { business: 1 } });
+  return { code, leadId: lead ? String(lead._id) : '', business: lead ? String(lead.business || '').slice(0, 120) : '' };
+}
 
 /* The form's own answers. They used to be stored as whatever object the
  * request sent (any depth, 256KB of it). Now: at most 40 keys, each key up
@@ -77,6 +88,10 @@ async function handler(req, res) {
     createdAt: new Date(),
   };
 
+  /* Referral (portal prompt 4): a brief may carry the code from a client's referral link (their showcase slug, or the first
+   * ten characters of their portal token). The code is kept as sent; the client it names is resolved below, once. */
+  const refCode = doc.type === 'start' && REF_RE.test(String(b.referredBy ?? '').trim()) ? String(b.referredBy).trim() : '';
+
   if (doc.type === 'review') {
     /* The review form's own fields. slug is the published client's showcase
      * slug from /review/<slug>, which is what lets the Reviews screen offer
@@ -108,6 +123,7 @@ async function handler(req, res) {
     return res.status(429).json({ error: doc.type === 'review' ? 'That is a few reviews in one hour. Give it a little while and try again.' : 'That is a lot of messages in one hour. Give it a little while and try again.' });
   }
   await rateHit(db, key, limit.hits);
+  if (refCode) doc.referredBy = await resolveReferral(db, refCode);
   const { insertedId } = await db.collection('submissions').insertOne(doc);
   const id = insertedId.toString();
 
@@ -133,6 +149,8 @@ async function handler(req, res) {
         lead = { _id: r.insertedId };
       }
       await db.collection('submissions').updateOne({ _id: insertedId }, { $set: { linkedLeadId: String(lead._id) } });
+      /* Referred by lands on the lead too, new or matched, unless it already says who sent them; never on the referrer's own record. */
+      if (doc.referredBy && String(doc.referredBy.leadId || '') !== String(lead._id)) await leadsCol.updateOne({ _id: lead._id, referredBy: { $exists: false } }, { $set: { referredBy: doc.referredBy } });
       if (doc.type === 'start') await tickFormReceived(leadsCol, lead._id);
     } catch { /* the submission is the record; the link is a convenience */ }
   }

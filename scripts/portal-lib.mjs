@@ -100,7 +100,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,pay,progress,brand_kit,showcase,retainer,book,contact', `all Auto with data, in the home order: home, pay, progress, brand kit, showcase, retainer, book, contact; documents (empty) and plan (no schedule) do not render (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,pay,progress,brand_kit,referral,showcase,retainer,book,contact', `all Auto with data, in the home order: home, pay, progress, brand kit, referral, showcase, retainer, book, contact; documents (empty) and plan (no schedule) do not render (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -546,6 +546,46 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   await admin({ id: LEAD, set: { portal: { modules: { book: 'on' }, siteChanges: [{ id: 'fake', taskId: 'fake', text: 'Planted', at: '2026-01-01T00:00:00.000Z' }] } } });
   ok(lead().portal.siteChanges.length === 10 && !lead().portal.siteChanges.some(e => e.id === 'fake'), 'a portal write from the CRM carries the log forward and never writes it', 'site-carry');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4k. referral (prompt 4): the card after delivery, the code (slug, else the token's first ten), never the token; the form */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tRf = lead().portal.token;
+  _stores.projects.filter(p => p.leadId === LEAD).forEach(p => { p.deliveredAt = ''; p.stage = 'design'; });
+  let rfr = await pub('GET', { token: tRf });
+  ok(!card(rfr, 'referral'), 'nothing delivered: no referral card', 'referral-gate');
+  _stores.projects.find(p => p._id === 'p0').deliveredAt = '2026-09-20T00:00:00.000Z';
+  lead().showcase = { ...(lead().showcase || {}), published: true, slug: 'sharpless-detailing' };
+  rfr = await pub('GET', { token: tRf }); let rc = card(rfr, 'referral');
+  ok(rc && rc.code === 'sharpless-detailing' && rc.url === 'https://visualizestudio.org/?ref=sharpless-detailing' && rc.message.includes(rc.url) && rc.message.includes('Sharpless'), `delivered and published: the slug is the code (${JSON.stringify(rc)})`, 'referral-code');
+  const rfk = Object.keys(rc || {}).sort().join(',');
+  ok(rfk === 'code,id,message,sensitive,title,url', `the card is exactly its fields (${rfk})`, 'card-fields');
+  lead().showcase.published = false;
+  rfr = await pub('GET', { token: tRf }); rc = card(rfr, 'referral');
+  ok(rc && rc.code === tRf.slice(0, 10) && rc.code.length === 10 && !JSON.stringify(rc).includes(tRf), `unpublished: the token's first ten characters, and the token itself never (${rc?.code})`, 'referral-code');
+  /* the form: the code resolves to the client, lands on the submission and the new lead; an unknown code keeps the code */
+  const subsH = (await load('submissions.js')).default;
+  const form = async (body) => { const req = { method: 'POST', body, headers: { 'x-forwarded-for': '203.0.113.77' }, url: '/api/submissions', socket: {} }; const res = fakeRes(); try { await subsH(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; } return res; };
+  const brief = { type: 'start', projectType: 'Website', name: 'Dana New', business: 'New Shop', email: 'dana@newshop.example', phone: '', fields: { Budget: '$500' } };
+  _stores.submissions = _stores.submissions || [];
+  let fr = await form({ ...brief, referredBy: tRf.slice(0, 10) });
+  const subOf = (email) => (_stores.submissions || []).find(x => x.email === email);
+  const leadOf = (email) => _stores.call_leads.find(x => x.email === email && !x.deleted);
+  ok(fr._status === 200 && subOf('dana@newshop.example')?.referredBy?.business === 'Sharpless Detailing' && subOf('dana@newshop.example')?.referredBy?.leadId === LEAD, `the token prefix resolves to the client on the submission (${JSON.stringify(subOf('dana@newshop.example')?.referredBy)})`, 'referral-resolve');
+  ok(leadOf('dana@newshop.example')?.referredBy?.business === 'Sharpless Detailing' && leadOf('dana@newshop.example')?.referredBy?.code === tRf.slice(0, 10), `the new lead carries Referred by (${JSON.stringify(leadOf('dana@newshop.example')?.referredBy)})`, 'referral-lead');
+  lead().showcase.published = true;
+  fr = await form({ ...brief, email: 'eli@second.example', referredBy: 'sharpless-detailing' });
+  ok(fr._status === 200 && subOf('eli@second.example')?.referredBy?.business === 'Sharpless Detailing', 'the slug resolves too', 'referral-resolve');
+  fr = await form({ ...brief, email: 'fay@third.example', referredBy: 'nobody-here' });
+  ok(fr._status === 200 && subOf('fay@third.example')?.referredBy?.code === 'nobody-here' && subOf('fay@third.example')?.referredBy?.business === '' && leadOf('fay@third.example')?.referredBy?.code === 'nobody-here', 'an unknown code is kept as the code, with no business', 'referral-keep');
+  fr = await form({ ...brief, email: 'gus@fourth.example', referredBy: 'x' });
+  const fr2 = await form({ ...brief, email: 'hal@fifth.example', referredBy: '<script>' });
+  ok(fr._status === 200 && fr2._status === 200 && subOf('gus@fourth.example')?.referredBy === undefined && subOf('hal@fifth.example')?.referredBy === undefined, 'a malformed code is dropped', 'referral-shape');
+  fr = await form({ ...brief, email: 'ivy@sixth.example', referredBy: tRf.slice(0, 6) });
+  ok(subOf('ivy@sixth.example')?.referredBy?.business === '' && subOf('ivy@sixth.example')?.referredBy?.leadId === '', 'six characters of a token never match by prefix', 'referral-prefix');
+  fr = await form({ ...brief, email: 'jo@seventh.example' });
+  ok(subOf('jo@seventh.example')?.referredBy === undefined && leadOf('jo@seventh.example')?.referredBy === undefined, 'no code, nothing written');
+  const aw = await admin({ id: LEAD, set: { referredBy: { code: 'typed', leadId: 'x', business: 'Typed In', extra: 'no' } } });
+  ok(aw._status === 200 && lead().referredBy?.business === 'Typed In' && lead().referredBy?.extra === undefined, 'the lead route carries referredBy in its shape and nothing more');
+  _stores.submissions = []; seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });

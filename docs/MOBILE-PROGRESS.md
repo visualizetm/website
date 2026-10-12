@@ -124,7 +124,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 2: the site_changes module (Need a change on your site?: the ask up to 600 characters, one picture through the Cloudinary preset at 8 MB, the confirm and the undo, the last three asks with Open or Done), the site_change door on /api/portal (the plan and website gate recomputed, the task with the note and the picture link, portal.siteChanges, the push, ten a day per token, the studio's cloud only), the lead route carrying the log forward, regression 26b at twenty card rows; portal-test 186 -> 204, guards 86 -> 96.
 
+- Milestone 3: the referral link end to end (Know someone who needs this?: the link with the slug or the token's first ten characters, Copy and Share; the site keeps ?ref= for the tab, the Start form sends referredBy, the public form resolves it to the client and stamps Referred by on the submission and the lead; the fact on the record, the line on the submission), regression 26b at twenty one card rows; portal-test 204 -> 217, guards 96 -> 103, portal-crm-test gains the referral helper.
+
 ## Next
-- Prompt 4, milestone 3: the referral link end to end.
+- Prompt 4, milestone 4: client push.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

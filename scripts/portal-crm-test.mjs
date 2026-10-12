@@ -37,4 +37,17 @@ ok(/DTEND:20261020T153000Z/.test(buildIcs({ start: '2026-10-20T15:00:00.000Z' })
 const long = buildIcs({ title: 'x'.repeat(120), start: '2026-10-20T15:00:00.000Z' });
 ok(long.split('\r\n').every(l => l.length <= 75), 'every line folds at 75');
 ok(icsDataUrl('BEGIN:VCALENDAR').startsWith('data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR'), 'the data url the Add to calendar link carries');
+
+/* The referral helper (prompt 4): the code from a search string, kept for the tab, read back; the client's code and link. */
+import { captureRef, readRef, refFromSearch, referralCode, referralUrl, REF_KEY } from '../src/lib/referral.js';
+const mem = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k) }; };
+const rst = mem();
+ok(refFromSearch('?ref=sharpless-detailing&x=1') === 'sharpless-detailing' && refFromSearch('?ref=<script>') === '' && refFromSearch('?ref=ab') === '' && refFromSearch('') === '', 'the code is read from the search and must be 3 to 80 of letters, digits, dash, underscore');
+ok(captureRef('?ref=abc123XYZ_', rst) === 'abc123XYZ_' && rst.getItem(REF_KEY) === 'abc123XYZ_' && readRef(rst) === 'abc123XYZ_', 'a ref on the page is kept for the tab and read back');
+ok(captureRef('?utm=1', rst) === '' && readRef(rst) === 'abc123XYZ_', 'a page without a ref keeps the one already there');
+rst.setItem(REF_KEY, 'bad code'); ok(readRef(rst) === '', 'a malformed stored code reads as none');
+const thrower = { getItem() { throw new Error('private'); }, setItem() { throw new Error('private'); } };
+ok(captureRef('?ref=abc', thrower) === 'abc' && readRef(thrower) === '', 'a storage that throws never breaks the page');
+ok(referralCode({ showcase: { published: true, slug: 'sharpless-detailing' }, portal: { token: 'abcdefghijklmnopqrstuvwx' } }) === 'sharpless-detailing' && referralCode({ showcase: { published: false, slug: 'sharpless-detailing' }, portal: { token: 'abcdefghijklmnopqrstuvwx' } }) === 'abcdefghij' && referralCode({ portal: { token: 'short' } }) === '' && referralCode({}) === '', 'the code is the published slug, else ten characters of the token, else none');
+ok(referralUrl('sharpless-detailing') === 'https://visualizestudio.org/?ref=sharpless-detailing' && referralUrl('') === '', 'the link carries the code');
 console.log(bad ? `\n${bad} failed.` : '\nAll checks pass.'); process.exit(bad ? 1 : 0);

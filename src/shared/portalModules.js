@@ -17,7 +17,7 @@
 import { invoicesOf, invoiceStatus } from '../lib/invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND, PRINT_PRODUCTS } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder', 'site_changes'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder', 'site_changes', 'referral'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -188,6 +188,11 @@ export function siteChangesOf(client) {
   const tasks = (Array.isArray(client?.checklists) ? client.checklists : []).flatMap(l => (Array.isArray(l?.items) ? l.items : []));
   return log.slice(-3).reverse().map(e => { const t = tasks.find(x => x?.id === e?.taskId); return { id: str(e?.id, 24), text: str(e?.text, 80), at: str(e?.at, 40), image: !!e?.image, done: !t || !!t.done }; }).filter(e => e.id && e.text);
 }
+/* Referral (prompt 4): every delivered client gets a link to hand on. The code is their showcase slug when it is published,
+ * else the first ten characters of their portal token: enough to find them, never enough to open the portal. */
+export const REF_PREFIX = 10;
+export const referralCode = (client) => { const sh = client?.showcase; if (sh?.published && /^[A-Za-z0-9_-]{3,80}$/.test(String(sh.slug || ''))) return String(sh.slug); const t = String(client?.portal?.token || ''); return t.length >= 16 ? t.slice(0, REF_PREFIX) : ''; };
+export const anyDelivered = (client, projects) => clientProjects(client, projects).some(p => p.kind !== 'retainer' && (p.deliveredAt || p.stage === 'delivered'));
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export const PORTAL_MODULES = [
@@ -424,6 +429,18 @@ export const PORTAL_MODULES = [
     resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },
   },
   {
+    id: 'referral', title: 'Know someone who needs this?', order: 125, sensitive: false, defaultState: 'auto',
+    auto: 'Renders once a project is delivered: the link with their code and a line to send with it.',
+    fields: ['url', 'code', 'message'],
+    resolve(client, projects) {
+      if (!anyDelivered(client, projects)) return null;
+      const code = referralCode(client);
+      if (!code) return null;
+      const url = `https://visualizestudio.org/?ref=${encodeURIComponent(code)}`;
+      return { url, code, message: `Rob at Visualize did the look for ${portalBusiness(client)}. If you need a site or a brand, start here: ${url}` };
+    },
+  },
+  {
     id: 'site_changes', title: 'Need a change on your site?', order: 85, sensitive: false, defaultState: 'auto',
     auto: 'Renders on an active Site Care or Growth retainer with a website project; the last three asks with their state.',
     fields: ['max', 'recent', 'line'],
@@ -446,9 +463,9 @@ export const PORTAL_MODULES = [
   },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto', referral: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto', referral: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

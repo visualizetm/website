@@ -8,6 +8,7 @@ import path from 'path';
 import { runPortal, repoRoot } from './portal-lib.mjs';
 
 const CL = '_routes/call-leads.js';
+const SB = 'submissions.js';
 const PP = '_routes/portal-public.js';
 const PM = '_lib/portalModules.js';
 const ST = '_routes/settings.js';
@@ -114,6 +115,13 @@ const CUTS = {
   'site-done': [[PM, "done: !t || !!t.done };", "done: false };"]],
   'site-limit': [[PP, "const SITE_MAX = 10;", "const SITE_MAX = 100;"]],
   'site-carry': [[CL, "        siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door\n", ""]],
+  'referral-gate': [[PM, "      if (!anyDelivered(client, projects)) return null;\n", ""]],
+  'referral-code': [[PM, "if (sh?.published && /^[A-Za-z0-9_-]{3,80}$/.test(String(sh.slug || ''))) return String(sh.slug); const t = String(client?.portal?.token || ''); return t.length >= 16 ? t.slice(0, REF_PREFIX) : ''; };", "const t = String(client?.portal?.token || ''); return t; };"]],
+  'referral-resolve': [[SB, "  if (refCode) doc.referredBy = await resolveReferral(db, refCode);\n", "  if (refCode) doc.referredBy = { code: refCode, leadId: '', business: '' };\n"]],
+  'referral-lead': [[SB, "      if (doc.referredBy && String(doc.referredBy.leadId || '') !== String(lead._id)) await leadsCol.updateOne({ _id: lead._id, referredBy: { $exists: false } }, { $set: { referredBy: doc.referredBy } });\n", ""]],
+  'referral-keep': [[SB, "return { code, leadId: lead ? String(lead._id) : '', business: lead ? String(lead.business || '').slice(0, 120) : '' };", "return lead ? { code, leadId: String(lead._id), business: String(lead.business || '').slice(0, 120) } : undefined;"]],
+  'referral-shape': [[SB, "const refCode = doc.type === 'start' && REF_RE.test(String(b.referredBy ?? '').trim()) ? String(b.referredBy).trim() : '';", "const refCode = doc.type === 'start' ? String(b.referredBy ?? '').trim() : '';"]],
+  'referral-prefix': [[SB, "if (!lead && code.length >= REF_PREFIX) lead =", "if (!lead) lead ="]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

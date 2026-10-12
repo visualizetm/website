@@ -585,6 +585,33 @@ function ReorderCard({ card, pending }) {
 }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`;
 
+/* Know someone who needs this? (prompt 4): the referral link with their code, Copy and Share. Nothing else is promised. */
+function ReferralCard({ card }) {
+  const url = safeHref(card.url);
+  const [said, setSaid] = useState('');
+  if (!url) return null;
+  const message = String(card.message || url);
+  const copy = async () => { try { await navigator.clipboard.writeText(url); setSaid('Copied. Send it to anyone.'); } catch { setSaid('Press and hold the link to copy it.'); } };
+  const share = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') { await navigator.share({ title: 'Visualize Studio', text: message, url }); setSaid(''); return; }
+      await navigator.clipboard.writeText(message); setSaid('Copied. Paste it anywhere.');
+    } catch (e) { if (e?.name !== 'AbortError') setSaid('Press and hold the link to copy it.'); }
+  };
+  return (
+    <section className="pt-card" aria-labelledby="pt-ref-h">
+      <h2 className="pt-card-h" id="pt-ref-h">Know someone who needs this?</h2>
+      <p className="pt-lead pt-lead--sm">Send them your link. I'll know they came from you.</p>
+      <p className="pt-ref-url"><Link01 width={16} height={16} aria-hidden="true" /><a href={url} target="_blank" rel="noreferrer">{url.replace(/^https:\/\//, '')}</a></p>
+      <div className="pt-actions">
+        <button type="button" className="pt-btn" onClick={copy}><Copy01 width={18} height={18} aria-hidden="true" />Copy link</button>
+        <button type="button" className="pt-btn pt-btn--ghost" onClick={share}><Share01 width={18} height={18} aria-hidden="true" />Share</button>
+      </div>
+      {said && <p className="pt-line" role="status"><span>{said}</span></p>}
+    </section>
+  );
+}
+
 /* Need a change on your site? (prompt 4): the text, one optional picture through the studio's Cloudinary preset (8 MB), the
  * confirm, the undo, and the last three asks with their state. */
 const SITE_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -714,7 +741,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard, referral: ReferralCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -920,6 +947,11 @@ const ptStyles = `
   .pt-qty { width: 84px; flex-shrink: 0; text-align: center; }
   .pt-undo { min-height: 44px; padding: 0 var(--space-3); background: transparent; border: 0; border-radius: var(--radius); color: var(--brand-text); font: inherit; font-weight: 700; cursor: pointer; }
   .pt-undo:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  /* Referral (prompt 4) */
+  .pt-ref-url { display: flex; align-items: center; gap: var(--space-2); margin: 0; min-height: 44px; overflow-wrap: anywhere; }
+  .pt-ref-url svg { flex-shrink: 0; color: var(--text-muted); }
+  .pt-ref-url a { color: var(--brand-text); font-weight: 700; text-decoration: none; }
+  .pt-ref-url a:hover, .pt-ref-url a:focus-visible { text-decoration: underline; }
   /* Site changes (prompt 4) */
   .pt-site-row { align-items: center; }
   .pt-site-thumb { display: inline-flex; align-items: center; gap: var(--space-2); }

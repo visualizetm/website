@@ -70,6 +70,7 @@ function SubmissionDetail({ sub: s, leads, onPatch, onPatchRaw, onDelete, onLink
             <h2 className="sb-name">{s.business || s.name}</h2>
             <Row gap={1} wrap><Pill id={s.type} list={SUBMISSION_TYPES} size="sm" /><Menu label="Change status" trigger={<button type="button" className="dt-pillbtn" aria-label={`Status ${s.status}, change`}><Pill id={s.status} list={LEAD_STATUSES} size="sm" /></button>} items={LEAD_STATUSES.map(x => ({ id: x.id, label: x.label, icon: x.icon, disabled: x.id === s.status, onSelect: () => onPatch(s._id, { status: x.id }) }))} />{!s.read && <Pill tone="won" label="Unread" size="sm" variant="solid" icon={false} />}</Row>
             <span className="dt-muted">{s.name}{s.projectType ? `, ${s.projectType}` : ''}, {fmtDateTime(s.createdAt)}</span>
+            {s.referredBy?.code && <span className="dt-muted sb-ref">Referred by {s.referredBy.business || `code ${s.referredBy.code}`}</span>}
           </Stack>
           {onClose && <IconButton icon={XClose} label="Close" variant="ghost" onClick={onClose} />}
         </Row>

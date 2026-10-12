@@ -29,6 +29,7 @@ export function factsFor(rec) {
     { id: 'phoneNote', label: 'Phone note', raw: lead.phoneNote || '', value: lead.phoneNote || '', onSave: save('phoneNote'), placeholder: 'Front desk, extension' },
     { id: 'bestWindow', label: 'Best window', raw: lead.bestWindow || '', value: lead.bestWindow || '', onSave: save('bestWindow'), placeholder: 'Before 8am or after 5pm' },
     { id: 'source', label: 'Source', value: lead.sourceId ? 'Nightly scraper' : 'Added by hand' },
+    lead.referredBy?.business && { id: 'referredBy', label: 'Referred by', value: lead.referredBy.business },
     { id: 'added', label: 'Added', value: fmtDate(lead.createdAt) || '' },
     { id: 'scanned', label: 'Last scanned', value: scan },
     clientMode && { id: 'primary', label: 'Primary color', raw: b.primary, value: b.primary, onSave: async (v) => { const t = v.trim(); if (t && !isHex(t)) return false; return brand({ primary: t }); }, placeholder: 'Six digit hex', errorMessage: 'Use a six digit hex color.' },

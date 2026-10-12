@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { captureRef } from './lib/referral';
 import LogoSpinner from './ui/LogoSpinner';
 import BootFrame from './shell/BootFrame';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
@@ -54,6 +55,8 @@ const ClientBoot = () => <LogoSpinner layout="page" className="client-boot" />;
 
 export default function App() {
   const location = useLocation();
+  /* A ?ref= on any marketing page is kept for the tab, so the Start form can say who sent them (src/lib/referral.js). */
+  useEffect(() => { if (!IS_ADMIN_HOST) captureRef(location.search); }, [location.search]);
   // ── Host split ─────────────────────────────────────────────────
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
