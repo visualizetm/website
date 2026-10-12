@@ -104,6 +104,16 @@ const CUTS = {
   'reorder-own': [[PP, "    const pick = picks.find(p => p.id === String(w?.id || ''));", "    const pick = picks.find(p => p.id === String(w?.id || '')) || { id: String(w?.id || ''), label: String(w?.id || ''), price: 30 };"]],
   'reorder-qty': [[PP, "    if (!Number.isInteger(qty) || qty < 1 || qty > REORDER_MAX_QTY) return res.status(400).json({ error: `quantity must be 1 to ${REORDER_MAX_QTY}` });", "    if (!(qty > 0)) return res.status(400).json({ error: `quantity must be 1 to ${REORDER_MAX_QTY}` });"]],
   'reorder-limit': [[PP, "const REORDER_MAX = 5;", "const REORDER_MAX = 50;"]],
+  'site-gate-plan': [[PM, "      if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id)) return null;\n", ""], [PP, "if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id) || !clientProjects(lead, projects).some(isWebProject)) return res.status(404).json({ error: 'not found' });", "if (!clientProjects(lead, projects).some(isWebProject)) return res.status(404).json({ error: 'not found' });"]],
+  'site-gate-web': [[PM, "      if (!clientProjects(client, projects).some(isWebProject)) return null;\n", ""], [PP, "if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id) || !clientProjects(lead, projects).some(isWebProject)) return res.status(404).json({ error: 'not found' });", "if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id)) return res.status(404).json({ error: 'not found' });"]],
+  'site-task': [[PP, "text: `Site change: ${text.slice(0, 60)}`, note: text.slice(0, 300), url: image,", "text: `Site change: ${text.slice(0, 60)}`, note: text.slice(0, 300), url: '',"]],
+  'site-log': [[PP, "'portal.siteChanges': log, updatedAt: new Date()", "updatedAt: new Date()"]],
+  'site-image': [[PP, "if (cloud && !v.startsWith(`https://res.cloudinary.com/${cloud}/`)) return ''; return v; };", "return v; };"], [PP, "if (!/^https:\\/\\/res\\.cloudinary\\.com\\//i.test(v)) return '';", ""]],
+  'site-text': [[PP, "  if (text.length > SITE_CHANGE_MAX) return res.status(400).json({ error: `keep it to ${SITE_CHANGE_MAX} characters` });\n", ""], [PP, "  if (!text) return res.status(400).json({ error: 'say what to change' });\n", ""]],
+  'site-recent': [[PM, "return log.slice(-3).reverse().map(", "return log.slice(-4).reverse().map("]],
+  'site-done': [[PM, "done: !t || !!t.done };", "done: false };"]],
+  'site-limit': [[PP, "const SITE_MAX = 10;", "const SITE_MAX = 100;"]],
+  'site-carry': [[CL, "        siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door\n", ""]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

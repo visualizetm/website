@@ -8,7 +8,8 @@ import { zoneDayKey, zoneDateAt } from '../_lib/zone.js';
 import { addTask } from '../_lib/taskRules.js';
 import { sendPush } from '../_lib/notify.js';
 import { nextMeetingFor } from '../_lib/calendly.js';
-import { portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY } from '../_lib/portalModules.js';
+import { portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY, SITE_CHANGE_MAX, SITE_CHANGE_PLANS, SITE_CHANGES_KEPT, activeRetainer, clientProjects, isWebProject, siteChangesOf } from '../_lib/portalModules.js';
+import { safeUrl } from '../_lib/url.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
  * route from the existing public function: vercel.json rewrites /api/portal
@@ -39,6 +40,7 @@ const PIN_WINDOW = 15 * 60 * 1000;
 const APPROVE_MAX = 20;
 const APPROVE_WINDOW = 60 * 60 * 1000;
 const REORDER_MAX = 5;
+const SITE_MAX = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_-]{16,64}$/.test(t) ? t : ''; };
@@ -97,6 +99,7 @@ export async function handler(req, res) {
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   if (b.action === 'approve') return approve(db, lead, token, b, res);
   if (b.action === 'reorder') return reorder(db, lead, token, b, res);
+  if (b.action === 'site_change') return siteChange(db, lead, token, b, res);
   if (b.action !== 'pin') return res.status(400).json({ error: 'unknown action' });
   if (!lead.portal?.pin) return res.status(200).json({ unlock: '' });
   const key = rateKey('ppin', token);
@@ -187,3 +190,38 @@ async function reorder(db, lead, token, b, res) {
 }
 
 export default route(handler, { methods: ['GET', 'POST'], admin: false, maxBody: 4 * 1024 });
+
+/* A site change (prompt 4): { action: 'site_change', text, image }. Only a client on Site Care or Growth with a website project
+ * (the gate recomputed here); the text 1 to 600 characters with tags stripped; the image optional and only on the studio's own
+ * Cloudinary cloud; ten a day per token (rate:psite). It writes one task on the client's Portal list ("Site change: <first 60>",
+ * the whole text in the note, the image as the link), one line in portal.siteChanges (the last ten) and a push to Rob. */
+const cloudName = () => String(process.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
+const ownImage = (u) => { const v = safeUrl(u, 600); const cloud = cloudName(); if (!/^https:\/\/res\.cloudinary\.com\//i.test(v)) return ''; if (cloud && !v.startsWith(`https://res.cloudinary.com/${cloud}/`)) return ''; return v; };
+async function siteChange(db, lead, token, b, res) {
+  const key = rateKey('psite', token);
+  const st = await rateState(db, key, { max: SITE_MAX, windowMs: DAY_MS });
+  if (st.exceeded) { res.setHeader('Retry-After', String(st.retryAfter)); return res.status(429).json({ error: 'That is a lot of changes for one day. Message me and I will sort it.' }); }
+  const projects = await db.collection('projects').find({ leadId: String(lead._id) }).project(PROJECT_PROJECTION).limit(50).toArray();
+  const ret = activeRetainer(lead);
+  if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id) || !clientProjects(lead, projects).some(isWebProject)) return res.status(404).json({ error: 'not found' });
+  const text = String(b.text || '').replace(/<\/?[a-z!][^>]*>/gi, '').replace(/\s+/g, ' ').trim();
+  if (!text) return res.status(400).json({ error: 'say what to change' });
+  if (text.length > SITE_CHANGE_MAX) return res.status(400).json({ error: `keep it to ${SITE_CHANGE_MAX} characters` });
+  const image = b.image ? ownImage(b.image) : '';
+  if (b.image && !image) return res.status(400).json({ error: 'that image did not upload' });
+  await rateHit(db, key, st.hits);
+  const business = String(lead.business || lead.askFor || 'A client').slice(0, 80);
+  const due = zoneDateAt(zoneDayKey(Date.now()), 17, 0);
+  const taskId = `sc${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+  const lists = addTask(Array.isArray(lead.checklists) ? lead.checklists : [], (lead.checklists || []).find(l => l.name === 'Portal')?.id || '', { id: taskId, text: `Site change: ${text.slice(0, 60)}`, note: text.slice(0, 300), url: image, due: new Date(due).toISOString(), source: 'manual', listName: 'Portal' });
+  const now = new Date().toISOString();
+  const entry = { id: taskId, taskId, text: text.slice(0, 80), image: !!image, at: now };
+  const log = [...(Array.isArray(lead.portal?.siteChanges) ? lead.portal.siteChanges : []), entry].slice(-SITE_CHANGES_KEPT);
+  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, 'portal.siteChanges': log, updatedAt: new Date() } });
+  try {
+    const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+    await sendPush(db, { title: `Site change from ${business}`, body: `${text.slice(0, 160)}${image ? ' (with a picture)' : ''}`, url: `${base}/clients/${encodeURIComponent(String(lead._id))}/tasks` });
+  } catch { /* the ask is stored; a push failure must not undo that */ }
+  const recent = siteChangesOf({ ...lead, checklists: lists, portal: { ...(lead.portal || {}), siteChanges: log } });
+  return res.status(200).json({ ok: true, recent, line: "Got it. I'll take a look and let you know when it's live." });
+}

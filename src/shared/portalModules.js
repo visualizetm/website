@@ -17,7 +17,7 @@
 import { invoicesOf, invoiceStatus } from '../lib/invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND, PRINT_PRODUCTS } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings', 'approvals', 'reorder', 'site_changes'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -175,6 +175,18 @@ export function reorderPicks(client, projects, orders) {
   if (!had.size) return [];
   const ids = [...REORDER_PICK_IDS.filter(id => had.has(id)), ...REORDER_PICK_IDS.filter(id => !had.has(id))];
   return ids.map(pickOf).filter(Boolean);
+}
+/* Site changes (prompt 4): a client on Site Care or Growth with a website project can ask for a change; each ask is a task on
+ * their Portal list ("Site change: <first 60 characters>", the whole text in the note, the image as the link) and a line in
+ * portal.siteChanges (the last ten, written only by the public door). The card shows the last three with the task's state. */
+export const SITE_CHANGE_MAX = 600;
+export const SITE_CHANGE_PLANS = ['site-care', 'growth'];
+export const SITE_CHANGES_KEPT = 10;
+export const isWebProject = (p) => p?.kind === 'website' || p?.kind === 'web' || p?.kind === 'combined';
+export function siteChangesOf(client) {
+  const log = Array.isArray(client?.portal?.siteChanges) ? client.portal.siteChanges : [];
+  const tasks = (Array.isArray(client?.checklists) ? client.checklists : []).flatMap(l => (Array.isArray(l?.items) ? l.items : []));
+  return log.slice(-3).reverse().map(e => { const t = tasks.find(x => x?.id === e?.taskId); return { id: str(e?.id, 24), text: str(e?.text, 80), at: str(e?.at, 40), image: !!e?.image, done: !t || !!t.done }; }).filter(e => e.id && e.text);
 }
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
@@ -412,6 +424,17 @@ export const PORTAL_MODULES = [
     resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },
   },
   {
+    id: 'site_changes', title: 'Need a change on your site?', order: 85, sensitive: false, defaultState: 'auto',
+    auto: 'Renders on an active Site Care or Growth retainer with a website project; the last three asks with their state.',
+    fields: ['max', 'recent', 'line'],
+    resolve(client, projects) {
+      const ret = activeRetainer(client);
+      if (!ret || !SITE_CHANGE_PLANS.includes(ret.plan.id)) return null;
+      if (!clientProjects(client, projects).some(isWebProject)) return null;
+      return { max: SITE_CHANGE_MAX, recent: siteChangesOf(client), line: 'Tell me what to change. A picture helps.' };
+    },
+  },
+  {
     id: 'reorder', title: 'Need more printed?', order: 95, sensitive: false, defaultState: 'auto',
     auto: 'Shows once they have had print from me (a delivered print order, or a delivered package with stickers or cards): quick picks priced from pricing.js, a note, and I invoice as today.',
     fields: ['picks', 'maxQty', 'line'],
@@ -424,8 +447,8 @@ export const PORTAL_MODULES = [
 ];
 export const PORTAL_TEMPLATES = {
   brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto', approvals: 'auto', reorder: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto', approvals: 'auto', reorder: 'auto', site_changes: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

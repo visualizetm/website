@@ -22,6 +22,8 @@ import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
 import { encodeQr } from '../lib/qr';
 import { buildIcs, icsDataUrl } from '../lib/portalIcs';
+import { cloudinaryEnabled, uploadToCloudinary, validateUploadFile, ACCEPT_ATTR } from '../lib/cloudinary';
+import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { logoSrc } from '../ui/logo.data';
@@ -583,6 +585,74 @@ function ReorderCard({ card, pending }) {
 }
 const money = (n) => `$${Number(n || 0).toLocaleString()}`;
 
+/* Need a change on your site? (prompt 4): the text, one optional picture through the studio's Cloudinary preset (8 MB), the
+ * confirm, the undo, and the last three asks with their state. */
+const SITE_IMAGE_BYTES = 8 * 1024 * 1024;
+const whenText = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+function SiteChangesCard({ card, pending }) {
+  const max = Number(card.max) || 600;
+  const [text, setText] = useState('');
+  const [image, setImage] = useState('');   // the uploaded url
+  const [upBusy, setUpBusy] = useState(false);
+  const [step, setStep] = useState('write'); // write | confirm | sent
+  const [said, setSaid] = useState('');
+  const [recent, setRecent] = useState(Array.isArray(card.recent) ? card.recent : []);
+  const fileRef = useRef(null);
+  const pick = async (f) => {
+    if (!f) return;
+    if (f.size > SITE_IMAGE_BYTES) { setSaid('That picture is over 8 MB. A screenshot or a smaller photo works.'); return; }
+    const bad = validateUploadFile(f); if (bad) { setSaid(bad); return; }
+    setUpBusy(true); setSaid('');
+    try { const r = await uploadToCloudinary(f); if (r?.url) setImage(r.url); else setSaid(r?.error || 'That picture did not upload. Try again.'); }
+    catch { setSaid('That picture did not upload. Try again.'); }
+    finally { setUpBusy(false); }
+  };
+  const send = () => {
+    const body = { action: 'site_change', text: text.trim().slice(0, max), image: image || '' };
+    setStep('sent'); setSaid('');
+    pending.start({ label: `Sending your change: ${text.trim().slice(0, 60)}${text.trim().length > 60 ? '...' : ''}`, body,
+      onDone: (d) => { setSaid(d?.line || "Got it. I'll take a look."); if (Array.isArray(d?.recent)) setRecent(d.recent); setText(''); setImage(''); },
+      onFail: (status) => { setStep('write'); setSaid(status === 429 ? 'That is a lot of changes for one day. Message me and I will sort it.' : 'That did not go through. Try again.'); },
+      onUndo: () => { setStep('write'); setSaid('Cancelled. Nothing was sent.'); } });
+  };
+  const ready = text.trim().length > 0 && !upBusy;
+  return (
+    <section className="pt-card" aria-labelledby="pt-site-h">
+      <h2 className="pt-card-h" id="pt-site-h">Need a change on your site?</h2>
+      {step !== 'sent' && <p className="pt-lead pt-lead--sm">{card.line}</p>}
+      {step === 'sent' && !said && <p className="pt-lead pt-lead--sm">Sending it. You have thirty seconds to undo below.</p>}
+      {step === 'write' && (
+        <>
+          <label className="pt-label" htmlFor="pt-site-text">What should change?</label>
+          <textarea id="pt-site-text" className="pt-input pt-textarea" rows={3} maxLength={max} value={text} onChange={(e) => setText(e.target.value.slice(0, max))} placeholder="The page, what it says now, what it should say" />
+          <div className="pt-actions pt-site-row">
+            {cloudinaryEnabled && !image && <button type="button" className="pt-btn pt-btn--ghost" onClick={() => fileRef.current?.click()} disabled={upBusy} aria-busy={upBusy ? 'true' : undefined}><Image01 width={18} height={18} aria-hidden="true" />{upBusy ? 'Uploading' : 'Add a picture'}</button>}
+            {image && <span className="pt-site-thumb"><img src={image} alt="" width={48} height={48} /><button type="button" className="pt-btn pt-btn--ghost" onClick={() => setImage('')}>Remove picture</button></span>}
+            <span className="pt-note">{text.length} of {max}</span>
+          </div>
+          {cloudinaryEnabled && <input ref={fileRef} type="file" accept={ACCEPT_ATTR} style={{ display: 'none' }} onChange={(e) => { pick(e.target.files?.[0]); e.target.value = ''; }} />}
+          <div className="pt-actions"><button type="button" className="pt-btn" disabled={!ready} onClick={() => setStep('confirm')}>Send</button></div>
+        </>
+      )}
+      {step === 'confirm' && (
+        <div className="pt-appr-box" role="group" aria-label="Confirm the change">
+          <p className="pt-pay-label">Send this?</p>
+          <p className="pt-site-quote">{text.trim()}</p>
+          {image && <img className="pt-site-preview" src={image} alt="The picture you attached" />}
+          <div className="pt-actions"><button type="button" className="pt-btn" onClick={send}><Check width={18} height={18} aria-hidden="true" />Yes, send it</button><button type="button" className="pt-btn pt-btn--ghost" onClick={() => setStep('write')}>Not yet</button></div>
+        </div>
+      )}
+      {said && <p className="pt-line" role="status"><span>{said}</span></p>}
+      {recent.length > 0 && (
+        <>
+          <p className="pt-pay-label">Your last asks</p>
+          <ul className="pt-needs">{recent.map(r => <li key={r.id} className="pt-need" data-done={r.done ? 'true' : 'false'}><span className="pt-need-text"><span className="pt-need-label">{r.text}</span><span className="pt-doc-kind">{whenText(r.at)}{r.image ? ', with a picture' : ''}</span></span><span className={`pt-site-state${r.done ? ' pt-site-state--done' : ''}`}>{r.done ? 'Done' : 'Open'}</span></li>)}</ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -644,7 +714,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -850,6 +920,14 @@ const ptStyles = `
   .pt-qty { width: 84px; flex-shrink: 0; text-align: center; }
   .pt-undo { min-height: 44px; padding: 0 var(--space-3); background: transparent; border: 0; border-radius: var(--radius); color: var(--brand-text); font: inherit; font-weight: 700; cursor: pointer; }
   .pt-undo:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+  /* Site changes (prompt 4) */
+  .pt-site-row { align-items: center; }
+  .pt-site-thumb { display: inline-flex; align-items: center; gap: var(--space-2); }
+  .pt-site-thumb img { width: 48px; height: 48px; object-fit: cover; border-radius: var(--radius); background: var(--bg); }
+  .pt-site-quote { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+  .pt-site-preview { display: block; max-width: 100%; max-height: 240px; border-radius: var(--radius); }
+  .pt-site-state { flex-shrink: 0; font-size: 0.75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--bg); color: var(--text-secondary); }
+  .pt-site-state--done { color: var(--brand-text); }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
   .pt-toast--undo { left: var(--space-4); right: var(--space-4); transform: none; width: auto; max-width: none; justify-content: space-between; gap: var(--space-3); padding-right: var(--space-2); }
   .pt-toast--undo span { flex: 1; min-width: 0; }

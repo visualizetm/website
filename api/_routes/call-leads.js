@@ -550,6 +550,7 @@ export async function handler(req, res) {
         documents: asked.documents !== undefined ? asked.documents : (Array.isArray(had.documents) ? had.documents : []),
         hours: asked.hours !== undefined ? asked.hours : (had.hours || ''),
         approvals: asked.approvals !== undefined ? asked.approvals : (Array.isArray(had.approvals) ? had.approvals : []),
+        siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door
       };
       if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };
     }

@@ -481,6 +481,72 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(rp._status === 404 && _stores.orders.length === 0, 'the door is shut for a client who never had print', 'reorder-gate');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
+  /* 4j. site changes (prompt 4): the gate (plan and a website project), the door, the task, the image rule, the limit, the last three */
+  process.env.VITE_CLOUDINARY_CLOUD_NAME = 'vztest';
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tS = lead().portal.token;
+  let sg = await pub('GET', { token: tS });
+  ok(!card(sg, 'site_changes'), 'no retainer: no site changes card', 'site-gate-plan');
+  lead().retainer = { planId: 'content-kit', amount: 250, status: 'active', billDay: 1, nextBillAt: '2026-11-01', stripeSubscriptionId: 'sub_ck' };
+  sg = await pub('GET', { token: tS });
+  ok(!card(sg, 'site_changes'), 'a Content Kit retainer is not a site plan: no card', 'site-gate-plan');
+  lead().retainer = { planId: 'site-care', amount: 100, status: 'active', billDay: 15, nextBillAt: '2026-11-15', stripeSubscriptionId: 'sub_sc' };
+  const webP = _stores.projects.filter(p => p.leadId === LEAD && ['website', 'web', 'combined'].includes(p.kind));
+  webP.forEach(p => { p.kind = 'brand'; });
+  sg = await pub('GET', { token: tS });
+  ok(!card(sg, 'site_changes'), 'Site Care without a website project: no card', 'site-gate-web');
+  webP.forEach(p => { p.kind = 'website'; });
+  sg = await pub('GET', { token: tS }); let scd = card(sg, 'site_changes');
+  ok(scd && scd.max === 600 && Array.isArray(scd.recent) && scd.recent.length === 0 && /change/.test(scd.line), `Site Care and a website project: the card, nothing asked yet (${JSON.stringify(scd)})`, 'site-gate-plan');
+  const sk = Object.keys(scd || {}).sort().join(',');
+  ok(sk === 'id,line,max,recent,sensitive,title', `the card is exactly its fields (${sk})`, 'card-fields');
+  lead().retainer = { planId: 'growth', amount: 300, status: 'active', billDay: 15, nextBillAt: '2026-11-15', stripeSubscriptionId: 'sub_g' };
+  sg = await pub('GET', { token: tS });
+  ok(!!card(sg, 'site_changes'), 'Growth counts too');
+  lead().retainer.status = 'cancelled';
+  sg = await pub('GET', { token: tS });
+  ok(!card(sg, 'site_changes'), 'a cancelled retainer: no card', 'site-gate-plan');
+  lead().retainer.status = 'active';
+  /* the door */
+  const lim3 = await load('_lib/limit.js'); const db3 = await (await load('_lib/mongo.js')).getDb();
+  await lim3.rateClear(db3, lim3.rateKey('psite', tS));
+  let sp = await pub('POST', { token: tS }, { action: 'site_change', text: '  Swap the <b>hero</b> photo for the new van, the one from Tuesday, and make the phone number bigger on the contact page   ', image: 'https://res.cloudinary.com/vztest/image/upload/v1/portal/van.jpg' });
+  const portalTasks = () => ((lead().checklists || []).find(l => l.name === 'Portal')?.items || []);
+  const scTask = () => portalTasks().find(t => /^Site change: /.test(t.text));
+  ok(sp._status === 200 && scTask() && scTask().text === 'Site change: Swap the hero photo for the new van, the one from Tuesday, a' && scTask().note.startsWith('Swap the hero photo for the new van') && scTask().url === 'https://res.cloudinary.com/vztest/image/upload/v1/portal/van.jpg' && !scTask().done, `one task: the first sixty characters as the text, the whole ask in the note, the picture as the link (${JSON.stringify({ status: sp._status, task: scTask() })})`, 'site-task');
+  ok(Array.isArray(lead().portal.siteChanges) && lead().portal.siteChanges.length === 1 && lead().portal.siteChanges[0].taskId === scTask().id && sp._json?.recent?.[0]?.done === false && sp._json?.recent?.[0]?.image === true && /let you know/.test(sp._json?.line || ''), `the ask is logged on the portal and comes back as the first recent line, open, with a picture (${JSON.stringify(sp._json)})`, 'site-log');
+  sp = await pub('POST', { token: tS }, { action: 'site_change', text: 'Change the font', image: 'https://evil.example/van.jpg' });
+  const sp2 = await pub('POST', { token: tS }, { action: 'site_change', text: 'Change the font', image: 'https://res.cloudinary.com/othercloud/image/upload/v1/van.jpg' });
+  ok(sp._status === 400 && sp2._status === 400 && lead().portal.siteChanges.length === 1, `a picture off the studio's cloud is refused (${sp._status},${sp2._status})`, 'site-image');
+  sp = await pub('POST', { token: tS }, { action: 'site_change', text: 'x'.repeat(601) });
+  const sp3 = await pub('POST', { token: tS }, { action: 'site_change', text: '   ' });
+  ok(sp._status === 400 && sp3._status === 400 && lead().portal.siteChanges.length === 1, `601 characters and a blank ask are refused (${sp._status},${sp3._status})`, 'site-text');
+  sp = await pub('POST', { token: tS }, { action: 'site_change', text: 'x'.repeat(600) });
+  ok(sp._status === 200 && lead().portal.siteChanges.length === 2, 'exactly 600 is fine, no picture needed');
+  for (let i = 0; i < 2; i++) await pub('POST', { token: tS }, { action: 'site_change', text: `Ask number ${i + 3}` });
+  sp = await pub('GET', { token: tS }); scd = card(sp, 'site_changes');
+  ok(scd.recent.length === 3 && scd.recent[0].text === 'Ask number 4' && scd.recent[2].text === 'x'.repeat(80) && scd.recent.every(r => r.done === false), `the card shows the last three, newest first, each open (${scd.recent.map(r => r.text.slice(0, 12)).join(' | ')})`, 'site-recent');
+  const t4 = portalTasks().find(t => t.text === 'Site change: Ask number 4'); t4.done = true;
+  const t3id = portalTasks().find(t => t.text === 'Site change: Ask number 3').id;
+  lead().checklists = lead().checklists.map(l => ({ ...l, items: l.items.filter(t => t.id !== t3id) }));
+  sp = await pub('GET', { token: tS }); scd = card(sp, 'site_changes');
+  ok(scd.recent[0].done === true && scd.recent[1].done === true && scd.recent[2].done === false, `a ticked task reads done, a task Rob removed reads done, the rest open (${scd.recent.map(r => r.done).join(',')})`, 'site-done');
+  const scodes = [];
+  await lim3.rateClear(db3, lim3.rateKey('psite', tS));
+  for (let i = 0; i < 11; i++) { const r11 = await pub('POST', { token: tS }, { action: 'site_change', text: `Limit ${i}` }); scodes.push(r11._status); }
+  ok(scodes.slice(0, 10).every(c => c === 200) && scodes[10] === 429 && lead().portal.siteChanges.length === 10, `ten a day per token, the eleventh is 429, the log keeps ten (${scodes.join(',')}, ${lead().portal.siteChanges.length})`, 'site-limit');
+  await lim3.rateClear(db3, lim3.rateKey('psite', tS));
+  lead().retainer.planId = 'content-kit';
+  sp = await pub('POST', { token: tS }, { action: 'site_change', text: 'Sneak one in' });
+  ok(sp._status === 404 && lead().portal.siteChanges.length === 10, 'the door is shut without a site plan', 'site-gate-plan');
+  lead().retainer.planId = 'site-care'; webP.forEach(p => { p.kind = 'brand'; });
+  sp = await pub('POST', { token: tS }, { action: 'site_change', text: 'Sneak one in' });
+  ok(sp._status === 404, 'the door is shut without a website project', 'site-gate-web');
+  webP.forEach(p => { p.kind = 'website'; });
+  /* the lead route never drops the log, and the admin cannot write it */
+  await admin({ id: LEAD, set: { portal: { modules: { book: 'on' }, siteChanges: [{ id: 'fake', taskId: 'fake', text: 'Planted', at: '2026-01-01T00:00:00.000Z' }] } } });
+  ok(lead().portal.siteChanges.length === 10 && !lead().portal.siteChanges.some(e => e.id === 'fake'), 'a portal write from the CRM carries the log forward and never writes it', 'site-carry');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });
