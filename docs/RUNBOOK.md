@@ -298,7 +298,12 @@ leaves once it is paid (the Stripe webhook or Mark paid); sending the invoice
 email also makes the invoice's own Stripe link (STRIPE_SECRET_KEY must allow
 writes; without it the card falls back to the Settings link and the client
 types the amount shown); a payment that matched no amount lands on the oldest
-open invoice with a Stripe mismatch note on the line; a task shows on
+open invoice with a Stripe mismatch note on the line; the planner,
+concepts and review cards (prompt 3) only link to those pages, so nothing
+changes in how they are made or sent; the next call needs CALENDLY_TOKEN
+and the client's email on the invitee (looked up at most every fifteen
+minutes); an approval is asked from the Portal sheet (Ask, Resend, Delete)
+and the client's answer lands as a Next up task and a push; a task shows on
 the client's Needs you card once Needs the client is on (the task row's
 menu or the task sheet, a link optional); files unlock on their own when
 every invoice is paid, or when the project is delivered with nothing open.

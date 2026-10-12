@@ -1,3 +1,7 @@
+/* The card order on the home (prompt 3), encoded as each module's order so later prompts do not argue about it:
+ * needs_you 10, pay 20, plan 25, approvals 30, concepts 40 (an approved set 155, below the documents), planner 50,
+ * progress 60, revisions 70, meetings 80, files 90, brand_kit 100, review 110, their_reviews 120, showcase 130,
+ * retainer 140, documents 150, book 160, contact 170; home is always first. */
 /* The client portal's module registry (client portal, prompt 1). One entry
  * per card; prompts 2 to 4 add cards here and nowhere else. Mirrored byte
  * for byte in api/_lib/portalModules.js below PORTAL_MODULE_IDS
@@ -167,7 +171,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'contact', title: 'Message Rob', order: 10, sensitive: false, defaultState: 'auto',
+    id: 'contact', title: 'Message Rob', order: 170, sensitive: false, defaultState: 'auto',
     auto: 'Shows when my phone or email is set under Settings, Profile.',
     fields: ['sms', 'mailto', 'instagram', 'hours'],
     resolve(client, projects, settings) {
@@ -179,7 +183,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'book', title: 'Book a call', order: 20, sensitive: false, defaultState: 'auto',
+    id: 'book', title: 'Book a call', order: 160, sensitive: false, defaultState: 'auto',
     auto: 'Shows when a Calendly link is set under Settings, Profile, else the studio link from the config; off hides it.',
     fields: ['url'],
     resolve(client, projects, settings) {
@@ -188,7 +192,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'documents', title: 'Your documents', order: 30, sensitive: false, defaultState: 'auto',
+    id: 'documents', title: 'Your documents', order: 150, sensitive: false, defaultState: 'auto',
     auto: 'Shows when at least one document link is on the list.',
     fields: ['items'],
     resolve(client) {
@@ -199,7 +203,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'showcase', title: 'Your showcase', order: 40, sensitive: false, defaultState: 'auto',
+    id: 'showcase', title: 'Your showcase', order: 130, sensitive: false, defaultState: 'auto',
     auto: 'Shows when their showcase is published.',
     fields: ['url', 'slug', 'message'],
     resolve(client) {
@@ -210,7 +214,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'pay', title: 'Pay', order: 50, sensitive: true, defaultState: 'auto',
+    id: 'pay', title: 'Pay', order: 20, sensitive: true, defaultState: 'auto',
     auto: 'Shows the oldest open invoice I have sent (a payment plan shows its next installment); gone once it is paid.',
     fields: ['label', 'amountText', 'amount', 'due', 'pastDue', 'plan', 'methods', 'hint'],
     resolve(client, projects, settings) {
@@ -227,7 +231,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'plan', title: 'Payment plan', order: 55, sensitive: true, defaultState: 'auto',
+    id: 'plan', title: 'Payment plan', order: 25, sensitive: true, defaultState: 'auto',
     auto: 'Shows on a payment plan with installments still to pay: which one is next and the dots so far.',
     fields: ['n', 'of', 'nextAmountText', 'nextDue', 'dots', 'line'],
     resolve(client, projects) {
@@ -240,7 +244,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'retainer', title: 'Retainer', order: 60, sensitive: true, defaultState: 'auto',
+    id: 'retainer', title: 'Retainer', order: 140, sensitive: true, defaultState: 'auto',
     auto: 'Shows the active retainer (plan, price, renewal, the cancel notice). With none and a delivered project, offers the one plan that fits when its Stripe link is set in Settings.',
     fields: ['mode', 'name', 'priceText', 'renews', 'notice', 'sms', 'mailto', 'url', 'pitch'],
     resolve(client, projects, settings) {
@@ -260,7 +264,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'progress', title: 'Your project', order: 15, sensitive: false, defaultState: 'auto',
+    id: 'progress', title: 'Your project', order: 60, sensitive: false, defaultState: 'auto',
     auto: 'Shows the newest active project: its stages as a track and where it is, in one line.',
     fields: ['name', 'pkg', 'stages', 'stage', 'line'],
     resolve(client, projects) {
@@ -271,7 +275,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'revisions', title: 'Revisions', order: 16, sensitive: false, defaultState: 'auto',
+    id: 'revisions', title: 'Revisions', order: 70, sensitive: false, defaultState: 'auto',
     auto: 'Shows during the revisions stage: the round in use of the rounds included, and the extra round price on the last included one.',
     fields: ['used', 'max', 'line', 'last'],
     resolve(client, projects) {
@@ -283,13 +287,13 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'needs_you', title: 'Needs you', order: 5, sensitive: false, defaultState: 'auto',
+    id: 'needs_you', title: 'Needs you', order: 10, sensitive: false, defaultState: 'auto',
     auto: 'Shows what is waiting on them: open checklist items marked Needs the client, on the client and the active project. Sits right after home.',
     fields: ['items'],
     resolve(client, projects) { const items = clientItems(client, projects); return items.length ? { items } : null; },
   },
   {
-    id: 'files', title: 'Your files', order: 35, sensitive: true, defaultState: 'auto',
+    id: 'files', title: 'Your files', order: 90, sensitive: true, defaultState: 'auto',
     auto: 'Shows the project\'s deliverables: names only until the project is paid in full, then every link, with the Drive folder first. The gate runs on the server.',
     fields: ['unlocked', 'line', 'drive', 'groups'],
     resolve(client, projects) {
@@ -310,7 +314,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'brand_kit', title: 'Brand kit', order: 36, sensitive: false, defaultState: 'auto',
+    id: 'brand_kit', title: 'Brand kit', order: 100, sensitive: false, defaultState: 'auto',
     auto: 'Shows after a brand project is delivered and the record has brand colours: the mark, the colours to copy, the fonts.',
     fields: ['logoUrl', 'colors', 'fonts'],
     resolve(client, projects) {
@@ -324,7 +328,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'planner', title: 'Content planner', order: 17, sensitive: false, defaultState: 'auto',
+    id: 'planner', title: 'Content planner', order: 50, sensitive: false, defaultState: 'auto',
     auto: 'Shows when the planner is on and has its link: this week\'s posts, how many need them, the ads live. Opens the planner with a way back.',
     fields: ['url', 'posts', 'needYou', 'adsLive', 'line'],
     resolve(client, projects, settings, ctx = {}) {
@@ -336,7 +340,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'concepts', title: 'Concepts', order: 7, sensitive: false, defaultState: 'auto',
+    id: 'concepts', title: 'Concepts', order: 40, sensitive: false, defaultState: 'auto',
     auto: 'Shows the newest shared concept set (sent, not archived) with where it stands; an approved set sinks to the bottom. Opens the presentation with a way back.',
     fields: ['url', 'name', 'state', 'stateLabel', 'cover'],
     resolve(client, projects, settings, ctx = {}) {
@@ -345,11 +349,11 @@ export const PORTAL_MODULES = [
       const state = conceptState(set);
       const first = (Array.isArray(set.directions) ? set.directions : []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))[0];
       const cover = (Array.isArray(first?.items) ? first.items : []).map(it => str(it?.image, 600)).find(u => /^https?:\/\//i.test(u)) || '';
-      return { url: `/concepts/${set.token}${fromPortal(client)}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 31 : undefined };
+      return { url: `/concepts/${set.token}${fromPortal(client)}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 155 : undefined };
     },
   },
   {
-    id: 'review', title: 'How did I do?', order: 38, sensitive: false, defaultState: 'auto',
+    id: 'review', title: 'How did I do?', order: 110, sensitive: false, defaultState: 'auto',
     auto: 'Shows once the newest project is delivered and the review link exists, until a review comes in.',
     fields: ['url', 'line'],
     resolve(client, projects) {
@@ -361,7 +365,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'their_reviews', title: 'Your reviews', order: 39, sensitive: false, defaultState: 'auto',
+    id: 'their_reviews', title: 'Your reviews', order: 120, sensitive: false, defaultState: 'auto',
     auto: 'Shows when they have a review card or a Google review link: the link with Copy, its QR, and their count since we started. Never the Visualize review.',
     fields: ['googleLink', 'count', 'diff', 'line', 'nfcCard'],
     resolve(client) {
@@ -374,7 +378,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'meetings', title: 'Your next call', order: 19, sensitive: false, defaultState: 'auto',
+    id: 'meetings', title: 'Your next call', order: 80, sensitive: false, defaultState: 'auto',
     auto: 'Shows the next call booked with me on Calendly under their email (looked up at most every fifteen minutes); nothing booked, nothing shown.',
     fields: ['at', 'end', 'name', 'join'],
     resolve(client, projects, settings, ctx = {}) {
@@ -384,7 +388,7 @@ export const PORTAL_MODULES = [
     },
   },
   {
-    id: 'approvals', title: 'Approvals', order: 6, sensitive: false, defaultState: 'auto',
+    id: 'approvals', title: 'Approvals', order: 30, sensitive: false, defaultState: 'auto',
     auto: 'Shows when something waits on their sign off; an answer stays on the card for seven days.',
     fields: ['items'],
     resolve(client) { const items = approvalsOf(client); return items.some(a => a.status === 'pending') ? { items } : null; },

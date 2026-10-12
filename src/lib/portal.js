@@ -4,7 +4,7 @@
  * The token is minted by the server (api/_routes/call-leads.js) when
  * `portal` is first sent and on { regenerate: true }; nothing here invents
  * one. The registry (src/shared/portalModules.js) is the module list. */
-import { PORTAL_MODULES, PORTAL_TEMPLATES, portalStateOf, portalUrl as sharedPortalUrl, DOCUMENT_KIND_IDS } from '../shared/portalModules.js';
+import { PORTAL_MODULES, PORTAL_TEMPLATES, portalStateOf, portalUrl as sharedPortalUrl, DOCUMENT_KIND_IDS, portalCards } from '../shared/portalModules.js';
 
 export const portalOf = (lead) => lead?.portal || null;
 export const portalUrl = (lead) => sharedPortalUrl(lead);
@@ -35,11 +35,27 @@ export const PORTAL_STATE_OPTIONS = [['off', 'Off'], ['on', 'On'], ['auto', 'Aut
 /** The modules with a control, in order, each with its state for this client. */
 export const moduleRows = (lead) => PORTAL_MODULES.filter(m => !m.fixed).sort((a, b) => a.order - b.order).map(m => ({ id: m.id, title: m.title, auto: m.auto, sensitive: !!m.sensitive, state: portalStateOf(lead, m.id) }));
 export const templateHasModule = (template, id) => !!PORTAL_TEMPLATES[template]?.[id];
-/** The message in my voice, the link included. */
-export function portalMessage(lead) {
+/** What each card is, in a sentence about the portal (prompt 3). */
+export const PORTAL_PHRASES = { needs_you: 'what I need from you', pay: 'your invoice', plan: 'your payment plan', approvals: 'things to approve', concepts: 'the concepts', planner: 'the content planner', progress: 'where your project is', revisions: 'your revision rounds', meetings: 'your next call', files: 'your files', brand_kit: 'your brand kit', review: 'a way to tell me how I did', their_reviews: 'your reviews', showcase: 'your showcase', retainer: 'your retainer', documents: 'your documents', book: 'a quick way to book a call', contact: 'a quick way to reach me' };
+/** One short sentence from the cards that render right now: "Your portal has your files, the content planner and a quick way to book a call." */
+export function portalSummary(cards) {
+  const parts = (Array.isArray(cards) ? cards : []).map(c => PORTAL_PHRASES[c?.id]).filter(Boolean);
+  if (!parts.length) return '';
+  const shown = parts.slice(0, 5); const rest = parts.length - shown.length;
+  const list = shown.length === 1 ? shown[0] : `${shown.slice(0, -1).join(', ')} and ${shown[shown.length - 1]}`;
+  return `Your portal has ${list}${rest > 0 ? `, and ${rest} more` : ''}.`;
+}
+/** The cards the client would see right now, from what the CRM holds (no Calendly here: the next call is left unsaid). */
+export const portalCardsNow = (lead, { projects = [], posts = [], sets = [], profile = null, meetingLink = '' } = {}, now = Date.now()) => {
+  const d = new Date(now); const todayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return portalCards(lead, projects, { profile: profile || {}, meetingLink }, { unlocked: true, ctx: { posts, sets, todayKey, meeting: null } });
+};
+/** The message in my voice, the link included, naming what is in the portal right now when the cards are known. */
+export function portalMessage(lead, cards = null) {
   const url = portalUrl(lead);
   const who = String(lead?.askFor || '').trim().split(/[\s,]+/)[0];
-  return `Hey${who ? ` ${who}` : ''}! Here's your page with me: everything about your work in one place, and the quickest way to reach me. Save it to your home screen and it's always a tap away: ${url}`;
+  const summary = cards ? portalSummary(cards) : '';
+  return `Hey${who ? ` ${who}` : ''}! Here's your page with me${summary ? `. ${summary}` : ': everything about your work in one place, and the quickest way to reach me.'} Save it to your home screen and it's always a tap away: ${url}`;
 }
 /** The workspace card's status: the link, the views, the last open, the PIN, the documents and how many modules are off. */
 export function portalStatus(lead) {

@@ -18,6 +18,14 @@ ok(st.on && st.views === 3 && st.pinned && st.template === 'brand' && st.documen
 ok(!P.portalStatus({}).on && P.portalStatus({}).off === 0, 'no portal: off, nothing off');
 const d = P.newDocument(' Brand guide ', 'https://x.example/g', 'weird', 0);
 ok(d.label === 'Brand guide' && d.kind === 'link' && d.addedAt === '1970-01-01T00:00:00.000Z' && d.id.startsWith('d'), 'a new document trims the label, defaults an unknown kind to link and stamps addedAt');
+/* the send message from the cards that render now (prompt 3) */
+const cards = [{ id: 'home' }, { id: 'files' }, { id: 'planner' }, { id: 'book' }];
+ok(P.portalSummary(cards) === 'Your portal has your files, the content planner and a quick way to book a call.', `the summary names the cards in one sentence (${P.portalSummary(cards)})`);
+ok(P.portalSummary([{ id: 'home' }, { id: 'pay' }]) === 'Your portal has your invoice.' && P.portalSummary([]) === '' && /and 2 more\.$/.test(P.portalSummary(['needs_you', 'pay', 'approvals', 'concepts', 'planner', 'progress', 'revisions'].map(id => ({ id })))), 'one card, no cards, and more than five');
+ok(P.portalMessage(lead, cards).startsWith("Hey Dan! Here's your page with me. Your portal has your files, the content planner and a quick way to book a call. Save it") && P.portalMessage(lead, cards).endsWith(P.portalUrl(lead)), 'the message carries the summary and the link');
+ok(P.portalMessage(lead).includes('everything about your work in one place') && !/\bwe\b/i.test(P.portalMessage(lead, cards)), 'without the cards the message keeps its plain line; never we');
+const nowCards = P.portalCardsNow({ ...lead, planner: { enabled: true, token: 'plnTOKEN0123456789abcdefghijkl' } }, { projects: [], posts: [], sets: [], profile: { phone: '555 0100' }, meetingLink: 'https://calendly.com/x' });
+ok(nowCards.map(c => c.id).join(',') === 'home,planner,documents,book', `the CRM side renders the cards from what it holds, in the home order; contact is off on this record (${nowCards.map(c => c.id).join(',')})`);
 /* the .ics builder (prompt 3) */
 const ics = buildIcs({ title: 'Studio meeting; with Rob', start: '2026-10-20T14:00:00.000Z', end: '2026-10-20T14:30:00.000Z', url: 'https://zoom.us/j/123', description: 'Line one\nline two, with a comma' }, Date.UTC(2026, 9, 12));
 ok(ics.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0') && ics.endsWith('END:VCALENDAR\r\n'), 'the file opens and closes as a calendar, CRLF lines');

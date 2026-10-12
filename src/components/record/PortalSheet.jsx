@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import { Sheet, Button, Row, Stack, Pill, QrCode, SegmentedControl, Toggle, Input, Select, InlineEdit, Menu, EmptyState, useConfirm, useMediaQuery } from '../../ui';
 import { COPY } from '../../shared/copy';
 import { relativeTime, fmtDate } from '../../shared/dates';
-import { approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
+import { apiFetch } from '../../shared/api';
+import { CALENDLY_URL } from '../../marketing/links';
+import { portalCardsNow, approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
 
 /* The Portal sheet (client portal, prompt 1): everything about one client's
  * portal link, opened from the workspace's Portal card. The link (copy,
@@ -119,14 +121,19 @@ function ApprovalsEditor({ lead, patch, toast, readOnly }) {
 }
 
 export default function PortalSheet({ rec, onClose }) {
-  const { lead, readOnly, patch, toast } = rec;
+  const { lead, readOnly, patch, toast, shell } = rec;
   const [confirm, confirmDialog] = useConfirm();
+  /* The send message names what is in the portal right now (prompt 3): the cards the registry renders from what the CRM holds, the
+   * profile fetched once when the shell does not carry it. Rebuilt on every render, so it is live when the button is tapped. */
+  const [profile, setProfile] = useState(() => shell?.profile || null);
+  useEffect(() => { if (profile) return undefined; let live = true; apiFetch('/api/admin/settings', { silent: true }).then(r => { if (live && r.ok && r.data?.profile) setProfile(r.data.profile); }); return () => { live = false; }; }, [profile]);
+  const cardsNow = portalCardsNow(lead, { projects: shell?.projects || [], posts: shell?.posts || [], sets: shell?.sets || [], profile, meetingLink: CALENDLY_URL });
   const [busy, setBusy] = useState(false);
   const [pinDraft, setPinDraft] = useState('');
   const [pinOpen, setPinOpen] = useState(false);
   const p = portalOf(lead) || {};
   const url = portalUrl(lead);
-  const message = portalMessage(lead);
+  const message = portalMessage(lead, cardsNow);
   const rows = moduleRows(lead);
   const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const generate = async (regenerate = false) => {

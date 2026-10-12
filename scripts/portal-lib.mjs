@@ -99,7 +99,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.views === 1, 'two more reads in the same hour do not count again (rate:pview)', 'view-debounce');
 
   /* 4. the cards all Auto: every module with data renders, in order; the home line reads the newest active project */
-  ok(cardIds(live) === 'home,contact,progress,book,brand_kit,showcase,pay,retainer', `all Auto with data: home, contact, progress, book, brand kit, showcase, pay, retainer render in order, documents (empty) and plan (no schedule) do not (${cardIds(live)})`, 'auto-empty');
+  ok(cardIds(live) === 'home,pay,progress,brand_kit,showcase,retainer,book,contact', `all Auto with data, in the home order: home, pay, progress, brand kit, showcase, retainer, book, contact; documents (empty) and plan (no schedule) do not render (${cardIds(live)})`, 'auto-empty');
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
@@ -297,7 +297,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(pl && pl.url === `/planner/myPLANNERtoken0123456789abcdefgh?from=portal&c=${tK}` && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
   let cc = card(rk, 'concepts');
   ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === `/concepts/newSETtoken0123456789abcdefghij?from=portal&c=${tK}` && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
-  ok(cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('contact'), `a waiting set sits near the top (${cardIds(rk)})`, 'concepts-order');
+  ok(cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('contact') && cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('progress'), `a waiting set sits near the top, before the project (${cardIds(rk)})`, 'concepts-order');
   _stores.concept_sets.find(x => x._id === 'cs-new').status = 'changes';
   rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
   ok(cc?.state === 'changes' && cc?.stateLabel === 'Changes requested', 'changes requested maps', 'concepts-state');

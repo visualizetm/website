@@ -580,12 +580,9 @@ export const PORTAL_TOKEN = 'prtlTESTtoken0123456789abcd';
 export const PORTAL_RESOLVE = {
   client: { firstName: 'Damian', business: 'Lead Business 12', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8' },
   cards: [
+    /* In the home order the registry sorts by (docs/PORTAL-DESIGN.md), so the audits see what the client sees. */
     { id: 'home', title: 'Home', sensitive: false, status: 'Website: Design' },
-    { id: 'contact', title: 'Message Rob', sensitive: false, sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com', instagram: 'visualizetm', hours: 'Weekdays 9 to 5' },
-    { id: 'book', title: 'Book a call', sensitive: false, url: 'https://calendly.com/contactvisualize/studio-meeting' },
-    { id: 'documents', title: 'Your documents', sensitive: false, items: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf' }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet' }, { id: 'd3', label: 'Shared folder', url: 'https://drive.google.com/drive/folders/fixture', kind: 'drive' }] },
-    { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
-    /* Prompt 2: the money cards, all four ways to pay, a plan at its third installment, an active retainer. */
+    { id: 'needs_you', title: 'Needs you', sensitive: false, items: [{ id: 'n1', text: 'Fill in the content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', owner: 'Website' }, { id: 'n2', text: 'Send me the photos from the shoot', url: '', owner: '' }] },
     { id: 'pay', title: 'Pay', sensitive: true, label: 'Payment 3 of 6', amountText: '$200', amount: 200, due: '2026-10-15', pastDue: false, plan: true, methods: [
       { id: 'card', name: 'Card or Apple Pay', line: 'Pay securely through Stripe', url: 'https://buy.stripe.com/fixture' },
       { id: 'cashapp', name: 'Cash App', line: '$visualize, the amount filled in', url: 'https://cash.app/$visualize/200' },
@@ -593,19 +590,21 @@ export const PORTAL_RESOLVE = {
       { id: 'zelle', name: 'Zelle', line: "Send it here and I'll confirm", copy: 'contact@visualizeclients.com', kind: 'email' },
     ], hint: "Sent one of these? It'll show as paid once I see it, usually the same day." },
     { id: 'plan', title: 'Payment plan', sensitive: true, n: 3, of: 6, nextAmountText: '$200', nextDue: '2026-10-15', dots: ['paid', 'paid', 'open', 'open', 'open', 'open'], line: 'Your files unlock after the last payment.' },
-    { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },
+    { id: 'approvals', title: 'Approvals', sensitive: false, items: [{ id: 'ap1', label: 'Homepage hero, round two', url: 'https://drive.google.com/file/d/fixture-hero', status: 'pending', note: '', requestedAt: new Date(Date.now() - 864e5).toISOString(), respondedAt: '' }, { id: 'ap2', label: 'Business card back', url: '', status: 'approved', note: '', requestedAt: new Date(Date.now() - 3 * 864e5).toISOString(), respondedAt: new Date(Date.now() - 2 * 864e5).toISOString() }] },
+    { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
+    { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
     { id: 'progress', title: 'Your project', sensitive: false, name: 'Website', pkg: 'web complete', stages: [{ id: 'kickoff', label: 'Kickoff' }, { id: 'design', label: 'Design' }, { id: 'revisions', label: 'Revisions' }, { id: 'build', label: 'Build' }, { id: 'delivery', label: 'Delivery' }, { id: 'delivered', label: 'Delivered' }], stage: 'revisions', line: 'Round 1 of 2' },
     { id: 'revisions', title: 'Revisions', sensitive: false, used: 1, max: 2, last: true, line: 'This is your last included round. Extra rounds are $50 for design and $75 for web.' },
-    { id: 'needs_you', title: 'Needs you', sensitive: false, items: [{ id: 'n1', text: 'Fill in the content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', owner: 'Website' }, { id: 'n2', text: 'Send me the photos from the shoot', url: '', owner: '' }] },
+    { id: 'meetings', title: 'Your next call', sensitive: false, at: new Date(Date.now() + 3 * 864e5).toISOString(), end: new Date(Date.now() + 3 * 864e5 + 30 * 60e3).toISOString(), name: 'Studio meeting', join: 'https://zoom.us/j/fixture' },
     { id: 'files', title: 'Your files', sensitive: true, unlocked: false, line: 'Unlocks when the project is paid in full.', drive: '', groups: [{ group: 'logo', items: [{ label: 'Logo, full colour' }, { label: 'Logo, one colour' }] }, { group: 'web', items: [{ label: 'Site source' }] }] },
     { id: 'brand_kit', title: 'Brand kit', sensitive: false, logoUrl: '/showcase/fixtures/logo.svg', colors: [{ hex: '#1d4ed8', name: 'Blue' }, { hex: '#111111', name: '' }], fonts: ['Inter', 'Georgia'] },
-    /* Prompt 3: the token pages as cards, each linking to its page with the way back. */
-    { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
-    { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
     { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal&c=prtlTESTtoken0123456789abcd', line: 'A minute of your time, and it helps more than you know.' },
     { id: 'their_reviews', title: 'Your reviews', sensitive: false, googleLink: 'https://g.page/r/fixture-business/review', count: 19, diff: 7, line: '19 reviews, up 7 since we started', nfcCard: true },
-    { id: 'approvals', title: 'Approvals', sensitive: false, items: [{ id: 'ap1', label: 'Homepage hero, round two', url: 'https://drive.google.com/file/d/fixture-hero', status: 'pending', note: '', requestedAt: new Date(Date.now() - 864e5).toISOString(), respondedAt: '' }, { id: 'ap2', label: 'Business card back', url: '', status: 'approved', note: '', requestedAt: new Date(Date.now() - 3 * 864e5).toISOString(), respondedAt: new Date(Date.now() - 2 * 864e5).toISOString() }] },
-    { id: 'meetings', title: 'Your next call', sensitive: false, at: new Date(Date.now() + 3 * 864e5).toISOString(), end: new Date(Date.now() + 3 * 864e5 + 30 * 60e3).toISOString(), name: 'Studio meeting', join: 'https://zoom.us/j/fixture' },
+    { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
+    { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },
+    { id: 'documents', title: 'Your documents', sensitive: false, items: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf' }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet' }, { id: 'd3', label: 'Shared folder', url: 'https://drive.google.com/drive/folders/fixture', kind: 'drive' }] },
+    { id: 'book', title: 'Book a call', sensitive: false, url: 'https://calendly.com/contactvisualize/studio-meeting' },
+    { id: 'contact', title: 'Message Rob', sensitive: false, sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com', instagram: 'visualizetm', hours: 'Weekdays 9 to 5' },
   ],
   pinned: false, unlocked: true, paid: false,
 };

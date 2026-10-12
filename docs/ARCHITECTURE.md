@@ -176,7 +176,16 @@ each side from its own mirrors. An invoice gets its own Stripe payment link
 when its email is sent (api/_lib/stripe.js createPaymentLink, stored as
 payUrl and paymentLinkId on the line); the webhook matches that link id
 first, then the amount, then the oldest open sent line with stripeMismatch
-written on it (scripts/stripe-pay-test.mjs).
+written on it (scripts/stripe-pay-test.mjs). Prompt 3 folded the token
+pages in as cards (planner, concepts, review, their_reviews) linking to
+those pages with their own tokens and `?from=portal&c=<token>` for the
+back chip in src/components/ClientPageChrome.jsx, added meetings over
+api/_lib/calendly.js (the next call under the client's email, cached
+fifteen minutes per client in settings under rate:pcal) with a .ics from
+src/lib/portalIcs.js, and approvals (portal.approvals on the lead, the
+approve door on /api/portal with its task and push). The route hands
+resolve a fourth argument, ctx, with the client's posts, concept sets,
+today's key and the cached meeting; the home order is each module's order.
 
 ## Client docs (docs job)
 

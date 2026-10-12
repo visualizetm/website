@@ -85,10 +85,49 @@ PIN they come as their title only until the device unlocks.
 | plan | a project has `plan.months` and an unpaid installment: Payment n of m, the next date and amount, a dot per installment, the unlock line |
 | retainer | lead.retainer is active with a plan pricing.js knows (name, price, renewal from nextBillAt or the bill day, the 30 day notice, Message Rob); else, after a delivered project, the one offer (Site Care for web, Content Kit for brand, Growth for both) when settings.profile.retainerLinks[id] is set; never two |
 
+## Auto rules (prompt 3)
+
+The token pages as cards: each links to its page with that page's own
+token (never a new one) plus `?from=portal&c=<portal token>`; the shared
+client bar (src/components/ClientPageChrome.jsx, `portalBackHref`) reads
+it and shows one Back to your portal chip. That is the back chip contract:
+the param, the shape check on the token, one chip, nothing else changes.
+
+| Module | Shows when |
+|---|---|
+| planner | lead.planner.enabled with its token: this week's posts (the studio's Monday to Sunday), how many are in review, the ads live |
+| concepts | the newest concept set with a token that is sent or later and not archived: its state (Waiting on you, Changes requested, Approved), the first direction's first image; an approved set sinks below the documents (`_order`) |
+| review | the newest non retainer project has deliveredAt, reviews.visualize.token exists, and no pending or approved testimonial yet |
+| their_reviews | reviews.nfcCard or a Google review link: the link with Copy, its QR (the shared encoder drawn on the page), the count line ("19 reviews, up 7 since we started" only when the diff is positive). Never the Visualize review |
+| meetings | the next active Calendly event under the client's email (api/_lib/calendly.js, cached fifteen minutes per client under rate:pcal); the time in the device's zone, Join, Add to calendar (a .ics built on the page) |
+| approvals | at least one pending item on portal.approvals; an answer stays seven days; Approve or Request changes post to the approve door |
+
+`resolve` may take a fourth argument, `ctx`, the bag the route fills beside
+the records: `{ posts, sets, todayKey, meeting }`. A resolve may return
+`_order` to move its card for one state; `portalCards` reads it and
+`cardOf` never sends it.
+
+## The card order on the home
+
+Encoded as each module's `order` (home is always first): needs_you 10,
+pay 20, plan 25, approvals 30, concepts 40 (an approved set 155), planner
+50, progress 60, revisions 70, meetings 80, files 90, brand_kit 100, review
+110, their_reviews 120, showcase 130, retainer 140, documents 150, book
+160, contact 170.
+
+## The approve door
+
+`POST /api/portal?token=xxx { action: 'approve', id, decision: 'approved' |
+'changes', note }`: the item must be on this token's own record and still
+pending (another client's id is a 404, a second answer a 409), changes
+needs a note (tags stripped, 400 characters), twenty answers an hour per
+token (rate:papp). The answer writes the item, a Next up task on the
+client's Portal list due today at five, and a push to Rob.
+
 ## Templates
 
 Brand, Website, Retainer. Choosing one sets `portal.modules` to that
-template's map (`PORTAL_TEMPLATES`); every map is all Auto (Brand: pay, plan, progress, revisions, needs_you, files, brand_kit, retainer; Website: the same without brand_kit; Retainer: pay, retainer, needs_you; plus the prompt 1 cards), and
+template's map (`PORTAL_TEMPLATES`); every map is all Auto (Brand: pay, plan, progress, revisions, needs_you, files, brand_kit, retainer, concepts, review, approvals; Website: the same without brand_kit, plus meetings; Retainer: pay, retainer, needs_you, planner, their_reviews, meetings, approvals; plus the prompt 1 cards), and
 later prompts put their modules into the maps where they belong.
 
 ## The security model
@@ -118,7 +157,7 @@ later prompts put their modules into the maps where they belong.
   requires its check to fail.
 - Every string the CRM stores is capped and every url goes through safeUrl.
 
-## How to add a module (prompts 3 and 4)
+## How to add a module (prompt 4)
 
 1. Add one entry to `src/shared/portalModules.js` with id, title, order,
    sensitive, defaultState, auto, fields and resolve; copy the file's body
