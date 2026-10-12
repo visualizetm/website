@@ -113,7 +113,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 2: the How did I do? card (delivered, the link, no review yet; gone after one) and the Your reviews card (the Google link with Copy, its QR from the shared encoder with Download PNG, the count line "19 reviews, up 7 since we started"); the back chip on the review page too; portal-test 136 -> 147, guards 58 -> 62.
 
+- Milestone 3: the meetings module over api/_lib/calendly.js (the next call under their email, cached fifteen minutes per client in settings with the rate key pattern, the soonest of two), the card with the time in the device's zone, Join and Add to calendar from src/lib/portalIcs.js; portal-test 147 -> 156, guards 62 -> 68, portal-crm-test gains the .ics checks.
+
 ## Next
-- Prompt 3 milestone 3: the meetings card with the Calendly helper, the cache and the .ics builder.
+- Prompt 3 milestone 4: approvals, the approve POST, Next up and push, the CRM list.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

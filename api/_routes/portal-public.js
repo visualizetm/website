@@ -4,6 +4,7 @@ import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit, rateClear } from '../_lib/limit.js';
 import { sessionSecret, meetingLink } from '../_lib/config.js';
 import { zoneDayKey } from '../_lib/zone.js';
+import { nextMeetingFor } from '../_lib/calendly.js';
 import { portalCards, portalClient, unseenPayment } from '../_lib/portalModules.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
@@ -65,8 +66,11 @@ export async function handler(req, res) {
       db.collection('posts').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(POST_PROJECTION).limit(400).toArray(),
       db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true } }).project(SET_PROJECTION).limit(40).toArray(),
     ]);
-    /* Prompt 3: what the token page cards read, beside the records: this client's posts and concept sets, and today's key in the studio's zone. */
-    const ctx = { posts, sets, todayKey: zoneDayKey(Date.now()) };
+    /* Prompt 3: what the token page cards read, beside the records: this client's posts and concept sets, today's key in the studio's
+     * zone, and the next Calendly call under their email (read apart, so the record resolve sees never carries the email). */
+    const who = await db.collection('call_leads').findOne({ _id: lead._id }, { projection: { email: 1 } });
+    const meeting = await nextMeetingFor(db, lead._id, who?.email);
+    const ctx = { posts, sets, todayKey: zoneDayKey(Date.now()), meeting };
     const key = rateKey('pview', token);
     const st = await rateState(db, key, { max: 1, windowMs: HOUR });
     if (!st.exceeded) {

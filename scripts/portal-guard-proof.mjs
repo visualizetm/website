@@ -11,6 +11,7 @@ const CL = '_routes/call-leads.js';
 const PP = '_routes/portal-public.js';
 const PM = '_lib/portalModules.js';
 const ST = '_routes/settings.js';
+const CA = '_lib/calendly.js';
 const CUTS = {
   mint: [[CL, "token: !mint ? had.token : randomBytes(18).toString('base64url'),", "token: !mint ? had.token : randomBytes(6).toString('base64url'),"]],
   'carry-forward': [
@@ -79,6 +80,12 @@ const CUTS = {
   'review-submitted': [[PM, "      if (!url || hasTestimonial(client)) return null;", "      if (!url) return null;"]],
   'reviews-diff': [[PM, "  return `${latest} review${latest === 1 ? '' : 's'}${diff > 0 ? `, up ${diff} since we started` : ''}`;", "  return `${latest} review${latest === 1 ? '' : 's'}`;"]],
   'reviews-gate': [[PM, "      if (!r.nfcCard && !googleLink) return null;\n", ""]],
+  'cal-token': [[CA, "  if (!calendlyToken()) return null;\n  const key = rateKey('pcal', String(leadId));", "  const key = rateKey('pcal', String(leadId));"], [CA, "  if (!token || !mail) return null;", "  if (!mail) return null;"]],
+  'cal-match': [[CA, "      if (invitees.some(inv => String(inv?.email || '').trim().toLowerCase() === mail)) return shape(ev);", "      if (invitees.length) return shape(ev);"]],
+  'cal-cache': [[CA, "  if (doc && Number.isFinite(Number(doc.at)) && Date.now() - Number(doc.at) < MEETING_CACHE_MS) return doc.data || null;\n", ""]],
+  'cal-ttl': [[CA, "export const MEETING_CACHE_MS = 15 * 60e3;", "export const MEETING_CACHE_MS = 15 * 60e9;"]],
+  'cal-soonest': [[CA, "    const sorted = [...collection].sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));", "    const sorted = [...collection];"]],
+  'cal-past': [[PM, "      if (!m || !m.at || Date.parse(m.at) < Date.now() - 60 * 60e3) return null;", "      if (!m || !m.at) return null;"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

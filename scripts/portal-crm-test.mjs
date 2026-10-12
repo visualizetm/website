@@ -2,6 +2,7 @@
 /* The CRM side of the client portal (src/lib/portal.js): the link, the patches, the message, the rows and the status.   node scripts/portal-crm-test.mjs */
 import * as P from '../src/lib/portal.js';
 import { PORTAL_MODULES } from '../src/shared/portalModules.js';
+import { buildIcs, icsDataUrl } from '../src/lib/portalIcs.js';
 let bad = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) bad++; };
 const lead = { _id: 'x', business: 'Sharpless Detailing', askFor: 'Dan the owner', portal: { token: 'abcdefghijklmnopqrstuvwx', views: 3, lastViewedAt: '2026-10-01T00:00:00.000Z', pin: 'hash', template: 'brand', modules: { contact: 'off' }, documents: [{ id: 'd1', label: 'A', url: 'https://a.example', kind: 'pdf' }] } };
 ok(P.portalUrl(lead) === 'https://visualizestudio.org/c/abcdefghijklmnopqrstuvwx' && P.portalUrl({}) === '', 'the link is the base plus the token, empty without one');
@@ -17,4 +18,13 @@ ok(st.on && st.views === 3 && st.pinned && st.template === 'brand' && st.documen
 ok(!P.portalStatus({}).on && P.portalStatus({}).off === 0, 'no portal: off, nothing off');
 const d = P.newDocument(' Brand guide ', 'https://x.example/g', 'weird', 0);
 ok(d.label === 'Brand guide' && d.kind === 'link' && d.addedAt === '1970-01-01T00:00:00.000Z' && d.id.startsWith('d'), 'a new document trims the label, defaults an unknown kind to link and stamps addedAt');
+/* the .ics builder (prompt 3) */
+const ics = buildIcs({ title: 'Studio meeting; with Rob', start: '2026-10-20T14:00:00.000Z', end: '2026-10-20T14:30:00.000Z', url: 'https://zoom.us/j/123', description: 'Line one\nline two, with a comma' }, Date.UTC(2026, 9, 12));
+ok(ics.startsWith('BEGIN:VCALENDAR\r\nVERSION:2.0') && ics.endsWith('END:VCALENDAR\r\n'), 'the file opens and closes as a calendar, CRLF lines');
+ok(/DTSTART:20261020T140000Z\r\n/.test(ics) && /DTEND:20261020T143000Z\r\n/.test(ics) && /DTSTAMP:20261012T000000Z/.test(ics), 'start, end and stamp in UTC');
+ok(/SUMMARY:Studio meeting\\; with Rob/.test(ics) && /DESCRIPTION:Line one\\nline two\\, with a comma/.test(ics) && /URL:https:\/\/zoom.us\/j\/123/.test(ics), 'semicolons, commas and newlines are escaped');
+ok(/DTEND:20261020T153000Z/.test(buildIcs({ start: '2026-10-20T15:00:00.000Z' })) && buildIcs({ start: 'nope' }) === '' && buildIcs({}) === '', 'no end: thirty minutes; no start: nothing');
+const long = buildIcs({ title: 'x'.repeat(120), start: '2026-10-20T15:00:00.000Z' });
+ok(long.split('\r\n').every(l => l.length <= 75), 'every line folds at 75');
+ok(icsDataUrl('BEGIN:VCALENDAR').startsWith('data:text/calendar;charset=utf-8,BEGIN%3AVCALENDAR'), 'the data url the Add to calendar link carries');
 console.log(bad ? `\n${bad} failed.` : '\nAll checks pass.'); process.exit(bad ? 1 : 0);

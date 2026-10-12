@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews', 'meetings'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -356,11 +356,21 @@ export const PORTAL_MODULES = [
       return { googleLink, count: Number.isFinite(latest) ? latest : null, diff, line: theirReviewsLine(r), nfcCard: !!r.nfcCard };
     },
   },
+  {
+    id: 'meetings', title: 'Your next call', order: 19, sensitive: false, defaultState: 'auto',
+    auto: 'Shows the next call booked with me on Calendly under their email (looked up at most every fifteen minutes); nothing booked, nothing shown.',
+    fields: ['at', 'end', 'name', 'join'],
+    resolve(client, projects, settings, ctx = {}) {
+      const m = ctx.meeting;
+      if (!m || !m.at || Date.parse(m.at) < Date.now() - 60 * 60e3) return null;
+      return { at: str(m.at, 40), end: str(m.end, 40), name: str(m.title, 120) || 'Call with Rob', join: /^https:\/\//i.test(String(m.join || '')) ? str(m.join, 400) : '' };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
   brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto', meetings: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto', meetings: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

@@ -354,6 +354,43 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!flatV.includes(OTHER_REVIEW) && !flatV.includes('g.page/r/other') && flatV.split('myREVIEWtoken').length === 2 && String(card(rv, 'review')?.url || '').includes('myREVIEWtoken'), 'no other client\'s review token or link leaves, and the review token itself rides once, inside the review card\'s url', 'token-isolation');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
+  /* 4g. the next call (prompt 3): Calendly behind a fifteen minute cache per client, matched by email, the soonest of two */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tC = lead().portal.token;
+  const realFetch = globalThis.fetch; let calCalls = 0; let invitees = {};
+  const soon = new Date(Date.now() + 2 * 864e5).toISOString(); const later = new Date(Date.now() + 5 * 864e5).toISOString();
+  const events = () => ({ collection: [
+    { uri: 'https://api.calendly.com/scheduled_events/EVLATER', name: 'Studio meeting', start_time: later, end_time: new Date(Date.parse(later) + 1800e3).toISOString(), location: { join_url: 'https://zoom.us/j/later' } },
+    { uri: 'https://api.calendly.com/scheduled_events/EVSOON', name: 'Studio meeting', start_time: soon, end_time: new Date(Date.parse(soon) + 1800e3).toISOString(), location: { join_url: 'https://zoom.us/j/soon' } },
+  ] });
+  globalThis.fetch = async (url) => { const u = String(url); const json = (o) => ({ ok: true, status: 200, json: async () => o }); if (!u.includes('api.calendly.com')) return realFetch(url); calCalls += 1; if (u.endsWith('/users/me')) return json({ resource: { uri: 'https://api.calendly.com/users/ME' } }); if (u.includes('/scheduled_events?')) return json(events()); const m = /scheduled_events\/(EV\w+)\/invitees/.exec(u); if (m) return json({ collection: invitees[m[1]] || [] }); return { ok: false, status: 404, json: async () => ({}) }; };
+  try {
+    delete process.env.CALENDLY_TOKEN; delete process.env.CALENDLY_PAT; calCalls = 0;
+    let rc = await pub('GET', { token: tC });
+    ok(!card(rc, 'meetings') && calCalls === 0, 'no Calendly token: no card and no call', 'cal-token');
+    process.env.CALENDLY_TOKEN = 'cal_test_not_real';
+    invitees = { EVLATER: [{ email: 'someone@else.example' }], EVSOON: [{ email: 'nobody@else.example' }] }; calCalls = 0;
+    rc = await pub('GET', { token: tC });
+    ok(!card(rc, 'meetings') && calCalls === 4, `no invitee matches: no card after one lookup (me, events, two invitee reads: ${calCalls} calls)`, 'cal-match');
+    ok(_stores.settings.some(d => String(d._id).startsWith('rate:pcal:') && d.data === null), 'a miss is cached too', 'cal-cache');
+    calCalls = 0; rc = await pub('GET', { token: tC });
+    ok(calCalls === 0, 'a second read within fifteen minutes makes no call', 'cal-cache');
+    _stores.settings.find(d => String(d._id).startsWith('rate:pcal:')).at = Date.now() - 16 * 60e3;
+    invitees = { EVLATER: [{ email: 'OWNER@sharpless.example' }], EVSOON: [{ email: 'nobody@else.example' }] }; calCalls = 0;
+    rc = await pub('GET', { token: tC }); let meet = card(rc, 'meetings');
+    ok(calCalls > 0 && meet && meet.at === later && meet.join === 'https://zoom.us/j/later' && meet.name === 'Studio meeting' && meet.end, `after fifteen minutes Calendly is asked again; the email matches whatever its case (${JSON.stringify(meet)})`, 'cal-ttl');
+    const mk = Object.keys(meet || {}).sort().join(',');
+    ok(mk === 'at,end,id,join,name,sensitive,title', `the card is exactly { at, end, name, join } beside its title (${mk})`, 'card-fields');
+    ok(!JSON.stringify(rc._json).includes('sharpless.example') && !JSON.stringify(rc._json).includes('scheduled_events'), 'no email and no Calendly uri leaves');
+    _stores.settings = _stores.settings.filter(d => !String(d._id).startsWith('rate:pcal:'));
+    invitees = { EVLATER: [{ email: 'owner@sharpless.example' }], EVSOON: [{ email: 'x@y.example' }, { email: 'owner@sharpless.example' }] };
+    rc = await pub('GET', { token: tC }); meet = card(rc, 'meetings');
+    ok(meet?.at === soon && meet?.join === 'https://zoom.us/j/soon', 'two events match: the soonest wins', 'cal-soonest');
+    _stores.settings.find(d => String(d._id).startsWith('rate:pcal:')).data = { at: new Date(Date.now() - 3 * 3600e3).toISOString(), end: '', title: 'Old', join: '' };
+    rc = await pub('GET', { token: tC });
+    ok(!card(rc, 'meetings'), 'a call that already happened is not shown', 'cal-past');
+  } finally { globalThis.fetch = realFetch; delete process.env.CALENDLY_TOKEN; }
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });

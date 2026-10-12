@@ -21,6 +21,7 @@ import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL } from '../marketing/lin
 import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
 import { encodeQr } from '../lib/qr';
+import { buildIcs, icsDataUrl } from '../lib/portalIcs';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { logoSrc } from '../ui/logo.data';
@@ -425,6 +426,26 @@ function TheirReviewsCard({ card, client }) {
   );
 }
 
+/* Your next call (prompt 3): the date and time in the device's own zone, the join link, Add to calendar as a .ics built here. */
+const fmtWhen = (iso) => { const d = new Date(iso); if (Number.isNaN(d.getTime())) return ''; return d.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+function MeetingsCard({ card }) {
+  const join = safeHref(card.join);
+  const when = fmtWhen(card.at);
+  if (!when) return null;
+  const ics = icsDataUrl(buildIcs({ title: card.name || 'Call with Rob', start: card.at, end: card.end, url: join, description: 'Booked through Visualize.' }));
+  return (
+    <section className="pt-card" aria-labelledby="pt-meet-h">
+      <h2 className="pt-card-h" id="pt-meet-h">Your next call</h2>
+      <p className="pt-pay-amount">{when}</p>
+      <p className="pt-note">{card.name}. Shown in your time.</p>
+      <div className="pt-actions">
+        {join && <a className="pt-btn" href={join} target="_blank" rel="noreferrer">Join the call<ArrowUpRight width={16} height={16} aria-hidden="true" /></a>}
+        <a className="pt-btn pt-btn--ghost" href={ics} download="call-with-rob.ics"><Calendar width={18} height={18} aria-hidden="true" />Add to calendar</a>
+      </div>
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -486,7 +507,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard };
 
 export default function Portal() {
   const { token = '' } = useParams();

@@ -604,6 +604,7 @@ export const PORTAL_RESOLVE = {
     { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
     { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal&c=prtlTESTtoken0123456789abcd', line: 'A minute of your time, and it helps more than you know.' },
     { id: 'their_reviews', title: 'Your reviews', sensitive: false, googleLink: 'https://g.page/r/fixture-business/review', count: 19, diff: 7, line: '19 reviews, up 7 since we started', nfcCard: true },
+    { id: 'meetings', title: 'Your next call', sensitive: false, at: new Date(Date.now() + 3 * 864e5).toISOString(), end: new Date(Date.now() + 3 * 864e5 + 30 * 60e3).toISOString(), name: 'Studio meeting', join: 'https://zoom.us/j/fixture' },
   ],
   pinned: false, unlocked: true, paid: false,
 };
