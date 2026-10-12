@@ -294,9 +294,9 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rk, 'planner'), 'the planner off keeps its token but shows no card', 'planner-gate');
   lead().planner.enabled = true;
   rk = await pub('GET', { token: tK }); let pl = card(rk, 'planner');
-  ok(pl && pl.url === `/planner/myPLANNERtoken0123456789abcdefgh?from=portal&c=${tK}` && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
+  ok(pl && pl.url === '/planner/myPLANNERtoken0123456789abcdefgh?from=portal' && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
   let cc = card(rk, 'concepts');
-  ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === `/concepts/newSETtoken0123456789abcdefghij?from=portal&c=${tK}` && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
+  ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === '/concepts/newSETtoken0123456789abcdefghij?from=portal' && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
   ok(cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('contact') && cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('progress'), `a waiting set sits near the top, before the project (${cardIds(rk)})`, 'concepts-order');
   _stores.concept_sets.find(x => x._id === 'cs-new').status = 'changes';
   rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
@@ -314,6 +314,13 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rk, 'concepts'), 'every set archived or a draft: no concepts card', 'concepts-newest');
   const flatK = JSON.stringify(rk._json);
   ok(!flatK.includes(OTHER_PLANNER) && !flatK.includes(OTHER_SET) && !flatK.includes('draftSETtoken'), 'no other client\'s planner or concept token, and no draft token, ever leaves', 'token-isolation');
+  /* the portal token never rides in another page's url: the planner, concepts and review cards carry ?from=portal only */
+  lead().reviews = { visualize: { token: 'myREVIEWtoken0123456789abcdefgh' }, testimonials: [] }; _stores.projects.find(p => p._id === 'p1').deliveredAt = '2026-10-05T00:00:00.000Z';
+  _stores.concept_sets.forEach(x => { if (x.leadId === LEAD && x._id === 'cs-new') x.archived = false; });
+  rk = await pub('GET', { token: tK });
+  const urls = (rk._json?.cards || []).filter(c => ['planner', 'concepts', 'review'].includes(c.id)).map(c => c.url);
+  ok(urls.length === 3 && urls.every(u => u.endsWith('?from=portal') && !u.includes(tK)), `the three token page urls end in ?from=portal and carry no portal token (${urls.join(' ')})`, 'back-no-token');
+  ok(!JSON.stringify(rk._json).includes(tK), 'the portal token appears nowhere in the payload', 'back-no-token');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 4f. the review ask and their reviews (prompt 3) */
@@ -327,7 +334,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rv, 'review'), 'the newest project not delivered: no review ask yet', 'review-gate');
   _stores.projects.find(p => p._id === 'p1').deliveredAt = '2026-10-05T00:00:00.000Z';
   rv = await pub('GET', { token: tV }); let ask = card(rv, 'review');
-  ok(ask && ask.url === `/r/myREVIEWtoken0123456789abcdefgh?from=portal&c=${tV}` && /minute of your time/.test(ask.line), `delivered with the link and no review yet: How did I do? with the page and the way back (${JSON.stringify(ask)})`, 'review-gate');
+  ok(ask && ask.url === '/r/myREVIEWtoken0123456789abcdefgh?from=portal' && /minute of your time/.test(ask.line), `delivered with the link and no review yet: How did I do? with the page and the way back (${JSON.stringify(ask)})`, 'review-gate');
   lead().reviews.testimonials = [{ id: 't1', status: 'pending', consent: true, text: 'Great', name: 'Dan' }];
   rv = await pub('GET', { token: tV });
   ok(!card(rv, 'review'), 'a pending review in: the ask is gone', 'review-submitted');

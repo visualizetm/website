@@ -39,9 +39,9 @@ function ClientMark({ logoUrl, brandHex, business }) {
 
 export default function ReviewLink() {
   const { token = '' } = useParams();
-  const back = portalBackHref(useLocation().search); // the portal's back chip, when this page was opened from it
   const draftKey = `${DRAFT_PREFIX}:${token || '-'}`;
   const [client, setClient] = useState(null);   // { business, firstName, logoUrl, brandHex, googleReviewUrl }
+  const back = portalBackHref(useLocation().search, client?.back); // the portal's back chip: ?from=portal and the door's own answer
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
   const [form, setForm] = useState(() => readDraft(`${DRAFT_PREFIX}:${token || '-'}`) || EMPTY);
   const [trap, setTrap] = useState('');

@@ -24,6 +24,8 @@ ok(P.portalSummary(cards) === 'Your portal has your files, the content planner a
 ok(P.portalSummary([{ id: 'home' }, { id: 'pay' }]) === 'Your portal has your invoice.' && P.portalSummary([]) === '' && /and 2 more\.$/.test(P.portalSummary(['needs_you', 'pay', 'approvals', 'concepts', 'planner', 'progress', 'revisions'].map(id => ({ id })))), 'one card, no cards, and more than five');
 ok(P.portalMessage(lead, cards).startsWith("Hey Dan! Here's your page with me. Your portal has your files, the content planner and a quick way to book a call. Save it") && P.portalMessage(lead, cards).endsWith(P.portalUrl(lead)), 'the message carries the summary and the link');
 ok(P.portalMessage(lead).includes('everything about your work in one place') && !/\bwe\b/i.test(P.portalMessage(lead, cards)), 'without the cards the message keeps its plain line; never we');
+const msg = P.portalMessage(lead, [{ id: 'planner', url: '/planner/x?from=portal' }, { id: 'concepts', url: '/concepts/y?from=portal' }, { id: 'review', url: '/r/z?from=portal' }]);
+ok(msg.split(lead.portal.token).length === 2 && msg.endsWith(P.portalUrl(lead)) && !/\/(planner|concepts|r)\//.test(msg), 'the Send portal message carries the portal link once and no other page\'s url');
 const nowCards = P.portalCardsNow({ ...lead, planner: { enabled: true, token: 'plnTOKEN0123456789abcdefghijkl' } }, { projects: [], posts: [], sets: [], profile: { phone: '555 0100' }, meetingLink: 'https://calendly.com/x' });
 ok(nowCards.map(c => c.id).join(',') === 'home,planner,documents,book', `the CRM side renders the cards from what it holds, in the home order; contact is off on this record (${nowCards.map(c => c.id).join(',')})`);
 /* the .ics builder (prompt 3) */

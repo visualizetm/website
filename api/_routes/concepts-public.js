@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { portalPath } from '../_lib/portalModules.js';
 import { getDb } from '../_lib/mongo.js';
 import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit } from '../_lib/limit.js';
@@ -75,8 +76,8 @@ async function setFor(db, token) {
   return db.collection('concept_sets').findOne({ token, ...LIVE }, { projection: PROJECTION });
 }
 async function clientFor(db, set) {
-  const lead = await db.collection('call_leads').findOne({ _id: toId(set.leadId), deleted: { $ne: true } }, { projection: { business: 1, 'showcase.displayName': 1 } });
-  return { displayName: lead?.showcase?.displayName || lead?.business || '' };
+  const lead = await db.collection('call_leads').findOne({ _id: toId(set.leadId), deleted: { $ne: true } }, { projection: { business: 1, 'showcase.displayName': 1, 'portal.token': 1 } });
+  return { client: { displayName: lead?.showcase?.displayName || lead?.business || '' }, back: portalPath(lead) };
 }
 /* The lead id as the set stores it (a string): an ObjectId when it parses,
  * so a lead keyed either way is found; never the raw request value. */
@@ -139,9 +140,10 @@ export async function handler(req, res) {
       try { await col.updateOne({ _id: set._id }, { $set: { ...stamp, updatedAt: new Date() } }); } catch { /* their read matters more than the stamp */ }
       Object.assign(set, stamp);
     }
-    const client = await clientFor(db, set);
+    const { client, back } = await clientFor(db, set);
     return res.status(200).json({
       client,
+      back, /* the way back to this client's own portal (prompt 3 fix), resolved from the owning lead, never carried in the URL */
       set: publicSet(set),
       directions: (Array.isArray(set.directions) ? [...set.directions] : []).sort((a, b) => (a.order || 0) - (b.order || 0)).map(d => publicDirection(d, modeOf(set) === 'review')),
       feedback: (Array.isArray(set.feedback) ? set.feedback : []).map(publicFeedback),

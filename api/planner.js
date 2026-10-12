@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { portalPath } from './_lib/portalModules.js';
 import { getDb } from './_lib/mongo.js';
 import { route } from './_lib/handler.js';
 import { rateKey, rateState, rateHit } from './_lib/limit.js';
@@ -71,7 +72,7 @@ async function clientFor(db, token) {
   if (!token) return null;
   const lead = await db.collection('call_leads').findOne(
     { 'planner.token': token, deleted: { $ne: true } },
-    { projection: { business: 1, 'showcase.displayName': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1 } },
+    { projection: { business: 1, 'showcase.displayName': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1, 'portal.token': 1 } },
   );
   if (!lead || !lead.planner?.enabled) return null;
   return lead;
@@ -161,7 +162,8 @@ async function handler(req, res) {
     }
 
     const suggestions = await db.collection('suggestions').find({ leadId: String(lead._id), deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(50).toArray();
-    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(publicSuggestion) });
+    /* Client portal (prompt 3 fix): the way back to this client's own portal, resolved here, never carried in the URL. */
+    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(publicSuggestion), back: portalPath(lead) });
   }
 
   if (req.method === 'POST') {

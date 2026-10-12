@@ -42,7 +42,7 @@ const LEAD = '507f1f77bcf86cd799439031';
 const PRIVATE_VALUES = ['555-0100', 'owner@kims.example', 'Jamie the manager', 'internal only note', 'https://drive.example/secret', 'the client said this in confidence'];
 function seed() {
   _reset();
-  _stores.call_leads = [{ _id: LEAD, business: 'Kims Cafe', phone: '555-0100', email: 'owner@kims.example', askFor: 'Jamie the manager', notes: 'internal only note', links: { drive: 'https://drive.example/secret' }, stage: 'client', showcase: { published: true, slug: 'kims-cafe', displayName: 'Kims Cafe' } }];
+  _stores.call_leads = [{ _id: LEAD, business: 'Kims Cafe', phone: '555-0100', email: 'owner@kims.example', askFor: 'Jamie the manager', notes: 'internal only note', portal: { token: 'cncPORTALtoken0123456789abcdef' }, links: { drive: 'https://drive.example/secret' }, stage: 'client', showcase: { published: true, slug: 'kims-cafe', displayName: 'Kims Cafe' } }];
   const dirs = () => [
     { id: 'dA', name: 'Warm', rationale: 'Friendly.', order: 0, items: [{ id: 'iA1', kind: 'logo', image: 'https://img.example/a.png', caption: 'Mark', order: 0 }, { id: 'iA2', kind: 'board', image: 'https://img.example/b.png', caption: '', order: 1 }] },
     { id: 'dB', name: 'Clean', rationale: 'Sharper.', order: 1, items: [{ id: 'iB1', kind: 'logo', image: 'https://img.example/c.png', caption: 'Wordmark', order: 0 }] },
@@ -74,7 +74,8 @@ seed();
   ok(res._status === 200, `a live token answers 200 (got ${res._status})`);
   ok(res._headers['Cache-Control'] === 'no-store', 'the answer is Cache-Control: no-store');
   const body = res._json || {};
-  ok(Object.keys(body).sort().join(',') === 'client,directions,feedback,set', `the response is exactly client, set, directions, feedback (got ${Object.keys(body).sort().join(',')})`);
+  ok(Object.keys(body).sort().join(',') === 'back,client,directions,feedback,set', `the response is exactly client, set, directions, feedback, back (got ${Object.keys(body).sort().join(',')})`);
+  ok(body.back === '/c/cncPORTALtoken0123456789abcdef', `back is the owning client's own portal path (${body.back})`);
   ok(Object.keys(body.client).join(',') === 'displayName' && body.client.displayName === 'Kims Cafe', 'client is exactly displayName, from the showcase');
   ok(Object.keys(body.set).sort().join(',') === 'allowPass,approvalMode,approvedDirectionId,intro,round,status,submittedAt,title', `set is exactly title, round, intro, status, approvedDirectionId, approvalMode, allowPass, submittedAt (got ${Object.keys(body.set).sort().join(',')})`);
   ok(body.directions.every(d => Object.keys(d).sort().join(',') === 'decision,id,items,name,needsDecision,rationale'), 'every direction is exactly id, name, rationale, needsDecision, decision, items');

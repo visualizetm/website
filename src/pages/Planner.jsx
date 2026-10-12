@@ -917,12 +917,13 @@ function ItemDetail({ item, token, onClose, onApprove, onChange, busy, formError
 export default function Planner() {
   const { token = '' } = useParams();
   const [params, setParams] = useSearchParams();
-  const back = portalBackHref(params.toString()); // the portal's back chip, when this page was opened from it
+
   const C = COPY.planner;
   const tab = TABS.includes(params.get('tab')) ? params.get('tab') : 'home';
 
   const [month, setMonth] = useState(thisMonth);
   const [data, setData] = useState(null);          // { client, month, posts, suggestions }
+  const back = portalBackHref(params.toString(), data?.back); // the portal's back chip: ?from=portal and the door's own answer
   const [state, setState] = useState('loading');   // loading | ready | dead | error
   const [view, setView] = useState(() => readLS(VIEW_KEY, ''));
   const [openId, setOpenId] = useState(null);

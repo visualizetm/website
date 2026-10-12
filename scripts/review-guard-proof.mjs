@@ -23,9 +23,10 @@ const CUTS = {
   'token-dead': [[CL, "const mint = !!asked?.regenerate || !had?.token;", "const mint = !had?.token;"]],
   'token-required': [[RP, "  if (!token) return null;\n  return db.collection('call_leads').findOne({ 'reviews.visualize.token': token, deleted: { $ne: true } }, { projection: PROJECTION });", "  if (!token) return db.collection('call_leads').findOne({ 'reviews.visualize.token': { $exists: true }, deleted: { $ne: true } }, { projection: PROJECTION });\n  return db.collection('call_leads').findOne({ 'reviews.visualize.token': token, deleted: { $ne: true } }, { projection: PROJECTION });"]],
   'get-whitelist': [
-    [RP, "const PROJECTION = { business: 1,", "const PROJECTION = { phone: 1, business: 1,"],
+    [RP, "const PROJECTION = { 'portal.token': 1, business: 1,", "const PROJECTION = { 'portal.token': 1, phone: 1, business: 1,"],
     [RP, "    googleReviewUrl: typeof profile?.googleReviewUrl === 'string' ? profile.googleReviewUrl : '',\n  };", "    googleReviewUrl: typeof profile?.googleReviewUrl === 'string' ? profile.googleReviewUrl : '',\n    phone: lead.phone || '',\n  };"],
   ],
+  'back-own': [[RP, "back: portalPath(lead) })", "back: portalPath((await db.collection('call_leads').find({ 'portal.token': { $exists: true } }).toArray()).find(l => String(l._id) !== String(lead._id)) || lead) })"]],
   'view-count': [[RP, "'reviews.visualize.views': (Number(v.views) || 0) + 1,", "'reviews.visualize.views': Number(v.views) || 0,"]],
   'view-debounce': [[RP, "    if (!st.exceeded) {", "    if (true) { // cut"]],
   'rating-range': [[RP, "  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return res.status(400).json({ error: 'rating must be 1 to 5' });\n", ""]],

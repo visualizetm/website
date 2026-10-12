@@ -95,6 +95,7 @@ const CUTS = {
   'approve-note': [[PP, "  if (decision === 'changes' && !note) return res.status(400).json({ error: 'say what to change' });\n", ""]],
   'approve-own': [[PP, "const findApproval = (lead, id) => (Array.isArray(lead.portal?.approvals) ? lead.portal.approvals : []).find(a => a && a.id === id) || null;", "const findApproval = (lead, id) => ({ id, label: 'Their hero', status: 'pending' });"]],
   'approve-limit': [[PP, "const APPROVE_MAX = 20;", "const APPROVE_MAX = 200;"]],
+  'back-no-token': [[PM, "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal()}` : '');", "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}?from=portal&c=${client.portal?.token || ''}` : '');"]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

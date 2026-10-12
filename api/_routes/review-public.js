@@ -1,4 +1,5 @@
 import { getDb } from '../_lib/mongo.js';
+import { portalPath } from '../_lib/portalModules.js';
 import { route } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit } from '../_lib/limit.js';
 import { sendPush } from '../_lib/notify.js';
@@ -35,7 +36,7 @@ const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_
 const plain = (v, max) => String(v ?? '').replace(/<\/?[a-z!][^>]*>/gi, '').replace(/\s+/g, ' ').trim().slice(0, max);
 const hexOf = (v) => { const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(v ?? '').trim()); return m ? `#${(m[1].length === 3 ? m[1].split('').map(c => c + c).join('') : m[1]).toLowerCase()}` : ''; };
 const brandHexOf = (lead) => { const b = lead?.brand || {}; for (const c of [b.primary, ...(Array.isArray(b.colors) ? b.colors : [])]) { const h = hexOf(c && typeof c === 'object' ? c.hex : c); if (h) return h; } return ''; };
-const PROJECTION = { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.logoUrl': 1, 'showcase.brand.logo': 1, 'brand.primary': 1, 'brand.colors': 1, 'reviews.visualize': 1, 'reviews.testimonials': 1, checklists: 1 };
+const PROJECTION = { 'portal.token': 1, business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.logoUrl': 1, 'showcase.brand.logo': 1, 'brand.primary': 1, 'brand.colors': 1, 'reviews.visualize': 1, 'reviews.testimonials': 1, checklists: 1 };
 const TEXT_MIN = 20;
 const TEXT_MAX = 800;
 const uid = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
@@ -73,7 +74,7 @@ export async function handler(req, res) {
       const v = lead.reviews?.visualize || {};
       await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'reviews.visualize.views': (Number(v.views) || 0) + 1, 'reviews.visualize.lastViewedAt': new Date().toISOString() } });
     }
-    return res.status(200).json(await publicClient(db, lead));
+    return res.status(200).json({ ...(await publicClient(db, lead)), back: portalPath(lead) }); /* the way back to their own portal (prompt 3 fix) */
   }
 
   const b = req.body && typeof req.body === 'object' ? req.body : {};

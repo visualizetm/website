@@ -108,11 +108,14 @@ export function filesProject(client, projects) {
   return active || mine.filter(p => p.stage === 'delivered' || p.deliveredAt).sort(newestFirst)[0] || null;
 }
 export const deliveredBrandProject = (client, projects) => clientProjects(client, projects).filter(p => isBrandKind(p.kind) && (p.deliveredAt || p.stage === 'delivered')).sort(newestFirst)[0] || null;
-/* The token pages as cards (prompt 3). Each links to the page with its own token, never a new one, and ?from=portal&c=<portal token>
- * so the page can show the way back. ctx is the fourth argument the route hands resolve: { posts, sets, todayKey, ... }. */
-const fromPortal = (client) => (client?.portal?.token ? `?from=portal&c=${client.portal.token}` : '');
+/* The token pages as cards (prompt 3). Each links to the page with its own token, never a new one, and ?from=portal only: the
+ * page asks its own door for the way back, and the door resolves it from the lead that owns the token (portalPath). The portal
+ * token never rides in another page's URL. ctx is the fourth argument the route hands resolve: { posts, sets, todayKey, ... }. */
+const fromPortal = () => '?from=portal';
+/** The portal's path for a client, or '' without a token of the right shape. The planner, concepts and review doors answer it as `back`. */
+export const portalPath = (client) => (/^[A-Za-z0-9_-]{16,64}$/.test(String(client?.portal?.token || '')) ? `/c/${client.portal.token}` : '');
 const weekOf = (todayKey) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(todayKey || '')); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); const dow = (d.getUTCDay() + 6) % 7; const start = new Date(d.getTime() - dow * 864e5); const end = new Date(start.getTime() + 6 * 864e5); const k = (x) => x.toISOString().slice(0, 10); return { start: k(start), end: k(end) }; };
-export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal(client)}` : '');
+export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal()}` : '');
 /** This week's posts for the client: how many, how many wait on them (in review), and the ads live. */
 export function plannerCounts(client, posts, todayKey) {
   const wk = weekOf(todayKey);
@@ -129,7 +132,7 @@ const CONCEPT_STATE_LABEL = { approved: 'Approved', changes: 'Changes requested'
 /* Reviews (prompt 3): the Visualize review link as one ask after delivery, and the client's own Google reviews on their card. */
 const hasTestimonial = (client) => (Array.isArray(client?.reviews?.testimonials) ? client.reviews.testimonials : []).some(t => t && (t.status === 'pending' || t.status === 'approved' || (!t.status && t.published === true)));
 const newestProject = (client, projects) => clientProjects(client, projects).filter(p => p.kind !== 'retainer').sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))[0] || null;
-export const reviewLink = (client) => (client?.reviews?.visualize?.token ? `/r/${client.reviews.visualize.token}${fromPortal(client)}` : '');
+export const reviewLink = (client) => (client?.reviews?.visualize?.token ? `/r/${client.reviews.visualize.token}${fromPortal()}` : '');
 /** "<latest> reviews, up <diff> since we started" when both counts are numbers and the diff is positive, else the count alone. */
 export function theirReviewsLine(reviews) {
   const latest = Number(reviews?.latest?.count); const base = Number(reviews?.baseline?.count);
@@ -335,7 +338,7 @@ export const PORTAL_MODULES = [
       const state = conceptState(set);
       const first = (Array.isArray(set.directions) ? set.directions : []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))[0];
       const cover = (Array.isArray(first?.items) ? first.items : []).map(it => str(it?.image, 600)).find(u => /^https?:\/\//i.test(u)) || '';
-      return { url: `/concepts/${set.token}${fromPortal(client)}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 155 : undefined };
+      return { url: `/concepts/${set.token}${fromPortal()}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 155 : undefined };
     },
   },
   {

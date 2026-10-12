@@ -88,10 +88,15 @@ PIN they come as their title only until the device unlocks.
 ## Auto rules (prompt 3)
 
 The token pages as cards: each links to its page with that page's own
-token (never a new one) plus `?from=portal&c=<portal token>`; the shared
-client bar (src/components/ClientPageChrome.jsx, `portalBackHref`) reads
-it and shows one Back to your portal chip. That is the back chip contract:
-the param, the shape check on the token, one chip, nothing else changes.
+token (never a new one) plus `?from=portal` and nothing else. The page's
+own door (the planner, concepts and review GETs) answers `back`, the
+owning client's portal path resolved on the server from its portal.token;
+the shared client bar (src/components/ClientPageChrome.jsx,
+`portalBackHref(search, back)`) shows one Back to your portal chip only
+with both. That is the back chip contract: the param, the server resolved
+path, one chip, nothing else changes, and a portal token never rides in
+another page's URL (portal-test asserts it on every card and the Send
+portal message, and the guard proof cuts it).
 
 | Module | Shows when |
 |---|---|

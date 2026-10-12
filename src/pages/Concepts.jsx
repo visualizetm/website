@@ -357,12 +357,12 @@ function SummarySheet({ rows, name, onName, busy, error, onSend, onClose, onJump
 export default function Concepts() {
   const { token = '' } = useParams();
   const { search } = useLocation();
-  const back = portalBackHref(search); // the portal's back chip, when this page was opened from it
   const present = new URLSearchParams(search).get('present') === '1';
   const reduced = useMotionPreference();
   const C = COPY.concepts;
   const [state, setState] = useState('loading');
   const [data, setData] = useState(null);
+  const back = portalBackHref(search, data?.back); // the portal's back chip: ?from=portal and the door's own answer
   const [name, setName] = useState(() => readSS(NAME_KEY));
   const [busy, setBusy] = useState(false);
   const [saving, setSaving] = useState({}); // direction id -> true while its answer saves

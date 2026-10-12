@@ -38,7 +38,7 @@ export async function runReview(apiSrc = path.join(repoRoot, 'api')) {
     _reset();
     _stores.call_leads = [
       { _id: LEAD, business: 'Sharpless Detailing', stage: 'client', askFor: 'Dan the owner', phone: '555-0199', email: 'owner@sharpless.example', notes: 'internal only note', links: { drive: 'https://drive.example/private' }, brand: { primary: '#1d4ed8', colors: ['#fff'] }, showcase: { published: true, slug: 'sharpless-detailing', displayName: 'Sharpless Detailing', logoUrl: 'https://img.example/sharpless.png' }, reviews: { nfcCard: false, nfcGivenAt: '', googleLink: '', baseline: null, latest: null, asks: [], testimonials: [] }, checklists: [] },
-      { _id: OTHER, business: 'SS Guns and Ammo', stage: 'client', showcase: { published: false, slug: '' }, reviews: { testimonials: [] }, checklists: [] },
+      { _id: OTHER, business: 'SS Guns and Ammo', stage: 'client', showcase: { published: false, slug: '' }, reviews: { testimonials: [] }, checklists: [], portal: { token: 'otherPORTALtoken0123456789abcd' } },
     ];
     _stores.projects = []; _stores.settings = [{ _id: 'profile', name: 'Rob', googleReviewUrl: 'https://g.page/r/visualize/review' }, { _id: 'landing', stats: { toggles: {}, overrides: { averageRating: 5 } } }];
   };
@@ -67,7 +67,12 @@ export async function runReview(apiSrc = path.join(repoRoot, 'api')) {
 
   /* 3. GET resolves exactly the whitelist */
   const keys = Object.keys(live._json || {}).sort().join(',');
-  ok(keys === 'brandHex,business,firstName,googleReviewUrl,logoUrl', `GET answers exactly { business, firstName, logoUrl, brandHex, googleReviewUrl } (${keys})`, 'get-whitelist');
+  ok(keys === 'back,brandHex,business,firstName,googleReviewUrl,logoUrl', `GET answers exactly { business, firstName, logoUrl, brandHex, googleReviewUrl, back } (${keys})`, 'get-whitelist');
+  ok(live._json.back === '', 'no portal on the client: back is empty', 'back-own');
+  _stores.call_leads.find(l => String(l._id) === LEAD).portal = { token: 'myPORTALtoken0123456789abcdefg' };
+  const withBack = await pub('GET', { token: t2 });
+  ok(withBack._json?.back === '/c/myPORTALtoken0123456789abcdefg' && !JSON.stringify(withBack._json).includes('otherPORTAL'), `back is the owning client's own portal path, never another client's (${withBack._json?.back})`, 'back-own');
+  delete _stores.call_leads.find(l => String(l._id) === LEAD).portal;
   ok(live._json.business === 'Sharpless Detailing' && live._json.firstName === 'Dan' && live._json.logoUrl === 'https://img.example/sharpless.png' && live._json.brandHex === '#1d4ed8' && live._json.googleReviewUrl === 'https://g.page/r/visualize/review', `the values are the business, the first name, the logo, the first brand colour and the studio link (${JSON.stringify(live._json)})`);
   const flat = JSON.stringify(live._json);
   ok(PRIVATE.every(v => !flat.includes(v)), 'no private value (phone, email, notes, drive link, the record id) leaks through GET', 'get-whitelist');

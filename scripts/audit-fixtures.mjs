@@ -269,6 +269,7 @@ export const plannerPayload = (lead, month, allPosts = posts, allSuggestions = s
   month,
   posts: allPosts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived).map(plannerPublic),
   suggestions: allSuggestions.filter(x => String(x.leadId) === String(lead._id) && !x.deleted).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(plannerPublicSuggestion),
+  back: lead.portal?.token ? `/c/${lead.portal.token}` : '', /* the way back to their portal, as the real door answers it (prompt 3 fix) */
 });
 
 export const projects = [
@@ -375,6 +376,7 @@ export const publicConceptSet = (s) => {
   const review = s.approvalMode === 'review';
   return {
     client: { displayName: lead?.showcase?.displayName || lead?.business || 'Client' },
+    back: lead?.portal?.token ? `/c/${lead.portal.token}` : '',
     set: { title: s.title, round: s.round, intro: s.intro, status: s.status, approvedDirectionId: s.approvedDirectionId, approvalMode: review ? 'review' : 'pick', allowPass: review && s.allowPass === true, submittedAt: review ? (s.submittedAt || '') : '' },
     directions: s.directions.map(d => ({ id: d.id, name: d.name, rationale: d.rationale, needsDecision: !review || d.needsDecision !== false, decision: review && d.needsDecision !== false && d.decision ? { status: d.decision.status, note: d.decision.note || '', decidedAt: d.decision.decidedAt || '' } : null, items: d.items.map(it => ({ id: it.id, kind: it.kind, image: it.image, caption: it.caption })) })),
     feedback: s.feedback.map(f => ({ at: f.at, directionId: f.directionId, action: f.action, name: f.name })),
@@ -591,14 +593,14 @@ export const PORTAL_RESOLVE = {
     ], hint: "Sent one of these? It'll show as paid once I see it, usually the same day." },
     { id: 'plan', title: 'Payment plan', sensitive: true, n: 3, of: 6, nextAmountText: '$200', nextDue: '2026-10-15', dots: ['paid', 'paid', 'open', 'open', 'open', 'open'], line: 'Your files unlock after the last payment.' },
     { id: 'approvals', title: 'Approvals', sensitive: false, items: [{ id: 'ap1', label: 'Homepage hero, round two', url: 'https://drive.google.com/file/d/fixture-hero', status: 'pending', note: '', requestedAt: new Date(Date.now() - 864e5).toISOString(), respondedAt: '' }, { id: 'ap2', label: 'Business card back', url: '', status: 'approved', note: '', requestedAt: new Date(Date.now() - 3 * 864e5).toISOString(), respondedAt: new Date(Date.now() - 2 * 864e5).toISOString() }] },
-    { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
-    { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
+    { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
+    { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
     { id: 'progress', title: 'Your project', sensitive: false, name: 'Website', pkg: 'web complete', stages: [{ id: 'kickoff', label: 'Kickoff' }, { id: 'design', label: 'Design' }, { id: 'revisions', label: 'Revisions' }, { id: 'build', label: 'Build' }, { id: 'delivery', label: 'Delivery' }, { id: 'delivered', label: 'Delivered' }], stage: 'revisions', line: 'Round 1 of 2' },
     { id: 'revisions', title: 'Revisions', sensitive: false, used: 1, max: 2, last: true, line: 'This is your last included round. Extra rounds are $50 for design and $75 for web.' },
     { id: 'meetings', title: 'Your next call', sensitive: false, at: new Date(Date.now() + 3 * 864e5).toISOString(), end: new Date(Date.now() + 3 * 864e5 + 30 * 60e3).toISOString(), name: 'Studio meeting', join: 'https://zoom.us/j/fixture' },
     { id: 'files', title: 'Your files', sensitive: true, unlocked: false, line: 'Unlocks when the project is paid in full.', drive: '', groups: [{ group: 'logo', items: [{ label: 'Logo, full colour' }, { label: 'Logo, one colour' }] }, { group: 'web', items: [{ label: 'Site source' }] }] },
     { id: 'brand_kit', title: 'Brand kit', sensitive: false, logoUrl: '/showcase/fixtures/logo.svg', colors: [{ hex: '#1d4ed8', name: 'Blue' }, { hex: '#111111', name: '' }], fonts: ['Inter', 'Georgia'] },
-    { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal&c=prtlTESTtoken0123456789abcd', line: 'A minute of your time, and it helps more than you know.' },
+    { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal', line: 'A minute of your time, and it helps more than you know.' },
     { id: 'their_reviews', title: 'Your reviews', sensitive: false, googleLink: 'https://g.page/r/fixture-business/review', count: 19, diff: 7, line: '19 reviews, up 7 since we started', nfcCard: true },
     { id: 'showcase', title: 'Your showcase', sensitive: false, url: 'https://visualizestudio.org/clients/lead-business-12', slug: 'lead-business-12', message: 'New look for Lead Business 12, made with Visualize: https://visualizestudio.org/clients/lead-business-12' },
     { id: 'retainer', title: 'Retainer', sensitive: true, mode: 'active', name: 'Site Care', priceText: '$100 a month', renews: 'Renews on the 15th each month', notice: '30 day cancel notice', sms: 'sms:5550100', mailto: 'mailto:contact@visualizeclients.com' },
@@ -612,7 +614,7 @@ export const PORTAL_RESOLVE = {
 export const PORTAL_PAID_RESOLVE = { ...PORTAL_RESOLVE, cards: PORTAL_RESOLVE.cards.filter(c => c.id !== 'pay' && c.id !== 'plan').map(c => (c.id === 'files' ? { ...c, unlocked: true, line: 'Everything is yours. Keep a copy somewhere safe.', drive: 'https://drive.google.com/drive/folders/fixture', groups: [{ group: 'logo', items: [{ label: 'Logo, full colour', url: 'https://drive.google.com/file/d/fixture-logo' }, { label: 'Logo, one colour', url: 'https://drive.google.com/file/d/fixture-logo-1c' }] }, { group: 'web', items: [{ label: 'Site source', url: 'https://github.com/fixture/site' }] }] } : c)), paid: true };
 export const PORTAL_PIN_RESOLVE = { ...PORTAL_RESOLVE, cards: [...PORTAL_RESOLVE.cards.map(c => (c.sensitive ? { id: c.id, title: c.title, sensitive: true, locked: true } : c)), { id: 'secret', title: 'Secret', sensitive: true, locked: true }], pinned: true, unlocked: false };
 export const PORTAL_PIN = '1234';
-export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review' };
+export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review', back: '/c/prtlTESTtoken0123456789abcd' };
 
 export async function mockRoutes(page, opts = {}) {
   const empty = new Set(opts.empty || []);
