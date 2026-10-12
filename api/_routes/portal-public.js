@@ -8,7 +8,7 @@ import { zoneDayKey, zoneDateAt } from '../_lib/zone.js';
 import { addTask } from '../_lib/taskRules.js';
 import { sendPush } from '../_lib/notify.js';
 import { nextMeetingFor } from '../_lib/calendly.js';
-import { portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY, SITE_CHANGE_MAX, SITE_CHANGE_PLANS, SITE_CHANGES_KEPT, activeRetainer, clientProjects, isWebProject, siteChangesOf } from '../_lib/portalModules.js';
+import { PORTAL_MODULE_IDS, portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY, SITE_CHANGE_MAX, SITE_CHANGE_PLANS, SITE_CHANGES_KEPT, activeRetainer, clientProjects, isWebProject, siteChangesOf } from '../_lib/portalModules.js';
 import { safeUrl } from '../_lib/url.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
@@ -42,6 +42,8 @@ const APPROVE_WINDOW = 60 * 60 * 1000;
 const REORDER_MAX = 5;
 const SITE_MAX = 10;
 const PUSH_MAX = 10;
+const ACTIVITY_KEPT = 50; // the activity ring: views and taps per card, no PII (the CRM's Last 7 days)
+const TAP_MAX = 120;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const tokenStr = (v) => { const t = String(v ?? '').trim(); return /^[A-Za-z0-9_-]{16,64}$/.test(t) ? t : ''; };
@@ -87,7 +89,7 @@ export async function handler(req, res) {
     const st = await rateState(db, key, { max: 1, windowMs: HOUR });
     if (!st.exceeded) {
       await rateHit(db, key, st.hits);
-      await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.views': (Number(lead.portal?.views) || 0) + 1, 'portal.lastViewedAt': new Date().toISOString() } });
+      await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.views': (Number(lead.portal?.views) || 0) + 1, 'portal.lastViewedAt': new Date().toISOString() }, $push: { 'portal.activity': { $each: [{ t: 'view', at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });
     }
     const unlocked = !lead.portal?.pin || unlockOk(token, req.query?.unlock);
     const settings = { profile: profile || {}, meetingLink: meetingLink() };
@@ -102,6 +104,7 @@ export async function handler(req, res) {
   if (b.action === 'reorder') return reorder(db, lead, token, b, res);
   if (b.action === 'site_change') return siteChange(db, lead, token, b, res);
   if (b.action === 'push_on' || b.action === 'push_off') return pushToggle(db, lead, token, b, res);
+  if (b.action === 'tap') return tap(db, lead, token, b, res);
   if (b.action !== 'pin') return res.status(400).json({ error: 'unknown action' });
   if (!lead.portal?.pin) return res.status(200).json({ unlock: '' });
   const key = rateKey('ppin', token);
@@ -254,4 +257,16 @@ async function pushToggle(db, lead, token, b, res) {
   const devices = (await subs.find({ role: 'client', leadId }).project({ _id: 1 }).limit(50).toArray()).length;
   await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': devices, ...(b.action === 'push_on' ? { 'portal.pushAt': new Date().toISOString() } : {}), updatedAt: new Date() } });
   return res.status(200).json({ ok: true, on: b.action === 'push_on', devices });
+}
+
+/* A tap (prompt 4): { action: 'tap', card }, the card id only, one event in the ring; a hundred and twenty an hour per token. */
+async function tap(db, lead, token, b, res) {
+  const cardId = String(b.card || '');
+  if (!PORTAL_MODULE_IDS.includes(cardId) && cardId !== 'pin') return res.status(400).json({ error: 'card required' });
+  const key = rateKey('ptap', token);
+  const st = await rateState(db, key, { max: TAP_MAX, windowMs: 60 * 60 * 1000 });
+  if (st.exceeded) return res.status(200).json({ ok: true });
+  await rateHit(db, key, st.hits);
+  await db.collection('call_leads').updateOne({ _id: lead._id }, { $push: { 'portal.activity': { $each: [{ t: 'tap', card: cardId, at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });
+  return res.status(200).json({ ok: true });
 }

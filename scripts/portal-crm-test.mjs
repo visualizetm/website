@@ -51,3 +51,13 @@ ok(captureRef('?ref=abc', thrower) === 'abc' && readRef(thrower) === '', 'a stor
 ok(referralCode({ showcase: { published: true, slug: 'sharpless-detailing' }, portal: { token: 'abcdefghijklmnopqrstuvwx' } }) === 'sharpless-detailing' && referralCode({ showcase: { published: false, slug: 'sharpless-detailing' }, portal: { token: 'abcdefghijklmnopqrstuvwx' } }) === 'abcdefghij' && referralCode({ portal: { token: 'short' } }) === '' && referralCode({}) === '', 'the code is the published slug, else ten characters of the token, else none');
 ok(referralUrl('sharpless-detailing') === 'https://visualizestudio.org/?ref=sharpless-detailing' && referralUrl('') === '', 'the link carries the code');
 console.log(bad ? `\n${bad} failed.` : '\nAll checks pass.'); process.exit(bad ? 1 : 0);
+
+/* Prompt 4 polish: the empty home rule and the activity ring's Last 7 days. */
+import { homeIsEmpty, activityLast7, activityLine } from '../src/lib/portal.js';
+ok(homeIsEmpty([{ id: 'home' }, { id: 'contact' }, { id: 'book' }, { id: 'notifications' }]) === true && homeIsEmpty([]) === true && homeIsEmpty([{ id: 'home' }, { id: 'pay' }]) === false && homeIsEmpty([{ id: 'home' }, { id: 'referral' }]) === false, 'the home is empty with nothing but the always offered cards, and one real card is enough');
+const T7 = Date.parse('2026-10-12T12:00:00.000Z'); const ago = (d) => new Date(T7 - d * 864e5).toISOString();
+const actLead = { portal: { activity: [{ t: 'view', at: ago(1) }, { t: 'view', at: ago(2) }, { t: 'view', at: ago(8) }, { t: 'tap', card: 'pay', at: ago(1) }, { t: 'tap', card: 'pay', at: ago(3) }, { t: 'tap', card: 'files', at: ago(2) }, { t: 'tap', card: 'planner', at: ago(9) }, { t: 'tap', card: 'book', at: ago(6.9) }] } };
+const a7 = activityLast7(actLead, T7);
+ok(a7.views === 2 && a7.taps === 4 && a7.top.map(t => `${t.card}:${t.n}`).join(',') === 'pay:2,book:1,files:1', `Last 7 days counts only the week, taps by card, the top three (${JSON.stringify(a7)})`);
+ok(activityLine(actLead, T7) === 'Last 7 days: 2 views, 4 taps (Pay 2, Book a call 1, Your files 1).' || /^Last 7 days: 2 views, 4 taps \(/.test(activityLine(actLead, T7)), `the line names the cards by title (${activityLine(actLead, T7)})`);
+ok(activityLine({}, T7) === 'Last 7 days: nothing yet.' && activityLine({ portal: { activity: [{ t: 'view', at: ago(10) }] } }, T7) === 'Last 7 days: nothing yet.', 'nothing in the week: nothing yet');

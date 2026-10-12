@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, Checkbox, EmptyState, Icon, Pill, ProgressBar, SkeletonBlock } from '../../ui';
 import { relativeTime } from '../../shared/dates';
 import { showcaseStatus, plannerStatus, tasksStatus, conceptsStatus, docsStatus, portalStatus } from '../../lib/workspace';
-import { generatePortalPatch } from '../../lib/portal';
+import { generatePortalPatch, activityLine } from '../../lib/portal';
 import PortalSheet from './PortalSheet';
 import DocRow from '../docs/DocRow';
 import { COPY } from '../../shared/copy';
@@ -73,6 +73,7 @@ function PortalCard({ rec }) {
           {st.on && Number(lead?.portal?.pushDevices) > 0 && <Pill tone="booked" label="Pushes" size="sm" icon="Bell01" variant="soft" className="rc-ws-bell" aria-label="Gets pushes on their phone" />}
         </div>
         <p className="rc-ws-line">{!st.on ? COPY.empty['clients.portal'].title + '.' : st.views ? `${plural(st.views, 'view')}${st.lastViewedAt ? `, last opened ${relativeTime(st.lastViewedAt)}` : ''}.` : st.sentAt ? 'Sent, not opened yet.' : 'Not sent yet.'}</p>
+        {st.on && <p className="rc-ws-sub rc-ws-activity">{activityLine(lead)}</p>}
         {st.on && <p className="rc-ws-sub">{[st.template ? `${st.template[0].toUpperCase()}${st.template.slice(1)} template` : 'No template', st.off ? `${st.off} of ${st.modules} cards off` : 'every card on Auto', plural(st.documents, 'document')].join(', ')}</p>}
       </CardShell>
       {open && <PortalSheet rec={rec} onClose={() => setOpen(false)} />}

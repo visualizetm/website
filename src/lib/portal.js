@@ -66,3 +66,29 @@ export function portalStatus(lead) {
     template: p.template || '', documents: documentsOf(lead).length, off: rows.filter(r => r.state === 'off').length, modules: rows.length,
   };
 }
+
+/* Prompt 4 polish: the home is empty when nothing but the always offered cards (home, contact, book, notifications) rendered;
+ * the page then shows one card, Nothing needs you right now, with the contact buttons, and nothing else. */
+export const ALWAYS_OFFERED = ['home', 'contact', 'book', 'notifications'];
+export const homeIsEmpty = (cards) => !(Array.isArray(cards) ? cards : []).some(c => c && c.id && !ALWAYS_OFFERED.includes(c.id));
+
+/* The activity ring buffer (portal.activity, the last fifty events, written only by the public door): views and taps per
+ * card, no PII. Last 7 days on the CRM's Portal card. */
+export const ACTIVITY_DAYS = 7;
+export function activityLast7(lead, now = Date.now()) {
+  const since = now - ACTIVITY_DAYS * 864e5;
+  const events = (Array.isArray(lead?.portal?.activity) ? lead.portal.activity : []).filter(e => e && Date.parse(e.at || '') >= since);
+  const views = events.filter(e => e.t === 'view').length;
+  const taps = events.filter(e => e.t === 'tap');
+  const byCard = {};
+  for (const t of taps) byCard[t.card] = (byCard[t.card] || 0) + 1;
+  const top = Object.entries(byCard).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 3).map(([card, n]) => ({ card, n }));
+  return { views, taps: taps.length, top };
+}
+export function activityLine(lead, now = Date.now()) {
+  const a = activityLast7(lead, now);
+  if (!a.views && !a.taps) return 'Last 7 days: nothing yet.';
+  const name = (id) => PORTAL_MODULES.find(m => m.id === id)?.title || id;
+  const tops = a.top.length ? ` (${a.top.map(t => `${name(t.card)} ${t.n}`).join(', ')})` : '';
+  return `Last 7 days: ${a.views} view${a.views === 1 ? '' : 's'}, ${a.taps} tap${a.taps === 1 ? '' : 's'}${tops}.`;
+}

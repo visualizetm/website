@@ -7,7 +7,7 @@ import { COPY } from '../../shared/copy';
 import { relativeTime, fmtDate } from '../../shared/dates';
 import { apiFetch } from '../../shared/api';
 import { CALENDLY_URL } from '../../marketing/links';
-import { portalCardsNow, approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
+import { activityLine, portalCardsNow, approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
 
 /* The Portal sheet (client portal, prompt 1): everything about one client's
  * portal link, opened from the workspace's Portal card. The link (copy,
@@ -170,6 +170,7 @@ export default function PortalSheet({ rec, onClose }) {
               <QrCode value={url} size={160} icon label={`QR code for ${lead.business}'s portal`} downloadName={`${slug}-portal-qr`} />
               <Stack gap={2} className="ps-side">
                 <p className="dt-muted ps-stats">{Number(p.views) || 0} view{Number(p.views) === 1 ? '' : 's'}{p.lastViewedAt ? `, last opened ${relativeTime(p.lastViewedAt)}` : ', not opened yet'}.</p>
+                <p className="dt-muted ps-stats ps-activity">{activityLine(lead)}</p>
                 {p.sentAt ? <Pill tone="booked" label={`Sent ${fmtDate(p.sentAt)}`} size="sm" icon={false} /> : <Pill tone="neutral" label="Not sent yet" size="sm" icon={false} />}
                 <Row gap={2} wrap>
                   <Button variant="secondary" size="md" icon="LinkExternal01" href={url} target="_blank" rel="noopener noreferrer" className="ps-open">Open as the client</Button>

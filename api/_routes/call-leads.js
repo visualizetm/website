@@ -554,6 +554,7 @@ export async function handler(req, res) {
         hours: asked.hours !== undefined ? asked.hours : (had.hours || ''),
         approvals: asked.approvals !== undefined ? asked.approvals : (Array.isArray(had.approvals) ? had.approvals : []),
         siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door
+        activity: Array.isArray(had.activity) ? had.activity : [], // the ring of views and taps, written only by the public door
         pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '', pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], lastClientPushAt: had.lastClientPushAt || '', // the client's devices and what they were pushed: the public door and clientPush.js write these
       };
       if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };

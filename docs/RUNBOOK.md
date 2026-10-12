@@ -276,6 +276,20 @@ ten minutes and five a day, and one counted view an hour.
 
 ## Client portal
 
+A client says the link does not work: open their record, the Portal
+card, and read the status line first (Not sent yet, Sent, not opened yet,
+or the views). If the link was never sent, Send it. If it was sent and
+never opened, Regenerate (the old link dies, the QR and every device's
+unlock with it) and Send it again; the new link is the one in the message.
+If they open it and a card says Locked, that is the PIN: Reset PIN in the
+sheet gives them new digits, and the sixth wrong try in fifteen minutes
+locks the door for that long. A link that answers "This link expired" is a
+dead or regenerated token: the record's Portal sheet always holds the live
+one. The prompt 4 extras (an order, a site change, a push subscription)
+each write to the record through the same door, so the record's Tasks and
+the bell on the Portal card are the proof they went through.
+
+
 A client's portal link is made on the client record (the Portal card in
 the workspace, Generate link, then the Portal sheet): Copy, the QR's
 Download PNG, Open as the client (the real page in a new tab), Send it

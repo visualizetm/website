@@ -141,6 +141,11 @@ const CUTS = {
   'push-hook-project': [[PJ, "    if (allowed.deliverables || allowed.invoices || allowed.deliveredAt !== undefined || allowed.stage || allowed.checklists) { try { const p = await col.findOne({ _id }, { projection: { leadId: 1 } }); if (p?.leadId) await clientPushTick(db, oid(p.leadId) || p.leadId); } catch { /* the write is done; the sweep tries again */ } }\n", ""]],
   'push-hook-cron': [[CR, "  try { clientPushes = await clientPushSweep(db, now.getTime()); } catch { /* the digest is done; next run */ }\n", ""]],
   'push-carry': [[CL, "        pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '', pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], lastClientPushAt: had.lastClientPushAt || '', // the client's devices and what they were pushed: the public door and clientPush.js write these\n", ""]],
+  'activity-view': [[PP, ", $push: { 'portal.activity': { $each: [{ t: 'view', at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });", " });"]],
+  'activity-tap': [[PP, "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $push: { 'portal.activity': { $each: [{ t: 'tap', card: cardId, at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });\n", ""]],
+  'activity-card': [[PP, "  if (!PORTAL_MODULE_IDS.includes(cardId) && cardId !== 'pin') return res.status(400).json({ error: 'card required' });\n", ""]],
+  'activity-cap': [[PP, "const ACTIVITY_KEPT = 50;", "const ACTIVITY_KEPT = 500;"]],
+  'activity-carry': [[CL, "        activity: Array.isArray(had.activity) ? had.activity : [], // the ring of views and taps, written only by the public door\n", ""]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

@@ -22,6 +22,7 @@ import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
 import { encodeQr } from '../lib/qr';
 import { buildIcs, icsDataUrl } from '../lib/portalIcs';
+import { homeIsEmpty } from '../lib/portal';
 import { cloudinaryEnabled, uploadToCloudinary, validateUploadFile, ACCEPT_ATTR } from '../lib/cloudinary';
 import Image01 from '@untitled-ui/icons-react/build/esm/Image01';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
@@ -456,9 +457,11 @@ function ApprovalsCard({ card, token, onChanged }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState('');
   const [said, setSaid] = useState('');
+  const [confirm, setConfirm] = useState(null); // { id, decision } awaiting Yes: an answer is final, so it is asked once
+  const ask = (id, decision) => { if (decision === 'changes' && !note.trim()) { setSaid('Say what to change, in a line or two.'); return; } setSaid(''); setConfirm({ id, decision }); };
   const answer = async (id, decision) => {
     if (busy) return;
-    if (decision === 'changes' && !note.trim()) { setSaid('Say what to change, in a line or two.'); return; }
+    setConfirm(null);
     setBusy(id); setSaid('');
     try {
       const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve', id, decision, note: decision === 'changes' ? note.trim().slice(0, 400) : '' }) });
@@ -481,7 +484,7 @@ function ApprovalsCard({ card, token, onChanged }) {
             </div>
             {it.status === 'pending' && (
               <div className="pt-actions">
-                <button type="button" className="pt-btn" onClick={() => answer(it.id, 'approved')} disabled={busy === it.id} aria-busy={busy === it.id ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />Approve</button>
+                <button type="button" className="pt-btn" onClick={() => ask(it.id, 'approved')} disabled={busy === it.id} aria-busy={busy === it.id ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />Approve</button>
                 <button type="button" className="pt-btn pt-btn--ghost" onClick={() => { setOpen(open === it.id ? '' : it.id); setNote(''); }} aria-expanded={open === it.id}>Request changes</button>
               </div>
             )}
@@ -489,7 +492,14 @@ function ApprovalsCard({ card, token, onChanged }) {
               <div className="pt-appr-box">
                 <label className="pt-label" htmlFor={`pt-appr-note-${it.id}`}>What should change?</label>
                 <textarea id={`pt-appr-note-${it.id}`} className="pt-input pt-textarea" rows={3} maxLength={400} value={note} onChange={(e) => setNote(e.target.value.slice(0, 400))} placeholder="The colour, the wording, the photo..." />
-                <div className="pt-actions"><button type="button" className="pt-btn" onClick={() => answer(it.id, 'changes')} disabled={busy === it.id}>Send</button><span className="pt-note">{note.length} of 400</span></div>
+                <div className="pt-actions"><button type="button" className="pt-btn" onClick={() => ask(it.id, 'changes')} disabled={busy === it.id}>Send</button><span className="pt-note">{note.length} of 400</span></div>
+              </div>
+            )}
+            {confirm && confirm.id === it.id && (
+              <div className="pt-appr-box pt-confirm" role="group" aria-label={confirm.decision === 'approved' ? 'Confirm the approval' : 'Confirm the changes'}>
+                <p className="pt-pay-label">{confirm.decision === 'approved' ? `Approve ${it.label}?` : `Send these changes on ${it.label}?`}</p>
+                <p className="pt-note">This one is final: once it goes, Rob starts on it.</p>
+                <div className="pt-actions"><button type="button" className="pt-btn" onClick={() => answer(it.id, confirm.decision)}><Check width={18} height={18} aria-hidden="true" />Yes, {confirm.decision === 'approved' ? 'approve it' : 'send it'}</button><button type="button" className="pt-btn pt-btn--ghost" onClick={() => setConfirm(null)}>Not yet</button></div>
               </div>
             )}
           </li>
@@ -729,6 +739,38 @@ function SiteChangesCard({ card, pending }) {
   );
 }
 
+/* The empty home (prompt 4): one card, the contact buttons, nothing else. The only placeholder the page may show. */
+function EmptyHomeCard({ contact }) {
+  const sms = smsHref(contact?.sms); const mailto = mailHref(contact?.mailto);
+  return (
+    <section className="pt-card pt-card--empty" aria-labelledby="pt-empty-h" data-empty-home="true">
+      <h2 className="pt-card-h" id="pt-empty-h">Nothing needs you right now.</h2>
+      <p className="pt-lead pt-lead--sm">I'll put it here the moment something does. Until then, I'm a message away.</p>
+      <div className="pt-actions">
+        {sms && <a className="pt-btn" href={sms}><MessageTextSquare02 width={18} height={18} aria-hidden="true" />Text me</a>}
+        {mailto && <a className={`pt-btn${sms ? ' pt-btn--ghost' : ''}`} href={mailto}><Mail01 width={18} height={18} aria-hidden="true" />Email me</a>}
+        {!sms && !mailto && <a className="pt-btn" href={INSTAGRAM_URL} target="_blank" rel="noreferrer"><AtSign width={18} height={18} aria-hidden="true" />{INSTAGRAM_HANDLE}</a>}
+      </div>
+    </section>
+  );
+}
+
+/* The skeleton (prompt 4): the shell paints at once and the cards stream in; no spinner page. */
+function PortalSkeleton() {
+  return (
+    <div className="pt-cards pt-skel" aria-busy="true" aria-label="Loading your portal" role="status">
+      <div className="pt-home"><span className="pt-skel-mark" /><div className="pt-home-text"><span className="pt-skel-bar pt-skel-bar--title" /><span className="pt-skel-bar pt-skel-bar--w60" /></div></div>
+      {[0, 1, 2].map(i => <div key={i} className="pt-card"><span className="pt-skel-bar pt-skel-bar--w40" /><span className="pt-skel-bar" /><span className="pt-skel-bar pt-skel-bar--w80" /><span className="pt-skel-btn" /></div>)}
+    </div>
+  );
+}
+
+/* The last payload per token, in memory only: a repeat visit in the same session paints it at once and reads again. */
+const LAST = new Map();
+const useOnline = () => { const [on, setOn] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false)); useEffect(() => { const up = () => setOn(true); const down = () => setOn(false); window.addEventListener('online', up); window.addEventListener('offline', down); return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); }; }, []); return on; };
+/* A tap on a card's control is one event in the record's activity ring (no PII, the card id only); best effort, never awaited. */
+const track = (token, card) => { try { const url = `/api/portal?token=${encodeURIComponent(token)}`; const body = JSON.stringify({ action: 'tap', card }); if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' })); else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {}); } catch { /* nothing to do */ } };
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -803,13 +845,16 @@ export default function Portal() {
   const business = data?.client?.business || '';
   useHead({ title: `${business || 'Your portal'} | Visualize.`, description: 'Everything about your work with Visualize, in one place.', noindex: true });
 
+  const online = useOnline();
   useEffect(() => {
     let live = true;
     if (!token) { setState('expired'); return undefined; }
+    const had = LAST.get(token);
+    if (had) { setData(had); setState('ready'); }
     const unlock = readLS(unlockKey(token), '');
     fetch(`/api/portal?token=${encodeURIComponent(token)}${unlock ? `&unlock=${encodeURIComponent(unlock)}` : ''}`, { cache: 'no-store' })
-      .then(async (r) => { if (!live) return; if (r.status === 404) { setState('expired'); return; } if (!r.ok) { setState('failed'); return; } const d = await r.json(); setData(d); setState('ready'); })
-      .catch(() => { if (live) setState('failed'); });
+      .then(async (r) => { if (!live) return; if (r.status === 404) { LAST.delete(token); setState('expired'); return; } if (!r.ok) { if (!had) setState('failed'); return; } const d = await r.json(); LAST.set(token, d); setData(d); setState('ready'); })
+      .catch(() => { if (live && !had) setState('failed'); });
     return () => { live = false; };
   }, [token, gen]);
 
@@ -821,7 +866,7 @@ export default function Portal() {
   const unlocked = useCallback(() => { setPinOpen(false); setGen(g => g + 1); }, []);
 
   let body;
-  if (state === 'loading') body = <p className="pt-lead" aria-busy="true">One second.</p>;
+  if (state === 'loading') body = <PortalSkeleton />;
   else if (state === 'expired') body = (
     <div className="pt-done" data-state="expired">
       <h1 className="pt-title">This link expired.</h1>
@@ -833,7 +878,7 @@ export default function Portal() {
     </div>
   );
   else if (state === 'failed') body = (
-    <div className="pt-done" data-state="failed"><h1 className="pt-title">That did not load.</h1><p className="pt-lead">Give it a moment and open the link again.</p><button type="button" className="pt-btn" onClick={() => window.location.reload()}>Try again</button></div>
+    <div className="pt-done" data-state="failed"><h1 className="pt-title">That did not load.</h1><p className="pt-lead">Give it a moment and open the link again.</p><button type="button" className="pt-btn" onClick={() => { setState('loading'); setGen(g => g + 1); }}>Try again</button></div>
   );
   else body = (
     <div className="pt-cards">
@@ -843,7 +888,13 @@ export default function Portal() {
           <button type="button" className="pt-hint-x" onClick={dismissHint} aria-label="Dismiss"><XClose width={18} height={18} aria-hidden="true" /></button>
         </div>
       )}
-      {(data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; return Draw ? <Draw key={card.id} card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} /> : null; })}
+      {!online && <p className="pt-offline" role="status">You're offline, showing what I had.</p>}
+      {homeIsEmpty(data?.cards) ? (
+        <>
+          {(data?.cards || []).filter(c => c.id === 'home').map(card => <HomeCard key="home" card={card} client={data.client} />)}
+          <EmptyHomeCard contact={(data?.cards || []).find(c => c.id === 'contact')} />
+        </>
+      ) : (data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; if (!Draw) return null; if (card.id === 'home') return <Draw key={card.id} card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} />; return <div key={card.id} className="pt-slot" data-card={card.id} onClickCapture={(e) => { if (e.target.closest('a, button')) track(token, card.id); }}><Draw card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} /></div>; })}
       <UndoBar pending={pending.pending} onUndo={pending.undo} />
       {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
       {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}
@@ -867,6 +918,20 @@ const ptStyles = `
   .pt { background: var(--bg); color: var(--text); font-family: var(--font-body); }
   .pt-wrap { max-width: 600px; }
   .pt-cards { display: flex; flex-direction: column; gap: var(--space-4); }
+  .pt-slot { display: contents; }
+  /* The skeleton and the offline line (prompt 4). */
+  .pt-skel-bar { display: block; height: 14px; border-radius: 7px; background: var(--border-light); }
+  .pt-skel-bar--title { height: 28px; width: 50%; margin: 6px 0 10px; }
+  .pt-skel-bar--w40 { width: 40%; height: 18px; }
+  .pt-skel-bar--w60 { width: 60%; }
+  .pt-skel-bar--w80 { width: 80%; }
+  .pt-skel-btn { display: block; width: 140px; height: 48px; border-radius: var(--radius); background: var(--border-light); }
+  .pt-skel-mark { display: block; flex-shrink: 0; width: 72px; height: 72px; border-radius: var(--radius); background: var(--border-light); }
+  .pt-skel .pt-skel-bar, .pt-skel .pt-skel-btn, .pt-skel .pt-skel-mark { animation: pt-pulse 1.2s ease-in-out infinite; }
+  @keyframes pt-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+  @media (prefers-reduced-motion: reduce) { .pt-skel .pt-skel-bar, .pt-skel .pt-skel-btn, .pt-skel .pt-skel-mark { animation: none; } }
+  .pt-offline { display: flex; align-items: center; min-height: 44px; margin: 0; padding: var(--space-2) var(--space-4); border-left: 6px solid var(--border-light); border-radius: var(--radius); background: var(--bg-card); color: var(--text-secondary); font-size: 0.9375rem; }
+  .pt-card--empty { border-left: 6px solid var(--brand); }
   .pt-home { display: flex; align-items: flex-start; gap: var(--space-4); margin: var(--space-2) 0 var(--space-4); min-width: 0; }
   .pt-home-text { min-width: 0; flex: 1; }
   .pt-mark { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 72px; height: 72px; border-radius: var(--radius); background: var(--bg-card); border-left: 6px solid var(--pt-brand, var(--brand)); }

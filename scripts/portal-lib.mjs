@@ -680,6 +680,28 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   _stores.push_subscriptions = []; seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
   }
 
+  /* 4m. the activity ring (prompt 4): a counted view and a tap per card, the card id only, fifty kept, carried by the lead route */
+  {
+    seed(); await admin({ id: LEAD, set: { portal: {} } }); const tA = lead().portal.token;
+    const lim5 = await load('_lib/limit.js'); const dbA = await (await load('_lib/mongo.js')).getDb();
+    await lim5.rateClear(dbA, lim5.rateKey('pview', tA));
+    await pub('GET', { token: tA }); await pub('GET', { token: tA });
+    const act = () => (lead().portal.activity || []);
+    ok(act().length === 1 && act()[0].t === 'view' && !!act()[0].at && Object.keys(act()[0]).sort().join(',') === 'at,t', `a counted view is one event { t, at } and the hourly debounce keeps it to one (${JSON.stringify(act())})`, 'activity-view');
+    let ta = await pub('POST', { token: tA }, { action: 'tap', card: 'pay' });
+    await pub('POST', { token: tA }, { action: 'tap', card: 'files' }); await pub('POST', { token: tA }, { action: 'tap', card: 'pay' });
+    ok(ta._status === 200 && act().length === 4 && act().filter(e => e.t === 'tap' && e.card === 'pay').length === 2 && Object.keys(act()[1]).sort().join(',') === 'at,card,t', `a tap is { t, card, at } (${JSON.stringify(act().slice(1))})`, 'activity-tap');
+    ta = await pub('POST', { token: tA }, { action: 'tap', card: 'owner@sharpless.example' });
+    const ta2 = await pub('POST', { token: tA }, { action: 'tap' });
+    ok(ta._status === 400 && ta2._status === 400 && act().length === 4, 'a tap must name a card the registry knows: nothing else is stored', 'activity-card');
+    for (let i = 0; i < 60; i++) await pub('POST', { token: tA }, { action: 'tap', card: 'planner' });
+    ok(act().length === 50 && act()[49].card === 'planner' && !act().some(e => e.t === 'view'), `the ring keeps the last fifty (${act().length})`, 'activity-cap');
+    ok(!JSON.stringify(act()).includes('sharpless') && !JSON.stringify(act()).includes('555'), 'no PII in the ring');
+    await admin({ id: LEAD, set: { portal: { modules: { book: 'on' }, activity: [{ t: 'tap', card: 'pay', at: '2020-01-01T00:00:00.000Z' }] } } });
+    ok(act().length === 50 && !act().some(e => e.at === '2020-01-01T00:00:00.000Z'), 'a portal write from the CRM carries the ring forward and never writes it', 'activity-carry');
+    seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+  }
+
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'off', showcase: 'off' } } } });
   r2 = await pub('GET', { token: t3 });

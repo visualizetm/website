@@ -128,7 +128,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 4: client push (the Notifications switch on the portal, the push_on and push_off door with role client rows, the owner and client senders apart in notify.js, api/_lib/clientPush.js with the keys, the six hour rule and the batch, the hooks on the lead route, the project route, the invoice email and the Stripe payment, the sweep on the reminders cron, the bell on the CRM Portal card), regression 26b at twenty two card rows; portal-test 217 -> 243, guards 103 -> 118.
 
+- Milestone 5: the polish pass (the skeleton, the last payload from memory, the offline line, the confirm on approvals, the empty home card, Try again that reads again), the activity ring (portal.activity, views and taps per card, fifty kept, written by the public door; Last 7 days on the CRM's Portal card and sheet), the tap door, regression 26d, the mkt-portal-empty screen, docs/PORTAL-DESIGN.md finished (the prompt 4 rules, the modules table, the routes, the push rules), the RUNBOOK paragraph; portal-test 243 -> 249, guards 118 -> 123. The full gate runs after this note; its results are in reports/PORTAL-4-REPORT.md.
+
 ## Next
-- Prompt 4, milestone 5: the polish pass, the activity buffer, the docs, the gate.
+- The portal is complete through prompt 4. After it: a Stats module once a data source exists (site visits, calls from the site, the planner's reach), and Rob's phone for the push subscribe and receive on the iPhone PWA, the image upload from the camera roll, and the offline line.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

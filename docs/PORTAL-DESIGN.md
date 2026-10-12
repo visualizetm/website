@@ -112,13 +112,97 @@ the records: `{ posts, sets, todayKey, meeting }`. A resolve may return
 `_order` to move its card for one state; `portalCards` reads it and
 `cardOf` never sends it.
 
+## Auto rules (prompt 4)
+
+| Module | Shows when |
+|---|---|
+| reorder | the client has had print: a delivered print order, or a delivered package that carried print (PRINT_PACKAGES: Brand Complete and Web Complete a card run, Launch an NFC card and stickers, Build all three). Five quick picks priced from pricing.js, theirs first, a quantity each (1 to 500), a note, the confirm and the thirty second undo |
+| site_changes | an active Site Care or Growth retainer and a website project (kind website, web or combined): the ask up to 600 characters, one picture through the Cloudinary preset (8 MB, the studio's cloud only), the last three asks with Open or Done |
+| referral | any delivered non retainer project: the link with the code (the published showcase slug, else the first ten characters of the portal token), Copy and Share |
+| notifications | always offered: one switch for web push on this device; the page hides it on a browser without a service worker, PushManager or Notification |
+
+The empty home: when nothing but the always offered cards (home, contact,
+book, notifications) rendered, the page shows one card, Nothing needs you
+right now, with the contact buttons, and nothing else (`homeIsEmpty` in
+src/lib/portal.js; regression 26d). The shell paints at once and the cards
+stream in behind a skeleton; a repeat visit in the same session paints the
+last payload from memory and reads again; offline, a quiet line says
+"You're offline, showing what I had" over the cards it has. A costly
+action (an order, a site change) has a confirm step and thirty seconds of
+Undo before the request goes (flushed with sendBeacon if the tab closes);
+an approval has a confirm step and is final.
+
+## The modules
+
+| id | order | sensitive | default | prompt |
+|---|---|---|---|---|
+| home | 0 | no | on (fixed) | 1 |
+| needs_you | 10 | no | auto | 2 |
+| pay | 20 | yes | auto | 2 |
+| plan | 25 | yes | auto | 2 |
+| approvals | 30 | no | auto | 3 |
+| concepts | 40 (approved 155) | no | auto | 3 |
+| planner | 50 | no | auto | 3 |
+| progress | 60 | no | auto | 2 |
+| revisions | 70 | no | auto | 2 |
+| meetings | 80 | no | auto | 3 |
+| site_changes | 85 | no | auto | 4 |
+| files | 90 | no | auto | 2 |
+| reorder | 95 | no | auto | 4 |
+| brand_kit | 100 | no | auto | 2 |
+| review | 110 | no | auto | 3 |
+| their_reviews | 120 | no | auto | 3 |
+| referral | 125 | no | auto | 4 |
+| showcase | 130 | no | auto | 1 |
+| retainer | 140 | yes | auto | 2 |
+| documents | 150 | no | auto | 1 |
+| book | 160 | no | auto | 1 |
+| notifications | 165 | no | auto | 4 |
+| contact | 170 | no | auto | 1 |
+
+## The routes
+
+One public door, `/api/portal?token=<token>` (api/_routes/portal-public.js,
+behind the shared limiter, every request value cast):
+
+| Method and action | Does | Limit per token |
+|---|---|---|
+| GET | `{ client, cards, pinned, unlocked, paid }`; counts a view at most once an hour (rate:pview) and writes one view event to the activity ring | |
+| POST pin `{ pin }` | checks the PIN, answers a thirty day HMAC unlock | 5 per 15 min (rate:ppin) |
+| POST approve `{ id, decision, note }` | answers one pending approval on this record; a task and a push to Rob | 20 an hour (rate:papp) |
+| POST reorder `{ items: [{ id, qty }], note }` | one Print Order (status new, source client), a task, a push to Rob | 5 a day (rate:prdr) |
+| POST site_change `{ text, image }` | a task with the note and the picture link, a line in portal.siteChanges, a push to Rob | 10 a day (rate:psite) |
+| POST push_on `{ subscription }` / push_off `{ endpoint }` | this device's row (role client, leadId) saved or removed; the device count on the record | 10 a day (rate:ppsh) |
+| POST tap `{ card }` | one tap event in the activity ring (a registry id only) | 120 an hour (rate:ptap) |
+
+The record fields the doors write and the lead route only carries forward
+(never from the body): portal.views, lastViewedAt, lastPaidSeenAt,
+siteChanges, activity (the last fifty events, views and taps per card, no
+PII), pushDevices, pushAt, pushSeen, lastClientPushAt.
+
+## Push rules
+
+A client's device is a push_subscriptions row with role client and the
+client's leadId; `sendPush` (Rob's) reads rows without that role and
+`sendClientPush` reads one client's. Pushes to a client are batched in
+api/_lib/clientPush.js: the keys that can earn one (an open client task,
+a pending approval, the files project once paid in full, a sent unpaid
+invoice) are diffed against portal.pushSeen; anything new earns one push
+with everything new in one message, never more than one per client per
+six hours (portal.lastClientPushAt). The tick runs after the writes that
+can add a key (the lead route on checklists or portal, the project route
+on deliverables, invoices, stage or delivery, the invoice email, a Stripe
+payment) and the reminders cron sweeps every client with a device. The
+CRM's Portal card shows a bell when a client has a device.
+
 ## The card order on the home
 
 Encoded as each module's `order` (home is always first): needs_you 10,
 pay 20, plan 25, approvals 30, concepts 40 (an approved set 155), planner
-50, progress 60, revisions 70, meetings 80, files 90, brand_kit 100, review
-110, their_reviews 120, showcase 130, retainer 140, documents 150, book
-160, contact 170.
+50, progress 60, revisions 70, meetings 80, site_changes 85, files 90,
+reorder 95, brand_kit 100, review 110, their_reviews 120, referral 125,
+showcase 130, retainer 140, documents 150, book 160, notifications 165,
+contact 170.
 
 ## The approve door
 
