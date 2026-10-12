@@ -68,11 +68,14 @@ export const docEditorStyles = `
   .dc-upload.is-busy { opacity: 0.6; }
   .dc-hint { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .dc-ref { display: flex; align-items: center; gap: var(--v-space-3); width: 100%; min-height: 56px; margin: var(--v-space-1) 0; padding: var(--v-space-2) var(--v-space-3); text-align: left; border: 1px solid var(--v-border-1); border-radius: var(--v-radius-md); background: var(--v-surface-2); color: var(--v-text); cursor: pointer; }
+  /* A reference's status pill can be long (a task's full due date): at 320 the row wraps and the pill drops under the text rather than past the edge. */
+  .dc-ref { flex-wrap: wrap; }
+  .dc-ref .v-pill { margin-left: auto; max-width: 100%; }
   .dc-ref:hover { border-color: var(--v-border-2); }
   .dc-ref:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .dc-ref.is-gone { opacity: 0.65; cursor: default; }
   .dc-ref-icon { flex-shrink: 0; color: var(--v-text-3); }
-  .dc-ref-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .dc-ref-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 120px; }
   .dc-ref-kind { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
   .dc-ref-label { font-size: var(--v-text-md); line-height: var(--v-lh-md); overflow-wrap: anywhere; }
   .dc-task { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap); margin: 0 0 var(--v-space-1) var(--v-tap); padding: 0 var(--v-space-3); border: 1px solid var(--v-border-strong); border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text); font: inherit; font-size: var(--v-text-sm); cursor: pointer; }

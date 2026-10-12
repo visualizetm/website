@@ -117,7 +117,7 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 4: approvals on the client record (portal.approvals through the lead route), the approve door on /api/portal (own item only, pending only, a note for changes, twenty an hour), the Next up task and the push, the Approvals card with Approve and Request changes, the CRM Approvals editor in the Portal sheet (Ask, Resend, Delete with undo); portal-test 156 -> 171, guards 68 -> 77.
 
-- Milestone 5: the home order encoded in the registry, the templates (Brand adds concepts, review, approvals; Website adds meetings too; Retainer adds planner, their_reviews, meetings, approvals), the send message from the cards that render now, regression 26b at eighteen card rows, docs/PORTAL-DESIGN.md (the prompt 3 Auto rules, the order table, the back chip contract, the approve door), ARCHITECTURE, RUNBOOK, CLAUDE.md; the full gate detached; reports/PORTAL-3-REPORT.md.
+- Milestone 5: the home order encoded in the registry, the templates (Brand adds concepts, review, approvals; Website adds meetings too; Retainer adds planner, their_reviews, meetings, approvals), the send message from the cards that render now, regression 26b at eighteen card rows, docs/PORTAL-DESIGN.md (the prompt 3 Auto rules, the order table, the back chip contract, the approve door), ARCHITECTURE, RUNBOOK, CLAUDE.md; the full gate detached (every run complete, preship passed, the 320 layout width rerun after the reference row fix; the results are in reports/PORTAL-3-REPORT.md).
 
 ## Next
 - Prompt 4: the extras.
