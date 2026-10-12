@@ -602,6 +602,8 @@ export const PORTAL_RESOLVE = {
     /* Prompt 3: the token pages as cards, each linking to its page with the way back. */
     { id: 'planner', title: 'Content planner', sensitive: false, url: '/planner/plnrTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', posts: 3, needYou: 1, adsLive: 2, line: 'This week: 3 posts, 1 needs you. 2 ads live' },
     { id: 'concepts', title: 'Concepts', sensitive: false, url: '/concepts/cncpTESTtoken0123456789abcdEF?from=portal&c=prtlTESTtoken0123456789abcd', name: 'Brand directions', state: 'waiting', stateLabel: 'Waiting on you', cover: '/showcase/fixtures/square.svg' },
+    { id: 'review', title: 'How did I do?', sensitive: false, url: '/r/rvwTESTtoken0123456789abcd?from=portal&c=prtlTESTtoken0123456789abcd', line: 'A minute of your time, and it helps more than you know.' },
+    { id: 'their_reviews', title: 'Your reviews', sensitive: false, googleLink: 'https://g.page/r/fixture-business/review', count: 19, diff: 7, line: '19 reviews, up 7 since we started', nfcCard: true },
   ],
   pinned: false, unlocked: true, paid: false,
 };

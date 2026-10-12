@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import Send01 from '@untitled-ui/icons-react/build/esm/Send01';
 import ArrowUpRight from '@untitled-ui/icons-react/build/esm/ArrowUpRight';
 import CheckCircle from '@untitled-ui/icons-react/build/esm/CheckCircle';
@@ -8,7 +8,7 @@ import { INSTAGRAM_URL, INSTAGRAM_HANDLE } from '../marketing/links';
 import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
 import { logoSrc } from '../ui/logo.data';
-import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
+import { ClientBar, ClientFoot, clientChromeStyles, portalBackHref } from '../components/ClientPageChrome';
 import { StarRating } from './Review';
 
 /* The Visualize review link's page (/r/<token>, review links job): one
@@ -39,6 +39,7 @@ function ClientMark({ logoUrl, brandHex, business }) {
 
 export default function ReviewLink() {
   const { token = '' } = useParams();
+  const back = portalBackHref(useLocation().search); // the portal's back chip, when this page was opened from it
   const draftKey = `${DRAFT_PREFIX}:${token || '-'}`;
   const [client, setClient] = useState(null);   // { business, firstName, logoUrl, brandHex, googleReviewUrl }
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
@@ -163,7 +164,7 @@ export default function ReviewLink() {
   return (
     <section className="rl section">
       <div className="wrap rl-wrap">
-        <ClientBar label={client?.business || undefined} />
+        <ClientBar label={client?.business || undefined} back={back} />
         {body}
         <ClientFoot />
       </div>

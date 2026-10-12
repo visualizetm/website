@@ -14,12 +14,15 @@ import Share01 from '@untitled-ui/icons-react/build/esm/Share01';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Lock01 from '@untitled-ui/icons-react/build/esm/Lock01';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHead } from '../marketing/useHead';
 import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL } from '../marketing/links';
 import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
+import { encodeQr } from '../lib/qr';
+import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
+import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import { logoSrc } from '../ui/logo.data';
 import Logo from '../ui/Logo';
 import { ClientBar, ClientFoot, clientChromeStyles } from '../components/ClientPageChrome';
@@ -358,6 +361,70 @@ function ConceptsCard({ card }) {
   );
 }
 
+/* How did I do? (prompt 3): one ask after delivery, five outline stars as the preview, the button into the review page. */
+function ReviewCard({ card }) {
+  const url = safeHref(card.url);
+  if (!url) return null;
+  return (
+    <section className="pt-card" aria-labelledby="pt-review-h">
+      <h2 className="pt-card-h" id="pt-review-h">How did I do?</h2>
+      <span className="pt-stars" aria-hidden="true">{[1, 2, 3, 4, 5].map(n => <Star01 key={n} width={28} height={28} />)}</span>
+      {card.line && <p className="pt-lead pt-lead--sm">{card.line}</p>}
+      <div className="pt-actions"><a className="pt-btn" href={url}>Leave a review<ArrowUpRight width={16} height={16} aria-hidden="true" /></a></div>
+    </section>
+  );
+}
+
+/* A QR for the public page: the shared encoder (src/lib/qr.js) drawn as an SVG in ink on paper, with Download PNG. The kit's
+ * QrCode reads the admin tokens and stylesheet, which this host does not load. */
+function QrSvg({ value, label, downloadName }) {
+  const qr = useMemo(() => { try { return encodeQr(value, { level: 'M' }); } catch { return null; } }, [value]);
+  const svgRef = useRef(null);
+  if (!qr) return null;
+  const n = qr.size; const quiet = 4; const total = n + quiet * 2;
+  const path = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (qr.modules[y][x]) path.push(`M${x + quiet} ${y + quiet}h1v1h-1z`);
+  const download = () => {
+    try {
+      const svg = svgRef.current; if (!svg) return;
+      const xml = new XMLSerializer().serializeToString(svg);
+      const img = new Image(); const px = 1024;
+      img.onload = () => { const c = document.createElement('canvas'); c.width = px; c.height = px; const g = c.getContext('2d'); g.fillStyle = 'white'; g.fillRect(0, 0, px, px); g.drawImage(img, 0, 0, px, px); const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = `${downloadName}.png`; a.click(); };
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
+    } catch { /* the QR stays on screen */ }
+  };
+  return (
+    <div className="pt-qr">
+      <svg ref={svgRef} className="pt-qr-svg" viewBox={`0 0 ${total} ${total}`} width={160} height={160} role="img" aria-label={label} shapeRendering="crispEdges"><rect width={total} height={total} fill="white" /><path d={path.join('')} fill="black" /></svg>
+      <button type="button" className="pt-btn pt-btn--ghost" onClick={download}><Download01 width={18} height={18} aria-hidden="true" />Download PNG</button>
+    </div>
+  );
+}
+
+/* Your reviews: their Google link with Copy, its QR for a counter card, and their count since we started. Never the Visualize review. */
+function TheirReviewsCard({ card, client }) {
+  const [said, setSaid] = useState('');
+  const link = safeHref(card.googleLink);
+  return (
+    <section className="pt-card" aria-labelledby="pt-theirs-h">
+      <h2 className="pt-card-h" id="pt-theirs-h">Your reviews</h2>
+      {card.line && <p className="pt-pay-amount">{card.line}</p>}
+      {!link && card.nfcCard && <p className="pt-lead pt-lead--sm">Your review card taps straight to Google.</p>}
+      {link && (
+        <>
+          <div className="pt-actions">
+            <a className="pt-btn pt-btn--ghost" href={link} target="_blank" rel="noreferrer">Open on Google<ArrowUpRight width={16} height={16} aria-hidden="true" /></a>
+            <button type="button" className="pt-btn pt-btn--ghost" onClick={async () => setSaid((await copyToClipboard(link)) ? 'Link copied.' : link)}><Copy01 width={18} height={18} aria-hidden="true" />Copy</button>
+          </div>
+          {said && <p className="pt-line" role="status"><Check width={16} height={16} aria-hidden="true" /><span>{said}</span></p>}
+          <QrSvg value={link} label={`QR code for ${client?.business || 'your'} Google reviews`} downloadName={`${String(client?.business || 'reviews').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-review-qr`} />
+          <p className="pt-note">Print the QR for a counter card: a scan opens your reviews.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
   return (
@@ -419,7 +486,7 @@ function PinSheet({ token, onClose, onUnlocked }) {
 }
 
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
-const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard };
+const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard };
 
 export default function Portal() {
   const { token = '' } = useParams();
@@ -606,5 +673,9 @@ const ptStyles = `
   /* The token page cards (prompt 3): a cover beside the set's name. */
   .pt-concepts-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
   .pt-concepts-cover { flex-shrink: 0; width: 72px; height: 72px; border-radius: var(--radius); background: var(--bg); }
+  /* Reviews (prompt 3): the star preview and the QR. */
+  .pt-stars { display: inline-flex; gap: var(--space-1); color: var(--brand-text); }
+  .pt-qr { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .pt-qr-svg { display: block; border-radius: var(--radius); }
   .pt-toast { position: fixed; left: 50%; bottom: calc(var(--space-6) + env(safe-area-inset-bottom)); transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5); background: var(--bg-elevated); color: var(--text); border-left: 6px solid var(--brand); border-radius: var(--radius); font-size: 0.9375rem; z-index: 50; max-width: calc(100% - 32px); }
 `;

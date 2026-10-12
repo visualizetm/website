@@ -111,7 +111,9 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 ## Client portal, prompt 3 (the token pages as cards)
 - Milestone 1: the planner and concepts modules (this week's counts, the set's state and cover, the links with the way back), the ctx bag and the per card order override in portalCards, the Back to your portal chip on the shared client bar read by the planner and the concepts page; portal-test 125 -> 136, guards 52 -> 58.
 
+- Milestone 2: the How did I do? card (delivered, the link, no review yet; gone after one) and the Your reviews card (the Google link with Copy, its QR from the shared encoder with Download PNG, the count line "19 reviews, up 7 since we started"); the back chip on the review page too; portal-test 136 -> 147, guards 58 -> 62.
+
 ## Next
-- Prompt 3 milestone 2: the review and their_reviews cards.
+- Prompt 3 milestone 3: the meetings card with the Calendly helper, the cache and the .ics builder.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

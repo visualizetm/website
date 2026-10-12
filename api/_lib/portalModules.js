@@ -3,7 +3,7 @@
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { RETAINERS, retainerOf, money, extraRoundFee, EXTRA_ROUND } from './pricing.js';
 
-export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts'];
+export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showcase', 'pay', 'plan', 'retainer', 'progress', 'revisions', 'needs_you', 'files', 'brand_kit', 'planner', 'concepts', 'review', 'their_reviews'];
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
@@ -126,6 +126,17 @@ export const sharedConceptSet = (client, sets) => (Array.isArray(sets) ? sets : 
   .sort((a, b) => (Number(b.round) || 0) - (Number(a.round) || 0) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0] || null;
 export const conceptState = (set) => (set?.approvedDirectionId || set?.status === 'approved' ? 'approved' : set?.status === 'changes' ? 'changes' : 'waiting');
 const CONCEPT_STATE_LABEL = { approved: 'Approved', changes: 'Changes requested', waiting: 'Waiting on you' };
+/* Reviews (prompt 3): the Visualize review link as one ask after delivery, and the client's own Google reviews on their card. */
+const hasTestimonial = (client) => (Array.isArray(client?.reviews?.testimonials) ? client.reviews.testimonials : []).some(t => t && (t.status === 'pending' || t.status === 'approved' || (!t.status && t.published === true)));
+const newestProject = (client, projects) => clientProjects(client, projects).filter(p => p.kind !== 'retainer').sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))[0] || null;
+export const reviewLink = (client) => (client?.reviews?.visualize?.token ? `/r/${client.reviews.visualize.token}${fromPortal(client)}` : '');
+/** "<latest> reviews, up <diff> since we started" when both counts are numbers and the diff is positive, else the count alone. */
+export function theirReviewsLine(reviews) {
+  const latest = Number(reviews?.latest?.count); const base = Number(reviews?.baseline?.count);
+  if (!Number.isFinite(latest)) return '';
+  const diff = Number.isFinite(base) ? latest - base : 0;
+  return `${latest} review${latest === 1 ? '' : 's'}${diff > 0 ? `, up ${diff} since we started` : ''}`;
+}
 const ordinal = (n) => { const s = ['th', 'st', 'nd', 'rd'], v = n % 100; return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`; };
 
 export const PORTAL_MODULES = [
@@ -320,11 +331,36 @@ export const PORTAL_MODULES = [
       return { url: `/concepts/${set.token}${fromPortal(client)}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 31 : undefined };
     },
   },
+  {
+    id: 'review', title: 'How did I do?', order: 38, sensitive: false, defaultState: 'auto',
+    auto: 'Shows once the newest project is delivered and the review link exists, until a review comes in.',
+    fields: ['url', 'line'],
+    resolve(client, projects) {
+      const p = newestProject(client, projects);
+      if (!p || !p.deliveredAt) return null;
+      const url = reviewLink(client);
+      if (!url || hasTestimonial(client)) return null;
+      return { url, line: 'A minute of your time, and it helps more than you know.' };
+    },
+  },
+  {
+    id: 'their_reviews', title: 'Your reviews', order: 39, sensitive: false, defaultState: 'auto',
+    auto: 'Shows when they have a review card or a Google review link: the link with Copy, its QR, and their count since we started. Never the Visualize review.',
+    fields: ['googleLink', 'count', 'diff', 'line', 'nfcCard'],
+    resolve(client) {
+      const r = client?.reviews || {};
+      const googleLink = /^https:\/\//i.test(String(r.googleLink || '')) ? str(r.googleLink, 400) : '';
+      if (!r.nfcCard && !googleLink) return null;
+      const latest = Number(r.latest?.count); const base = Number(r.baseline?.count);
+      const diff = Number.isFinite(latest) && Number.isFinite(base) && latest - base > 0 ? latest - base : 0;
+      return { googleLink, count: Number.isFinite(latest) ? latest : null, diff, line: theirReviewsLine(r), nfcCard: !!r.nfcCard };
+    },
+  },
 ];
 export const PORTAL_TEMPLATES = {
-  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto' },
-  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto' },
-  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto' },
+  brand: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', brand_kit: 'auto', concepts: 'auto', review: 'auto' },
+  website: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', plan: 'auto', retainer: 'auto', progress: 'auto', revisions: 'auto', needs_you: 'auto', files: 'auto', concepts: 'auto', review: 'auto' },
+  retainer: { contact: 'auto', book: 'auto', documents: 'auto', showcase: 'auto', pay: 'auto', retainer: 'auto', needs_you: 'auto', planner: 'auto', their_reviews: 'auto' },
 };
 export const RETAINER_IDS = RETAINERS.map(r => r.id);
 export const portalModuleOf = (id) => PORTAL_MODULES.find(m => m.id === id) || null;

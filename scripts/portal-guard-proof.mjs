@@ -75,6 +75,10 @@ const CUTS = {
     [PP, "db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true } })", "db.collection('concept_sets').find({ deleted: { $ne: true } })"],
     [PM, "  .filter(s => s && String(s.leadId) === String(client?._id) && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')", "  .filter(s => s && !s.deleted && !s.archived && s.token && s.status && s.status !== 'draft')"],
   ],
+  'review-gate': [[PM, "      if (!p || !p.deliveredAt) return null;\n      const url = reviewLink(client);\n      if (!url || hasTestimonial(client)) return null;", "      const url = reviewLink(client) || '/r/none';\n      if (hasTestimonial(client)) return null;"]],
+  'review-submitted': [[PM, "      if (!url || hasTestimonial(client)) return null;", "      if (!url) return null;"]],
+  'reviews-diff': [[PM, "  return `${latest} review${latest === 1 ? '' : 's'}${diff > 0 ? `, up ${diff} since we started` : ''}`;", "  return `${latest} review${latest === 1 ? '' : 's'}`;"]],
+  'reviews-gate': [[PM, "      if (!r.nfcCard && !googleLink) return null;\n", ""]],
   'profile-shape': [[ST, "  calendlyLink: safeUrl(d.calendlyLink, 400),", "  calendlyLink: String(d.calendlyLink || ''),"]],
 };
 

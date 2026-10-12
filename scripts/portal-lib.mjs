@@ -13,7 +13,7 @@ const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, headersSent: f
 const LEAD = '507f1f77bcf86cd799439061';
 const OTHER = '507f1f77bcf86cd799439062';
 /* The prompt's forbidden keys: no card payload may carry any of them. */
-export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists', 'ledgerId', 'note', 'stripeEventId', 'schedule', 'link', 'deliverables'];
+export const FORBIDDEN_KEYS = ['_id', 'email', 'phone', 'purchases', 'invoices', 'notes', 'checklists', 'ledgerId', 'note', 'stripeEventId', 'schedule', 'link', 'deliverables', 'testimonials', 'asks', 'token'];
 const PRIVATE = ['555-0199', 'owner@sharpless.example', 'internal only note', 'https://drive.example/private', LEAD, 'inv-9001', 'purchase-77', 'ledger-77'];
 const keysDeep = (v, out = new Set()) => { if (Array.isArray(v)) v.forEach(x => keysDeep(x, out)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.add(k); keysDeep(x, out); } return out; };
 
@@ -314,6 +314,44 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rk, 'concepts'), 'every set archived or a draft: no concepts card', 'concepts-newest');
   const flatK = JSON.stringify(rk._json);
   ok(!flatK.includes(OTHER_PLANNER) && !flatK.includes(OTHER_SET) && !flatK.includes('draftSETtoken'), 'no other client\'s planner or concept token, and no draft token, ever leaves', 'token-isolation');
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
+
+  /* 4f. the review ask and their reviews (prompt 3) */
+  seed(); await admin({ id: LEAD, set: { portal: {} } }); const tV = lead().portal.token;
+  const OTHER_REVIEW = 'otherREVIEWtoken0123456789abcde';
+  _stores.call_leads.find(l => String(l._id) === OTHER).reviews = { visualize: { token: OTHER_REVIEW }, nfcCard: true, googleLink: 'https://g.page/r/other/review', testimonials: [] };
+  let rv = await pub('GET', { token: tV });
+  ok(!card(rv, 'review') && !card(rv, 'their_reviews'), 'no review link, no card, no Google link: neither review card', 'review-gate');
+  lead().reviews = { visualize: { token: 'myREVIEWtoken0123456789abcdefgh' }, nfcCard: false, googleLink: '', testimonials: [], asks: [{ at: '2026-01-01', channel: 'text', result: 'left' }] };
+  rv = await pub('GET', { token: tV });
+  ok(!card(rv, 'review'), 'the newest project not delivered: no review ask yet', 'review-gate');
+  _stores.projects.find(p => p._id === 'p1').deliveredAt = '2026-10-05T00:00:00.000Z';
+  rv = await pub('GET', { token: tV }); let ask = card(rv, 'review');
+  ok(ask && ask.url === `/r/myREVIEWtoken0123456789abcdefgh?from=portal&c=${tV}` && /minute of your time/.test(ask.line), `delivered with the link and no review yet: How did I do? with the page and the way back (${JSON.stringify(ask)})`, 'review-gate');
+  lead().reviews.testimonials = [{ id: 't1', status: 'pending', consent: true, text: 'Great', name: 'Dan' }];
+  rv = await pub('GET', { token: tV });
+  ok(!card(rv, 'review'), 'a pending review in: the ask is gone', 'review-submitted');
+  lead().reviews.testimonials = [{ id: 't1', status: 'hidden', consent: true, text: 'Great', name: 'Dan' }];
+  rv = await pub('GET', { token: tV });
+  ok(card(rv, 'review'), 'a hidden one does not count as answered');
+  lead().reviews.testimonials = [{ id: 't2', status: 'approved', consent: true, text: 'Great', name: 'Dan' }];
+  rv = await pub('GET', { token: tV });
+  ok(!card(rv, 'review'), 'an approved review: the ask stays gone', 'review-submitted');
+  /* their reviews */
+  lead().reviews = { visualize: { token: 'myREVIEWtoken0123456789abcdefgh' }, nfcCard: true, googleLink: '', baseline: { count: 12, rating: 4.3 }, latest: { count: 19, rating: 4.6 }, testimonials: [] };
+  rv = await pub('GET', { token: tV }); let theirs = card(rv, 'their_reviews');
+  ok(theirs && theirs.nfcCard === true && theirs.googleLink === '' && theirs.count === 19 && theirs.diff === 7 && theirs.line === '19 reviews, up 7 since we started', `a review card and counts: the diff line (${JSON.stringify(theirs)})`, 'reviews-diff');
+  lead().reviews.latest = { count: 10, rating: 4.6 }; lead().reviews.googleLink = 'https://g.page/r/sharpless/review';
+  rv = await pub('GET', { token: tV }); theirs = card(rv, 'their_reviews');
+  ok(theirs && theirs.googleLink === 'https://g.page/r/sharpless/review' && theirs.diff === 0 && theirs.line === '10 reviews', `down since we started: the count alone, and the link (${theirs?.line})`, 'reviews-diff');
+  lead().reviews.baseline = null;
+  rv = await pub('GET', { token: tV }); theirs = card(rv, 'their_reviews');
+  ok(theirs?.line === '10 reviews' && theirs?.diff === 0, 'no baseline: the count alone');
+  lead().reviews.nfcCard = false; lead().reviews.googleLink = '';
+  rv = await pub('GET', { token: tV });
+  ok(!card(rv, 'their_reviews'), 'no card and no link: nothing to show', 'reviews-gate');
+  const flatV = JSON.stringify(rv._json);
+  ok(!flatV.includes(OTHER_REVIEW) && !flatV.includes('g.page/r/other') && flatV.split('myREVIEWtoken').length === 2 && String(card(rv, 'review')?.url || '').includes('myREVIEWtoken'), 'no other client\'s review token or link leaves, and the review token itself rides once, inside the review card\'s url', 'token-isolation');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
   /* 5. module states: off never renders even with data; on renders only with data; auto equals on */
