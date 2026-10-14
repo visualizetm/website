@@ -213,11 +213,25 @@ functions against the Hobby plan's cap of 12.
 
 The full review, with every finding and its fix, is docs/SECURITY-AUDIT.md. Findings from the Prompt 15 review that still hold: the webhook stores the event before the ledger write; every handler has a method check; every public route has a body cap; no handler throws an unhandled error into Vercel's default 500 page. The CSRF header and the sliding cookie renewal from that review stay removed (SameSite=Lax covers the first, the second was never needed); the login rate limit, removed in the auth rebuild, is back.
 
+## Landing speed
+
+`DIST=dist PORT=4350 node scripts/mock-server.mjs &` then `node
+scripts/perf-landing.mjs` measures the landing page in a phone profile
+(390 x 844, the CPU 4x slower, Chrome's Slow 4G preset, no cache, three
+loads, the median) and writes docs/PERF.md with the targets checked
+against docs/perf/baseline.json; `--baseline` resets the baseline. The
+fonts: Inter is one variable file (public/fonts/inter.woff2, weights 400
+to 800, preloaded on both hosts) and Barlow Condensed is the admin's
+display face; `node scripts/fetch-fonts.mjs` (needs the network) rewrites
+public/fonts and src/fonts.css from Google Fonts. A client says an old
+/clients link does not work: it is a 301 to /projects at the edge, so the
+link itself is fine; check the slug is published.
+
 ## Prerender
 
 The marketing host serves the same static dist/index.html for every route
 (vercel.json's catch-all rewrite), so a crawler or a link preview fetch on
-/clients/:slug only ever saw the site-wide default title, description, and
+/projects/:slug only ever saw the site-wide default title, description, and
 og:image, never that client's own, since src/marketing/useHead.js only
 applies those after the SPA's JS runs. `npm run build` now chains two more
 steps after `vite build`:
@@ -225,7 +239,7 @@ steps after `vite build`:
 - `node scripts/prerender-clients.mjs`: fetches the production
   `/api/showcase` (override with `PRERENDER_SHOWCASE_URL` for a local run,
   the mock server or `vercel dev`), and writes one
-  `dist/clients/<slug>/index.html` per published client, dist/index.html's
+  `dist/projects/<slug>/index.html` per published client, dist/index.html's
   own template with that client's title, description, and og:image swapped
   in, every script and stylesheet tag untouched so the exact same app
   bundle boots from it. Once client-side JS takes over, CaseStudy.jsx's own
@@ -233,7 +247,7 @@ steps after `vite build`:
   so a stale prerendered snapshot self-corrects for anyone who lands and
   stays on the page.
 - `node scripts/build-sitemap.mjs`: dist/sitemap.xml, the same fetch (and
-  the same fail-soft rule) plus the static routes (/, /services, /clients,
+  the same fail-soft rule) plus the static routes (/, /services, /projects,
   /contact, /start). public/robots.txt (a plain static file, it
   never changes) points at it.
 
@@ -244,16 +258,16 @@ confirmed by running the real `npm run build` here, so its own build
 always takes this path; PRERENDER_SHOWCASE_URL pointed at the mock server
 was how the client-page and sitemap generation were verified instead).
 
-No new vercel.json rewrite routes `/clients/:slug` to its prerendered file:
+No new vercel.json rewrite routes `/projects/:slug` to its prerendered file:
 Vercel's documented routing order checks the output directory for a real
 file matching the request path before it ever consults the rewrites array,
-so `/clients/full-showcase-co` already resolves to
-`dist/clients/full-showcase-co/index.html` once that file exists, the same
+so `/projects/full-showcase-co` already resolves to
+`dist/projects/full-showcase-co/index.html` once that file exists, the same
 way any static host resolves a directory path to its index.html. A slug
 with no prerendered file (not yet published, or fetched with an older
 snapshot before it was) falls through the same catch-all every other route
 already does, and the SPA fetches it live from there. vercel.json does gain
-one header rule: `/clients/(.*)` gets `Cache-Control: public, max-age=0,
+one header rule: `/projects/(.*)` gets `Cache-Control: public, max-age=0,
 must-revalidate`, since these prerendered files are only ever as fresh as
 the last build and should never be cached as if immutable, unlike /assets
 and /fonts.

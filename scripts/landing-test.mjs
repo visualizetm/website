@@ -71,14 +71,14 @@ import { tracksFor, servicesOf, hasSection, brandColorsOf, spotlightQuote, appli
 const P = (slug, over = {}) => ({ slug, displayName: slug, featured: { work: true, order: 0 }, brand: { enabled: true, logo: '', palette: [], images: [] }, website: { enabled: true, screenshots: [] }, cards: { enabled: true, front: '', back: '' }, print: { enabled: true, items: [] }, instagram: { enabled: false, posts: [] }, testimonials: [], ...over });
 const full = P('full', { brand: { enabled: true, logo: 'https://res.cloudinary.com/vz/image/upload/v1/logo.png', palette: [{ name: 'Primary', hex: '#d44c43' }, { name: 'Accent 1', hex: 'd44c43' }, { name: 'Accent 2', hex: '#0A0A0A' }, { name: 'Bad', hex: 'notahex' }], images: [{ link: 'https://x/a.png' }] }, website: { enabled: true, screenshots: [{ link: 'https://x/site.png' }] }, cards: { enabled: true, front: 'https://x/f.png', back: '' }, print: { enabled: true, items: [{ label: 'Sticker', image: 'https://x/s.png' }, { label: 'No image', image: '' }] }, instagram: { enabled: true, posts: [{ image: 'https://x/p1.png' }, { image: 'https://x/p2.png' }] } });
 const bare = P('bare');
-const offSections = P('offSections', { brand: { enabled: false, logo: 'https://x/logo.png', palette: [], images: [] }, website: { enabled: false, screenshots: [{ link: 'https://x/site.png' }] } });
+const offSections = P('off', { brand: { enabled: false, logo: 'https://x/logo.png', palette: [], images: [] }, website: { enabled: false, screenshots: [{ link: 'https://x/site.png' }] } });
 const onlyCards = P('cards', { cards: { enabled: true, front: 'https://x/f.png', back: 'https://x/b.png' } });
 let tr = tracksFor([full, bare, onlyCards]);
 ok(tr.map(t => `${t.id}:${t.chips.map(c => c.slug).join('+')}`).join(' ') === 'brand:full websites:full print:full+cards social:full', `every track with a real project behind it, its chips (${tr.map(t => `${t.id}:${t.chips.map(c => c.slug).join('+')}`).join(' ')})`);
 tr = tracksFor([bare, onlyCards]);
 ok(tr.map(t => t.id).join(',') === 'print', `a track with no real project behind it does not render (${tr.map(t => t.id).join(',')})`);
 ok(tracksFor([]).length === 0 && tracksFor([bare]).length === 0, 'no real project anywhere: no tracks');
-ok(hasSection(offSections, 'brand') === false && hasSection(offSections, 'website') === false && hasSection(full, 'brand') === true, 'a section switched offSections is not a real project, assets or not');
+ok(hasSection(offSections, 'brand') === false && hasSection(offSections, 'website') === false && hasSection(full, 'brand') === true, 'a section switched off is not a real project, assets or not');
 ok(servicesOf(full).join(',') === 'Brand,Website,Business cards,Print,Social' && servicesOf(onlyCards).join(',') === 'Business cards' && servicesOf(bare).length === 0, `the service chips come from the real sections (${servicesOf(full).join(',')})`);
 const cols = brandColorsOf(full);
 ok(cols.map(c => c.hex).join(',') === '#d44c43,#0a0a0a' && cols[0].name === 'Primary', `the colours are valid hex, no repeats, the first the panel's ground (${cols.map(c => c.hex).join(',')})`);

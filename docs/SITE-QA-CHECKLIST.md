@@ -13,11 +13,11 @@ published to the showcase.
 
 | # | Do | Expect |
 |---|---|---|
-| 1 | In the CRM, open the test lead's Showcase tab, leave Published off | The lead does not appear on /clients. |
-| 2 | Toggle Published on, save | Reload /clients: the client's card appears within 60 seconds (fetchShowcase()'s cache TTL for a tab that was already open; a fresh visit sees it at once). |
+| 1 | In the CRM, open the test lead's Showcase tab, leave Published off | The lead does not appear on /projects. |
+| 2 | Toggle Published on, save | Reload /projects: the client's card appears within 60 seconds (fetchShowcase()'s cache TTL for a tab that was already open; a fresh visit sees it at once). |
 | 3 | Toggle the Logo strip and Work feature flags on, save | Reload Home: the client's logo appears in the logo strip and its card appears under Recent clients. |
-| 4 | Log a testimonial for the client, mark it published and featured | Reload Home and /clients: the testimonial appears in both places, quote, author, and the business name linking back to the client. |
-| 5 | Toggle Published off | Reload /clients: the client's card is gone. |
+| 4 | Log a testimonial for the client, mark it published and featured | Reload Home and /projects: the testimonial appears in both places, quote, author, and the business name linking back to the client. |
+| 5 | Toggle Published off | Reload /projects: the client's card is gone. |
 | 6 | In src/shared/pricing.js, change a package's price | Reload /services and Home: the new price shows on both, read live, never retyped. |
 | 7 | Open the site header and footer at a phone width and a desktop width | Three links and one Book a free call, nothing else: no Services entry and no Shop. |
 | 8 | Visit /prints | It lands on Home. The shop is gone from the public site; hand-entered print orders in the CRM are untouched. |

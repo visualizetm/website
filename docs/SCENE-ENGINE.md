@@ -1,4 +1,61 @@
-# THE SCENE ENGINE
+# THE REVEAL, AND THE SCENE ENGINE IT REPLACED
+
+## The reveal (the faster landing prompt, October 2026)
+
+Home and the Projects page are sections on native scroll. The scene
+engine below this section is history: every pinned stage, the scrubbed
+progress, the step indicator, the hero's cover deck and Lenis are gone
+from the public site (what was cut and why is in docs/MOBILE-DECISIONS.md
+under "Landing speed, milestone 2"). What replaced it is two small files:
+
+- `src/marketing/reveal.js`: one IntersectionObserver for the whole page
+  (threshold 0, a 15 percent margin at the bottom, so a section reveals
+  once about a fifth of a screen of it has entered). `observeReveal(el)`
+  marks the element `data-in` once and unobserves it. Reduced motion never
+  creates the observer: the element is marked in at once. `REVEAL_REPLAY`
+  is the old behaviour (hide on leaving, reveal again) behind one flag,
+  off, read nowhere else.
+- `src/marketing/motion/Section.jsx`: `Section` (a `section.m-sec`, tone
+  `a` or `b` for the ground, `reveal={false}` for the hero and the
+  Projects intro, which paint with the page) and `Block` (the same reveal
+  on any element inside a section: a spotlight chapter's panel, colours
+  and applications each arrive on their own).
+
+The stylesheet (src/index.css, "The reveal"): `.m-rv` starts at opacity 0
+and 20px down and transitions both over 500ms with the marketing ease;
+`[data-in]` lands it. `data-step="n"` children follow a beat apart (60ms
+times n, capped at four beats, so the whole section is done inside 800ms).
+Opacity and transform only; `will-change` is on until a timer 900ms after
+the reveal marks the section `data-done`. Under reduced motion everything
+is shown with no transition.
+
+The rules the scroll audit holds (`scripts/scene-audit.mjs`, default page
+`/`, every profile and reduced motion): nothing pinned (no `.m-scene--pinned`,
+no sticky element travelling more than a screen, except a spotlight
+chapter's logo panel inside a chapter under three screens); a section
+that has entered the observer's band is revealed a settle later; a
+revealed section has no piece still mid-fade a settle later; a section
+revealed on the way down is still revealed on the way back up; no text
+overlap and no single word broken across lines; under reduced motion
+everything fully shown and no engine fetched; on Home the gsap chunk is
+never fetched at all; the footer reachable; no page error. The
+whole-viewport empty share is reported, not judged.
+
+The rows that scroll sideways on a phone (the six business types, the
+four tiers, Recent projects, What clients say, the Projects page's four
+tracks) are native scroll containers with `scroll-snap-type: x proximity`,
+never mandatory, and are registered in the layout audit's scroller list.
+
+gsap stays for the client showcase page's drifts (Parallax, ScaleIn, Tone,
+WordReveal), loaded lazily by `src/marketing/scroll.js` when one of those
+elements is near, and never asked for by Home or the Projects page.
+
+## The scene engine (Site Prompts 11 and 12, retired from Home)
+
+The text below is kept as the record of what Home was built on from Site
+Prompt 11 until the faster landing prompt, and why each part existed.
+`Scene.jsx`, the scene test page and the scene stylesheet are gone from
+the repository; nothing public pins any more.
 
 One primitive, `Scene` (`src/marketing/motion/Scene.jsx`), replaces Pin,
 Curtain, Tone and TrackScroll as page level tools on Home (Site Prompt 11).

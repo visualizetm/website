@@ -265,36 +265,37 @@ backwards. That needs a real scroll engine, and this is where it lives.
 
 ## What loads, and when
 
-`src/marketing/scroll.js` is the only module that touches gsap or Lenis,
-and it does so through `import()` so both land in chunks of their own
-(`gsap`, `lenis`, pinned by `manualChunks` in `vite.config.js`). Three
-gates decide what is fetched at all:
+`src/marketing/scroll.js` is the only module that touches gsap, and it
+does so through `import()` so it lands in a chunk of its own (`gsap`,
+pinned by `manualChunks` in `vite.config.js`). Two gates decide whether it
+is fetched at all:
 
-| Condition | gsap + ScrollTrigger | Lenis |
-|---|---|---|
-| Admin host (`IS_ADMIN_HOST`) | no | no |
-| `prefers-reduced-motion: reduce` | no | no |
-| Touch / coarse pointer | yes | **no** |
-| Marketing host, fine pointer, motion allowed | yes | yes |
+| Condition | gsap + ScrollTrigger |
+|---|---|
+| Admin host (`IS_ADMIN_HOST`) | no |
+| `prefers-reduced-motion: reduce` | no |
+| Marketing host, motion allowed, a scrubbed helper near the viewport | yes |
 
-Scroll-driven animation is fine on a phone; hijacking a phone's native
-scrolling is not, so Lenis is desktop-only. The admin never fetches either
+Only the client showcase page carries scrubbed helpers; Home and the
+Projects page never ask for the engine, and the scroll audit fails if the
+landing fetches it. Lenis, the smooth scroll library the site used on a
+fine pointer, was removed by the faster landing prompt: nothing changes
+how far a wheel or a finger moves the page. The admin never fetches the
 chunk: `scrollEngineAllowed()` returns false before any `import()` runs.
 Only the loader itself, about a kilobyte, is in the shared entry.
 
 | Export | Does |
 |---|---|
 | `scrollEngineAllowed()` | Synchronous yes/no on the three gates above. Helpers call it during their first render so they never paint a hidden frame they will not animate out of. |
-| `loadScrollEngine()` | Resolves to `{ gsap, ScrollTrigger, lenis }`, or `null` when not allowed or the import failed. Loads once per session; every caller shares one promise. |
+| `loadScrollEngine()` | Resolves to `{ gsap, ScrollTrigger }`, or `null` when not allowed or the import failed. Loads once per session; every caller shares one promise. |
 | `getScrollEngine()` | The engine if already loaded, else `null`. Never starts a load. |
 | `refreshScrollTriggers()` | Re-measures every pinned and scrubbed trigger. |
-| `destroyScrollEngine()` | Kills every trigger and stops Lenis. |
+| `destroyScrollEngine()` | Kills every trigger. |
 
-`src/marketing/ScrollRoot.jsx` mounts the engine. It renders nothing, sits
-in the marketing branch of `src/App.jsx` only, and on every route change
-sends the page back to the top (Lenis owns the scroll position once it is
-running, so `window.scrollTo` alone is not enough) and then refreshes every
-trigger against the page that just mounted.
+`src/marketing/ScrollRoot.jsx` renders nothing, sits in the marketing
+branch of `src/App.jsx` only, and on every route change sends the page
+back to the top and then refreshes every trigger the showcase page made
+against the page that just mounted (a no-op when the engine never loaded).
 
 ## Failure is a design state, not an edge case
 
@@ -328,83 +329,13 @@ approached), so the probes in this repo walk the page once first; and a
 `WordReveal` decides "above the fold" from the observer's rect, not a
 fresh read.
 
-## Home is built on Scene
+## Home and the Projects page are sections (the faster landing prompt)
 
-Since Site Prompt 11 every section of Home is a `Scene`
-(`src/marketing/motion/Scene.jsx`, documented in `docs/SCENE-ENGINE.md`):
-one primitive that pins a stage for `steps` beats, exposes progress as
-`--scene-p`, and reveals `data-step` children off that progress. Pin,
-Curtain and TrackScroll, the page level helpers this file used to
-document, are gone with it; `Tone`, `ScaleIn` and `WordReveal` remain for
-the client pages (the light set), and `useScrollProgress`,
-`useScrollRefresh` and `whenNear` are the hooks underneath. The
-`scripts/scene-audit.mjs` walk is Home's gate: five percent increments at
-320, 390 (touch), 430, 768 and 1280, and under reduced motion.
-
-## The light set on the other pages
-
-| Page | Set |
-|---|---|
-| Clients (`/clients`) | `Reveal`, `Stagger`, `ScaleIn` on covers, one `Tone`. |
-| Client detail (`/clients/:slug`) | `Reveal`, `Stagger`, `Parallax` and `ScaleIn` on the cover, one `Tone`. |
-| Contact (`/contact`, `/book`) | `Reveal`, one `WordReveal` heading, one `Tone`. |
-| Start (`/start`) | `Reveal` only. |
-| Services (`/services`) | `Reveal`, `Stagger`, `SectionNumber`, one `Tone`. |
-
-Lenis stays on everywhere on the marketing host: it is the feel of the
-scroll itself, not an effect.
-
-## API
-
-### `useScrollEngine()`
-
-Returns `'off' | 'loading' | 'on'`. Use it to pick the class that decides
-which of the three states a helper renders.
-
-### `useScrollProgress(ref, options)`
-
-Scrubs 0 to 1 while `ref`'s element crosses the viewport, writing the value
-to a CSS custom property every scroll frame. CSS reads that property inside
-`transform` and `opacity`, so scrubbing costs no React renders at all. The
-trigger is created when the element is within a screen and a half of the
-viewport (`whenNear`).
-
-| Option | Default | Does |
-|---|---|---|
-| `start` | `'top bottom'` | ScrollTrigger start position. |
-| `end` | `'bottom top'` | ScrollTrigger end position. |
-| `cssVar` | `'--sp'` | The property written each frame. |
-| `varTarget` | the trigger | A different ref to write the property on. |
-| `onUpdate` | - | `(progress, element)` for the rare case JS has to react. |
-
-### `useScrollRefresh(dep)`
-
-Re-measures every trigger one frame after `dep` changes and one frame
-after the engine turns on. Home passes its showcase payload.
-
-### `ScaleIn`
-
-An image or card settles from slightly oversized and transparent into place,
-once, on first viewport entry. `soft` is the card variant: from 0.97 and
-no blur. A CSS transition on the same `IntersectionObserver` `Reveal`
-uses, safe on every page. Props match `Reveal`.
-
-### `WordReveal`
-
-A headline whose words rise into place one after another as it crosses the
-viewport, scrubbed (played once when already above the fold). Pass a plain
-string as the only child. Contact's heading is its one use.
-
-### `Tone`
-
-A section changes ground colour as it comes up the page: the opacity of one
-filled layer over the section's own background, crossfading from the
-section's first pixel entering to its top at 12 percent of the viewport.
-
-| Prop | Default | Does |
-|---|---|---|
-| `from` | `'var(--bg)'` | The section's own ground. |
-| `to` | `'var(--bg-elevated)'` | What it settles to. |
-
-Without the engine the layer sits at full opacity. Light set, at most one
-per page.
+Since the faster landing prompt neither page uses the engine at all: every
+section is a `Section` (src/marketing/motion/Section.jsx) that reveals
+once on native scroll through one IntersectionObserver
+(src/marketing/reveal.js), documented in docs/SCENE-ENGINE.md under "The
+reveal". Lenis is gone from the site: nothing changes how far a wheel or
+a finger moves the page. gsap + ScrollTrigger still loads, lazily, for the
+client showcase page's Parallax, ScaleIn, Tone and WordReveal, and the
+scroll audit fails if the landing ever fetches it.
