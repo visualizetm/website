@@ -103,7 +103,7 @@ export default function CaseStudy() {
     );
   }
   const client = state.client;
-  if (!client || !client.slug) return <Navigate to="/clients" replace />;
+  if (!client || !client.slug) return <Navigate to="/projects" replace />;
 
   const { brand, website, cards, print, testimonials, socials, neighbors } = { ...client, neighbors: state.neighbors };
   const showBrand = brand?.enabled && hasBrand(brand);
@@ -121,7 +121,7 @@ export default function CaseStudy() {
         {/* Header */}
         <header className="cs-hero">
           <div className="wrap">
-            <Link to="/clients" className="cs-back">
+            <Link to="/projects" className="cs-back">
               <ArrowLeft width={15} height={15} />
               All work
             </Link>
@@ -341,11 +341,11 @@ export default function CaseStudy() {
           {/* Previous / next */}
           {neighbors && (
             <nav className="cs-neighbors" aria-label="Other clients">
-              <Link to={`/clients/${neighbors.prev.slug}`} className="cs-neighbor cs-neighbor--prev">
+              <Link to={`/projects/${neighbors.prev.slug}`} className="cs-neighbor cs-neighbor--prev">
                 <ArrowLeft width={16} height={16} />
                 <span><span className="cs-neighbor-label">Previous</span>{neighbors.prev.displayName}</span>
               </Link>
-              <Link to={`/clients/${neighbors.next.slug}`} className="cs-neighbor cs-neighbor--next">
+              <Link to={`/projects/${neighbors.next.slug}`} className="cs-neighbor cs-neighbor--next">
                 <span><span className="cs-neighbor-label">Next</span>{neighbors.next.displayName}</span>
                 <ArrowRight width={16} height={16} />
               </Link>

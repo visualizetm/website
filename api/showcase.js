@@ -113,6 +113,8 @@ function publicClient(lead) {
     },
     featured: {
       landing: !!sh.featured?.landing, logoStrip: !!sh.featured?.logoStrip, work: !!sh.featured?.work,
+      /* The Projects page's spotlight (the Projects prompt): at most three are on; the page fills the rest by order (src/lib/spotlight.js). */
+      spotlight: !!sh.featured?.spotlight,
       order: Number(sh.featured?.order) || 0,
     },
     testimonials: publicTestimonials(lead.reviews?.testimonials),

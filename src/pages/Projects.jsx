@@ -18,11 +18,11 @@ function CardSkeleton() {
   );
 }
 
-export default function Clients() {
+export default function Projects() {
   const [state, setState] = useState({ status: 'loading', clients: [], testimonials: [] });
   useHead({
-    title: 'Clients | Visualize.',
-    description: 'Real businesses, built end to end, brand, web, and print under one roof.',
+    title: 'Projects | Visualize.',
+    description: 'Brands and websites for local businesses. Logos, websites, print and social, all done by me.',
   });
 
   const load = useCallback(async () => {
@@ -42,10 +42,10 @@ export default function Clients() {
     <>
       <section className="wk-hero">
         <div className="wrap">
-          <p className="wk-eyebrow">Client Showcase</p>
-          <h1 className="wk-title display">Clients</h1>
+          <p className="wk-eyebrow">The work</p>
+          <h1 className="wk-title display">Projects</h1>
           <p className="section-subtitle">
-            Real businesses, built end to end, brand, web, and print under one roof.
+            Brands and websites for local businesses. Logos, websites, print and social, all done by me.
           </p>
         </div>
       </section>

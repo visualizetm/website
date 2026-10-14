@@ -517,34 +517,32 @@ for (const width of WIDTHS) {
     await check('marketing: Home');
     await goto('/services');
     await check('marketing: Services');
-    // Site Prompt 3: Clients (renamed from Work), driven by /api/showcase.
-    await goto('/clients');
-    await check('marketing: Clients (list)');
-    await goto('/clients/full-showcase-co');
-    await check('marketing: Clients (detail, full showcase)');
-    await goto('/clients/brand-only-co');
-    await check('marketing: Clients (detail, brand only)');
+    // The Projects page (Clients until the Projects prompt, Work before that), driven by /api/showcase.
+    await goto('/projects');
+    await check('marketing: Projects');
+    await goto('/projects/full-showcase-co');
+    await check('marketing: Projects (detail, full showcase)');
+    await goto('/projects/brand-only-co');
+    await check('marketing: Projects (detail, brand only)');
     // The highlights prompt: circles above the post grid, some linked.
-    await goto('/clients/portrait-co');
-    await check('marketing: Clients (detail, Instagram highlights)');
-    await goto('/clients/does-not-exist');
-    await check('marketing: Clients (error state, unknown slug)');
-    // /work and /work/:slug: the client-side Navigate fallback (vercel.json
+    await goto('/projects/portrait-co');
+    await check('marketing: Projects (detail, Instagram highlights)');
+    await goto('/projects/does-not-exist');
+    await check('marketing: Projects (error state, unknown slug)');
+    // /work, /work/:slug, /clients and /clients/:slug: the client-side Navigate fallback (vercel.json
     // does the real 301 for a direct server hit, not reachable from vite preview).
-    await goto('/work');
-    await page.waitForURL('**/clients', { timeout: 4000 }).catch(() => {});
-    if (new URL(page.url()).pathname !== '/clients') throw new Error(`/work did not redirect to /clients (landed on ${page.url()})`);
-    await goto('/work/full-showcase-co');
-    await page.waitForURL('**/clients/full-showcase-co', { timeout: 4000 }).catch(() => {});
-    if (new URL(page.url()).pathname !== '/clients/full-showcase-co') throw new Error(`/work/:slug did not redirect to /clients/:slug (landed on ${page.url()})`);
-    // Empty state ("New work is being added...") needs its own mocked /api/showcase,
-    // so it runs on a separate page in this same context.
+    for (const [from, to] of [['/work', '/projects'], ['/work/full-showcase-co', '/projects/full-showcase-co'], ['/clients', '/projects'], ['/clients/full-showcase-co', '/projects/full-showcase-co']]) {
+      await goto(from);
+      await page.waitForURL(`**${to}`, { timeout: 4000 }).catch(() => {});
+      if (new URL(page.url()).pathname !== to) throw new Error(`${from} did not redirect to ${to} (landed on ${page.url()})`);
+    }
+    // Empty state needs its own mocked /api/showcase, so it runs on a separate page in this same context.
     {
       const emptyPage = await ctx.newPage();
       await emptyPage.addInitScript(([theme, motion]) => { try { localStorage.setItem('vz_theme', theme); localStorage.setItem('vz_boot', '1'); if (motion === 'reduce') localStorage.setItem('vz_motion', 'reduce'); } catch {} }, [THEME, MOTION]);
       await mockRoutes(emptyPage, { empty: ['showcase'] });
-      await emptyPage.goto(`${BASE}/clients`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-      await check('marketing: Clients (empty state)', emptyPage);
+      await emptyPage.goto(`${BASE}/projects`, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await check('marketing: Projects (empty state)', emptyPage);
       await emptyPage.close();
     }
     // Site Prompt 4: Home with an empty landing object, every client-fed

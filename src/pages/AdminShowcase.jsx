@@ -14,6 +14,7 @@ import SaveBar, { saveBarStyles } from '../components/SaveBar';
 import ImageField, { imageFieldStyles } from '../components/ImageField';
 import { instagramHandle } from '../lib/socials';
 import { completeness } from '../lib/showcaseMeter';
+import { spotlightRoom, spotlightOffPatch } from '../lib/spotlight';
 
 /* The Showcase editor (Site Prompt 7, Part 3), its own admin page at
  * /clients/:id/showcase rather than a tab inside the client record.
@@ -45,7 +46,7 @@ const DEFAULT_SHOWCASE = {
   instagram: { enabled: false, handle: '', url: '', profileImage: '', posts: [], highlights: [], notes: '' },
   cards: { enabled: true, front: '', back: '', notes: '' },
   print: { enabled: true, items: [], notes: '' },
-  featured: { landing: false, logoStrip: false, work: false, order: 0 },
+  featured: { landing: false, logoStrip: false, work: false, spotlight: false, order: 0 },
 };
 const DEFAULT_REVIEWS = { nfcCard: false, nfcGivenAt: '', googleLink: '', baseline: null, latest: null, asks: [], testimonials: [] };
 /* Mirrors api/_routes/call-leads.js's slugify(): a-z0-9 and single hyphens,
@@ -236,9 +237,21 @@ function CompletenessCard({ sh, lead, onOpen }) {
   );
 }
 
-function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
+function PublishCard({ sh, write, writeRaw, lead, leads, onPatchOther, readOnly }) {
   const toast = useToast();
-  const url = sh.slug ? `https://visualizestudio.org/clients/${sh.slug}` : '';
+  /* The Projects page's spotlight (src/lib/spotlight.js): three at most. Turning on a fourth asks which of the three it
+   * replaces; that one goes off on the spot (its own PATCH), this one goes on with the next Save of this editor. */
+  const [replaceOpen, setReplaceOpen] = useState(false);
+  const room = spotlightRoom(leads, lead);
+  const setSpotlight = (v) => { if (!v || room.ok) { setF({ spotlight: v }); return; } setReplaceOpen(true); };
+  const replaceWith = async (other) => {
+    setReplaceOpen(false);
+    const ok = await onPatchOther?.(other._id, spotlightOffPatch(other));
+    if (ok === false) { toast.error('Could not take that one out of the spotlight.'); return; }
+    setF({ spotlight: true });
+    toast.success(`${other.showcase?.displayName || other.business} is out of the spotlight; save to put this one in.`);
+  };
+  const url = sh.slug ? `https://visualizestudio.org/projects/${sh.slug}` : '';
   /* The review prompt, part 4: the link to text them after a delivery. The
      same slug as the showcase URL, so it exists the moment this client is
      published, and the form on the other end fills in the business name and
@@ -289,13 +302,21 @@ function PublishCard({ sh, write, writeRaw, lead, readOnly }) {
         <Stack gap={0}>
           <Toggle checked={f.landing} onChange={(v) => setF({ landing: v })} label="Feature on landing page" disabled={readOnly || !sh.published} />
           <Toggle checked={f.logoStrip} onChange={(v) => setF({ logoStrip: v })} label="Show logo in the logo strip" disabled={readOnly || !sh.published} />
-          <Toggle checked={f.work} onChange={(v) => setF({ work: v })} label="Feature in the work row" disabled={readOnly || !sh.published} />
+          <Toggle checked={f.work} onChange={(v) => setF({ work: v })} label="Feature under Recent projects" disabled={readOnly || !sh.published} />
+          <Toggle checked={!!f.spotlight} onChange={setSpotlight} label="Spotlight on the Projects page" description="Three at most. With fewer on, the page fills the rest from Recent projects by display order." disabled={readOnly || !sh.published} className="sc-spotlight" />
         </Stack>
+        {replaceOpen && (
+          <Sheet open onClose={() => setReplaceOpen(false)} title="Three are already in the spotlight" description="Pick the one this client replaces. It comes out now; this one goes in when you save." className="sc-replace">
+            <Stack gap={1}>
+              {room.replace.map(o => <ListRow key={String(o._id)} title={o.showcase?.displayName || o.business} subtitle={o.showcase?.type || o.industry || ''} onClick={() => replaceWith(o)} className="sc-replace-row" />)}
+            </Stack>
+          </Sheet>
+        )}
         {!sh.published && <p className="sc-review-note">Publish first; the landing page only shows published clients.</p>}
         <OrderField label="Display order" value={f.order} onSave={(n) => setF({ order: n })} readOnly={readOnly} hint="Lower numbers show first." />
       </div>
       <Row gap={2} wrap>
-        <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`https://visualizestudio.org/clients/${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
+        <Button variant="secondary" icon="LinkExternal01" disabled={!sh.slug} onClick={() => window.open(`https://visualizestudio.org/projects/${encodeURIComponent(sh.slug)}`, '_blank', 'noopener')}>Preview</Button>
       </Row>
     </Card>
   );
@@ -684,7 +705,7 @@ function draftOf(lead) {
  * @param {Function} props.onBack () => void, back to the client record
  * @param {Array} [props.submissions] every submission, filtered to reviews here
  */
-export default function AdminShowcase({ lead, loading = false, error = false, onRetry, onPatch, onBack, submissions = [], readOnly = false }) {
+export default function AdminShowcase({ lead, leads = [], loading = false, error = false, onRetry, onPatch, onBack, submissions = [], readOnly = false }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const [signals, setSignals] = useState({});
@@ -800,7 +821,7 @@ export default function AdminShowcase({ lead, loading = false, error = false, on
   const name = sh.displayName || lead.business || 'Client';
   /* The phone's overview rows, in the order the page reads. Each renders its own card or block in a step. */
   const steps = [
-    { id: 'Publish', summary: sh.published ? 'Published' : 'Draft, not live', render: () => <PublishCard sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} /> },
+    { id: 'Publish', summary: sh.published ? 'Published' : 'Draft, not live', render: () => <PublishCard leads={leads} onPatchOther={onPatch} sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} /> },
     { id: 'Card fields', summary: sh.displayName || lead?.business || 'Name, type and blurb', render: () => <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} /> },
     { id: 'Brand identity', summary: sh.brand?.enabled ? 'On' : 'Off', render: () => <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={0} /> },
     { id: 'Website', summary: sh.website?.enabled ? 'On' : 'Off', render: () => <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={0} /> },
@@ -849,7 +870,7 @@ export default function AdminShowcase({ lead, loading = false, error = false, on
       <div className="sc-page-body">
         <Section title="Showcase" description="What shows on the public work page. Nothing here is live until you save.">
           <CompletenessCard sh={sh} lead={lead} onOpen={openBlock} />
-          <PublishCard sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
+          <PublishCard leads={leads} onPatchOther={onPatch} sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} />
           <CardFieldsCard sh={sh} writeRaw={write} lead={lead} readOnly={readOnly} />
           <BrandBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals['Brand identity']} />
           <WebsiteBlock sh={sh} write={write} writeRaw={write} lead={lead} readOnly={readOnly} jump={onBack} openSignal={signals.Website} />

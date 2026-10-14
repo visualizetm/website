@@ -34,6 +34,38 @@ ok(/\| Metric \| Baseline \(2026-10-14\) \|\n/.test(one) && !/After/.test(one) &
 const t = checkTargets({ ...run({ jsKb: 160, lcpMs: 2600, cls: 0.08, scrollLongestTaskMs: 250, droppedFrames: 3 }) }, { jsKb: 240 });
 ok(t.find(x => /landing JS/.test(x.name)).ok === true && t.find(x => /LCP/.test(x.name)).ok === false && t.find(x => /CLS/.test(x.name)).ok === false && t.find(x => /long task/.test(x.name)).ok === false && t.find(x => /dropped/.test(x.name)).ok === false, 'the JS target accepts 30 percent under the baseline; LCP, CLS, long tasks and dropped frames are judged on their own');
 
+/* 2. the spotlight picker (src/lib/spotlight.js) */
+import { spotlightPicks, spotlitLeads, spotlightRoom, spotlightOffPatch, SPOTLIGHT_MAX } from '../src/lib/spotlight.js';
+const c = (slug, order, over = {}) => ({ slug, displayName: slug, featured: { landing: false, logoStrip: false, work: true, spotlight: false, order, ...over } });
+const today = [c('abyssinia', 0), c('ss-guns', 1), c('sharpless', 2), c('nibble', 3), c('nelly', 4), c('paps', 5), c('ghetto-garage', 6), c('city-spice', 7, { work: false })];
+ok(spotlightPicks(today).map(x => x.slug).join(',') === 'abyssinia,ss-guns,sharpless', `nothing switched on: the three lowest ordered work clients (${spotlightPicks(today).map(x => x.slug).join(',')})`);
+const three = today.map(x => (['paps', 'nelly', 'nibble'].includes(x.slug) ? c(x.slug, x.featured.order, { spotlight: true }) : x));
+ok(spotlightPicks(three).map(x => x.slug).join(',') === 'nibble,nelly,paps', `three on: exactly those, by order (${spotlightPicks(three).map(x => x.slug).join(',')})`);
+const oneOn = today.map(x => (x.slug === 'paps' ? c('paps', 5, { spotlight: true }) : x));
+ok(spotlightPicks(oneOn).map(x => x.slug).join(',') === 'paps,abyssinia,ss-guns', `one on: it leads and two fill from the lowest order (${spotlightPicks(oneOn).map(x => x.slug).join(',')})`);
+const four = today.map(x => (['paps', 'nelly', 'nibble', 'sharpless'].includes(x.slug) ? c(x.slug, x.featured.order, { spotlight: true }) : x));
+ok(spotlightPicks(four).length === SPOTLIGHT_MAX && spotlightPicks(four).map(x => x.slug).join(',') === 'sharpless,nibble,nelly', `four on (a stale record): the three lowest ordered of them (${spotlightPicks(four).map(x => x.slug).join(',')})`);
+ok(spotlightPicks([]).length === 0 && spotlightPicks(null).length === 0 && spotlightPicks([c('', 0)]).length === 0, 'nothing published: nothing picked');
+const L = (id, order, spotlight, published = true) => ({ _id: id, business: id, showcase: { published, slug: id, featured: { work: true, spotlight, order } } });
+const leads = [L('a', 0, true), L('b', 1, true), L('c', 2, true), L('d', 3, false), L('e', 4, true, false), { _id: 'x', deleted: true, showcase: { published: true, featured: { spotlight: true, order: 0 } } }];
+ok(spotlitLeads(leads).map(l => l._id).join(',') === 'a,b,c', `the CRM counts published, undeleted leads with the flag on (${spotlitLeads(leads).map(l => l._id).join(',')})`);
+const room = spotlightRoom(leads, leads[3]);
+ok(room.ok === false && room.replace.map(l => l._id).join(',') === 'a,b,c', 'a fourth is asked which of the three it replaces');
+ok(spotlightRoom(leads.slice(1), leads[3]).ok === true && spotlightRoom(leads, leads[0]).ok === true, 'under three, or already one of the three, it goes on outright');
+const off = spotlightOffPatch(leads[0]);
+ok(off.showcase.featured.spotlight === false && off.showcase.featured.work === true && off.showcase.slug === 'a', 'the replace patch turns one flag off and carries the rest of the showcase');
+
+/* 3. the redirects in vercel.json: /clients and /clients/<slug> are 301s to the new paths */
+const vercel = JSON.parse(fs.readFileSync('vercel.json', 'utf8'));
+const toRegex = (src) => new RegExp('^' + src.replace(/:path\*/g, '(.*)').replace(/:([a-z]+)/g, '([^/]+)') + '$');
+const redirect = (p) => { for (const r of vercel.redirects || []) { const m = toRegex(r.source).exec(p); if (m) return { to: r.destination.replace(/:([a-z]+)/g, () => m[1] ?? '').replace(/:path\*/g, m[1] ?? ''), status: r.permanent ? 301 : 307, has: !!(r.has || r.missing) }; } return null; };
+const r1 = redirect('/clients'); const r2 = redirect('/clients/sharpless-detailing'); const r3 = redirect('/work'); const r4 = redirect('/work/sharpless-detailing');
+ok(r1 && r1.status === 301 && r1.to === '/projects' && !r1.has, `/clients is a 301 to /projects (${JSON.stringify(r1)})`);
+ok(r2 && r2.status === 301 && r2.to === '/projects/sharpless-detailing' && !r2.has, `/clients/sharpless-detailing is a 301 to /projects/sharpless-detailing (${JSON.stringify(r2)})`);
+ok(r3 && r3.to === '/projects' && r4 && r4.to === '/projects/sharpless-detailing', 'the older /work paths land on /projects too');
+ok(!redirect('/projects') && !redirect('/projects/sharpless-detailing'), 'the new paths redirect nowhere');
+ok((vercel.headers || []).some(h => h.source === '/projects/(.*)') && !(vercel.headers || []).some(h => h.source === '/clients/(.*)'), 'the no-cache header rule follows the prerendered pages to /projects');
+
 /* 1b. the script writes docs/PERF.md: one throttled load against a mock server started here */
 if (!QUICK) {
   const port = 4361;

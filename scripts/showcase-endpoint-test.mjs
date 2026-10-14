@@ -46,7 +46,7 @@ const fullClient = {
     website: { enabled: true, url: 'https://fullclient.example', screenshots: [{ link: 'https://img.example/full-shot.jpg', caption: 'Homepage' }], notes: '' },
     cards: { enabled: true, front: 'https://img.example/full-card-front.jpg', back: 'https://img.example/full-card-back.jpg', notes: '' },
     print: { enabled: true, items: [{ label: 'Menu', image: 'https://img.example/full-menu.jpg', caption: '' }], notes: '' },
-    featured: { landing: true, logoStrip: true, work: true, order: 1 },
+    featured: { landing: true, logoStrip: true, work: true, spotlight: true, order: 1 },
     updatedAt: now,
   },
   reviews: {
@@ -249,6 +249,10 @@ const PRIVATE_LEAK_VALUES = ['private internal notes', '555-0100', 'owner@fullcl
 
   ok(!!res._json.landing, 'response has a landing object');
   ok(res._json.landing.logoStrip.some(c => c.slug === 'full-client'), 'logoStrip includes the client with featured.logoStrip true');
+  /* The Projects prompt: the spotlight flag rides in featured, a boolean, and the public featured shape is exactly its five keys. */
+  const fc = res._json.clients.find(c => c.slug === 'full-client');
+  ok(fc && fc.featured.spotlight === true && Object.keys(fc.featured).sort().join(',') === 'landing,logoStrip,order,spotlight,work', `featured carries spotlight as a boolean and nothing else (${JSON.stringify(fc?.featured)})`);
+  ok(res._json.clients.filter(c => c.slug !== 'full-client').every(c => c.featured.spotlight === false), 'a record without the flag serves false');
   ok(res._json.landing.work.some(c => c.slug === 'full-client'), 'work includes the client with featured.work true');
   ok(res._json.landing.testimonials.length === 2, 'landing.testimonials includes every published+featured testimonial across all clients');
   // Review links: the average is real from three public ratings; the fixtures hold two, and no override is set, so the stat is left out (scripts/review-link-test.mjs covers two with an override and three).

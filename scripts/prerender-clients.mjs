@@ -1,17 +1,17 @@
 /* Site Prompt 5, Part 3: a post-build step, not a new Vercel function. The
  * marketing host otherwise serves the same static dist/index.html for
  * every route (vercel.json's catch-all rewrite), so a crawler or a link
- * preview fetch on /clients/:slug never sees that client's real title,
+ * preview fetch on /projects/:slug never sees that client's real title,
  * description, or cover, only the site-wide default (see index.html and
  * src/marketing/useHead.js) since those only land after the SPA's JS runs.
  *
- * This writes one dist/clients/<slug>/index.html per published client:
+ * This writes one dist/projects/<slug>/index.html per published client:
  * dist/index.html's own template with that client's title/description/
  * og:image swapped in, keeping every script and stylesheet tag untouched
  * so the exact same app bundle boots from it. Vercel serves a real file in
  * the output directory before it ever consults the rewrites array (its
  * documented routing order: filesystem match, then rewrites), so
- * /clients/<slug> resolves to this file with no rewrite rule needed for it
+ * /projects/<slug> resolves to this file with no rewrite rule needed for it
  * specifically; a slug with no prerendered file still falls through to the
  * existing catch-all -> index.html -> the SPA fetches it live. Once
  * client-side JS takes over, useHead() (CaseStudy.jsx) immediately
@@ -84,7 +84,7 @@ async function main() {
   let written = 0;
   for (const client of clients) {
     if (!client.slug || !SAFE_SLUG.test(client.slug)) continue;
-    const dir = resolve(DIST, 'clients', client.slug);
+    const dir = resolve(DIST, 'projects', client.slug);
     mkdirSync(dir, { recursive: true });
     writeFileSync(resolve(dir, 'index.html'), pageFor(template, client));
     written++;

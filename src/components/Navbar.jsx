@@ -28,7 +28,7 @@ export default function Navbar() {
    * has the link) and the print shop is gone entirely. */
   const links = [
     { to: '/',        label: 'Home',    icon: Home01 },
-    { to: '/clients', label: 'Clients', icon: Image01 },
+    { to: '/projects', label: 'Projects', icon: Image01 },
     { to: '/contact', label: 'Contact', icon: Phone },
   ];
 

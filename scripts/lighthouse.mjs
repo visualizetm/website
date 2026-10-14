@@ -29,9 +29,9 @@ const TARGETS = [
   { id: 'tasks', label: 'Tasks', path: '/admin/tasks' },
   { id: 'leads', label: 'Leads', path: '/admin/leads', ls: { vz_leads_view: JSON.stringify('list') } },
   { id: 'room', label: 'Call room', path: '/admin/calls', ls: { vz_call_session: JSON.stringify(SESSION('room')) } },
-  // Site Prompt 3: the public /clients page and one detail, driven by /api/showcase.
-  { id: 'clients', label: 'Clients (marketing)', path: '/clients' },
-  { id: 'clients-detail', label: 'Clients detail (marketing)', path: '/clients/full-showcase-co' },
+  // The public /projects page and one detail, driven by /api/showcase.
+  { id: 'projects', label: 'Projects (marketing)', path: '/projects' },
+  { id: 'projects-detail', label: 'Projects detail (marketing)', path: '/projects/full-showcase-co' },
   // Site Prompt 4: the landing page, and (via MOCK_SHOWCASE_EMPTY on the mock
   // server) its empty-CRM state.
   { id: 'home', label: 'Home', path: '/' },

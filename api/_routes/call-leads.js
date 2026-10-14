@@ -139,6 +139,7 @@ function sanitizeShowcase(sh) {
     },
     featured: {
       landing: !!featured.landing, logoStrip: !!featured.logoStrip, work: !!featured.work,
+      spotlight: !!featured.spotlight,
       order: Number.isFinite(Number(featured.order)) ? Math.round(Number(featured.order)) : 0,
     },
   };

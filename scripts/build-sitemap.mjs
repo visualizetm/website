@@ -16,7 +16,7 @@ const DIST = resolve('dist');
 const SITE = 'https://visualizestudio.org';
 const TIMEOUT_MS = 8000;
 
-const STATIC_ROUTES = ['/', '/services', '/clients', '/contact', '/start'];
+const STATIC_ROUTES = ['/', '/services', '/projects', '/contact', '/start'];
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,80}$/;
 
 async function fetchPublishedSlugs() {
@@ -40,7 +40,7 @@ async function main() {
     return;
   }
   const slugs = await fetchPublishedSlugs();
-  const urls = [...STATIC_ROUTES, ...slugs.map(s => `/clients/${s}`)];
+  const urls = [...STATIC_ROUTES, ...slugs.map(s => `/projects/${s}`)];
   const today = new Date().toISOString().slice(0, 10);
   const body = urls.map(u => `  <url>\n    <loc>${SITE}${u}</loc>\n    <lastmod>${today}</lastmod>\n  </url>`).join('\n');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;

@@ -164,16 +164,16 @@ export const SCREENS = [
   { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
   { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
 
-  // Site Prompt 3: the public /clients page, driven by /api/showcase. session:
+  // Site Prompt 3: the public /projects page (Clients until the Projects prompt), driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).
-  { id: 'mkt-clients-list', screen: 'Clients (marketing)', label: 'list', path: '/clients', session: false, static: true, marketing: true },
-  { id: 'mkt-clients-full', screen: 'Clients (marketing)', label: 'detail, full showcase', path: '/clients/full-showcase-co', session: false, static: true, marketing: true },
-  { id: 'mkt-clients-brand', screen: 'Clients (marketing)', label: 'detail, brand only', path: '/clients/brand-only-co', session: false, static: true, marketing: true },
+  { id: 'mkt-projects', screen: 'Projects (marketing)', label: 'the page', path: '/projects', session: false, static: true, marketing: true },
+  { id: 'mkt-projects-full', screen: 'Projects (marketing)', label: 'detail, full showcase', path: '/projects/full-showcase-co', session: false, static: true, marketing: true },
+  { id: 'mkt-projects-brand', screen: 'Projects (marketing)', label: 'detail, brand only', path: '/projects/brand-only-co', session: false, static: true, marketing: true },
   // The highlights prompt: the client detail of the fixture that carries six
   // story highlights, linked and unlinked, above its post grid.
-  { id: 'mkt-clients-highlights', screen: 'Clients (marketing)', label: 'detail, Instagram highlights', path: '/clients/portrait-co', session: false, static: true, marketing: true },
-  { id: 'mkt-clients-empty', screen: 'Clients (marketing)', label: 'empty state', path: '/clients', session: false, static: true, marketing: true, emptyResource: 'showcase' },
-  { id: 'mkt-clients-error', screen: 'Clients (marketing)', label: 'error state (unknown slug)', path: '/clients/does-not-exist', session: false, static: true, marketing: true },
+  { id: 'mkt-projects-highlights', screen: 'Projects (marketing)', label: 'detail, Instagram highlights', path: '/projects/portrait-co', session: false, static: true, marketing: true },
+  { id: 'mkt-projects-empty', screen: 'Projects (marketing)', label: 'empty state', path: '/projects', session: false, static: true, marketing: true, emptyResource: 'showcase' },
+  { id: 'mkt-projects-error', screen: 'Projects (marketing)', label: 'error state (unknown slug)', path: '/projects/does-not-exist', session: false, static: true, marketing: true },
 
   // Site Prompt 4: the landing page, one fetchShowcase() call feeding every
   // client-fed section; the empty state hides those, hero and how-it-works stay.

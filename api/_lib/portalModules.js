@@ -230,7 +230,7 @@ export const PORTAL_MODULES = [
     resolve(client) {
       const sh = client?.showcase || {};
       if (!sh.published || !str(sh.slug, 80)) return null;
-      const url = `https://visualizestudio.org/clients/${str(sh.slug, 80)}`;
+      const url = `https://visualizestudio.org/projects/${str(sh.slug, 80)}`;
       return { url, slug: str(sh.slug, 80), message: `New look for ${portalBusiness(client)}, made with Visualize: ${url}` };
     },
   },

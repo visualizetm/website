@@ -14,13 +14,23 @@
       "permanent": false
     },
     {
+      "source": "/clients/:slug",
+      "destination": "/projects/:slug",
+      "permanent": true
+    },
+    {
+      "source": "/clients",
+      "destination": "/projects",
+      "permanent": true
+    },
+    {
       "source": "/work/:slug",
-      "destination": "/clients/:slug",
+      "destination": "/projects/:slug",
       "permanent": true
     },
     {
       "source": "/work",
-      "destination": "/clients",
+      "destination": "/projects",
       "permanent": true
     },
     {
@@ -221,7 +231,7 @@
       ]
     },
     {
-      "source": "/clients/(.*)",
+      "source": "/projects/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

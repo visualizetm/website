@@ -26,7 +26,7 @@ export default function Footer() {
               <p className="footer-col-label">Navigation</p>
               <nav className="footer-col-links" aria-label="Navigation">
                 <Link to="/">Home</Link>
-                <Link to="/clients">Clients</Link>
+                <Link to="/projects">Projects</Link>
                 <Link to="/contact">Contact</Link>
               </nav>
             </div>

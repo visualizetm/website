@@ -816,6 +816,7 @@ export default function AdminApp() {
       {section === 'showcase' && (
         <AdminShowcase
           lead={V.leads.find(l => String(l._id) === showcaseId) || null}
+          leads={V.leads}
           loading={callLeadsLoading || forceLoading}
           error={errors.leads} onRetry={loadCallLeads}
           submissions={V.items}

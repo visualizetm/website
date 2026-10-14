@@ -98,15 +98,15 @@ const step = async (label, fn) => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` (${detail})` : ''}`);
 };
 
-await step('1. Not published: absent from /clients', async () => {
-  await mockAndGoto(page, '/clients');
+await step('1. Not published: absent from /projects', async () => {
+  await mockAndGoto(page, '/projects');
   const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
   if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
 });
 
-await step('2. Publish: appears on /clients', async () => {
+await step('2. Publish: appears on /projects', async () => {
   state.published = true;
-  await mockAndGoto(page, '/clients');
+  await mockAndGoto(page, '/projects');
   const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
   if (count !== 1) throw new Error(`found ${count} cards, expected 1`);
 });
@@ -121,14 +121,14 @@ await step('3. Toggle logo strip + work flags: logo and card appear on Home', as
   if (!card) throw new Error('no recent-clients card');
 });
 
-await step('4. Publish a testimonial: shows on Home and /clients', async () => {
+await step('4. Publish a testimonial: shows on Home and /projects', async () => {
   state.c.testimonials = [{ quote: 'Great to work with.', author: 'Test Author', role: 'Owner', rating: 5, source: 'text', published: true, featured: true }];
   await mockAndGoto(page, '/');
   const onHome = await page.locator('.tc-business', { hasText: 'Site Check Co' }).count();
-  await mockAndGoto(page, '/clients');
+  await mockAndGoto(page, '/projects');
   const onClients = await page.locator('.tc-business', { hasText: 'Site Check Co' }).count();
   if (!onHome) throw new Error('missing on Home');
-  if (!onClients) throw new Error('missing on /clients');
+  if (!onClients) throw new Error('missing on /projects');
 });
 
 await step('4a. A featured review from a client without a published showcase shows on Home with their mark and no link; nothing featured hides the section', async () => {
@@ -149,9 +149,9 @@ await step('4a. A featured review from a client without a published showcase sho
   return 'card without a link, brand seam, pull quote; section gone when empty';
 });
 
-await step('5. Unpublish: disappears from /clients', async () => {
+await step('5. Unpublish: disappears from /projects', async () => {
   state.published = false;
-  await mockAndGoto(page, '/clients');
+  await mockAndGoto(page, '/projects');
   const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
   if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
 });
@@ -203,13 +203,13 @@ await step('6. A price in pricing.js reads live on Services, and Home shows no p
 await step('7. Header and footer: three links and one free call, no Services or Shop', async () => {
   await mockAndGoto(page, '/');
   const nav = await page.locator('.navbar-link').allInnerTexts();
-  if (nav.join(',') !== 'Home,Clients,Contact') throw new Error(`header links are ${nav.join(', ')}`);
+  if (nav.join(',') !== 'Home,Projects,Contact') throw new Error(`header links are ${nav.join(', ')}`);
   const cta = await page.locator('.navbar-cta').innerText();
   if (!/Book a free call/.test(cta)) throw new Error(`header button reads ${cta}`);
   const ctaHref = await page.locator('.navbar-cta').getAttribute('href');
   if (!/calendly\.com/.test(ctaHref || '')) throw new Error(`header button points at ${ctaHref}`);
   const footer = await page.locator('.footer-col-links a').allInnerTexts();
-  if (footer.join(',') !== 'Home,Clients,Contact') throw new Error(`footer links are ${footer.join(', ')}`);
+  if (footer.join(',') !== 'Home,Projects,Contact') throw new Error(`footer links are ${footer.join(', ')}`);
   const strays = await page.locator('a[href="/prints"], a[href="/services"]').count();
   if (strays) throw new Error(`${strays} link(s) still point at the shop or Services`);
 });
@@ -289,12 +289,12 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
 
   // And now the public site.
   await page.unroute('**/api/admin/call-leads**').catch(() => {});
-  await mockAndGoto(page, '/clients');
-  if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /clients');
+  await mockAndGoto(page, '/projects');
+  if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /projects');
   await mockAndGoto(page, '/');
   const onHome = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
   if (!onHome) throw new Error('the published cover is not under Recent projects on Home');
-  return 'one PATCH, then live on /clients and under Recent projects';
+  return 'one PATCH, then live on /projects and under Recent projects';
 });
 
 /* The upload prompt: the Cloudinary flow end to end, with Cloudinary
