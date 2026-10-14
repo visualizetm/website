@@ -104,7 +104,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(card(live, 'home')?.status === 'Website: Design', `home's status line is the newest active project and its stage label (${card(live, 'home')?.status})`, 'home-status');
   ok(card(live, 'contact')?.sms === 'sms:5550100' && card(live, 'contact')?.mailto === 'mailto:contact@visualizeclients.com' && card(live, 'contact')?.instagram === 'visualizetm' && card(live, 'contact')?.hours === 'Weekdays 9 to 5', `contact carries ready sms: and mailto: hrefs, the Instagram handle and my hours (${JSON.stringify(card(live, 'contact'))})`);
   ok(card(live, 'book')?.url === 'https://calendly.com/visualize/call', 'book carries the Calendly link from Settings, Profile');
-  ok(card(live, 'showcase')?.url === 'https://visualizestudio.org/clients/sharpless-detailing' && /Share|made with Visualize/i.test(card(live, 'showcase')?.message || ''), 'showcase carries the public showcase link and a share line');
+  ok(card(live, 'showcase')?.url === 'https://visualizestudio.org/projects/sharpless-detailing' && /Share|made with Visualize/i.test(card(live, 'showcase')?.message || ''), 'showcase carries the public showcase link and a share line');
   _stores.projects = _stores.projects.filter(p => p._id !== 'p1');
   let r2 = await pub('GET', { token: t2 });
   ok(card(r2, 'home')?.status === 'All set', `no active project: the status line is All set (${card(r2, 'home')?.status})`, 'home-status');

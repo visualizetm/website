@@ -98,17 +98,24 @@ const step = async (label, fn) => {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label}${detail ? ` (${detail})` : ''}`);
 };
 
+/* The Projects page (the Projects prompt): a published client with a real section shows as a logo chip on its track; a
+   client featured in the work row is also a row under Everyone I have worked with and, with nothing spotlit, one of the
+   three spotlight chapters, where an approved testimonial is the pull quote. */
+const onProjects = (name) => page.locator('.pj-chip, .pj-row', { hasText: name }).count();
 await step('1. Not published: absent from /projects', async () => {
   await mockAndGoto(page, '/projects');
-  const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
-  if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
+  const count = await onProjects('Site Check Co');
+  if (count !== 0) throw new Error(`found ${count} chips or rows, expected 0`);
 });
 
 await step('2. Publish: appears on /projects', async () => {
   state.published = true;
   await mockAndGoto(page, '/projects');
-  const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
-  if (count !== 1) throw new Error(`found ${count} cards, expected 1`);
+  const chips = await page.locator('.pj-chip', { hasText: 'Site Check Co' }).count();
+  const rows = await page.locator('.pj-row', { hasText: 'Site Check Co' }).count();
+  if (chips < 1) throw new Error(`found ${chips} chips on the tracks, expected the Brand chip`);
+  if (rows !== 0) throw new Error(`found ${rows} rows under Everyone, expected none before the work flag`);
+  return `${chips} chip on the Brand track, no row yet`;
 });
 
 await step('3. Toggle logo strip + work flags: logo and card appear on Home', async () => {
@@ -126,9 +133,10 @@ await step('4. Publish a testimonial: shows on Home and /projects', async () => 
   await mockAndGoto(page, '/');
   const onHome = await page.locator('.tc-business', { hasText: 'Site Check Co' }).count();
   await mockAndGoto(page, '/projects');
-  const onClients = await page.locator('.tc-business', { hasText: 'Site Check Co' }).count();
+  const inChapter = await page.locator(`#spot-${state.c.slug} .pj-quote`, { hasText: 'Great to work with.' }).count();
   if (!onHome) throw new Error('missing on Home');
-  if (!onClients) throw new Error('missing on /projects');
+  if (!inChapter) throw new Error('missing as the pull quote in the spotlight chapter on /projects');
+  return 'the card on Home, the pull quote in the chapter';
 });
 
 await step('4a. A featured review from a client without a published showcase shows on Home with their mark and no link; nothing featured hides the section', async () => {
@@ -152,8 +160,8 @@ await step('4a. A featured review from a client without a published showcase sho
 await step('5. Unpublish: disappears from /projects', async () => {
   state.published = false;
   await mockAndGoto(page, '/projects');
-  const count = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
-  if (count !== 0) throw new Error(`found ${count} cards, expected 0`);
+  const count = await onProjects('Site Check Co');
+  if (count !== 0) throw new Error(`found ${count} chips or rows, expected 0`);
 });
 
 await step('5a. The review link page: greeted by name with their mark, sends, thanks with my Google link; a dead token is the expired page', async () => {
@@ -290,7 +298,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   // And now the public site.
   await page.unroute('**/api/admin/call-leads**').catch(() => {});
   await mockAndGoto(page, '/projects');
-  if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /projects');
+  if (!await onProjects('Site Check Co')) throw new Error('the published client is not on /projects');
   await mockAndGoto(page, '/');
   const onHome = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
   if (!onHome) throw new Error('the published cover is not under Recent projects on Home');

@@ -4,37 +4,37 @@ Measured by `scripts/perf-landing.mjs` against the fixture backed mock server (`
 
 | Metric | Baseline (2026-10-14) | After (2026-10-14) |
 |---|---|---|
-| First contentful paint | 600 ms | 568 ms |
-| Largest contentful paint | 1552 ms | 2356 ms |
+| First contentful paint | 600 ms | 560 ms |
+| Largest contentful paint | 1552 ms | 2248 ms |
 | LCP element | img visualize-icon-reversed.svg | h1.hero-title |
 | Cumulative layout shift | 0 | 0 |
 | INP, the slowest interaction of the scroll | 0 ms | 0 ms |
-| JS over the wire (gzipped) | 195 KB | 104 KB |
-| JS decoded | 652 KB | 326 KB |
+| JS over the wire (gzipped) | 195 KB | 109 KB |
+| JS decoded | 652 KB | 344 KB |
 | CSS over the wire | 9 KB | 8 KB |
 | Fonts | 29 KB | 83 KB |
 | Images over the wire | 12 KB | 7 KB |
 | Document | 5 KB | 5 KB |
 | Requests | 21 | 18 |
-| Long tasks over 50 ms (whole load) | 11 | 4 |
-| Longest task (whole load) | 318 ms | 173 ms |
+| Long tasks over 50 ms (whole load) | 11 | 3 |
+| Longest task (whole load) | 318 ms | 153 ms |
 | Long tasks over 50 ms during the scroll | 7 | 0 |
 | Longest task during the scroll | 60 ms | 0 ms |
-| Dropped frames during the scroll | 59 | 3 |
-| Worst frame gap during the scroll | 67 ms | 67 ms |
-| Frames sampled during the scroll | 1287 | 587 |
+| Dropped frames during the scroll | 59 | 2 |
+| Worst frame gap during the scroll | 67 ms | 50 ms |
+| Frames sampled during the scroll | 1287 | 588 |
 | Page height | 13569 px | 5988 px |
 
 Chunks that loaded:
 - Baseline: index-BJYFUBdh.js, Home-C898QPoF.js, SceneTest-DIf0pIl8.js, gsap-CcZvk_NV.js
-- After: index-kjW7Ki5V.js, Home-BCx_y9t2.js, ScrollRoot-CLJdpWOA.js, reviewPublic-7ECuk_u2.js, copy-BtgcTXh0.js, useScrollFade-BJN8nmAH.js
+- After: index-BWDVmvKf.js, Home-ZWDpuMgN.js, ScrollRoot-Dh8zYj7W.js, reviewPublic-BcvwYSt2.js, CaseStudy-CKCbgaVB.js, useScrollFade-Dr0g8MTn.js
 
 Targets, against the After column:
-- met: LCP under 2500 ms (2356 ms)
+- met: LCP under 2500 ms (2248 ms)
 - met: CLS under 0.05 (0)
 - met: no long task over 200 ms during the scroll (0 ms)
-- missed: no dropped frames during the scroll (3)
-- met: landing JS under 150 KB gzipped, or 30 percent under the baseline (104 KB (47 percent under the baseline's 195 KB))
+- missed: no dropped frames during the scroll (2)
+- met: landing JS under 150 KB gzipped, or 30 percent under the baseline (109 KB (44 percent under the baseline's 195 KB))
 
 ## Notes
 

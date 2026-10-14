@@ -236,15 +236,5 @@ export const clientCardStyles = `
   }
   .wk-card-blurb { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
 
-  .wk-card--skel { pointer-events: none; }
-  .wk-skel { background: var(--bg-elevated); position: relative; overflow: hidden; border-radius: 6px; }
-  .wk-skel::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%);
-    background-size: 240% 100%; animation: wkShimmer 1.4s linear infinite;
-  }
-  .wk-skel-line { margin-top: var(--space-1); }
-  @keyframes wkShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
-  @media (prefers-reduced-motion: reduce) { .wk-skel::after { animation: none; } }
 
 `;

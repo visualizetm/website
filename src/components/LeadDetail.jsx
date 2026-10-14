@@ -424,7 +424,8 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
           ) : (
             <>
               {m !== 'client' && <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>}
-              {m !== 'client' && <div className="rc-angle" style={{ minHeight: 68 }}><SkeletonText lines={3} /></div>}
+              {/* The angle: three lines on a lead, four on a triage record (the scraped pitch runs longer, and Inter sets wider than the system face that painted before it). */}
+              {m !== 'client' && <div className="rc-angle" style={{ minHeight: triage ? 90 : 68 }}><SkeletonText lines={triage ? 4 : 3} /></div>}
               <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{[...SECTIONS_BY_MODE[m].filter(id => id !== 'details' && id !== 'profile'), ...(m === 'client' ? ['tasks'] : [])].map(id => <SkeletonBlock key={id} width={72} height={16} />)}</div>
               <div className="rc-panel">{first}</div>
             </>

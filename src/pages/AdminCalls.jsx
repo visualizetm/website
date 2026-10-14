@@ -853,9 +853,9 @@ const ccStyles = `
   .cc-head--phone { --v-stack-gap: var(--v-space-2); }
   .cc-about-btn { align-self: flex-start; }
   /* A phone: the session numbers are lines with a divider (label, then the number), not six cards in two columns inside a card. */
-  /* The summary skeleton is the height of the loaded summary (the stats are one row each on a phone). */
+  /* The summary skeleton is the height of the loaded summary (the stats are one row each on a phone, each row's height set by the number's and the label's baselines in the fonts that ship with the app). */
   .cc-sum-skel { min-height: 388px; }
-  @media (max-width: 767px) { .cc-sum-skel { min-height: 667px; } }
+  @media (max-width: 767px) { .cc-sum-skel { min-height: 661px; } }
   @media (max-width: 767px) { .cc-statgrid { display: flex; flex-direction: column; gap: 0; } .cc-statgrid > .v-card { flex-direction: row-reverse; justify-content: space-between; align-items: baseline; background: transparent; border-width: 0 0 1px; border-radius: 0; padding: var(--v-space-2) 0; box-shadow: none; } }
   .cc-biz { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-3xl); line-height: var(--v-lh-3xl); letter-spacing: var(--v-ls-3xl); text-transform: uppercase; font-weight: var(--v-weight-bold); overflow-wrap: break-word; }
   @media (max-width: 479px) { .cc-biz { font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); } }
