@@ -66,6 +66,35 @@ ok(r3 && r3.to === '/projects' && r4 && r4.to === '/projects/sharpless-detailing
 ok(!redirect('/projects') && !redirect('/projects/sharpless-detailing'), 'the new paths redirect nowhere');
 ok((vercel.headers || []).some(h => h.source === '/projects/(.*)') && !(vercel.headers || []).some(h => h.source === '/clients/(.*)'), 'the no-cache header rule follows the prerendered pages to /projects');
 
+/* 4. the Projects page's shaping (src/lib/projectsPage.js): tracks, services, colours, applications, the numbers */
+import { tracksFor, servicesOf, hasSection, brandColorsOf, spotlightQuote, applicationsOf, introNumbers, chipHref, everyone } from '../src/lib/projectsPage.js';
+const P = (slug, over = {}) => ({ slug, displayName: slug, featured: { work: true, order: 0 }, brand: { enabled: true, logo: '', palette: [], images: [] }, website: { enabled: true, screenshots: [] }, cards: { enabled: true, front: '', back: '' }, print: { enabled: true, items: [] }, instagram: { enabled: false, posts: [] }, testimonials: [], ...over });
+const full = P('full', { brand: { enabled: true, logo: 'https://res.cloudinary.com/vz/image/upload/v1/logo.png', palette: [{ name: 'Primary', hex: '#d44c43' }, { name: 'Accent 1', hex: 'd44c43' }, { name: 'Accent 2', hex: '#0A0A0A' }, { name: 'Bad', hex: 'notahex' }], images: [{ link: 'https://x/a.png' }] }, website: { enabled: true, screenshots: [{ link: 'https://x/site.png' }] }, cards: { enabled: true, front: 'https://x/f.png', back: '' }, print: { enabled: true, items: [{ label: 'Sticker', image: 'https://x/s.png' }, { label: 'No image', image: '' }] }, instagram: { enabled: true, posts: [{ image: 'https://x/p1.png' }, { image: 'https://x/p2.png' }] } });
+const bare = P('bare');
+const offSections = P('offSections', { brand: { enabled: false, logo: 'https://x/logo.png', palette: [], images: [] }, website: { enabled: false, screenshots: [{ link: 'https://x/site.png' }] } });
+const onlyCards = P('cards', { cards: { enabled: true, front: 'https://x/f.png', back: 'https://x/b.png' } });
+let tr = tracksFor([full, bare, onlyCards]);
+ok(tr.map(t => `${t.id}:${t.chips.map(c => c.slug).join('+')}`).join(' ') === 'brand:full websites:full print:full+cards social:full', `every track with a real project behind it, its chips (${tr.map(t => `${t.id}:${t.chips.map(c => c.slug).join('+')}`).join(' ')})`);
+tr = tracksFor([bare, onlyCards]);
+ok(tr.map(t => t.id).join(',') === 'print', `a track with no real project behind it does not render (${tr.map(t => t.id).join(',')})`);
+ok(tracksFor([]).length === 0 && tracksFor([bare]).length === 0, 'no real project anywhere: no tracks');
+ok(hasSection(offSections, 'brand') === false && hasSection(offSections, 'website') === false && hasSection(full, 'brand') === true, 'a section switched offSections is not a real project, assets or not');
+ok(servicesOf(full).join(',') === 'Brand,Website,Business cards,Print,Social' && servicesOf(onlyCards).join(',') === 'Business cards' && servicesOf(bare).length === 0, `the service chips come from the real sections (${servicesOf(full).join(',')})`);
+const cols = brandColorsOf(full);
+ok(cols.map(c => c.hex).join(',') === '#d44c43,#0a0a0a' && cols[0].name === 'Primary', `the colours are valid hex, no repeats, the first the panel's ground (${cols.map(c => c.hex).join(',')})`);
+ok(brandColorsOf(bare).length === 0 && brandColorsOf({ brand: { palette: ['#fff', { hex: '#FFFFFF' }, 'abc'] } }).map(c => c.hex).join(',') === '#ffffff,#aabbcc', 'strings and objects, three and six digit, folded to one form');
+const apps = applicationsOf(full);
+ok(apps.map(a => a.kind).join(',') === 'website,cards,print,instagram,instagram' && apps.every(a => a.src && a.alt && a.fit) && apps.length <= 6, `the applications in order, each with a source, an alt and a fit, six at most (${apps.map(a => a.kind).join(',')})`);
+ok(applicationsOf(bare).length === 0 && applicationsOf(offSections).length === 0, 'nothing real, nothing shown: never a placeholder');
+ok(introNumbers([full, bare], { years: 3 }).map(x => `${x.n} ${x.label}`).join(', ') === '2 projects, 3 years' && introNumbers([full], {}).map(x => `${x.n} ${x.label}`).join(', ') === '1 project' && introNumbers([], { years: 3 }).map(x => x.label).join(',') === 'years', 'the intro counts the published projects and shows the years only when the stat is on');
+ok(chipHref('full', [full]) === '#spot-full' && chipHref('bare', [full]) === '/projects/bare', 'a chip scrolls to the spotlight when the project has one, else opens the showcase');
+ok(everyone([P('b', { featured: { work: true, order: 2 } }), P('a', { featured: { work: true, order: 1 } }), P('c', { featured: { work: false, order: 0 } })]).map(c => c.slug).join(',') === 'a,b', 'everyone is every work client in display order');
+
+/* 5. the pull quote: only a card the public endpoint shaped (it has a quote) ever shows */
+ok(spotlightQuote(P('q', { testimonials: [{ id: 't', quote: 'Rob nailed it.', author: 'Dana', rating: 5 }] }))?.quote === 'Rob nailed it.', 'an approved card is the pull quote');
+ok(spotlightQuote(bare) === null && spotlightQuote({}) === null, 'no testimonial, no quote');
+ok(spotlightQuote(P('p', { testimonials: [{ id: 'rs', name: 'Sam', text: 'Still pending.', status: 'pending', consent: true }] })) === null, 'a pending or hidden testimonial never becomes a pull quote (it carries no quote until the endpoint approves it)');
+
 /* 1b. the script writes docs/PERF.md: one throttled load against a mock server started here */
 if (!QUICK) {
   const port = 4361;
