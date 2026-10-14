@@ -333,7 +333,7 @@ export default function LeadPartner() {
           letter-spacing: 0.1em; color: rgba(255,255,255,0.35);
         }
         .lp-vis-earned-amount {
-          font-size: 1.75rem; font-weight: 900; color: #fff;
+          font-size: 1.75rem; font-weight: 800; color: #fff;
           letter-spacing: -0.04em; line-height: 1;
         }
         .lp-vis-earned-sub { font-size: 0.7rem; color: rgba(255,255,255,0.4); }

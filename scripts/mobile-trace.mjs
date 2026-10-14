@@ -95,7 +95,7 @@ async function walk(width, reduced) {
       longTasks: window.__long.length, longTaskMs: window.__long.reduce((a, x) => a + x, 0), worstLongTask: Math.max(0, ...window.__long),
       longest: sections[0], over: sections.filter(x => x.vhs > maxSection), sections: sections.slice(0, 5),
       pinned: document.querySelectorAll('.m-pin--active, .m-track--h').length,
-      hidden: [...document.querySelectorAll('.m-reveal:not(.m-reveal--visible), .m-scalein:not(.m-scalein--in)')].length,
+      hidden: [...document.querySelectorAll('.m-reveal:not(.m-reveal--visible), .m-scalein:not(.m-scalein--in), .m-rv:not([data-in])')].length,
       engine: window.__engine,
     };
   }, { maxSection: MAX_SECTION });

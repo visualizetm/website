@@ -80,14 +80,26 @@ export function capImageWidth(url, width = IMG_W.gallery) {
   return `${url.slice(0, cut)}c_limit,w_${width}/${url.slice(cut)}`;
 }
 
+/* The delivery transform (the faster landing prompt): every Cloudinary image is asked for at a width with
+ * f_auto (the browser's best format) and q_auto (the quality the picture needs), on top of the bare width
+ * cap above; a non Cloudinary URL (a fixture, a Drive link) passes through as capImageWidth passes it. */
+export function cloudinaryUrl(url, width = IMG_W.gallery) {
+  const capped = capImageWidth(url, width);
+  return capped.includes('/image/upload/c_limit,w_') ? capped.replace('/image/upload/c_limit,w_', '/image/upload/f_auto,q_auto,c_limit,w_') : capped;
+}
+/** A srcset at each width, for a Cloudinary URL; '' for anything else (one src is all it can offer). */
+export function srcSetOf(url, widths) {
+  if (!url || typeof url !== 'string' || !url.includes('res.cloudinary.com') || !url.includes('/image/upload/')) return '';
+  if (/\/image\/upload\/[a-z]_[^/]*\d+\/?/i.test(url)) return '';
+  return widths.map(w => `${cloudinaryUrl(url, w)} ${w}w`).join(', ');
+}
 /** The list/preview card: displayName, type, blurb, cover with a monogram
  * fallback. The cover settles in with ScaleIn wherever the card is used
- * (the light set, Site Prompt 6, Part 5); `parallax` adds Home's Recent
- * clients drift on top, which the list page leaves off, since a grid of
- * drifting covers reads as noise. */
+ * (the light set, Site Prompt 6, Part 5); `parallax` adds a drift on top,
+ * which Home and the list leave off. */
 export function ClientCard({ client, parallax = false }) {
   const media = client.cover ? (
-    <img src={capImageWidth(client.cover, IMG_W.cardCover)} alt={`${client.displayName} brand`} loading="lazy" width={800} height={500} />
+    <Pic src={client.cover} alt={`${client.displayName} brand`} w={IMG_W.cardCover} widths={[480, 800, 1200]} sizes="(max-width: 900px) 82vw, 33vw" width={800} height={500} />
   ) : (
     <span className="wk-card-mono" aria-hidden="true">
       <span className="display">{(client.displayName || '?').charAt(0)}</span>
@@ -95,7 +107,7 @@ export function ClientCard({ client, parallax = false }) {
   );
 
   return (
-    <Link to={`/clients/${client.slug}`} className="wk-card">
+    <Link to={`/projects/${client.slug}`} className="wk-card">
       <span className="img-fit img-fit--16x10 wk-card-media">
         <ScaleIn as="span" className="wk-card-scale">
           {parallax ? <Parallax as="span" className="wk-card-shift" factor={0.06}>{media}</Parallax> : media}
@@ -110,6 +122,18 @@ export function ClientCard({ client, parallax = false }) {
         <p className="wk-card-blurb">{client.blurb}</p>
       </div>
     </Link>
+  );
+}
+
+/* One image, sized: the transform at `w`, a srcset at `widths` with `sizes`, explicit width and height so
+ * nothing shifts, lazy and async below the first screen (`eager` for the one image above it). */
+export function Pic({ src, alt = '', w = IMG_W.gallery, widths = null, sizes = '100vw', width, height, eager = false, className, fetchPriority }) {
+  const set = widths ? srcSetOf(src, widths) : '';
+  return (
+    <img
+      src={cloudinaryUrl(src, w)} srcSet={set || undefined} sizes={set ? sizes : undefined} alt={alt} className={className}
+      width={width} height={height} loading={eager ? undefined : 'lazy'} decoding={eager ? undefined : 'async'} fetchPriority={fetchPriority || (eager ? 'high' : undefined)}
+    />
   );
 }
 
@@ -129,7 +153,7 @@ export function TestimonialCard({ testimonial }) {
         {/* The client's mark (review links): their logo on a paper panel, the brand colour as the card's seam only, never under text. */}
         {(logo || t.business) && (
           <span className={`img-fit img-fit--contain tc-mark${logo ? '' : ' tc-mark--fallback'}`} aria-hidden="true">
-            {logo ? <img src={logo} alt="" className="tc-mark-img" loading="lazy" width={32} height={32} /> : <img src={logoSrc('icon', 'reversed')} alt="" className="tc-mark-img tc-mark-img--icon" loading="lazy" width={32} height={32} />}
+            {logo ? <Pic src={logo} alt="" className="tc-mark-img" w={96} width={32} height={32} /> : <img src={logoSrc('icon', 'reversed')} alt="" className="tc-mark-img tc-mark-img--icon" loading="lazy" width={32} height={32} />}
           </span>
         )}
       </div>
@@ -137,7 +161,7 @@ export function TestimonialCard({ testimonial }) {
       <figcaption className="tc-attr">
         <span className="tc-name">{t.author}</span>
         {t.role && <span className="tc-role">, {t.role}</span>}
-        {t.business && t.slug ? <Link to={`/clients/${t.slug}`} className="tc-business">{t.business}</Link> : t.business ? <span className="tc-business tc-business--plain">{t.business}</span> : null}
+        {t.business && t.slug ? <Link to={`/projects/${t.slug}`} className="tc-business">{t.business}</Link> : t.business ? <span className="tc-business tc-business--plain">{t.business}</span> : null}
       </figcaption>
     </figure>
   );
@@ -158,4 +182,69 @@ export const testimonialCardStyles = `
   .tc-name { font-weight: 700; color: var(--text); }
   .tc-business { color: var(--brand-text); text-decoration: none; }
   .tc-business:hover { text-decoration: underline; }
+`;
+
+/* The client card (ClientCard above): one stylesheet for Home's Recent projects, the Projects list and anywhere else it renders. Flat: no outline, gradient or shadow (Brand v3). */
+export const clientCardStyles = `
+  .wk-card {
+    display: flex; flex-direction: column;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: transform 0.25s var(--ease);
+  }
+  .wk-card:hover {
+    transform: translateY(-4px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wk-card, .wk-card:hover { transform: none; transition: border-color 0.25s; }
+  }
+
+  .wk-card-media { background: var(--surface); }
+  /* The cover settles in from 8% oversized, which means the settling
+     layer is briefly wider than the frame; .wk-card-media clips it, and
+     the frame itself never moves. Same reason the parallax layer below
+     is taller than the frame: the drift needs room inside it. */
+  .wk-card-scale { display: block; width: 100%; height: 100%; }
+  .wk-card-scale img { width: 100%; height: 100%; object-fit: cover; }
+  .wk-card-shift { display: block; width: 100%; height: 112%; margin-top: -6%; }
+  .wk-card-shift img { width: 100%; height: 100%; object-fit: cover; }
+  .wk-card-mono {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-elevated);
+  }
+  .wk-card-mono .display {
+    font-size: 5rem; color: var(--brand);
+    opacity: 0.9;
+  }
+
+  .wk-card-body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+  .wk-card-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+  .wk-card-name { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+  .wk-card-arrow {
+    color: var(--text-muted); display: inline-flex;
+    transition: color 0.2s, transform 0.25s var(--ease);
+  }
+  .wk-card:hover .wk-card-arrow { color: var(--brand); transform: translate(2px, -2px); }
+  .wk-card-tag {
+    align-self: flex-start;
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-secondary);
+    background: var(--glass-bg); border: 1px solid var(--border);
+    padding: 3px 10px; border-radius: 999px;
+  }
+  .wk-card-blurb { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
+
+  .wk-card--skel { pointer-events: none; }
+  .wk-skel { background: var(--bg-elevated); position: relative; overflow: hidden; border-radius: 6px; }
+  .wk-skel::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%);
+    background-size: 240% 100%; animation: wkShimmer 1.4s linear infinite;
+  }
+  .wk-skel-line { margin-top: var(--space-1); }
+  @keyframes wkShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+  @media (prefers-reduced-motion: reduce) { .wk-skel::after { animation: none; } }
+
 `;

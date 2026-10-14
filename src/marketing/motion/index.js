@@ -12,7 +12,7 @@ export { Marquee } from './Marquee';
 export { ScaleIn } from './ScaleIn';
 export { WordReveal } from './WordReveal';
 export { Tone } from './Tone';
-export { useScrollProgress, useScrollEngine, useScrollRefresh } from './useScroll';
+export { useScrollProgress, useScrollEngine } from './useScroll';
 export { useMotionPreference, useCoarsePointer, useMediaQuery, useRevealOnce, prefersReducedMotion, isCoarsePointer, cssMs, cx } from './shared';
-// Site Prompt 11: the one primitive Home is built on. See docs/SCENE-ENGINE.md.
-export { Scene, REVEAL_SPAN, revealStart, stepReveal } from './Scene';
+// The faster landing prompt: Home and the Projects page are sections that reveal once on native scroll (src/marketing/reveal.js).
+export { Section, Block } from './Section';

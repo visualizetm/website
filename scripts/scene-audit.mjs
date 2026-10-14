@@ -1,47 +1,46 @@
 #!/usr/bin/env node
-/* The scene audit (Site Prompt 11, rebuilt in Site Prompt 12 after real
- * phone screenshots showed bugs it had passed). Scrolls a page in 5
- * percent increments and captures, at every increment: a screenshot,
- * every stage's rect, which steps are revealed, and what a person would
- * see. Then walks back up and checks the reveal reversed exactly.
+/* The scroll audit (Site Prompt 11, rebuilt in Site Prompt 12 after real
+ * phone screenshots, rebuilt again by the faster landing prompt when the
+ * scene engine was retired). Scrolls a page in 5 percent increments and
+ * captures, at every increment: a screenshot, every revealing section's
+ * rect and state, and what a person would see. Then walks back up and
+ * checks that nothing which had revealed hides again.
  *
  * Phone profiles are the viewport a phone actually shows, with Safari's
- * bars on screen (390x720, 320x500, 430x800), not the full screen: the
- * old 390x844 was 124px taller than any phone at that width ever shows
- * Home, and that is where the button under the indicator lived.
+ * bars on screen (390x720, 320x500, 430x800), not the full screen.
+ *
+ * The page's rules (docs/SCENE-ENGINE.md, "The reveal"): native scroll,
+ * nothing pinned, every section reveals once as one piece when about a
+ * fifth of a screen of it has entered, done inside 800ms, and never hides
+ * again; reduced motion shows everything with no movement; the landing
+ * never loads the animation engine.
  *
  * Fails if:
- *   - a pinned stage is ever not exactly the viewport height
- *   - a pinned stage's content does not fit its box
- *   - any visible content inside a held stage is above the navbar's
- *     bottom edge (bug 6)
- *   - any visible content intersects the step indicator's box or comes
- *     within 16px of it (bug 5)
- *   - two visible text elements overlap by more than 4px, unless an opaque
- *     element sits between them (bugs 3, 4, 5); a single word broken
- *     across lines counts too (bug 2)
- *   - more than one hero cover name is visible at any of 20 positions
- *     through the hero (bug 4)
- *   - dead space, measured from painted pixels: a screenshot row is empty
- *     when it is within 8 units of a surface colour across more than 90
- *     percent of its width. Inside a held stage no band between the
- *     block's first and last painted row may exceed 15 percent of the
- *     viewport; the block is centred (bands within 32px of each other) or,
- *     when too short to centre without more than 15 percent above it, sits
- *     at that cap and builds downward; once fully revealed no band above
- *     or below it may exceed 15 percent; and a stage entering from below
- *     has its first content within 15 percent of its own top edge (bugs
- *     1, 7). A cover photo is painted, not empty. The whole-viewport share
- *     is reported, not judged: by the row rule a paragraph is mostly empty
- *     rows and a four letter link is an empty row.
- *   - a step shows before its progress, a revealed step hides while its
- *     scene is pinned, two pinned stages fill the viewport at once, the
- *     footer is unreachable, or scrolling back does not reverse the reveal
+ *   - anything is pinned (a .m-scene--pinned stage), or a sticky element
+ *     travels more than one viewport inside its parent, except a spotlight
+ *     chapter's logo panel (.pj-spot-panel), whose chapter must then be
+ *     under three viewports tall
+ *   - a section (.m-rv) that has entered the observer's band (its top above
+ *     85 percent of the viewport, its bottom on screen) is not revealed a
+ *     settle after the scroll
+ *   - a revealed section still has a piece mid-fade a settle after the
+ *     scroll (the whole section is done inside 800ms)
+ *   - on the way back up, a section that was revealed on the way down is
+ *     not revealed any more (reveal once)
+ *   - two visible text elements overlap by more than 4px with no opaque
+ *     element between them; a single word broken across lines
+ *   - under reduced motion, a section is not fully shown (opacity 1, no
+ *     transform) or the engine chunk was fetched
+ *   - on Home, the gsap chunk was fetched at all, or the footer is unreachable
+ *   - a page error
  *
- *   node scripts/scene-audit.mjs                              /scene-test at 390 (touch) and 1280
- *   SCENE_PATH=/ SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs
+ * The whole-viewport empty share (painted rows within 8 units of a surface
+ * colour) is reported, not judged.
+ *
+ *   node scripts/scene-audit.mjs                              Home at 390 (touch) and 1280
+ *   SCENE_PATH=/projects SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs
  *   SCENE_HEIGHTS=390:844 node scripts/scene-audit.mjs        override a width's height (the full-screen phone)
- *   SCENE_MOTION=reduce node scripts/scene-audit.mjs          reduced motion: nothing pinned, everything shown, no engine
+ *   SCENE_MOTION=reduce node scripts/scene-audit.mjs          reduced motion: everything shown, no engine
  *   SCENE_OUT=/tmp/strips node scripts/scene-audit.mjs        where the screenshots and the strip go
  */
 import { chromium } from 'playwright-core';
@@ -50,17 +49,14 @@ import path from 'node:path';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.SCENE_BASE || 'http://127.0.0.1:4350';
-const PATH = process.env.SCENE_PATH || '/scene-test';
+const PATH = process.env.SCENE_PATH || '/';
 const WIDTHS = (process.env.SCENE_WIDTHS || '390,1280').split(',').map(Number);
 const REDUCE = process.env.SCENE_MOTION === 'reduce';
 const OUT = process.env.SCENE_OUT || path.join(process.cwd(), '.tmp-verify', 'scene-audit');
 const STEP_PCT = Number(process.env.SCENE_STEP || 5);
-const _MAX_EMPTY = 0.25;
 const HEIGHTS = { 320: 500, 390: 720, 430: 800, 768: 1024, 1280: 800 };
 for (const pair of (process.env.SCENE_HEIGHTS || '').split(',').filter(Boolean)) { const [w, h] = pair.split(':').map(Number); if (w && h) HEIGHTS[w] = h; }
-const MAX_BAND = 0.15;
-const CENTRE_TOL = 32;
-const _INDICATOR_GAP = 16;
+const SPOT_MAX_VH = 3;    // a spotlight chapter with a sticky panel stays under three screens
 const isHome = PATH === '/';
 const isConcepts = PATH.startsWith('/concepts/');
 
@@ -70,58 +66,31 @@ let failures = 0;
 const summaries = [];
 
 const SAMPLE = () => {
-  const INDICATOR_GAP = 16;
   const vh = innerHeight; const vw = innerWidth;
   const nav = document.querySelector('.navbar');
   const navRect = nav ? nav.getBoundingClientRect() : null;
   const visible = (el) => { const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility !== 'hidden'; };
-  const alpha = (el) => { let o = 1; for (let n = el; n && n !== document.documentElement; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; if (o < 0.001) return 0; } return o; };
-  const scenes = [...document.querySelectorAll('.m-scene')].map((root, i) => {
-    const stage = root.querySelector(':scope > .m-scene-stage');
-    const r = stage.getBoundingClientRect();
-    const steps = Number(root.style.getPropertyValue('--scene-steps')) || 0;
-    const pinned = root.classList.contains('m-scene--pinned');
-    const p = root.style.getPropertyValue('--scene-p');
-    const reveal = {};
-    for (const el of root.querySelectorAll('[data-step]')) {
-      const n = Number(el.getAttribute('data-step')) || 0;
-      if (!n) continue;
-      const sr = pinned ? Number(getComputedStyle(el).getPropertyValue('--sr')) : Number(getComputedStyle(el).opacity);
-      reveal[n] = Math.max(reveal[n] || 0, Number.isFinite(sr) ? sr : 1);
-    }
-    const body = stage.querySelector(':scope > .m-scene-body');
-    const fits = !pinned || !body || body.scrollHeight <= body.clientHeight + 2;
-    const ind = stage.querySelector(':scope > .m-scene-steps');
-    const ir = ind ? ind.getBoundingClientRect() : null;
-    const br = body ? body.getBoundingClientRect() : r;
-    // The visible content block: leaf text, images, buttons, bars inside the body at alpha > 0.05.
-    let cTop = Infinity, cBottom = -Infinity;
-    if (body) for (const el of body.querySelectorAll('*')) {
-      const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
-      const box = /(^|\s)(btn|pk-bar|pk-chip|bt-icon|pk-node|hero-cover-name|v-logo)(\s|$)/.test(String(el.className || '')) || el.tagName === 'IMG';
-      if (!own && !box) continue;
-      if (alpha(el) < 0.05) continue;
-      const q = el.getBoundingClientRect(); if (q.height < 2 || q.width < 2) continue;
-      cTop = Math.min(cTop, q.top); cBottom = Math.max(cBottom, q.bottom);
-    }
-    const held = pinned && Math.abs(r.top) < 2 && r.height >= vh - 2;
-    const names = [...root.querySelectorAll('.hero-cover-name')].filter(el => alpha(el) > 0.02).length;
-    // Something mid-fade: the block's extent is not settled, so its centring is not judged this frame.
-    let settling = false;
-    if (body) for (const el of body.querySelectorAll('[data-step], [data-step] *')) { const cs = getComputedStyle(el); const o = +cs.opacity; const d = Number(cs.getPropertyValue('--done')); if ((o > 0.05 && o < 0.95) || (Number.isFinite(d) && d > 0.02 && d < 0.98)) { settling = true; break; } }
-    const backdrop = !!stage.querySelector(':scope > .m-scene-backdrop');
-    return { i, label: stage.getAttribute('aria-label') || '', steps, pinned, held, p: p === '' ? null : Number(p), top: Math.round(r.top), bottom: Math.round(r.bottom), height: Math.round(r.height), onScreen: r.bottom > 0 && r.top < vh, reveal, fits, bodyH: body ? body.scrollHeight : 0, bodyBox: body ? body.clientHeight : 0,
-      bodyTop: Math.round(br.top), bodyBottom: Math.round(br.bottom), contentTop: cTop === Infinity ? null : Math.round(cTop), contentBottom: cBottom === -Infinity ? null : Math.round(cBottom),
-      indicator: ir ? { top: Math.round(ir.top), bottom: Math.round(ir.bottom) } : null, names, settling, backdrop,
-      /* A slot a scene reserves for what arrives later (Business types' tile row, data-scene-reserve) is content, not a dead band. */
-      reserve: [...stage.querySelectorAll('[data-scene-reserve]')].map(el => { const q = el.getBoundingClientRect(); return [Math.round(q.top), Math.round(q.bottom)]; }) };
+  const alpha = (el) => { let o = 1; for (let n = el; n && n !== document.documentElement; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.display === 'none' || cs.visibility === 'hidden') return 0; o *= +cs.opacity; } return o; };
+  const identity = (t) => t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)';
+  const secs = [...document.querySelectorAll('.m-rv')].map((el, i) => {
+    const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
+    const label = el.getAttribute('aria-label') || (el.querySelector('h1, h2, h3')?.textContent || el.className).trim().slice(0, 40);
+    const steps = [...el.querySelectorAll('[data-step]')].map(c => ({ n: c.getAttribute('data-step'), o: +getComputedStyle(c).opacity, t: getComputedStyle(c).transform }));
+    return { i, label, top: Math.round(r.top), bottom: Math.round(r.bottom), in: el.hasAttribute('data-in'), opacity: +cs.opacity, still: identity(cs.transform), steps, due: r.bottom > 0 && r.top < vh * 0.85 && r.height > 0, /* the observer's band: a 15 percent margin at the bottom */ onScreen: r.bottom > 0 && r.top < vh };
   });
-  /* Navbar clearance and indicator clearance inside a held stage; text
-     overlap across the page. Leaves: elements with their own text. */
-  let overlapNav = null; let overlapInd = null;
+  const pinned = document.querySelectorAll('.m-scene--pinned').length;
+  const sticky = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (el.closest('.navbar')) continue;
+    if (getComputedStyle(el).position !== 'sticky') continue;
+    const parent = el.parentElement; const pr = parent.getBoundingClientRect(); const er = el.getBoundingClientRect();
+    const chapter = el.closest('.pj-spot');
+    sticky.push({ name: `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ')[0]}`, travel: Math.round(pr.height - er.height), panel: el.classList.contains('pj-spot-panel'), chapterH: chapter ? Math.round(chapter.getBoundingClientRect().height) : null });
+  }
+  /* Text overlap across the page, and single words broken across lines. Leaves: elements with their own text. */
   const leaves = [];
   for (const el of document.querySelectorAll('body *')) {
-    if (el.closest('.navbar') || el.closest('.m-scene-backdrop') || el.closest('.m-scene-steps')) continue;
+    if (el.closest('.navbar')) continue;
     const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
     const box = el.tagName === 'IMG' || /(^|\s)btn(\s|$)/.test(String(el.className || ''));
     if (!own && !box) continue;
@@ -130,25 +99,18 @@ const SAMPLE = () => {
     if (el.closest('.navbar-drawer, [inert]')) continue;
     const q = el.getBoundingClientRect();
     if (q.width < 2 || q.height < 2 || q.bottom < 0 || q.top > vh || q.right < 0 || q.left > vw) continue;
-    const stage = el.closest('.m-scene--pinned > .m-scene-stage');
-    const sr = stage?.getBoundingClientRect();
-    const heldIn = sr && Math.abs(sr.top) < 2 && sr.height >= vh - 2;
     const name = `${el.tagName.toLowerCase()}.${String(el.className || '').split(' ')[0]} "${(el.textContent || el.getAttribute('alt') || '').trim().slice(0, 28)}"`;
-    if (heldIn && navRect && !overlapNav && q.top < navRect.bottom - 1) overlapNav = `${name} top ${Math.round(q.top)} under navbar bottom ${Math.round(navRect.bottom)}`;
-    if (heldIn && !overlapInd) { const ind = stage.querySelector(':scope > .m-scene-steps'); if (ind) { const ir = ind.getBoundingClientRect(); if (q.bottom > ir.top - INDICATOR_GAP && q.top < ir.bottom + INDICATOR_GAP) overlapInd = `${name} bottom ${Math.round(q.bottom)} vs indicator top ${Math.round(ir.top)} (gap ${Math.round(ir.top - q.bottom)}px, needs ${INDICATOR_GAP})`; } }
     if (own) {
       const cs = getComputedStyle(el);
       const text = (el.textContent || '').trim();
       const oneWord = !/\s/.test(text) && text.length <= 12 && cs.whiteSpace !== 'nowrap';
-      leaves.push({ el, q, a, name, oneWord, fontPx: parseFloat(cs.fontSize) || 16, lh: parseFloat(cs.lineHeight) || 0 });
+      leaves.push({ el, q, a, name, oneWord, fontPx: parseFloat(cs.fontSize) || 16 });
     }
   }
   const overlaps = []; const wrapped = [];
-  const opaque = (el) => { const bg = getComputedStyle(el).backgroundColor; const m = bg.match(/rgba?\(([^)]+)\)/); if (!m) return false; const parts = m[1].split(',').map(Number); return parts.length < 4 || parts[3] >= 0.9; };
+  const opaque = (el) => { const bg = getComputedStyle(el).backgroundColor; const m = bg.match(/rgba?\(([^)]+)\)/); if (!m) return false; const parts = m[1].split(',').map(Number); return parts.length < 4 || parts[3] >= 0.95; };
   for (const L of leaves) {
-    // A single word whose text occupies more than one line box has broken across lines (a numeral in a column too narrow for it).
     if (!L.oneWord) continue;
-    // The element's own text nodes only: an icon beside the text sits on a different line box top.
     const tops = new Set();
     for (const node of L.el.childNodes) { if (node.nodeType !== 3 || !node.textContent.trim()) continue; const range = document.createRange(); range.selectNodeContents(node); for (const r of range.getClientRects()) if (r.width > 1) tops.add(Math.round(r.top)); }
     if (tops.size > 1) wrapped.push(`${L.name} breaks across ${tops.size} lines at ${Math.round(L.fontPx)}px: a single word wrapped`);
@@ -165,17 +127,17 @@ const SAMPLE = () => {
     if (ia < 0 || ib < 0) continue;
     const lo = Math.min(ia, ib), hi = Math.max(ia, ib);
     let hidden = false;
-    // An occluder has to be opaque itself: an opaque background on a card that is mid-fade hides nothing.
     for (let k = lo + 1; k < hi; k++) { const e = stack[k]; if (e === A.el || e === B.el || A.el.contains(e) || B.el.contains(e)) continue; if (opaque(e) && alpha(e) >= 0.95) { hidden = true; break; } }
     if (hidden) continue;
     overlaps.push(`${A.name} (alpha ${A.a.toFixed(2)}) and ${B.name} (alpha ${B.a.toFixed(2)}) overlap ${Math.round(x1 - x0)}x${Math.round(y1 - y0)}px`);
   }
   const footer = document.querySelector('footer'); const fr = footer?.getBoundingClientRect();
   const tok = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return { y: Math.round(scrollY), vh, vw, docH: document.documentElement.scrollHeight, overlapNav, overlapInd, overlaps, wrapped, scenes, navBottom: navRect ? Math.round(navRect.bottom) : 0, surfaces: [tok('--bg'), tok('--bg-elevated')], footerVisible: !!fr && fr.top < vh && fr.bottom > 0, engine: !!performance.getEntriesByType('resource').find(e => /gsap/.test(e.name)) };
+  const res = performance.getEntriesByType('resource').map(r => r.name);
+  return { y: Math.round(scrollY), vh, vw, docH: document.documentElement.scrollHeight, overlaps, wrapped, secs, pinned, sticky, navBottom: navRect ? Math.round(navRect.bottom) : 0, surfaces: [tok('--bg'), tok('--bg-elevated'), tok('--bg-card'), tok('--bg-deep')].filter(Boolean), footerVisible: !!fr && fr.top < vh && fr.bottom > 0, engine: res.some(n => /gsap/.test(n)), lenis: res.some(n => /lenis/.test(n)) };
 };
 
-/* The concepts page (Concepts review job) has no scenes: each direction is one section that reveals as one unit. What the gate checks there,
+/* The concepts page (Concepts review job) has no sections of this kind: each direction is one section that reveals as one unit. What the gate checks there,
    a moment after every scroll, before the 240ms fade has finished: a section with any part on screen is already revealed (nothing waits for
    scroll), no piece inside a section animates on its own, no element inside a section carries a step or its own reveal, and under reduced
    motion every section is fully opaque and untransformed everywhere. */
@@ -200,13 +162,11 @@ const CONCEPTS_BAR = () => {
   const top = bar.getBoundingClientRect().top; const out = [];
   const last = [...document.querySelectorAll('.cp-sec')].filter(e => e.querySelector('.cp-rv-btn')).pop();
   const targets = [...(last ? last.querySelectorAll('.cp-rv-btn, .cp-link-btn, textarea') : []), ...document.querySelectorAll('.cpc-mail')];
-  for (const t of targets) { const q = t.getBoundingClientRect(); if (q.height && q.bottom > top + 1 && q.top < innerHeight) out.push(`${(t.textContent || t.tagName).trim().slice(0, 24)} sits under the progress bar at the bottom of the page (${Math.round(q.bottom)} past ${Math.round(top)})`); }
+  for (const t of targets) { const q = t.getBoundingClientRect(); if (q.height && q.bottom > top + 1 && q.top < innerHeight) out.push(`${(t.textContent || t.tagName).trim().slice(0, 24)} sits under the progress bar at the end of the page`); }
   return out;
 };
 
-/* Painted rows: decode the screenshot in the page and scan every CSS
-   pixel row. A row is empty when more than 90 percent of its pixels are
-   within 8 units of a surface colour. */
+/* Painted rows: decode the screenshot in the page and scan every CSS pixel row. A row is empty when more than 90 percent of its pixels are within 8 units of a surface colour. */
 const ROWS = async (page, png, surfaces) => page.evaluate(async ({ b64, surfaces }) => {
   const hex = (h) => { const m = h.replace('#', ''); const v = m.length === 3 ? m.split('').map(c => c + c).join('') : m; return [0, 2, 4].map(i => parseInt(v.slice(i, i + 2), 16)); };
   const cols = surfaces.map(hex);
@@ -228,9 +188,6 @@ const ROWS = async (page, png, surfaces) => page.evaluate(async ({ b64, surfaces
   }
   return empty;
 }, { b64: png.toString('base64'), surfaces });
-
-/* The longest run of true in rows[a..b). */
-const longestRun = (rows, a, b) => { let best = 0, cur = 0; for (let y = Math.max(0, a); y < Math.min(rows.length, b); y++) { cur = rows[y] ? cur + 1 : 0; if (cur > best) best = cur; } return best; };
 const countRun = (rows, a, b) => { let n = 0; for (let y = Math.max(0, a); y < Math.min(rows.length, b); y++) if (rows[y]) n++; return n; };
 
 async function walk(width) {
@@ -243,7 +200,7 @@ async function walk(width) {
   await page.addInitScript((reduce) => { try { localStorage.setItem('vz_theme', 'dark'); if (reduce) localStorage.setItem('vz_motion', 'reduce'); else localStorage.removeItem('vz_motion'); } catch {} }, REDUCE);
   await page.goto(BASE + PATH, { waitUntil: 'networkidle' });
   await page.waitForTimeout(1500);
-  const settle = touch ? 750 : 1100;  // the scrub catches up over half a second on touch; Lenis smooths a jump over a second on a desktop
+  const settle = 1100;  // a section is done inside 800ms of its reveal; the observer's own callback adds a frame or two
   const label = `${width}x${height}${REDUCE ? ' reduce' : ''}`;
   const dir = path.join(OUT, label.replace(/[^a-z0-9]+/gi, '-'));
   fs.mkdirSync(dir, { recursive: true });
@@ -251,7 +208,6 @@ async function walk(width) {
   const max = await page.evaluate(() => document.documentElement.scrollHeight - innerHeight);
   const positions = []; for (let f = 0; f <= 100; f += STEP_PCT) positions.push(Math.round((f / 100) * max));
   const forward = [];
-  const maxSeen = {};   // `${scene}:${step}` -> highest reveal seen while that scene was pinned
   for (const [k, y] of positions.entries()) {
     await page.evaluate((v) => window.scrollTo(0, v), y);
     if (isConcepts) {
@@ -265,104 +221,47 @@ async function walk(width) {
     const shot = path.join(dir, `${String(k).padStart(2, '0')}-${Math.round((y / Math.max(1, max)) * 100)}pct.png`);
     const png = await page.screenshot({ path: shot });
     const rows = await ROWS(page, png, s.surfaces);
-    const emptyShare = countRun(rows, 0, s.vh) / s.vh;
-    s.empty = emptyShare;
+    s.empty = countRun(rows, 0, s.vh) / s.vh;
     const at = `${Math.round((y / Math.max(1, max)) * 100)}% (y=${s.y})`;
-    const heldScene = s.scenes.find(sc => sc.held);
-    const _fully = heldScene && heldScene.p !== null && heldScene.p >= heldScene.steps - 1 - 0.01;
-    /* The whole-viewport limit applies where a person expects a full
-       screen: a held stage that has finished revealing. A stage still
-       revealing one step at a time, or a footer of short links, is
-       judged by the band, centring and entry rules instead: the row rule
-       reads a four letter link as an empty row. A photo backdrop paints
-       its own rows, so it is judged by centring alone. */
-    /* The whole-viewport share is reported, not judged: by the row rule a
-       paragraph is mostly empty rows (line gaps, ascender space) and a
-       four letter link is an empty row, so a screen full of text reads
-       60 percent empty. The bands below are the signal a person sees. */
-    for (const sc of s.scenes) {
-      /* An entering stage (on screen, not yet held): its first painted content within 15% of the viewport from its own top edge. */
-      if (sc.pinned && sc.onScreen && sc.top > s.navBottom + 2 && sc.contentTop !== null && sc.contentTop - sc.top > MAX_BAND * s.vh) bad.push(`${at}: scene ${sc.i} "${sc.label}" enters with ${sc.contentTop - sc.top}px between its top edge and its first content (limit ${Math.round(MAX_BAND * s.vh)})`);
+    if (s.pinned) bad.push(`${at}: ${s.pinned} pinned stage(s) on the page`);
+    for (const st of s.sticky) {
+      if (st.travel <= s.vh + 2) continue;
+      if (st.panel) { if (st.chapterH !== null && st.chapterH >= SPOT_MAX_VH * s.vh) bad.push(`${at}: ${st.name} is sticky inside a chapter ${st.chapterH}px tall (${(st.chapterH / s.vh).toFixed(1)} screens, limit ${SPOT_MAX_VH})`); }
+      else bad.push(`${at}: ${st.name} is sticky over ${st.travel}px of scroll, more than one screen (${s.vh}px)`);
     }
-    if (s.overlapNav) bad.push(`${at}: content under the navbar inside a held stage: ${s.overlapNav}`);
-    if (s.overlapInd) bad.push(`${at}: content against the step indicator: ${s.overlapInd}`);
+    for (const sc of s.secs) {
+      const name = `section ${sc.i} "${sc.label}"`;
+      if (sc.due && !sc.in) bad.push(`${at}: ${name} has entered (top ${sc.top} of ${s.vh}) but is not revealed`);
+      if (sc.in && sc.onScreen) {
+        if (sc.opacity < 0.98 || !sc.still) bad.push(`${at}: ${name} revealed but still mid-fade a settle later (opacity ${sc.opacity.toFixed(2)})`);
+        const slow = sc.steps.filter(st => st.o < 0.98);
+        if (slow.length) bad.push(`${at}: ${name} revealed but ${slow.length} piece(s) still mid-fade a settle later (step ${slow[0].n} at ${slow[0].o.toFixed(2)}): a section must be done inside 800ms`);
+      }
+      if (REDUCE && (!sc.in || sc.opacity < 0.99 || !sc.still || sc.steps.some(st => st.o < 0.99))) bad.push(`${at}: ${name} is not fully shown under reduced motion`);
+    }
     for (const o of s.overlaps) bad.push(`${at}: text overlap: ${o}`);
     for (const w of s.wrapped) bad.push(`${at}: ${w}`);
-    let pinnedOnScreen = 0;
-    for (const sc of s.scenes) {
-      const held = sc.pinned && sc.p !== null && sc.p > 0.001 && sc.p < sc.steps - 0.001;
-      if (sc.pinned && sc.onScreen && sc.top <= 0 && sc.bottom >= s.vh - 1) pinnedOnScreen++;
-      if (held && Math.abs(sc.height - s.vh) > 1) bad.push(`${at}: scene ${sc.i} "${sc.label}" stage is ${sc.height}px while pinned, viewport ${s.vh}`);
-      if (sc.pinned && !sc.fits) bad.push(`scene ${sc.i} "${sc.label}": content (${sc.bodyH}px) does not fit its stage (${sc.bodyBox}px)`);
-      if (sc.held && sc.contentTop !== null) {
-        /* The bands, from painted rows: above the block (from the navbar's
-           bottom), inside it, and below it (to the indicator or the stage's
-           bottom). Centring from the block's rect against the body's box. */
-        const lower = sc.indicator ? sc.indicator.top : sc.bottom;
-        const above = countRun(rows, s.navBottom, sc.contentTop), below = countRun(rows, sc.contentBottom, lower);
-        const rowsInner = rows.slice(); for (const [a, b] of sc.reserve || []) for (let y = Math.max(0, a); y < Math.min(rowsInner.length, b); y++) rowsInner[y] = false;
-        const inner = longestRun(rowsInner, sc.contentTop, sc.contentBottom);
-        /* Against the stage's fixed space (navbar bottom to the indicator
-           or the stage's bottom), never the body box, which moves with
-           the block and so can never look off centre. */
-        const rectAbove = sc.contentTop - s.navBottom, rectBelow = lower - sc.contentBottom;
-        const full = sc.p !== null && sc.p >= sc.steps - 1 - 0.01;
-        if (!sc.backdrop && !sc.settling && inner > MAX_BAND * s.vh) bad.push(`${at}: scene ${sc.i} "${sc.label}" has a ${inner}px dead band inside its content (${Math.round(100 * inner / s.vh)}% of the viewport, limit ${MAX_BAND * 100})`);
-        /* Placement: the block is centred (bands within 32px of each other)
-           or, when it is too short to centre without a band over 15
-           percent above it, it sits at that cap and builds downward.
-           Never lower than the cap; never both off the cap and off centre. */
-        const cap = MAX_BAND * s.vh;
-        // A block is placed at the cap, centred, or (once fully revealed on a tall viewport) centred below the cap.
-        if (!sc.settling && !full && rectAbove > cap + CENTRE_TOL && Math.abs(rectAbove - rectBelow) > CENTRE_TOL) bad.push(`${at}: scene ${sc.i} "${sc.label}" block sits ${rectAbove}px below the navbar (limit ${Math.round(cap)})`);
-        if (!sc.settling && rectAbove < cap - CENTRE_TOL && Math.abs(rectAbove - rectBelow) > CENTRE_TOL) bad.push(`${at}: scene ${sc.i} "${sc.label}" is neither centred nor at the cap: ${rectAbove}px above the visible block, ${rectBelow}px below (tolerance ${CENTRE_TOL})`);
-        if (full && !sc.backdrop && (above > MAX_BAND * s.vh || below > MAX_BAND * s.vh)) bad.push(`${at}: scene ${sc.i} "${sc.label}" fully revealed with ${above}px empty above and ${below}px below the block (limit ${Math.round(MAX_BAND * s.vh)})`);
-        if (full && sc.backdrop && (rectAbove > MAX_BAND * s.vh || rectBelow > MAX_BAND * s.vh)) bad.push(`${at}: scene ${sc.i} "${sc.label}" fully revealed with its block ${rectAbove}px from the navbar and ${rectBelow}px from the bottom (limit ${Math.round(MAX_BAND * s.vh)})`);
-      }
-      if (sc.pinned && sc.p !== null) {
-        for (const [n, sr] of Object.entries(sc.reveal)) {
-          const key = `${sc.i}:${n}`;
-          if (sr > 0.02 && sc.p < Number(n) - 1.35 - 0.01) bad.push(`${at}: scene ${sc.i} step ${n} visible (${sr.toFixed(2)}) at progress ${sc.p.toFixed(2)}`);
-          if (held && maxSeen[key] !== undefined && sr < maxSeen[key] - 0.05) bad.push(`${at}: scene ${sc.i} step ${n} hid (${sr.toFixed(2)} after ${maxSeen[key].toFixed(2)}) while pinned`);
-          if (held) maxSeen[key] = Math.max(maxSeen[key] || 0, sr);
-        }
-      }
-      if (REDUCE && sc.pinned) bad.push(`${at}: scene ${sc.i} is pinned under reduced motion`);
-      if (REDUCE) for (const [n, sr] of Object.entries(sc.reveal)) if (sr < 0.99) bad.push(`${at}: scene ${sc.i} step ${n} not fully shown under reduced motion (${sr.toFixed(2)})`);
-    }
-    if (isHome && pinnedOnScreen > 1) bad.push(`${at}: two pinned stages fill the viewport at once`);
-  }
-  /* The hero's cover names at 20 positions through its hold: never more than one visible. */
-  if (!REDUCE) {
-    const hero = await page.evaluate(() => { const root = document.querySelector('.m-scene--pinned:has(.hero-cover-name)'); if (!root) return null; let t = 0; for (let n = root; n; n = n.offsetParent) t += n.offsetTop; return { top: t, hold: root.offsetHeight - root.firstElementChild.offsetHeight }; });
-    if (hero) for (let k = 0; k < 20; k++) {
-      await page.evaluate((v) => window.scrollTo(0, v), Math.round(hero.top + (k / 19) * hero.hold)); await page.waitForTimeout(settle);
-      const r = await page.evaluate(SAMPLE);
-      const sc = r.scenes.find(x => x.names !== undefined && x.label);
-      const n = Math.max(...r.scenes.map(x => x.names));
-      if (n > 1) bad.push(`hero position ${k + 1}/20 (progress ${sc?.p?.toFixed?.(2)}): ${n} cover names visible at once`);
-    }
   }
   const last = forward[forward.length - 1];
   if (isHome && !last.footerVisible) bad.push('footer not reachable at the bottom');
   if (REDUCE && last.engine) bad.push('the engine chunk was fetched under reduced motion');
-  // Back up: the reveal at each position must match the way down.
-  let reverseMismatch = 0;
+  if (isHome && last.engine) bad.push('the gsap chunk was fetched on the landing page: the hero must not wait on animation code');
+  if (last.lenis) bad.push('a lenis chunk was fetched: no smooth scroll library');
+  // Back up: a section revealed on the way down stays revealed (reveal once).
+  let hid = 0;
   for (let k = positions.length - 1; k >= 0; k--) {
     await page.evaluate((v) => window.scrollTo(0, v), positions[k]); await page.waitForTimeout(settle);
     const s = await page.evaluate(SAMPLE);
-    for (const sc of s.scenes) {
-      const f = forward[k].scenes[sc.i]; if (!f || !sc.pinned) continue;
-      for (const [n, sr] of Object.entries(sc.reveal)) if (Math.abs(sr - (f.reveal[n] ?? 1)) > 0.06) reverseMismatch++;
-    }
+    for (const sc of s.secs) { const f = forward[k].secs[sc.i]; if (f && f.in && !sc.in) hid++; }
   }
-  if (reverseMismatch) bad.push(`scrolling back did not reverse the reveal at ${reverseMismatch} scene/step/position(s)`);
+  if (hid) bad.push(`scrolling back hid a revealed section at ${hid} section/position(s): a reveal happens once`);
   if (errs.length) bad.push(`page errors: ${errs.join(' | ')}`);
   const uniq = [...new Set(bad)];
   if (uniq.length) failures++;
   const worst = Math.max(...forward.map(s => s.empty));
-  summaries.push({ label, screens: (last.docH / last.vh).toFixed(1), worstEmpty: Math.round(worst * 100), samples: forward.length, bad: uniq, dir });
-  console.log(`${uniq.length ? 'FAIL' : 'ok  '} ${label}: ${forward.length} positions, ${(last.docH / last.vh).toFixed(1)} screens, worst empty ${Math.round(worst * 100)}%${REDUCE ? `, pinned ${forward.some(s => s.scenes.some(sc => sc.pinned)) ? 'yes' : 'none'}, engine ${last.engine ? 'fetched' : 'not fetched'}` : ''}`);
+  const secCount = last.secs.length;
+  summaries.push({ label, screens: (last.docH / last.vh).toFixed(1), worstEmpty: Math.round(worst * 100), samples: forward.length, sections: secCount, bad: uniq, dir });
+  console.log(`${uniq.length ? 'FAIL' : 'ok  '} ${label}: ${forward.length} positions, ${(last.docH / last.vh).toFixed(1)} screens, ${secCount} sections, worst empty ${Math.round(worst * 100)}%${REDUCE ? `, engine ${last.engine ? 'fetched' : 'not fetched'}` : ''}`);
   for (const b of uniq.slice(0, 80)) console.log('     ' + b);
   if (uniq.length > 80) console.log(`     ... and ${uniq.length - 80} more`);
   await ctx.close();
@@ -370,7 +269,7 @@ async function walk(width) {
   const shots = fs.readdirSync(dir).filter(f => f.endsWith('.png') && /^\d\d-/.test(f)).sort();
   const cols = width < 500 ? 7 : 4; const w = width < 500 ? 180 : 320;
   const uri = (f) => `data:image/png;base64,${fs.readFileSync(path.join(dir, f)).toString('base64')}`;
-  const html = `<html><body style="margin:0;background:#fff;font:11px system-ui;color:#333"><div style="padding:8px">${label}: ${shots.length} positions, top to bottom</div><div style="display:grid;grid-template-columns:repeat(${cols},${w}px);gap:6px;padding:8px">${shots.map(f => `<figure style="margin:0"><img src="${uri(f)}" style="width:${w}px;display:block;border:1px solid #ccc"><figcaption>${f.replace('.png', '')}</figcaption></figure>`).join('')}</div></body></html>`;
+  const html = `<html><body style="margin:0;background:#fff;font:11px system-ui;color:#333"><div style="padding:8px">${label}: ${shots.length} positions, top to bottom</div><div style="display:grid;grid-template-columns:repeat(${cols},${w}px);gap:6px;padding:8px">${shots.map(f => `<div><img src="${uri(f)}" style="width:${w}px;display:block;border:1px solid #ccc"><div style="text-align:center">${f.replace('.png', '')}</div></div>`).join('')}</div></body></html>`;
   const strip = path.join(OUT, `strip-${label.replace(/[^a-z0-9]+/gi, '-')}.png`);
   const sctx = await browser.newContext({ viewport: { width: cols * (w + 6) + 16, height: 800 } });
   const sp = await sctx.newPage(); await sp.setContent(html); await sp.waitForTimeout(300);
@@ -380,7 +279,7 @@ async function walk(width) {
 
 for (const w of WIDTHS) await walk(w);
 await browser.close();
-console.log(`\n| Profile | Positions | Screens | Worst empty | Result |\n|---|---|---|---|---|`);
-for (const s of summaries) console.log(`| ${s.label} | ${s.samples} | ${s.screens} | ${s.worstEmpty}% | ${s.bad.length ? s.bad.length + ' failure(s)' : 'clean'} |`);
+console.log(`\n| Profile | Positions | Screens | Sections | Worst empty | Result |\n|---|---|---|---|---|---|`);
+for (const s of summaries) console.log(`| ${s.label} | ${s.samples} | ${s.screens} | ${s.sections} | ${s.worstEmpty}% | ${s.bad.length ? s.bad.length + ' failure(s)' : 'clean'} |`);
 console.log(failures ? `\n${failures} profile(s) failed.` : '\nEvery profile is clean.');
 process.exit(failures ? 1 : 0);

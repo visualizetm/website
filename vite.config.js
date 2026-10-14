@@ -71,8 +71,24 @@ function vzCspHash() {
   };
 }
 
+/* The faster landing prompt: the Home chunk is named in a meta tag the same way, so the pre-paint script can add a
+ * modulepreload for it on the public host's front page and the headline does not wait a round trip behind the entry. */
+function vzHomePreload() {
+  return {
+    name: 'vz-home-preload',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(html, ctx) {
+        const chunk = Object.values(ctx.bundle || {}).find(c => c.type === 'chunk' && /^Home-/.test(c.fileName.split('/').pop()));
+        return chunk ? html.replace('<meta name="vz-home-chunk" content="" />', `<meta name="vz-home-chunk" content="/${chunk.fileName}" />`) : html;
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), vzBootFrame(), vzAdminPreload(), vzCspHash()],
+  plugins: [react(), vzBootFrame(), vzAdminPreload(), vzHomePreload(), vzCspHash()],
   base: '/',
   build: {
     // Chunks under 20KB merge into their importers (Prompt 15): icons shared by several lazy screens were
@@ -82,14 +98,11 @@ export default defineConfig({
     rollupOptions: {
       output: {
         experimentalMinChunkSize: 20000,
-        /* gsap and lenis stay in chunks of their own (Site Prompt 6).
-         * Without this, experimentalMinChunkSize above folded the small
-         * loader that decides whether to load them (src/marketing/scroll.js)
-         * into the lenis chunk, which would have downloaded Lenis on touch
-         * devices, exactly where the loader's own rule says not to. */
+        /* gsap stays in a chunk of its own (Site Prompt 6): only the client
+         * showcase page's drifts ask for it, through src/marketing/scroll.js,
+         * and the landing never does (the faster landing prompt). */
         manualChunks(id) {
           if (id.includes('node_modules/gsap')) return 'gsap';
-          if (id.includes('node_modules/lenis')) return 'lenis';
           return undefined;
         },
       },

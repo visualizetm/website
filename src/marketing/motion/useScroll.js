@@ -3,7 +3,7 @@
  * host, under reduced motion, and if the dynamic import ever fails.
  */
 import { useEffect, useRef, useState } from 'react';
-import { loadScrollEngine, refreshScrollTriggers, scrollEngineAllowed, scrubValue } from '../scroll';
+import { loadScrollEngine, scrollEngineAllowed, scrubValue } from '../scroll';
 
 /* How far below (or above) the viewport an element may be and still get
  * its trigger created now, as a multiple of the viewport height. */
@@ -105,25 +105,4 @@ export function useScrollProgress(ref, {
   }, [ref, start, end, cssVar, varTarget]);
 
   return progress;
-}
-
-/** Re-measures every trigger one frame after `dep` changes, and one frame
- * after the engine turns on. Home passes its showcase payload: a pin that
- * measured the page before the CRM's sections had any content in them
- * would hold for the wrong distance once they did. The engine flip is the
- * other half of the same race (Site Prompt 9): when the data lands before
- * the gsap chunk does, every trigger is created in the chunk's own
- * promise callbacks, before React has re-rendered the components that
- * switch on with the engine, and the hero's pinned deck then grows the
- * page by a screen and a half underneath them. This effect runs after
- * that commit, so the measure sees the page as it will stay. A no-op
- * while no engine is running. */
-export function useScrollRefresh(dep) {
-  const state = useScrollEngine();
-  useEffect(() => {
-    if (!scrollEngineAllowed() || state !== 'on') return undefined;
-    let alive = true;
-    const raf = requestAnimationFrame(() => { if (alive) refreshScrollTriggers(); });
-    return () => { alive = false; cancelAnimationFrame(raf); };
-  }, [dep, state]);
 }

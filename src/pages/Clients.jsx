@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { fetchShowcase, ClientCard, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import { fetchShowcase, ClientCard, TestimonialCard, testimonialCardStyles, clientCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 
@@ -119,72 +119,8 @@ export const workStyles = `
   .wk-state-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 0; }
   .wk-state-body { color: var(--text-secondary); margin: 0; }
 
-  .wk-card {
-    display: flex; flex-direction: column;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-    transition: transform 0.25s var(--ease), border-color 0.25s, box-shadow 0.25s;
-  }
-  .wk-card:hover {
-    transform: translateY(-4px);
-    border-color: rgba(212, 76, 67, 0.5);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(212, 76, 67, 0.2);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .wk-card, .wk-card:hover { transform: none; transition: border-color 0.25s; }
-  }
-
-  .wk-card-media { background: var(--surface); }
-  /* The cover settles in from 8% oversized, which means the settling
-     layer is briefly wider than the frame; .wk-card-media clips it, and
-     the frame itself never moves. Same reason the parallax layer below
-     is taller than the frame: the drift needs room inside it. */
-  .wk-card-scale { display: block; width: 100%; height: 100%; }
-  .wk-card-scale img { width: 100%; height: 100%; object-fit: cover; }
-  .wk-card-shift { display: block; width: 100%; height: 112%; margin-top: -6%; }
-  .wk-card-shift img { width: 100%; height: 100%; object-fit: cover; }
-  .wk-card-mono {
-    width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--bg-elevated);
-  }
-  .wk-card-mono .display {
-    font-size: 5rem; color: var(--brand);
-    opacity: 0.9;
-  }
-
-  .wk-card-body { padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
-  .wk-card-top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-  .wk-card-name { font-size: 1.125rem; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
-  .wk-card-arrow {
-    color: var(--text-muted); display: inline-flex;
-    transition: color 0.2s, transform 0.25s var(--ease);
-  }
-  .wk-card:hover .wk-card-arrow { color: var(--brand); transform: translate(2px, -2px); }
-  .wk-card-tag {
-    align-self: flex-start;
-    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--text-secondary);
-    background: var(--glass-bg); border: 1px solid var(--border);
-    padding: 3px 10px; border-radius: 999px;
-  }
-  .wk-card-blurb { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
-
-  .wk-card--skel { pointer-events: none; }
-  .wk-skel { background: var(--bg-elevated); position: relative; overflow: hidden; border-radius: 6px; }
-  .wk-skel::after {
-    content: ''; position: absolute; inset: 0;
-    background: linear-gradient(105deg, transparent 38%, var(--surface) 50%, transparent 62%);
-    background-size: 240% 100%; animation: wkShimmer 1.4s linear infinite;
-  }
-  .wk-skel-line { margin-top: var(--space-1); }
-  @keyframes wkShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
-  @media (prefers-reduced-motion: reduce) { .wk-skel::after { animation: none; } }
-
   .wk-reviews { background: var(--bg-deep); border-top: 1px solid var(--border); }
   .wk-reviews-title { margin-bottom: var(--space-8); }
   .wk-reviews-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
   @media (max-width: 760px) { .wk-reviews-grid { grid-template-columns: 1fr; } }
-` + testimonialCardStyles;
+` + clientCardStyles + testimonialCardStyles;

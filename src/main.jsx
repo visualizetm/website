@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
-import ShellCrash from './shell/ShellCrash';
+import CrashBoundary from './shell/CrashBoundary';
 import { warm } from './shared/api';
 import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
 import { useMotionPreference } from './marketing/motion/shared';
@@ -118,11 +118,11 @@ function Root() {
   }
 
   return (
-    <ShellCrash>
+    <CrashBoundary>
       <BrowserRouter>
         <App />
       </BrowserRouter>
-    </ShellCrash>
+    </CrashBoundary>
   );
 }
 

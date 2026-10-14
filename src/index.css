@@ -32,7 +32,7 @@
 
   /* Type */
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-display: 'Barlow Condensed', 'Inter', sans-serif;
+  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Spacing (8px base) */
   --space-1: 0.25rem;   /* 4px */
@@ -401,13 +401,12 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Brand utilities (2.0) ─────────────────────────────────────────── */
 
-/* Display headers, heavy condensed, all caps. Never script/italic. */
+/* Display headers (Brand v3, Inter only): heavy, sentence case, tight. Never script/italic. */
 .display {
   font-family: var(--font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.005em;
-  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.02;
 }
 
 /* ── Marketing motion primitives (src/marketing/motion) ───────────────
@@ -605,41 +604,22 @@ h1, h2, h3, h4, h5, h6 {
   z-index: 1;
 }
 
-/* ── Scene (Site Prompt 11, src/marketing/motion/Scene.jsx) ──────────
-   One primitive. The root is the pin spacer and the stage is the sticky
-   panel, both sized by the same two numbers (--scene-steps and
-   --scene-d), so they cannot disagree. --scene-p is written by the
-   engine (0 to steps); --sr is each data-step child's own reveal, 0 to 1,
-   registered so it computes to a number the audit can read. Every
-   fallback is the resting state: no engine, no pin, everything shown. */
-@property --sr {
-  syntax: '<number>';
-  inherits: true;
-  initial-value: 1;
-}
-/* A card's move out of the centre slot (the business types row, the
-   tiers' settle), registered so the audit can read it and treat a card
-   mid-move as a transition frame rather than a dead band. */
-@property --done {
-  syntax: '<number>';
-  inherits: false;
-  initial-value: 0;
-}
-.m-scene {
+/* ── The reveal (src/marketing/reveal.js, the faster landing prompt) ───
+   One observer for the page, reveal once. A section or block with .m-rv
+   fades in and rises 20px over 500ms when about a fifth of a screen of it
+   has entered; its data-step children follow a beat apart, the whole
+   piece done inside 800ms; it never hides again. Opacity and transform
+   only; will-change only while the transition runs. Reduced motion shows
+   everything with no movement. */
+.m-sec {
   position: relative;
-}
-.m-scene--pinned {
-  height: calc((1 + var(--scene-steps, 0) * var(--scene-d, 0.7)) * 100 * var(--svh));
-}
-.m-scene-stage {
-  position: relative;
+  padding: clamp(48px, 9vh, 112px) 0;
   background: var(--bg);
 }
-.m-scene--tone-b .m-scene-stage {
+.m-sec--b {
   background: var(--bg-elevated);
 }
-/* The one boundary ornament: a brand hairline on the stage's top edge. */
-.m-scene-stage::before {
+.m-sec::before {
   content: '';
   position: absolute;
   top: 0;
@@ -650,180 +630,35 @@ h1, h2, h3, h4, h5, h6 {
   opacity: 0.7;
   pointer-events: none;
 }
-.m-scene--pinned .m-scene-stage {
-  position: sticky;
-  top: 0;
-  height: calc(100 * var(--svh));
-  display: flex;
-  flex-direction: column;
-  /* The bottom keeps the home indicator's inset clear, so the step
-     indicator is pinned to the bottom of the stage above it. */
-  padding: calc(var(--nav-h) + var(--space-3)) 0 calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-  /* clip, never hidden: hidden makes the stage a scroll container that
-     touch scrolling can get caught inside (Site Prompt 8). */
-  overflow: clip;
+.m-rv {
+  opacity: 0;
+  transform: translate3d(0, 20px, 0);
+  transition: opacity 500ms var(--m-ease), transform 500ms var(--m-ease);
 }
-.m-scene-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: clip;
-  /* Scenery: it never takes a click, so nothing in it reads as an overlay. */
-  pointer-events: none;
-}
-.m-scene-body,
-.m-scene-steps {
-  position: relative;
-  z-index: 1;
-}
-.m-scene--pinned .m-scene-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  /* Shifted down by half of the space the steps still to come will take,
-     written by Scene.jsx per frame, so what has arrived is what sits in
-     the middle. Transform only. */
-  transform: translate3d(0, var(--scene-shift, 0px), 0);
-  will-change: transform;
-}
-/* Centred by auto margins, not justify-content: safe center. Safari does
-   not know the safe keyword in a flex container, dropped the whole
-   declaration, and left every stage top-aligned with the bottom half
-   black (Site Prompt 12, bug 1); Chromium, where the audit ran, centred
-   it. Auto margins centre everywhere and collapse to zero when the
-   content is taller than the box, so overflow only ever goes down, never
-   up under the navbar. A fixed gap keeps the block off the indicator. */
-.m-scene--pinned .m-scene-body > * {
-  margin-top: auto;
-  margin-bottom: auto;
-}
-.m-scene--pinned .m-scene-body > :last-child {
-  padding-bottom: var(--space-6);
-}
-/* The reveal: a child at step n runs --sr 0 to 1 while progress goes
-   from n - 1.35 to n - 1 and holds at 1 for the rest of the scene, so
-   step 1 is on screen at progress 0 (the first frame of a scene is never
-   bare) and the last step holds a full beat before the scene lets go.
-   A data-step="0" child is revealed with the stage. Reduced motion never
-   sees these rules. */
-/* Scene fit on a tablet and on the smallest phone (CRM mobile revamp, milestone 2): spacing only.
-   Every scene's own gaps are vh clamps tuned for a phone and a laptop, and they cap out before a
-   768 by 1024 stage is full, which left 175 to 211px of black above and below the block. Here the
-   gaps and padding grow with the height, so the block reaches the audit's 15 percent bands. */
-@media (min-width: 768px) and (max-width: 1023px) and (min-height: 880px) {
-  .m-scene .hero-copy { gap: 5.8vh; }
-  .m-scene .mf-col { gap: 3.6vh; }
-  .m-scene .mf-line { padding: 3vh 0; }
-  .m-scene .bt-col { gap: 4.4vh; }
-  /* Six cards share one cell: stretched to the tallest, so the painted block does not change height from card to card. */
-  .m-scene .bt-zone > * { align-self: stretch; }
-  .m-scene .bt-card { gap: 2.4vh; padding: 3vh; }
-  .m-scene .bt-needs { gap: 1.6vh; }
-  .m-scene .pk-col { gap: 3.4vh; }
-  .m-scene .pk-tier { gap: 1.6vh; padding: 2.8vh; }
-  .m-scene .hiw-col { gap: 4.4vh; }
-  .m-scene .hiw-step { padding: 5.8vh 0; }
-}
-/* A 320 wide phone with Safari's bars (500px tall): the three scenes that overran their stage give back a few pixels of gap. */
-@media (max-width: 360px) and (max-height: 560px) {
-  .m-scene .bt-col { gap: 8px; }
-  .m-scene .bt-card { padding: 8px; gap: 2px; }
-  .m-scene .bt-needs { gap: 1px; }
-  .m-scene .pk-col { gap: 3px; }
-  .m-scene .pk-tier { padding: 7px; gap: 2px; }
-  .m-scene .hiw-col { gap: 10px; }
-  .m-scene .hiw-step { padding: 8px 0; }
-}
-/* A laptop (1280 by 800): Packages was 30px short of its stage, so its block sat 141px under the navbar against a 120px limit. */
-@media (min-width: 1024px) and (max-height: 900px) {
-  .m-scene .pk-col { gap: 3vh; }
-  .m-scene .pk-tier { padding: 2.2vh; }
-}
-.m-scene--pinned [data-step] {
-  --sr: clamp(0, calc((var(--scene-p, 0) - var(--step, 1) + 1.35) / 0.35), 1);
-}
-.m-scene--pinned [data-step]:not([data-reveal="custom"]) {
-  opacity: var(--sr);
-  transform: translate3d(0, calc((1 - var(--sr)) * 16px), 0);
+.m-rv:not([data-done]) {
   will-change: opacity, transform;
 }
-/* .btn carries backdrop-filter: blur() (the frosted glass look). A real
-   phone caught a button inside a pinned scene rendering as a garbled
-   double image with lines bleeding past its own rounded edges: WebKit
-   recomputes a backdrop-filter's blur surface against whatever is behind
-   it, and here that background is an ancestor whose opacity and
-   transform are rewritten every single scroll frame while the scene is
-   pinned, which corrupts the blur's compositing on iOS Safari. This is
-   the actual fix; will-change above was not it. The button sits on a
-   solid stage background here, not a photo, so the blur was doing
-   nothing but causing this; dropping it is not a visible loss. */
-.m-scene--pinned [data-step] .btn {
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-/* Not pinned: reveal on entering the viewport, in data-step order. */
-.m-scene--flow [data-step] {
-  opacity: 0;
-  transform: translate3d(0, 16px, 0);
-  transition: opacity var(--m-dur) var(--m-ease), transform var(--m-dur) var(--m-ease);
-  transition-delay: calc(max(0, var(--step, 1) - 1) * var(--m-stagger));
-}
-.m-scene--flow [data-step][data-in] {
+.m-rv[data-in] {
   opacity: 1;
   transform: none;
 }
-/* The step indicator: one 44px button per step, its 3px bar filling as
-   that step runs. */
-.m-scene-steps {
-  flex: 0 0 auto;
-  display: flex;
-  gap: var(--space-2);
-  width: min(100% - 2 * var(--space-6), 520px);
-  margin: 0 auto;
+.m-rv [data-step="1"] { --step: 1; }
+.m-rv [data-step="2"] { --step: 2; }
+.m-rv [data-step="3"] { --step: 3; }
+.m-rv [data-step="4"] { --step: 4; }
+.m-rv [data-step="5"] { --step: 5; }
+.m-rv [data-step] {
+  opacity: 0;
+  transform: translate3d(0, 16px, 0);
+  transition: opacity 500ms var(--m-ease), transform 500ms var(--m-ease);
+  transition-delay: calc(min(4, var(--step, 0)) * var(--m-stagger));
 }
-/* Six 44px segments have to fit a 320px phone: the strip takes the full
-   width inside the page gutter and the gaps close to 4px. */
-@media (max-width: 767px) {
-  .m-scene-steps {
-    gap: 4px;
-    width: calc(100% - 2 * var(--space-4));
-  }
+.m-rv[data-in] [data-step] {
+  opacity: 1;
+  transform: none;
 }
-.m-scene-seg {
-  position: relative;
-  flex: 1 1 0;
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  padding: 0;
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.m-scene-seg::before {
-  content: '';
-  display: block;
-  width: 100%;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border);
-}
-.m-scene-seg-fill {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--brand);
-  transform: scaleX(clamp(0, calc(var(--scene-p, 0) - var(--seg-i, 1) + 1), 1));
-  transform-origin: left center;
-  pointer-events: none;
-}
-.m-scene-seg:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-  border-radius: var(--radius);
+@media (prefers-reduced-motion: reduce) {
+  .m-rv, .m-rv [data-step] { opacity: 1; transform: none; transition: none; will-change: auto; }
 }
 
 /* ── Maintenance screen (VITE_MAINTENANCE_MODE) ───────────────────────

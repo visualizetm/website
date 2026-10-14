@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="vz-admin-chunk" content="" />
+  <meta name="vz-home-chunk" content="" />
   <!-- The public site's manifest (the logo pack's site.webmanifest). It sits above the script so the script can point
        the admin host at its own manifest before the browser reads the tag. -->
   <link rel="manifest" href="/site.webmanifest" />
@@ -11,8 +12,8 @@
     // halves, the admin's motion switch, and which boot frame to show, all read
     // from localStorage before the first paint. Marketing: a saved choice wins,
     // otherwise the OS. Admin: dark unless Rob picked light or system in Settings.
-    // The display weights each host paints first are preloaded here (the admin uses one, the
-    // marketing site two); the rest of the latin subsets arrive through src/fonts.css. This script's
+    // The files each host paints first are preloaded here (Inter, one variable file, on both; the admin's
+    // display face too); src/fonts.css declares them. This script's
     // hash is pinned in the admin Content-Security-Policy (vercel.json); the
     // build fails if the two drift (vite.config.js).
     (function () {
@@ -33,7 +34,7 @@
       }
       // One manifest per host: the pack's site.webmanifest on the public site, the admin's own on the admin host.
       if (admin) { var mf = document.querySelector('link[rel="manifest"]'); if (mf) mf.setAttribute('href', '/manifest.webmanifest'); }
-      var fonts = admin ? ['barlow-condensed-700'] : ['barlow-condensed-700', 'barlow-condensed-800'];
+      var fonts = admin ? ['barlow-condensed-700', 'inter'] : ['inter'];
       for (var i = 0; i < fonts.length; i++) {
         var l = document.createElement('link'); l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous'; l.href = '/fonts/' + fonts[i] + '.woff2';
         document.head.appendChild(l);
@@ -41,6 +42,9 @@
       // The admin shell chunk (named by the build in the meta tag) downloads alongside the entry instead of after it.
       var chunk = admin && document.querySelector('meta[name="vz-admin-chunk"]');
       if (chunk && chunk.content) { var m = document.createElement('link'); m.rel = 'modulepreload'; m.href = chunk.content; document.head.appendChild(m); }
+      // The front page's own chunk downloads beside the entry too, so the headline is one round trip sooner.
+      var home = !admin && location.pathname === '/' && document.querySelector('meta[name="vz-home-chunk"]');
+      if (home && home.content) { var h = document.createElement('link'); h.rel = 'modulepreload'; h.href = home.content; document.head.appendChild(h); }
     })();
   </script>
   <!-- vz-boot-css -->

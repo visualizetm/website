@@ -1,24 +1,26 @@
-import { uiStyles, ErrorBoundary } from '../ui';
+import { useEffect } from 'react';
+import { uiStyles } from '../ui';
 import { logClient } from '../shared/log';
 /**
- * ShellCrash (Prompt 15): the top level boundary around the admin. If the
- * shell itself fails to render, this shows the login card outline with a
- * message and a Reload button instead of a blank page. The error is logged
- * like any other (Settings, Automation once the app loads again).
+ * ShellCrashCard (Prompt 15, split out by the faster landing prompt): what
+ * the top level boundary (src/shell/CrashBoundary.jsx) shows once the app
+ * has failed to render: the login card outline with a message and a Reload
+ * button instead of a blank page. Loaded only then, so the kit's stylesheet
+ * and components it needs never ride in the entry. The error is logged like
+ * any other (Settings, Automation once the app loads again).
  */
-export default function ShellCrash({ children }) {
+export default function ShellCrashCard({ error }) {
+  useEffect(() => { logClient({ kind: 'boundary', message: `shell: ${error?.message || error}`, stack: error?.stack }); }, [error]);
   return (
-    <ErrorBoundary label="the app shell" onError={(e) => logClient({ kind: 'boundary', message: `shell: ${e?.message || e}`, stack: e?.stack })} fallback={(error) => (
-      <div className="lay-root aa-loginpage sh-crash">
-        <div className="v-card lay-card v-card--l1 sh-crash-card" role="alert">
-          <p className="sh-crash-title">Visualize could not start</p>
-          <p className="sh-crash-text">The shell hit an error before it could draw. Reload the page; if it keeps happening, the message below is what to send along.</p>
-          <pre className="sh-crash-detail">{String(error?.message || error)}</pre>
-          <button type="button" className="v-btn v-btn--primary v-btn--md v-btn--full" onClick={() => window.location.reload()}><span className="v-btn-inner"><span className="v-btn-label">Reload</span></span></button>
-        </div>
-        <style>{uiStyles + shellCrashStyles}</style>
+    <div className="lay-root aa-loginpage sh-crash">
+      <div className="v-card lay-card v-card--l1 sh-crash-card" role="alert">
+        <p className="sh-crash-title">Visualize could not start</p>
+        <p className="sh-crash-text">The shell hit an error before it could draw. Reload the page; if it keeps happening, the message below is what to send along.</p>
+        <pre className="sh-crash-detail">{String(error?.message || error)}</pre>
+        <button type="button" className="v-btn v-btn--primary v-btn--md v-btn--full" onClick={() => window.location.reload()}><span className="v-btn-inner"><span className="v-btn-label">Reload</span></span></button>
       </div>
-    )}>{children}</ErrorBoundary>
+      <style>{uiStyles + shellCrashStyles}</style>
+    </div>
   );
 }
 export const shellCrashStyles = `

@@ -9,7 +9,7 @@ import CreditCard02 from '@untitled-ui/icons-react/build/esm/CreditCard02';
 import Package from '@untitled-ui/icons-react/build/esm/Package';
 import Star01 from '@untitled-ui/icons-react/build/esm/Star01';
 import Camera01 from '@untitled-ui/icons-react/build/esm/Camera01';
-import { fetchShowcase, fetchClient, capImageWidth, IMG_W, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
+import { fetchShowcase, fetchClient, Pic, IMG_W, TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 import { Reveal, Stagger, Parallax, ScaleIn, Tone } from '../marketing/motion';
 import { useHead } from '../marketing/useHead';
 import { safeHref } from '../lib/safeUrl';
@@ -26,10 +26,10 @@ function Slot({ fit = 'img-fit--16x10', className = '', children, label }) {
   );
 }
 
-function Media({ src, alt, label, fit, className, width = 1600, height = 1000, w = IMG_W.gallery }) {
+function Media({ src, alt, label, fit, className, width = 1600, height = 1000, w = IMG_W.gallery, sizes = '(max-width: 760px) 100vw, 50vw' }) {
   return (
     <Slot fit={fit} label={label} className={className}>
-      {src ? <img src={capImageWidth(src, w)} alt={alt} loading="lazy" width={width} height={height} /> : null}
+      {src ? <Pic src={src} alt={alt} w={w} widths={[480, 800, 1200, 1600]} sizes={sizes} width={width} height={height} /> : null}
     </Slot>
   );
 }
@@ -145,7 +145,7 @@ export default function CaseStudy() {
           <div className="cs-cover">
             <ScaleIn as="div" className="cs-cover-scale">
               <Parallax className="img-fit cs-cover-inner">
-                <img src={capImageWidth(client.cover, IMG_W.heroCover)} alt={`${client.displayName} cover`} loading="lazy" width={2100} height={900} />
+                <Pic src={client.cover} alt={`${client.displayName} cover`} w={IMG_W.heroCover} widths={[640, 1024, 1600]} sizes="100vw" width={2100} height={900} eager />
               </Parallax>
             </ScaleIn>
           </div>
@@ -225,7 +225,7 @@ export default function CaseStudy() {
               <div className="cs-ig-head">
                 {instagram.profileImage && (
                   <span className="img-fit img-fit--1x1 img-fit--circle cs-ig-avatar">
-                    <img src={capImageWidth(instagram.profileImage, IMG_W.avatar)} alt="" loading="lazy" width={160} height={160} />
+                    <Pic src={instagram.profileImage} alt="" w={IMG_W.avatar} widths={[160, 320]} sizes="80px" width={160} height={160} />
                   </span>
                 )}
                 {instagram.handle && (
@@ -245,7 +245,7 @@ export default function CaseStudy() {
                   {instagram.highlights.map((h, i) => {
                     const inner = (<>
                       <span className="img-fit img-fit--1x1 img-fit--circle cs-hl-cover">
-                        <img src={capImageWidth(h.image || instagram.profileImage, IMG_W.avatar)} alt="" loading="lazy" width={176} height={176} />
+                        <Pic src={h.image || instagram.profileImage} alt="" w={IMG_W.avatar} widths={[176, 352]} sizes="88px" width={176} height={176} />
                       </span>
                       <span className="cs-hl-label">{h.label || `Highlight ${i + 1}`}</span>
                     </>);
@@ -276,7 +276,7 @@ export default function CaseStudy() {
                       aria-label={post.caption || `Instagram post ${i + 1}${instagram.handle ? ` from @${instagram.handle}` : ''}`}
                     >
                       <span className="img-fit img-fit--1x1">
-                        <img src={capImageWidth(post.image || instagram.profileImage, IMG_W.instagramPost)} alt="" loading="lazy" width={800} height={800} />
+                        <Pic src={post.image || instagram.profileImage} alt="" w={IMG_W.instagramPost} widths={[400, 600, 800]} sizes="(max-width: 760px) 33vw, 200px" width={800} height={800} />
                       </span>
                       {post.caption && <span className="cs-ig-caption">{post.caption}</span>}
                     </a>

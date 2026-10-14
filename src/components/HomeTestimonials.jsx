@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Scene } from '../marketing/motion';
+import { Section } from '../marketing/motion';
 import { TestimonialCard, testimonialCardStyles } from '../marketing/showcase';
 
-/* Site Prompt 4, Part 1.6: landing.testimonials (approved and consented, or
- * typed and published; featured; newest first; capped at 6 by the endpoint:
+/* What clients say: landing.testimonials (approved and consented, or typed
+ * and published; featured; newest first; capped at 6 by the endpoint:
  * api/_lib/reviewPublic.js). A three-up grid on desktop; on mobile the
- * same cards become a swipeable single-card row (scroll-snap, dot
- * indicators tracking scroll position via IntersectionObserver, no
- * autoplay, since dragging is the only motion here). Hidden when empty. */
-/* Scene 6 (Site Prompt 11): not pinned, hidden entirely when there are
- * none. `tone` is the stage ground Home assigns in the alternation. */
+ * same cards become a swipeable single-card row (native scroll with a
+ * gentle snap, dot indicators tracking scroll position via
+ * IntersectionObserver, no autoplay, since dragging is the only motion
+ * here). Hidden when empty. One section, revealed once. */
 export default function HomeTestimonials({ testimonials, tone = 'b' }) {
   const items = testimonials || [];
   const trackRef = useRef(null);
@@ -36,10 +35,10 @@ export default function HomeTestimonials({ testimonials, tone = 'b' }) {
   };
 
   return (
-    <Scene steps={0} tone={tone} label="What clients say" className="ht">
+    <Section tone={tone} label="What clients say" className="ht">
       <div className="wrap">
-        <h2 data-step="1" className="section-title">What clients say</h2>
-        <div data-step="2" className="ht-track" ref={trackRef}>
+        <h2 data-step="0" className="section-title">What clients say</h2>
+        <div data-step="1" className="ht-track" ref={trackRef}>
           {items.map(t => (
             <div key={`${t.slug}-${t.author}`} className="ht-slide">
               <TestimonialCard testimonial={t} />
@@ -63,38 +62,19 @@ export default function HomeTestimonials({ testimonials, tone = 'b' }) {
         )}
       </div>
       <style>{`
-        .ht-track {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5);
-          margin-top: var(--space-10);
-        }
+        .ht-track { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-5); margin-top: var(--space-8); }
         .ht-dots { display: none; }
         @media (max-width: 767px) {
-          .ht-track {
-            display: flex; overflow-x: auto; scroll-snap-type: x mandatory;
-            gap: var(--space-4); margin: var(--space-6) calc(-1 * var(--space-4)) 0;
-            padding: 0 var(--space-4);
-            scrollbar-width: none;
-          }
+          .ht-track { display: flex; overflow-x: auto; scroll-snap-type: x proximity; gap: var(--space-4); margin: var(--space-6) calc(-1 * var(--space-4)) 0; padding: 0 var(--space-4); scrollbar-width: none; }
           .ht-track::-webkit-scrollbar { display: none; }
-          /* The next card peeks (review links): each slide is 86 percent of the track, snapped to its start. */
           .ht-slide { flex: 0 0 86%; scroll-snap-align: start; }
-          .ht-dots {
-            display: flex; justify-content: center; gap: var(--space-2);
-            margin-top: var(--space-4);
-          }
-          .ht-dot {
-            width: 44px; height: 44px; padding: 0;
-            border: none; background: transparent; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-          }
-          .ht-dot::after {
-            content: ''; width: 7px; height: 7px; border-radius: 50%;
-            background: var(--border-light); transition: background 0.2s, transform 0.2s;
-          }
+          .ht-dots { display: flex; justify-content: center; gap: var(--space-2); margin-top: var(--space-4); }
+          .ht-dot { width: 44px; height: 44px; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+          .ht-dot::after { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--border-light); transition: background 0.2s, transform 0.2s; }
           .ht-dot.is-active::after { background: var(--brand); transform: scale(1.3); }
         }
       `}</style>
       <style>{testimonialCardStyles}</style>
-    </Scene>
+    </Section>
   );
 }

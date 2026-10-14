@@ -190,7 +190,7 @@ export default function Navbar() {
         .navbar-nav { flex: 1; }
         .navbar-nav ul { display: flex; align-items: center; gap: 2px; list-style: none; }
         .navbar-link {
-          font-size: 0.875rem; font-weight: 500; color: var(--text-muted);
+          font-size: 0.875rem; font-weight: 600; color: var(--text-muted);
           padding: 6px 11px; border-radius: 999px;
           transition: color 0.2s, background 0.2s; white-space: nowrap;
         }
@@ -261,7 +261,7 @@ export default function Navbar() {
         .navbar-drawer-link {
           display: flex; align-items: center; justify-content: space-between;
           padding: 11px var(--space-3); border-radius: var(--radius);
-          color: var(--text-secondary); font-size: 1rem; font-weight: 500;
+          color: var(--text-secondary); font-size: 1rem; font-weight: 600;
           transition: color 0.2s, background 0.2s; text-decoration: none;
         }
         .navbar-drawer-link:hover { color: var(--text); background: var(--hover-soft); }

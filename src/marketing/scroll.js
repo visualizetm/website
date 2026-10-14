@@ -1,6 +1,6 @@
 /* Site Prompt 6, Part 1: the scroll engine, marketing host only.
  *
- * gsap + ScrollTrigger and lenis are loaded through dynamic import() from
+ * gsap + ScrollTrigger is loaded through dynamic import() from
  * this one module, so they land in their own chunks and the admin bundle
  * never references them (verified in the build output, see
  * reports/SITE-06-REPORT.md). Three gates decide what loads:
@@ -8,9 +8,12 @@
  *   admin host        -> nothing loads at all
  *   reduced motion    -> nothing loads at all; every helper renders its
  *                        final state with a plain Reveal fade instead
- *   touch / coarse    -> ScrollTrigger still loads (scroll-driven
- *                        animation is fine on a phone), Lenis does not
- *                        (never hijack native mobile scrolling)
+ *
+ * Only the client showcase page's drifts and settles (Parallax, ScaleIn,
+ * Tone, WordReveal) ask for it; Home and the Projects page never do (the
+ * faster landing prompt: native scroll, sections that reveal once through
+ * src/marketing/reveal.js). Lenis, the smooth scroll library, is gone:
+ * nothing changes how far a wheel or a finger moves the page.
  *
  * Nothing here runs during render. A helper asks for the engine in an
  * effect; until it resolves the helper shows its "engine is coming" state,
@@ -18,7 +21,7 @@
  * rather than leaving content hidden behind a script that never arrived.
  */
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
-import { prefersReducedMotion, isCoarsePointer, isTouchDevice } from './motion/shared';
+import { prefersReducedMotion, isCoarsePointer } from './motion/shared';
 
 let enginePromise = null;
 let engine = null;
@@ -32,7 +35,7 @@ export function scrollEngineAllowed() {
   return !prefersReducedMotion();
 }
 
-/** Resolves to { gsap, ScrollTrigger, lenis } or null when not allowed or
+/** Resolves to { gsap, ScrollTrigger } or null when not allowed or
  * the import failed. Loads once per session; every caller shares it. */
 export function loadScrollEngine() {
   if (!scrollEngineAllowed()) return Promise.resolve(null);
@@ -55,30 +58,7 @@ export function loadScrollEngine() {
        * src/index.css), which does not move with the bar either. */
       ScrollTrigger.config({ ignoreMobileResize: true });
 
-      /* Lenis is desktop only, and "desktop" is now two questions, not
-       * one: the pointer query AND whether the device has a touchscreen
-       * at all. A phone with a mouse paired, and some Android browsers
-       * unprompted, report a fine pointer, and smooth scrolling on top of
-       * a real finger is exactly the lag being fixed here. If a touch ever
-       * happens after Lenis started anyway, it stops on the spot. */
-      let lenis = null;
-      if (!isCoarsePointer() && !isTouchDevice()) {
-        const { default: Lenis } = await import('lenis');
-        lenis = new Lenis({ autoRaf: false, duration: 1.05, smoothWheel: true });
-        lenis.on('scroll', ScrollTrigger.update);
-        const tick = (time) => lenis.raf(time * 1000);
-        gsap.ticker.add(tick);
-        gsap.ticker.lagSmoothing(0);
-        const stopOnTouch = () => {
-          gsap.ticker.remove(tick);
-          lenis.destroy();
-          if (engine) engine.lenis = null;
-          window.removeEventListener('touchstart', stopOnTouch);
-        };
-        window.addEventListener('touchstart', stopOnTouch, { passive: true, once: true });
-      }
-
-      engine = { gsap, ScrollTrigger, lenis };
+      engine = { gsap, ScrollTrigger };
       return engine;
     } catch {
       engine = null;
@@ -111,12 +91,11 @@ export function refreshScrollTriggers() {
   engine.ScrollTrigger.refresh();
 }
 
-/** Stops Lenis smoothing and kills every trigger. Only used if the app ever
- * tears the marketing tree down inside one session. */
+/** Kills every trigger. Only used if the app ever tears the marketing tree
+ * down inside one session. */
 export function destroyScrollEngine() {
   if (!engine) return;
   engine.ScrollTrigger.getAll().forEach(t => t.kill());
-  engine.lenis?.destroy();
   engine = null;
   enginePromise = null;
 }

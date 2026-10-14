@@ -50,6 +50,9 @@ const INSTALL = () => {
   obs('longtask', (e) => P.long.push({ t: e.startTime, d: e.duration }));
   obs('paint', (e) => P.paints.push({ name: e.name, t: e.startTime }));
   obs('event', (e) => { if (e.interactionId) P.events.push({ t: e.startTime, d: e.duration, name: e.name }); }, { durationThreshold: 16 });
+  /* When each section revealed, so a frame gap can be read against the reveals. */
+  P.reveals = [];
+  try { new MutationObserver((ms) => { for (const m of ms) if (m.attributeName === 'data-in' && m.target.hasAttribute('data-in')) P.reveals.push({ t: Math.round(performance.now()), label: m.target.getAttribute('aria-label') || m.target.className }); }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-in'] }); } catch { /* fine */ }
   const tick = (t) => { if (P.scrollStart !== null) P.frames.push(t); requestAnimationFrame(tick); };
   requestAnimationFrame(tick);
 };
@@ -68,8 +71,8 @@ const COLLECT = ({ scrollEnd }) => {
   const over50 = P.long.filter(l => l.d > 50);
   const scrollLong = P.long.filter(l => l.d > 50 && l.t >= P.scrollStart && l.t <= scrollEnd);
   const frames = P.frames.filter(t => t <= scrollEnd);
-  let dropped = 0; let worstGap = 0;
-  for (let i = 1; i < frames.length; i++) { const gap = frames[i] - frames[i - 1]; worstGap = Math.max(worstGap, gap); if (gap > 34) dropped += Math.round(gap / 16.7) - 1; }
+  let dropped = 0; let worstGap = 0; let worstGapAt = 0; const gaps = [];
+  for (let i = 1; i < frames.length; i++) { const gap = frames[i] - frames[i - 1]; if (gap > worstGap) { worstGap = gap; worstGapAt = Math.round(frames[i - 1]); } if (gap > 34) { dropped += Math.round(gap / 16.7) - 1; gaps.push(`${Math.round(frames[i - 1])}:${Math.round(gap)}`); } }
   const res = performance.getEntriesByType('resource');
   const nav = performance.getEntriesByType('navigation')[0];
   const kind = (r) => {
@@ -95,7 +98,7 @@ const COLLECT = ({ scrollEnd }) => {
     requests: res.length + 1, chunks,
     longTasks: over50.length, longestTaskMs: Math.round(Math.max(0, ...over50.map(l => l.d))),
     scrollLongTasks: scrollLong.length, scrollLongestTaskMs: Math.round(Math.max(0, ...scrollLong.map(l => l.d))),
-    droppedFrames: dropped, worstFrameGapMs: Math.round(worstGap), scrollFrames: frames.length,
+    droppedFrames: dropped, worstFrameGapMs: Math.round(worstGap), scrollFrames: frames.length, worstGapAt, gaps: gaps.slice(0, 12), reveals: P.reveals.filter(r => r.t >= P.scrollStart).map(r => `${r.t}:${String(r.label).slice(0, 18)}`),
     scrollPx: Math.round(scrollY), docPx: document.documentElement.scrollHeight,
   };
 };
@@ -226,7 +229,7 @@ async function main() {
   const isBaseline = process.argv.includes('--baseline');
   const runs = await measure({ base: BASE, pagePath: PAGE, runs: RUNS });
   const summary = { ...summarize(runs), date: new Date().toISOString().slice(0, 10), page: PAGE };
-  for (const [i, r] of runs.entries()) console.log(`run ${i + 1}: LCP ${r.lcpMs} ms (${r.lcpEl}), CLS ${r.cls}, INP ${r.inpMs} ms, JS ${r.jsKb} KB gz, img ${r.imgKb} KB, long ${r.longTasks} (max ${r.longestTaskMs} ms), scroll long ${r.scrollLongTasks} (max ${r.scrollLongestTaskMs} ms), dropped ${r.droppedFrames}`);
+  for (const [i, r] of runs.entries()) console.log(`run ${i + 1}: LCP ${r.lcpMs} ms (${r.lcpEl}), CLS ${r.cls}, INP ${r.inpMs} ms, JS ${r.jsKb} KB gz, img ${r.imgKb} KB, long ${r.longTasks} (max ${r.longestTaskMs} ms), scroll long ${r.scrollLongTasks} (max ${r.scrollLongestTaskMs} ms), dropped ${r.droppedFrames}${process.env.PERF_VERBOSE ? ` gaps ${r.gaps.join(' ')} reveals ${r.reveals.join(' ')}` : ''}`);
   let baseline = null;
   if (isBaseline) {
     fs.mkdirSync(path.dirname(BASELINE), { recursive: true });

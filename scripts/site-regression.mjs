@@ -236,7 +236,7 @@ await step('9. Contact: three cards, no form and no Calendly embed', async () =>
  * client this walk has been publishing through /api/showcase is edited in
  * the admin instead: the save bar appears, Discard puts it back, Save sends
  * one PATCH, and what that PATCH says is then what the public site serves,
- * so the last two checks are the client on /clients and its cover in the
+ * so the last two checks are the client on /clients and its cover under
  * hero deck on Home. */
 await step('10. Showcase editor: edit, save bar, discard, save, publish, live', async () => {
   state.published = false;
@@ -292,9 +292,9 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   await mockAndGoto(page, '/clients');
   if (!await page.locator('.wk-card', { hasText: 'Site Check Co' }).count()) throw new Error('the published client is not on /clients');
   await mockAndGoto(page, '/');
-  const inDeck = await page.locator('.hero-cover-name', { hasText: 'Site Check Co' }).count();
-  if (!inDeck) throw new Error('the published cover is not in the hero deck');
-  return 'one PATCH, then live on /clients and in the hero deck';
+  const onHome = await page.locator('.wk-card', { hasText: 'Site Check Co' }).count();
+  if (!onHome) throw new Error('the published cover is not under Recent projects on Home');
+  return 'one PATCH, then live on /clients and under Recent projects';
 });
 
 /* The upload prompt: the Cloudinary flow end to end, with Cloudinary

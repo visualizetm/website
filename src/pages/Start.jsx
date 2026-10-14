@@ -772,7 +772,7 @@ const startStyles = `
     transform: translate(-50%, -50%);
     width: 9px; height: 9px; border-radius: 50%; background: var(--brand);
   }
-  .st-radio-txt { font-size: 0.9375rem; font-weight: 500; color: var(--text); flex: 1; line-height: 1.4; }
+  .st-radio-txt { font-size: 0.9375rem; font-weight: 600; color: var(--text); flex: 1; line-height: 1.4; }
   .st-radio-note {
     font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
     padding: 3px 9px; background: var(--glass-bg); border-radius: 999px; flex-shrink: 0;
