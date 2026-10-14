@@ -130,7 +130,11 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
 
 - Milestone 5: the polish pass (the skeleton, the last payload from memory, the offline line, the confirm on approvals, the empty home card, Try again that reads again), the activity ring (portal.activity, views and taps per card, fifty kept, written by the public door; Last 7 days on the CRM's Portal card and sheet), the tap door, regression 26d, the mkt-portal-empty screen, docs/PORTAL-DESIGN.md finished (the prompt 4 rules, the modules table, the routes, the push rules), the RUNBOOK paragraph; portal-test 243 -> 249, guards 118 -> 123. The full gate runs after this note; its results are in reports/PORTAL-4-REPORT.md.
 
+## Faster landing page and Projects
+- Milestone 1: scripts/perf-landing.mjs (the phone profile, three loads, the median, the targets, docs/PERF.md and docs/perf/baseline.json), scripts/landing-test.mjs (the median, the two column table, the targets, the write through one throttled load against a mock server the test starts). The baseline: FCP 600 ms, LCP 1552 ms on the splash icon, CLS 0, JS 195 KB gzipped (the entry 130 KB of it), 11 long tasks, 59 dropped frames in the scroll.
+
 ## Next
+- Landing milestone 2: the reveals (one observer, reveal once, no pins, native scroll), the entry split (the crash screen's kit import), images, fonts, lazy chunks.
 - The portal is complete through prompt 4. After it: a Stats module once a data source exists (site visits, calls from the site, the planner's reach), and Rob's phone for the push subscribe and receive on the iPhone PWA, the image upload from the camera roll, and the offline line.
 - If the detached gate's last three runs (a11y both themes, feel light and reduce, preship) show anything, it is in the scratchpad logs; rerun `AUDIT_BASE=http://127.0.0.1:4330 node scripts/docs-editor-audit.mjs` alone, it timed out once under load at the link step.
 - Nothing open from the review links job. Rob's phone: the share sheet, the push on a new review, the QR from a real camera, the public page on iPhone Safari, Download PNG on iOS.

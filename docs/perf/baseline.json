@@ -1,0 +1,33 @@
+{
+  "fcpMs": 600,
+  "lcpMs": 1552,
+  "cls": 0,
+  "inpMs": 0,
+  "jsKb": 195,
+  "jsDecodedKb": 652,
+  "cssKb": 9,
+  "fontKb": 29,
+  "imgKb": 12,
+  "imgDecodedKb": 9,
+  "docKb": 5,
+  "requests": 21,
+  "longTasks": 11,
+  "longestTaskMs": 318,
+  "scrollLongTasks": 7,
+  "scrollLongestTaskMs": 60,
+  "droppedFrames": 59,
+  "worstFrameGapMs": 67,
+  "scrollFrames": 1287,
+  "scrollPx": 12725,
+  "docPx": 13569,
+  "lcpEl": "img visualize-icon-reversed.svg",
+  "chunks": [
+    "index-BJYFUBdh.js",
+    "Home-C898QPoF.js",
+    "SceneTest-DIf0pIl8.js",
+    "gsap-CcZvk_NV.js"
+  ],
+  "runs": 3,
+  "date": "2026-10-14",
+  "page": "/"
+}
