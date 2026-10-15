@@ -73,7 +73,11 @@ Plan: 1. The plan, the single nav config with workspaces, the route aliases. 2. 
 
 - Milestone 7: the full audits on the final build and what they found on the new pieces (the breadcrumb button and the switcher's options 44px both ways; the charts' hidden numbers as lists, a table pushed 320 wide; the dashboards' cards and stats at the heights the loaded rows measure so the skeleton fits without an exemption; the Tasks home's desktop hint one box in both states), regression 2b (every chart's empty state on an empty payload), the fault proofs (2a, 2b, 16c, 25e fail with their faults put back), docs (ARCHITECTURE Navigation and the route rows, COMPONENTS, RUNBOOK, QA-CHECKLIST, CLAUDE.md, the plan's changes), reports/NAV-REVAMP-REPORT.md.
 
+## Email system (engine, compose, the full set, automation)
+- Milestone 1: the transport (api/_lib/email/transport.js: Resend through fetch, test mode without the key, one retry on a 5xx or a network error, never on a 4xx, thirty sends an hour on the shared limiter, the sender from settings), the email_log collection with its two indexes and capped shape (api/_lib/email/log.js), the emails settings document's shape (api/_lib/email/settings.js), GET /api/admin/email/status on the one new dispatched route, RESEND_API_KEY in the RUNBOOK with the setup steps; email-test 41 checks, email-guard-proof 11 guards cut in turn.
+
 ## Next
+- Email milestone 2: the renderer and its blocks, the plain text part, the brand PNGs under public/email, the variables, the templates registry with the settings overrides, the preview and send routes reusing the checkpoint stamps, the opt out page and headers, the Zapier fallback switch.
 - Nothing open from the nav revamp. Rob's phone: the rail tooltips on touch, the strip's nudge at 320, push links landing on /tasks.
 
 ## Review links (per client review link, the public /r/<token> page, the landing reviews section)

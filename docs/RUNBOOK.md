@@ -24,6 +24,7 @@ Local: `npm install`, `npm run dev` (marketing and admin at /admin/*), or
 | ADMIN_PASSWORD | Overrides the admin password | The ADMIN_PASSWORD constant in api/_lib/config.js is the password |
 | VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY | Web push (device enable, reminders, test push) | Push is off; Settings shows push unsupported |
 | WEB3FORMS_NOTIFY_KEY | Email backup of new submissions | No emails; submissions still store |
+| RESEND_API_KEY | The CRM's own emails through Resend (the email system; the one new variable it added). Setup: in Resend add the domain visualizeclients.com and put its DNS records (SPF, DKIM) where the domain is hosted, wait for Verified, make an API key with sending permission, add it here as RESEND_API_KEY and redeploy; Settings, Emails then reads Connected, sending as Rob at Visualize, and Send test to me is the proof | Test mode: every send answers ok with test: true, nothing leaves the server, the log keeps the email with status test, every stamp and rule still runs; Settings, Emails says Not connected yet |
 | CALENDLY_TOKEN (or CALENDLY_PAT) | Calendly events on the Calendar and in the drawer | Calendar Calendly chip disabled; Integrations shows Not connected |
 | CRON_SECRET | Both cron jobs (reminders, daily) and the health document | Jobs answer 401; Integrations and Automation show Not armed |
 | STRIPE_SECRET_KEY | Stripe read endpoints (events, reconcile listing) | Integrations shows Not connected |

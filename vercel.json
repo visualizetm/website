@@ -98,6 +98,10 @@
       "destination": "/api/admin/index?r=send-email"
     },
     {
+      "source": "/api/admin/email/:action",
+      "destination": "/api/admin/index?r=email&a=:action"
+    },
+    {
       "source": "/api/concepts",
       "destination": "/api/showcase?r=concepts"
     },
