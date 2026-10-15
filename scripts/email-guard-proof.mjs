@@ -20,6 +20,20 @@ const CUTS = [
   { name: 'status-method', file: '_routes/email.js', from: "  if (!allow.includes(req.method)) { res.setHeader('Allow', allow.join(', ')); return res.status(405).json({ error: 'method not allowed' }); }", to: "" },
   { name: 'log-indexes', file: '_lib/email/log.js', from: "  for (const [spec] of INDEXES) { try { await col.createIndex(spec); } catch { /* exists, or the database is down; the write below says so */ } }", to: "  void col;" },
   { name: 'log-cap', file: '_lib/email/log.js', from: "subject: str(e.subject, 200), text: str(e.text, 20000), html: str(e.html, HTML_CAP),", to: "subject: String(e.subject ?? ''), text: String(e.text ?? ''), html: String(e.html ?? '')," },
+  /* Milestone 2: the renderer, the send pipeline, the settings and the opt out door. */
+  { name: 'escape', file: '_lib/email/render.js', from: "export const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;');", to: "export const esc = (s) => String(s ?? '');" },
+  { name: 'js-url', file: '_lib/email/render.js', from: "export const safeLink = (u) => { const t = String(u || '').trim(); return isHttp(t) || isMailto(t) ? t.slice(0, 600) : ''; };", to: "export const safeLink = (u) => String(u || '').trim().slice(0, 600);" },
+  { name: 'size-cap', file: '_lib/email/render.js', from: "missing: [...missing], warnings, bytes, tooBig: bytes > HTML_LIMIT };", to: "missing: [...missing], warnings: warnings.filter(w => !/90 KB/.test(w)), bytes, tooBig: false };" },
+  { name: 'missing-refuses', file: '_lib/email/send.js', from: "  if (rendered.missing.length) return { status: 400, body: { error: `Fill in ${rendered.missing.join(', ')} first.`, missing: rendered.missing } };", to: "" },
+  { name: 'optout-marketing', file: '_lib/email/send.js', from: "  if (marketing && !testToSelf && lead.emailOptOut) return", to: "  if (false && marketing && !testToSelf && lead.emailOptOut) return" },
+  { name: 'optout-transactional', file: '_lib/email/send.js', from: "  if (marketing && !testToSelf && lead.emailOptOut) return", to: "  if (!testToSelf && lead.emailOptOut) return" },
+  { name: 'duplicate', file: '_lib/email/send.js', from: "  if (!testToSelf && opts.confirmDuplicate !== true) {", to: "  if (false) {" },
+  { name: 'test-no-tick', file: '_lib/email/send.js', from: "  if (testToSelf) return { status: 200, body: { ok: true, test: r.test, sentAt, logId: String(log._id), toSelf: true, message: r.test ? TEST_MESSAGE : `Test sent to ${sender.address}.` } };", to: "" },
+  { name: 'checkpoint-tick', file: '_lib/email/send.js', from: "  const stamps = await applySendStamps(db, { lead, project, invoice: inv, kind: base.stamp || base.id, sentAt, note: `Sent ${base.name.toLowerCase()}` });", to: "  const stamps = { updatedAt: 1 }; void inv;" },
+  { name: 'unsub-headers', file: '_lib/email/send.js', from: "    headers['List-Unsubscribe'] = `<${unsubscribeApiFor(token)}>`;\n    headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';\n  }\n  const subject", to: "    void token; void unsubscribeApiFor;\n  }\n  const subject" },
+  { name: 'unsub-sets', file: '_routes/unsubscribe-public.js', from: "{ $set: { emailOptOut: out, emailOptOutAt: out ? new Date().toISOString() : '', updatedAt: new Date() } }", to: "{ $set: { updatedAt: new Date() } }" },
+  { name: 'unsub-404', file: '_routes/unsubscribe-public.js', from: "  if (!lead) return notFound(res);", to: "  const found = lead || { _id: null, business: '', askFor: '', emailOptOut: false };", also: [["  const shape = (l) =>", "  void notFound; const shape = (l) =>"], ["  if (req.method === 'GET') return res.status(200).json(shape(lead));", "  if (req.method === 'GET') return res.status(200).json(shape(found));"], ["  await leads.updateOne({ _id: lead._id },", "  await leads.updateOne({ _id: found._id },"]] },
+  { name: 'reset', file: '_routes/email.js', from: "        if (clean === null) delete t[id]; else if (clean) t[id] = clean;", to: "        if (clean) t[id] = clean;" },
 ];
 
 const tmpBase = path.join(repoRoot, '.tmp-verify'); fs.mkdirSync(tmpBase, { recursive: true });

@@ -114,6 +114,10 @@
       "destination": "/api/showcase?r=portal"
     },
     {
+      "source": "/api/unsubscribe",
+      "destination": "/api/showcase?r=unsubscribe"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },

@@ -20,6 +20,7 @@ import { getDb } from './_lib/mongo.js';
 import conceptsPublic from './_routes/concepts-public.js';
 import reviewPublic from './_routes/review-public.js';
 import portalPublic from './_routes/portal-public.js';
+import unsubscribePublic from './_routes/unsubscribe-public.js';
 import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from './_lib/reviewPublic.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
@@ -213,6 +214,7 @@ export default async function handler(req, res) {
   if (req.query?.r === 'concepts') return conceptsPublic(req, res);
   if (req.query?.r === 'review') return reviewPublic(req, res);
   if (req.query?.r === 'portal') return portalPublic(req, res);
+  if (req.query?.r === 'unsubscribe') return unsubscribePublic(req, res); // the email system's opt out door (api/_routes/unsubscribe-public.js)
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });

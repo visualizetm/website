@@ -1,14 +1,13 @@
 import { ObjectId } from 'mongodb';
-import { clientPushTick } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { clientIp } from '../_lib/handler.js';
 import { rateKey, rateState, rateHit } from '../_lib/limit.js';
 import { EMAIL_KIND_IDS } from '../_semantics.js';
-import { hookFor, buildEmailPayload, samplePayload, EMAIL_NOTE, EMAIL_CHECKPOINT } from '../_lib/email.js';
-import { dealOf, isTicked } from '../_lib/deal.js';
-import { invoicesOf, markSent, replaceInvoice } from '../_lib/invoices.js';
-import { nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
+import { hookFor, buildEmailPayload, samplePayload } from '../_lib/email.js';
+import { dealOf } from '../_lib/deal.js';
+import { invoicesOf } from '../_lib/invoices.js';
 import { attachPaymentLink } from '../_lib/stripe.js';
+import { applySendStamps } from '../_lib/email/stamps.js';
 
 /* Send one of the four branded emails (CRM revamp, step 6).
  *   POST /api/admin/send-email { leadId, kind intro | onboarding | invoice | delivery, invoiceId?, projectId? }
@@ -78,24 +77,7 @@ export async function handler(req, res) {
   const sentAt = payload.sentAt;
   if (b.test === true) return res.status(200).json({ ok: true, sentAt, test: true });
 
-  /* The stamps, all on this request: the checkpoint, the invoice, the project's delivery flag, the contact log, the next action. */
-  const set = { updatedAt: new Date() };
-  const cp = EMAIL_CHECKPOINT[kind];
-  let deal = dealOf(lead);
-  if (cp && (lead.deal || lead.stage === 'booked' || lead.stage === 'deal') && !isTicked(deal, cp)) { deal = { ...deal, checkpoints: { ...deal.checkpoints, [cp]: { at: sentAt, by: 'auto' } }, stalledSince: '' }; set.deal = deal; }
-  if (kind === 'invoice') {
-    if (project) await projects.updateOne({ _id: project._id }, { $set: { invoices: replaceInvoice(invoicesOf(project), markSent(invoice, Date.parse(sentAt))), updatedAt: new Date() } });
-    else { deal = { ...(set.deal || deal), invoices: replaceInvoice(invoicesOf(deal), markSent(invoice, Date.parse(sentAt))) }; set.deal = deal; }
-  }
-  if (kind === 'delivery') await projects.updateOne({ _id: project._id }, { $set: { delivery: { driveShared: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(project.delivery || {}), emailSent: true }, updatedAt: new Date() } });
-  set.contactLog = [...(Array.isArray(lead.contactLog) ? lead.contactLog : []), { type: 'email', at: sentAt, note: EMAIL_NOTE[kind] }].slice(-200);
-  const after = { ...lead, ...set };
-  const [mine, sets] = await Promise.all([
-    projects.find({ leadId: String(lead._id), archived: { $ne: true } }).toArray(),
-    db.collection('concept_sets').find({ leadId: String(lead._id), deleted: { $ne: true }, archived: { $ne: true } }).project({ leadId: 1 }).toArray(),
-  ]);
-  set.nextAction = resolveNextAction(after, nextActionFor(after, { projects: mine, sets }, Date.now()));
-  await leads.updateOne({ _id: lead._id }, { $set: set });
-  if (kind === 'invoice') { try { await clientPushTick(db, lead._id); } catch { /* the email went; the sweep tries again */ } }
+  /* The stamps, all on this request: the checkpoint, the invoice, the project's delivery flag, the contact log, the next action (api/_lib/email/stamps.js, shared with the email system's send route). */
+  await applySendStamps(db, { lead, project, invoice, kind, sentAt });
   return res.status(200).json({ ok: true, sentAt });
 }

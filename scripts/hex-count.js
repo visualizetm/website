@@ -10,9 +10,13 @@ import { join, extname } from 'node:path';
 const ROOTS = ['src', 'api'];
 const EXT = new Set(['.js', '.jsx', '.css', '.mjs']);
 const RX = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
+/* The one exemption (the email system): an email is inline styles in a mail client that cannot read a CSS custom
+ * property, so api/_lib/email/ holds the email palette as literals. Nothing else is exempt; the app's own count is
+ * the number below and it only ever goes down. */
+const EXEMPT = ['api/_lib/email/'];
 
 const files = [];
-const walk = (dir) => { for (const n of readdirSync(dir)) { const p = join(dir, n); const st = statSync(p); if (st.isDirectory()) walk(p); else if (EXT.has(extname(p))) files.push(p); } };
+const walk = (dir) => { for (const n of readdirSync(dir)) { const p = join(dir, n); const st = statSync(p); if (st.isDirectory()) walk(p); else if (EXT.has(extname(p)) && !EXEMPT.some(e => p.startsWith(e))) files.push(p); } };
 ROOTS.forEach(r => { try { walk(r); } catch { /* missing root */ } });
 
 let total = 0; const perFile = []; const uniq = new Map();
