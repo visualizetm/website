@@ -24,10 +24,13 @@ function fetchStub() {
   return { fn, calls, set: (list) => { queue = [...list]; } };
 }
 
-export async function runEmail(apiSrc = path.join(repoRoot, 'api')) {
+/** runEmail(apiSrc, srcSrc): the api/ tree and the src/ tree (lib, shared, components/email) the checks run on; the proof hands copies with one guard cut. */
+export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = path.join(repoRoot, 'src')) {
   const tmpBase = path.join(repoRoot, '.tmp-verify'); fs.mkdirSync(tmpBase, { recursive: true });
-  const tmp = fs.mkdtempSync(path.join(tmpBase, 'email-')); const apiDst = path.join(tmp, 'api');
+  const tmp = fs.mkdtempSync(path.join(tmpBase, 'email-')); const apiDst = path.join(tmp, 'api'); const srcDst = path.join(tmp, 'src');
   fs.cpSync(apiSrc, apiDst, { recursive: true });
+  for (const d of ['lib', 'shared', 'components/email']) fs.cpSync(path.join(srcSrc, d), path.join(srcDst, d), { recursive: true });
+  const loadSrc = async (rel) => import(pathToFileURL(path.join(srcDst, rel)).href);
   fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
   process.env.SESSION_SECRET = 'test-not-real'; delete process.env.VERCEL; delete process.env.RESEND_API_KEY;
   const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
@@ -401,6 +404,84 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api')) {
       ok((vj.rewrites || []).some(x => x.source === '/api/unsubscribe' && x.destination === '/api/showcase?r=unsubscribe'), 'vercel.json rewrites /api/unsubscribe onto the public function');
       const app = fs.readFileSync(path.join(repoRoot, 'src/App.jsx'), 'utf8');
       ok(app.includes('path="/u/:token"') && app.includes("startsWith('/u/')"), 'App.jsx serves /u/:token on the standalone branch');
+    }
+    /* 12. Compose (milestone 3): the preview's editable source and every template's availability, the suggestion rule on the server
+       mirror (tasks-test holds the two files byte for byte), the compose helpers, the log's toSelf and the sandboxed preview. */
+    seedRecords();
+    {
+      const C = await loadSrc('lib/compose.js');
+      const TR = await load('_lib/taskRules.js');
+      let r = await admin('preview', 'POST', { templateId: 'intro_call', recordId: LEAD });
+      const t = r._json.template;
+      ok(r._status === 200 && t && t.id === 'intro_call' && t.subject === 'Good talking to you, {{firstName}}' && Array.isArray(t.blocks) && t.blocks.length > 0 && t.class === 'marketing' && t.group === 'lead' && typeof t.when === 'string', `the preview carries the editable source: the raw subject and the blocks (${dump(t && { id: t.id, subject: t.subject })})`, 'source');
+      ok(r._json.availability && TP.TEMPLATE_IDS.every(id => r._json.availability[id] && typeof r._json.availability[id].available === 'boolean' && Array.isArray(r._json.availability[id].lacking)), 'and every template\'s availability on this record', 'availability');
+      ok(r._json.availability.intro_call.available === true && r._json.availability.delivery.available === false && r._json.availability.delivery.lacking.includes('driveLink'), `without a project, delivery is unavailable for want of the Drive link (${dump(r._json.availability.delivery)})`, 'availability');
+      r = await admin('preview', 'POST', { templateId: 'intro_call', recordId: LEAD, projectId: PROJ });
+      ok(r._json.availability.delivery.available === true, 'with the project, delivery is available', 'availability');
+      r = await admin('preview', 'POST', { templateId: 'intro_call', recordId: LEAD, override: { subject: 'Changed it' } });
+      ok(r._json.subject === 'Changed it' && r._json.template.subject === 'Good talking to you, {{firstName}}', 'an override renders, and the source stays the template so the editor can tell an edit', 'source');
+      /* The suggestion rule, on a fixed clock (Oct 15 2026, noon in New York) so the fixture's dates keep meaning the same thing. */
+      const now = Date.parse('2026-10-15T16:00:00Z'); const iso = (ms) => new Date(ms).toISOString(); const DAY = 864e5;
+      const base = () => JSON.parse(JSON.stringify(lead()));
+      const tick = (l, ids, at) => { for (const id of ids) l.deal.checkpoints[id] = { at, by: 'rob' }; return l; };
+      const sg = (l, extra = {}) => TR.suggestEmail(l, { project: null, sets: _stores.concept_sets, projects: _stores.projects, now, ...extra });
+      ok(sg(base()) === 'intro_call', 'a booked lead with nothing sent: the intro call email');
+      ok(sg(base(), { sent: { intro_call: iso(now - 3600e3) } }) === null, 'the intro went an hour ago: nothing suggested again today', 'suggest-cooldown');
+      ok(sg(base(), { sent: { intro_call: iso(now - 2 * DAY) } }) === 'intro_call', 'two days on it can be suggested again');
+      ok(sg(tick(base(), ['introSent', 'callDone'], iso(now - DAY))) === 'onboarding', 'after the call: onboarding');
+      ok(sg(tick(base(), ['introSent', 'callDone', 'onboardingSent'], iso(now - 4 * DAY))) === 'form_nudge', 'the form three days late: the form nudge');
+      ok(sg(tick(base(), ['introSent', 'callDone', 'onboardingSent'], iso(now - DAY))) === null, 'but not the day after', 'suggest-form-day');
+      ok(sg(tick(base(), ['introSent', 'callDone', 'onboardingSent', 'formReceived'], iso(now - DAY))) === 'contract', 'the form in: the contract');
+      ok(sg(tick(base(), ['introSent', 'callDone', 'onboardingSent', 'formReceived', 'contractSent', 'contractAgreed'], iso(now - DAY))) === 'invoice', 'the contract agreed: the invoice (the deal holds a draft line)');
+      { const l = base(); l.meeting = null; tick(l, ['introSent'], iso(now - 4 * DAY)); ok(sg(l) === 'booking_nudge', 'the intro went four days ago and nothing is booked: the booking nudge'); tick(l, ['introSent'], iso(now - DAY)); ok(sg(l) === null, 'the day after the intro: not yet', 'suggest-nudge-day'); }
+      { const l = base(); l.meeting = { date: '2026-10-14', time: '14:00', noShowAt: iso(now - 3600e3) }; ok(sg(l) === 'missed_call', 'a no show: the missed call email'); }
+      { const l = base(); l.stage = 'declined'; ok(sg(l) === null, 'a declined lead: nothing'); l.stage = 'lost'; ok(sg(l) === null, 'a lost one: nothing'); }
+      { const l = base(); l.deleted = true; ok(sg(l) === null, 'a record in Recently Deleted: nothing, whatever its stage', 'suggest-declined'); }
+      { const l = base(); l.stage = 'lead'; l.meeting = null; l.conceptsOffered = ''; ok(sg(l, { sets: [] }) === null, 'a plain lead: nothing'); l.conceptsOffered = iso(now); ok(sg(l, { sets: [] }) === 'concepts_in_progress', 'concepts offered: the in progress email'); ok(sg(l) === 'concepts_ready', 'a live set: concepts ready'); }
+      { const l = base(); l.stage = 'nurture'; l.nurture = { until: '2020-01-01' }; ok(sg(l) === 'nurture_checkin', 'nurture due: the check in'); l.nurture = { until: '2999-01-01' }; ok(sg(l) === null, 'nurture not due: nothing'); }
+      const proj = () => JSON.parse(JSON.stringify(_stores.projects[0]));
+      const client = () => { const l = base(); l.stage = 'client'; return l; };
+      { const p = proj(); p.stage = 'kickoff'; ok(sg(client(), { project: p }) === 'kickoff', 'a client on kickoff: the kickoff email'); }
+      { const p = proj(); p.stage = 'revisions'; p.revisions = { max: 2, used: 0, log: [] }; ok(sg(client(), { project: p }) === 'review_ready', 'the first round: review ready'); p.revisions.used = 1; ok(sg(client(), { project: p }) === 'revision_ready', 'a later round: revision ready'); }
+      { const p = proj(); p.stage = 'delivery'; ok(sg(client(), { project: p }) === null, 'delivery with a line unpaid: not the delivery email', 'suggest-delivery-paid'); p.invoices = p.invoices.map(i => ({ ...i, status: 'paid' })); ok(sg(client(), { project: p }) === 'delivery', 'everything paid and the Drive link in: the delivery email'); p.links.drive = ''; ok(sg(client(), { project: p }) === null, 'no Drive link: nothing'); }
+      { const p = proj(); p.stage = 'delivery'; p.invoices = p.invoices.map(i => ({ ...i, status: 'paid' })); ok(TR.suggestEmail(p, { lead: client(), now, projects: _stores.projects }) === 'delivery', 'a project record answers for itself'); }
+      { const p = proj(); p.stage = 'delivered'; p.invoices = p.invoices.map(i => ({ ...i, status: 'paid' })); p.delivery = { ...p.delivery, emailSent: true, pitchSent: false }; p.deliveredAt = iso(now - 4 * DAY); ok(sg(client(), { project: p }) === 'retainer_followup', 'three days after delivery with no pitch: the retainer follow up'); p.delivery.pitchSent = true; p.releasedAt = iso(now - 4 * DAY); ok(sg(client(), { project: p }) === 'review_request', 'then the review request'); }
+      /* The compose helpers. */
+      ok(C.KIND_TEMPLATE.intro === 'intro_call' && C.KIND_TEMPLATE.onboarding === 'onboarding' && C.KIND_TEMPLATE.invoice === 'invoice' && C.KIND_TEMPLATE.delivery === 'delivery', 'the four old buttons map to their templates', 'kind-template');
+      ok(C.sendDoor({ resend: true }, 'intro').compose === 'intro_call' && !C.sendDoor({ resend: true }, 'intro').zapier, 'connected: an old button opens Compose on its template', 'kind-template');
+      ok(C.sendDoor({ invoice: true }, 'invoice').zapier === 'invoice' && !C.sendDoor({ invoice: true }, 'invoice').compose && C.sendDoor(null, 'intro').zapier === 'intro', 'not connected: the Zapier modal stays', 'zapier-fallback');
+      { const ins = C.insertToken('Hi there', 3, 3, 'firstName'); ok(ins.text === 'Hi {{firstName}}there' && ins.caret === 16, `a field drops in at the caret (${dump(ins)})`); ok(C.insertToken('abc', 1, 2, 'x').text === 'a{{x}}c', 'and replaces a selection'); }
+      { const bl = [{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }, { type: 'text', text: 'c' }]; ok(C.moveBlock(bl, 0, 1)[1].text === 'a' && C.moveBlock(bl, 0, -1) === bl && C.moveBlock(bl, 2, 1) === bl && C.removeBlock(bl, 1).length === 2 && C.insertBlock(bl, 1, C.newBlock('button')).length === 4, 'move, remove and insert keep their bounds'); }
+      ok(['eyebrow', 'heading', 'text', 'button', 'lines', 'totals', 'list', 'box', 'files', 'spacer'].every(k => C.newBlock(k)?.type === k) && C.newBlock('nope') === null, 'a fresh block of every kind, and nothing for an unknown one');
+      { const g = C.pickerGroups({ intro_call: { available: true, lacking: [] }, delivery: { available: false, lacking: ['driveLink'] } }, 'onboarding'); ok(g[0].id === 'suggested' && g[0].rows.length === 1 && g[0].rows[0].id === 'onboarding', `the suggestion is pinned first (${g[0].id})`, 'picker-pins'); const del = g.flatMap(x => x.rows).find(x => x.id === 'delivery'); ok(del && del.available === false && C.lackingLine(del.lacking).startsWith('Needs '), 'an unavailable template carries its reason'); ok(!g.some(x => x.id !== 'suggested' && x.rows.some(w => w.id === 'onboarding')), 'and the suggestion is not listed twice'); }
+      { const store = {}; globalThis.localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+        const key = C.draftKey('L1', 'intro_call'); const d = { subject: 'Hey', preheader: '', blocks: [{ type: 'text', text: 'x' }] };
+        C.writeDraft(key, d); const back = C.readDraft(key);
+        ok(key === 'vz_email_draft:L1:intro_call' && back && back.subject === 'Hey' && back.blocks.length === 1 && back.at, `a draft is written and read back (${dump(back)})`, 'draft-restore');
+        C.clearDraft(key); ok(C.readDraft(key) === null, 'and cleared');
+        store[key] = 'not json'; ok(C.readDraft(key) === null, 'a broken draft reads as none');
+        delete globalThis.localStorage; }
+      ok(C.sameEmail({ subject: 'a', preheader: '', blocks: [] }, { subject: 'a', blocks: [], to: ['x'] }) && !C.sameEmail({ subject: 'a', blocks: [] }, { subject: 'b', blocks: [] }), 'sameEmail compares the email, not the addresses');
+      ok(C.needsConfirmToSwitch({ subject: 'edited', blocks: [] }, { subject: 'a', blocks: [] }) === true && C.needsConfirmToSwitch({ subject: 'a', blocks: [] }, { subject: 'a', blocks: [] }) === false && C.needsConfirmToSwitch(null, { subject: 'a' }) === false, 'switching asks only with edits', 'switch-asks');
+      const good = { value: { subject: 'a', blocks: [] }, missing: [], to: ['a@b.co'] };
+      ok(C.canSendNow(good) === true && C.canSendNow({ ...good, missing: ['calendlyLink'] }) === false && C.canSendNow({ ...good, to: [] }) === false && C.canSendNow({ ...good, optedOut: true }) === false && C.canSendNow({ ...good, sending: 'send' }) === false && C.canSendNow({ ...good, previewOk: false }) === false, 'Send is live only with an address, nothing missing, no opt out, nothing in flight and a preview', 'send-disabled-missing');
+      { const m = C.sentMapOf([{ templateId: 'intro_call', status: 'sent', sentAt: '2026-10-01T00:00:00.000Z' }, { templateId: 'intro_call', status: 'test', toSelf: true, sentAt: '2026-10-14T00:00:00.000Z' }, { templateId: 'intro_call', status: 'sent', sentAt: '2026-10-03T00:00:00.000Z' }, { templateId: 'onboarding', status: 'failed', sentAt: '2026-10-05T00:00:00.000Z' }]); ok(m.intro_call === '2026-10-03T00:00:00.000Z' && !m.onboarding, `the sent map takes the newest real send and skips tests to Rob and failures (${dump(m)})`, 'sent-map-self'); }
+      ok(C.isAddress('mike@mikestacos.example') && !C.isAddress('mike@') && !C.isAddress('nope'), 'the address check');
+      ok(C.knownTemplate('intro_call') === 'intro_call' && C.knownTemplate('contract_nudge') === null && C.knownTemplate(null) === null, 'a suggestion the registry does not hold yet is never offered', 'known-template');
+      { const at = new Date(C.tomorrowNine(new Date(2026, 9, 15, 15, 0, 0))); ok(at.getHours() === 9 && at.getMinutes() === 0 && at.getDate() === 16 && at.getMonth() === 9, `tomorrow at 9am on this device (${at.toString()})`); }
+      /* The log tells a test to Rob from a send, and the duplicate guard ignores the test. */
+      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, testToSelf: true });
+      ok(r._status === 200 && _stores.email_log.length === 1 && _stores.email_log[0].toSelf === true, 'a test to Rob is logged as toSelf', 'log-toself');
+      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
+      ok(r._status === 200 && _stores.email_log.length === 2 && _stores.email_log[1].toSelf === false, `and the real send right after it is not a duplicate of the test (${r._status} ${dump(r._json).slice(0, 80)})`, 'dup-ignores-self');
+      /* The preview iframe runs nothing: sandbox with no allow-scripts. */
+      const pvSrc = fs.readFileSync(path.join(srcDst, 'components/email/EmailPreview.jsx'), 'utf8');
+      const sb = pvSrc.match(/<iframe[^>]*\ssandbox="([^"]*)"[^>]*>/);
+      ok(sb && !/allow-scripts/.test(sb[1]) && /srcDoc=/.test(sb[0]), `the preview iframe is sandboxed with no allow-scripts (${sb ? sb[1] || 'empty' : 'no sandbox'})`, 'iframe-sandbox');
+      const app = fs.readFileSync(path.join(repoRoot, 'src/pages/AdminApp.jsx'), 'utf8');
+      ok(app.includes("p.startsWith('/email/compose')") && app.includes('onOpenCompose={openCompose}'), 'AdminApp routes /email/compose and hands openCompose to the shell');
+      const modal = fs.readFileSync(path.join(repoRoot, 'src/components/SendEmailModal.jsx'), 'utf8');
+      ok(modal.includes('sendDoor(shell?.emails, kind)') && modal.includes('shell.openCompose(lead, { templateId: door.compose'), 'the four old buttons go through the switch');
     }
   } finally {
     globalThis.fetch = realFetch; delete process.env.RESEND_API_KEY;

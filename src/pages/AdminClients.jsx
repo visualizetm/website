@@ -110,6 +110,7 @@ export default function AdminClients({
   const rowMenu = (l) => [
     { id: 'open', label: 'Open', icon: 'ArrowRight', onSelect: () => pick(l._id) },
     ...(l.phone ? [{ id: 'call', label: `Call ${formatPhone(l.phone)}`, icon: 'Phone', onSelect: () => { window.location.href = telHref(l.phone); } }] : []),
+    ...(shell?.openCompose ? [{ id: 'email', label: 'Email', icon: 'Mail01', onSelect: () => shell.openCompose(l) }] : []),
     ...(shell?.openShowcase ? [{ id: 'showcase', label: 'Showcase', icon: 'Image01', onSelect: () => shell.openShowcase(l) }] : []),
     ...(shell?.openPlanner ? [{ id: 'planner', label: 'Planner', icon: 'Calendar', onSelect: () => shell.openPlanner(l) }] : []),
     ...(shell?.openTasks ? [{ id: 'tasks', label: 'Tasks', icon: 'CheckDone01', onSelect: () => shell.openTasks(l) }] : []),

@@ -42,7 +42,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
-  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenProjectNew, onOpenListFill, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, leadOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenListPicker, listOps = null, docsApi = null, styles, children,
+  onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenProjectNew, onOpenListFill, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, leadOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenCompose, onOpenListPicker, listOps = null, docsApi = null, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
   const [collapsedPref, setCollapsed] = useState(() => readJSON(KEYS.collapsed, false));
@@ -156,9 +156,9 @@ export default function AppShell({
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openTasks: onOpenTasks, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
     newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
-    openConcepts: onOpenConcepts, openProjectNew: onOpenProjectNew, openListFill: onOpenListFill,
+    openConcepts: onOpenConcepts, openCompose: onOpenCompose, openProjectNew: onOpenProjectNew, openListFill: onOpenListFill,
     lists, openListPicker: onOpenListPicker, listOps, docsApi, overview, overviewStrip,
-  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenCompose, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
 
   /* Chrome mode (src/shell/chrome.js): tabs on a section root, focused on a record, an editor, a setup page or the call room. */
   const location = useLocation();

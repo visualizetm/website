@@ -114,6 +114,9 @@ import Type01 from '@untitled-ui/icons-react/build/esm/Type01';
 import MessageTextSquare01 from '@untitled-ui/icons-react/build/esm/MessageTextSquare01';
 import Save01 from '@untitled-ui/icons-react/build/esm/Save01';
 import ReverseLeft from '@untitled-ui/icons-react/build/esm/ReverseLeft';
+import AlignLeft from '@untitled-ui/icons-react/build/esm/AlignLeft';
+import CursorClick01 from '@untitled-ui/icons-react/build/esm/CursorClick01';
+import Square from '@untitled-ui/icons-react/build/esm/Square';
 
 export const ICONS = {
   /* tasks (planner dashboard and task system) */
@@ -142,6 +145,8 @@ export const ICONS = {
   Browser,
   /* concepts (the presentation rebuild): a set viewed, and a set of directions */
   Eye, LayersThree01,
+  /* the email system: the block kinds in the editor */
+  AlignLeft, CursorClick01, Square,
 };
 
 /** Resolve an icon prop: a semantics name string, a component, or nothing. */

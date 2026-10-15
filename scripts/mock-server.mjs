@@ -13,6 +13,7 @@ import { REVIEW_TOKEN, REVIEW_RESOLVE, PORTAL_TOKEN, PORTAL_RESOLVE } from './au
 import { gzipSync } from 'node:zlib';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
+import { emailHandler, unsubscribeHandler } from './audit-fixtures.mjs';
 import { PAYLOADS, docsStore, docsHandler, leads, orders, sets, lists, publicConceptSet, projects, posts, suggestions, plannerPayload, plannerPublicSuggestion, SHOWCASE_CLIENTS, SHOWCASE_PAYLOAD } from './audit-fixtures.mjs';
 
 const DIST = resolve(process.env.DIST || 'dist');
@@ -50,6 +51,8 @@ function api(req, res, url) {
   if (p === '/api/push-key') return json(res, { key: null });
   if (p.startsWith('/api/admin/submissions')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('submissions')) : json(res, { ok: true });
   if (p.startsWith('/api/admin/settings')) return m === 'GET' ? get('settings') : json(res, { ok: true });
+  if (p.startsWith('/api/admin/email/')) { let b = {}; try { b = JSON.parse(currentBody || '{}'); } catch { /* empty */ } const out = emailHandler(m, p.split('/').pop(), Object.fromEntries(url.searchParams.entries()), b); return json(res, out.body, out.status); }
+  if (p === '/api/unsubscribe') { let b = {}; try { b = JSON.parse(currentBody || '{}'); } catch { /* empty */ } const out = unsubscribeHandler(m, Object.fromEntries(url.searchParams.entries()), b); return json(res, out.body, out.status); }
   if (p.startsWith('/api/admin/stripe')) return get('stripe');
   if (p.startsWith('/api/admin/calendly')) return get('calendly');
   if (p.startsWith('/api/admin/call-leads')) return m === 'GET' ? (url.searchParams.get('deleted') === '1' ? json(res, { items: [] }) : get('leads')) : json(res, { ok: true, item: { ...leads[0], _id: 'LNEW' } });

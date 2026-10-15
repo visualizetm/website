@@ -27,7 +27,7 @@ export function logEntry(e = {}, now = new Date()) {
     class: EMAIL_CLASS_IDS.includes(e.class) ? e.class : 'transactional',
     to: list(e.to), cc: list(e.cc), subject: str(e.subject, 200), text: str(e.text, 20000), html: str(e.html, HTML_CAP),
     status: EMAIL_STATUS_IDS.includes(e.status) ? e.status : 'draft',
-    sendAt: str(e.sendAt, 40), providerId: str(e.providerId, 80), error: str(e.error, 300), auto: !!e.auto,
+    sendAt: str(e.sendAt, 40), providerId: str(e.providerId, 80), error: str(e.error, 300), auto: !!e.auto, toSelf: !!e.toSelf,
     createdAt: e.createdAt instanceof Date ? e.createdAt : now, sentAt: str(e.sentAt, 40), updatedAt: now,
   };
 }
@@ -66,7 +66,8 @@ export async function recentLog(db, { limit = LOG_PAGE } = {}) {
 }
 /** The newest email of this template sent (or kept in test mode) to this record inside the window: the duplicate guard. */
 export async function sentWithin(db, { recordId, templateId, ms = DUPLICATE_WINDOW_MS, now = Date.now() } = {}) {
-  const rows = await db.collection('email_log').find({ recordId: String(recordId), templateId: String(templateId), status: { $in: ['sent', 'test'] } }).sort({ createdAt: -1 }).limit(5).project({ html: 0, text: 0 }).toArray();
+  /* A test to Rob is not a send to the client, so it never makes the real send that follows a duplicate. */
+  const rows = await db.collection('email_log').find({ recordId: String(recordId), templateId: String(templateId), status: { $in: ['sent', 'test'] }, toSelf: { $ne: true } }).sort({ createdAt: -1 }).limit(5).project({ html: 0, text: 0 }).toArray();
   return rows.find(r => now - new Date(r.createdAt).getTime() < ms) || null;
 }
 /** Emails that left (or would have left) in the last hour, from the log. */

@@ -1036,6 +1036,40 @@ for (const width of WIDTHS) {
   await page.waitForSelector('[data-save="failed"]', { timeout: 5000 }).catch(() => {});
   await check('doc (a failed save: Not saved, retrying)');
   await page.unroute('**/api/admin/docs**').catch(() => {});
+  /* Compose (the email system, milestone 3): the screen on a booked lead, the preview on a phone or tablet, the Add a block sheet, the
+     template sheet, the confirm sheet, and the Missing banner on a lead with no email, at every width. */
+  await goto('/admin/email/compose?record=L8&template=intro_call');
+  await page.locator('.cp-template').first().waitFor({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('compose (the intro call email)');
+  if (width < 1024) {
+    await page.getByRole('radio', { name: 'Preview' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.locator('.ep-frame').first().waitFor({ timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('compose (the preview)');
+    await page.getByRole('radio', { name: 'Edit' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(300);
+  }
+  await page.locator('.ee-add').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.ee-add-opt').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('compose (add a block sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await page.locator('.cp-template .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.cp-pick').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('compose (template sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await page.locator('.cp-send:not([disabled])').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.locator('.cp-send').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.cp-confirm-send').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('compose (confirm sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await goto('/admin/email/compose?record=L2&template=intro_call');
+  await page.locator('.cp-missing').first().waitFor({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('compose (missing banner, no email)');
   /* The Content Planner editor (planner prompt 2, part 6): the page on and
      off, a month with nothing in it, the post editor Sheet, the save bar,
      and the regenerate dialog. The image check earns its keep here too: a

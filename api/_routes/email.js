@@ -5,7 +5,7 @@ import { readEmailSettings, emailSettingsOf, EMAIL_SETTINGS_ID, AUTOMATION_IDS }
 import { EMAIL_TEMPLATES, TEMPLATE_IDS, SERVICE_IDS } from '../_lib/email/templates.js';
 import { sanitizeBlocks } from '../_lib/email/render.js';
 import { varRows } from '../_lib/email/vars.js';
-import { loadContext, composeEmail, sendComposed } from '../_lib/email/send.js';
+import { loadContext, composeEmail, sendComposed, availabilityFor } from '../_lib/email/send.js';
 import { logFor, logById, recentLog, updateLog } from '../_lib/email/log.js';
 import { safeUrl } from '../_lib/url.js';
 
@@ -16,7 +16,8 @@ import { safeUrl } from '../_lib/url.js';
  *
  *   GET  email/status      { connected, sender, from, sentLastHour, limit }
  *   POST email/preview     { templateId, recordId, projectId?, invoiceId?, override? }
- *                          -> { subject, preheader, html, text, missing, warnings, to, vars, available, lacking, class, service }
+ *                          -> { subject, preheader, html, text, missing, warnings, to, vars, available, lacking, class, service,
+ *                             template (the effective source Compose edits), availability (every template on this record) }
  *   POST email/send        the same plus { to[], cc[], testToSelf, confirmDuplicate, sendAt? }: the server renders again
  *                          (never a request's HTML), refuses on a missing field, a bad address, an opt out (marketing)
  *                          or a duplicate inside ten minutes, logs, ticks the template's checkpoint and writes the next
@@ -77,7 +78,9 @@ export async function handler(req, res) {
       const composed = composeEmail(ctx, args);
       if (composed.error) return res.status(composed.status).json({ error: composed.error });
       const { rendered } = composed;
-      return res.status(200).json({ subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: composed.to, vars: varRows(composed.vars), available: composed.available, lacking: composed.lacking, class: composed.base.class, service: composed.tpl.service, edited: composed.tpl.edited, optedOut: composed.marketing && !!ctx.lead.emailOptOut, connected: emailConnected() });
+      const { base, source } = composed;
+      const template = { id: base.id, name: base.name, group: base.group, class: base.class, when: base.when, service: source.service, edited: source.edited, subject: source.subject, preheader: source.preheader, blocks: source.blocks };
+      return res.status(200).json({ subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: composed.to, vars: varRows(composed.vars), available: composed.available, lacking: composed.lacking, class: base.class, service: composed.tpl.service, edited: composed.tpl.edited, optedOut: composed.marketing && !!ctx.lead.emailOptOut, connected: emailConnected(), template, availability: availabilityFor(ctx, composed.vars) });
     }
     const r = await sendComposed(db, ctx, args, { to: b.to, cc: b.cc, testToSelf: b.testToSelf === true, confirmDuplicate: b.confirmDuplicate === true, sendAt: typeof b.sendAt === 'string' ? b.sendAt : '' });
     if (r.status === 429 && r.body.retryAfter) res.setHeader('Retry-After', String(r.body.retryAfter));

@@ -117,7 +117,7 @@ function ShortcutsModal({ open, onClose }) {
 }
 
 /* ── Room pieces ─────────────────────────────────────────────── */
-function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, desktop, onCopy, onAbout }) {
+function RoomHeader({ lead, pulse, onEdit, onDecline, onEmail, timerMs, onCallTap, desktop, onCopy, onAbout }) {
   const win = currentWindow();
   const winsOf = windowsOf(lead.bestWindow);
   const scan = lead.enrichment?.lastScanAt ? (Date.now() - new Date(lead.enrichment.lastScanAt).getTime()) / 864e5 : null;
@@ -137,7 +137,7 @@ function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, deskto
               {lead.bestWindow && <Pill tone={winsOf.has(win) ? 'booked' : 'neutral'} label={lead.bestWindow} icon={winsOf.has(win) ? 'Check' : false} size="sm" variant={winsOf.has(win) ? 'soft' : 'outline'} />}
             </Row>
           </Stack>
-          <Menu label="Lead actions" items={[{ id: 'about', label: 'About this lead', icon: 'Users01', onSelect: onAbout }, { id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
+          <Menu label="Lead actions" items={[{ id: 'about', label: 'About this lead', icon: 'Users01', onSelect: onAbout }, { id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, ...(onEmail ? [{ id: 'email', label: 'Email', icon: 'Mail01', onSelect: onEmail }] : []), 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
         </Row>
         {lead.askFor && <p className="cc-askfor">Ask for <strong>{lead.askFor.replace(/^Ask for /i, '')}</strong></p>}
         <div className="cc-phone">
@@ -166,7 +166,7 @@ function RoomHeader({ lead, pulse, onEdit, onDecline, timerMs, onCallTap, deskto
           </Row>
         </Stack>
         <IconButton icon={Edit02} label="Edit lead" variant="secondary" onClick={onEdit} className="cc-edit-btn" />
-        <Menu label="Lead actions" items={[{ id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
+        <Menu label="Lead actions" items={[{ id: 'edit', label: 'Edit lead', icon: 'Edit02', onSelect: onEdit }, ...(onEmail ? [{ id: 'email', label: 'Email', icon: 'Mail01', onSelect: onEmail }] : []), 'divider', { id: 'decline', label: 'Decline this lead', icon: 'SlashCircle01', danger: true, onSelect: onDecline }]} />
       </Row>
       {lead.descriptor && <p className="cc-desc">{lead.descriptor}</p>}
       {lead.askFor && <p className="cc-askfor">Ask for <strong>{lead.askFor.replace(/^Ask for /i, '')}</strong></p>}
@@ -756,7 +756,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const roomCenter = pending ? <div className="cc-room" /> : loadFailed ? <div className="cc-room cc-room--empty">{loadFailed}</div> : showSkel ? roomSkeleton : current ? (
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
       <Stagger className="cc-room-inner lay-content" cap={3}>
-        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} onAbout={() => setAboutOpen(true)} />
+        <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} onEmail={shell?.openCompose ? () => shell.openCompose(current) : null} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} onAbout={() => setAboutOpen(true)} />
         {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
       </Stagger>

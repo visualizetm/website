@@ -95,3 +95,92 @@ export function applyTemplate(template, startKey, dueAtFor) {
   const items = template.tasks.map(([text, offset], i) => ({ id: uid(), text, done: false, doneAt: '', due: y ? (dueAtFor ? dueAtFor(dayKey(offset)) : dayKey(offset)) : '', note: '', order: i, pinned: false, remindAt: '', notifiedAt: '', source: 'template', suggestionId: '' }));
   return { id: uid(), name: template.name, templateId: template.id, items };
 }
+
+/* ── The email system: which email fits a record right now ──────────────────────────────────────────────────────────
+ * suggestEmail(record, ctx) answers one template id or null, read off the stage, the deal's checkpoints, the meeting, the
+ * invoices and the project's stage; ctx: { project, lead (a project's owner), sets, sent: { [templateId]: lastSentAt },
+ * todayKey, now }. Pure, no clock of its own. A template the log says went out inside a day is not suggested again, and
+ * the record's own stamps (introSent, onboardingSent, delivery.emailSent) count the same way. The order is the process:
+ * the booking, the deal's steps, the money, the project. The Compose chip and the picker read this; the cron's rules
+ * (EMAIL_RULES) decide what goes out on their own. */
+const DAY_MS = 864e5;
+const tsOf = (v) => { const t = Date.parse(v || ''); return Number.isNaN(t) ? 0 : t; };
+const dayKeyLocal = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const keyPlusDays = (key, n) => { const [y, m, d] = String(key).split('-').map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, '0')}-${String(t.getUTCDate()).padStart(2, '0')}`; };
+const linePaid = (l) => l?.status === 'paid' || !!l?.ledgerId;
+const lineSent = (l) => l && !linePaid(l) && l.status === 'sent';
+const linesOf = (rec) => (Array.isArray(rec?.invoices) ? rec.invoices : Array.isArray(rec?.schedule) ? rec.schedule : []);
+const REMINDER_DAYS = 3;
+/** The money's suggestion over a set of lines: past due first, then due inside three days, then a draft to send. */
+function moneySuggestion(lines, todayKey, pick) {
+  const soon = keyPlusDays(todayKey, REMINDER_DAYS);
+  if (lines.some(l => lineSent(l) && String(l.dueAt || '') < todayKey)) return pick('invoice_past_due');
+  if (lines.some(l => lineSent(l) && String(l.dueAt || '') >= todayKey && String(l.dueAt || '') <= soon)) return pick('invoice_reminder');
+  if (lines.some(l => l && l.status === 'draft')) return pick('invoice');
+  return null;
+}
+function projectSuggestion(p, ctx, now, todayKey, pick) {
+  if (!p || p.archived) return null;
+  const lead = ctx.lead || null;
+  const lines = linesOf(p);
+  const allPaid = lines.length > 0 && lines.every(linePaid);
+  if (p.kind === 'retainer') return lead && lead.planner && lead.planner.enabled ? pick('retainer_month_ready') : null;
+  const money = moneySuggestion(lines, todayKey, pick);
+  if (money) return money;
+  const used = Math.max(Number(p.revisions?.used) || 0, (Array.isArray(p.revisions?.log) ? p.revisions.log : []).filter(r => r && !r.extra).length);
+  const drive = /^https?:\/\//i.test(String(p.links?.drive || ''));
+  switch (p.stage) {
+    case 'kickoff': return pick('kickoff');
+    case 'revisions': return used === 0 ? pick('review_ready') : pick('revision_ready');
+    case 'delivery': return allPaid && drive && !p.delivery?.emailSent ? pick('delivery') : null;
+    case 'delivered': {
+      if (!p.delivery?.emailSent && allPaid && drive) return pick('delivery');
+      if (p.plan && p.plan.months && allPaid && !p.delivery?.emailSent) return pick('plan_complete');
+      const base = tsOf(p.deliveredAt) || tsOf(p.releasedAt);
+      if (base && now - base >= REMINDER_DAYS * DAY_MS && p.delivery && p.delivery.pitchSent === false) return pick('retainer_followup');
+      const rel = tsOf(p.releasedAt) || base;
+      if (rel && now - rel >= REMINDER_DAYS * DAY_MS && lead && !(Array.isArray(lead.reviews?.asks) && lead.reviews.asks.length)) return pick('review_request');
+      return null;
+    }
+    default: return null;
+  }
+}
+export function suggestEmail(record, ctx = {}) {
+  if (!record || typeof record !== 'object') return null;
+  const now = ctx.now || Date.now();
+  const todayKey = ctx.todayKey || dayKeyLocal(now);
+  const sent = ctx.sent && typeof ctx.sent === 'object' ? ctx.sent : {};
+  const pick = (id) => (tsOf(sent[id]) + DAY_MS > now ? null : id);
+  if ('leadId' in record && !('business' in record)) return projectSuggestion(record, ctx, now, todayKey, pick);
+  const stage = record.stage || (record.callStatus === 'booked' ? 'booked' : '');
+  if (stage === 'declined' || stage === 'lost' || record.deleted) return null;
+  if (stage === 'client' || stage === 'won') return projectSuggestion(ctx.project, { ...ctx, lead: record }, now, todayKey, pick);
+  const cp = record.deal && record.deal.checkpoints ? record.deal.checkpoints : {};
+  const at = (id) => tsOf(cp[id] && cp[id].at);
+  const meetingAt = record.meeting && record.meeting.date ? Date.parse(`${record.meeting.date}T${record.meeting.time || '09:00'}:00`) : 0;
+  const booked = !!(record.calendlyEventUri || (meetingAt && meetingAt > now - DAY_MS));
+  if (stage === 'booked' || stage === 'deal') {
+    if (!at('callDone')) {
+      if (record.meeting && record.meeting.noShowAt) return pick('missed_call');
+      if (!at('introSent')) return pick('intro_call');
+      if (!booked && at('introSent') + REMINDER_DAYS * DAY_MS <= now) return pick('booking_nudge');
+      return null;
+    }
+    if (!at('onboardingSent')) return pick('onboarding');
+    if (!at('formReceived')) return at('onboardingSent') + REMINDER_DAYS * DAY_MS <= now ? pick('form_nudge') : null;
+    if (!at('contractSent')) return pick('contract');
+    if (!at('contractAgreed')) return at('contractSent') + REMINDER_DAYS * DAY_MS <= now ? pick('contract_nudge') : null;
+    const money = moneySuggestion(linesOf(record.deal), todayKey, pick);
+    if (money) return money;
+    if (!at('invoiceSent')) return pick('invoice');
+    return null;
+  }
+  if (stage === 'lead' || stage === 'triage') {
+    const sets = (Array.isArray(ctx.sets) ? ctx.sets : []).filter(s => s && String(s.leadId) === String(record._id) && !s.deleted && !s.archived && s.status && s.status !== 'draft');
+    if (sets.length && !booked) return pick('concepts_ready');
+    if (record.conceptsOffered && !booked) return pick('concepts_in_progress');
+    return null;
+  }
+  if (stage === 'nurture') return record.nurture && record.nurture.until && record.nurture.until <= todayKey ? pick('nurture_checkin') : null;
+  return null;
+}

@@ -9,7 +9,7 @@ import { dealOf } from '../deal.js';
 import { invoicesOf } from '../invoices.js';
 import { attachPaymentLink } from '../stripe.js';
 import { readEmailSettings } from './settings.js';
-import { effectiveTemplate, templateOf, serviceOf } from './templates.js';
+import { effectiveTemplate, templateOf, serviceOf, EMAIL_TEMPLATES } from './templates.js';
 import { resolveVars, SITE } from './vars.js';
 import { renderEmail, sanitizeBlocks, varsUsed } from './render.js';
 import { sendEmail, senderOf, isEmail, TEST_MESSAGE } from './transport.js';
@@ -73,9 +73,25 @@ export function composeEmail(ctx, { templateId, override = null, optOutToken = '
   /* A preview of a marketing email on a record with no token yet shows a stand in link; the send mints the token first and renders again. */
   const rendered = renderEmail({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, vars, marketing, optOutUrl: marketing ? optOutUrlFor(optOutToken || ctx.lead.emailToken || 'preview') : '' });
   /* Available: every variable the template needs is on the record (the default's needs plus what the draft actually reads). */
-  const needs = [...new Set([...(base.needs || []), ...varsUsed(draft)])].filter(k => k !== 'optOutUrl');
-  const lacking = needs.filter(k => { const v = vars[k]; return v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length); });
-  return { tpl: draft, base, vars, rendered, marketing, available: lacking.length === 0, lacking, to: isEmail(ctx.lead.email) ? [String(ctx.lead.email).trim().toLowerCase()] : [] };
+  const lacking = lackingOf(base, draft, vars);
+  return { tpl: draft, source: tpl, base, vars, rendered, marketing, available: lacking.length === 0, lacking, to: isEmail(ctx.lead.email) ? [String(ctx.lead.email).trim().toLowerCase()] : [] };
+}
+const missingVar = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && !v.length);
+/** The variables a template needs that the record lacks: the default's needs plus every key the blocks read. */
+export function lackingOf(base, tpl, vars) {
+  const needs = [...new Set([...(base.needs || []), ...varsUsed(tpl)])].filter(k => k !== 'optOutUrl');
+  return needs.filter(k => missingVar(vars[k]));
+}
+/** Every template's availability on this record, the variables resolved once: { [id]: { available, lacking } }. The picker greys the
+ * unavailable ones with the reason and the suggestion chip never names one. */
+export function availabilityFor(ctx, vars) {
+  const out = {};
+  for (const base of EMAIL_TEMPLATES) {
+    const tpl = effectiveTemplate(base.id, ctx.settings.templates, { service: vars.service || serviceOf('') });
+    const lacking = lackingOf(base, tpl, vars);
+    out[base.id] = { available: lacking.length === 0, lacking };
+  }
+  return out;
 }
 
 /** The record's opt out token, minted on the first marketing send and kept for good. */
@@ -125,7 +141,7 @@ export async function sendComposed(db, ctx, args = {}, opts = {}) {
     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
   }
   const subject = testToSelf ? `[Test] ${rendered.subject}` : rendered.subject;
-  const entry = { recordId: String(lead._id), projectId: project ? String(project._id) : '', invoiceId: invoice ? String(invoice.id) : '', templateId: base.id, class: base.class, to, cc, subject, text: rendered.text, html: rendered.html, auto: opts.auto === true };
+  const entry = { recordId: String(lead._id), projectId: project ? String(project._id) : '', invoiceId: invoice ? String(invoice.id) : '', templateId: base.id, class: base.class, to, cc, subject, text: rendered.text, html: rendered.html, auto: opts.auto === true, toSelf: testToSelf };
   if (opts.sendAt && !testToSelf) {
     const at = new Date(opts.sendAt).getTime();
     if (!Number.isFinite(at) || at < Date.now() - 60e3 || at > Date.now() + QUEUE_MAX_DAYS * 864e5) return { status: 400, body: { error: 'Pick a time in the next thirty days.' } };

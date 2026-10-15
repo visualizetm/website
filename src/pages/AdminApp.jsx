@@ -50,6 +50,7 @@ const loaders = {
   triage: () => import('./AdminTriage'),
   projects: () => import('./AdminProjects'),
   projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
+  compose: () => import('./AdminCompose'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCalls = lazy(loaders.calls);
@@ -72,6 +73,7 @@ const AdminPipeline = lazy(loaders.pipeline);
 const AdminTasksHome = lazy(loaders.tasksAll);
 const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
+const AdminCompose = lazy(loaders.compose);
 const AdminLists = lazy(loaders.lists);
 const AdminTriage = lazy(loaders.triage);
 const AdminProjects = lazy(loaders.projects);
@@ -414,6 +416,7 @@ export default function AdminApp() {
     if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
     if (/^\/clients\/[^/]+\/projects\/new$/.test(p) || p === '/projects/new') return 'projectNew';
     if (/^\/lists\/[^/]+\/fill$/.test(p)) return 'listFill';
+    if (p.startsWith('/email/compose')) return 'compose';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     if (p.startsWith('/lists')) return 'lists';
@@ -459,6 +462,9 @@ export default function AdminApp() {
   const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
   // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
   const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
+  // /email/compose (the email system): ?record= names the lead, ?template=, ?project= and ?invoice= what Compose opens on. A bare /email lands on Leads.
+  const composeQ = new URLSearchParams(location.search);
+  useEffect(() => { if (relPath === '/email' || relPath === '/email/') navigate(`${BASE}/leads`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
   const forceLoading = new URLSearchParams(location.search).get('loading') === '1'; // the audits' forced loading state: nothing has loaded yet
   const V = forceLoading ? { leads: [], items: [], projects: [], orders: [], posts: [], sets: [], lists: [] } : { leads: callLeads, items, projects, orders, posts, sets, lists };
   const activeNav = useMemo(() => navForPath(relPath, location.search), [relPath, location.search]);
@@ -496,6 +502,8 @@ export default function AdminApp() {
   const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc, pickClient, openProject }), [docsState, openDoc, openClientDocs, newDoc, pickClient, openProject]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
   const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
+  /* Compose (the email system): a push from the record, a list's menu, the call room or one of the four old send buttons; the template, the project and the invoice ride on the query. */
+  const openCompose = useCallback((lead, opts = {}) => { const q = new URLSearchParams({ record: String(lead._id) }); if (opts.templateId) q.set('template', opts.templateId); if (opts.project) q.set('project', String(opts.project._id)); if (opts.invoice) q.set('invoice', String(opts.invoice.id)); push(`${BASE}/email/compose?${q}`, { selectedId: lead._id }); }, [push]);
   // Open a lead in whichever screen owns its stage: a push carrying the record on its state.
   const openLead = useCallback((lead, intent, opts = {}) => {
     const stage = effectiveStage(lead);
@@ -720,7 +728,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
@@ -812,6 +820,11 @@ export default function AdminApp() {
           setId={new URLSearchParams(location.search).get('set') || ''}
           onBack={navBack ? navBack.back : () => go('concepts')}
         />
+      )}
+      {section === 'compose' && (
+        <AdminCompose key={`${composeQ.get('record') || ''}:${composeQ.get('template') || ''}`} lead={V.leads.find(l => String(l._id) === (composeQ.get('record') || '')) || null} projects={V.projects} sets={V.sets}
+          loading={callLeadsLoading || projectsLoading || forceLoading} leadsError={!!errors.leads} onRetryLeads={loadCallLeads}
+          templateId={composeQ.get('template') || ''} projectId={composeQ.get('project') || ''} invoiceId={composeQ.get('invoice') || ''} onBack={navBack ? navBack.back : () => go('leads')} />
       )}
       {section === 'showcase' && (
         <AdminShowcase

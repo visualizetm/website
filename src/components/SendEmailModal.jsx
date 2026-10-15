@@ -6,6 +6,7 @@ import { buildEmailPayload } from '../lib/emailPayload';
 import { applySendResult } from '../lib/emailSend';
 import { money } from '../shared/format';
 import { fmtDate } from '../shared/dates';
+import { sendDoor } from '../lib/compose';
 
 /* The send modal (CRM revamp, step 6): one small Modal for the four
  * branded emails. It shows who it goes to (the lead's email, editable in
@@ -23,8 +24,13 @@ export function useSendEmail({ lead, patch, onSent }) {
   const toast = useToast();
   const [req, setReq] = useState(null); // { kind, invoice, project }
   const [busy, setBusy] = useState(false);
-  const connected = (kind) => !!shell?.emails?.[kind];
-  const open = (kind, extra = {}) => setReq({ kind, invoice: extra.invoice || null, project: extra.project || null });
+  const connected = (kind) => !!shell?.emails?.[kind] || !!shell?.emails?.resend;
+  /* The email system (milestone 3): once Resend is connected the four buttons open Compose on their template; until then the Zapier modal stays (the fallback switch, src/lib/compose.js sendDoor). */
+  const open = (kind, extra = {}) => {
+    const door = sendDoor(shell?.emails, kind);
+    if (door.compose && shell?.openCompose) { shell.openCompose(lead, { templateId: door.compose, project: extra.project || null, invoice: extra.invoice || null }); return; }
+    setReq({ kind, invoice: extra.invoice || null, project: extra.project || null });
+  };
   const send = async () => {
     if (!req || !lead?.email) return;
     setBusy(true);

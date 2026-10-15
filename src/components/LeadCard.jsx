@@ -27,7 +27,7 @@ import { deleteBlockReason } from '../lib/booked';
  * @param {boolean} [props.checked]
  * @param {Function} [props.onCheck] (next: boolean); the checkbox renders only in select mode (`selectable`)
  * @param {boolean} [props.selectable] select mode is on
- * @param {{ onPriority?, onStatus?, onStatusStep?, onDelete?, onOpenSocials?, onAddToList?, onRemoveFromList?, onDecline? }} [props.actions] menu handlers; omit for no menu.
+ * @param {{ onPriority?, onStatus?, onStatusStep?, onDelete?, onOpenSocials?, onAddToList?, onRemoveFromList?, onDecline?, onEmail? }} [props.actions] menu handlers; omit for no menu.
  *   onStatusStep moves the lead one column left or right (Shift+ArrowLeft, Shift+ArrowRight on the focused card): the keyboard path for the kanban.
  * @param {import('react').ReactNode} [props.pill] the one pill (default: the call status)
  * @param {import('react').ReactNode} [props.line] line two (default: industry and area, or the descriptor, and the phone as a tel link)
@@ -44,6 +44,7 @@ export function leadMenuItems(lead, actions) {
   const block = deleteBlockReason(lead);
   const items = [];
   if (lead.phone) items.push({ id: 'call', label: `Call ${formatPhone(lead.phone)}`, icon: 'Phone', onSelect: () => { window.location.href = telHref(lead.phone); } });
+  if (actions.onEmail) items.push({ id: 'email', label: 'Email', icon: 'Mail01', onSelect: () => actions.onEmail() });
   if (actions.onPriority) items.push('divider', ...PRIORITIES.map(p => ({ id: `p:${p.id}`, label: `Priority: ${p.label}${lead.priority === p.id ? ' (current)' : ''}`, icon: p.icon, disabled: lead.priority === p.id, onSelect: () => actions.onPriority(p.id) })));
   if (actions.onStatus) items.push('divider', ...CALL_STATUSES.filter(s => s.id !== 'booked').map(s => ({ id: `s:${s.id}`, label: `Status: ${s.label}${(lead.callStatus || 'not-called') === s.id ? ' (current)' : ''}`, icon: s.icon, disabled: (lead.callStatus || 'not-called') === s.id, onSelect: () => actions.onStatus(s.id) })));
   const firstSocial = SOCIALS.map(([k]) => lead.socials?.[k]).find(Boolean);

@@ -16,7 +16,7 @@ import PhoneCall01 from '@untitled-ui/icons-react/build/esm/PhoneCall01';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Trophy01 from '@untitled-ui/icons-react/build/esm/Trophy01';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Tabs, Sheet, Modal, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
+  PageShell, ScrollArea, StickyFooterBar, Row, Stack, Card, Button, Chip, Tabs, Sheet, Modal, Textarea, SegmentedControl, Stagger, useConfirm, SkeletonBlock, SkeletonCircle, SkeletonText, useToast, useMediaQuery,
 } from '../ui';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { usePush, sectionRootOf } from '../shell/nav-history';
@@ -27,6 +27,8 @@ import { isTask } from '../lib/tasks';
 import CallbackPicker from './CallbackPicker';
 import { useDecline } from './DeclineSheet';
 import { useSendEmail } from './SendEmailModal';
+import { suggestEmail } from '../shared/taskRules';
+import { templateName, knownTemplate } from '../lib/compose';
 import { useClientWorkspace, copyText } from './ClientWorkspace';
 import { liveNextAction, nextActionFor } from '../lib/nextAction';
 import { dealOf, metPatch, tickPatch, checkpointOf } from '../lib/deal';
@@ -130,6 +132,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const email = useSendEmail({ lead, patch: patchRaw, onSent: () => shell?.refreshLeads?.() });
   const cw = useClientWorkspace({ lead, projects: client?.projects || [], patch, patchRaw, onCreateProject: client?.onCreateProject, onPatchProject: client?.onPatchProject, readOnly, openTab });
   const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => closeRecord() });
+  const suggested = shell?.openCompose && !readOnly ? knownTemplate(suggestEmail(lead, { project: cw.current || null, sets: shell?.sets || [], projects: shell?.projects || [] })) : null;
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -233,7 +236,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       { id: 'task', label: taskNow ? 'Edit task' : 'Set task', icon: 'CheckCircle', onSelect: openTask },
     ] : []),
     { id: 'text', label: 'Text', icon: 'MessageCircle01', disabled: !lead.phone, onSelect: () => { window.location.href = `sms:${String(lead.phone).replace(/[^0-9+]/g, '')}`; } },
-    { id: 'mail', label: 'Email', icon: 'Mail01', disabled: !lead.email, onSelect: () => { window.location.href = `mailto:${lead.email}`; } },
+    { id: 'mail', label: 'Email', icon: 'Mail01', disabled: !shell?.openCompose && !lead.email, onSelect: () => { if (shell?.openCompose) shell.openCompose(lead, { project: cw.current || null }); else window.location.href = `mailto:${lead.email}`; } },
     { id: 'ig', label: 'Instagram', icon: 'Camera01', disabled: !social('instagram'), onSelect: () => openUrl(social('instagram')) },
     { id: 'fb', label: 'Facebook', icon: 'ThumbsUp', disabled: !social('facebook'), onSelect: () => openUrl(social('facebook')) },
     { id: 'web', label: 'Website', icon: 'Globe01', disabled: !social('website'), onSelect: () => openUrl(social('website')) },
@@ -268,6 +271,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const openRow = (id) => { if (id === 'tasks' && tasksLink) { shell.openTasks(lead); return; } openTab(id); };
   const quick = clientMode && !readOnly ? [
     { id: 'callback', label: lead.callbackAt ? `Callback, ${fmtDateTime(lead.callbackAt)}` : 'Set a callback', icon: 'PhoneIncoming01', onClick: () => setCbOpen(true) },
+    shell?.openCompose ? { id: 'email', label: 'Email', icon: 'Mail01', onClick: () => shell.openCompose(lead, { project: cw.current || null }) } : null,
     { id: 'newproj', label: 'New project', icon: 'Plus', onClick: cw.openNew },
     (!cw.ret || cw.ret.status === 'cancelled') ? { id: 'ret', label: 'Start a retainer', icon: 'RefreshCw01', onClick: cw.openRet } : null,
     { id: 'task', label: taskNow ? 'Edit task' : 'Set task', icon: 'CheckCircle', onClick: openTask },
@@ -288,6 +292,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
         <Stagger className={`rc-inner${clientMode ? ' rc-inner--ws' : ''}`} cap={5}>
           {!(phone && phoneTab) && header}
           {!(phone && phoneTab) && next && !next.doneAt ? <NextActionStrip rec={rec} /> : null}
+          {/* The suggested email (the email system): one chip under the next action, from the shared rule; it opens Compose on that template. */}
+          {!(phone && phoneTab) && suggested && shell?.openCompose ? <div className="rc-suggest"><Chip icon="Mail01" label={`Suggested email: ${templateName(suggested)}`} onClick={() => shell.openCompose(lead, { templateId: suggested, project: cw.current || null })} className="rc-suggest-chip" /></div> : null}
           {mode === 'lead' && !(phone && phoneTab) ? <SocialsStrip rec={rec} onAdd={() => setEditAll(true)} /> : null}
           {/* A client (workspace redesign): the profile card and the four workspace cards, then the quick actions, under the strip at every width. */}
           {!(phone && phoneTab) && workspace}

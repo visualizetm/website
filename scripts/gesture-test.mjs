@@ -225,6 +225,22 @@ await step('a block: the grip drags it without scrolling the page, a swipe left 
   need((await order()).length === n0, 'a swipe on the block being typed in deleted it');
   return 'reordered by the grip with the page still, swipe deleted with Undo, a focused block is left alone';
 });
+/* ── Compose (the email system) ─────────────────────────────────────── */
+await step('edge Back from Compose returns to the record, and the edit is kept as a draft', async (page) => {
+  const g = await open(page, '/admin/deals'); await g.wait(600);
+  await page.evaluate(() => localStorage.removeItem('vz_email_draft:L8:intro_call'));
+  await page.locator('.sh-content [data-row-id="L8"] .v-stretch').first().evaluate(el => el.click()); await g.wait(900);
+  need((await state(page)).chrome === 'focused', 'the record is not a focused screen');
+  await page.locator('.sh-content').getByRole('button', { name: /^Suggested email/ }).first().click(); await g.wait(1400);
+  need((await state(page)).path.startsWith('/admin/email/compose'), `Compose did not open: ${(await state(page)).path}`);
+  need((await state(page)).chrome === 'focused', 'Compose is not a focused screen');
+  await page.locator('.ee-subject input').fill('Edited on the way out'); await g.wait(600);
+  await drag(g, 6, 400, 300, 401, 10, 16); await g.t('touchEnd'); await g.wait(900);
+  need((await state(page)).path === '/admin/deals', `edge Back landed on ${(await state(page)).path}`);
+  const draft = await page.evaluate(() => localStorage.getItem('vz_email_draft:L8:intro_call'));
+  need(draft && /Edited on the way out/.test(draft), 'the edit was not kept as a draft');
+  return 'Compose opened from the suggestion chip, edge Back returned to the record, the draft survived';
+});
 await step('edge Back from a doc returns to the client\'s docs, and the doc was saved', async (page) => {
   const writes = []; page.on('request', r => { if (r.method() === 'PATCH' && /admin\/docs/.test(r.url())) writes.push(r.postData()); });
   const g = await open(page, '/admin/clients/L11/docs'); await g.wait(800);

@@ -17,6 +17,14 @@
  */
 import { computeAnalytics } from '../src/lib/analytics.js';
 import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from '../src/lib/reviewPublic.js';
+/* The email system (milestone 3): the mocked preview renders with the real renderer and templates over these fixtures, so Compose, the
+   Emails section and Settings, Emails see the HTML the server would make; nothing here needs a database or a key. */
+import { renderEmail } from '../api/_lib/email/render.js';
+import { EMAIL_TEMPLATES, effectiveTemplate, templateOf } from '../api/_lib/email/templates.js';
+import { resolveVars, varRows } from '../api/_lib/email/vars.js';
+import { availabilityFor, lackingOf } from '../api/_lib/email/send.js';
+import { invoicesOf } from '../api/_lib/invoices.js';
+import { dealOf } from '../api/_lib/deal.js';
 // Hostile fixtures: very long unbroken + slash-joined names, long emails.
 export const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
 export const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat(40);
@@ -574,6 +582,52 @@ export const PAYLOADS = {
 };
 export const EMPTY = { docs: { items: [] }, settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, delivery: false };
+/* The email system's admin endpoints (/api/admin/email/<action>), one handler the Playwright mocks and the mock server share. Not
+   connected (no key): every send is a test send that answers ok, nothing leaves. */
+export const EMAIL_SENDER = { name: 'Rob at Visualize', address: 'contact@visualizeclients.com', replyTo: 'contact@visualizeclients.com' };
+export const EMAIL_STATUS = { connected: false, sender: EMAIL_SENDER, from: 'Rob at Visualize <contact@visualizeclients.com>', sentLastHour: 0, limit: 30 };
+export const EMAIL_SETTINGS = { settings: { sender: EMAIL_SENDER, signatureName: 'Rob', calendlyLink: '', invoiceTerms: {}, invoiceCounter: 0, automation: {}, templates: {} }, templates: EMAIL_TEMPLATES, connected: false };
+export const emailLog = [];
+export const UNSUB_TOKEN = 'unsubTESTtoken0123456789';
+export function emailPreviewPayload(body = {}) {
+  const lead = leads.find(l => String(l._id) === String(body.recordId)) || null;
+  if (!lead) return { status: 404, body: { error: 'not found' } };
+  const base = templateOf(body.templateId);
+  if (!base) return { status: 400, body: { error: 'templateId must name a template' } };
+  const project = body.projectId ? projects.find(p => String(p._id) === String(body.projectId) && String(p.leadId) === String(lead._id)) || null : null;
+  if (body.projectId && !project) return { status: 404, body: { error: 'project not found' } };
+  const invoice = body.invoiceId ? (project ? invoicesOf(project) : invoicesOf(dealOf(lead))).find(i => i.id === String(body.invoiceId)) || null : null;
+  const ctx = { lead, project, invoice, projects: projects.filter(p => String(p.leadId) === String(lead._id) && !p.archived), sets: sets.filter(x => String(x.leadId) === String(lead._id)), settings: EMAIL_SETTINGS.settings, profile: SETTINGS_DOC.profile };
+  const vars = resolveVars(ctx);
+  const tpl = effectiveTemplate(base.id, {}, { service: vars.service || 'general' });
+  const o = body.override && typeof body.override === 'object' ? body.override : {};
+  const draft = { ...tpl, ...(typeof o.subject === 'string' ? { subject: o.subject } : {}), ...(typeof o.preheader === 'string' ? { preheader: o.preheader } : {}), ...(Array.isArray(o.blocks) ? { blocks: o.blocks } : {}) };
+  const marketing = base.class === 'marketing';
+  const rendered = renderEmail({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, vars, marketing, optOutUrl: marketing ? `https://visualizestudio.org/u/${UNSUB_TOKEN}` : '' });
+  const lacking = lackingOf(base, draft, vars);
+  const template = { id: base.id, name: base.name, group: base.group, class: base.class, when: base.when, service: tpl.service, edited: false, subject: tpl.subject, preheader: tpl.preheader, blocks: tpl.blocks };
+  return { status: 200, body: { subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: lead.email ? [String(lead.email).trim().toLowerCase()] : [], vars: varRows(vars), available: !lacking.length, lacking, class: base.class, service: tpl.service, edited: false, optedOut: marketing && !!lead.emailOptOut, connected: false, template, availability: availabilityFor(ctx, vars) } };
+}
+export function emailHandler(method, action, query = {}, body = {}) {
+  if (action === 'status') return { status: 200, body: EMAIL_STATUS };
+  if (action === 'preview') return emailPreviewPayload(body);
+  if (action === 'send') {
+    if (!templateOf(body.templateId)) return { status: 400, body: { error: 'templateId must name a template' } };
+    const message = "Test only, email isn't connected yet.";
+    if (body.testToSelf) return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: 'EL1', toSelf: true, message } };
+    if (body.sendAt) return { status: 200, body: { ok: true, queued: true, sendAt: body.sendAt, logId: 'EL2' } };
+    return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: 'EL3', stamped: [], message } };
+  }
+  if (action === 'log') return method === 'GET' ? { status: 200, body: query.id ? { item: emailLog.find(e => String(e._id) === String(query.id)) || null } : { items: emailLog.filter(e => (query.projectId ? e.projectId === query.projectId : e.recordId === query.recordId)) } } : { status: 200, body: { ok: true } };
+  if (action === 'settings') return method === 'GET' ? { status: 200, body: EMAIL_SETTINGS } : { status: 200, body: { ok: true, settings: EMAIL_SETTINGS.settings } };
+  return { status: 404, body: { error: 'not found' } };
+}
+/** The public opt out door (/api/unsubscribe): the one fixture token, the same 404 for anything else. */
+export function unsubscribeHandler(method, query = {}, body = {}) {
+  if ((query.token || '') !== UNSUB_TOKEN) return { status: 404, body: { error: 'not found' } };
+  if (method === 'GET') return { status: 200, body: { business: leads[8].business, firstName: 'Owner', optedOut: false } };
+  return { status: 200, body: { ok: true, optedOut: body.action !== 'undo' } };
+}
 const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'audit: forced failure' }) });
 
 /** Register every admin API mock on a Playwright page. */
@@ -642,6 +696,20 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/log', r => r.fulfill(json({ ok: true, items: [] })));
   // CRM revamp, step 6: every send answers ok; the record's stamps come from the server in production.
   await page.route('**/api/admin/send-email', r => r.fulfill(json({ ok: true, sentAt: NOW_ISO })));
+  /* The email system (milestone 3): every admin email action, rendered over the fixtures; failing 'email' breaks the preview. */
+  await page.route('**/api/admin/email/**', (r) => {
+    if (failing.has('email')) return r.fulfill(fail());
+    const u = new URL(r.request().url()); const action = u.pathname.split('/').pop();
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    const out = emailHandler(r.request().method(), action, Object.fromEntries(u.searchParams.entries()), b);
+    return r.fulfill({ status: out.status, contentType: 'application/json', body: JSON.stringify(out.body) });
+  });
+  await page.route('**/api/unsubscribe**', (r) => {
+    const u = new URL(r.request().url());
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    const out = unsubscribeHandler(r.request().method(), Object.fromEntries(u.searchParams.entries()), b);
+    return r.fulfill({ status: out.status, contentType: 'application/json', body: JSON.stringify(out.body) });
+  });
   await page.route('**/api/admin/call-leads**', r => (r.request().method() === 'GET' ? respond(r, 'leads', PAYLOADS.leads()) : r.fulfill(json({ ok: true, item: { ...leads[0], _id: 'LNEW' } }))));
   await page.route('**/api/admin/orders**', r => (r.request().method() === 'GET' ? respond(r, 'orders', PAYLOADS.orders()) : r.fulfill(json({ ok: true, created: 2, item: { ...orders[0], _id: 'ONEW' } }))));
   await page.route('**/api/admin/concept-packs**', r => respond(r, 'packs', PAYLOADS.packs()));
