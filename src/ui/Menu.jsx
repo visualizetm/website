@@ -36,7 +36,7 @@ export default function Menu({ items, trigger, label = 'Actions', align = 'end',
     <span className={`v-menu ${className}`.trim()}>
       {trig}
       <Popover open={open} onClose={close} anchorRef={anchorRef} align={align} trap label={label}>
-        <div ref={listRef} role="menu" aria-label={label} className="v-menu-list" onKeyDown={onKey}>
+        <div ref={listRef} role="menu" aria-label={label} className="v-menu-list" onKeyDown={onKey} data-v-enter="">
           {items.map((it, i) => it === 'divider' ? <hr key={`d${i}`} className="v-menu-div" /> : (
             <button key={it.id} type="button" role="menuitem" className={`v-menu-item${it.danger ? ' is-danger' : ''}`} disabled={it.disabled}
               onClick={() => { close(); it.onSelect?.(); }}>

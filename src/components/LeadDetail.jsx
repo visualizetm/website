@@ -381,7 +381,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
     );
   }
   const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
-  const ctxH = phone ? (m === 'client' ? 0 : triage ? 42 : 36) : m === 'client' ? 14 : m === 'deal' ? 36 : 18;
+  const ctxH = phone ? (m === 'client' ? 0 : triage ? 42 : 36) : m === 'client' ? 10 : m === 'deal' ? 32 : 18;
   const head = (
     <header className={`rc-head${phone ? ' rc-head--phone' : ''}`}>
       {!phone && <span className="rc-avatar"><SkeletonCircle size={44} /></span>}
@@ -395,7 +395,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
   );
   /* The Next up strip rides on a deal and on a client (its task due soonest); the suggested email chip (the email system) sits under it on both. */
   const strip = m === 'deal' || m === 'client' ? <div className="rc-next"><SkeletonBlock width={18} height={18} /><span className="rc-next-text" style={{ height: phone ? 54 : 26 }}><SkeletonBlock width={160} height={16} /></span><SkeletonBlock width={72} height={44} radius="var(--v-radius-md)" /></div> : null;
-  const suggest = m === 'deal' || m === 'client' ? <div className="rc-suggest"><SkeletonBlock width={275} height={44} radius="var(--v-radius-pill)" className="rc-suggest-chip" /></div> : null;
+  const suggest = m === 'deal' || m === 'client' ? <div className="rc-suggest"><SkeletonBlock width={m === 'deal' ? 269 : 275} height={44} radius="var(--v-radius-pill)" className="rc-suggest-chip" /></div> : null;
   const first = m === 'client'
     /* The project card runs the height of a project with its tasks and invoices (about 490px at 390). */
     ? <Card style={{ minHeight: phone ? 493 : undefined }}><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
@@ -415,7 +415,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
   const workspace = m === 'client' ? (
     <>
       <div className="rc-ws">
-        <div className="rc-pf"><div className="rc-pf-top"><span className="v-avatar v-avatar--lg rc-skel-avatar" aria-hidden="true" /><div className="rc-pf-id"><SkeletonBlock width="70%" height={phone ? 26 : 52} /><SkeletonBlock width="50%" height={18} /><SkeletonBlock width="80%" height={phone ? 18 : 36} /><SkeletonBlock width="60%" height={18} /></div></div><div className="rc-pf-actions">{Array.from({ length: 7 }, (_, i) => <span key={i} className="v-ibtn v-ibtn--secondary v-ibtn--md rc-skel-ibtn" aria-hidden="true" />)}</div><div className="rc-pf-foot">{btn(132, 1)}{btn(129, 2)}<SkeletonBlock width={134} height={44} radius="var(--v-radius-md)" style={{ marginLeft: 'auto' }} /></div></div>
+        <div className="rc-pf"><div className="rc-pf-top"><span className="v-avatar v-avatar--lg rc-skel-avatar" aria-hidden="true" /><div className="rc-pf-id"><SkeletonBlock width="70%" height={phone ? 26 : 25} />{!phone && <SkeletonBlock width="45%" height={25} />}<SkeletonBlock width="50%" height={18} /><SkeletonBlock width="80%" height={phone ? 18 : 36} /><SkeletonBlock width="60%" height={18} /></div></div><div className="rc-pf-actions">{Array.from({ length: 7 }, (_, i) => <span key={i} className="v-ibtn v-ibtn--secondary v-ibtn--md rc-skel-ibtn" aria-hidden="true" />)}</div><div className="rc-pf-foot">{btn(132, 1)}{btn(129, 2)}<SkeletonBlock width={134} height={44} radius="var(--v-radius-md)" style={{ marginLeft: 'auto' }} /></div></div>
         <div className="rc-ws-grid">{['showcase', 'planner', 'tasks', 'concepts'].map((id, i) => <div key={id} className="rc-ws-card"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body" style={{ minHeight: bodies[i] }}><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>)}
           <div className="rc-ws-card rc-ws-card--portal"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body" style={{ minHeight: 48 }}><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>
           <div className="rc-ws-card rc-docs"><div className="rc-docs-head"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={48} height={14} /></div><SkeletonBlock width={116} height={44} radius="var(--v-radius-md)" /></div><div className="rc-docs-rows">{['var(--sk-a)', 'var(--sk-b)', 'var(--sk-a)'].map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-md)" />)}</div><div className="rc-docs-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>
@@ -443,8 +443,8 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
           ) : (
             <>
               {m !== 'client' && <div className="rc-facts">{Array.from({ length: SKELETON_FACTS[m] * 2 }, (_, i) => <div key={i} className="rc-fact"><SkeletonBlock width={60} height={10} /><SkeletonBlock width={i % 2 ? '50%' : '70%'} height={14} /></div>)}</div>}
-              {/* The angle: three lines on a lead, four on a triage record (the scraped pitch runs longer, and Inter sets wider than the system face that painted before it). */}
-              {m !== 'client' && <div className="rc-angle" style={{ minHeight: triage ? 90 : 68 }}><SkeletonText lines={triage ? 4 : 3} /></div>}
+              {/* The angle: three lines on a lead, four on a triage record (the scraped pitch runs longer, and Inter sets wider than the system face that painted before it) and on a deal. */}
+              {m !== 'client' && <div className="rc-angle" style={{ minHeight: triage || m === 'deal' ? 90 : 68 }}><SkeletonText lines={triage || m === 'deal' ? 4 : 3} /></div>}
               <div className="v-tabs rc-tabs" style={{ minHeight: 45 }}>{[...SECTIONS_BY_MODE[m].filter(id => id !== 'details' && id !== 'profile'), ...(m === 'client' ? ['tasks'] : [])].map(id => <SkeletonBlock key={id} width={72} height={16} />)}</div>
               <div className="rc-panel">{first}</div>
             </>

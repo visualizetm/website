@@ -345,10 +345,13 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
 
   if (loading) {
     const body = <Stack gap={5}>{!desktop && <div className="db-next"><NextUpSkeleton /></div>}</Stack>;
+    /* The same pane and shell the loaded screen uses, so the skeleton's rows and the hint sit where the loaded ones land. */
     return desktop ? (
       <>
-        <aside className="aa-panel db-panel" aria-label="Tasks"><div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div><ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea></aside>
-        <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="db-hint">{showSkel && <SkeletonBlock width={320} height={240} radius="var(--v-radius-lg)" className="db-hint-box" />}</div><style>{dbStyles}</style></div>
+        <CollapsiblePane id="tasks" label="Tasks" className="db-panel" rail={[]} head={<div className="db-panel-head">{showSkel && <><SkeletonBlock width={60} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></>}</div>}>
+          <ScrollArea bare className="db-panel-scroll">{showSkel && <NextUpSkeleton />}</ScrollArea>
+        </CollapsiblePane>
+        <PageShell className="aa-main aa-main--wide db-page" label="the record"><div className="db-hint" aria-busy="true">{showSkel && <SkeletonBlock width={452} height={240} radius="var(--v-radius-lg)" className="db-hint-box" />}</div><style>{dbStyles}</style></PageShell>
       </>
     ) : (
       <div className="aa-main aa-main--wide lay-scroll db-page" aria-busy="true"><div className="lay-content lay-content--wide">{showSkel && body}</div><style>{dbStyles}</style></div>
