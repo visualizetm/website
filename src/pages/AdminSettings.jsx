@@ -18,6 +18,7 @@ import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
 import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
 import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
+import EmailSettingsPanel from '../components/email/EmailSettingsPanel';
 import { fetchDeletedDocs, restoreDoc, typeLabel } from '../lib/docs';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
@@ -31,10 +32,10 @@ import { readLocalOrders, planImport, itemSummary, orderSubtotal } from '../lib/
  * Shortcuts moved to the account menu (src/shell/ShortcutsSheet.jsx). */
 
 export const SETTINGS_TABS = [
-  { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' },
+  { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' }, { id: 'emails', label: 'Emails', icon: 'Mail01' },
   { id: 'templates', label: 'Doc templates', icon: 'File02' }, { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
-const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
+const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', emails: 'The sender, the templates, what goes out on its own', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
 const nextRun = (lastRunAt, minutes) => { const base = lastRunAt ? new Date(lastRunAt).getTime() : Date.now(); return new Date(base + minutes * 60e3); };
@@ -196,7 +197,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
-  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, templates: 7, data: 4, danger: 3 };
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, emails: 5, templates: 7, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
   const tablet = useMediaQuery('(min-width: 768px)');
   const narrow = !desktop && !tablet; // descriptions wrap to two lines under 768
@@ -215,11 +216,13 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
     templates: { n: [88, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
+    emails: { n: [150, 442, 760, 560, 320], d: [96, 442, 742, 560, 320] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
     : tab === 'templates' ? <Card key={i} className="st-card" style={{ minHeight: heightFor(i) }}>{line(160, 12)}</Card>
     : narrow && tab === 'integrations' && i === 0 ? <Card key={i} className="st-card" style={{ minHeight: 96 }}>{line(160, 12)}{line('70%', 14)}</Card>
+    : tab === 'emails' && i === 0 ? <Card key={i} className="st-card" style={{ minHeight: heightFor(0) }}>{line(160, 12)}{line('70%', 14)}</Card>
     : <Card key={i} className="st-card" style={heightFor(i) ? { minHeight: heightFor(i) } : undefined}>{line(160, 12)}<SkeletonText lines={2} /><SkeletonBlock height={44} radius="var(--v-radius-md)" /></Card>);
   const body = pending ? null : showSkel ? (
     <Stack gap={3} className="st-stack" aria-busy="true">{Array.from({ length: (narrow && tab === 'integrations' ? 3 : TAB_CARDS[tab]) || 3 }, (_, i) => skeletonCard(i))}</Stack>
@@ -330,16 +333,16 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       </Card>
       <Card className="st-card st-integration st-emails">
         <Row gap={3} align="start"><IconTile icon="Mail01" tone={emailsOn === 4 ? 'booked' : emailsOn ? 'new' : 'neutral'} size="md" /><Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Emails</p>{statusPill(emailsOn === 4, 'Connected', emailsOn ? `${emailsOn} of 4 connected` : 'Not connected', emailsOn > 0)}</Row>
+          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{emails.resend ? 'Zapier emails' : 'Emails'}</p>{emails.resend ? <Pill tone="neutral" label="Retired" size="sm" icon={false} variant="outline" /> : statusPill(emailsOn === 4, 'Connected', emailsOn ? `${emailsOn} of 4 connected` : 'Not connected', emailsOn > 0)}</Row>
           <Stack gap={1}>
             {EMAIL_KINDS.map(([k, label]) => (
               <Row key={k} gap={2} align="center" justify="between" wrap className="st-email-row">
                 <Row gap={2} align="center" wrap><span className="st-email-label">{label}</span>{statusPill(!!emails[k], 'Connected', 'Not connected')}</Row>
-                {emails[k] && <Button variant="secondary" size="md" icon="Send01" loading={testing === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
+                {emails[k] && !emails.resend && <Button variant="secondary" size="md" icon="Send01" loading={testing === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
               </Row>
             ))}
           </Stack>
-          <p className="dt-muted">Each email is a Zapier catch hook. The hook URL goes in Vercel as an environment variable (ZAPIER_HOOK_INTRO, ZAPIER_HOOK_ONBOARDING, ZAPIER_HOOK_INVOICE, ZAPIER_HOOK_DELIVERY).</p>
+          <p className="dt-muted">{emails.resend ? 'Retired: Resend is connected, so Compose sends every email now and these hooks answer nothing. Turn off the old Google Form Zaps and delete the ZAPIER_HOOK_* variables in Vercel.' : 'Each email is a Zapier catch hook. The hook URL goes in Vercel as an environment variable (ZAPIER_HOOK_INTRO, ZAPIER_HOOK_ONBOARDING, ZAPIER_HOOK_INVOICE, ZAPIER_HOOK_DELIVERY). Add RESEND_API_KEY and Compose takes over (Settings, Emails).'}</p>
         </Stack></Row>
       </Card>
       <Card className="st-card st-integration">
@@ -376,6 +379,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <Card className="st-card"><p className="pb-card-h">Nightly jobs outside this app</p><p className="dt-muted">The enrichment scan and the scraper write straight into call_leads from their own schedule. Their last run shows under Integrations, and the drawer warns when either is quiet for 36 hours.</p></Card>
       <ClientLogCard />
     </Stagger>
+  ) : tab === 'emails' ? (
+    <EmailSettingsPanel leads={leads} />
   ) : tab === 'templates' ? (
     <DocTemplatesPanel docsApi={shell?.docsApi} />
   ) : tab === 'data' ? (

@@ -1,12 +1,13 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { emailConnected, fromLine, senderOf, isEmail, SENDS_PER_HOUR, sendsThisHour } from '../_lib/email/transport.js';
-import { readEmailSettings, emailSettingsOf, EMAIL_SETTINGS_ID, AUTOMATION_IDS } from '../_lib/email/settings.js';
+import { readEmailSettings, emailSettingsOf, EMAIL_SETTINGS_ID, AUTOMATION_IDS, INVOICE_KIND_IDS } from '../_lib/email/settings.js';
 import { EMAIL_TEMPLATES, TEMPLATE_IDS, SERVICE_IDS } from '../_lib/email/templates.js';
 import { sanitizeBlocks } from '../_lib/email/render.js';
 import { varRows } from '../_lib/email/vars.js';
 import { loadContext, composeEmail, sendComposed, availabilityFor } from '../_lib/email/send.js';
 import { logFor, logById, recentLog, updateLog } from '../_lib/email/log.js';
+import { sendDraft } from '../_lib/email/drafts.js';
 import { safeUrl } from '../_lib/url.js';
 
 /* The email system's admin endpoints, one dispatched route: vercel.json
@@ -24,7 +25,8 @@ import { safeUrl } from '../_lib/url.js';
  *                          action on the same request; testToSelf goes to the sender with "[Test]" and ticks nothing
  *   GET  email/log         ?recordId= or ?projectId= (the entries, newest first, no html), ?id= (one entry with its
  *                          html), ?recent=1 (the last fifty across every record, failures first)
- *   POST email/log         { id, cancel: true } cancels a queued send (it becomes a draft)
+ *   POST email/log         { id, cancel: true } cancels a queued send (it becomes a draft); { id, send: true, confirmDuplicate?, driveShared? }
+ *                          sends a draft or a queued entry now, rendered again from the record onto the same entry, and ticks its task
  *   GET  email/settings    { settings, templates (the defaults), connected }
  *   PUT  email/settings    { sender?, signatureName?, calendlyLink?, invoiceTerms?, automation?, templates? } merged;
  *                          templates[id] of null deletes the override (Reset to default)
@@ -37,7 +39,6 @@ const actionOf = (req) => {
 };
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 const oid = (v) => { try { return new ObjectId(String(v)); } catch { return null; } };
-const INVOICE_KINDS = ['deposit', 'final', 'plan', 'retainer', 'custom'];
 
 /** Rob's override of one template: subject, preheader, blocks (or a variant's), auto. */
 function sanitizeTemplateOverride(o, had = null) {
@@ -48,8 +49,9 @@ function sanitizeTemplateOverride(o, had = null) {
   if (typeof o.subject === 'string') out.subject = str(o.subject, 200);
   if (typeof o.preheader === 'string') out.preheader = str(o.preheader, 200);
   if (Array.isArray(o.blocks)) out.blocks = sanitizeBlocks(o.blocks);
-  if (o.variants && typeof o.variants === 'object') out.variants = { ...(base.variants || {}), ...Object.fromEntries(Object.entries(o.variants).filter(([k, v]) => SERVICE_IDS.includes(k) && Array.isArray(v)).map(([k, v]) => [k, sanitizeBlocks(v)])) };
+  if (o.variants && typeof o.variants === 'object') out.variants = { ...(base.variants || {}), ...Object.fromEntries(Object.entries(o.variants).filter(([k, v]) => (SERVICE_IDS.includes(k) || INVOICE_KIND_IDS.includes(k) || k === 'general') && Array.isArray(v)).map(([k, v]) => [k, sanitizeBlocks(v)])) };
   if (typeof o.auto === 'boolean') out.auto = o.auto;
+  if (o.options && typeof o.options === 'object') out.options = { ...(base.options || {}), ...Object.fromEntries(Object.entries(o.options).filter(([k, v]) => /^[a-z_]{1,24}$/.test(k) && typeof v === 'boolean')) };
   out.updatedAt = new Date().toISOString();
   return out;
 }
@@ -82,7 +84,7 @@ export async function handler(req, res) {
       const template = { id: base.id, name: base.name, group: base.group, class: base.class, when: base.when, service: source.service, edited: source.edited, subject: source.subject, preheader: source.preheader, blocks: source.blocks };
       return res.status(200).json({ subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: composed.to, vars: varRows(composed.vars), available: composed.available, lacking: composed.lacking, class: base.class, service: composed.tpl.service, edited: composed.tpl.edited, optedOut: composed.marketing && !!ctx.lead.emailOptOut, connected: emailConnected(), template, availability: availabilityFor(ctx, composed.vars) });
     }
-    const r = await sendComposed(db, ctx, args, { to: b.to, cc: b.cc, testToSelf: b.testToSelf === true, confirmDuplicate: b.confirmDuplicate === true, sendAt: typeof b.sendAt === 'string' ? b.sendAt : '' });
+    const r = await sendComposed(db, ctx, args, { to: b.to, cc: b.cc, testToSelf: b.testToSelf === true, confirmDuplicate: b.confirmDuplicate === true, sendAt: typeof b.sendAt === 'string' ? b.sendAt : '', driveShared: b.driveShared === true });
     if (r.status === 429 && r.body.retryAfter) res.setHeader('Retry-After', String(r.body.retryAfter));
     return res.status(r.status).json(r.body);
   }
@@ -93,6 +95,11 @@ export async function handler(req, res) {
       if (!_id) return res.status(400).json({ error: 'id required' });
       const row = await logById(db, _id);
       if (!row) return res.status(404).json({ error: 'not found' });
+      if (b.send === true) {
+        const r = await sendDraft(db, row, { confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true });
+        if (r.status === 429 && r.body.retryAfter) res.setHeader('Retry-After', String(r.body.retryAfter));
+        return res.status(r.status).json(r.body);
+      }
       if (b.cancel !== true) return res.status(400).json({ error: 'nothing to do' });
       if (row.status !== 'queued') return res.status(409).json({ error: 'Only a queued email can be cancelled.' });
       await updateLog(db, _id, { status: 'draft', sendAt: '' });
@@ -117,7 +124,7 @@ export async function handler(req, res) {
     if (b.sender && typeof b.sender === 'object') next.sender = senderOf({ ...(cur.sender || {}), ...b.sender });
     if (typeof b.signatureName === 'string') next.signatureName = str(b.signatureName, 80) || 'Rob';
     if (typeof b.calendlyLink === 'string') next.calendlyLink = safeUrl(b.calendlyLink, 400);
-    if (b.invoiceTerms && typeof b.invoiceTerms === 'object') next.invoiceTerms = { ...(cur.invoiceTerms || {}), ...Object.fromEntries(Object.entries(b.invoiceTerms).filter(([k, v]) => INVOICE_KINDS.includes(k) && Array.isArray(v)).map(([k, v]) => [k, v.map(x => str(x, 300)).filter(Boolean).slice(0, 8)])) };
+    if (b.invoiceTerms && typeof b.invoiceTerms === 'object') next.invoiceTerms = { ...(cur.invoiceTerms || {}), ...Object.fromEntries(Object.entries(b.invoiceTerms).filter(([k, v]) => INVOICE_KIND_IDS.includes(k) && Array.isArray(v)).map(([k, v]) => [k, v.map(x => str(x, 300)).filter(Boolean).slice(0, 8)])) };
     if (b.automation && typeof b.automation === 'object') next.automation = { ...(cur.automation || {}), ...Object.fromEntries(Object.entries(b.automation).filter(([k, v]) => TEMPLATE_IDS.includes(k) && AUTOMATION_IDS.includes(v))) };
     if (b.templates && typeof b.templates === 'object') {
       const t = { ...(cur.templates || {}) };

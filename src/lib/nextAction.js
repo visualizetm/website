@@ -111,6 +111,9 @@ export function nextActionFor(record, ctx = {}, now = Date.now()) {
   /* Tasks (the task system): on a client and on a project, the task due soonest is the Next up; the pipeline rules only speak when no task is open. A lead keeps the pipeline rules. */
   const stage = isProject(record) ? 'client' : normalizeStage(record);
   if ((stage === 'client' || stage === 'won') && !record.archived) { const t = taskNextUp(record, now); if (t) return taskAsAction(t, true); }
+  /* The email system (milestone 8): a lead's drafted or failed email (a task carrying emailId, written by a rule or a failed send) is its next
+     step until it is sent or ticked; the pipeline rule speaks again after. The same Next up rule, over the email tasks alone. */
+  if (!isProject(record) && stage !== 'client' && stage !== 'won') { const t = taskNextUp({ checklists: (record.checklists || []).map(l => ({ ...l, items: (l?.items || []).filter(it => it && it.emailId) })) }, now); if (t) return taskAsAction(t, true); }
   return isProject(record) ? projectAction(record, c, now) : leadAction(record, c, now);
 }
 

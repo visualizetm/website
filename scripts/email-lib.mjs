@@ -32,7 +32,9 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
   for (const d of ['lib', 'shared', 'components/email']) fs.cpSync(path.join(srcSrc, d), path.join(srcDst, d), { recursive: true });
   const loadSrc = async (rel) => import(pathToFileURL(path.join(srcDst, rel)).href);
   fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
-  process.env.SESSION_SECRET = 'test-not-real'; delete process.env.VERCEL; delete process.env.RESEND_API_KEY;
+  /* Pushes are recorded, never sent: the stub stands in for web-push and the VAPID keys. */
+  fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const ownerSubs = async () => [];\nexport const clientSubs = async () => [];\nexport async function sendPush(db, msg) { (globalThis.__vzPushes ||= []).push({ ...msg }); }\nexport async function sendClientPush(db, leadId, msg) { (globalThis.__vzClientPushes ||= []).push({ leadId: String(leadId), ...msg }); }\nexport async function sendEmail() { return { ok: true }; }\n");
+  process.env.SESSION_SECRET = 'test-not-real'; process.env.CRON_SECRET = 'cron-test-secret'; delete process.env.VERCEL; delete process.env.RESEND_API_KEY;
   const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
   const { _stores, _reset } = await load('_lib/mongo.js');
   const { getDb } = await load('_lib/mongo.js');
@@ -164,10 +166,11 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const recent = await L.recentLog(db, { limit: 50 });
       ok(recent[0].status === 'failed' && recent.length === 4, `recentLog puts failures first (${recent.map(r => r.status).join(',')})`);
       await L.updateLog(db, old._id, { status: 'queued', sendAt: new Date(Date.now() - 60e3).toISOString() });
-      const due = await L.dueQueued(db);
-      ok(due.length === 1 && String(due[0]._id) === String(old._id), 'dueQueued answers the queued entry whose sendAt has passed');
+      const Q0 = await load('_lib/email/queue.js');
+      const due = await Q0.queuedDue(db, Date.now(), { byDay: false });
+      ok(due.length === 1 && String(due[0]._id) === String(old._id), 'by the instant, queuedDue answers the queued entry whose sendAt has passed');
       await L.updateLog(db, old._id, { sendAt: new Date(Date.now() + 3600e3).toISOString() });
-      ok((await L.dueQueued(db)).length === 0, 'and not one still in the future');
+      ok((await Q0.queuedDue(db, Date.now(), { byDay: false })).length === 0, 'and not one still in the future');
     }
     /* 5. the route: methods and unknown actions, the admin guard. */
     _reset();
@@ -188,10 +191,10 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
     {
       const bodyOf = (p) => fs.readFileSync(path.join(repoRoot, p), 'utf8').split('export const TEMPLATE_GROUPS')[1];
       ok(bodyOf('src/shared/emailTemplates.js') === bodyOf('api/_lib/email/templates.js'), 'api/_lib/email/templates.js is src/shared/emailTemplates.js byte for byte below the header');
-      const vars = { firstName: 'Mike', business: "Mike's Tacos", calendlyLink: 'https://calendly.com/visualize/intro', 'package.includes': ['Brand Starter', 'Web Essentials'], 'invoice.items': [{ label: 'Month 2 of 6', value: '$200' }], 'deliverables.groups': [{ name: 'Brand Files', note: 'Logo PNG, Logo SVG', count: 2 }] };
+      const vars = { firstName: 'Mike', business: "Mike's Tacos", calendlyLink: 'https://calendly.com/visualize/intro', 'package.includes': ['Brand Starter', 'Web Essentials'], 'invoice.items': [{ label: 'Month 2 of 6', value: '$200' }], 'deliverables.groups': [{ name: 'Brand Files', note: 'Logo PNG, Logo SVG', count: 2 }], 'invoice.pay': [{ label: 'Pay $200 with card or Apple Pay', url: 'https://buy.stripe.com/test_link', style: 'primary' }, { text: "Zelle: rob@example.com. Send $200 and I'll confirm." }] };
       const one = (block, extra = {}) => R.renderEmail({ subject: 'S', preheader: 'P', blocks: [block], vars, ...extra });
-      const marks = { eyebrow: ['text-transform:uppercase', 'Next step'], heading: ['<h1 ', 'Good talking'], text: ['<p style', 'Hello'], button: ['border-radius:999px', 'Book the call'], lines: ['Month 2 of 6', '$200'], totals: ['Due now', '$200'], list: ['&#8226;', 'Brand Starter'], box: ['background:#1A1A1A', 'The terms'], files: ['Brand Files', '2 files'], spacer: ['height:16px', '&nbsp;'] };
-      const blocks = { eyebrow: { type: 'eyebrow', text: 'Next step' }, heading: { type: 'heading', text: 'Good talking to you, {{firstName}}' }, text: { type: 'text', text: 'Hello {{firstName}}' }, button: { type: 'button', label: 'Book the call', url: '{{calendlyLink}}' }, lines: { type: 'lines', from: 'invoice.items' }, totals: { type: 'totals', rows: [{ label: 'Due now', value: '$200', big: true }] }, list: { type: 'list', from: 'package.includes' }, box: { type: 'box', title: 'The terms', tone: 'red', blocks: [{ type: 'text', text: 'Reply with questions.' }] }, files: { type: 'files', from: 'deliverables.groups' }, spacer: { type: 'spacer' } };
+      const marks = { eyebrow: ['text-transform:uppercase', 'Next step'], heading: ['<h1 ', 'Good talking'], text: ['<p style', 'Hello'], button: ['border-radius:999px', 'Book the call'], lines: ['Month 2 of 6', '$200'], totals: ['Due now', '$200'], list: ['&#8226;', 'Brand Starter'], box: ['background:#1A1A1A', 'The terms'], files: ['Brand Files', '2 files'], spacer: ['height:16px', '&nbsp;'], pay: ['Pay $200 with card or Apple Pay', 'Zelle: rob@example.com'] };
+      const blocks = { eyebrow: { type: 'eyebrow', text: 'Next step' }, heading: { type: 'heading', text: 'Good talking to you, {{firstName}}' }, text: { type: 'text', text: 'Hello {{firstName}}' }, button: { type: 'button', label: 'Book the call', url: '{{calendlyLink}}' }, lines: { type: 'lines', from: 'invoice.items' }, totals: { type: 'totals', rows: [{ label: 'Due now', value: '$200', big: true }] }, list: { type: 'list', from: 'package.includes' }, box: { type: 'box', title: 'The terms', tone: 'red', blocks: [{ type: 'text', text: 'Reply with questions.' }] }, files: { type: 'files', from: 'deliverables.groups' }, spacer: { type: 'spacer' }, pay: { type: 'pay', from: 'invoice.pay' } };
       for (const t of R.BLOCK_TYPES) { const r = one(blocks[t]); const [a, b] = marks[t]; ok(r.html.includes(a) && r.html.includes(b) && !r.missing.length, `the ${t} block renders (${a}, ${b})`); }
       ok(one(blocks.text).text.includes('Hello Mike') && one(blocks.button).text.includes('Book the call: https://calendly.com/visualize/intro') && one(blocks.list).text.includes('- Brand Starter'), 'the plain text part carries each block in words');
       const sc = one({ type: 'text', text: 'Hi <script>alert(1)</script> & "quotes"' });
@@ -217,12 +220,12 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(r.html.includes('<div style="display:none;') && r.html.includes('>P&nbsp;'), 'the preheader is hidden text at the top');
       ok(fs.existsSync(path.join(repoRoot, 'public/email/visualize-wordmark-reversed-480.png')) && fs.existsSync(path.join(repoRoot, 'public/email/visualize-icon-reversed-512.png')), 'the two brand PNGs are in public/email');
       const miss = R.renderEmail({ subject: 'Hi {{firstName}}', blocks: [{ type: 'text', text: '{{conceptLink}} and {{nothing}}' }, { type: 'button', label: 'x', url: '{{portalLink}}' }, { type: 'list', from: 'package.includes' }], vars: { firstName: 'Mike', conceptLink: '', 'package.includes': [] } });
-      ok(dump([...miss.missing].sort()) === dump(['conceptLink', 'nothing', 'package.includes', 'portalLink']), `every empty, null or absent variable is a missing field (${miss.missing.join(',')})`);
+      ok(dump([...miss.missing].sort()) === dump(['conceptLink', 'nothing', 'portalLink']), `every empty, null or absent variable in a text is a missing field; an empty from list draws nothing and is a need only when the template says so (${miss.missing.join(',')})`);
       ok(!/\{\{|undefined|null|NaN/.test(miss.html) && !/\{\{|undefined|null|NaN/.test(miss.text), 'and nothing like {{x}}, undefined, null or NaN reaches the output even then');
       const big = R.renderEmail({ subject: 'S', blocks: Array.from({ length: 40 }, () => ({ type: 'lines', rows: Array.from({ length: 30 }, (_, i) => ({ label: 'L'.repeat(120), sub: 'S'.repeat(160), value: String(i) })) })), vars });
       ok(big.tooBig === true && big.bytes > 90 * 1024 && big.warnings.some(w => /over the 90 KB limit/.test(w)), `an email past 90 KB is flagged (${Math.round(big.bytes / 1024)} KB)`, 'size-cap');
       ok(one(blocks.text).bytes < 90 * 1024 && one(blocks.text).tooBig === false, 'a normal email is well under it');
-      ok(dump(R.varsUsed({ subject: '{{a}}', preheader: '', blocks: [{ type: 'button', label: '{{b}}', url: '{{c}}' }, { type: 'list', from: 'd' }, { type: 'box', blocks: [{ type: 'text', text: '{{e}} {{a}}' }] }] }).sort()) === dump(['a', 'b', 'c', 'd', 'e']), 'varsUsed lists every variable a template reads, once');
+      ok(dump(R.varsUsed({ subject: '{{a}}', preheader: '', blocks: [{ type: 'button', label: '{{b}}', url: '{{c}}' }, { type: 'list', from: 'd' }, { type: 'button', label: 'x', url: '{{f}}', optional: true }, { type: 'box', blocks: [{ type: 'text', text: '{{e}} {{a}}' }] }] }).sort()) === dump(['a', 'b', 'c', 'e']), 'varsUsed lists every variable a template needs, once: not a from list, not an optional button\'s link');
     }
     /* 7. the templates: the lint over the whole set, the merge, the variants. */
     seedRecords();
@@ -467,7 +470,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(C.canSendNow(good) === true && C.canSendNow({ ...good, missing: ['calendlyLink'] }) === false && C.canSendNow({ ...good, to: [] }) === false && C.canSendNow({ ...good, optedOut: true }) === false && C.canSendNow({ ...good, sending: 'send' }) === false && C.canSendNow({ ...good, previewOk: false }) === false, 'Send is live only with an address, nothing missing, no opt out, nothing in flight and a preview', 'send-disabled-missing');
       { const m = C.sentMapOf([{ templateId: 'intro_call', status: 'sent', sentAt: '2026-10-01T00:00:00.000Z' }, { templateId: 'intro_call', status: 'test', toSelf: true, sentAt: '2026-10-14T00:00:00.000Z' }, { templateId: 'intro_call', status: 'sent', sentAt: '2026-10-03T00:00:00.000Z' }, { templateId: 'onboarding', status: 'failed', sentAt: '2026-10-05T00:00:00.000Z' }]); ok(m.intro_call === '2026-10-03T00:00:00.000Z' && !m.onboarding, `the sent map takes the newest real send and skips tests to Rob and failures (${dump(m)})`, 'sent-map-self'); }
       ok(C.isAddress('mike@mikestacos.example') && !C.isAddress('mike@') && !C.isAddress('nope'), 'the address check');
-      ok(C.knownTemplate('intro_call') === 'intro_call' && C.knownTemplate('contract_nudge') === null && C.knownTemplate(null) === null, 'a suggestion the registry does not hold yet is never offered', 'known-template');
+      ok(C.knownTemplate('intro_call') === 'intro_call' && C.knownTemplate('not_a_template') === null && C.knownTemplate(null) === null, 'a suggestion the registry does not hold is never offered', 'known-template');
       { const at = new Date(C.tomorrowNine(new Date(2026, 9, 15, 15, 0, 0))); ok(at.getHours() === 9 && at.getMinutes() === 0 && at.getDate() === 16 && at.getMonth() === 9, `tomorrow at 9am on this device (${at.toString()})`); }
       /* The log tells a test to Rob from a send, and the duplicate guard ignores the test. */
       r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, testToSelf: true });
@@ -482,6 +485,433 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(app.includes("p.startsWith('/email/compose')") && app.includes('onOpenCompose={openCompose}'), 'AdminApp routes /email/compose and hands openCompose to the shell');
       const modal = fs.readFileSync(path.join(repoRoot, 'src/components/SendEmailModal.jsx'), 'utf8');
       ok(modal.includes('sendDoor(shell?.emails, kind)') && modal.includes('shell.openCompose(lead, { templateId: door.compose'), 'the four old buttons go through the switch');
+    }
+    /* 13. Queued sends and failures (milestone 4): the cron's New York day rule, cancel, the failed send's task and push, Recent sends. */
+    seedRecords();
+    {
+      const Q = await load('_lib/email/queue.js');
+      const Z = await load('_lib/zone.js');
+      const cron = (await load('cron/[job].js')).default;
+      const cronCall = async () => { const req = { method: 'GET', query: { job: 'reminders' }, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }; const res = fakeRes(); await cron(req, res); return res; };
+      globalThis.__vzPushes = [];
+      const run8am = Date.parse('2026-01-20T13:00:00Z'); // the morning run, 8am in New York in winter
+      const at9 = (key) => new Date(Z.zoneDateAt(key, 9, 0)).toISOString();
+      const entry = { recordId: LEAD, templateId: 'onboarding', class: 'transactional', to: ['mike@mikestacos.example'], cc: [], text: 'q', html: '<p>q</p>', status: 'queued' };
+      const q1 = await L.writeLog(db, { ...entry, subject: 'Q1', sendAt: at9('2026-01-20') });
+      const q2 = await L.writeLog(db, { ...entry, subject: 'Q2', sendAt: at9('2026-01-21') });
+      const q3 = await L.writeLog(db, { ...entry, subject: 'Q3', sendAt: at9('2026-01-19') });
+      const rows = () => _stores.email_log;
+      const row = (x) => rows().find(y => String(y._id) === String(x._id));
+      let due = await Q.queuedDue(db, run8am);
+      ok(due.length === 2 && due.every(d => ['Q1', 'Q3'].includes(d.subject)), `today's 9am and yesterday's are due at the 8am run, tomorrow's is not (${due.map(d => d.subject).join(',')})`, 'queue-day');
+      ok((await Q.queuedDue(db, run8am, { byDay: false })).length === 1, 'by the instant only yesterday\'s is due (the fifteen minute schedule)');
+      const run = await Q.runQueuedSends(db, run8am);
+      ok(run.checked === 2 && run.sent === 2 && run.failed === 0, `the run sends both (${dump(run)})`, 'queue-day');
+      ok(row(q1).status === 'test' && row(q1).sentAt && row(q3).status === 'test' && row(q2).status === 'queued', 'the sent ones are test (no key) with their time, tomorrow\'s is still queued', 'queue-day');
+      ok(!!lead().deal.checkpoints.onboardingSent, 'a queued send stamps the checkpoint like a tap');
+      /* Cancel: a queued entry becomes a draft and the run leaves it. */
+      let r = await admin('log', 'POST', { id: String(q2._id), cancel: true });
+      ok(r._status === 200 && row(q2).status === 'draft' && row(q2).sendAt === '', 'cancel makes a queued entry a draft', 'queue-cancel');
+      const run2 = await Q.runQueuedSends(db, Date.parse('2026-01-21T13:00:00Z'));
+      ok(run2.checked === 0, 'and the next day\'s run does not send it', 'queue-cancel');
+      r = await admin('log', 'POST', { id: String(q1._id), cancel: true });
+      ok(r._status === 409, 'a sent one cannot be cancelled');
+      /* A failure: the task on the record's Emails list and the push, once per entry. */
+      process.env.RESEND_API_KEY = KEY; stub.set([{ status: 422, body: { message: 'Invalid to address' } }]);
+      const q4 = await L.writeLog(db, { ...entry, subject: 'Q4', sendAt: at9('2026-01-22') });
+      const run3 = await Q.runQueuedSends(db, Date.parse('2026-01-22T13:00:00Z'));
+      ok(run3.failed === 1 && row(q4).status === 'failed' && /Invalid/.test(row(q4).error), `a refused queued send is failed with the error (${dump({ run3, status: row(q4).status, error: row(q4).error })})`);
+      const list = () => (lead().checklists || []).find(l => l.name === 'Emails');
+      ok(!!list() && list().items.length === 1 && /^Email failed: Onboarding to Mike's Tacos/.test(list().items[0].text) && !!list().items[0].due && !list().items[0].done, `the failure is a task on the record's Emails list (${dump(list() && list().items[0])})`, 'fail-task');
+      ok(globalThis.__vzPushes.length === 1 && /^Email failed: Onboarding/.test(globalThis.__vzPushes[0].title) && globalThis.__vzPushes[0].url.includes(LEAD), `and one push to Rob (${dump(globalThis.__vzPushes)})`, 'fail-push');
+      stub.set([{ status: 422, body: { message: 'Invalid to address' } }]);
+      await L.updateLog(db, q4._id, { status: 'queued', sendAt: at9('2026-01-22') });
+      await Q.runQueuedSends(db, Date.parse('2026-01-22T13:00:00Z'));
+      ok(list().items.length === 1, 'the same entry failing again adds no second task');
+      /* A direct send that fails writes the same task and push; a failed test to Rob writes neither. */
+      stub.set([{ status: 500, body: {} }, { status: 500, body: {} }]);
+      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
+      ok(r._status === 502 && list().items.length === 2 && globalThis.__vzPushes.length === 3, `a failed send from Compose writes the task and the push too (${r._status}, ${list().items.length} tasks, ${globalThis.__vzPushes.length} pushes)`, 'fail-task');
+      stub.set([{ status: 500, body: {} }, { status: 500, body: {} }]);
+      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, testToSelf: true });
+      ok(r._status === 502 && list().items.length === 2 && globalThis.__vzPushes.length === 3, 'a failed test to Rob writes neither');
+      delete process.env.RESEND_API_KEY; stub.set([]);
+      /* Recent sends: failures first, then the newest. */
+      await L.writeLog(db, { ...entry, subject: 'Fresh', status: 'test', sentAt: new Date().toISOString() });
+      r = await admin('log', 'GET', undefined, { query: { recent: '1' } });
+      ok(r._status === 200 && r._json.items.length >= 5 && r._json.items[0].status === 'failed' && r._json.items[1].status === 'failed' && !r._json.items.some(x => 'html' in x), `recent sends lead with the failures and carry no html (${r._json.items.map(x => x.status).join(',')})`, 'recent-failures-first');
+      /* The cron end to end: the reminders job runs the queue and reports it. */
+      const q5 = await L.writeLog(db, { ...entry, subject: 'Q5', sendAt: new Date(Date.now() - 3600e3).toISOString() });
+      const c = await cronCall();
+      ok(c._status === 200 && c._json.emails && c._json.emails.sent === 1 && row(q5).status === 'test', `the reminders cron sends what is due and reports it (${c._status} ${dump(c._json && c._json.emails)})`, 'cron-queue');
+      const c2 = await cronCall();
+      ok(c2._status === 200 && c2._json.emails.checked === 0, 'and the next run finds nothing');
+      ok(_stores.settings.some(d => d._id === 'health' && d.crons && d.crons.reminders && d.crons.reminders.emails), 'the run lands in the health document');
+    }
+    /* 14. The lead and deal templates (milestone 5): the contract ticks its checkpoint, the concepts offer stamps, a template option, the
+       lead route's new fields, availability without a set or a link, the compose door for every template. */
+    seedRecords();
+    {
+      const adminAny = async (r, method = 'GET', body, extra = {}) => { const req = { method, query: { r, ...(extra.query || {}) }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9' }, url: `/api/admin/index?r=${r}`, socket: {} }; const res = fakeRes(); await adminIndex(req, res); return res; };
+      ok(TP.TEMPLATE_IDS.length >= 13 && ['concepts_in_progress', 'concepts_ready', 'booking_nudge', 'missed_call', 'nurture_checkin', 'form_nudge', 'contract', 'contract_nudge'].every(id => TP.templateOf(id)), `the registry holds the lead and deal templates (${TP.TEMPLATE_IDS.length})`);
+      let r = await admin('send', 'POST', { templateId: 'contract', recordId: LEAD });
+      ok(r._status === 200 && lead().deal.checkpoints.contractSent && lead().deal.checkpoints.contractSent.by === 'auto', `the contract email ticks Contract sent (${r._status} ${dump(lead().deal.checkpoints.contractSent)})`, 'contract-tick');
+      ok(lead().contactLog.some(e => e.type === 'email' && /contract/i.test(e.note)), 'and logs the contact');
+      ok(!lead().conceptsOffered, 'the fixture carries no offer stamp');
+      r = await admin('send', 'POST', { templateId: 'concepts_in_progress', recordId: LEAD });
+      ok(r._status === 200 && /^\d{4}-/.test(String(lead().conceptsOffered || '')), `the concepts in progress email stamps conceptsOffered (${r._status} ${lead().conceptsOffered})`, 'offer-stamp');
+      r = await admin('preview', 'POST', { templateId: 'concepts_ready', recordId: LEAD });
+      ok(r._status === 200 && r._json.available === true && /I made \d directions for Mike/.test(r._json.text) && !r._json.html.includes('Peek at one direction'), `concepts ready renders the count and no teaser by default (${dump({ status: r._status, available: r._json.available, text: String(r._json.text).slice(0, 120) })})`);
+      const savedSets = _stores.concept_sets; _stores.concept_sets = [];
+      r = await admin('preview', 'POST', { templateId: 'concepts_ready', recordId: LEAD });
+      ok(r._json.available === false && r._json.lacking.includes('conceptCount') && r._json.availability.concepts_ready.available === false, 'with no live set it is unavailable for want of the count', 'availability');
+      _stores.concept_sets = savedSets;
+      r = await admin('settings', 'PUT', { templates: { concepts_ready: { options: { teaser: true, bogus: 'x' } } } });
+      ok(r._status === 200 && r._json.settings.templates.concepts_ready.options.teaser === true && !('bogus' in r._json.settings.templates.concepts_ready.options), 'the teaser option saves as a boolean and junk is dropped', 'option-blocks');
+      r = await admin('preview', 'POST', { templateId: 'concepts_ready', recordId: LEAD });
+      ok(r._status === 200 && r._json.html.includes('Peek at one direction') && r._json.html.includes('https://res.cloudinary.com/x/a.jpg') && r._json.template.blocks.length === 6, `with the option on, the peek button points at the set's cover (${r._json.template.blocks.length} blocks)`, 'option-blocks');
+      await admin('settings', 'PUT', { templates: { concepts_ready: { options: { teaser: false } } } });
+      r = await admin('preview', 'POST', { templateId: 'concepts_ready', recordId: LEAD });
+      ok(!r._json.html.includes('Peek at one direction'), 'and off again it is gone');
+      r = await adminAny('call-leads', 'PATCH', { id: LEAD, set: { meeting: { date: '2026-10-14', time: '14:00', type: 'call', location: '', noShowAt: '2026-10-14T18:30:00.000Z' }, conceptsOffered: '2026-10-10T12:00:00.000Z' } });
+      ok(r._status === 200 && lead().meeting.noShowAt === '2026-10-14T18:30:00.000Z' && lead().conceptsOffered === '2026-10-10T12:00:00.000Z', `the lead route writes the no show and the offer (${r._status} ${dump({ noShowAt: lead().meeting?.noShowAt, offered: lead().conceptsOffered })})`, 'lead-fields');
+      r = await adminAny('call-leads', 'PATCH', { id: LEAD, set: { conceptsOffered: '' } });
+      ok(r._status === 200 && lead().conceptsOffered === '', 'and clears the offer with an empty string', 'lead-fields');
+      r = await admin('preview', 'POST', { templateId: 'contract_nudge', recordId: LEAD });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes(lead().deal.contractLink), 'the contract nudge carries the contract link');
+      const link = lead().deal.contractLink; lead().deal.contractLink = '';
+      r = await admin('preview', 'POST', { templateId: 'contract', recordId: LEAD });
+      ok(r._json.available === false && r._json.lacking.includes('contractLink'), 'the contract is unavailable without its link', 'availability');
+      r = await admin('send', 'POST', { templateId: 'contract', recordId: LEAD, confirmDuplicate: true });
+      ok(r._status === 400 && /contractLink/.test(r._json.error), 'and never goes out blank', 'missing-refuses');
+      lead().deal.contractLink = link;
+      for (const id of ['booking_nudge', 'missed_call', 'nurture_checkin', 'form_nudge']) { const p = await admin('preview', 'POST', { templateId: id, recordId: LEAD }); ok(p._status === 200 && p._json.available === true && p._json.missing.length === 0, `${id} renders whole on the fixture`); }
+      const C2 = await loadSrc('lib/compose.js');
+      ok(C2.sendDoor({}, 'contract').compose === 'contract' && C2.sendDoor({}, 'form_nudge').compose === 'form_nudge' && C2.sendDoor({}, 'intro').zapier === 'intro' && C2.sendDoor({}, 'nope').compose === 'custom', 'the door: a template id opens Compose even without the key, the four old kinds keep Zapier until then', 'zapier-fallback');
+    }
+    /* 15. The invoice email (milestone 6): one number each, atomic and never reused, the next one in a preview; the totals; the pay rows
+       only for what is set, the portal first; the terms from the house rules with the plan filled; the reminder and the past due; the
+       paid event's draft from Rob's tap on a project line, on a deal line and from the webhook; the plan's bill day. */
+    seedRecords();
+    {
+      const SE = await load('_lib/email/settings.js');
+      const ST = await load('_lib/stripe.js');
+      const IV = await load('_lib/invoices.js');
+      const cronDaily = (await load('_routes/cron-daily.js')).handler;
+      const adminAny = async (r, method = 'GET', body, extra = {}) => { const req = { method, query: { r, ...(extra.query || {}) }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9' }, url: `/api/admin/index?r=${r}`, socket: {} }; const res = fakeRes(); await adminIndex(req, res); return res; };
+      const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
+      const line = (id) => proj().invoices.find(i => i.id === id);
+      const draftLine = (id, label, amount, dueAt, extra = {}) => ({ id, label, amount, dueAt, status: 'draft', sentAt: '', paidAt: '', note: '', ...extra });
+      proj().invoices = [line('pv1'), draftLine('q1', 'Month 2 of 6', 200, '2026-11-01'), draftLine('q2', 'Month 3 of 6', 200, '2026-12-01'), draftLine('q3', 'Month 4 of 6', 200, '2027-01-01'), draftLine('q4', 'Month 5 of 6', 200, '2027-02-01'), draftLine('q5', 'Month 6 of 6', 200, '2027-03-01')];
+      const sends = await Promise.all(['q1', 'q2', 'q3', 'q4', 'q5'].map(id => admin('send', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: id, confirmDuplicate: true })));
+      const nums = ['q1', 'q2', 'q3', 'q4', 'q5'].map(id => line(id).number);
+      ok(sends.every(x => x._status === 200) && new Set(nums).size === 5 && nums.every(n => /^INV-\d{4}$/.test(n)), `five sends at once take five numbers (${sends.map(x => x._status).join(',')}; ${nums.join(',')})`, 'invoice-number-atomic');
+      const sorted = [...nums].sort();
+      ok(sorted[0] === 'INV-0001' && sorted[4] === 'INV-0005', `numbered from one, in a row (${sorted.join(',')})`, 'invoice-number-atomic');
+      const again = await admin('send', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q1', confirmDuplicate: true });
+      ok(again._status === 200 && line('q1').number === nums[0] && _stores.settings.find(d => d._id === 'emails').invoiceCounter === 5, `a second send keeps the number and the counter stays (${line('q1').number}, ${_stores.settings.find(d => d._id === 'emails')?.invoiceCounter})`, 'invoice-number-kept');
+      ok(_stores.email_log.filter(e => e.templateId === 'invoice').every(e => /INV-\d{4}/.test(e.subject)) && line('q1').status === 'sent' && line('q1').sentAt, 'every invoice email names its number, and the line is marked sent');
+      proj().invoices.push(draftLine('q6', 'Final', 240, '2026-11-15', { kind: 'final' }));
+      let r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      ok(r._status === 200 && r._json.subject.includes('INV-0006') && !line('q6').number, `the preview shows the next number without taking it (${r._json.subject})`, 'invoice-number-preview');
+      r = await admin('send', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6', testToSelf: true });
+      ok(r._status === 200 && !line('q6').number, 'a test to Rob takes no number');
+      /* The totals: $1,240 in all, $200 paid, $240 due now, $800 left after. */
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      const h = r._json.html;
+      ok(r._status === 200 && h.includes('Package total') && h.includes('$1,240') && h.includes('Paid so far') && h.includes('$200') && h.includes('Due now') && h.includes('$240') && h.includes('After this one, $800 is left.'), `the totals add up: the package total, paid so far, due now and what is left (${r._json.text.replace(/\n/g, ' ').slice(0, 200)})`, 'totals-math');
+      ok(h.includes('Final') && h.includes('$240') && h.includes('The terms') && h.includes('This is the last payment for your project.'), 'the items, the box and the final terms are in');
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, invoiceId: 'dv1' });
+      ok(r._status === 200 && !r._json.html.includes('Paid so far') && r._json.html.includes('Due now'), 'a first invoice with nothing paid has no Paid so far row');
+      /* The pay rows: only the methods set in Settings, with the amount; the portal takes the three when it is on; the card button needs a link. */
+      const prof = _stores.settings.find(d => d._id === 'profile'); prof.payMethods = { stripe: '', cashapp: 'mikestacos', venmo: '', zelle: 'rob@visualizeclients.com', zelleKind: 'email' };
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      ok(r._status === 200 && r._json.html.includes('cash.app/$mikestacos/240') && r._json.html.includes('Zelle: rob@visualizeclients.com') && !r._json.html.includes('venmo.com') && !r._json.html.includes('card or Apple Pay'), 'pay rows only for the methods set: Cash App with the amount, Zelle as a line, no Venmo, no card without a link', 'pay-set-only');
+      ok(r._json.text.includes('cash.app/$mikestacos/240'), 'the plain text carries the link too');
+      lead().portal = { enabled: true, token: 'prtlTESTtoken0123456789ab', pin: '', modules: {}, documents: [] };
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      ok(r._status === 200 && r._json.html.includes('Cash App, Venmo or Zelle') && r._json.html.includes('/c/prtlTESTtoken0123456789ab') && !r._json.html.includes('cash.app/'), 'with the portal on, one button to its pay card stands in for the three', 'pay-portal');
+      line('q6').payUrl = 'https://buy.stripe.com/test_q6';
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      ok(r._status === 200 && r._json.html.includes('Pay $240 with card or Apple Pay') && r._json.html.includes('https://buy.stripe.com/test_q6'), 'the card button carries the invoice\'s own Stripe link and the amount', 'pay-card');
+      delete lead().portal;
+      /* The terms: the deposit's from the house rules, the plan's with the month filled, nothing unfilled anywhere. */
+      ok(SE.DEFAULT_INVOICE_TERMS.deposit.some(t => t.includes('$50') && t.includes('$75')) && SE.DEFAULT_INVOICE_TERMS.deposit.some(t => t.startsWith('2 revision rounds')), `the deposit terms carry the house numbers from pricing (${SE.DEFAULT_INVOICE_TERMS.deposit[2]})`, 'terms-pricing');
+      ok(!SE.DEFAULT_INVOICE_TERMS.deposit.concat(SE.DEFAULT_INVOICE_TERMS.final, SE.DEFAULT_INVOICE_TERMS.plan, SE.DEFAULT_INVOICE_TERMS.retainer).some(t => /refund|late fee|ownership/i.test(t)), 'no refund, late fee or ownership term is invented');
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q2' });
+      ok(r._status === 200 && r._json.html.includes('Payment 2 of 6. Payments come out monthly.') && !/\{\{/.test(r._json.html) && !/\{\{/.test(r._json.text), `the plan terms fill the month and nothing is left unfilled (${(r._json.text.match(/Payment \d of \d[^\n]*/) || [''])[0]})`, 'terms-vars');
+      r = await admin('settings', 'GET');
+      ok(r._status === 200 && Array.isArray(r._json.settings.invoiceTerms.deposit) && r._json.settings.invoiceTerms.deposit.length === 4 && r._json.settings.invoiceTerms.retainer[0].startsWith('Month to month'), 'Settings reads the defaults as the current terms');
+      r = await admin('settings', 'PUT', { invoiceTerms: { final: ['Last one.'] } });
+      r = await admin('preview', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q6' });
+      ok(r._json.html.includes('Last one.') && !r._json.html.includes('This is the last payment for your project.'), 'an edited term replaces the default for that kind');
+      /* The reminder and the past due carry the pay rows. */
+      for (const id of ['invoice_reminder', 'invoice_past_due']) { const p = await admin('preview', 'POST', { templateId: id, recordId: LEAD, projectId: PROJ, invoiceId: 'q6' }); ok(p._status === 200 && p._json.available === true && p._json.missing.length === 0 && p._json.html.includes('card or Apple Pay') && p._json.html.includes('INV-0006'), `${id} renders whole with the pay rows`); }
+      /* The paid event drafts the payment received email: Rob's tap on a project line, on a deal line, the webhook; once each. */
+      const drafts = () => _stores.email_log.filter(e => e.templateId === 'payment_received' && e.status === 'draft');
+      r = await adminAny('projects', 'PATCH', { id: PROJ, set: { invoices: proj().invoices.map(i => (i.id === 'q1' ? { ...i, status: 'paid', paidAt: '2026-10-20T12:00:00.000Z' } : i)) } });
+      const d0 = () => drafts()[0] || { html: '', text: '', subject: '' };
+      ok(r._status === 200 && drafts().length === 1 && d0().invoiceId === 'q1' && d0().auto === true && /Got it, Mike/.test(d0().subject) && d0().html.includes('Payment 2 of 6 is in'), `marking a project line paid drafts the payment received email for the plan case (${r._status} ${dump(r._json).slice(0, 120)}; ${drafts().length}; ${d0().subject})`, 'paid-drafts-tap');
+      ok(d0().html.includes('Paid today') && d0().html.includes('Paid so far') && d0().html.includes('$400') && d0().html.includes('Left') && d0().html.includes('$840'), `with the paid totals (${d0().text.replace(/\n/g, ' ').slice(0, 160)})`, 'totals-math');
+      const list = () => (lead().checklists || []).find(l => l.name === 'Emails');
+      ok(!!list() && list().items.some(it => /^Email ready: Payment received for Mike's Tacos/.test(it.text)), `and the task for Rob (${dump(list() && list().items.map(it => it.text))})`, 'draft-task');
+      r = await adminAny('projects', 'PATCH', { id: PROJ, set: { invoices: proj().invoices } });
+      ok(r._status === 200 && drafts().length === 1, 'a write with nothing newly paid drafts nothing more');
+      r = await adminAny('call-leads', 'PATCH', { id: LEAD, set: { deal: { ...lead().deal, invoices: lead().deal.invoices.map(i => (i.id === 'dv1' ? { ...i, status: 'paid', paidAt: '2026-10-20T12:00:00.000Z' } : i)) } } });
+      ok(r._status === 200 && drafts().length === 2 && drafts().some(d => d.invoiceId === 'dv1' && d.projectId === ''), `marking a deal line paid drafts it too (${r._status}, ${drafts().length})`, 'paid-drafts-deal');
+      const row = { id: 'evt_test_pay_1', type: 'charge.succeeded', amount: 200, at: '2026-10-21T12:00:00.000Z', description: 'Stripe charge', customerEmail: 'mike@mikestacos.example', customerPhone: '', customerName: '', paymentLinkId: '' };
+      const ap = await ST.applyPayment(db, row, lead());
+      ok(ap.marked && ap.marked.itemId === 'q2' && drafts().some(d => d.invoiceId === 'q2'), `the webhook's payment drafts it as well (${dump(ap.marked)})`, 'paid-drafts-webhook');
+      /* The plan's bill day drafts the month's invoice email beside the line. */
+      seedRecords();
+      const today = (await load('_lib/zone.js')).zoneDayKey(Date.now());
+      const firstDue = IV.addMonthsKey(today, -1, Number(today.slice(8, 10)));
+      proj().invoices = [{ ...line('pv1'), dueAt: firstDue, label: 'Month 1 of 6' }]; proj().plan = { months: 6, monthly: 200 };
+      const c = await (async () => { const req = { method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/daily', socket: {} }; const res = fakeRes(); await cronDaily(req, res); return res; })();
+      const month2 = proj().invoices.find(i => i.label === 'Month 2 of 6');
+      ok(c._status === 200 && !!month2 && month2.kind === 'plan' && month2.status === 'draft', `the bill day drafts the next month as a plan line (${c._status}, ${dump(proj().invoices.map(i => i.label))})`);
+      ok(!!month2 && _stores.email_log.some(e => e.templateId === 'invoice' && e.status === 'draft' && e.invoiceId === month2.id && e.projectId === PROJ), 'and its invoice email beside it', 'plan-drafts-email');
+    }
+    /* 16. The client and project emails (milestone 7): the delivery gate, its stamps and its two tasks, the review link minted on send,
+       optional buttons and lists, the round line from the house rules, a template's needs refused at send. */
+    seedRecords();
+    {
+      const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
+      const payAll = () => { proj().invoices = proj().invoices.map(i => ({ ...i, status: 'paid', paidAt: i.paidAt || '2026-10-20T12:00:00.000Z' })); };
+      ok(TP.TEMPLATE_IDS.length >= 24 && ['kickoff', 'needs_you', 'review_ready', 'revision_ready', 'plan_complete', 'retainer_followup', 'review_request', 'retainer_month_ready'].every(id => TP.templateOf(id)), `the registry holds the client and project templates (${TP.TEMPLATE_IDS.length})`);
+      let r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      ok(r._status === 400 && /full payment/.test(r._json.error), `the delivery email waits for full payment (${r._status} ${r._json.error})`, 'delivery-paid');
+      payAll();
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 400 && /shared as Viewer/.test(r._json.error), `and for the Drive box (${r._status} ${r._json.error})`, 'delivery-checkbox');
+      const drive = proj().links.drive; proj().links.drive = '';
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      ok(r._status === 400 && /Drive/.test(r._json.error), `and for the Drive link (${r._status} ${r._json.error})`, 'delivery-drive');
+      proj().links.drive = drive;
+      r = await admin('preview', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes('Brand Files') && r._json.html.includes('Keep it running') && /Site Care|Content Kit|Growth/.test(r._json.html) && r._json.html.includes('https://buy.stripe.com/'), `the delivery email draws the files, the red box with the one retainer and its link (${r._json.text.replace(/\n/g, ' ').slice(0, 200)})`);
+      ok(r._json.html.includes('sticker sample pack') && r._json.html.includes('NFC card'), 'the Launch plan gets the sticker pack and the NFC card line');
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      ok(r._status === 200 && proj().delivery.emailSent === true && proj().delivery.pitchSent === true && proj().delivery.driveShared === true && !!proj().deliveredAt, `the send ticks the steps and sets deliveredAt (${r._status} ${dump(proj().delivery)} ${proj().deliveredAt})`, 'delivery-stamps');
+      const dl = () => (proj().checklists || []).find(l => l.name === 'Delivery');
+      ok(!!dl() && dl().items.some(it => /retainer follow up/i.test(it.text)) && dl().items.some(it => /review/i.test(it.text)), `and writes the two follow up tasks on the project (${dump(dl() && dl().items.map(it => it.text))})`, 'delivery-tasks');
+      { const ret = dl() && dl().items.find(it => /retainer/i.test(it.text)); const rev = dl() && dl().items.find(it => /review/i.test(it.text)); const days = (iso) => Math.round((Date.parse(iso) - Date.parse(proj().deliveredAt)) / 864e5);
+        ok(!!ret && !!rev && days(ret.due) === 3 && days(rev.due) === 3, `three days on each, the delivery day standing in for a release (${ret && days(ret.due)}, ${rev && days(rev.due)})`, 'delivery-tasks'); }
+      const nTasks = dl().items.length;
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
+      ok(r._status === 200 && dl().items.length === nTasks, 'a second send adds no second pair of tasks');
+      proj().invoices = proj().invoices.map(i => (i.id === 'pv2' ? { ...i, status: 'sent' } : i));
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, testToSelf: true });
+      ok(r._status === 200 && r._json.toSelf === true, 'a test to Rob goes without the gate');
+      payAll();
+      const dels = proj().deliverables; proj().deliverables = [];
+      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
+      ok(r._status === 400 && /deliverables/.test(r._json.error), `no deliverables, no delivery email (${r._status} ${r._json.error})`, 'missing-refuses');
+      proj().deliverables = dels;
+      /* The review request mints the link on the first send and keeps it. */
+      ok(!lead().reviews?.visualize?.token, 'the fixture has no review link');
+      r = await admin('preview', 'POST', { templateId: 'review_request', recordId: LEAD });
+      ok(r._status === 200 && r._json.available === false && r._json.lacking.includes('reviewLink'), 'before a send the preview says the link is missing', 'availability');
+      r = await admin('send', 'POST', { templateId: 'review_request', recordId: LEAD });
+      const tok = lead().reviews?.visualize?.token;
+      ok(r._status === 200 && /^[A-Za-z0-9_-]{24}$/.test(String(tok)) && _stores.email_log.some(e => e.templateId === 'review_request' && e.html.includes(`/r/${tok}`)), `the send mints the review link and the email carries it (${r._status} ${tok})`, 'review-mint');
+      r = await admin('send', 'POST', { templateId: 'review_request', recordId: LEAD, confirmDuplicate: true });
+      ok(r._status === 200 && lead().reviews.visualize.token === tok, 'a second send keeps the token');
+      /* Kickoff: the client's open items and the portal button only when they exist; needs you insists on both. */
+      r = await admin('preview', 'POST', { templateId: 'kickoff', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.available === true && r._json.missing.length === 0 && !r._json.html.includes('Open your portal') && !r._json.html.includes('Only you can give me'), `kickoff with no portal and no open items shows neither and is not refused (${dump(r._json.missing)})`, 'optional-button');
+      lead().checklists = [{ id: 'ck1', name: 'Onboarding', templateId: '', items: [{ id: 't1', text: 'Send your logo files', done: false, client: true, order: 0 }, { id: 't2', text: 'Internal note', done: false, client: false, order: 1 }] }];
+      lead().portal = { enabled: true, token: 'prtlTESTtoken0123456789ab', pin: '', modules: {}, documents: [] };
+      r = await admin('preview', 'POST', { templateId: 'kickoff', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.html.includes('Only you can give me') && r._json.html.includes('Send your logo files') && !r._json.html.includes('Internal note') && r._json.html.includes('/c/prtlTESTtoken0123456789ab'), 'with an open client item and the portal on, both show and the inside note stays inside');
+      r = await admin('preview', 'POST', { templateId: 'needs_you', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes('Send your logo files'), 'needs you lists the open items');
+      lead().checklists = [];
+      r = await admin('preview', 'POST', { templateId: 'needs_you', recordId: LEAD, projectId: PROJ });
+      ok(r._json.available === false && r._json.lacking.includes('client.items'), 'and is unavailable with nothing open', 'availability');
+      delete lead().portal;
+      /* The round line from the house rules. */
+      proj().revisions = { max: 2, used: 1, log: [{ at: '2026-10-10T12:00:00.000Z', note: 'Round one', extra: false }] };
+      r = await admin('preview', 'POST', { templateId: 'revision_ready', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.subject === 'Round 1 of 2 is ready' && r._json.html.includes('This is the last included round. Extra rounds are $50 for design or $75 for web.'), `the last included round names the extra round fees (${r._json.subject})`, 'round-line');
+      proj().revisions = { max: 3, used: 1, log: [{ at: '2026-10-10T12:00:00.000Z', note: 'Round one', extra: false }] };
+      r = await admin('preview', 'POST', { templateId: 'revision_ready', recordId: LEAD, projectId: PROJ });
+      ok(r._json.html.includes('1 more included round after this one.'), 'an earlier round counts what is left');
+      proj().revisions = { max: 2, used: 2, log: [] };
+      r = await admin('preview', 'POST', { templateId: 'revision_ready', recordId: LEAD, projectId: PROJ });
+      ok(r._json.html.includes('Every included round is used.'), 'and past the last, the fees again');
+      /* The retainer follow up needs its link from Settings; plan complete the Drive link; the planner month the planner. */
+      r = await admin('preview', 'POST', { templateId: 'retainer_followup', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes('a month') && r._json.html.includes('https://buy.stripe.com/'), 'the retainer follow up picks the retainer and its link');
+      const prof = _stores.settings.find(d => d._id === 'profile'); const links = prof.retainerLinks; prof.retainerLinks = {};
+      r = await admin('preview', 'POST', { templateId: 'retainer_followup', recordId: LEAD, projectId: PROJ });
+      ok(r._json.available === false && r._json.lacking.includes('retainer.link'), 'and is unavailable without the link', 'availability');
+      prof.retainerLinks = links;
+      r = await admin('preview', 'POST', { templateId: 'plan_complete', recordId: LEAD, projectId: PROJ });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes('Open your files'), 'plan complete opens the files');
+      r = await admin('preview', 'POST', { templateId: 'retainer_month_ready', recordId: LEAD });
+      ok(r._json.available === false && r._json.lacking.includes('plannerLink'), 'the planner month needs the planner');
+      lead().planner = { enabled: true, token: 'plnrTESTtoken0123456789ab' };
+      r = await admin('preview', 'POST', { templateId: 'retainer_month_ready', recordId: LEAD });
+      ok(r._status === 200 && r._json.available === true && r._json.html.includes('/planner/plnrTESTtoken0123456789ab'), 'and opens it when it is on');
+      delete lead().planner;
+    }
+    /* 17. The email rules (milestone 8): each rule on its day and not before, the cooldown from the newest send, the opt out, the stage,
+       Draft for me (a draft, its task with the entry, one push, nothing sent), Send for me (once, through the pipeline, a standing draft
+       ticked), the missing address, the run cap, the rate guard, the money rules per project and on the deal, the cron's answer and health. */
+    seedRecords(); globalThis.__vzPushes = [];
+    {
+      const RU = await load('_lib/email/rules.js');
+      const TR = await load('_lib/taskRules.js');
+      const Z = await load('_lib/zone.js');
+      const cronRem = (await load('_routes/cron-reminders.js')).handler;
+      const runCron = async () => { const req = { method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }; const res = fakeRes(); await cronRem(req, res); return res; };
+      const now = Date.now(); const day = 864e5;
+      const iso = (d) => new Date(now + d * day).toISOString();
+      const entries = (tpl, st) => _stores.email_log.filter(e => e.templateId === tpl && (!st || e.status === st));
+      const pushes = () => (globalThis.__vzPushes || []);
+      const allOff = Object.fromEntries(TR.EMAIL_RULES.map(x => [x.template, 'off']));
+      const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
+      ok(RU.automationOf({ automation: {} }, TP.templateOf('form_nudge')) === 'draft' && RU.automationOf({ automation: { form_nudge: 'send' } }, TP.templateOf('form_nudge')) === 'send' && RU.automationOf({ automation: {} }, TP.templateOf('invoice')) === 'off', "a template's Automation is Rob's setting, else its default");
+      ok(RU.liveRules({ automation: {} }).every(x => x.rule.id !== 'plan_invoice') && RU.liveRules({ automation: {} }).some(x => x.rule.id === 'invoice_reminder'), "the month's invoice never goes on its own until Rob turns it on; the reminders draft by default");
+      await admin('settings', 'PUT', { automation: allOff });
+      lead().deal.checkpoints.onboardingSent = { at: iso(-5) };
+      let r = await RU.runEmailRules(db, now);
+      ok(r.checked === 0 && _stores.email_log.length === 0 && pushes().length === 0, `with every rule off nothing runs (${dump(r)})`);
+      /* Draft for me: the form nudge on its third day and not before. */
+      await admin('settings', 'PUT', { automation: { ...allOff, form_nudge: 'draft' } });
+      lead().deal.checkpoints.onboardingSent = { at: iso(-2) };
+      r = await RU.runEmailRules(db, now);
+      ok(r.checked > 0 && r.fired === 0 && entries('form_nudge').length === 0, `the form nudge does not fire before its day (${dump(r)})`, 'rule-day');
+      lead().deal.checkpoints.onboardingSent = { at: iso(-3) };
+      r = await RU.runEmailRules(db, now);
+      const d = () => entries('form_nudge')[0];
+      ok(r.fired === 1 && r.drafted === 1 && !!d() && d().status === 'draft' && d().auto === true && d().recordId === LEAD, `on the third day Draft for me writes the draft (${dump(r)})`, 'rule-draft');
+      ok(entries('form_nudge').every(e => e.status === 'draft') && stub.calls.length === 0 && lead().contactLog.length === 0, 'and sends nothing', 'rule-draft');
+      const task = () => (lead().checklists || []).flatMap(l => l.items || []).find(it => it.emailId === String(d()._id));
+      ok(!!task() && /^Email ready: Form nudge for Mike's Tacos\. Three days with no form/.test(task().text) && task().done === false, `with its task carrying the entry (${dump(task() && task().text)})`, 'task-email-id');
+      ok(pushes().length === 1 && pushes()[0].title === '1 email ready to send' && /\/tasks$/.test(pushes()[0].url), `and one push to the Tasks screen (${dump(pushes())})`, 'rule-push');
+      r = await RU.runEmailRules(db, now);
+      ok(r.drafted === 0 && r.skipped === 1 && entries('form_nudge').length === 1 && pushes().length === 1, `a second run adds no second draft and no second push (${dump(r)})`);
+      /* Send for me: the standing draft goes on its own entry, its task is ticked, the cooldown holds the next one. */
+      await admin('settings', 'PUT', { automation: { ...allOff, form_nudge: 'send' } });
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 1 && entries('form_nudge').length === 1 && d().status === 'test' && d().auto === true && !!d().sentAt && !d().error, `Send for me sends the standing draft on its own entry (${dump(r)}; ${dump(entries('form_nudge').map(e => e.status))})`, 'rule-send-draft');
+      ok(task().done === true, 'and ticks its task', 'draft-task-done');
+      ok(lead().contactLog.some(c => /form nudge/i.test(c.note)), 'and stamps the contact log like a tap');
+      ok(pushes().length === 2 && /1 email went out for you/.test(pushes()[1].title), `one push says it went (${dump(pushes().map(p => p.title))})`);
+      d().sentAt = new Date(now - 11 * 60e3).toISOString(); d().createdAt = new Date(now - 11 * 60e3); /* past the ten minute duplicate window, so only the cooldown holds it */
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 0 && r.skipped === 1 && entries('form_nudge').length === 1, `the cooldown holds it (${dump(r)})`, 'rule-cooldown');
+      d().sentAt = iso(-8); d().createdAt = new Date(now - 8 * day);
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 1 && entries('form_nudge').length === 2, `and lets it go again once the seven days pass (${dump(r)})`, 'rule-cooldown');
+      /* The booking nudge is marketing: an opt out is never sent, the stage must fit, a lead with no address gets a draft. */
+      await admin('settings', 'PUT', { automation: { ...allOff, booking_nudge: 'send' } });
+      lead().stage = 'lead'; lead().callStatus = ''; lead().meeting = {}; delete lead().calendlyEventUri;
+      _stores.email_log.push({ ...L.logEntry({ recordId: LEAD, templateId: 'intro_call', class: 'marketing', to: ['mike@mikestacos.example'], subject: 'x', text: 'x', html: '<p>x</p>', status: 'sent', sentAt: iso(-2), createdAt: new Date(now - 2 * day) }), _id: 'intro1' });
+      r = await RU.runEmailRules(db, now);
+      ok(r.fired === 0 && entries('booking_nudge').length === 0, `two days after the intro the nudge waits (${dump(r)})`, 'rule-day');
+      _stores.email_log.find(e => e._id === 'intro1').sentAt = iso(-3);
+      lead().emailOptOut = true;
+      r = await RU.runEmailRules(db, now);
+      ok(r.fired === 1 && r.sent === 0 && r.drafted === 0 && r.skipped === 1 && entries('booking_nudge').length === 0, `an opt out gets neither the send nor a draft (${dump(r)})`, 'rule-optout');
+      lead().emailOptOut = false; lead().stage = 'declined';
+      r = await RU.runEmailRules(db, now);
+      ok(r.checked === 0 && entries('booking_nudge').length === 0, `a declined lead is never looked at (${dump(r)})`, 'rule-stage');
+      lead().stage = 'lead';
+      const email = lead().email; lead().email = '';
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 0 && r.drafted === 1 && entries('booking_nudge', 'draft').length === 1, `no address: a draft for Rob instead (${dump(r)})`, 'rule-400-drafts');
+      lead().email = email;
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 1 && entries('booking_nudge').length === 1 && entries('booking_nudge')[0].status === 'test' && entries('booking_nudge')[0].auto === true, `with the address back the standing draft goes, once (${dump(r)})`, 'rule-send');
+      r = await RU.runEmailRules(db, now);
+      ok(r.sent === 0 && entries('booking_nudge').length === 1, 'and not again');
+      /* The run cap and the hour's rate guard. */
+      await admin('settings', 'PUT', { automation: { ...allOff, missed_call: 'send' } });
+      const noShow = (i) => ({ _id: `507f1f77bcf86cd7994391${String(i).padStart(2, '0')}`, business: `Shop ${i}`, askFor: `Owner ${i}`, email: `owner${i}@shops.example`, stage: 'booked', callStatus: 'booked', meeting: { date: iso(-5).slice(0, 10), time: '10:00', noShowAt: iso(-1) }, contactLog: [], deal: { checkpoints: {} } });
+      _stores.call_leads = Array.from({ length: 25 }, (_, i) => noShow(i + 1));
+      r = await RU.runEmailRules(db, now);
+      ok(r.fired === 25 && r.sent === 20 && r.drafted === 5 && r.capped === true && entries('missed_call', 'test').length === 20 && entries('missed_call', 'draft').length === 5, `twenty five no shows: twenty go out, five are drafted, the run says it capped (${dump(r)})`, 'rule-cap');
+      _stores.call_leads.push(...Array.from({ length: 10 }, (_, i) => noShow(i + 26)));
+      r = await RU.runEmailRules(db, now);
+      ok(r.limited === true && r.sent > 0 && r.sent <= 8 && entries('missed_call', 'test').length === 20 + r.sent, `the hour's thirty stop the run and leave the rest for tomorrow (${dump(r)})`, 'rule-limited');
+      /* The money rules run per project and on the deal while it is one: a reminder three days before, past due the day after, each once per line. */
+      seedRecords(); globalThis.__vzPushes = [];
+      await admin('settings', 'PUT', { automation: { ...allOff, invoice_reminder: 'draft', invoice_past_due: 'draft' } });
+      const key = (n) => Z.zoneDayKey(now + n * day);
+      proj().invoices = [{ ...proj().invoices[0] }, { ...proj().invoices[1], dueAt: key(3) }, { id: 'pv3', label: 'Extra', amount: 50, dueAt: key(-1), status: 'sent', sentAt: iso(-10), paidAt: '', note: '', extra: true }];
+      lead().deal.invoices = [{ id: 'dv1', label: 'Deposit', amount: 300, dueAt: key(3), status: 'sent', sentAt: iso(-1), paidAt: '', note: '' }];
+      const P2 = '507f1f77bcf86cd799439074';
+      _stores.projects.push({ _id: P2, leadId: LEAD, name: 'Stickers', kind: 'brand', packageId: 'brand-starter', total: 350, stage: 'kickoff', links: {}, deliverables: [], invoices: [{ id: 'x1', label: 'Brand Starter', amount: 350, dueAt: key(3), status: 'sent', sentAt: iso(-1), paidAt: '', note: '' }], archived: false, createdAt: new Date() });
+      r = await RU.runEmailRules(db, now);
+      const rem = entries('invoice_reminder', 'draft'); const past = entries('invoice_past_due', 'draft');
+      ok(rem.length === 3 && rem.some(e => e.projectId === PROJ && e.invoiceId === 'pv2') && rem.some(e => e.projectId === P2 && e.invoiceId === 'x1') && rem.some(e => e.projectId === '' && e.invoiceId === 'dv1'), `a reminder per line due in three days: both projects and the deal (${dump(rem.map(e => [e.projectId, e.invoiceId]))})`, 'rule-per-project');
+      ok(past.length === 1 && past[0].invoiceId === 'pv3' && past[0].projectId === PROJ, `one past due for the line a day past (${dump(past.map(e => e.invoiceId))})`);
+      ok(pushes().length === 1 && /^4 emails ready to send$/.test(pushes()[0].title), `one push for the four (${dump(pushes().map(p => p.title))})`, 'rule-push');
+      lead().stage = 'client';
+      r = await RU.runEmailRules(db, now);
+      ok(r.drafted === 0 && entries('invoice_reminder').length === 3, 'a client\'s deal lines are not read again (its projects carry them)');
+      /* The cron runs the rules after the queue and answers the counts; health keeps them. */
+      const c = await runCron();
+      ok(c._status === 200 && c._json.rules && typeof c._json.rules.checked === 'number' && c._json.rules.drafted === 0 && c._json.rules.skipped >= 3, `the reminders cron runs the rules and answers the counts (${dump(c._json.rules)})`, 'cron-rules');
+      const health = _stores.settings.find(x => x._id === 'health');
+      ok(!!health && !!health.crons && !!health.crons.reminders && !!health.crons.reminders.rules && health.crons.reminders.rules.checked === c._json.rules.checked, `and stamps them on health (${dump(health && health.crons && health.crons.reminders && health.crons.reminders.rules)})`);
+    }
+    /* 18. The draft send door (milestone 8): a draft sent now renders again from the record onto its own entry and ticks its task; only a
+       draft or a queued entry; the duplicate guard across the door; a draft that lacks a value is refused with the live list and stands; the
+       Zapier door answers 410 once Resend is connected and posts nothing; the checklist keeps a task's entry; every preview fixture renders whole. */
+    seedRecords();
+    {
+      const DR = await load('_lib/email/drafts.js');
+      const TR = await load('_lib/taskRules.js');
+      const adminAny = async (r, method = 'GET', body, extra = {}) => { const req = { method, query: { r, ...(extra.query || {}) }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9' }, url: `/api/admin/index?r=${r}`, socket: {} }; const res = fakeRes(); await adminIndex(req, res); return res; };
+      const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
+      const row = (id) => _stores.email_log.find(e => String(e._id) === String(id));
+      const d = await DR.draftEmail(db, { recordId: LEAD, projectId: PROJ, invoiceId: 'pv2', templateId: 'invoice_reminder' });
+      const task = (id) => (lead().checklists || []).flatMap(l => l.items || []).find(it => it.emailId === String(id));
+      ok(d.ok && !!task(d.log._id) && task(d.log._id).done === false, 'a draft and its task, the task carrying the entry', 'task-email-id');
+      let r = await admin('log', 'POST', { id: String(d.log._id), send: true });
+      ok(r._status === 200 && r._json.ok === true && r._json.taskDone === true && row(d.log._id).status === 'test' && !!row(d.log._id).sentAt && _stores.email_log.length === 1, `Send now sends the draft on its own entry (${r._status} ${dump(r._json)}; ${_stores.email_log.length} entries)`, 'send-draft-door');
+      ok(task(d.log._id).done === true && !!task(d.log._id).doneAt, 'and ticks the task', 'draft-task-done');
+      ok(lead().contactLog.some(c => /reminder/i.test(c.note)) && !/\{\{/.test(row(d.log._id).html), 'with the stamps of a real send and nothing unfilled');
+      r = await admin('log', 'POST', { id: String(d.log._id), send: true });
+      ok(r._status === 409 && /draft or a queued/.test(r._json.error), `a sent entry cannot be sent again this way (${r._status} ${r._json.error})`, 'send-draft-only');
+      const d2 = await DR.draftEmail(db, { recordId: LEAD, projectId: PROJ, invoiceId: 'pv2', templateId: 'invoice_reminder' });
+      ok(d2.ok && !d2.already && _stores.email_log.length === 2, 'a new draft after the send');
+      r = await admin('log', 'POST', { id: String(d2.log._id), send: true });
+      ok(r._status === 409 && !!r._json.duplicate && row(d2.log._id).status === 'draft', `inside ten minutes the door asks first (${r._status})`, 'duplicate');
+      r = await admin('log', 'POST', { id: String(d2.log._id), send: true, confirmDuplicate: true });
+      ok(r._status === 200 && row(d2.log._id).status === 'test' && _stores.email_log.length === 2, 'and goes with the confirm, still on its own entry', 'send-draft-door');
+      /* A draft whose record lacks a value: refused with the live list, the draft and its task stand; once the record has it the same draft goes. */
+      const link = lead().deal.contractLink; lead().deal.contractLink = '';
+      const d3 = await DR.draftEmail(db, { recordId: LEAD, templateId: 'contract_nudge' });
+      ok(d3.ok && /^Missing: contractLink/.test(d3.log.error) && /needs contractLink/.test(task(d3.log._id).text), `a draft that lacks a value says so in the entry and the task (${d3.log.error})`);
+      r = await admin('log', 'POST', { id: String(d3.log._id), send: true });
+      ok(r._status === 400 && dump(r._json.missing) === dump(['contractLink']) && row(d3.log._id).status === 'draft' && task(d3.log._id).done === false, `Send now refuses it with the live list and the draft stands (${r._status} ${dump(r._json)})`, 'missing-refuses');
+      lead().deal.contractLink = link;
+      r = await admin('log', 'POST', { id: String(d3.log._id), send: true });
+      ok(r._status === 200 && row(d3.log._id).status === 'test' && row(d3.log._id).html.includes(link) && task(d3.log._id).done === true, `once the record has it the same draft goes, rendered from the record as it stands (${r._status})`, 'send-draft-renders');
+      /* The Zapier door retires once Resend is connected. */
+      process.env.RESEND_API_KEY = KEY; process.env.ZAPIER_HOOK_INTRO = 'https://hooks.zapier.test/catch/1/intro'; stub.calls.length = 0;
+      r = await adminAny('send-email', 'POST', { leadId: LEAD, kind: 'intro' });
+      ok(r._status === 410 && r._json.retired === true && stub.calls.length === 0 && lead().deal.checkpoints.introSent === null, `with Resend connected the Zapier door answers 410 and posts nothing (${r._status} ${dump(r._json)}; ${stub.calls.length} calls)`, 'zapier-410');
+      delete process.env.RESEND_API_KEY;
+      r = await adminAny('send-email', 'POST', { leadId: LEAD, kind: 'onboarding' });
+      ok(r._status === 503, `without the key the old door still answers as before (${r._status})`);
+      delete process.env.ZAPIER_HOOK_INTRO;
+      ok(TR.normalizeChecklists([{ name: 'Emails', items: [{ text: 'x', emailId: 'abc123' }] }])[0].items[0].emailId === 'abc123', "normalizeChecklists keeps a task's emailId", 'task-email-id');
+      void proj;
+      /* The preview fixtures (scripts/email-preview.mjs): every template, every variant, nothing unfilled, the lint. */
+      const PV = await import(pathToFileURL(path.join(repoRoot, 'scripts', 'email-preview.mjs')).href);
+      const previews = await PV.renderPreviews({ load, db, _stores, _reset });
+      const bad = previews.filter(p => p.problems.length);
+      ok(previews.length >= 34 && bad.length === 0 && TP.TEMPLATE_IDS.every(id => previews.some(p => p.templateId === id)), `every preview fixture renders whole, every template covered: no {{, nothing missing, no undefined, null, AI or em dash (${previews.length}; ${dump(bad.map(p => [p.file, p.problems]))})`, 'preview-lint');
+      ok(PV.lintPreview({ subject: 'Done', html: '<p>{{firstName}} is null</p>', text: 'x', missing: ['firstName'] }).length === 3, 'the lint catches an unfilled variable, a null and a missing value');
+      { const pv = (f) => previews.find(p => p.file === f) || { html: '', subject: '' };
+        ok(pv('invoice--deposit').html.includes('$300') && pv('invoice').html.includes('3 of 6') && pv('invoice--retainer').html.includes('$250') && pv('revision_ready--last').subject === 'Round 2 of 2 is ready' && /Extra rounds are \$50 for design or \$75 for web/.test(pv('revision_ready--last').html) && pv('delivery--brand').html.includes('Brand Files') && !pv('delivery--brand').html.includes('Web Files') && pv('delivery--web').html.includes('Web Files'), 'the deposit, the plan month, the retainer month, the last round and the two deliveries each render their own case'); }
+      seedRecords();
     }
   } finally {
     globalThis.fetch = realFetch; delete process.env.RESEND_API_KEY;

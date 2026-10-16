@@ -8,6 +8,7 @@ import { dealOf } from '../_lib/deal.js';
 import { invoicesOf } from '../_lib/invoices.js';
 import { attachPaymentLink } from '../_lib/stripe.js';
 import { applySendStamps } from '../_lib/email/stamps.js';
+import { emailConnected } from '../_lib/email/transport.js';
 
 /* Send one of the four branded emails (CRM revamp, step 6).
  *   POST /api/admin/send-email { leadId, kind intro | onboarding | invoice | delivery, invoiceId?, projectId? }
@@ -19,8 +20,12 @@ import { applySendStamps } from '../_lib/email/stamps.js';
  * delivery.emailSent on the project, marks the invoice sent, appends a
  * contactLog entry, recomputes the next action, and answers { ok, sentAt }.
  * Sixty sends an hour through the shared limiter. The hook URL never
- * appears in a response or a log. */
+ * appears in a response or a log.
+ * Retired (the email system, milestone 8): with RESEND_API_KEY set, Compose
+ * sends every email and this door answers 410 without posting anything; the
+ * hooks only matter until then (docs/RUNBOOK.md, Emails). */
 const NOT_CONNECTED = 'That email is not connected yet.';
+const RETIRED = 'The Zapier emails are retired. Compose sends this one now.';
 const DID_NOT_SEND = 'That email did not go out. Zapier did not accept it; nothing was stamped.';
 const SENDS_PER_HOUR = 60;
 const oid = (v) => { try { return new ObjectId(String(v)); } catch { return null; } };
@@ -37,6 +42,7 @@ export async function handler(req, res) {
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   const kind = EMAIL_KIND_IDS.includes(b.kind) ? b.kind : '';
   if (!kind) return res.status(400).json({ error: 'kind must be intro, onboarding, invoice or delivery' });
+  if (emailConnected()) return res.status(410).json({ error: RETIRED, retired: true });
   const hook = hookFor(kind);
   if (!hook) return res.status(503).json({ error: NOT_CONNECTED });
   const db = await getDb();

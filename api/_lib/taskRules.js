@@ -18,6 +18,8 @@ export function normalizeChecklists(lists) {
       source: ['manual', 'template', 'suggestion'].includes(it?.source) ? it.source : 'manual', suggestionId: str(it?.suggestionId, 64),
       /* Client portal (prompt 2): an item the client has to do shows on their Needs you card, with a link when one is set (https only). */
       client: !!it?.client, url: /^https:\/\/[^\s]+$/i.test(String(it?.url || '')) ? String(it.url).slice(0, 400) : '',
+      /* The email system (milestone 8): a task written for a drafted or failed email carries its log entry, so Next up can send it or open it. */
+      emailId: str(it?.emailId, 40),
     })),
   }));
 }
@@ -183,4 +185,52 @@ export function suggestEmail(record, ctx = {}) {
   }
   if (stage === 'nurture') return record.nurture && record.nurture.until && record.nurture.until <= todayKey ? pick('nurture_checkin') : null;
   return null;
+}
+
+/* ── The email rules (the email system, milestone 8): what goes out on its own ───────────────────────────────────────────────────────
+ * Each rule names a template and says when it fits: { id, template, scope, cooldownDays, reason, when(record, ctx, now) }, ctx the shape
+ * suggestEmail reads ({ project, sent, todayKey }) where `sent` holds the newest real send per template, and per template and invoice
+ * as "template:invoiceId". `when` answers false, true, or { invoice } for a rule about one line; a project scoped rule runs once per
+ * live project. The reminders cron runs them (api/_lib/email/rules.js) reading each template's Automation setting (Off, Draft for me,
+ * Send for me), the cooldown counting from the newest send of that key to the record; the cron never touches Declined, Lost or
+ * Recently Deleted. Pure, no clock. */
+const stageOf = (r) => r.stage || (r.callStatus === 'booked' ? 'booked' : '');
+const bookedOf = (r, now) => { const at = r.meeting && r.meeting.date ? Date.parse(`${r.meeting.date}T${r.meeting.time || '09:00'}:00`) : 0; return !!(r.calendlyEventUri || (at && at > now - DAY_MS)); };
+const cpAt = (r, id) => tsOf(r.deal && r.deal.checkpoints && r.deal.checkpoints[id] && r.deal.checkpoints[id].at);
+const sentLines = (rec) => linesOf(rec).filter(l => lineSent(l));
+const dueKeyOf = (l) => String(l.dueAt || '').slice(0, 10);
+export const EMAIL_RULES = [
+  { id: 'booking_nudge', template: 'booking_nudge', scope: 'record', cooldownDays: 30, reason: 'Three days with nothing booked',
+    when: (r, ctx, now) => { if (!['lead', 'triage', 'booked'].includes(stageOf(r)) || bookedOf(r, now)) return false; const last = Math.max(0, ...['intro_call', 'concepts_in_progress', 'concepts_ready'].map(id => tsOf(ctx.sent && ctx.sent[id]))); return last > 0 && last + REMINDER_DAYS * DAY_MS <= now; } },
+  { id: 'missed_call', template: 'missed_call', scope: 'record', cooldownDays: 30, reason: 'A no show was logged',
+    when: (r, ctx, now) => { const at = tsOf(r.meeting && r.meeting.noShowAt); if (!at || at > now) return false; const m = r.meeting && r.meeting.date ? Date.parse(`${r.meeting.date}T${r.meeting.time || '09:00'}:00`) : 0; return !(m && m > at); } },
+  { id: 'nurture_checkin', template: 'nurture_checkin', scope: 'record', cooldownDays: 90, reason: 'The nurture date came',
+    when: (r, ctx) => stageOf(r) === 'nurture' && !!(r.nurture && r.nurture.until) && r.nurture.until <= ctx.todayKey },
+  { id: 'form_nudge', template: 'form_nudge', scope: 'record', cooldownDays: 7, reason: 'Three days with no form',
+    when: (r, ctx, now) => ['booked', 'deal'].includes(stageOf(r)) && !!cpAt(r, 'onboardingSent') && !cpAt(r, 'formReceived') && cpAt(r, 'onboardingSent') + REMINDER_DAYS * DAY_MS <= now },
+  { id: 'contract_nudge', template: 'contract_nudge', scope: 'record', cooldownDays: 7, reason: 'Three days with no I agree',
+    when: (r, ctx, now) => ['booked', 'deal'].includes(stageOf(r)) && !!cpAt(r, 'contractSent') && !cpAt(r, 'contractAgreed') && cpAt(r, 'contractSent') + REMINDER_DAYS * DAY_MS <= now },
+  { id: 'invoice_reminder', template: 'invoice_reminder', scope: 'project', cooldownDays: 7, reason: 'Due in three days',
+    when: (r, ctx) => { const rec = ctx.project || r.deal; const soon = keyPlusDays(ctx.todayKey, REMINDER_DAYS); const hit = sentLines(rec || {}).find(l => dueKeyOf(l) === soon); return hit ? { invoice: hit } : false; } },
+  { id: 'invoice_past_due', template: 'invoice_past_due', scope: 'project', cooldownDays: 3650, reason: 'A day past due',
+    when: (r, ctx) => { const rec = ctx.project || r.deal; const hit = sentLines(rec || {}).find(l => dueKeyOf(l) && dueKeyOf(l) < ctx.todayKey); return hit ? { invoice: hit } : false; } },
+  { id: 'plan_invoice', template: 'invoice', scope: 'project', cooldownDays: 3650, reason: 'The month came up',
+    when: (r, ctx) => { const p = ctx.project; if (!p || !(p.plan && p.plan.months)) return false; const hit = linesOf(p).find(l => l && l.status === 'draft' && !l.extra && dueKeyOf(l) && dueKeyOf(l) <= ctx.todayKey); return hit ? { invoice: hit } : false; } },
+  { id: 'retainer_followup', template: 'retainer_followup', scope: 'project', cooldownDays: 3650, reason: 'Three days after delivery',
+    when: (r, ctx, now) => { const p = ctx.project; if (!p || !(p.delivery && p.delivery.emailSent) || (r.retainer && r.retainer.status === 'active')) return false; const base = tsOf(p.deliveredAt) || tsOf(p.releasedAt); return !!base && base + REMINDER_DAYS * DAY_MS <= now; } },
+  { id: 'review_request', template: 'review_request', scope: 'project', cooldownDays: 3650, reason: 'Three days after the release',
+    when: (r, ctx, now) => { const p = ctx.project; if (!p || (Array.isArray(r.reviews && r.reviews.asks) && r.reviews.asks.length)) return false; const base = tsOf(p.releasedAt) || (p.delivery && p.delivery.emailSent ? tsOf(p.deliveredAt) : 0); return !!base && base + REMINDER_DAYS * DAY_MS <= now; } },
+  { id: 'plan_complete', template: 'plan_complete', scope: 'project', cooldownDays: 3650, reason: 'The last payment landed',
+    when: (r, ctx) => { const p = ctx.project; if (!p || !(p.plan && p.plan.months)) return false; const lines = linesOf(p).filter(l => l && !l.extra); return lines.length >= Number(p.plan.months) && lines.every(linePaid); } },
+];
+export const EMAIL_RULE_IDS = EMAIL_RULES.map(r => r.id);
+/** The newest real send per template, and per template and invoice, from a record's log entries (tests to Rob and failures do not count). */
+export function sentKeys(entries) {
+  const out = {};
+  for (const e of Array.isArray(entries) ? entries : []) {
+    if (!e || e.toSelf || !['sent', 'test', 'queued'].includes(e.status)) continue;
+    const at = e.sentAt || e.createdAt || '';
+    for (const k of [e.templateId, e.invoiceId ? `${e.templateId}:${e.invoiceId}` : '']) { if (!k) continue; if (!out[k] || String(at) > String(out[k])) out[k] = at; }
+  }
+  return out;
 }

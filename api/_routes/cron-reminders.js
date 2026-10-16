@@ -3,6 +3,8 @@ import { clientPushSweep } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, ZONE } from '../_lib/zone.js';
+import { runQueuedSends } from '../_lib/email/queue.js';
+import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
 
 /* Vercel cron (vercel.json). Hobby plan cron jobs must run once daily, so by
  * default this runs at 13:00 UTC / 9am Eastern and sends one morning digest
@@ -109,8 +111,15 @@ export async function handler(req, res) {
     }
     taskPushes++;
   }
+  /* Queued emails (the email system): Send tomorrow at 9am lands here. Once a day, every queued email whose sendAt falls on or before
+     the run's New York day goes out (api/_lib/email/queue.js); on the fifteen minute schedule the instant rule applies instead. */
+  let emails = { checked: 0, sent: 0, failed: 0, limited: false };
+  try { emails = await runQueuedSends(db, now.getTime(), { byDay: !FIFTEEN_MINUTE_MODE }); } catch { /* the digest still goes; the queue waits for the next run */ }
+  /* The email rules (the email system, milestone 8): each template's Automation setting decides what the day's rules draft or send (api/_lib/email/rules.js). */
+  let rules = emptyRun();
+  try { rules = await runEmailRules(db, now.getTime()); } catch { /* the digest still goes; the rules run again tomorrow */ }
   /* Health: lastRunAt plus the last twelve run times, so Settings can tell a fifteen minute schedule from a daily one. */
-  const stampHealth = async (checked, sentN) => settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': checked, 'crons.reminders.sent': sentN, 'crons.reminders.tasks': taskPushes, updatedAt: new Date() }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  const stampHealth = async (checked, sentN) => settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': checked, 'crons.reminders.sent': sentN, 'crons.reminders.tasks': taskPushes, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules, updatedAt: new Date() }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
   if (FIFTEEN_MINUTE_MODE) {
     // Pro plan: near-real-time, one push per event, each with its own dedupe key.
@@ -136,7 +145,7 @@ export async function handler(req, res) {
       await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
     }
     await stampHealth(due.length, fresh.length);
-    return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length, tasks: taskPushes });
+    return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length, tasks: taskPushes, emails, rules });
   }
 
   // Hobby plan: one digest, once a day.
@@ -175,5 +184,5 @@ export async function handler(req, res) {
   try { clientPushes = await clientPushSweep(db, now.getTime()); } catch { /* the digest is done; next run */ }
   const didSend = total > 0 && !alreadySent;
   await stampHealth(total, didSend ? 1 : 0);
-  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes, clientPushes: clientPushes.sent });
+  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes, clientPushes: clientPushes.sent, emails, rules });
 }

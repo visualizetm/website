@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, Icon, CollapsiblePane,
+  PageShell, ScrollArea, Stack, Row, Card, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import { apiFetch } from '../shared/api';
+import { emailTaskOf } from '../lib/compose';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import { fmtDateTime, fmtWeekdayDateTime, dayKey } from '../shared/dates';
@@ -63,14 +65,17 @@ function useSwipe({ onRight, onLeft, onHold, enabled }) {
   };
 }
 
-function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask, onPin, onAuto, onTasks }) {
+function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask, onPin, onAuto, onTasks, onSendEmail, onEditEmail }) {
   const { action, lead } = item;
   /* The task system: a client or a project with checklists shows how far it is; a task action gets Pin or Auto and the way into its Tasks screen. */
   const counts = item.record?.checklists?.length ? taskCounts(item.record) : null;
   const isTaskItem = !!action.taskId;
+  /* The email system (milestone 8): a task written for a drafted or failed email carries the entry; its one control sends it and the menu edits it. */
+  const emailTask = isTaskItem ? emailTaskOf(item.record, action.taskId) : null;
   const swipe = useSwipe({ enabled: phone, onRight: onDone, onLeft: onSnooze, onHold: onPick });
   const kind = action.kind;
-  const primary = kind === 'call' || kind === 'callback'
+  const primary = emailTask ? { icon: 'Send01', label: `Send the email for ${lead.business}` }
+    : kind === 'call' || kind === 'callback'
     ? (lead.phone ? { icon: 'Phone', label: `Call ${lead.business}`, href: telHref(lead.phone) } : { icon: 'Phone', label: `Open ${lead.business}, no phone on file` })
     : kind === 'log-outcome' ? { icon: 'CheckCircle', label: `Log the outcome for ${lead.business}` }
     : kind === 'build-concepts' ? { icon: 'LayersThree01', label: `Build concepts for ${lead.business}` }
@@ -78,6 +83,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, on
     : kind === 'custom' && action.label === 'Move to nurture?' ? { icon: 'Clock', label: `Move ${lead.business} to nurture` }
     : { icon: 'ArrowRight', label: `Open ${lead.business}` };
   const menu = [
+    ...(emailTask ? [{ id: 'send-email', label: 'Send email', icon: 'Send01', onSelect: onSendEmail }, { id: 'edit-email', label: 'Edit email', icon: 'Edit02', onSelect: onEditEmail }] : []),
     { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
     { id: 'snooze', label: 'Snooze a day', icon: 'Clock', onSelect: onSnooze },
     { id: 'pick', label: 'Snooze until', icon: 'Calendar', onSelect: onPick },
@@ -106,7 +112,7 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, on
             {counts && <ProgressBar value={counts.pct} size="sm" tone={counts.done === counts.total ? 'booked' : 'progress'} className="nu-bar" aria-label={`${counts.done} of ${counts.total} tasks done`} />}
           </Stack>
           <span className="v-above nu-ctl">
-            <IconButton icon={primary.icon} label={primary.label} variant="secondary" onClick={primary.href ? () => { window.location.href = primary.href; } : onAct} />
+            <IconButton icon={primary.icon} label={primary.label} variant="secondary" onClick={primary.href ? () => { window.location.href = primary.href; } : emailTask ? onSendEmail : onAct} className={emailTask ? 'nu-send' : undefined} />
             <Menu label={`${lead.business} actions`} items={menu} />
           </span>
         </Row>
@@ -162,7 +168,7 @@ function ListReadyRow({ list, onStart, onOpen }) {
 
 /* The six sections, every one open, an empty one a single line. */
 function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
-  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} onPin={() => act('pin', it)} onAuto={() => act('auto', it)} onTasks={() => act('tasks', it)} />);
+  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} onPin={() => act('pin', it)} onAuto={() => act('auto', it)} onTasks={() => act('tasks', it)} onSendEmail={() => act('sendemail', it)} onEditEmail={() => act('editemail', it)} />);
   const line = (text) => <p className="nu-clear" role="status">{text}</p>;
   const section = (id, label, tone, count, body) => (
     <section key={id} className="nu-sec" aria-label={label}>
@@ -210,6 +216,7 @@ function NextUpSkeleton() {
 export default function AdminTasksHome({ leads, projects = [], sets = [], loading, error, onRetry, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
   const shell = useShell();
   const toast = useToast();
+  const [confirm, confirmEl] = useConfirm();
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const phone = useMediaQuery('(max-width: 767px)');
@@ -273,6 +280,28 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     }
     if (what === 'edittask') { setTaskEdit(item); return; }
     if (what === 'tasks') { shell?.openTasks?.(item.lead, item.project || undefined); return; }
+    /* The email system (milestone 8): Send sends the draft through the one door (the server renders it again from the record and ticks the
+       task); Edit opens Compose on the draft's template, project and invoice. */
+    if (what === 'sendemail' || what === 'editemail') {
+      const t = emailTaskOf(item.record, item.action.taskId);
+      if (!t) { openRecord(item); return; }
+      if (what === 'editemail') {
+        const r = await apiFetch(`/api/admin/email/log?id=${encodeURIComponent(t.emailId)}`);
+        const e = r.ok ? r.data?.item : null;
+        if (!e) { toast.error(r.data?.error || 'That email did not load.'); return; }
+        const project = (projects || []).find(p => String(p._id) === String(e.projectId || '')) || null;
+        const invoice = e.invoiceId ? { id: e.invoiceId } : null;
+        shell?.openCompose?.(item.lead, { templateId: e.templateId, project, invoice });
+        return;
+      }
+      const send = async (confirmDuplicate) => apiFetch('/api/admin/email/log', { method: 'POST', body: { id: t.emailId, send: true, ...(confirmDuplicate ? { confirmDuplicate: true } : {}) } });
+      let r = await send(false);
+      if (r.status === 409 && r.data?.duplicate) { const yes = await confirm({ title: 'Send it again?', body: r.data.error, confirmLabel: 'Send again' }); if (!yes) return; r = await send(true); }
+      if (!r.ok) { toast.error(r.data?.error || COPY.error.save); return; }
+      toast.success(r.data?.message || `Sent for ${item.lead.business}.`);
+      onRetry?.();
+      return;
+    }
     if (what === 'pin' && item.action.taskId) { const ok = await writeRecord(item, pinPatch(item.record, item.action.taskId, taskCtx)); if (ok) toast.success(`${item.action.label} pinned as Next up.`); return; }
     if (what === 'auto' && item.action.taskId) { const ok = await writeRecord(item, unpinPatch(item.record, taskCtx)); if (ok) toast.success('Back to auto: the task due soonest is the Next up.'); return; }
     if (what === 'done' && item.action.taskId) {
@@ -362,7 +391,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
             <Stagger className="db-hint"><EmptyState icon="CheckDone01" title="Pick a task" description="The record opens here beside the list. Done, Snooze and the menu sit on every row." className="db-hint-box" /></Stagger>
           </PageShell>
         )}
-        {picker}
+        {picker}{confirmEl}
         {reschedSheet}{taskSheet}
         <style>{dbStyles}</style>
       </>
@@ -375,7 +404,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
           <div className="db-next">{list}</div>
         </Stagger>
       </div>
-      {picker}
+      {picker}{confirmEl}
       {reschedSheet}{taskSheet}
       <style>{dbStyles}</style>
     </div>

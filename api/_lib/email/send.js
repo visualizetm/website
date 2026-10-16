@@ -8,13 +8,17 @@ import { randomBytes } from 'node:crypto';
 import { dealOf } from '../deal.js';
 import { invoicesOf } from '../invoices.js';
 import { attachPaymentLink } from '../stripe.js';
+import { replaceInvoice } from '../invoices.js';
+import { paidInFull } from '../portalModules.js';
+import { allocateInvoiceNumber } from './invoiceNumber.js';
 import { readEmailSettings } from './settings.js';
 import { effectiveTemplate, templateOf, serviceOf, EMAIL_TEMPLATES } from './templates.js';
 import { resolveVars, SITE } from './vars.js';
 import { renderEmail, sanitizeBlocks, varsUsed } from './render.js';
 import { sendEmail, senderOf, isEmail, TEST_MESSAGE } from './transport.js';
-import { writeLog, updateLog, sentWithin, DUPLICATE_WINDOW_MS } from './log.js';
+import { writeLog, updateLog, logEntry, sentWithin, DUPLICATE_WINDOW_MS } from './log.js';
 import { applySendStamps } from './stamps.js';
+import { failedSendItem } from './failed.js';
 
 export const TOKEN_BYTES = 18; // 24 base64url characters, the planner's and the portal's rule
 export const QUEUE_MAX_DAYS = 30;
@@ -66,7 +70,7 @@ export function composeEmail(ctx, { templateId, override = null, optOutToken = '
   const base = templateOf(templateId);
   if (!base) return { error: 'unknown template', status: 400 };
   const vars = resolveVars({ lead: ctx.lead, project: ctx.project, invoice: ctx.invoice, projects: ctx.projects, sets: ctx.sets, settings: ctx.settings, profile: ctx.profile });
-  const tpl = effectiveTemplate(templateId, ctx.settings.templates, { service: vars.service || serviceOf('') });
+  const tpl = effectiveTemplate(templateId, ctx.settings.templates, { service: vars.service || serviceOf('') , kind: vars['invoice.kind'] || '' });
   const o = sanitizeOverride(override);
   const draft = { ...tpl, ...(o?.subject !== undefined ? { subject: o.subject } : {}), ...(o?.preheader !== undefined ? { preheader: o.preheader } : {}), ...(o?.blocks ? { blocks: o.blocks } : {}) };
   const marketing = isMarketing(base);
@@ -103,25 +107,75 @@ export async function ensureEmailToken(db, lead) {
   return token;
 }
 
+const INVOICE_TEMPLATES = ['invoice', 'invoice_reminder', 'invoice_past_due'];
+/** The line's new fields written where it lives, one positional $set on that line alone (never the whole array, so two sends at once
+ * cannot undo each other's number); a project still on the old schedule[] shape gets its lines written as invoices[] once. */
+async function persistInvoice(db, ctx, next, fields) {
+  const stamp = (root) => Object.fromEntries(fields.filter(f => next[f] !== undefined).map(f => [`${root}.$.${f}`, next[f]]));
+  if (ctx.project) {
+    if (Array.isArray(ctx.project.invoices)) await db.collection('projects').updateOne({ _id: ctx.project._id, 'invoices.id': next.id }, { $set: { ...stamp('invoices'), updatedAt: new Date() } });
+    else await db.collection('projects').updateOne({ _id: ctx.project._id }, { $set: { invoices: replaceInvoice(invoicesOf(ctx.project), next), updatedAt: new Date() } });
+    ctx.project = { ...ctx.project, invoices: replaceInvoice(invoicesOf(ctx.project), next) };
+  } else {
+    await db.collection('call_leads').updateOne({ _id: ctx.lead._id, 'deal.invoices.id': next.id }, { $set: { ...stamp('deal.invoices'), updatedAt: new Date() } });
+    ctx.lead = { ...ctx.lead, deal: { ...dealOf(ctx.lead), invoices: replaceInvoice(invoicesOf(dealOf(ctx.lead)), next) } };
+  }
+  ctx.invoice = next;
+}
+/** Before an invoice email renders: its number (given once, atomically, on the first real send) and its own Stripe link (the existing
+ * per invoice link code, when Stripe is set up), both written on the line so the email and the Money section agree. A test to Rob
+ * takes no number. */
+export async function prepareInvoice(db, ctx, base, { testToSelf = false } = {}) {
+  const inv = ctx.invoice;
+  if (!inv || !base || !INVOICE_TEMPLATES.includes(base.id)) return;
+  let next = inv;
+  if (base.id === 'invoice' && !next.number && !testToSelf) next = { ...next, number: await allocateInvoiceNumber(db) };
+  if (!next.payUrl) { try { next = await attachPaymentLink(next, { leadId: String(ctx.lead._id), projectId: ctx.project ? String(ctx.project._id) : '' }); } catch { /* no Stripe: the other ways to pay still render */ } }
+  if (next !== inv) await persistInvoice(db, ctx, next, ['number', 'payUrl', 'paymentLinkId']);
+}
+/** The review request's link, minted on the first send when the record has none, the same shape the lead route mints (Generate review link). */
+export async function ensureReviewToken(db, ctx) {
+  const had = ctx.lead.reviews?.visualize || null;
+  if (had?.token) return had.token;
+  const now = new Date().toISOString();
+  const visualize = { token: randomBytes(18).toString('base64url'), createdAt: now, regeneratedAt: '', views: 0, lastViewedAt: '', sentAt: '' };
+  await db.collection('call_leads').updateOne({ _id: ctx.lead._id }, { $set: { 'reviews.visualize': visualize, updatedAt: new Date() } });
+  ctx.lead = { ...ctx.lead, reviews: { ...(ctx.lead.reviews || {}), visualize } };
+  return visualize.token;
+}
+/** The delivery email's gate (the portal's files rule): paid in full, the Drive folder linked, and Rob's word that it is shared as Viewer. */
+export function deliveryRefusal(ctx, opts = {}) {
+  if (!ctx.project) return 'Pick the project first.';
+  if (!paidInFull(ctx.project)) return 'The delivery email waits for full payment.';
+  if (!/^https?:\/\//i.test(String(ctx.project.links?.drive || ''))) return 'Add the Drive folder link first.';
+  if (opts.driveShared !== true) return 'Tick "The Drive folder is shared as Viewer" first.';
+  return '';
+}
 const addresses = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
 
 /**
- * sendComposed(db, ctx, { templateId, override }, { to, cc, testToSelf, confirmDuplicate, sendAt, auto })
+ * sendComposed(db, ctx, { templateId, override }, { to, cc, testToSelf, confirmDuplicate, sendAt, auto, driveShared, reuseLogId })
  *   -> { status: 200 | 4xx | 5xx, body }
  * Renders on the server (never a request's HTML), refuses on a missing field, a bad address, an opt out (marketing
  * only) or a duplicate inside ten minutes; a sendAt queues; testToSelf goes to the sender with "[Test]" and stamps
  * nothing; a real send logs, stamps the template's checkpoint through the one stamps function and recomputes the next
- * action, all on this request.
+ * action, all on this request. reuseLogId (a draft sent now, drafts.js) writes the outcome onto that entry instead of a new one.
  */
 export async function sendComposed(db, ctx, args = {}, opts = {}) {
-  const { lead, project, invoice } = ctx;
   const testToSelf = opts.testToSelf === true;
+  const base0 = templateOf(args.templateId);
+  await prepareInvoice(db, ctx, base0, { testToSelf });
+  if (base0?.id === 'delivery' && !testToSelf) { const why = deliveryRefusal(ctx, opts); if (why) return { status: 400, body: { error: why } }; }
+  if (base0?.id === 'review_request' && !testToSelf) await ensureReviewToken(db, ctx);
+  const { lead, project, invoice } = ctx;
   let composed = composeEmail(ctx, args);
   if (composed.error) return { status: composed.status, body: { error: composed.error } };
+  /* The one refusal on a missing value: the template's needs plus every variable its text reads (lackingOf), which covers the render's own
+   * missing set; a from list draws nothing when empty, so the needs are what keeps a delivery with no files from going. */
+  if (composed.lacking.length) return { status: 400, body: { error: `Fill in ${composed.lacking.join(', ')} first.`, missing: composed.lacking } };
   /* A marketing email carries its own opt out link, so the token is minted before the final render. */
   if (composed.marketing && !testToSelf) { const token = await ensureEmailToken(db, lead); composed = composeEmail(ctx, { ...args, optOutToken: token }); }
   const { base, rendered, marketing } = composed;
-  if (rendered.missing.length) return { status: 400, body: { error: `Fill in ${rendered.missing.join(', ')} first.`, missing: rendered.missing } };
   if (rendered.tooBig) return { status: 400, body: { error: 'That email is over 90 KB. Take a block out.' } };
   const sender = senderOf(ctx.settings.sender);
   const to = testToSelf ? [sender.address] : (addresses(opts.to).length ? addresses(opts.to) : composed.to);
@@ -142,25 +196,27 @@ export async function sendComposed(db, ctx, args = {}, opts = {}) {
   }
   const subject = testToSelf ? `[Test] ${rendered.subject}` : rendered.subject;
   const entry = { recordId: String(lead._id), projectId: project ? String(project._id) : '', invoiceId: invoice ? String(invoice.id) : '', templateId: base.id, class: base.class, to, cc, subject, text: rendered.text, html: rendered.html, auto: opts.auto === true, toSelf: testToSelf };
+  /* The log: a new entry, or the draft's own when a draft is sent now (its createdAt stays; sendAt clears). */
+  const keep = opts.reuseLogId || null;
+  const record = async (fields) => { if (!keep) return writeLog(db, { ...entry, ...fields }); const { createdAt, ...rest } = logEntry({ ...entry, ...fields }); void createdAt; await updateLog(db, keep, rest); return { ...rest, _id: keep }; };
   if (opts.sendAt && !testToSelf) {
     const at = new Date(opts.sendAt).getTime();
     if (!Number.isFinite(at) || at < Date.now() - 60e3 || at > Date.now() + QUEUE_MAX_DAYS * 864e5) return { status: 400, body: { error: 'Pick a time in the next thirty days.' } };
-    const log = await writeLog(db, { ...entry, status: 'queued', sendAt: new Date(at).toISOString() });
+    const log = await record({ status: 'queued', sendAt: new Date(at).toISOString() });
     return { status: 200, body: { ok: true, queued: true, sendAt: log.sendAt, logId: String(log._id) } };
   }
   const r = await sendEmail(db, { to, cc, subject, html: rendered.html, text: rendered.text, headers, sender });
   if (r.limited) return { status: 429, body: { error: r.error, retryAfter: r.retryAfter } };
   const sentAt = new Date().toISOString();
   if (!r.ok) {
-    const log = await writeLog(db, { ...entry, status: 'failed', error: r.error });
+    const log = await record({ status: 'failed', error: r.error });
+    /* A failed send to the client is work for Rob: the task on the record and the push (failed.js); a failed test to himself is not. */
+    if (!testToSelf) await failedSendItem(db, { lead, logId: log._id, templateId: base.id, error: r.error });
     return { status: 502, body: { error: `That email did not go out. ${r.error}`, logId: String(log._id) } };
   }
-  const log = await writeLog(db, { ...entry, status: r.test ? 'test' : 'sent', providerId: r.providerId, sentAt });
+  const log = await record({ status: r.test ? 'test' : 'sent', providerId: r.providerId, sentAt });
   if (testToSelf) return { status: 200, body: { ok: true, test: r.test, sentAt, logId: String(log._id), toSelf: true, message: r.test ? TEST_MESSAGE : `Test sent to ${sender.address}.` } };
-  /* The invoice's own Stripe link, made now so the email that just went and the Pay card carry it (the old route did the same). */
-  let inv = invoice;
-  if (base.stamp === 'invoice' && invoice) { try { inv = await attachPaymentLink(invoice, { leadId: String(lead._id), projectId: project ? String(project._id) : '' }); } catch { inv = invoice; } }
-  const stamps = await applySendStamps(db, { lead, project, invoice: inv, kind: base.stamp || base.id, sentAt, note: `Sent ${base.name.toLowerCase()}` });
+  const stamps = await applySendStamps(db, { lead, project, invoice, kind: base.stamp || base.id, sentAt, note: `Sent ${base.name.toLowerCase()}`, deliveryFull: true });
   return { status: 200, body: { ok: true, test: r.test, sentAt, logId: String(log._id), stamped: Object.keys(stamps).filter(k => k !== 'updatedAt'), message: r.test ? TEST_MESSAGE : `Sent to ${to.join(', ')}` } };
 }
 
@@ -170,15 +226,15 @@ export async function sendLogged(db, log) {
   if (ctx.error) { await updateLog(db, log._id, { status: 'failed', error: ctx.error }); return { ok: false, error: ctx.error }; }
   const base = templateOf(log.templateId);
   const marketing = isMarketing(base);
-  if (marketing && ctx.lead.emailOptOut) { await updateLog(db, log._id, { status: 'failed', error: 'opted out' }); return { ok: false, error: 'opted out' }; }
+  if (marketing && ctx.lead.emailOptOut) { await updateLog(db, log._id, { status: 'failed', error: 'opted out' }); await failedSendItem(db, { lead: ctx.lead, logId: log._id, templateId: log.templateId, error: 'They opted out of these emails.' }); return { ok: false, error: 'opted out' }; }
   const headers = {};
   if (marketing) { const token = await ensureEmailToken(db, ctx.lead); headers['List-Unsubscribe'] = `<${unsubscribeApiFor(token)}>`; headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click'; }
   const sender = senderOf(ctx.settings.sender);
   const r = await sendEmail(db, { to: log.to, cc: log.cc, subject: log.subject, html: log.html, text: log.text, headers, sender });
   if (r.limited) return { ok: false, limited: true, error: r.error };
   const sentAt = new Date().toISOString();
-  if (!r.ok) { await updateLog(db, log._id, { status: 'failed', error: r.error }); return { ok: false, error: r.error }; }
+  if (!r.ok) { await updateLog(db, log._id, { status: 'failed', error: r.error }); await failedSendItem(db, { lead: ctx.lead, logId: log._id, templateId: log.templateId, error: r.error }); return { ok: false, error: r.error }; }
   await updateLog(db, log._id, { status: r.test ? 'test' : 'sent', providerId: r.providerId, sentAt, sendAt: '' });
-  if (base) await applySendStamps(db, { lead: ctx.lead, project: ctx.project, invoice: ctx.invoice, kind: base.stamp || base.id, sentAt, note: `Sent ${base.name.toLowerCase()}` });
+  if (base) await applySendStamps(db, { lead: ctx.lead, project: ctx.project, invoice: ctx.invoice, kind: base.stamp || base.id, sentAt, note: `Sent ${base.name.toLowerCase()}`, deliveryFull: true });
   return { ok: true, test: r.test, sentAt };
 }

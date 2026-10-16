@@ -13,17 +13,23 @@
  */
 import { chromium } from 'playwright-core';
 import { mockRoutes } from './audit-fixtures.mjs';
+import { phoneSection } from './audit-screens.mjs';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const W = 390; const H = 844;
 
-const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
+/* The email sheet holds a sandboxed srcdoc iframe (no allow-scripts, no same origin); Chromium puts such a frame in its own process, and a
+ * synthetic touch sequence (CDP) that crosses it never gets its touch end acknowledged. The flag keeps the frame in the page's process for
+ * the test; the sandbox itself is unchanged (the a11y and feel audits read the attribute). */
+const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox', '--disable-features=IsolateSandboxedIframes'] });
 const results = []; let failures = 0;
+const VERBOSE = process.env.AUDIT_VERBOSE === '1';
 const step = async (name, fn) => {
   const page = await ctx.newPage();
-  try { const note = await fn(page); results.push({ name, ok: true, note: note || '' }); }
-  catch (e) { failures++; results.push({ name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 200) }); }
+  if (VERBOSE) console.log(`.. ${name}`);
+  try { const note = await fn(page); results.push({ name, ok: true, note: note || '' }); if (VERBOSE) console.log(`ok ${name}`); }
+  catch (e) { failures++; results.push({ name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 200) }); if (VERBOSE) console.log(`FAIL ${name}: ${String(e.message || e).split('\n')[0].slice(0, 200)}`); }
   await page.close();
 };
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
@@ -240,6 +246,22 @@ await step('edge Back from Compose returns to the record, and the edit is kept a
   const draft = await page.evaluate(() => localStorage.getItem('vz_email_draft:L8:intro_call'));
   need(draft && /Edited on the way out/.test(draft), 'the edit was not kept as a draft');
   return 'Compose opened from the suggestion chip, edge Back returned to the record, the draft survived';
+});
+await step('a sent email row opens its sheet; the sheet follows the finger and a long drag closes it', async (page) => {
+  const g = await open(page, '/admin/deals'); await g.wait(600);
+  await page.locator('.sh-content [data-row-id="L9"] .v-stretch').first().evaluate(el => el.click()); await g.wait(900);
+  await phoneSection(page, 'Emails');
+  await page.waitForSelector('.rc-email-row', { timeout: 6000 });
+  await page.locator('.rc-email-row .v-stretch').first().evaluate(el => el.click()); await g.wait(900);
+  await page.waitForSelector('[role="dialog"] .ep-frame', { timeout: 6000 });
+  const sb = await page.locator('.v-sheet-handle').boundingBox(); need(sb, 'the sheet has no handle');
+  await g.t('touchStart', sb.x + sb.width / 2, sb.y + 8); for (let y = 0; y <= 60; y += 15) { await g.t('touchMove', sb.x + sb.width / 2, sb.y + 8 + y); await g.wait(16); }
+  const mid = await page.evaluate(() => ({ tr: document.querySelector('.v-sheet').style.transform }));
+  need(/translateY\(\d+px\)/.test(mid.tr), `the sheet did not follow: ${JSON.stringify(mid)}`);
+  for (let y = 75; y <= 420; y += 25) { await g.t('touchMove', sb.x + sb.width / 2, sb.y + 8 + y); await g.wait(16); }
+  await g.t('touchEnd'); await g.wait(800);
+  need(await page.locator('[role="dialog"]').count() === 0, 'a long drag did not close the sheet');
+  return 'the sheet opened from the row, followed the finger and closed on a long drag';
 });
 await step('edge Back from a doc returns to the client\'s docs, and the doc was saved', async (page) => {
   const writes = []; page.on('request', r => { if (r.method() === 'PATCH' && /admin\/docs/.test(r.url())) writes.push(r.postData()); });

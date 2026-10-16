@@ -216,11 +216,14 @@ section('6. against the real handlers');
   ok(r._status === 200 && r._json.dealsMoved >= 2, `the cron moved the deals (${r._json?.dealsMoved})`);
   ok(lead(B).stage === 'deal', 'a booked record a day past its meeting is a deal in the morning');
   ok(!!lead(DL).deal.stalledSince, 'a deal quiet since January is stalled');
-  ok(lead(DL).nextAction?.kind === 'send-onboarding', `the next action follows the checkpoints (${lead(DL).nextAction?.kind})`); // the form is back but onboarding never went out
+  /* The email system (milestones 6 and 8): the bill day drafted the month's invoice email beside the line, and a lead's drafted email is its next step until it is sent or ticked; the checkpoint rule speaks again after. */
+  ok(lead(DL).nextAction?.kind === 'custom' && /^Email ready: /.test(lead(DL).nextAction?.label || '') && !!lead(DL).nextAction?.taskId && (lead(DL).checklists || []).some(l => l.items.some(it => /^Email ready: Invoice for/.test(it.text))), `a drafted email is the next step, the month's invoice among them (${lead(DL).nextAction?.kind}: ${lead(DL).nextAction?.label})`);
   const pj = _stores.projects.find(p => String(p._id) === PJ);
   ok(r._json.drafted === 1 && pj.invoices.length === 2 && pj.invoices[1].status === 'draft' && pj.invoices[1].label === 'Month 2 of 6' && pj.invoices[1].dueAt === todayKey, `on the bill day the next plan month is drafted (${JSON.stringify(pj.invoices[1])})`);
+  lead(DL).checklists = (lead(DL).checklists || []).map(l => ({ ...l, items: (l.items || []).map(it => ({ ...it, done: true, doneAt: new Date().toISOString() })) }));
   const again = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
   ok(again._json.drafted === 0 && again._json.dealsMoved === 0, `a second run drafts and moves nothing (drafted ${again._json.drafted}, moved ${again._json.dealsMoved}; B stage ${lead(B).stage}, stall ${lead(B).deal?.stalledSince || '-'}, DL stall ${lead(DL).deal?.stalledSince || '-'})`);
+  ok(lead(DL).nextAction?.kind === 'send-onboarding', `with the email ticked the next action follows the checkpoints (${lead(DL).nextAction?.kind})`); // the form is back but onboarding never went out
   // the conversion through the routes
   const inv = I.newInvoice({ label: 'Web Complete', amount: 750, dueAt: todayKey, status: 'sent' });
   lead(DL).deal.invoices = [inv];

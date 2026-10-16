@@ -59,6 +59,8 @@ export const PIPE_EXTRA = {
   /* CRM revamp, step 5: L8 is a booking with its deal started (the package from the recommended option, no ticks yet); L9 is a deal in play: concepts, intro and the call ticked, the form back, a sent invoice, and stalled since the contract went quiet. */
   8: { deal: { checkpoints: { concepts: null, introSent: null, callDone: null, onboardingSent: null, formReceived: null, contractSent: null, contractAgreed: null, invoiceSent: null, paid: null }, packageId: 'launch-plan', addonIds: [], plan: { months: 6, monthly: 200 }, invoices: [], contractLink: '', metAt: '', stalledSince: '' } },
   9: { stage: 'deal', callStatus: 'booked', meeting: { date: daysFrom(-12).slice(0, 10), time: '10:00', type: 'call', location: '' }, calendlyEventUri: 'https://api.calendly.com/scheduled_events/old9',
+       /* The email system (milestone 8): the contract nudge rule drafted its email (EL6 below); the task carries the entry, so Next up shows Send and Edit. */
+       checklists: [{ id: 'ckL9e', name: 'Emails', templateId: '', items: [{ id: 'edEL6', text: 'Email ready: Contract nudge for Business 9. Three days with no I agree', done: false, doneAt: '', due: new Date(new Date().setHours(17, 0, 0, 0)).toISOString(), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'manual', suggestionId: '', emailId: 'EL6' }] }],
        deal: { checkpoints: { concepts: { at: daysFrom(-13), by: 'auto' }, introSent: { at: daysFrom(-14), by: 'rob' }, callDone: { at: daysFrom(-12), by: 'auto' }, onboardingSent: { at: daysFrom(-11), by: 'rob' }, formReceived: { at: daysFrom(-10), by: 'auto' }, contractSent: { at: daysFrom(-9), by: 'rob' }, contractAgreed: null, invoiceSent: null, paid: null },
               packageId: 'web-complete', addonIds: ['rush'], plan: null, invoices: [{ id: 'dv1', label: 'Web Complete', amount: 770, dueAt: daysFrom(-2).slice(0, 10), status: 'sent', sentAt: daysFrom(-9), paidAt: '', note: 'Half now, half on delivery ' + UNBROKEN.slice(0, 30) }], contractLink: 'https://example.com/contract/' + UNBROKEN.slice(0, 20), metAt: daysFrom(-12), stalledSince: daysFrom(-2) } },
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
@@ -291,7 +293,7 @@ export const projects = [
       { id: 'm2', amount: 200, dueAt: monthsAgo(3, 5), status: 'paid', ledgerId: 'lg2', label: 'Month 2 of 6' },
       { id: 'm3', amount: 200, dueAt: monthsAgo(2, 5), status: 'paid', ledgerId: 'lg3', label: 'Month 3 of 6' },
       { id: 'm4', amount: 200, dueAt: monthsAgo(1, 5), status: 'paid', ledgerId: 'lg4', label: 'Month 4 of 6' },
-      { id: 'm5', amount: 200, dueAt: daysFrom(2), status: 'sent', ledgerId: '', sentAt: NOW_ISO, note: '', label: 'Month 5 of 6' },
+      { id: 'm5', amount: 200, dueAt: daysFrom(2), status: 'sent', ledgerId: '', sentAt: NOW_ISO, note: '', label: 'Month 5 of 6', number: 'INV-0012', kind: 'plan', items: [{ label: 'Launch Plan', amount: 1200 }, { label: 'Brand Starter', amount: 'Included' }, { label: 'Web Essentials', amount: 'Included' }, { label: 'NFC card', amount: 'Included' }] },
       { id: 'm6', amount: 200, dueAt: daysFrom(32), status: 'sent', ledgerId: '', sentAt: NOW_ISO, note: '', label: 'Month 6 of 6' },
       { id: 'x1', amount: 75, dueAt: daysFrom(-3), status: 'sent', ledgerId: '', sentAt: NOW_ISO, note: '', label: 'Extra revision round 1', extra: true },
     ],
@@ -586,9 +588,23 @@ EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, deliv
    connected (no key): every send is a test send that answers ok, nothing leaves. */
 export const EMAIL_SENDER = { name: 'Rob at Visualize', address: 'contact@visualizeclients.com', replyTo: 'contact@visualizeclients.com' };
 export const EMAIL_STATUS = { connected: false, sender: EMAIL_SENDER, from: 'Rob at Visualize <contact@visualizeclients.com>', sentLastHour: 0, limit: 30 };
-export const EMAIL_SETTINGS = { settings: { sender: EMAIL_SENDER, signatureName: 'Rob', calendlyLink: '', invoiceTerms: {}, invoiceCounter: 0, automation: {}, templates: {} }, templates: EMAIL_TEMPLATES, connected: false };
-export const emailLog = [];
+export const EMAIL_SETTINGS = { settings: { sender: EMAIL_SENDER, signatureName: 'Rob', calendlyLink: '', invoiceTerms: { deposit: ['The deposit starts the project. The balance is due before delivery.', 'Your final files release once everything is paid.'] }, invoiceCounter: 12, automation: {}, templates: { intro_call: { subject: 'Hey {{firstName}}, me again', updatedAt: NOW_ISO } } }, templates: EMAIL_TEMPLATES, connected: false };
 export const UNSUB_TOKEN = 'unsubTESTtoken0123456789';
+/* The email log (milestone 4): a sent intro, a test to Rob, a queued onboarding for tomorrow, a failed custom one and a delivery in test mode on a project. */
+const logHtml = (templateId, recordId, projectId = '') => { const r = emailPreviewPayload({ templateId, recordId, projectId }); return r.status === 200 ? { subject: r.body.subject, text: r.body.text, html: r.body.html } : { subject: 'Email', text: 'Email', html: '<p>Email</p>' }; };
+const hoursAgo = (h) => new Date(Date.now() - h * 3600e3).toISOString();
+const tomorrowNine = () => { const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(9, 0, 0, 0); return t.toISOString(); };
+const logEntry = (o) => ({ projectId: '', invoiceId: '', cc: [], sendAt: '', providerId: '', error: '', auto: false, toSelf: false, sentAt: '', ...o });
+export const emailLog = [
+  logEntry({ _id: 'EL1', recordId: 'L8', templateId: 'intro_call', class: 'marketing', to: ['owner8@example.com'], ...logHtml('intro_call', 'L8'), status: 'sent', providerId: 'em_fixture_1', createdAt: hoursAgo(50), sentAt: hoursAgo(50) }),
+  logEntry({ _id: 'EL2', recordId: 'L8', templateId: 'intro_call', class: 'marketing', to: ['contact@visualizeclients.com'], ...logHtml('intro_call', 'L8'), subject: '[Test] Hey Damian, me again', status: 'test', toSelf: true, createdAt: hoursAgo(51), sentAt: hoursAgo(51) }),
+  logEntry({ _id: 'EL3', recordId: 'L9', templateId: 'onboarding', class: 'transactional', to: ['owner9@example.com'], ...logHtml('onboarding', 'L9'), status: 'queued', sendAt: tomorrowNine(), createdAt: hoursAgo(2) }),
+  logEntry({ _id: 'EL4', recordId: 'L9', templateId: 'custom', class: 'transactional', to: ['owner9@example.com'], ...logHtml('custom', 'L9'), status: 'failed', error: 'Resend said: the address was refused.', createdAt: hoursAgo(5) }),
+  logEntry({ _id: 'EL5', recordId: 'L11', projectId: 'P11', templateId: 'delivery', class: 'transactional', to: ['owner11@example.com'], ...logHtml('delivery', 'L11', 'P11'), status: 'test', createdAt: hoursAgo(100), sentAt: hoursAgo(100) }),
+  /* Milestone 8: a draft the contract nudge rule wrote this morning (auto), the newest entry on L9, so its sheet shows Send now and Edit. */
+  logEntry({ _id: 'EL6', recordId: 'L9', templateId: 'contract_nudge', class: 'transactional', to: ['owner9@example.com'], ...logHtml('contract_nudge', 'L9'), status: 'draft', auto: true, createdAt: hoursAgo(1) }),
+];
+const logRow = ({ html, ...rest }) => rest;
 export function emailPreviewPayload(body = {}) {
   const lead = leads.find(l => String(l._id) === String(body.recordId)) || null;
   if (!lead) return { status: 404, body: { error: 'not found' } };
@@ -599,14 +615,14 @@ export function emailPreviewPayload(body = {}) {
   const invoice = body.invoiceId ? (project ? invoicesOf(project) : invoicesOf(dealOf(lead))).find(i => i.id === String(body.invoiceId)) || null : null;
   const ctx = { lead, project, invoice, projects: projects.filter(p => String(p.leadId) === String(lead._id) && !p.archived), sets: sets.filter(x => String(x.leadId) === String(lead._id)), settings: EMAIL_SETTINGS.settings, profile: SETTINGS_DOC.profile };
   const vars = resolveVars(ctx);
-  const tpl = effectiveTemplate(base.id, {}, { service: vars.service || 'general' });
+  const tpl = effectiveTemplate(base.id, EMAIL_SETTINGS.settings.templates, { service: vars.service || 'general' });
   const o = body.override && typeof body.override === 'object' ? body.override : {};
   const draft = { ...tpl, ...(typeof o.subject === 'string' ? { subject: o.subject } : {}), ...(typeof o.preheader === 'string' ? { preheader: o.preheader } : {}), ...(Array.isArray(o.blocks) ? { blocks: o.blocks } : {}) };
   const marketing = base.class === 'marketing';
   const rendered = renderEmail({ subject: draft.subject, preheader: draft.preheader, blocks: draft.blocks, vars, marketing, optOutUrl: marketing ? `https://visualizestudio.org/u/${UNSUB_TOKEN}` : '' });
   const lacking = lackingOf(base, draft, vars);
-  const template = { id: base.id, name: base.name, group: base.group, class: base.class, when: base.when, service: tpl.service, edited: false, subject: tpl.subject, preheader: tpl.preheader, blocks: tpl.blocks };
-  return { status: 200, body: { subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: lead.email ? [String(lead.email).trim().toLowerCase()] : [], vars: varRows(vars), available: !lacking.length, lacking, class: base.class, service: tpl.service, edited: false, optedOut: marketing && !!lead.emailOptOut, connected: false, template, availability: availabilityFor(ctx, vars) } };
+  const template = { id: base.id, name: base.name, group: base.group, class: base.class, when: base.when, service: tpl.service, edited: tpl.edited, subject: tpl.subject, preheader: tpl.preheader, blocks: tpl.blocks };
+  return { status: 200, body: { subject: rendered.subject, preheader: rendered.preheader, html: rendered.html, text: rendered.text, missing: rendered.missing, warnings: rendered.warnings, bytes: rendered.bytes, to: lead.email ? [String(lead.email).trim().toLowerCase()] : [], vars: varRows(vars), available: !lacking.length, lacking, class: base.class, service: tpl.service, edited: tpl.edited, optedOut: marketing && !!lead.emailOptOut, connected: false, template, availability: availabilityFor(ctx, vars) } };
 }
 export function emailHandler(method, action, query = {}, body = {}) {
   if (action === 'status') return { status: 200, body: EMAIL_STATUS };
@@ -618,7 +634,14 @@ export function emailHandler(method, action, query = {}, body = {}) {
     if (body.sendAt) return { status: 200, body: { ok: true, queued: true, sendAt: body.sendAt, logId: 'EL2' } };
     return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: 'EL3', stamped: [], message } };
   }
-  if (action === 'log') return method === 'GET' ? { status: 200, body: query.id ? { item: emailLog.find(e => String(e._id) === String(query.id)) || null } : { items: emailLog.filter(e => (query.projectId ? e.projectId === query.projectId : e.recordId === query.recordId)) } } : { status: 200, body: { ok: true } };
+  if (action === 'log') {
+    if (method === 'POST' && body.send === true) { const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } }; if (!['draft', 'queued'].includes(e.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } }; e.status = 'test'; e.sentAt = NOW_ISO; e.sendAt = ''; return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: String(e._id), taskDone: true, message: "Test only, email isn't connected yet." } }; }
+    if (method === 'POST') { const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } }; if (e.status !== 'queued') return { status: 409, body: { error: 'Only a queued email can be cancelled.' } }; e.status = 'draft'; e.sendAt = ''; return { status: 200, body: { ok: true } }; }
+    if (query.id) { const e = emailLog.find(x => String(x._id) === String(query.id)); return e ? { status: 200, body: { item: e } } : { status: 404, body: { error: 'not found' } }; }
+    if (query.recent === '1') return { status: 200, body: { items: [...emailLog.filter(e => e.status === 'failed'), ...emailLog.filter(e => e.status !== 'failed')].map(logRow) } };
+    const mine = emailLog.filter(e => (query.projectId ? e.projectId === query.projectId : e.recordId === query.recordId)).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+    return { status: 200, body: { items: mine.map(logRow) } };
+  }
   if (action === 'settings') return method === 'GET' ? { status: 200, body: EMAIL_SETTINGS } : { status: 200, body: { ok: true, settings: EMAIL_SETTINGS.settings } };
   return { status: 404, body: { error: 'not found' } };
 }
@@ -700,6 +723,7 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/email/**', (r) => {
     if (failing.has('email')) return r.fulfill(fail());
     const u = new URL(r.request().url()); const action = u.pathname.split('/').pop();
+    if (empty.has('email') && action === 'log' && r.request().method() === 'GET') return r.fulfill(json({ items: [] }));
     let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
     const out = emailHandler(r.request().method(), action, Object.fromEntries(u.searchParams.entries()), b);
     return r.fulfill({ status: out.status, contentType: 'application/json', body: JSON.stringify(out.body) });

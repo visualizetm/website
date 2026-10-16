@@ -31,7 +31,7 @@ import { phoneSection, SCREENS } from './audit-screens.mjs';
 // .cs-cover on a detail page and .wk-card-media on a card. All three
 // frames are themselves still checked, so a frame that genuinely does
 // not fit still fails.)
-const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap', '.dc-bar-row',
+const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.ee-fields-row', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap', '.dc-bar-row',
   // Review links: the landing's testimonial track scrolls sideways on a phone with the next card peeking (the brief's ask), so its slides may run past the edge.
   '.ht-track', '.bt-row', '.pk-tiers', '.pj-track-row'];
 // Decorative elements meant to spill past their own edge and be clipped by
@@ -1060,7 +1060,9 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(400);
   await check('compose (template sheet)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
-  await page.locator('.cp-send:not([disabled])').first().waitFor({ timeout: 6000 }).catch(() => {});
+  /* The confirm sheet shows on the first send of a template to a record: the fixtures' log already holds an intro to L8, so the concepts email is the first here. */
+  await goto('/admin/email/compose?record=L8&template=concepts_in_progress');
+  await page.locator('.cp-send:not([disabled])').first().waitFor({ timeout: 8000 }).catch(() => {});
   await page.locator('.cp-send').first().click({ timeout: 3000 }).catch(() => {});
   await page.locator('.cp-confirm-send').first().waitFor({ timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(400);
@@ -1070,6 +1072,31 @@ for (const width of WIDTHS) {
   await page.locator('.cp-missing').first().waitFor({ timeout: 8000 }).catch(() => {});
   await page.waitForTimeout(400);
   await check('compose (missing banner, no email)');
+  /* The Emails section (the email system, milestone 4) on a deal, the sent email sheet, Compose in template mode, Settings, Emails and a template's sheet. */
+  await goto('/admin/deals?open=L9');
+  await page.locator('.rc-head').first().waitFor({ timeout: 8000 }).catch(() => {});
+  await section('Emails');
+  await page.locator('.rc-email-row').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('deal detail (emails)');
+  await page.locator('.rc-email-row .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.el-sheet .ep-frame').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('deal detail: sent email sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await goto('/admin/email/compose?record=L8&template=intro_call&mode=template');
+  await page.locator('.cp-template').first().waitFor({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('compose (template mode)');
+  await goto('/admin/settings/emails');
+  await page.locator('[data-card="email-recent"]').first().waitFor({ timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(500);
+  await check('settings (emails)');
+  await page.locator('.es-tpl-row .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.es-tpl-sheet').first().waitFor({ timeout: 4000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  await check('settings (emails: template sheet)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
   /* The Content Planner editor (planner prompt 2, part 6): the page on and
      off, a month with nothing in it, the post editor Sheet, the save bar,
      and the regenerate dialog. The image check earns its keep here too: a

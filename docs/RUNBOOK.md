@@ -125,57 +125,31 @@ checklist is written either way, so Next up still shows it.
 
 ## Emails
 
-The four branded emails (CRM revamp, step 6) go out through Zapier: one
-catch hook per email, its URL in a Vercel environment variable, nothing
-else stored anywhere. The admin POSTs JSON to the hook and the zap builds
-and sends the email from the studio address.
+The CRM sends its own emails through Resend (docs/EMAIL.md): Compose on
+every record, twenty four templates, the log, and the rules that draft or
+send on their own from the reminders cron. One variable, RESEND_API_KEY
+(the table above says how to get it); without it every send is a test
+(status test in the log, nothing leaves the server, every stamp and rule
+still runs), so the whole system can be walked before the key exists.
 
-| Kind | Variable | Sent from |
-|---|---|---|
-| intro | `ZAPIER_HOOK_INTRO` | the record's Checkpoints section (and its header primary), Send on Intro sent |
-| onboarding | `ZAPIER_HOOK_ONBOARDING` | the Checkpoints section, Send on Onboarding sent |
-| invoice | `ZAPIER_HOOK_INVOICE` | an Invoices row (a deal's or a client project's), Send |
-| delivery | `ZAPIER_HOOK_DELIVERY` | the client project's Send delivery card, Send beside "Delivery email sent" |
+- Settings, Emails: the connection and the sender (name, address, reply to), Send test to me, the invoice terms by kind, every template with Edit (Compose in template mode), Reset to default, an Automation control (Off, Draft for me, Send for me) on the templates a rule drives, and Recent sends (fifty, failures first).
+- Compose (/email/compose): the template row and its picker (the suggestion pinned, an unavailable template greyed with what it needs), To and Cc, the blocks, Insert field, the sandboxed preview at phone and desktop width, Send, Send test to me, Send tomorrow at 9am. A draft of an edit lives on the device per record and template.
+- The record's Emails section (lead, deal and client): every entry with its status pill, Automatic and To me marks; a row opens the sent email sheet (the exact HTML, Send again, Cancel send on a queued one, Send now and Edit on a draft).
+- Next up: a drafted or failed email is a task on the record's Emails checklist carrying the entry; the row's one control is Send, the menu has Send email and Edit email. On a lead it is the next step until it is sent or ticked.
+- The daily rhythm: the reminders cron (13:00 UTC) sends what was queued for the day, then runs the rules; Rob gets "N emails ready to send" (to Tasks) and "N emails went out for you" (to Settings, Emails) when there is anything. The digest push lists the tasks due today as before.
+- The invoice email gives the line its number (INV-0001 and up, once, on the first real send) and makes its Stripe payment link when Stripe is set up, both written on the line; the pay block offers the card link, the portal for the other ways (Cash App, Venmo, Zelle from Settings, Pay methods), or one button per method.
+- The delivery email refuses unless the project is paid in full, the Drive folder is linked and the box "The Drive folder is shared as Viewer" is ticked in Compose; a send ticks the delivery steps, sets deliveredAt and writes the retainer follow up and review tasks three days out.
+- A marketing email (the lead templates) carries an opt out link (/u/<token>) and the List-Unsubscribe headers; an opt out is never sent one again, by hand or by a rule.
 
-Set the variable, redeploy, and Settings, Integrations, Emails shows that
-kind as Connected (the settings GET reports only whether the variable
-exists, never its value). Send test on a connected kind posts the fixed
-sample below with `test: true`, so the zap should skip (or route to
-yourself) any payload where `test` is true. Once each hook is tested the
-old Google Form triggers can be turned off.
+Retire Zapier once Resend is connected (Settings, Emails reads Connected and Send test to me arrives):
 
-Every payload carries these fields:
+1. Settings, Integrations, "Zapier emails" reads Retired: the old send route answers 410 and every Send button already opens Compose.
+2. Turn off the four Google Form Zaps (intro, onboarding, invoice, delivery) in Zapier.
+3. Delete ZAPIER_HOOK_INTRO, ZAPIER_HOOK_ONBOARDING, ZAPIER_HOOK_INVOICE and ZAPIER_HOOK_DELIVERY from the Vercel project and redeploy.
 
-```
-kind            "intro" | "onboarding" | "invoice" | "delivery"
-test            true on a Send test, false on a real send
-name            the contact (askFor), else the business name
-business        the business name
-email           the recipient
-packageLabel    the package (or the add-ons), "" when none
-packageIncluded what the package includes, plus the add-ons, as a list
-planLine        "$1,200 as $200 a month for 6 months, first payment starts the project", or "$750, one payment", or ""
-calendlyLink    the studio meeting link (CALENDLY_MEETING_LINK overrides the default)
-sentAt          ISO timestamp
-```
+The old route and its payloads (CRM revamp, step 6) stay in api/_routes/send-email.js and api/_lib/email.js until the hooks are gone; `node scripts/send-email-test.mjs` still covers them.
 
-Plus, per kind:
-
-```
-onboarding      variant   "brand" | "web" | "combined" | "general", from the package kind
-invoice         invoice   { label, amount, dueAt }   the row Rob picked
-delivery        driveLink the project's Drive folder, else the lead's links.drive, else ""
-```
-
-What a successful send stamps: the deal checkpoint (introSent,
-onboardingSent, invoiceSent) as `{ at, by: "auto" }`, or
-`delivery.emailSent` on the project; the invoice row `status: "sent"` with
-`sentAt`; a `contactLog` entry `{ type: "email", at, note: "Sent the intro
-email" }`; and the next action recomputed. A missing variable answers 503
-"That email is not connected yet." and a hook that does not answer 2xx
-answers 502; neither stamps anything, and the manual Tick or Mark sent
-stays available. Sixty sends an hour through the shared limiter. Test:
-`node scripts/send-email-test.mjs`.
+Previews: `npm run email:preview` writes every template on a fixture record to docs/email-previews (one HTML each, overview.html and overview.png at 600 and 375 wide) and fails on anything unfilled, "undefined", "null", the word AI or an em dash. Tests: `node scripts/email-test.mjs` (the engine, Compose, the queue, the templates, the invoice, the delivery, the rules, the draft door) and `node scripts/email-guard-proof.mjs` (every guard cut out in turn).
 
 ## Take a backup
 
@@ -363,6 +337,8 @@ TZ=America/New_York node scripts/dates-test.mjs
 node scripts/tasks-test.mjs; node scripts/share-test.mjs; node scripts/task-reminder-test.mjs; node scripts/planner-endpoint-test.mjs   # the task rule and its mirror, Save to photos with navigator.share mocked, the reminders cron over checklist tasks, the planner door (posts, ads, suggest, the limiters)
 MONGODB_URI=... node scripts/migrate-checklists.mjs [--apply]   # stamp ids on every checklist and task written before the task system (report first)
 node scripts/pipeline-test.mjs; node scripts/lists-test.mjs; node scripts/score-test.mjs; node scripts/analytics-test.mjs; node scripts/deals-test.mjs; node scripts/send-email-test.mjs; node scripts/rules-test.mjs   # the pipeline guard and triage, the dial lists, the lead score, the deal and its invoices, the four emails, the follow up rules and project actions, against the real handlers
+node scripts/email-test.mjs; node scripts/email-guard-proof.mjs   # the email system against the real handlers (fetch stubbed, no key), then every guard cut out of a copy in turn
+npm run email:preview                           # every template on the fixture record to docs/email-previews, the montage, the lint (node scripts/email-preview.mjs --no-shot skips the montage)
 npm run lint                                   # ESLint: no-undef and no-unused-vars as errors, the hooks rules; regression.mjs runs it as step 0
 MONGODB_URI=... node scripts/migrate-invoices.mjs [--apply]   # CRM revamp, step 5: every project's schedule[] becomes invoices[] (paid stays paid, the rest sent; report first)
 MONGODB_URI=... node scripts/backfill-triage.mjs [--apply]   # CRM revamp, step 4: move untouched stage lead records into triage and write the first score (report first)

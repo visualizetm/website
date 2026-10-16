@@ -8,7 +8,8 @@ import { EMAIL_TEMPLATES, templateOf, TEMPLATE_GROUPS } from '../shared/emailTem
 /** The old send kinds (the four Zapier buttons) and the template each one opens Compose on. */
 export const KIND_TEMPLATE = { intro: 'intro_call', onboarding: 'onboarding', invoice: 'invoice', delivery: 'delivery' };
 /** Where one of the four old buttons goes: Compose on its template once Resend is connected, the Zapier modal until then (the fallback switch). */
-export const sendDoor = (emails, kind) => (emails?.resend ? { compose: KIND_TEMPLATE[kind] || 'custom' } : { zapier: kind });
+export const ZAPIER_KINDS = ['intro', 'onboarding', 'invoice', 'delivery'];
+export const sendDoor = (emails, kind) => (emails?.resend || !ZAPIER_KINDS.includes(kind) ? { compose: KIND_TEMPLATE[kind] || (templateOf(kind) ? kind : 'custom') } : { zapier: kind });
 /** Variables a chip never inserts into text: lists of objects a `from` block draws, and the opt out link the renderer adds itself. */
 export const NO_INSERT = ['invoice.items', 'deliverables.groups', 'optOutUrl'];
 export const isAddress = (s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || '').trim());
@@ -24,10 +25,10 @@ export function sentMapOf(items = []) {
 export const canSendNow = ({ value, missing = [], to = [], sending = '', optedOut = false, previewOk = true }) => !!value && !missing.length && to.length > 0 && !sending && !optedOut && previewOk;
 /** Switching templates asks first when the email differs from its source. */
 export const needsConfirmToSwitch = (value, source) => !!value && !!source && !sameEmail(value, source);
-export const BLOCK_LABELS = { eyebrow: 'Eyebrow', heading: 'Heading', text: 'Text', button: 'Button', lines: 'Lines', totals: 'Totals', list: 'List', box: 'Box', files: 'Files', spacer: 'Spacer' };
-export const BLOCK_ICONS = { eyebrow: 'Type01', heading: 'Heading01', text: 'AlignLeft', button: 'CursorClick01', lines: 'List', totals: 'CurrencyDollar', list: 'Dotpoints01', box: 'Square', files: 'Folder', spacer: 'Minus' };
-export const BLOCK_HINTS = { eyebrow: 'A small red label above the heading', heading: 'The headline; the red period is added', text: 'A paragraph; **bold** and [label](url) work', button: 'A red pill, or a grey one', lines: 'Labelled rows with a value on the right', totals: 'A totals block, one row can be big', list: 'Red bullets, one item a line', box: 'An inner panel with a title', files: 'File groups with a count', spacer: '16px of air' };
-export const ADD_ORDER = ['text', 'heading', 'button', 'list', 'lines', 'totals', 'box', 'eyebrow', 'files', 'spacer'];
+export const BLOCK_LABELS = { eyebrow: 'Eyebrow', heading: 'Heading', text: 'Text', button: 'Button', lines: 'Lines', totals: 'Totals', list: 'List', box: 'Box', files: 'Files', spacer: 'Spacer', pay: 'Pay buttons' };
+export const BLOCK_ICONS = { eyebrow: 'Type01', heading: 'Heading01', text: 'AlignLeft', button: 'CursorClick01', lines: 'List', totals: 'CurrencyDollar', list: 'Dotpoints01', box: 'Square', files: 'Folder', spacer: 'Minus', pay: 'CreditCard01' };
+export const BLOCK_HINTS = { eyebrow: 'A small red label above the heading', heading: 'The headline; the red period is added', text: 'A paragraph; **bold** and [label](url) work', button: 'A red pill, or a grey one', lines: 'Labelled rows with a value on the right', totals: 'A totals block, one row can be big', list: 'Red bullets, one item a line', box: 'An inner panel with a title', files: 'File groups with a count', spacer: '16px of air', pay: 'The ways to pay the invoice, from the record' };
+export const ADD_ORDER = ['text', 'heading', 'button', 'list', 'lines', 'totals', 'box', 'eyebrow', 'files', 'pay', 'spacer'];
 export const SUBJECT_SOFT_MAX = 60;
 
 /** A fresh block of a type, ready to edit. */
@@ -38,10 +39,11 @@ export function newBlock(type) {
     case 'text': return { type, text: '' };
     case 'button': return { type, label: '', url: '', style: 'primary' };
     case 'lines': return { type, from: '', rows: [{ label: '', sub: '', value: '' }] };
-    case 'totals': return { type, rows: [{ label: '', value: '', big: false }] };
+    case 'totals': return { type, from: '', rows: [{ label: '', value: '', big: false }] };
     case 'list': return { type, from: '', items: [''] };
     case 'box': return { type, title: '', tone: 'default', blocks: [{ type: 'text', text: '' }] };
     case 'files': return { type, from: 'deliverables.groups', groups: [] };
+    case 'pay': return { type, from: 'invoice.pay' };
     case 'spacer': return { type };
     default: return null;
   }
@@ -60,6 +62,7 @@ export function blockSummary(b) {
     case 'list': return b.from ? `From ${b.from}` : `${(b.items || []).filter(Boolean).length} items`;
     case 'box': return b.title || 'Box';
     case 'spacer': return '16px of air';
+    case 'pay': return 'The ways to pay, from the record';
     default: return String(b.text || '').slice(0, 80);
   }
 }
@@ -107,6 +110,17 @@ export function pickerGroups(availability = {}, suggestion = null) {
   return pinned ? [{ id: 'suggested', label: 'Suggested', rows: [pinned] }, ...groups] : groups;
 }
 export const templateName = (id) => templateOf(id)?.name || 'Email';
+/** The log's status pills (the Emails section, the sent email sheet, Recent sends). */
+export const EMAIL_STATUS = { sent: { label: 'Sent', tone: 'booked' }, test: { label: 'Test', tone: 'neutral' }, queued: { label: 'Queued', tone: 'progress' }, failed: { label: 'Failed', tone: 'danger' }, draft: { label: 'Draft', tone: 'new' } };
+export const statusOf = (s) => EMAIL_STATUS[s] || EMAIL_STATUS.draft;
+/** One line for a log row: the template and the subject. */
+export const logTitle = (e) => `${templateName(e?.templateId)}${e?.subject ? `: ${e.subject}` : ''}`;
+/** The task on a record that carries an email (a draft or a failed send wrote it, milestone 8), by its id: { emailId, text, done } or null. */
+export function emailTaskOf(record, taskId) {
+  if (!record || !taskId) return null;
+  const t = (record.checklists || []).flatMap(l => (l?.items || [])).find(it => it && it.id === taskId);
+  return t && t.emailId ? { emailId: String(t.emailId), text: t.text || '', done: !!t.done } : null;
+}
 /** A suggestion the registry knows; the rule may name a template that lands in a later milestone, and the chip never opens Compose on one that does not exist yet. */
 export const knownTemplate = (id) => (id && templateOf(id) ? id : null);
 /** The reason a template is greyed, in one line. */
