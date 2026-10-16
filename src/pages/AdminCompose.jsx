@@ -28,14 +28,17 @@ import { fmtDateTime } from '../shared/dates';
 const MODES = [{ id: 'edit', label: 'Edit' }, { id: 'preview', label: 'Preview' }];
 const firstNameOf = (lead) => String(lead?.askFor || '').trim().split(/[\s,]+/)[0] || '';
 
-export default function AdminCompose({ lead, projects = [], sets = [], loading = false, leadsError = false, onRetryLeads, templateId: initialTemplate = '', projectId = '', invoiceId = '', onBack }) {
+/* mode 'send' is Compose; mode 'template' (Settings, Emails) edits the template itself on a record to preview with: no To, Save as default in the footer, Reset to default in the menu, a draft under the template's own key. */
+export default function AdminCompose({ lead, projects = [], sets = [], loading = false, leadsError = false, onRetryLeads, templateId: initialTemplate = '', projectId = '', invoiceId = '', mode: composeMode = 'send', onBack }) {
+  const tplMode = composeMode === 'template';
   const shell = useShell();
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [retry, retrying] = useRetry(onRetryLeads);
-  useTopBar({ title: 'Email', back: onBack });
+  useTopBar({ title: tplMode ? 'Template' : 'Email', back: onBack });
   const recordId = lead ? String(lead._id) : '';
+  const keyOf = useCallback((tid) => (tplMode ? draftKey('template', tid) : draftKey(recordId, tid)), [tplMode, recordId]);
   const mine = useMemo(() => projectsOf(projects, recordId), [projects, recordId]);
   const project = useMemo(() => mine.find(p => String(p._id) === String(projectId)) || mine.find(isActiveProject) || mine.find(p => p.kind !== 'retainer') || null, [mine, projectId]);
   const [status, setStatus] = useState(null);
@@ -53,6 +56,7 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
   const [sending, setSending] = useState('');
   const [sendError, setSendError] = useState('');
   const [confirmReq, setConfirmReq] = useState(null); // { kind: 'first' | 'duplicate', message, opts }
+  const [driveShared, setDriveShared] = useState(false); // the delivery email's one required box
   const reqId = useRef(0);
   const lastPreviewed = useRef('');
   const lastOpts = useRef(null);
@@ -92,16 +96,16 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
       lastPreviewed.current = 'null';
       setSource(src); setValue(src);
       setTo(t => (t === null ? (data.to || []) : t));
-      const d = readDraft(draftKey(recordId, templateId));
+      const d = readDraft(keyOf(templateId));
       setDraftOffer(d && !sameEmail(d, src) ? d : null);
     })();
     return () => { on = false; };
-  }, [recordId, templateId, runPreview]);
+  }, [recordId, templateId, runPreview, keyOf]);
 
   /* An edit: the draft on the device and, 400 ms later, the preview; back at the source the draft goes. */
   useEffect(() => {
     if (!value || !source) return undefined;
-    const key = draftKey(recordId, templateId);
+    const key = keyOf(templateId);
     const same = sameEmail(value, source);
     if (same) clearDraft(key); else writeDraft(key, value);
     const override = same ? null : value;
@@ -109,7 +113,7 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
     if (sig === lastPreviewed.current) return undefined;
     const t = setTimeout(() => { lastPreviewed.current = sig; runPreview(templateId, override); }, 400);
     return () => clearTimeout(t);
-  }, [value, source, recordId, templateId, runPreview]);
+  }, [value, source, recordId, templateId, runPreview, keyOf]);
 
   const pickTemplate = async (id) => {
     setPicker(false);
@@ -135,7 +139,8 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
   const missing = useMemo(() => [...new Set([...(data?.missing || []), ...(data?.lacking || [])])], [data]);
   const noTo = to !== null && to.length === 0;
   const optedOut = !!data?.optedOut;
-  const canSend = canSendNow({ value, missing, to: to || [], sending, optedOut, previewOk: pv.state !== 'error' });
+  const isDelivery = templateId === 'delivery' && !tplMode;
+  const canSend = canSendNow({ value, missing, to: to || [], sending, optedOut, previewOk: pv.state !== 'error' }) && (!isDelivery || driveShared);
   const canTest = !!value && !sending && !missing.length && pv.state !== 'error';
   const insertVars = useMemo(() => (data?.vars || []).filter(v => v.value && !NO_INSERT.includes(v.key)), [data]);
 
@@ -144,13 +149,13 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
     lastOpts.current = opts;
     setSending(kind); setSendError('');
     const override = sameEmail(value, source) ? undefined : value;
-    const body = { templateId, recordId, projectId: project ? String(project._id) : '', invoiceId: invoiceId || '', ...(override ? { override } : {}), to, cc: copyMe && status?.sender?.address ? [status.sender.address] : [], testToSelf: !!opts.testToSelf, confirmDuplicate: !!opts.confirmDuplicate, ...(opts.sendAt ? { sendAt: opts.sendAt } : {}) };
+    const body = { templateId, recordId, projectId: project ? String(project._id) : '', invoiceId: invoiceId || '', ...(override ? { override } : {}), to, cc: copyMe && status?.sender?.address ? [status.sender.address] : [], testToSelf: !!opts.testToSelf, confirmDuplicate: !!opts.confirmDuplicate, ...(opts.sendAt ? { sendAt: opts.sendAt } : {}), ...(isDelivery ? { driveShared } : {}) };
     const r = await apiFetch('/api/admin/email/send', { method: 'POST', body });
     setSending('');
     if (r.status === 409 && !opts.testToSelf) { setConfirmReq({ kind: 'duplicate', message: r.data?.error || 'This one went out a few minutes ago. Send it again?', opts: { ...opts, confirmDuplicate: true, confirmed: true } }); return; }
     if (!r.ok) { setSendError(r.data?.error || 'That email did not go out.'); return; }
     if (opts.testToSelf) { toast.success(r.data?.message || 'Test sent.'); return; }
-    clearDraft(draftKey(recordId, templateId));
+    clearDraft(keyOf(templateId));
     if (r.data?.queued) toast.success(`Queued for ${fmtDateTime(r.data.sendAt)}.`);
     else toast.success(r.data?.test ? (r.data.message || 'Test only, email is not connected yet.') : `Sent to ${firstNameOf(lead) || lead.business}`);
     shell?.refreshLeads?.(); shell?.projectOps?.reload?.();
@@ -166,19 +171,34 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
   };
   const saveDefault = async () => {
     if (!value || !source || sameEmail(value, source)) return;
-    const okx = await confirm({ title: `Make this my default ${templateName(templateId).toLowerCase()}?`, body: 'Every record gets this version from now on. Reset to default lives in Settings, Emails.', confirmLabel: 'Save as default' });
+    const okx = await confirm({ title: `Make this my default ${templateName(templateId).toLowerCase()}?`, body: tplMode ? 'Every record gets this version from now on.' : 'Every record gets this version from now on. Reset to default lives in Settings, Emails.', confirmLabel: 'Save as default' });
     if (!okx) return;
     const service = data?.template?.service;
     const payload = templateOf(templateId)?.variants && service ? { subject: value.subject, preheader: value.preheader, variants: { [service]: value.blocks } } : { subject: value.subject, preheader: value.preheader, blocks: value.blocks };
     const r = await apiFetch('/api/admin/email/settings', { method: 'PUT', body: { templates: { [templateId]: payload } } });
     if (!r.ok) { toast.error(r.data?.error || 'Not saved.'); return; }
-    setSource({ ...value }); clearDraft(draftKey(recordId, templateId));
+    setSource({ ...value }); clearDraft(keyOf(templateId));
     toast.success('Saved as your default.');
   };
   const edited = !!value && !!source && !sameEmail(value, source);
-  const moreItems = [
+  const resetDefault = async () => {
+    const okx = await confirm({ title: `Reset ${templateName(templateId).toLowerCase()} to the default?`, body: 'Your saved edits to this template go. Every record gets the default again.', confirmLabel: 'Reset', danger: true });
+    if (!okx) return;
+    const r = await apiFetch('/api/admin/email/settings', { method: 'PUT', body: { templates: { [templateId]: null } } });
+    if (!r.ok) { toast.error(r.data?.error || 'Not reset.'); return; }
+    clearDraft(keyOf(templateId)); setValue(null); setSource(null);
+    const fresh = await runPreview(templateId, null);
+    if (fresh?.template) { const src = { subject: fresh.template.subject || '', preheader: fresh.template.preheader || '', blocks: fresh.template.blocks || [] }; lastPreviewed.current = 'null'; setSource(src); setValue(src); }
+    toast.success('Back to the default.');
+  };
+  const moreItems = tplMode ? [
+    { id: 'resetdefault', label: 'Reset to default', icon: 'ReverseLeft', disabled: !(data?.template?.edited || edited), onSelect: resetDefault },
+    { id: 'reset', label: 'Back to the saved version', icon: 'ReverseLeft', disabled: !edited, onSelect: () => { setValue(source); clearDraft(keyOf(templateId)); } },
+    'divider',
+    { id: 'record', label: 'Open the record', icon: 'User01', disabled: !lead, onSelect: () => shell?.openRecord?.(lead) },
+  ] : [
     { id: 'default', label: 'Save as my default for this template', icon: 'Save01', disabled: !edited, onSelect: saveDefault },
-    { id: 'reset', label: 'Back to the template', icon: 'ReverseLeft', disabled: !edited, onSelect: () => { setValue(source); clearDraft(draftKey(recordId, templateId)); } },
+    { id: 'reset', label: 'Back to the template', icon: 'ReverseLeft', disabled: !edited, onSelect: () => { setValue(source); clearDraft(keyOf(templateId)); } },
     'divider',
     { id: 'record', label: 'Open the record', icon: 'User01', disabled: !lead, onSelect: () => shell?.openRecord?.(lead) },
   ];
@@ -198,7 +218,7 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
           <Card padding={3} className="cp-head"><Row gap={2} align="center" wrap={false}><Stack gap={0} style={{ flex: 1, minWidth: 0 }}><SkeletonBlock width={180} height={24} /><SkeletonBlock width={140} height={20} /></Stack><SkeletonBlock width={44} height={44} radius="var(--v-radius-pill)" /></Row></Card>
           <Card padding={3} className="cp-envelope">
             <ListRow.Skeleton />
-            <div className="cp-to cp-to--skel"><span className="cp-label">To</span><div className="cp-to-chips"><SkeletonBlock width={200} height={44} radius="var(--v-radius-pill)" /><div className="cp-to-add cp-to-add--skel"><SkeletonBlock height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={60} height={44} radius="var(--v-radius-pill)" /></div></div><SkeletonBlock width={220} height={24} /></div>
+            {!tplMode && <div className="cp-to cp-to--skel"><span className="cp-label">To</span><div className="cp-to-chips"><SkeletonBlock width={200} height={44} radius="var(--v-radius-pill)" /><div className="cp-to-add cp-to-add--skel"><SkeletonBlock height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={60} height={44} radius="var(--v-radius-pill)" /></div></div><SkeletonBlock width={220} height={24} /></div>}
           </Card>
           {!desktop && <SkeletonBlock height={50} radius="var(--v-radius-md)" />}
           <SkeletonBlock height={94} radius="var(--v-radius-md)" />
@@ -219,8 +239,8 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
         <Card padding={3} className="cp-head">
           <Row gap={2} align="center" wrap={false}>
             <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-              <span className="cp-biz lay-truncate">{lead.business}</span>
-              <span className="cp-sub lay-truncate">{project ? project.name || 'Project' : (lead.email || 'No email on the record')}</span>
+              <span className="cp-biz lay-truncate">{tplMode ? `${templateName(templateId)} template` : lead.business}</span>
+              <span className="cp-sub lay-truncate">{tplMode ? `Previewing with ${lead.business}` : project ? project.name || 'Project' : (lead.email || 'No email on the record')}</span>
             </Stack>
             {status && !status.connected && <Pill tone="neutral" label="Test mode" size="sm" icon={false} />}
             <Menu label="Email options" items={moreItems} />
@@ -230,13 +250,13 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
           <Card level={2} padding={3} className="cp-draft" role="status">
             <Row gap={2} align="center" wrap>
               <span className="cp-draft-text">Pick up where you left off?</span>
-              <Row gap={2}><Button size="md" onClick={() => { setValue({ subject: draftOffer.subject || '', preheader: draftOffer.preheader || '', blocks: draftOffer.blocks || [] }); setDraftOffer(null); }} className="cp-draft-pick">Pick up</Button><Button variant="ghost" size="md" onClick={() => { clearDraft(draftKey(recordId, templateId)); setDraftOffer(null); }} className="cp-draft-fresh">Start fresh</Button></Row>
+              <Row gap={2}><Button size="md" onClick={() => { setValue({ subject: draftOffer.subject || '', preheader: draftOffer.preheader || '', blocks: draftOffer.blocks || [] }); setDraftOffer(null); }} className="cp-draft-pick">Pick up</Button><Button variant="ghost" size="md" onClick={() => { clearDraft(keyOf(templateId)); setDraftOffer(null); }} className="cp-draft-fresh">Start fresh</Button></Row>
             </Row>
           </Card>
         )}
         <Card padding={3} className="cp-envelope">
-          <ListRow className="cp-template" leading={<Icon icon="Mail01" size="var(--v-icon-md)" />} title={templateName(templateId)} subtitle={tpl?.when || 'Pick a template'} meta={suggestion === templateId ? 'Suggested' : edited ? 'Edited' : ''} onClick={() => setPicker(true)} aria-label="Template" aria-haspopup="dialog" />
-          <div className="cp-to" role="group" aria-label="To">
+          <ListRow className="cp-template" leading={<Icon icon="Mail01" size="var(--v-icon-md)" />} title={templateName(templateId)} subtitle={tpl?.when || 'Pick a template'} meta={tplMode ? (data?.template?.edited ? 'Edited' : 'Default') : suggestion === templateId ? 'Suggested' : edited ? 'Edited' : ''} onClick={tplMode ? undefined : () => setPicker(true)} aria-label="Template" aria-haspopup={tplMode ? undefined : 'dialog'} />
+          {!tplMode && <div className="cp-to" role="group" aria-label="To">
             <span className="cp-label">To</span>
             <div className="cp-to-chips">
               {to.map(a => <span key={a} className="cp-chip"><span className="cp-chip-text">{a}</span><IconButton icon="XClose" label={`Remove ${a}`} onClick={() => setTo(t => t.filter(x => x !== a))} className="cp-chip-x" /></span>)}
@@ -246,15 +266,16 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
               </form>
             </div>
             {status?.sender?.address && <Checkbox label={`Copy me, ${status.sender.address}`} checked={copyMe} onChange={setCopyMe} className="cp-copyme" />}
-          </div>
+          </div>}
         </Card>
         {missingKeys.length > 0 && (
           <div className="cp-missing" role="status">
-            <Row gap={2} align="center"><Icon icon="AlertTriangle" size={16} className="cp-missing-icon" /><span className="cp-missing-h">Missing before this can go</span></Row>
+            <Row gap={2} align="center"><Icon icon="AlertTriangle" size={16} className="cp-missing-icon" /><span className="cp-missing-h">{tplMode ? `${lead.business} lacks` : 'Missing before this can go'}</span></Row>
             <div className="cp-missing-chips">{missingKeys.map(k => <Chip key={k} label={homeOf(k).label} icon="ArrowRight" onClick={() => jump(k)} className="cp-missing-chip" />)}</div>
           </div>
         )}
         {optedOut && <p className="cp-note" role="status">{lead.business} opted out of these emails. Only a transactional one can go.</p>}
+        {isDelivery && <Checkbox label="The Drive folder is shared as Viewer" checked={driveShared} onChange={setDriveShared} className="cp-drive-shared" />}
         {!desktop && <SegmentedControl label="Edit or preview" options={MODES} value={mode} onChange={setMode} full className="cp-mode" />}
         {(desktop || mode === 'edit') && <EmailEditor value={value} onChange={setValue} vars={insertVars} />}
       </Stagger>
@@ -284,10 +305,10 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
           {sendError && <div className="cp-senderr" role="alert"><span className="cp-senderr-text">{sendError}</span><Button variant="ghost" size="md" onClick={() => doSend(lastOpts.current || {})} className="cp-retry">Retry</Button></div>}
           <Row gap={2} className="cp-foot-row" wrap>
             <Button variant="secondary" onClick={() => doSend({ testToSelf: true })} loading={sending === 'test'} disabled={!canTest} className="cp-test">Send test to me</Button>
-            <div className="cp-send-group">
+            {tplMode ? <Button icon="Save01" onClick={saveDefault} disabled={!edited || !!sending} className="cp-save-default">Save as default</Button> : <div className="cp-send-group">
               <Button icon="Send01" onClick={() => send({})} loading={sending === 'send' || sending === 'later'} disabled={!canSend} className="cp-send">Send</Button>
               <Menu label="Send options" items={[{ id: 'later', label: 'Send tomorrow at 9am', icon: 'Clock', disabled: !canSend, onSelect: () => send({ sendAt: tomorrowNine() }) }]} trigger={<IconButton icon="ChevronDown" label="Send options" variant="secondary" disabled={!canSend} className="cp-send-more" />} />
-            </div>
+            </div>}
           </Row>
         </StickyFooterBar>
       )}

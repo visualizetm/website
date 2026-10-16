@@ -21,6 +21,7 @@
  *   list { items: [..] | from }            red bullets
  *   box { title, tone: default | red, blocks }        an inner panel, no box inside a box
  *   files { groups: [{ name, note, count }] | from }  file groups with a count
+ *   pay { from }                                   the ways to pay one invoice, from the record: a button per link, a text line for Zelle
  *   spacer                                 16px of air
  * `from` names a variable that holds the rows (invoice.items, package.includes, deliverables.groups).
  *
@@ -28,7 +29,7 @@
  * empty, null or undefined value is a missing field: it is listed in
  * `missing` and the send route refuses, so nothing like {{x}}, undefined,
  * null or NaN ever reaches a client. */
-export const BLOCK_TYPES = ['eyebrow', 'heading', 'text', 'button', 'lines', 'totals', 'list', 'box', 'files', 'spacer'];
+export const BLOCK_TYPES = ['eyebrow', 'heading', 'text', 'button', 'lines', 'totals', 'list', 'box', 'files', 'spacer', 'pay'];
 export const BUTTON_STYLES = ['primary', 'secondary'];
 export const BOX_TONES = ['default', 'red'];
 export const HTML_LIMIT = 90 * 1024;
@@ -55,10 +56,11 @@ function sanitizeOne(b, warnings, depth) {
   switch (b.type) {
     case 'eyebrow': case 'heading': return { type: b.type, text: str(b.text, 160) };
     case 'text': return { type: 'text', text: str(b.text, 2000) };
-    case 'button': return { type: 'button', label: str(b.label, 80), url: str(b.url, 600), style: BUTTON_STYLES.includes(b.style) ? b.style : 'primary' };
+    case 'button': return { type: 'button', label: str(b.label, 80), url: str(b.url, 600), style: BUTTON_STYLES.includes(b.style) ? b.style : 'primary', ...(b.optional === true ? { optional: true } : {}) };
     case 'lines': return { type: 'lines', from: str(b.from, 60), rows: Array.isArray(b.rows) ? b.rows.slice(0, MAX_ROWS).map(row3) : [] };
-    case 'totals': return { type: 'totals', rows: Array.isArray(b.rows) ? b.rows.slice(0, MAX_ROWS).map(r => ({ label: str(r?.label, 120), value: str(r?.value, 60), big: !!r?.big })) : [] };
-    case 'list': return { type: 'list', from: str(b.from, 60), items: Array.isArray(b.items) ? b.items.slice(0, MAX_ROWS).map(x => str(x, 300)) : [] };
+    case 'totals': return { type: 'totals', from: str(b.from, 60), rows: Array.isArray(b.rows) ? b.rows.slice(0, MAX_ROWS).map(r => ({ label: str(r?.label, 120), value: str(r?.value, 60), big: !!r?.big })) : [] };
+    case 'pay': return { type: 'pay', from: str(b.from, 60) || 'invoice.pay' };
+    case 'list': return { type: 'list', from: str(b.from, 60), title: str(b.title, 120), items: Array.isArray(b.items) ? b.items.slice(0, MAX_ROWS).map(x => str(x, 300)) : [] };
     case 'files': return { type: 'files', from: str(b.from, 60), groups: Array.isArray(b.groups) ? b.groups.slice(0, MAX_ROWS).map(g => ({ name: str(g?.name, 80), note: str(g?.note, 200), count: Math.max(0, Math.round(Number(g?.count) || 0)) })) : [] };
     case 'spacer': return { type: 'spacer' };
     case 'box': {
@@ -87,7 +89,8 @@ export function varsUsed(tpl) {
   const out = new Set();
   const scan = (s) => { for (const m of String(s ?? '').matchAll(VAR_RX)) out.add(m[1]); };
   scan(tpl?.subject); scan(tpl?.preheader);
-  const walk = (b) => { if (!b) return; scan(b.text); scan(b.label); scan(b.url); scan(b.title); if (b.from) out.add(b.from); (b.rows || []).forEach(r => { scan(r.label); scan(r.sub); scan(r.value); }); (b.items || []).forEach(scan); (b.groups || []).forEach(g => { scan(g.name); scan(g.note); }); (b.blocks || []).forEach(walk); };
+  /* A `from` list is not a need (it may be empty by design); an optional button's link is not either. */
+  const walk = (b) => { if (!b) return; scan(b.text); scan(b.label); if (!b.optional) scan(b.url); scan(b.title); (b.rows || []).forEach(r => { scan(r.label); scan(r.sub); scan(r.value); }); (b.items || []).forEach(scan); (b.groups || []).forEach(g => { scan(g.name); scan(g.note); }); (b.blocks || []).forEach(walk); };
   (tpl?.blocks || []).forEach(walk);
   return [...out];
 }
@@ -117,12 +120,16 @@ const boxHtml = (title, tone, inner) => `<table role="presentation" width="100%"
 const spacerHtml = () => `<div style="height:16px;line-height:16px;font-size:1px;">&nbsp;</div>`;
 
 /** The rows a `from` variable holds, in the block's own shape. */
-function rowsFrom(b, vars, missing) {
+function rowsFrom(b, vars) {
   if (!b.from) return null;
   const v = vars ? vars[b.from] : undefined;
-  if (isEmpty(v) || !Array.isArray(v)) { missing.add(b.from); return []; }
+  /* A list drawn from the record (items, files, totals, the pay rows, the client's open items) draws what is there and nothing when
+   * there is nothing; what a template cannot go without is its `needs`, which the send refuses on. */
+  if (isEmpty(v) || !Array.isArray(v)) return [];
   if (b.type === 'list') return v.map(x => (x && typeof x === 'object' ? String(x.label ?? x.name ?? '') : String(x))).filter(Boolean).slice(0, MAX_ROWS);
   if (b.type === 'files') return v.map(g => ({ name: str(g?.name, 80), note: str(g?.note, 200), count: Math.max(0, Math.round(Number(g?.count) || 0)) })).filter(g => g.name).slice(0, MAX_ROWS);
+  if (b.type === 'totals') return v.map(r => ({ label: str(r?.label, 120), value: str(r?.value, 60), big: !!r?.big })).filter(r => r.label).slice(0, MAX_ROWS);
+  if (b.type === 'pay') return v.map(r => ({ label: str(r?.label, 80), url: safeLink(r?.url), style: BUTTON_STYLES.includes(r?.style) ? r.style : 'secondary', text: str(r?.text, 200) })).filter(r => (r.label && r.url) || r.text).slice(0, MAX_ROWS);
   return v.map(row3).filter(r => r.label).slice(0, MAX_ROWS);
 }
 
@@ -132,11 +139,12 @@ function renderBlock(b, vars, missing, out, text, depth = 0) {
     case 'eyebrow': { const t = f(b.text); if (!t) return; out.push(eyebrowHtml(t)); text.push(t.toUpperCase()); return; }
     case 'heading': { const t = f(b.text); if (!t) return; out.push(headingHtml(t)); text.push(`${t.replace(/[.\s]+$/, '')}${/[?!]$/.test(t.trim()) ? '' : '.'}`); return; }
     case 'text': { const t = f(b.text); if (!t.trim()) return; out.push(P(marks(esc(t)))); text.push(marksText(t)); return; }
-    case 'button': { const label = f(b.label); const url = safeLink(f(b.url)); if (!url) { missing.add(b.url && VAR_RX.test(b.url) ? b.url.replace(VAR_RX, '$1') : `button:${label || 'link'}`); VAR_RX.lastIndex = 0; return; } out.push(buttonHtml(label || 'Open', url, b.style)); text.push(`${label || 'Open'}: ${url}`); return; }
-    case 'lines': { const rows = (rowsFrom(b, vars, missing) ?? b.rows.map(r => ({ label: f(r.label), sub: f(r.sub), value: f(r.value) }))).filter(r => r.label); if (!rows.length) return; out.push(linesHtml(rows)); rows.forEach(r => text.push(`${r.label}${r.sub ? ` (${r.sub})` : ''}${r.value ? `: ${r.value}` : ''}`)); return; }
-    case 'totals': { const rows = b.rows.map(r => ({ label: f(r.label), value: f(r.value), big: r.big })).filter(r => r.label); if (!rows.length) return; out.push(totalsHtml(rows)); rows.forEach(r => text.push(`${r.label}: ${r.value}`)); return; }
-    case 'list': { const items = (rowsFrom(b, vars, missing) ?? b.items.map(f)).filter(Boolean); if (!items.length) return; out.push(listHtml(items)); items.forEach(t => text.push(`- ${marksText(t)}`)); return; }
-    case 'files': { const groups = (rowsFrom(b, vars, missing) ?? b.groups.map(g => ({ ...g, name: f(g.name), note: f(g.note) }))).filter(g => g.name); if (!groups.length) return; out.push(filesHtml(groups)); groups.forEach(g => text.push(`${g.name}${g.note ? `, ${g.note}` : ''}, ${g.count} file${g.count === 1 ? '' : 's'}`)); return; }
+    case 'button': { const label = f(b.label); const url = safeLink(fillVars(b.url, vars, b.optional ? new Set() : missing)); if (!url) { if (b.optional) return; missing.add(b.url && VAR_RX.test(b.url) ? b.url.replace(VAR_RX, '$1') : `button:${label || 'link'}`); VAR_RX.lastIndex = 0; return; } out.push(buttonHtml(label || 'Open', url, b.style)); text.push(`${label || 'Open'}: ${url}`); return; }
+    case 'lines': { const rows = (rowsFrom(b, vars) ?? b.rows.map(r => ({ label: f(r.label), sub: f(r.sub), value: f(r.value) }))).filter(r => r.label); if (!rows.length) return; out.push(linesHtml(rows)); rows.forEach(r => text.push(`${r.label}${r.sub ? ` (${r.sub})` : ''}${r.value ? `: ${r.value}` : ''}`)); return; }
+    case 'totals': { const rows = (rowsFrom(b, vars) ?? b.rows.map(r => ({ label: f(r.label), value: f(r.value), big: r.big }))).filter(r => r.label); if (!rows.length) return; out.push(totalsHtml(rows)); rows.forEach(r => text.push(`${r.label}: ${r.value}`)); return; }
+    case 'pay': { const rows = rowsFrom(b, vars) ?? []; if (!rows.length) return; for (const r of rows) { if (r.url) { out.push(buttonHtml(r.label, r.url, r.style)); text.push(`${r.label}: ${r.url}`); } else { out.push(P(esc(r.text))); text.push(r.text); } } return; }
+    case 'list': { const items = (rowsFrom(b, vars) ?? b.items.map(f)).filter(Boolean); if (!items.length) return; const title = f(b.title); if (title) { out.push(P(`<strong style="font-weight:700;color:${C.head};">${esc(title)}</strong>`, 'margin:0 0 8px;')); text.push(title); } out.push(listHtml(items)); items.forEach(t => text.push(`- ${marksText(t)}`)); return; }
+    case 'files': { const groups = (rowsFrom(b, vars) ?? b.groups.map(g => ({ ...g, name: f(g.name), note: f(g.note) }))).filter(g => g.name); if (!groups.length) return; out.push(filesHtml(groups)); groups.forEach(g => text.push(`${g.name}${g.note ? `, ${g.note}` : ''}, ${g.count} file${g.count === 1 ? '' : 's'}`)); return; }
     case 'spacer': { out.push(spacerHtml()); text.push(''); return; }
     case 'box': { if (depth > 0) return; const inner = []; const innerText = []; const title = f(b.title); b.blocks.forEach(x => renderBlock(x, vars, missing, inner, innerText, depth + 1)); if (!inner.length && !title) return; out.push(boxHtml(title, b.tone, inner.join(''))); text.push(''); if (title) text.push(title.toUpperCase()); innerText.forEach(l => text.push(l)); text.push(''); return; }
     default: return;

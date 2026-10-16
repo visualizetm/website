@@ -10,7 +10,8 @@ import { invoicesOf, invoiceStatus, invoicesTotal, invoicesPaid } from '../invoi
 import { dealOf } from '../deal.js';
 import { ZONE, zoneDayMs, DAY_KEY } from '../zone.js';
 import { serviceOf } from './templates.js';
-import { portalUrl, retainerToOffer, clientProjects, planLines } from '../portalModules.js';
+import { portalUrl, retainerToOffer, clientProjects, planLines, payMethods, clientItems } from '../portalModules.js';
+import { nextInvoiceNumber } from './invoiceNumber.js';
 
 export const SITE = 'https://visualizestudio.org';
 export const START_FORM_LINK = `${SITE}/start`;
@@ -105,6 +106,11 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
   v['revisions.used'] = project ? String(Math.max(Number(project.revisions?.used) || 0, (Array.isArray(project.revisions?.log) ? project.revisions.log : []).filter(r => !r?.extra).length)) : '';
   v['revisions.max'] = project ? String(Number(project.revisions?.max) || REVISION_ROUNDS) : String(REVISION_ROUNDS);
   v['rounds.max'] = String(REVISION_ROUNDS);
+  /* The round line (revision ready): how many included rounds are left, or the extra round fees from the house rules when this is the last. */
+  { const used = Number(v['revisions.used']) || 0; const max = Number(v['revisions.max']) || REVISION_ROUNDS; const fee = `Extra rounds are ${money(EXTRA_ROUND.design)} for design or ${money(EXTRA_ROUND.web)} for web.`; const leftN = max - used - 1;
+    v['revisions.roundLine'] = used >= max ? `Every included round is used. ${fee}` : used === max - 1 ? `This is the last included round. ${fee}` : `${leftN} more included round${leftN === 1 ? '' : 's'} after this one.`; }
+  /* The client's open items: checklist tasks marked Needs the client, on the client and the active project (the portal's Needs you list). */
+  v['client.items'] = clientItems(lead, projects).map(it => String(it.text || '')).filter(Boolean).slice(0, 12);
   v['fees.extraDesign'] = money(EXTRA_ROUND.design);
   v['fees.extraWeb'] = money(EXTRA_ROUND.web);
   /* The invoice: the line Rob picked, with its totals against the lines it sits among (the project's, else the deal's). */
@@ -115,7 +121,8 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
     const paid = invoicesPaid(lines, now);
     const amount = Number(invoice.amount) || 0;
     const left = Math.max(0, total - paid - (invoiceStatus(invoice, now) === 'paid' ? 0 : amount));
-    v['invoice.number'] = str(invoice.number, 20);
+    /* The number is given on the first send (api/_lib/email/invoiceNumber.js); before that the preview shows the next one as it stands. */
+    v['invoice.number'] = str(invoice.number, 20) || nextInvoiceNumber(settings);
     v['invoice.kind'] = str(invoice.kind, 20) || (project?.plan?.months || deal.plan?.months ? 'plan' : paid > 0 && left === 0 ? 'final' : 'deposit');
     v['invoice.items'] = Array.isArray(invoice.items) && invoice.items.length ? invoice.items.map(it => ({ label: str(it?.label, 120), value: typeof it?.amount === 'number' ? money(it.amount) : str(it?.amount, 40) || 'Included' })) : [{ label: str(invoice.label, 120) || 'Invoice', value: money(amount) }];
     v['invoice.total'] = money(total);
@@ -127,6 +134,20 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
     v['invoice.covers'] = str(invoice.label, 120) ? `This one covers ${str(invoice.label, 120).replace(/\.$/, '').replace(/^(the|a) /i, '').toLowerCase()}.` : '';
     v['invoice.stripeLink'] = https(invoice.payUrl);
     v['invoice.otherPayLink'] = v.portalLink;
+    /* The totals block's rows: the package total, paid so far only when something was, and what is due now, big. */
+    v['invoice.totals'] = [{ label: 'Package total', value: money(total) }, ...(paid > 0 ? [{ label: 'Paid so far', value: money(paid) }] : []), { label: 'Due now', value: money(amount), big: true }];
+    /* After a payment: what landed today, the running total and what is left (left out once nothing is). */
+    v['invoice.paidTotals'] = [{ label: 'Paid today', value: money(amount), big: true }, { label: 'Paid so far', value: money(paid) }, ...(left > 0 ? [{ label: 'Left', value: money(left) }] : [])];
+    /* The ways to pay (the pay block): the card button on the invoice's own Stripe link, then one portal button when the portal is on,
+     * else a button per method set in Settings with the amount filled in and Zelle as a line, in the portal's own formats. */
+    const methods = payMethods(profile, amount, invoice.label, invoice.payUrl);
+    const card = methods.find(m => m.id === 'card');
+    const others = methods.filter(m => m.id !== 'card');
+    const pay = [];
+    if (card) pay.push({ label: `Pay ${money(amount)} with card or Apple Pay`, url: card.url, style: 'primary' });
+    if (v.portalLink && others.length) pay.push({ label: 'Cash App, Venmo or Zelle', url: v.portalLink, style: 'secondary' });
+    else for (const m of others) { if (m.url) pay.push({ label: `${m.name}, ${money(amount)}`, url: m.url, style: 'secondary' }); else if (m.copy) pay.push({ text: `Zelle: ${m.copy}. Send ${money(amount)} and I'll confirm.` }); }
+    v['invoice.pay'] = pay;
     const kindTerms = settings?.invoiceTerms && Array.isArray(settings.invoiceTerms[v['invoice.kind']]) ? settings.invoiceTerms[v['invoice.kind']] : null;
     v['invoice.terms'] = kindTerms && kindTerms.length ? kindTerms.map(t => str(t, 300)) : [];
   }
@@ -137,6 +158,8 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
     const paidN = pl.filter(l => invoiceStatus(l, now) === 'paid').length;
     v['plan.count'] = String(count); v['plan.paid'] = String(paidN); v['plan.next'] = String(Math.min(count, paidN + 1));
   }
+  /* A term may name the plan ({{plan.next}} of {{plan.count}}); it is filled here so nothing reaches a client unfilled. */
+  if (Array.isArray(v['invoice.terms'])) v['invoice.terms'] = v['invoice.terms'].map(t => t.replace(/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/g, (m, k) => (v[k] === undefined || v[k] === null || v[k] === '' ? '' : String(v[k]))).replace(/\s{2,}/g, ' ').trim()).filter(Boolean);
   /* The retainer to pitch, with its Stripe link from Settings. */
   const ret = retainerPick(lead, project, projects);
   if (ret) {
@@ -145,8 +168,7 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
   }
   v['deliverables.groups'] = deliverableGroups(project);
   /* Delivery extras: a sticker sample pack with every package, an NFC card with Launch and Build. */
-  if (pk.packageId) v.extrasLine = ['launch-plan', 'build-plan'].includes(pk.packageId) ? 'Your sticker sample pack and your NFC card are on their way.' : 'Your sticker sample pack is on its way.';
-  else v.extrasLine = '';
+  v.extrasLine = ['launch-plan', 'build-plan'].includes(pk.packageId) ? 'Your sticker sample pack and your NFC card are on their way.' : 'Your sticker sample pack is on its way.';
   /* The active projects, for the rules. */
   v['projects.count'] = String(clientProjects(lead, projects).length);
   return v;

@@ -27,6 +27,10 @@ export default function MeetingSection({ rec }) {
   const legacy = !lead.meeting?.date && lead.afterCall?.meeting;
   const [resched, setResched] = useState(false);
   const saveMeeting = (m) => patch({ meeting: { date: '', time: '', type: 'call', location: '', ...(lead.meeting || {}), ...m } });
+  /* A no show (the email system, milestone 5): once the time has passed, one button stamps it, and the missed call email becomes the suggestion. */
+  const passed = !!mDate && mDate.getTime() < Date.now();
+  const noShowAt = lead.meeting?.noShowAt || '';
+  const logNoShow = async () => { const ok = await saveMeeting({ noShowAt: new Date().toISOString() }); if (ok) toast.success('Logged as a no show. The missed call email is ready when you are.'); };
   const gamePlan = lead.gamePlan || [];
   const gp = (id) => gamePlan.find(g => g.serviceId === id) || { serviceId: id, checked: false, note: '' };
   const setGp = (id, next) => patch({ gamePlan: gamePlan.some(g => g.serviceId === id) ? gamePlan.map(g => (g.serviceId === id ? { ...g, ...next } : g)) : [...gamePlan, { ...gp(id), ...next }] });
@@ -35,7 +39,8 @@ export default function MeetingSection({ rec }) {
       <div className="rc-fact rc-fact--wide rc-fact--stack">
         <span className="rc-fact-label">When</span>
         <span className="rc-fact-val">{mDate ? <><span className="dt-when">{fmtWeekdayDateTime(mDate)}</span><span className="rc-muted"> · {countdownLabel(mDate)}{typeLabel(lead) ? ` · ${typeLabel(lead).toLowerCase()}` : ''}</span></> : <span className="rc-fact-ro">{legacy ? `Logged as "${lead.afterCall.meeting}". Set the date to get a countdown and a calendar file.` : 'No date yet'}</span>}</span>
-        {!readOnly && <Row gap={1} className="rc-fact-act"><Button variant="secondary" size="md" icon={Calendar} onClick={() => setResched(true)} className="dt-resched">{mDate ? 'Reschedule' : 'Set date'}</Button>{mDate && <IconButton icon={Download01} label="Add to calendar (.ics)" variant="secondary" onClick={() => { if (!downloadIcs(lead)) toast.error('Set a date first.'); }} />}</Row>}
+        {noShowAt && <span className="rc-line rc-line--danger">No show logged {fmtWeekdayDateTime(new Date(noShowAt))}.{!readOnly && <> <Button variant="ghost" size="md" onClick={() => saveMeeting({ noShowAt: '' })} className="dt-noshow-undo">Undo</Button></>}</span>}
+        {!readOnly && <Row gap={1} wrap className="rc-fact-act"><Button variant="secondary" size="md" icon={Calendar} onClick={() => setResched(true)} className="dt-resched">{mDate ? 'Reschedule' : 'Set date'}</Button>{passed && !noShowAt && <Button variant="secondary" size="md" icon="PhoneX01" onClick={logNoShow} className="dt-noshow">No show</Button>}{mDate && <IconButton icon={Download01} label="Add to calendar (.ics)" variant="secondary" onClick={() => { if (!downloadIcs(lead)) toast.error('Set a date first.'); }} />}</Row>}
       </div>
       <div className="rc-fact"><span className="rc-fact-label">Where</span>{readOnly ? <span className="rc-fact-ro lay-truncate">{lead.meeting?.location || 'None'}</span> : <InlineEdit value={lead.meeting?.location || ''} onSave={(v) => saveMeeting({ location: v })} placeholder="Zoom link, cafe, their shop" label="Where or link" className="rc-fact-edit" />}</div>
       <div className="rc-group">
