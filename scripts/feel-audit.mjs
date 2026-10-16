@@ -86,9 +86,9 @@ async function settle(page, region, ms = 900) {
 }
 const waitRegion = (page, region) => page.waitForSelector(region, { timeout: 6000 }).catch(() => {});
 
-/* An overlay (a sheet, a modal, a dialog) holds what the screen under it already loaded: it has no request of its own, so a forced loading
-   state has nothing to draw. Its region is the dialog, which carries its label; what is checked is that it enters (data-v-enter) and fits. */
-const isOverlay = (region) => typeof region === 'string' && /\.v-sheet|\.v-modal|\[role="dialog"\]/.test(region);
+/* An overlay (a sheet, a modal, a dialog, a menu) holds what the screen under it already loaded: it has no request of its own, so a forced loading
+   state has nothing to draw. Its region is the dialog (or the menu), which carries its label; what is checked is that it enters (data-v-enter) and fits. */
+const isOverlay = (region) => typeof region === 'string' && /\.v-sheet|\.v-modal|\[role="dialog"\]|\[role="menu"\]/.test(region);
 async function runState(ctx, s0, width, theme, motion) {
   const region0 = typeof s0.region === 'function' ? s0.region(width) : (s0.region || '.sh-content');
   const s = isOverlay(region0) ? { ...s0, static: true } : s0;

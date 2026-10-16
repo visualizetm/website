@@ -172,6 +172,8 @@ export const leadDetailStyles = `
   @container record (min-width: 1000px) { .rc-ws-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
   .rc-pf { display: flex; flex-direction: column; gap: var(--v-space-3); padding: var(--v-space-4); background: var(--v-surface-2); border: 1px solid var(--v-border-1); border-radius: var(--v-radius-lg); min-width: 0; }
   .rc-pf-top { display: flex; align-items: flex-start; gap: var(--v-space-3); min-width: 0; }
+  .rc-skel-avatar { background: var(--v-surface-3); flex-shrink: 0; }
+  .rc-skel-ibtn { display: inline-flex; width: 44px; height: 44px; flex-shrink: 0; background: var(--v-surface-3); border-radius: var(--v-radius-md); }
   .rc-pf-avatar { flex-shrink: 0; }
   .rc-pf-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
   .rc-pf-name { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-xl); line-height: var(--v-lh-xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); overflow-wrap: anywhere; }

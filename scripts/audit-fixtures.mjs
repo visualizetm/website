@@ -59,12 +59,12 @@ export const PIPE_EXTRA = {
   /* CRM revamp, step 5: L8 is a booking with its deal started (the package from the recommended option, no ticks yet); L9 is a deal in play: concepts, intro and the call ticked, the form back, a sent invoice, and stalled since the contract went quiet. */
   8: { deal: { checkpoints: { concepts: null, introSent: null, callDone: null, onboardingSent: null, formReceived: null, contractSent: null, contractAgreed: null, invoiceSent: null, paid: null }, packageId: 'launch-plan', addonIds: [], plan: { months: 6, monthly: 200 }, invoices: [], contractLink: '', metAt: '', stalledSince: '' } },
   9: { stage: 'deal', callStatus: 'booked', meeting: { date: daysFrom(-12).slice(0, 10), time: '10:00', type: 'call', location: '' }, calendlyEventUri: 'https://api.calendly.com/scheduled_events/old9',
-       /* The email system (milestone 8): the contract nudge rule drafted its email (EL6 below); the task carries the entry, so Next up shows Send and Edit. */
-       checklists: [{ id: 'ckL9e', name: 'Emails', templateId: '', items: [{ id: 'edEL6', text: 'Email ready: Contract nudge for Business 9. Three days with no I agree', done: false, doneAt: '', due: new Date(new Date().setHours(17, 0, 0, 0)).toISOString(), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'manual', suggestionId: '', emailId: 'EL6' }] }],
        deal: { checkpoints: { concepts: { at: daysFrom(-13), by: 'auto' }, introSent: { at: daysFrom(-14), by: 'rob' }, callDone: { at: daysFrom(-12), by: 'auto' }, onboardingSent: { at: daysFrom(-11), by: 'rob' }, formReceived: { at: daysFrom(-10), by: 'auto' }, contractSent: { at: daysFrom(-9), by: 'rob' }, contractAgreed: null, invoiceSent: null, paid: null },
               packageId: 'web-complete', addonIds: ['rush'], plan: null, invoices: [{ id: 'dv1', label: 'Web Complete', amount: 770, dueAt: daysFrom(-2).slice(0, 10), status: 'sent', sentAt: daysFrom(-9), paidAt: '', note: 'Half now, half on delivery ' + UNBROKEN.slice(0, 30) }], contractLink: 'https://example.com/contract/' + UNBROKEN.slice(0, 20), metAt: daysFrom(-12), stalledSince: daysFrom(-2) } },
   10: { stage: 'won', callStatus: 'booked', bookedOutcome: { result: 'won', reason: '', at: '2027-01-02T10:00:00Z' },
-        servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] }] },
+        servicesPlanned: ['logo', 'site-full'], checklists: [{ name: 'Kickoff ' + UNBROKEN.slice(0, 30), items: [{ text: UNBROKEN, done: false }, { text: 'Send contract', done: true }] },
+          /* The email system (milestone 8): the form nudge rule drafted its email (EL7 below); the task carries the entry and is due today, so Next up shows the row with Send and Edit. */
+          { id: 'ckL10e', name: 'Emails', templateId: '', items: [{ id: 'edEL7', text: 'Email ready: Form nudge for Business 10. Three days with no form', done: false, doneAt: '', due: new Date(new Date().setHours(9, 0, 0, 0)).toISOString(), note: '', order: 0, pinned: false, remindAt: '', notifiedAt: '', source: 'manual', suggestionId: '', emailId: 'EL7' }] }] },
   11: { referredBy: { code: 'business-13', leadId: 'L13', business: 'Business 13' }, stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
         /* Planner prompt 2: the client with a planner switched ON and a full
            month, including a post in review carrying a client note. */
@@ -603,6 +603,7 @@ export const emailLog = [
   logEntry({ _id: 'EL5', recordId: 'L11', projectId: 'P11', templateId: 'delivery', class: 'transactional', to: ['owner11@example.com'], ...logHtml('delivery', 'L11', 'P11'), status: 'test', createdAt: hoursAgo(100), sentAt: hoursAgo(100) }),
   /* Milestone 8: a draft the contract nudge rule wrote this morning (auto), the newest entry on L9, so its sheet shows Send now and Edit. */
   logEntry({ _id: 'EL6', recordId: 'L9', templateId: 'contract_nudge', class: 'transactional', to: ['owner9@example.com'], ...logHtml('contract_nudge', 'L9'), status: 'draft', auto: true, createdAt: hoursAgo(1) }),
+  logEntry({ _id: 'EL7', recordId: 'L10', templateId: 'form_nudge', class: 'transactional', to: ['owner10@example.com'], ...logHtml('form_nudge', 'L10'), status: 'draft', auto: true, createdAt: hoursAgo(1) }),
 ];
 const logRow = ({ html, ...rest }) => rest;
 export function emailPreviewPayload(body = {}) {

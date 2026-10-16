@@ -381,17 +381,21 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
     );
   }
   const btn = (w, k) => <SkeletonBlock key={k} width={w} height={44} radius="var(--v-radius-md)" />;
+  const ctxH = phone ? (m === 'client' ? 0 : triage ? 42 : 36) : m === 'client' ? 14 : m === 'deal' ? 36 : 18;
   const head = (
     <header className={`rc-head${phone ? ' rc-head--phone' : ''}`}>
       {!phone && <span className="rc-avatar"><SkeletonCircle size={44} /></span>}
       <div className="rc-head-main">
         <div className="rc-head-top">{!phone && <SkeletonBlock width="40%" height={34} />}<span className="rc-pills">{[72, 56].map((w, i) => <SkeletonBlock key={i} width={w} height={22} radius="var(--v-radius-pill)" />)}</span></div>
-        <div className="rc-ctx" style={{ height: phone && m !== 'client' ? (triage ? 42 : 36) : 18 }}><SkeletonBlock width={phone ? '90%' : '55%'} height={14} style={{ margin: '2px 0' }} /></div>
+        {/* The context line: two lines on a phone's lead or deal, two on a computer's deal (the package and the stall), one short line on a client's computer header, none on a client's phone header. */}
+        {ctxH > 0 && <div className="rc-ctx" style={{ height: ctxH }}><SkeletonBlock width={phone ? '90%' : '55%'} height={Math.min(14, ctxH)} style={{ margin: ctxH > 14 ? '2px 0' : 0 }} /></div>}
       </div>
       <div className="rc-head-actions">{btn(96, 1)}{btn(112, 2)}{btn(44, 3)}</div>
     </header>
   );
-  const strip = m === 'deal' ? <div className="rc-next"><SkeletonBlock width={18} height={18} /><span className="rc-next-text" style={{ height: phone ? 54 : 26 }}><SkeletonBlock width={160} height={16} /></span><SkeletonBlock width={72} height={44} radius="var(--v-radius-md)" /></div> : null;
+  /* The Next up strip rides on a deal and on a client (its task due soonest); the suggested email chip (the email system) sits under it on both. */
+  const strip = m === 'deal' || m === 'client' ? <div className="rc-next"><SkeletonBlock width={18} height={18} /><span className="rc-next-text" style={{ height: phone ? 54 : 26 }}><SkeletonBlock width={160} height={16} /></span><SkeletonBlock width={72} height={44} radius="var(--v-radius-md)" /></div> : null;
+  const suggest = m === 'deal' || m === 'client' ? <div className="rc-suggest"><SkeletonBlock width={275} height={44} radius="var(--v-radius-pill)" className="rc-suggest-chip" /></div> : null;
   const first = m === 'client'
     /* The project card runs the height of a project with its tasks and invoices (about 490px at 390). */
     ? <Card style={{ minHeight: phone ? 493 : undefined }}><SkeletonBlock width="40%" height={24} /><SkeletonText lines={2} /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Card>
@@ -403,16 +407,21 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
         : <div className="rc-group"><SkeletonBlock width={120} height={16} /><Row gap={1}><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" style={{ flex: 1, minWidth: 0 }} /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></div>;
   /* A lead or triage record opens with its socials (two or three rows is the usual find), between the header and the rest. */
   const socials = m === 'lead' ? <div className="rc-soc"><p className="rc-soc-head"><SkeletonBlock width={64} height={12} /></p><ul className="rc-soc-list">{Array.from({ length: triage ? 3 : 2 }, (_, i) => <li key={i}><div className="rc-soc-link"><SkeletonBlock width={18} height={18} /><span className="rc-soc-text"><SkeletonBlock width="35%" height={16} /><SkeletonBlock width="55%" height={16} style={{ marginTop: 4 }} /></span></div></li>)}</ul></div> : null;
-  /* A client (workspace redesign): the profile card, the four workspace cards and the quick action chips sit between the strip and the sections at every width. */
+  /* A client (workspace redesign): the profile card, the workspace cards and the quick action chips sit between the strip and the sections at every width,
+   * each at the lines the audit's client makes them: the name and three lines (the name wraps in the computer's column), the seven channel buttons (a
+   * sideways row on a phone, two lines in the column), the three foot buttons (the last one right aligned), the four cards (the showcase and planner
+   * bodies, then the taller tasks and concepts bodies), the portal card, the docs card, and six quick chips (the email system added Email). */
+  const bodies = phone ? [120, 120, 192, 192] : [72, 72, 174, 174];
   const workspace = m === 'client' ? (
     <>
       <div className="rc-ws">
-        <div className="rc-pf"><div className="rc-pf-top"><SkeletonCircle size={56} /><div className="rc-pf-id"><SkeletonBlock width="70%" height={22} /><SkeletonBlock width="50%" height={14} /><SkeletonBlock width="40%" height={14} /></div></div><div className="rc-pf-actions">{Array.from({ length: 7 }, (_, i) => <SkeletonBlock key={i} width={44} height={44} radius="var(--v-radius-md)" />)}</div><div className="rc-pf-foot">{btn(110, 1)}{btn(110, 2)}{btn(128, 3)}</div></div>
-        <div className="rc-ws-grid">{['showcase', 'planner', 'tasks', 'concepts'].map(id => <div key={id} className="rc-ws-card"><div className="rc-ws-head"><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body"><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>)}
-          <div className="rc-ws-card rc-docs"><div className="rc-docs-head"><div className="rc-ws-head"><SkeletonBlock width={16} height={16} /><SkeletonBlock width={48} height={14} /></div><SkeletonBlock width={116} height={44} radius="var(--v-radius-md)" /></div><div className="rc-docs-rows">{['var(--sk-a)', 'var(--sk-b)', 'var(--sk-a)'].map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-md)" />)}</div><div className="rc-docs-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>
+        <div className="rc-pf"><div className="rc-pf-top"><span className="v-avatar v-avatar--lg rc-skel-avatar" aria-hidden="true" /><div className="rc-pf-id"><SkeletonBlock width="70%" height={phone ? 26 : 52} /><SkeletonBlock width="50%" height={18} /><SkeletonBlock width="80%" height={phone ? 18 : 36} /><SkeletonBlock width="60%" height={18} /></div></div><div className="rc-pf-actions">{Array.from({ length: 7 }, (_, i) => <span key={i} className="v-ibtn v-ibtn--secondary v-ibtn--md rc-skel-ibtn" aria-hidden="true" />)}</div><div className="rc-pf-foot">{btn(132, 1)}{btn(129, 2)}<SkeletonBlock width={134} height={44} radius="var(--v-radius-md)" style={{ marginLeft: 'auto' }} /></div></div>
+        <div className="rc-ws-grid">{['showcase', 'planner', 'tasks', 'concepts'].map((id, i) => <div key={id} className="rc-ws-card"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body" style={{ minHeight: bodies[i] }}><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>)}
+          <div className="rc-ws-card rc-ws-card--portal"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={64} height={14} /></div><div className="rc-ws-body" style={{ minHeight: 48 }}><SkeletonBlock width="90%" height={14} /></div><div className="rc-ws-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>
+          <div className="rc-ws-card rc-docs"><div className="rc-docs-head"><div className="rc-ws-head" style={{ minHeight: 21 }}><SkeletonBlock width={16} height={16} /><SkeletonBlock width={48} height={14} /></div><SkeletonBlock width={116} height={44} radius="var(--v-radius-md)" /></div><div className="rc-docs-rows">{['var(--sk-a)', 'var(--sk-b)', 'var(--sk-a)'].map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-md)" />)}</div><div className="rc-docs-foot"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></div></div>
         </div>
       </div>
-      <div className="rc-quick">{[120, 108, 128, 92, 140].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</div>
+      <div className="rc-quick">{[144, 91, 131, 150, 106, 173].map((w, i) => <SkeletonBlock key={i} width={w} height={44} radius="var(--v-radius-pill)" />)}</div>
     </>
   ) : null;
   const outbar = triage ? <StickyFooterBar className="dt-outbar dt-triagebar"><Row gap={2} wrap className="dt-outbar-row dt-triagebar-row">{[0, 1, 2, 3].map(k => <SkeletonBlock key={k} height={44} radius="var(--v-radius-md)" />)}</Row></StickyFooterBar> : m === 'deal' ? <StickyFooterBar className="dt-outbar"><Row gap={2} className="dt-outbar-row"><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /><SkeletonBlock width="100%" height={44} radius="var(--v-radius-md)" /></Row></StickyFooterBar> : null;
@@ -422,6 +431,7 @@ LeadDetail.Skeleton = function LeadDetailSkeleton({ mode = 'lead', deal = false,
         <div className={`rc-inner${m === 'client' ? ' rc-inner--ws' : ''}`} aria-busy="true" aria-hidden="true">
           {head}
           {strip}
+          {suggest}
           {socials}
           {workspace}
           {phone ? (

@@ -195,18 +195,21 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
   );
 }
 
-/* The six sections at fixed counts (3, 3, 4, 2, 2, 1): an action row at its real lines (the name 22, the action 21, then a pill 22 when overdue or the time 19), a meeting row and a list row at theirs. */
-const SKEL_SECTIONS = [['Overdue', 4, 'act'], ['Today', 3, 'act'], ['This week', 4, 'act'], ['Later', 2, 'act'], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
+/* The six sections at fixed counts (5, 3, 1, 0, 2, 1): an action row at its real lines (the name 22, the action 21, then a pill 22 when overdue or the time 19,
+   and the 8px progress bar on a client's or a project's row, here the fourth overdue row, the first of today and the week's one), an empty section's one line,
+   a meeting row and a list row at theirs. */
+const SKEL_SECTIONS = [['Overdue', 5, 'act', [3]], ['Today', 3, 'act', [0]], ['This week', 1, 'act', [0]], ['Later', 0, 'act', []], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
 function NextUpSkeleton() {
-  const actRow = (i, overdue) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} /></Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  const actRow = (i, overdue, bar) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} />{bar && <SkeletonBlock width={220} height={4} radius="var(--v-radius-pill)" className="nu-bar" />}</Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
   const twoLine = (i, wide) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="45%" height={19} /></Stack><Row gap={1}>{wide ? <SkeletonBlock width={76} height={44} radius="var(--v-radius-md)" /> : <SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
   return (
     <Stack gap={5} aria-busy="true" aria-hidden="true">
-      {SKEL_SECTIONS.map(([label, n, kind], si) => (
+      {SKEL_SECTIONS.map(([label, n, kind, bars = []], si) => (
         <Stack gap={2} key={label}>
-          <Row gap={2} align="center" className="nu-sec-head"><SkeletonBlock width={label.length * 8} height={14} /><SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" /></Row>
+          <Row gap={2} align="center" className="nu-sec-head"><SkeletonBlock width={label.length * 8} height={14} />{n > 0 && <SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" />}</Row>
           {kind === 'act' && label === 'This week' && <SkeletonBlock width={80} height={16} />}
-          {Array.from({ length: n }, (_, i) => (kind === 'act' ? actRow(i, si === 0) : twoLine(i, kind === 'list')))}
+          {n === 0 && <p className="nu-clear"><SkeletonBlock width={96} height={14} style={{ margin: '3px 0' }} /></p>}
+          {Array.from({ length: n }, (_, i) => (kind === 'act' ? actRow(i, si === 0, bars.includes(i)) : twoLine(i, kind === 'list')))}
         </Stack>
       ))}
     </Stack>

@@ -51,7 +51,7 @@ export default function Popover({ open, onClose, anchorRef, align = 'start', sid
   const root = portalRoot();
   if (!root) return null;
   return createPortal(
-    <div ref={boxRef} className={`v-pop ${className}`.trim()} role={trap ? 'dialog' : undefined} aria-label={label} tabIndex={-1}
+    <div ref={boxRef} className={`v-pop ${className}`.trim()} role={trap ? 'dialog' : undefined} aria-label={label} tabIndex={-1} data-v-enter=""
       style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, width: pos.width, maxHeight: pos.maxH, zIndex: z }}>
       {children}
     </div>,
