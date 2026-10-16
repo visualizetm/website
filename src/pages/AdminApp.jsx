@@ -503,7 +503,7 @@ export default function AdminApp() {
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
   const openListFill = useCallback((list) => { push(`${BASE}/lists/${list._id}/fill`, { selectedId: list._id }); }, [push]);
   /* Compose (the email system): a push from the record, a list's menu, the call room or one of the four old send buttons; the template, the project and the invoice ride on the query. */
-  const openCompose = useCallback((lead, opts = {}) => { const q = new URLSearchParams({ record: String(lead._id) }); if (opts.templateId) q.set('template', opts.templateId); if (opts.project) q.set('project', String(opts.project._id)); if (opts.invoice) q.set('invoice', String(opts.invoice.id)); push(`${BASE}/email/compose?${q}`, { selectedId: lead._id }); }, [push]);
+  const openCompose = useCallback((lead, opts = {}) => { const q = new URLSearchParams({ record: String(lead._id) }); if (opts.templateId) q.set('template', opts.templateId); if (opts.project) q.set('project', String(opts.project._id)); if (opts.invoice) q.set('invoice', String(opts.invoice.id)); if (opts.mode === 'template') q.set('mode', 'template'); push(`${BASE}/email/compose?${q}`, { selectedId: lead._id }); }, [push]);
   // Open a lead in whichever screen owns its stage: a push carrying the record on its state.
   const openLead = useCallback((lead, intent, opts = {}) => {
     const stage = effectiveStage(lead);
@@ -824,7 +824,7 @@ export default function AdminApp() {
       {section === 'compose' && (
         <AdminCompose key={`${composeQ.get('record') || ''}:${composeQ.get('template') || ''}`} lead={V.leads.find(l => String(l._id) === (composeQ.get('record') || '')) || null} projects={V.projects} sets={V.sets}
           loading={callLeadsLoading || projectsLoading || forceLoading} leadsError={!!errors.leads} onRetryLeads={loadCallLeads}
-          templateId={composeQ.get('template') || ''} projectId={composeQ.get('project') || ''} invoiceId={composeQ.get('invoice') || ''} onBack={navBack ? navBack.back : () => go('leads')} />
+          templateId={composeQ.get('template') || ''} projectId={composeQ.get('project') || ''} invoiceId={composeQ.get('invoice') || ''} mode={composeQ.get('mode') === 'template' ? 'template' : 'send'} onBack={navBack ? navBack.back : () => go('leads')} />
       )}
       {section === 'showcase' && (
         <AdminShowcase
@@ -888,7 +888,7 @@ export default function AdminApp() {
         <AdminDesign onBack={navBack ? navBack.back : null} loading={forceLoading} />
       )}
       {section === 'settings' && (
-        <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />
+        <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : relPath.startsWith('/settings/emails') ? 'emails' : undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />
       )}
       </Suspense>
       </ErrorBoundary>

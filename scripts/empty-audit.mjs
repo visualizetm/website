@@ -33,6 +33,8 @@ const SCREENS = [
   /* Client docs (docs job): every client's docs and one client's, each with its first time state (nothing yet, New doc) and its no results state (the search is named). */
   { id: 'Docs', path: '/admin/docs', resource: 'docs', search: true },
   { id: 'Client docs', path: '/admin/clients/L11/docs', resource: 'docs', search: true },
+  /* The email system: Settings, Emails' Recent sends (the last fifty, failures first) with nothing sent yet. */
+  { id: 'Recent sends', path: '/admin/settings/emails', resource: 'email', search: false, why: 'the last fifty sends have no search; nothing sent yet is the first time state' },
 ];
 const grab = () => {
   const e = document.querySelector('.sh-content [data-state]');

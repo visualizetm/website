@@ -71,6 +71,8 @@ export const leadDetailStyles = `
   .rc-head--phone .rc-head-actions .v-btn { flex: 1 1 120px; min-width: 0; }
   /* The next action strip: red-soft, red border, one line, one button. */
   .rc-suggest { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
+  .rc-emails { display: flex; flex-direction: column; gap: var(--v-space-2); }
+  .rc-emails-foot { display: flex; }
   .rc-suggest-chip { max-width: 100%; }
   .rc-next { display: flex; align-items: center; gap: var(--v-space-3); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 1px solid var(--v-red); border-radius: var(--v-radius-md); background: var(--v-red-soft); color: var(--v-text); min-width: 0; }
   /* The socials strip: one row per channel the business has, an icon, the name, the handle or address, and the way out. Nothing for a channel it lacks. */

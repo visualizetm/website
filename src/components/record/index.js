@@ -14,6 +14,7 @@ import HistorySection, { historySummary } from './HistorySection';
 import DetailsSection, { detailsSummary } from './DetailsSection';
 import TasksSection, { tasksSummary, tasksBar } from './TasksSection';
 import ProfileSection, { profileSummary } from './ProfileSection';
+import EmailsSection, { emailsSummary } from './EmailsSection';
 
 export { tasksSummary, tasksBar } from './TasksSection';
 export { default as ProfileCard } from './ProfileCard';
@@ -39,6 +40,7 @@ export const SECTIONS = {
   playbook: { label: 'Playbook', Component: PlaybookSection, summary: playbookSummary },
   tasks: { label: 'Tasks', Component: TasksSection, summary: tasksSummary, bar: tasksBar },
   notes: { label: 'Notes', Component: NotesSection, summary: notesSummary },
+  emails: { label: 'Emails', Component: EmailsSection, summary: emailsSummary },
   history: { label: 'History', Component: HistorySection, summary: historySummary },
   details: { label: 'Details', Component: DetailsSection, summary: detailsSummary },
   /* The client's full profile (client page workspace redesign): a pushed screen on a phone, a side panel on a computer, never a tab or a row. */
@@ -47,8 +49,8 @@ export const SECTIONS = {
 
 /* Sections by mode, in tab order. Details is a phone row only; on a computer its facts sit under the header. */
 export const SECTIONS_BY_MODE = {
-  lead: ['playbook', 'tasks', 'notes', 'history', 'details'],
-  deal: ['checkpoints', 'meeting', 'pricing', 'money', 'tasks', 'playbook', 'notes', 'history', 'details'],
+  lead: ['playbook', 'tasks', 'emails', 'notes', 'history', 'details'],
+  deal: ['checkpoints', 'meeting', 'pricing', 'money', 'emails', 'tasks', 'playbook', 'notes', 'history', 'details'],
   /* A client (workspace redesign): the facts live in the profile card and the Profile screen, the tasks in the Tasks card; the Tasks tab and row stay as a redirect to the Tasks screen. */
-  client: ['project', 'money', 'files', 'retainer', 'notes', 'history', 'profile'],
+  client: ['project', 'money', 'emails', 'files', 'retainer', 'notes', 'history', 'profile'],
 };

@@ -46,6 +46,9 @@ export const COPY = {
     'leads.detail.close': { title: 'No close lines yet', description: 'Lock it, if no, and no answer lines live here.' },
     'leads.detail.intel': { title: 'No intel yet', description: 'The nightly scan fills this in when it finds something.' },
     'leads.detail.history': { title: 'No calls yet', description: 'The first outcome you log lands here.' },
+    /* The email system: the record's Emails section and Settings, Emails. */
+    'record.emails': { title: 'No emails yet', description: 'Every email you send from here lands in this list.', action: 'Email' },
+    'settings.emails.recent': { title: 'Nothing sent yet', description: 'The last fifty emails land here, failures first.', action: 'Open Leads' },
     'leads.detail.submissions': { title: 'No site submissions from them yet', description: 'When one matches their email, phone, or business name it shows up here to link.' },
     'leads.picker': { title: 'No match', description: 'Try the business name or a phone number.' },
     /* Call Console */
@@ -117,6 +120,7 @@ export const COPY = {
     sets: { title: 'The concepts did not load', description: 'The concept sets could not be fetched. Try again.', action: 'Try again' },
     projects: { title: 'Could not load client projects', description: 'The projects did not come back, so payments and retainers are missing. Try again.' },
     settings: { title: 'Could not load settings', description: 'The settings document did not come back. Try again.' },
+    emails: { title: 'The emails did not load', description: 'The email log did not come back. Try again; nothing was changed.' },
     calendar: { title: 'Could not load the calendar', description: 'Meetings and callbacks come from your leads, and those did not load. Try again.' },
     notifications: { title: 'Could not load notifications', description: 'They come from your leads, and those did not load. Try again.' },
     calls: { title: 'Could not load the console', description: 'The leads for this session did not come back. Try again.' },

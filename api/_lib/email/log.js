@@ -75,8 +75,3 @@ export async function sentLastHour(db, now = Date.now()) {
   const rows = await db.collection('email_log').find({ status: { $in: ['sent', 'test'] } }).sort({ createdAt: -1 }).limit(200).project({ createdAt: 1, status: 1 }).toArray();
   return rows.filter(r => now - new Date(r.createdAt).getTime() < 60 * 60 * 1000).length;
 }
-/** The queued emails whose time has come. */
-export async function dueQueued(db, now = new Date()) {
-  const rows = await db.collection('email_log').find({ status: 'queued' }).sort({ createdAt: 1 }).limit(200).toArray();
-  return rows.filter(r => r.sendAt && new Date(r.sendAt).getTime() <= now.getTime());
-}
