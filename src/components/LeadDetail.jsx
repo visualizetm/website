@@ -37,7 +37,7 @@ import { invoiceStatus } from '../lib/invoices';
 import { nextUnpaid, brandText } from '../lib/projects';
 import { normalizeStage, PRIORITIES, CLIENT_STATUSES } from '../shared/semantics';
 import { formatPhone } from '../shared/phone';
-import { fmtDateTime } from '../shared/dates';
+import { fmtDate, fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
 import { RecordHeader, NextActionStrip, SocialsStrip, FactsGrid, AnglePara, SectionRows, SECTIONS, SECTIONS_BY_MODE, checkpointAction, runKeyFor, tasksSummary, tasksBar, ProfileCard, ProfileSection, WorkspaceCards, QuickActions } from './record';
@@ -132,6 +132,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const email = useSendEmail({ lead, patch: patchRaw, onSent: () => shell?.refreshLeads?.() });
   const cw = useClientWorkspace({ lead, projects: client?.projects || [], patch, patchRaw, onCreateProject: client?.onCreateProject, onPatchProject: client?.onPatchProject, readOnly, openTab });
   const decline = useDecline({ onPatch: (id, set) => (readOnly ? Promise.resolve(false) : onPatch(id, set)), onDeclined: () => closeRecord() });
+  /* Offer concepts (the email system, milestone 5): the stamp, then Compose on the concepts in progress email. */
+  const offerConcepts = async () => { const ok = await patch({ conceptsOffered: new Date().toISOString() }); if (ok) shell?.openCompose?.(lead, { templateId: 'concepts_in_progress' }); };
   const suggested = shell?.openCompose && !readOnly ? knownTemplate(suggestEmail(lead, { project: cw.current || null, sets: shell?.sets || [], projects: shell?.projects || [] })) : null;
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
@@ -244,6 +246,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     { id: 'copy', label: 'Copy phone', icon: 'Copy01', disabled: !lead.phone, onSelect: () => copyText(toast, formatPhone(lead.phone), 'Number') },
     ...(clientMode ? [{ id: 'brand', label: 'Copy brand', icon: 'Copy01', onSelect: () => copyText(toast, brandText(lead), 'Brand block') }] : []),
     'divider',
+    ...(!readOnly && shell?.openCompose && (stage === 'lead' || stage === 'triage') ? [{ id: 'offer', label: lead.conceptsOffered ? `Concepts offered ${fmtDate(lead.conceptsOffered)}` : 'Offer concepts', icon: 'LayersThree01', disabled: !!lead.conceptsOffered, onSelect: offerConcepts }] : []),
     ...(shell?.openPlanner && stage === 'won' ? [{ id: 'planner', label: `Planner, ${plannerLabel}`, icon: 'Calendar', onSelect: () => shell.openPlanner(lead) }] : []),
     ...(shell?.openTasks ? [{ id: 'tasks', label: `Tasks, ${tasksSummary(rec)}`, icon: 'CheckDone01', onSelect: () => shell.openTasks(lead) }] : []),
     ...(shell?.openConcepts ? [{ id: 'concepts', label: `Concepts, ${conceptLabel}`, icon: 'LayersThree01', onSelect: () => shell.openConcepts(lead) }] : []),

@@ -4,7 +4,7 @@ import { CHECKPOINTS, dealOf, isTicked } from '../../lib/deal';
  * header's primary, the outcome bar and the Checkpoints rows all read this,
  * so they never disagree. The Deals cards walk the same order: the current
  * checkpoint is the first one not ticked.
- *   send   the intro or onboarding email through the send modal
+ *   send   the intro, onboarding or contract email (Compose, or the old modal for the two Zapier kinds until Resend is connected)
  *   met    Met them: ticks Call done and makes the record a deal
  *   build  opens the concepts editor (Concepts built ticks itself once a set exists)
  *   tick   ticks the step by hand
@@ -15,7 +15,7 @@ const RULES = {
   callDone: { label: 'Met them', short: 'Met them', kind: 'met', icon: 'Check' },
   onboardingSent: { label: 'Send onboarding', short: 'Send', kind: 'send', email: 'onboarding', icon: 'Send01' },
   formReceived: { label: 'Tick', short: 'Tick', kind: 'tick', icon: 'Check' },
-  contractSent: { label: 'Send contract', short: 'Tick', kind: 'tick', icon: 'File06' },
+  contractSent: { label: 'Send contract', short: 'Send', kind: 'send', email: 'contract', icon: 'Send01' },
   contractAgreed: { label: 'Tick', short: 'Tick', kind: 'tick', icon: 'Check' },
   invoiceSent: { label: 'Send invoice', short: 'Invoices', kind: 'money', icon: 'CurrencyDollar' },
   paid: { label: 'Mark paid', short: 'Invoices', kind: 'money', icon: 'CurrencyDollar' },

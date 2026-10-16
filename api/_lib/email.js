@@ -15,7 +15,7 @@ export const emailsConfigured = () => Object.fromEntries(EMAIL_KIND_IDS.map(k =>
 /** The note the contact log carries. */
 export const EMAIL_NOTE = { intro: 'Sent the intro email', onboarding: 'Sent the onboarding email', invoice: 'Sent the invoice email', delivery: 'Sent the delivery email' };
 /** The deal checkpoint a send ticks. */
-export const EMAIL_CHECKPOINT = { intro: 'introSent', onboarding: 'onboardingSent', invoice: 'invoiceSent' };
+export const EMAIL_CHECKPOINT = { intro: 'introSent', onboarding: 'onboardingSent', invoice: 'invoiceSent', contract: 'contractSent' };
 /** The onboarding variant from the package kind: brand, web, combined (the plans), or general with no package. */
 export function variantOf(packageId) {
   const p = packageOf(packageId);
