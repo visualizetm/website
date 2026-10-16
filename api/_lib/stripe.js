@@ -163,6 +163,8 @@ export async function applyPayment(db, row, lead) {
       entry.projectId = String(p._id);
       await projects.updateOne({ _id: p._id }, { $set: { invoices: lines.map(s => (s.id === item.id ? { ...s, status: 'paid', ledgerId, paidAt: row.at, ...(mismatch ? { stripeMismatch: mismatch } : {}) } : s)), updatedAt: new Date() } });
       marked = { projectId: String(p._id), itemId: item.id, mismatch: mismatch || '' };
+      /* The email system (milestone 6): the paid event drafts the payment received email for Rob; loaded here, not at the top, since the send pipeline imports this file. */
+      try { const { draftEmail } = await import('./email/drafts.js'); await draftEmail(db, { recordId: String(lead._id), projectId: String(p._id), invoiceId: item.id, templateId: 'payment_received' }); } catch { /* the ledger is written; the draft can be made from the record */ }
       if (p.kind === 'retainer' && fresh.retainer) {
         const next = lines.filter(s => s.id !== item.id && s.status !== 'paid' && !s.ledgerId).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0];
         await leads.updateOne({ _id: lead._id }, { $set: { 'retainer.nextBillAt': next?.dueAt || '' } });

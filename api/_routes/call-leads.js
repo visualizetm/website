@@ -1,4 +1,7 @@
 import { ObjectId } from 'mongodb';
+import { draftEmail } from '../_lib/email/drafts.js';
+import { invoicesOf } from '../_lib/invoices.js';
+import { dealOf } from '../_lib/deal.js';
 import { clientPushTick } from '../_lib/clientPush.js';
 import { randomBytes, createHash } from 'node:crypto';
 import { PORTAL_MODULE_IDS, PORTAL_STATE_IDS, PORTAL_TEMPLATE_IDS, PORTAL_TEMPLATES, DOCUMENT_KIND_IDS } from '../_lib/portalModules.js';
@@ -251,7 +254,10 @@ function sanitize(b) {
       time: str(b.meeting.time, 5),
       type: MEETING_TYPES.includes(b.meeting.type) ? b.meeting.type : 'call',
       location: str(b.meeting.location, 300), // Prompt 8: place or link
+      noShowAt: str(b.meeting.noShowAt, 40), // the email system: Rob logged a no show, so the missed call email fits
     } : undefined,
+    // The email system (milestone 5): when Rob offered concepts before a booking; '' clears it.
+    conceptsOffered: b.conceptsOffered !== undefined ? str(b.conceptsOffered, 40) : undefined,
     // Prompt 8 additive: street address, concepts list, services game plan.
     address: b.address !== undefined ? str(b.address, 300) : undefined,
     concepts: Array.isArray(b.concepts)
@@ -623,7 +629,11 @@ export async function handler(req, res) {
       return res.status(200).json((await col.updateOne({ _id: oid }, { $set: allowed })) && { ok: true, slug: allowed.showcase.slug });
     }
 
+    /* The email system (milestone 6): a deal line marked paid by hand drafts the payment received email. */
+    const paidBefore = allowed.deal && Array.isArray(allowed.deal.invoices) ? await col.findOne({ _id: oidOf }, { projection: { deal: 1 } }) : null;
+    const wasPaid = paidBefore ? new Set(invoicesOf(dealOf(paidBefore)).filter(o => o.status === 'paid').map(o => o.id)) : null;
     await col.updateOne({ _id: oidOf }, { $set: allowed });
+    if (paidBefore) { for (const n of allowed.deal.invoices) { if (n.status === 'paid' && !wasPaid.has(n.id)) { try { await draftEmail(db, { recordId: String(oidOf), invoiceId: n.id, templateId: 'payment_received' }); } catch { /* the line is paid; the draft can be made from the record */ } } } }
     /* Client push (prompt 4): a task for the client or an approval asked is a reason to ping them, six hours apart at most. */
     if (allowed.checklists || allowed.portal) { try { await clientPushTick(db, oidOf); } catch { /* the write is done; the sweep tries again */ } }
     return res.status(200).json({ ok: true });

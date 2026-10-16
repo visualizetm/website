@@ -37,16 +37,47 @@ function cmp(actual, v) {
   if (Array.isArray(actual) && !Array.isArray(v)) return actual.some(x => String(norm(x)) === String(b));
   return String(a) === String(b);
 }
+/* Every value a dotted path reaches, walking into arrays the way Mongo does ('invoices.id' is each line's id). */
+function getPathAll(o, k) {
+  let vals = [o];
+  for (const part of k.split('.')) {
+    const next = [];
+    for (const v of vals) { if (Array.isArray(v)) { for (const e of v) if (e && typeof e === 'object') next.push(e[part]); } else if (v && typeof v === 'object') next.push(v[part]); }
+    vals = next;
+  }
+  return vals;
+}
 function matches(doc, filter) {
   return Object.entries(filter || {}).every(([k, v]) => {
     if (k === '$or') return v.some(f => matches(doc, f));
     if (k === '$and') return v.every(f => matches(doc, f));
     if (k.startsWith('$')) throw new Error('fake mongo: unsupported top level ' + k);
-    return cmp(getPath(doc, k), v);
+    const direct = getPath(doc, k);
+    if (direct !== undefined || !k.includes('.')) return cmp(direct, v);
+    return getPathAll(doc, k).some(x => cmp(x, v));
   });
+}
+/* The positional operator: 'invoices.$.number' writes the element the filter's 'invoices.id' matched. */
+function positional(doc, update, filter) {
+  const out = {};
+  for (const [op, fields] of Object.entries(update)) {
+    if (!fields || typeof fields !== 'object' || Array.isArray(fields)) { out[op] = fields; continue; }
+    out[op] = {};
+    for (const [k, v] of Object.entries(fields)) {
+      if (!k.includes('.$.')) { out[op][k] = v; continue; }
+      const [prefix, rest] = k.split('.$.');
+      const arr = getPath(doc, prefix);
+      const fk = Object.keys(filter || {}).find(x => x.startsWith(`${prefix}.`) && !x.includes('$'));
+      const field = fk ? fk.slice(prefix.length + 1) : '';
+      const idx = Array.isArray(arr) && fk ? arr.findIndex(e => e && typeof e === 'object' && cmp(e[field], filter[fk])) : -1;
+      if (idx >= 0) out[op][`${prefix}.${idx}.${rest}`] = v;
+    }
+  }
+  return out;
 }
 function applyUpdate(doc, update) {
   for (const [k, v] of Object.entries(update.$set || {})) setPath(doc, k, v);
+  for (const [k, v] of Object.entries(update.$inc || {})) setPath(doc, k, (Number(getPath(doc, k)) || 0) + v);
   for (const k of Object.keys(update.$unset || {})) delPath(doc, k);
   for (const [k, v] of Object.entries(update.$pull || {})) { const cur = getPath(doc, k); if (Array.isArray(cur)) setPath(doc, k, cur.filter(x => String(x) !== String(v))); }
   for (const [k, v] of Object.entries(update.$push || {})) {
@@ -78,15 +109,17 @@ function collection(name) {
     async createIndex() { return 'ok'; },
     async insertOne(doc) { rec('insertOne', null, doc); const d = { _id: doc._id || crypto.randomBytes(12).toString('hex'), ...doc }; list.push(d); return { insertedId: d._id }; },
     async insertMany(docs) { for (const d of docs) await this.insertOne(d); return { insertedCount: docs.length }; },
-    async updateOne(filter, update, opts) {
+    _update(filter, update, opts) {
       rec('updateOne', filter, update);
       let doc = list.find(d => matches(d, filter));
       if (!doc && opts?.upsert) { doc = { _id: filter._id }; for (const [k, v] of Object.entries(update.$setOnInsert || {})) setPath(doc, k, v); list.push(doc); }
       if (!doc) return { matchedCount: 0, modifiedCount: 0 };
-      applyUpdate(doc, update); return { matchedCount: 1, modifiedCount: 1 };
+      applyUpdate(doc, positional(doc, update, filter)); return { matchedCount: 1, modifiedCount: 1 };
     },
+    async updateOne(filter, update, opts) { return this._update(filter, update, opts); },
     async updateMany(filter, update) { rec('updateMany', filter, update); let n = 0; for (const d of list) if (matches(d, filter)) { applyUpdate(d, update); n++; } return { matchedCount: n, modifiedCount: n }; },
-    async findOneAndUpdate(filter, update, opts) { await this.updateOne(filter, update, opts); return { value: list.find(d => matches(d, filter)) || null }; },
+    /* Atomic like the real thing: the write and the read happen in one tick, so concurrent callers each see their own count ($inc). */
+    async findOneAndUpdate(filter, update, opts) { this._update(filter, update, opts); const hit = list.find(d => matches(d, filter)) || null; let value = hit; try { value = hit ? structuredClone(hit) : null; } catch { value = hit; } return { value }; },
     async deleteOne(filter) { rec('deleteOne', filter); const i = list.findIndex(d => matches(d, filter)); if (i >= 0) list.splice(i, 1); return { deletedCount: i >= 0 ? 1 : 0 }; },
     async deleteMany(filter) { rec('deleteMany', filter); const before = list.length; for (let i = list.length - 1; i >= 0; i--) if (matches(list[i], filter)) list.splice(i, 1); return { deletedCount: before - list.length }; },
   };

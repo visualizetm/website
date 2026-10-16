@@ -4,6 +4,9 @@
 import { zoneDayKey, zoneDayMs, zoneStartOfDay } from './zone.js';
 const CLOCK = { dayKey: zoneDayKey, dayMs: zoneDayMs, startOfDay: zoneStartOfDay };
 export const INVOICE_STATUS_IDS = ['draft', 'sent', 'paid'];
+/* The email system (milestone 6): a line may carry its number (INV-0012, given on the first send, never reused), its kind and its items. */
+export const INVOICE_KIND_IDS = ['deposit', 'final', 'plan', 'retainer', 'custom'];
+const itemOf = (it) => ({ label: String(it?.label ?? '').trim().slice(0, 120), amount: typeof it?.amount === 'number' && Number.isFinite(it.amount) ? Math.max(0, Math.round(it.amount * 100) / 100) : 'Included' });
 const DAY = 864e5;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const pad = (n) => String(n).padStart(2, '0');
@@ -23,6 +26,9 @@ export function sanitizeInvoice(s) {
     ...(/^https:\/\/[^\s]+$/i.test(String(s?.payUrl || '')) ? { payUrl: str(s.payUrl, 400) } : {}),
     ...(s?.paymentLinkId ? { paymentLinkId: str(s.paymentLinkId, 80) } : {}),
     ...(s?.stripeMismatch ? { stripeMismatch: str(s.stripeMismatch, 160) } : {}),
+    ...(str(s?.number, 20) ? { number: str(s.number, 20) } : {}),
+    ...(INVOICE_KIND_IDS.includes(s?.kind) ? { kind: s.kind } : {}),
+    ...(Array.isArray(s?.items) && s.items.length ? { items: s.items.slice(0, 30).map(itemOf).filter(it => it.label) } : {}),
   };
 }
 export const sanitizeInvoices = (list) => (Array.isArray(list) ? list.slice(0, 120).map(sanitizeInvoice) : undefined);
@@ -57,7 +63,7 @@ export const invoicesAllPaid = (list, now = Date.now()) => (list || []).length >
 export const invoicesPastDue = (list, now = Date.now()) => (list || []).filter(s => invoiceStatus(s, now) === 'past-due');
 export const nextUnpaidInvoice = (list, now = Date.now()) => (list || []).filter(s => invoiceStatus(s, now) !== 'paid').sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0] || null;
 /** A fresh line. Due in seven days unless told otherwise. */
-export const newInvoice = ({ label = '', amount = 0, dueAt = '', status = 'draft', note = '', now = Date.now() } = {}) => sanitizeInvoice({ id: uid(), label, amount, dueAt: dueAt || invDayKey(new Date(now + 7 * DAY)), status, sentAt: status === 'sent' ? new Date(now).toISOString() : '', paidAt: '', note });
+export const newInvoice = ({ label = '', amount = 0, dueAt = '', status = 'draft', note = '', kind = '', items = [], now = Date.now() } = {}) => sanitizeInvoice({ id: uid(), label, amount, dueAt: dueAt || invDayKey(new Date(now + 7 * DAY)), kind, items, status, sentAt: status === 'sent' ? new Date(now).toISOString() : '', paidAt: '', note });
 /** The line marked sent, marked paid (with the day and a note), or edited. */
 export const markSent = (inv, now = Date.now()) => ({ ...inv, status: 'sent', sentAt: inv.sentAt || new Date(now).toISOString() });
 export const markPaid = (inv, { paidAt = '', note = '', ledgerId = '' } = {}, now = Date.now()) => ({ ...inv, status: 'paid', paidAt: paidAt || new Date(now).toISOString(), sentAt: inv.sentAt || new Date(now).toISOString(), note: note !== '' ? str(note, 300) : inv.note || '', ...(ledgerId ? { ledgerId } : {}) });

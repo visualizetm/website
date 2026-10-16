@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import { draftEmail } from '../_lib/email/drafts.js';
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { getDb } from '../_lib/mongo.js';
 import { stripeHealth } from '../_lib/stripe.js';
@@ -141,7 +142,7 @@ export async function handler(req, res) {
   }
   /* 1d1. Plan invoices: on a plan project's bill day the next month is drafted as "Month N of M" when no line exists for it. */
   let drafted = 0;
-  const planProjects = await projects.find({ archived: { $ne: true }, 'plan.months': { $gte: 1 } }).project({ plan: 1, invoices: 1, schedule: 1, createdAt: 1 }).toArray();
+  const planProjects = await projects.find({ archived: { $ne: true }, 'plan.months': { $gte: 1 } }).project({ leadId: 1, plan: 1, invoices: 1, schedule: 1, createdAt: 1 }).toArray();
   for (const p of planProjects) {
     const lines = invoicesOf(p); const months = lines.filter(s => !s.extra);
     const first = months[0]; if (!first?.dueAt) continue;
@@ -150,7 +151,10 @@ export async function handler(req, res) {
     const billDay = Number(String(first.dueAt).slice(8, 10)) || 1;
     const dueAt = addMonthsKey(first.dueAt, n - 1, billDay);
     if (dueAt !== today || hasMonthLine(lines, n, M)) continue;
-    await projects.updateOne({ _id: p._id }, { $set: { invoices: [...lines, { ...newInvoice({ label: monthLineLabel(n, M), amount: Number(p.plan.monthly) || 0, dueAt, status: 'draft' }), ledgerId: '' }], updatedAt: new Date() } }); drafted++;
+    const line = { ...newInvoice({ label: monthLineLabel(n, M), amount: Number(p.plan.monthly) || 0, dueAt, status: 'draft', kind: 'plan' }), ledgerId: '' };
+    await projects.updateOne({ _id: p._id }, { $set: { invoices: [...lines, line], updatedAt: new Date() } }); drafted++;
+    /* The email system (milestone 6): the month's invoice email is drafted beside the line, for Rob to send. */
+    try { await draftEmail(db, { recordId: String(p.leadId), projectId: String(p._id), invoiceId: line.id, templateId: 'invoice' }); } catch { /* the line is drafted; the email can be made from the record */ }
   }
 
   /* 1d2. The follow up rules (CRM revamp, step 7, api/_lib/rules.js): each

@@ -48,7 +48,7 @@ function BlockCard({ block, index, count, depth, onChange, onMove, onRemove, foc
   );
   else if (b.type === 'lines' || b.type === 'totals') {
     const key = 'rows';
-    body = b.from ? <p className="ee-note">Rows come from the record: <code>{`{{${b.from}}}`}</code>. <Button variant="ghost" size="md" onClick={() => set({ from: '', rows: [{ label: '', sub: '', value: '' }] })}>Type rows by hand</Button></p> : (
+    body = b.from ? <p className="ee-note">Rows come from the record: <code>{`{{${b.from}}}`}</code>. <Button variant="ghost" size="md" onClick={() => set({ from: '', rows: b.type === 'lines' ? [{ label: '', sub: '', value: '' }] : [{ label: '', value: '', big: false }] })}>Type rows by hand</Button></p> : (
       <Stack gap={2}>
         {rows(key).map((r, i) => (
           <div key={i} className="ee-row">
@@ -66,6 +66,7 @@ function BlockCard({ block, index, count, depth, onChange, onMove, onRemove, foc
     : <GrowArea label="Items, one a line" value={(b.items || []).join('\n')} onChange={(v) => set({ items: v.split('\n').slice(0, 30).map(x => x.slice(0, 300)) })} onFocus={f('items')} placeholder="One item a line" rows={2} />;
   else if (b.type === 'files') body = <p className="ee-note">The file groups come from the project's deliverables: <code>{`{{${b.from || 'deliverables.groups'}}}`}</code>.</p>;
   else if (b.type === 'spacer') body = <p className="ee-note">16px of air.</p>;
+  else if (b.type === 'pay') body = <p className="ee-note">The pay buttons come from the record: the invoice's own Stripe link, then the portal or Cash App, Venmo and Zelle from Settings. A method with nothing set does not show.</p>;
   else if (b.type === 'box') body = (
     <Stack gap={2}>
       <Input label="Title" value={b.title || ''} onChange={(e) => set({ title: e.target.value.slice(0, 120) })} onFocus={f('title')} placeholder="The terms" />

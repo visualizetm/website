@@ -5,7 +5,8 @@ import { safeUrl } from '../_lib/url.js';
 import { PROJECT_KIND_IDS, PROJECT_STAGE_IDS, DELIVERY_STEP_IDS, CRON_RULE_IDS } from '../_semantics.js';
 import { sanitizeNextAction } from '../_lib/nextAction.js';
 import { sanitizeChecklists } from '../_lib/checklists.js';
-import { sanitizeInvoices, legacyToInvoice } from '../_lib/invoices.js';
+import { sanitizeInvoices, legacyToInvoice, invoicesOf } from '../_lib/invoices.js';
+import { draftEmail } from '../_lib/email/drafts.js';
 
 /* Projects (Prompt 10): one client (a call_leads doc with stage 'client') has
  * many projects over time. Money lives on the lead's purchases[] ledger; a
@@ -101,7 +102,11 @@ export async function handler(req, res) {
     delete allowed.leadId; // a project never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     allowed.updatedAt = new Date();
+    /* The email system (milestone 6): a line marked paid by hand drafts the payment received email, like the webhook does. */
+    const before = allowed.invoices ? await col.findOne({ _id }, { projection: { leadId: 1, invoices: 1, schedule: 1 } }) : null;
+    const wasPaid = before ? new Set(invoicesOf(before).filter(o => o.status === 'paid').map(o => o.id)) : null;
     await col.updateOne({ _id }, { $set: allowed });
+    if (before) { for (const n of allowed.invoices) { if (n.status === 'paid' && !wasPaid.has(n.id)) { try { await draftEmail(db, { recordId: String(before.leadId), projectId: String(_id), invoiceId: n.id, templateId: 'payment_received' }); } catch { /* the line is paid; the draft can be made from the record */ } } } }
     if (allowed.deliverables || allowed.invoices || allowed.deliveredAt !== undefined || allowed.stage || allowed.checklists) { try { const p = await col.findOne({ _id }, { projection: { leadId: 1 } }); if (p?.leadId) await clientPushTick(db, oid(p.leadId) || p.leadId); } catch { /* the write is done; the sweep tries again */ } }
     return res.status(200).json({ ok: true });
   }

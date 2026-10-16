@@ -6,7 +6,7 @@
 import { buildProject, uid } from './projects.js';
 import { markPaid, newInvoice, addMonthsKey, invDayKey, invoicesTotal, replaceInvoice } from './invoices.js';
 import { dealOf, tickPatch } from './deal.js';
-import { packageOf, addonOf, planFor } from '../shared/pricing.js';
+import { packageOf, addonOf, planFor, gifts } from '../shared/pricing.js';
 
 const iso = (t) => new Date(t).toISOString();
 
@@ -32,7 +32,16 @@ export const dealPackageLabel = (deal) => packageOf(deal?.packageId)?.label || (
 export const dealTotal = (deal) => (packageOf(deal?.packageId)?.price || 0) + (deal?.addonIds || []).map(id => addonOf(id)?.price || 0).reduce((n, v) => n + v, 0);
 export const dealPlanLine = (deal) => (deal?.plan?.months ? `$${Number(deal.plan.monthly || 0).toLocaleString()} a month for ${deal.plan.months} months` : 'One payment');
 /** What the first invoice should say, from the package or the plan's first month. */
-export const firstInvoiceDefaults = (deal) => (deal?.plan?.months ? { label: `Month 1 of ${deal.plan.months}`, amount: deal.plan.monthly } : { label: dealPackageLabel(deal) || 'Deposit', amount: dealTotal(deal) });
+/** The invoice's items (the email system, milestone 6): the package with its price, each included piece as Included, each add on with its price or Included when the package gives it. */
+export function packageItems(deal) {
+  const pkg = packageOf(deal?.packageId);
+  const free = pkg ? gifts(pkg.id).map(a => a.id) : [];
+  const items = [];
+  if (pkg) { items.push({ label: pkg.label, amount: pkg.price }); for (const inc of pkg.included || []) items.push({ label: String(inc), amount: 'Included' }); }
+  for (const id of deal?.addonIds || []) { const a = addonOf(id); if (a) items.push({ label: a.label, amount: free.includes(a.id) ? 'Included' : a.price }); }
+  return items.slice(0, 30);
+}
+export const firstInvoiceDefaults = (deal) => (deal?.plan?.months ? { label: `Month 1 of ${deal.plan.months}`, amount: deal.plan.monthly, kind: 'plan', items: packageItems(deal) } : { label: dealPackageLabel(deal) || 'Deposit', amount: dealTotal(deal), kind: 'deposit', items: packageItems(deal) });
 
 /** Mark paid on a deal's first invoice: the lead's write and the project to POST.
  *  leadSet ticks paid, writes the invoice paid, appends the purchases entry, sets stage client.
@@ -55,7 +64,7 @@ export function markPaidConversion(lead, invoiceId, { paidAt = '', note = '' } =
   const projectDoc = buildProject(lead._id, dealPick(deal), { startDate: paidDay, addonIds: deal.addonIds || [] });
   const moved = [paidLine, ...invoices.filter(i => i.id !== paidLine.id)];
   if (deal.plan?.months) {
-    for (let i = moved.length; i < deal.plan.months; i++) moved.push({ ...newInvoice({ label: `Month ${i + 1} of ${deal.plan.months}`, amount: deal.plan.monthly, dueAt: addMonthsKey(paidDay, i), status: 'sent' }), ledgerId: '' });
+    for (let i = moved.length; i < deal.plan.months; i++) moved.push({ ...newInvoice({ label: `Month ${i + 1} of ${deal.plan.months}`, amount: deal.plan.monthly, dueAt: addMonthsKey(paidDay, i), status: 'sent', kind: 'plan' }), ledgerId: '' });
     projectDoc.plan = { months: deal.plan.months, monthly: deal.plan.monthly, stripeCancelled: false };
   } else projectDoc.plan = null;
   projectDoc.invoices = moved;

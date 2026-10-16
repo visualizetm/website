@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Stack, Row, Grid, Button, Menu, Pill, Table, ListRow, Modal, Input, Textarea, useMediaQuery, useToast, useConfirm } from '../ui';
+import { Card, Stack, Row, Grid, Button, Menu, Pill, Table, ListRow, Modal, Input, Textarea, Select, useMediaQuery, useToast, useConfirm } from '../ui';
 import EmptyLine from './record/EmptyLine';
 import { INVOICE_STATUSES } from '../shared/semantics';
 import { money } from '../shared/format';
 import { COPY } from '../shared/copy';
-import { invoiceStatus, newInvoice, markSent, markPaid, replaceInvoice, withoutInvoice, sanitizeInvoice, invDayKey } from '../lib/invoices';
+import { invoiceStatus, newInvoice, markSent, markPaid, replaceInvoice, withoutInvoice, sanitizeInvoice, invDayKey, INVOICE_KIND_IDS } from '../lib/invoices';
 import { localDate } from '../lib/projects';
 
 /* The Invoices card (CRM revamp, step 5): the one card a deal and a client
@@ -21,7 +21,12 @@ import { localDate } from '../lib/projects';
  * 'send', inv }) lets the record's header open the add form, the Mark paid
  * modal or the send for one line. */
 const fmtDay = (s) => { const d = localDate(s); return d ? d.toLocaleDateString([], { month: 'short', day: 'numeric' }) : ''; };
-const blank = (defaults) => ({ label: defaults.label || '', amount: defaults.amount != null ? String(defaults.amount) : '', dueAt: invDayKey(new Date(Date.now() + 7 * 864e5)), note: '' });
+/* The email system (milestone 6): a line carries its kind and its items (one per line in the form: "Logo suite, Included" or "Stickers, 40"); the number lands on the first send. */
+const KIND_OPTIONS = INVOICE_KIND_IDS.map(id => ({ id, label: id[0].toUpperCase() + id.slice(1) }));
+export const itemsText = (items) => (items || []).map(it => `${it.label}, ${typeof it.amount === 'number' ? it.amount : 'Included'}`).join('\n');
+export const parseItems = (text) => String(text || '').split('\n').map(l => l.trim()).filter(Boolean).slice(0, 30).map(l => { const m = l.match(/^(.*?)(?:,\s*([^,]*))?$/); const label = (m?.[1] || l).trim().slice(0, 120); const tail = (m?.[2] || '').trim(); const n = Number(tail.replace(/[$,]/g, '')); return { label, amount: tail && Number.isFinite(n) && tail !== '' && /\d/.test(tail) ? Math.max(0, n) : 'Included' }; }).filter(it => it.label);
+export const invoiceTitle = (inv) => `${inv.number ? `${inv.number} · ` : ''}${inv.label || 'Invoice'}`;
+const blank = (defaults) => ({ label: defaults.label || '', amount: defaults.amount != null ? String(defaults.amount) : '', dueAt: invDayKey(new Date(Date.now() + 7 * 864e5)), note: '', kind: defaults.kind || '', items: itemsText(defaults.items || []) });
 
 export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSendEmail = null, emailConnected = false, defaults = {}, readOnly = false, title = 'Invoices', className = '', pulseId = null, emptyKey = 'deals.invoices', level = 1, request = null }) {
   const toast = useToast();
@@ -42,8 +47,8 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSe
   const saveForm = async () => {
     const v = form.values; const amount = Number(v.amount);
     if (!v.label.trim() || !(amount >= 0) || !v.dueAt) return;
-    if (form.mode === 'add') await write([...(invoices || []), newInvoice({ label: v.label.trim(), amount, dueAt: v.dueAt, note: v.note.trim() })], () => { setForm(null); toast.success('Invoice added.'); });
-    else { const cur = (invoices || []).find(i => i.id === form.id); if (!cur) return; await write(replaceInvoice(invoices, sanitizeInvoice({ ...cur, label: v.label.trim(), amount, dueAt: v.dueAt, note: v.note.trim() })), () => { setForm(null); toast.success('Invoice updated.'); }); }
+    if (form.mode === 'add') await write([...(invoices || []), newInvoice({ label: v.label.trim(), amount, dueAt: v.dueAt, note: v.note.trim(), kind: v.kind, items: parseItems(v.items) })], () => { setForm(null); toast.success('Invoice added.'); });
+    else { const cur = (invoices || []).find(i => i.id === form.id); if (!cur) return; await write(replaceInvoice(invoices, sanitizeInvoice({ ...cur, label: v.label.trim(), amount, dueAt: v.dueAt, note: v.note.trim(), kind: v.kind, items: parseItems(v.items) })), () => { setForm(null); toast.success('Invoice updated.'); }); }
   };
   const sent = (inv) => write(replaceInvoice(invoices, markSent(inv)), () => toast.success(`${inv.label || 'Invoice'} marked sent.`));
   const savePay = async () => {
@@ -60,7 +65,7 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSe
     ...(st === 'draft' ? [{ id: 'sent', label: 'Mark sent', icon: 'Check', onSelect: () => sent(inv) }] : []),
     ...(st !== 'paid' && onSendEmail ? [{ id: 'email', label: st === 'draft' ? 'Send the invoice email' : 'Send the invoice email again', icon: 'Send01', onSelect: () => onSendEmail(inv) }] : []),
     ...(st !== 'paid' ? [{ id: 'paid', label: 'Mark paid', icon: 'Check', onSelect: () => setPay({ inv, paidAt: invDayKey(), note: '' }) }] : []),
-    { id: 'edit', label: 'Edit', icon: 'Edit02', onSelect: () => setForm({ mode: 'edit', id: inv.id, values: { label: inv.label || '', amount: String(inv.amount ?? ''), dueAt: inv.dueAt || '', note: inv.note || '' } }) },
+    { id: 'edit', label: 'Edit', icon: 'Edit02', onSelect: () => setForm({ mode: 'edit', id: inv.id, values: { label: inv.label || '', amount: String(inv.amount ?? ''), dueAt: inv.dueAt || '', note: inv.note || '', kind: inv.kind || '', items: itemsText(inv.items || []) } }) },
     'divider',
     { id: 'del', label: 'Delete', icon: 'Trash01', danger: true, onSelect: () => remove(inv) },
   ]; };
@@ -90,13 +95,13 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSe
         : wide ? (
           <Table aria-label={title} density="sm" columnChooser={false} rows={rows} rowKey={(r) => r.id} rowClassName={(r) => (r.id === pulseId ? 'cw-row-paid' : '')}
             columns={[
-              { id: 'label', label: 'Item', always: true, render: (r) => <span title={r.note || undefined}>{r.label || 'Invoice'}</span> },
+              { id: 'label', label: 'Item', always: true, render: (r) => <span title={r.note || undefined}>{invoiceTitle(r)}</span> },
               { id: 'amount', label: 'Amount', align: 'end', render: (r) => money(r.amount) },
               { id: 'due', label: 'Due', render: (r) => fmtDay(r.dueAt) },
               { id: 'status', label: 'Status', render: pill },
             ]} rowActions={(r) => <Row gap={1} justify="end">{primary(r)}{!readOnly && <Menu label={`${r.label || 'Invoice'} actions`} items={menuFor(r)} />}</Row>} />
         ) : (
-          <Stack gap={2}>{rows.map(r => <ListRow key={r.id} title={r.label || 'Invoice'} subtitle={`${money(r.amount)}, due ${fmtDay(r.dueAt)}${r.note ? `, ${r.note}` : ''}`} trailing={<Row gap={1} align="center" wrap justify="end">{pill(r)}{primary(r)}{!readOnly && <Menu label={`${r.label || 'Invoice'} actions`} items={menuFor(r)} />}</Row>} chevron={false} className={`cw-sched-row${r.id === pulseId ? ' v-pulse-won' : ''}`} />)}</Stack>
+          <Stack gap={2}>{rows.map(r => <ListRow key={r.id} title={invoiceTitle(r)} subtitle={`${money(r.amount)}, due ${fmtDay(r.dueAt)}${r.note ? `, ${r.note}` : ''}`} trailing={<Row gap={1} align="center" wrap justify="end">{pill(r)}{primary(r)}{!readOnly && <Menu label={`${r.label || 'Invoice'} actions`} items={menuFor(r)} />}</Row>} chevron={false} className={`cw-sched-row${r.id === pulseId ? ' v-pulse-won' : ''}`} />)}</Stack>
         )}
       {confirmDialog}
       {form && (
@@ -108,6 +113,8 @@ export default function InvoicesCard({ invoices = [], onChange, onMarkPaid, onSe
               <Input label="Amount" type="number" inputMode="decimal" min={0} value={form.values.amount} onChange={(e) => setForm(f => ({ ...f, values: { ...f.values, amount: e.target.value } }))} />
               <Input label="Due" type="date" value={form.values.dueAt} onChange={(e) => setForm(f => ({ ...f, values: { ...f.values, dueAt: e.target.value } }))} />
             </Grid>
+            <Select label="Kind" value={form.values.kind} onChange={(e) => setForm(f => ({ ...f, values: { ...f.values, kind: e.target.value } }))} options={KIND_OPTIONS} placeholder="Pick one" className="iv-kind" />
+            <Textarea label="Items, one per line" hint="Label, then the amount or Included. The invoice email lists them." rows={4} value={form.values.items} onChange={(e) => setForm(f => ({ ...f, values: { ...f.values, items: e.target.value.slice(0, 4000) } }))} placeholder={'Logo suite, Included\nSticker sample pack, Included\nRush, 100'} className="iv-items" />
             <Textarea label="Note (optional)" rows={2} value={form.values.note} onChange={(e) => setForm(f => ({ ...f, values: { ...f.values, note: e.target.value.slice(0, 300) } }))} placeholder="Deposit, the rest on delivery." />
           </Stack>
         </Modal>
