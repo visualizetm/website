@@ -112,16 +112,16 @@ section('5. the email rules run once a day, on the first run at or after 9:00 Am
 {
   seed();
   const at9 = Z.zoneDateAt('2026-10-02', 9, 0);
-  let r = await runReminders(db, Z.zoneDateAt('2026-10-02', 8, 59));
+  await runReminders(db, Z.zoneDateAt('2026-10-02', 8, 59));
   const gate1 = (_stores.settings.find(s => s._id === 'cronGates') || {}).rulesLastRunAt;
   ok(!gate1, 'before 9:00, the rules gate has not stamped a run yet');
-  r = await runReminders(db, at9);
+  await runReminders(db, at9);
   const gate2 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
   ok(!!gate2, 'the first run at or after 9:00 stamps the rules gate');
-  r = await runReminders(db, at9 + MIN);
+  await runReminders(db, at9 + MIN);
   const gate3 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
   ok(gate2 === gate3, 'a run a minute later does not run the rules again: same day, already stamped');
-  r = await runReminders(db, Z.zoneDateAt('2026-10-03', 9, 0));
+  await runReminders(db, Z.zoneDateAt('2026-10-03', 9, 0));
   const gate4 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
   ok(gate4 !== gate3, 'the next day, the first run at or after 9:00 runs the rules again');
 }

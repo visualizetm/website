@@ -34,7 +34,7 @@ import ClientPickSheet from '../components/docs/ClientPickSheet';
  * Leads and the Call Console are prefetched after first paint since they are
  * the next taps. The xlsx chunk stays behind its own dynamic import. */
 const loaders = {
-  leads: () => import('./AdminLeads'), calls: () => import('./AdminCalls'), deals: () => import('./AdminDeals'), clients: () => import('./AdminClients'),
+  leads: () => import('./AdminLeads'), calls: () => import('./AdminCallsHub'), deals: () => import('./AdminDeals'), clients: () => import('./AdminClients'),
   calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
   submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
@@ -46,14 +46,12 @@ const loaders = {
   tasksAll: () => import('./AdminTasksHome'),
   overview: () => import('./AdminOverview'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
-  lists: () => import('./AdminLists'),
-  triage: () => import('./AdminTriage'),
   projects: () => import('./AdminProjects'),
   projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
   compose: () => import('./AdminCompose'),
 };
 const AdminLeads = lazy(loaders.leads);
-const AdminCalls = lazy(loaders.calls);
+const AdminCallsHub = lazy(loaders.calls);
 const AdminDeals = lazy(loaders.deals);
 const AdminClients = lazy(loaders.clients);
 const AdminCalendar = lazy(loaders.calendar);
@@ -74,8 +72,6 @@ const AdminTasksHome = lazy(loaders.tasksAll);
 const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminCompose = lazy(loaders.compose);
-const AdminLists = lazy(loaders.lists);
-const AdminTriage = lazy(loaders.triage);
 const AdminProjects = lazy(loaders.projects);
 const AdminProjectNew = lazy(loaders.projectNew);
 const AdminListFill = lazy(loaders.listFill);
@@ -419,8 +415,10 @@ export default function AdminApp() {
     if (p.startsWith('/email/compose')) return 'compose';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
-    if (p.startsWith('/lists')) return 'lists';
-    if (p.startsWith('/triage')) return 'triage';
+    /* Lists and Triage are now sections of the Calls hub (AdminCallsHub.jsx); a bookmark or a command bar row for
+       either lands on /calls with that section open (the redirect effect below normalizes the URL itself). */
+    if (p.startsWith('/lists')) return 'calls';
+    if (p.startsWith('/triage')) return 'calls';
     if (p.startsWith('/pipeline')) return 'pipeline';
     if (p === '/tasks' || p.startsWith('/tasks/')) return 'tasksAll';
     if (p.startsWith('/overview')) return 'overview';
@@ -446,6 +444,14 @@ export default function AdminApp() {
   useEffect(() => { if (relPath.startsWith('/booked')) navigate(`${BASE}/deals${relPath.slice(7)}${location.search || ''}`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
   // /clients?filter=active became /projects (CRM revamp, step 7); the old link still lands.
   useEffect(() => { if (relPath === '/clients' && new URLSearchParams(location.search).get('filter') === 'active') navigate(`${BASE}/projects`, { replace: true }); }, [relPath, location.search]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Lists and Triage became sections of the Calls hub: the old links still land, now on /calls with that section
+  // open (the state carries forward so a ?open= deep link through either still resolves). /lists/:id/fill is its
+  // own screen (listFillId below) and is not part of this redirect.
+  useEffect(() => {
+    if (relPath.startsWith('/lists') && !/^\/lists\/[^/]+\/fill$/.test(relPath)) navigate(`${BASE}/calls?section=lists`, { replace: true, state: location.state });
+    else if (relPath.startsWith('/triage')) navigate(`${BASE}/calls?section=triage`, { replace: true, state: location.state });
+  }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hubSection = (relPath === '/calls' || relPath.startsWith('/calls')) ? (new URLSearchParams(location.search).get('section') || '') : '';
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
@@ -709,7 +715,10 @@ export default function AdminApp() {
   if (!authed) return <Login />;
 
   // A phone shows the record instead of the list while the entry opens one (the three split screens).
-  const hasDetail = ['deals', 'leads', 'clients', 'triage'].includes(section) && !!(openReq?.section === section || createReq?.section === section);
+  /* Triage is now the Calls hub's own section (openReq.section stays 'triage', its own useSelection key, even
+     though the top level section id is 'calls'), so it needs the same check under the hub's section id too. */
+  const hasDetail = (['deals', 'leads', 'clients'].includes(section) && !!(openReq?.section === section || createReq?.section === section))
+    || (section === 'calls' && !!(openReq?.section === 'triage' || createReq?.section === 'triage'));
   /* Link a submission: a start brief linked to a deal ticks Form received (CRM revamp, step 5). */
   const linkSubmission = async (subId, leadId) => {
     const ok = await patch(subId, { linkedLeadId: leadId });
@@ -765,7 +774,7 @@ export default function AdminApp() {
       )}
       {section === 'listFill' && (
         <AdminListFill list={V.lists.find(l => String(l._id) === listFillId) || null} leads={V.leads} lists={V.lists} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists || errors.leads} onRetry={loadLists} ops={listOps}
-          onDone={(l) => push(`${BASE}/lists`, { open: { section: 'lists', id: String(l._id), n: Date.now() }, replace: true })} onCancel={() => { if (navBack) navBack.back(); else go('lists'); }} />
+          onDone={(l) => push(`${BASE}/calls?section=lists`, { open: { section: 'lists', id: String(l._id), n: Date.now() }, replace: true })} onCancel={() => { if (navBack) navBack.back(); else go('lists'); }} />
       )}
       {section === 'planner' && (
         <AdminPlanner
@@ -855,15 +864,16 @@ export default function AdminApp() {
         <AdminLanding leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads || errors.projects} onRetry={async () => { await Promise.all([loadCallLeads(), loadProjects()]); }} onPatchLead={patchCallLead} onOpenLead={openLead} />
       )}
       {section === 'calls' && (
-        <div className="aa-embed"><AdminCalls embedded onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading} lists={V.lists} listsLoading={listsLoading} listsError={errors.lists} onRetryLists={loadLists} listOps={listOps} /></div>
-      )}
-      {section === 'lists' && (
-        <AdminLists lists={V.lists} leads={V.leads} loading={listsLoading || callLeadsLoading || forceLoading} error={errors.lists} onRetry={loadLists} ops={listOps} onPatchLead={patchCallLead} onOpenLead={openLead}
-          onStart={(list) => navigate(`${BASE}/calls`, { state: { preset: { section: 'calls', preset: { listId: String(list._id) }, n: Date.now() } } })} />
-      )}
-      {section === 'triage' && (
-        <AdminTriage leads={V.leads} submissions={V.items} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
-          onPatch={patchCallLead} onDelete={deleteCallLead} onRestore={restoreCallLeads} onCapture={openCapture} />
+        <div className="aa-embed">
+          <AdminCallsHub hubSection={hubSection} counts={counts}
+            onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading}
+            lists={V.lists} listsLoading={listsLoading} listsError={errors.lists} onRetryLists={loadLists} listOps={listOps}
+            leads={V.leads} submissions={V.items} triageLoading={callLeadsLoading || forceLoading} triageError={errors.leads}
+            onRetryTriage={loadCallLeads} onPatchLead={patchCallLead} onDeleteLead={deleteCallLead} onRestoreLeads={restoreCallLeads} onCapture={openCapture}
+            onOpenLead={openLead}
+            onCreateLead={createCallLead} onBulkDeleteLeads={bulkDeleteCallLeads} onRefreshLeads={loadCallLeads} onLinkSubmission={linkSubmission}
+            leadsCreatePreset={createFor('leads')} leadsFilterPreset={presetFor('leads')} />
+        </div>
       )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
       {pickingDoc && <ClientPickSheet leads={V.leads} onPick={newDoc} onClose={() => setPickingDoc(false)} />}

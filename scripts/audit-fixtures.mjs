@@ -403,7 +403,7 @@ export const leads = Array.from({ length: 19 }, (_, i) => ({
   enrichment: i % 2 ? { lastScanAt: new Date(Date.now() - (i > 6 ? 20 : 2) * 864e5).toISOString(), scanCount: i } : undefined,
   callbackAt: i === 1 ? new Date(Date.now() + 2 * 3600e3).toISOString() : i === 6 ? new Date(Date.now() - 26 * 3600e3).toISOString() : undefined,
   sourceId: i > 9 && i < 16 ? 'gm:' + i : undefined,
-  listId: ({ L0: 'LS1', L3: 'LS1', L4: 'LS1', L7: 'LS2', L1: 'LS2' })['L' + i] || '', // the dial list each lead is on
+  listId: ({ L0: 'LS1', L3: 'LS1', L4: 'LS1', L10: 'LS1', L13: 'LS1', L15: 'LS1', L7: 'LS2', L1: 'LS2' })['L' + i] || '', // the dial list each lead is on
   phoneNote: '', askFor: 'Damian', bestWindow: 'Before 8am or after 5pm',
   email: i === 8 || i % 2 ? `owner${i}@example.com` : '', // CRM revamp, step 6: the send modal needs one; the even ones show the add-an-email path
   priority: ['hot', 'warm', 'cold'][i % 3], callStatus: ['not-called', 'callback', 'booked', 'no', 'no-answer'][i % 5],
@@ -424,7 +424,7 @@ export const leads = Array.from({ length: 19 }, (_, i) => ({
  * done yesterday. The leads on a hand list carry its id. */
 export const lists = [
   { _id: 'LS0', name: 'Callbacks due', target: 500, window: 'any', leadIds: ['L6', 'L1'], status: 'open', system: true, scheduledFor: '', createdAt: daysFrom(-30), updatedAt: NOW_ISO },
-  { _id: 'LS1', name: 'Tuesday morning ' + UNBROKEN.slice(0, 12), target: 5, window: 'morning', leadIds: ['L0', 'L3', 'L4'], status: 'open', system: false, scheduledFor: '', createdAt: daysFrom(-2), updatedAt: NOW_ISO },
+  { _id: 'LS1', name: 'Tuesday morning ' + UNBROKEN.slice(0, 12), target: 6, window: 'morning', leadIds: ['L0', 'L3', 'L4', 'L10', 'L13', 'L15'], status: 'open', system: false, scheduledFor: '', createdAt: daysFrom(-2), updatedAt: NOW_ISO },
   { _id: 'LS2', name: 'Detailers, hot', target: 2, window: 'any', leadIds: ['L7', 'L1'], status: 'open', system: false, scheduledFor: daysFrom(1).slice(0, 10), createdAt: daysFrom(-1), updatedAt: NOW_ISO },
   { _id: 'LS3', name: 'Last week', target: 10, window: 'evening', leadIds: ['L3'], status: 'done', system: false, scheduledFor: '', createdAt: daysFrom(-9), updatedAt: daysFrom(-1) },
 ];

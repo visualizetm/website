@@ -157,6 +157,39 @@ section('9. the undo on a call outcome puts the lead back on its list, in its ol
   ok(list().leadIds.join(',') === [L1, L2, L3].join(',') && two().stage === 'lead' && two().listId === LS && two().nurture === null, 'the undo restores the stage, the listId and the position');
 }
 
+section('7. Add to list from Triage (the Calls hub, Part 3): listId and the members move together, Undo puts it back');
+{
+  /* The same sequence AdminApp.jsx's listOps.addToList and removeFromList run (src/pages/AdminApp.jsx), against
+     the real route handlers: a Triage Keep writes stage lead first (not under test here, src/lib/triage.js), then
+     ListPicker (src/components/ListPicker.jsx) calls ops.addToList, which is this. */
+  seed();
+  const made = await call(lists, 'POST', { body: { name: 'From triage', target: 10 } });
+  const LS = made._json.item._id;
+  const addToList = async (ids, listId) => {
+    const target = list(listId);
+    await call(lists, 'PATCH', { body: { id: listId, set: { leadIds: lib.withLeads(target.leadIds, ids) } } });
+    for (const id of ids) await call(callLeads, 'PATCH', { body: { id, set: { listId: String(listId) } } });
+  };
+  const removeFromList = async (id, listId) => {
+    await call(lists, 'PATCH', { body: { id: listId, set: { leadIds: lib.withoutLead(list(listId).leadIds, id) } } });
+    await call(callLeads, 'PATCH', { body: { id, set: { listId: '' } } });
+  };
+  const lead = () => _stores.call_leads.find(l => String(l._id) === L(6));
+
+  await addToList([L(6)], LS);
+  ok(list(LS).leadIds.includes(L(6)) && lead().listId === String(LS), `the list gains the lead and the lead's listId points at it, together (${list(LS).leadIds}, ${lead().listId})`);
+
+  await removeFromList(L(6), LS);
+  ok(!list(LS).leadIds.includes(L(6)) && lead().listId === '', `Undo takes the lead back off the list and clears listId, together (${list(LS).leadIds}, "${lead().listId}")`);
+
+  /* Fault proof: a write that only moves the list's members (the half addToList would be without its second
+     call) must not pass the "together" check above, or the check is not testing anything. */
+  const halfLeadIds = lib.withLeads([], [L(7)]);
+  await call(lists, 'PATCH', { body: { id: LS, set: { leadIds: halfLeadIds } } });
+  const halfOk = list(LS).leadIds.includes(L(7)) && _stores.call_leads.find(l => String(l._id) === L(7)).listId === String(LS);
+  ok(!halfOk, 'proof: the list half of the write alone does not move the lead\'s listId, so the "together" check above is real');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} checks passed, ${fails} failed.`);
 console.log(fails ? 'Lists tests FAILED.' : 'All lists tests pass.');

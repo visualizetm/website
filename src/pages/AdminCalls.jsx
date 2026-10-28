@@ -292,7 +292,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = nu
 }
 
 /* ── Main ────────────────────────────────────────────────────── */
-export default function AdminCalls({ embedded = false, onDataChanged, builderPreset, forceLoading = false, lists = [], listsLoading = false, listsError = false, onRetryLists, listOps = null }) {
+export default function AdminCalls({ embedded = false, onDataChanged, builderPreset, forceLoading = false, lists = [], listsLoading = false, listsError = false, onRetryLists, listOps = null, onModeChange }) {
   const shell = useShell();
   const toast = useToast();
   const desktop = useMediaQuery('(min-width: 1024px)');
@@ -329,6 +329,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const idxOf = useRef({}); // the history depth each mode's entry sits at, so a move down the modes pops to it
   const ORDER = { builder: 0, queue: 1, room: 2, summary: 3 };
   useEffect(() => { const m = modeEntry?.mode; if (m && m !== modeRef.current) setModeState(m); if (!m && modeRef.current !== 'builder') setModeState('builder'); }, [modeEntry]);
+  /* The Calls hub (AdminCallsHub.jsx) renders its own Triage/Lists/Leads view while this is idle at the builder
+     root, and hides it the instant a session starts: it needs to know the mode, not just set it. */
+  useEffect(() => { onModeChange?.(mode); }, [mode, onModeChange]);
   const setMode = useCallback((m) => {
     const cur = modeRef.current; if (m === cur) return;
     if (ORDER[m] < ORDER[cur]) {

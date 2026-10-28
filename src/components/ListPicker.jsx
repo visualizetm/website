@@ -24,7 +24,7 @@ export default function ListPicker({ leads, lists, ops, onClose }) {
     const r = await ops.addToList(ids, list._id);
     setBusy(false);
     if (!r) { toast.error(COPY.error.save); return; }
-    toast.success(`Added to ${list.name}, ${r.count} of ${list.target}.`);
+    toast.undo(`Added to ${list.name}, ${r.count} of ${list.target}.`, async () => { for (const id of ids) await ops.removeFromList(id, list._id); }, { seconds: 6 });
     onClose();
   };
   const create = async () => {
