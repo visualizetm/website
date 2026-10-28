@@ -3,8 +3,8 @@
  * Every admin screen and state in scripts/audit-screens.mjs is loaded at 390 with a touch profile, and the chrome mode the shell
  * reports (data-chrome on .sh-root, src/shell/chrome.js) is checked against what is on the screen:
  *
- *   tabs      the tab bar is visible at its full height, More or a tab is current, the top bar offers Search, Quick add and
- *             Notifications (and no Back), the tab labels are at least 11px
+ *   tabs      the glass tab bar's pill is on screen at its full height, More or a tab is current, the top bar offers Search,
+ *             Quick add and Notifications (and no Back), every tab carries an aria-label (icon only, no visible label)
  *   focused   the tab bar is hidden (not just covered), the top bar is Back and the title and nothing from the global set; the
  *             only other controls are the ones the screen declared (its Done)
  *   always    controls never accumulate: a tabs screen has at most three top bar controls, a focused one at most Back plus one
@@ -30,12 +30,17 @@ const GLOBAL = ['Search', 'Quick add', 'Notifications'];
 
 const url = (s) => `${BASE}${s.path}${s.open ? `${s.path.includes('?') ? '&' : '?'}open=${s.open}` : ''}`;
 const read = () => {
-  const root = document.querySelector('.sh-root'); const tabs = document.querySelector('.sh-tabs');
+  const root = document.querySelector('.sh-root'); const tabs = document.querySelector('.sh-tabs'); const pill = document.querySelector('.sh-tabs-glass');
   const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.display !== 'none' && cs.visibility !== 'hidden'; };
   const top = [...document.querySelectorAll('.sh-top button')].filter(vis).map(e => e.getAttribute('aria-label') || e.textContent.trim());
-  const tabH = tabs ? Math.round(tabs.getBoundingClientRect().height) : 0;
-  const labels = [...document.querySelectorAll('.sh-tab-label')].map(e => parseFloat(getComputedStyle(e).fontSize));
-  return { chrome: root?.dataset.chrome || '', tabH, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, minLabel: labels.length ? Math.min(...labels) : null, current: document.querySelector('.sh-tab.is-active .sh-tab-label')?.textContent || null };
+  /* The outer .sh-tabs reserves no layout height by design (the pill floats over scrolled content), so the pill
+     itself (.sh-tabs-glass) is what "visible at its full height" and "hidden" mean now. */
+  const pillRect = pill ? pill.getBoundingClientRect() : null;
+  const pillH = pillRect ? Math.round(pillRect.height) : 0;
+  const pillOnscreen = !!(pill && pillRect && pillRect.bottom > 0 && pillRect.top < window.innerHeight && getComputedStyle(pill).opacity !== '0');
+  const tabButtons = [...document.querySelectorAll('.sh-tab')];
+  const everyTabLabelled = tabButtons.length > 0 && tabButtons.every(e => !!e.getAttribute('aria-label'));
+  return { chrome: root?.dataset.chrome || '', pillH, pillOnscreen, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, everyTabLabelled, current: document.querySelector('.sh-tab.is-active')?.getAttribute('aria-label') || null };
 };
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -61,25 +66,25 @@ for (const s of SCREENS) {
     const mode = r.chrome;
     if (!['tabs', 'focused'].includes(mode)) bad.push(`mode "${mode}"`);
     if (mode === 'tabs') {
-      if (r.tabH < 50 || r.hidden) bad.push(`tabs mode but the tab bar is ${r.tabH}px${r.hidden ? ' and hidden' : ''}`);
+      if (r.pillH < 40 || !r.pillOnscreen || r.hidden) bad.push(`tabs mode but the glass pill is ${r.pillH}px${r.pillOnscreen ? '' : ', offscreen'}${r.hidden ? ', hidden' : ''}`);
       if (r.top.includes('Back')) bad.push('tabs mode with a Back');
       if (!GLOBAL.every(g => r.top.includes(g))) bad.push(`tabs mode lacks ${GLOBAL.filter(g => !r.top.includes(g)).join(', ')}`);
       if (r.top.length > 3) bad.push(`${r.top.length} top bar controls`);
+      if (!r.everyTabLabelled) bad.push('a tab is missing its aria-label');
     }
     if (mode === 'focused') {
-      if (r.tabH > 4 || !r.hidden || !r.inert) bad.push(`focused mode but the tab bar is ${r.tabH}px${r.hidden ? '' : ', not hidden'}${r.inert ? '' : ', not inert'}`);
+      if (r.pillOnscreen || !r.hidden || !r.inert) bad.push(`focused mode but the glass pill is ${r.pillOnscreen ? 'onscreen' : 'offscreen'}${r.hidden ? '' : ', not hidden'}${r.inert ? '' : ', not inert'}`);
       if (!r.top.includes('Back')) bad.push('focused mode without a Back');
       const extra = r.top.filter(t => t !== 'Back' && !GLOBAL.includes(t));
       if (r.top.some(t => GLOBAL.includes(t))) bad.push(`focused mode keeps ${r.top.filter(t => GLOBAL.includes(t)).join(', ')}`);
       if (extra.length > 1) bad.push(`${extra.length} declared actions (${extra.join(', ')})`);
     }
-    if (r.minLabel !== null && r.minLabel < 11) bad.push(`tab labels ${r.minLabel}px`);
     if (MUST_TABS.test(s.id) && mode !== 'tabs') bad.push(`must be tabs, is ${mode}`);
     if (MUST_FOCUSED.test(s.id) && mode !== 'focused') bad.push(`must be focused, is ${mode}`);
   } catch (e) { bad.push(String(e.message || e).split('\n')[0].slice(0, 100)); }
   if (bad.length) failures++;
   rows.push({ id: s.id, state: `${s.screen}: ${s.label}`, r, bad });
-  console.log(`  ${bad.length ? 'FAIL' : 'ok  '} ${s.id.padEnd(30)} ${r ? `${r.chrome.padEnd(8)} tab ${String(r.tabH).padStart(2)}px top [${r.top.join(', ')}]` : ''}${bad.length ? '  ' + bad.join('; ') : ''}`);
+  console.log(`  ${bad.length ? 'FAIL' : 'ok  '} ${s.id.padEnd(30)} ${r ? `${r.chrome.padEnd(8)} pill ${String(r.pillH).padStart(2)}px top [${r.top.join(', ')}]` : ''}${bad.length ? '  ' + bad.join('; ') : ''}`);
   await page.close();
 }
 

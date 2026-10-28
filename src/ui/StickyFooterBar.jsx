@@ -1,6 +1,8 @@
 /**
  * StickyFooterBar: pinned bottom actions. Rendered IN FLOW as a sibling
- * below the ScrollArea, so it can never cover the last row. Opaque, safe-area aware.
+ * below the ScrollArea, so it can never cover the last row. Opaque,
+ * safe-area aware, and on phone also clears the floating glass tab bar
+ * (--v-tabbar-now, src/shell/AppShell.jsx) the same way every scroller does.
  * @param {object} props
  * @param {string} [props.className]
  */
@@ -12,7 +14,7 @@ export const stickyFooterBarStyles = `
   .lay-footbar {
     flex-shrink: 0;
     display: flex; flex-direction: column; align-items: center; gap: var(--v-space-2);
-    padding: var(--v-space-3) var(--v-gutter-r) calc(var(--v-space-3) + var(--v-inset-bottom)) var(--v-gutter-l);
+    padding: var(--v-space-3) var(--v-gutter-r) calc(var(--v-space-3) + var(--v-inset-bottom) + var(--v-tabbar-now, 0px)) var(--v-gutter-l);
     background: var(--v-bar);
     border-top: 1px solid var(--v-border);
   }

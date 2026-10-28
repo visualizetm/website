@@ -119,7 +119,7 @@ async function collectScrollProblems(page) {
     });
     const last = kids[kids.length - 1]?.getBoundingClientRect();
     if (last) {
-      const tabBar = document.querySelector('.sh-tabs')?.getBoundingClientRect();
+      const tabBar = document.querySelector('.sh-tabs-glass')?.getBoundingClientRect(); // the floating pill; .sh-tabs itself reserves no height by design
       const floating = [...document.querySelectorAll('.sb-bar.is-open, .v-stickyfooter')]
         .map(e => e.getBoundingClientRect()).filter(r => r.height > 4);
       const limit = Math.min(

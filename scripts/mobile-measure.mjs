@@ -36,7 +36,7 @@ const measure = () => {
   const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0.05 ? r : null; };
   const name = (e) => (e.getAttribute('aria-label') || e.textContent || e.getAttribute('placeholder') || e.tagName).trim().replace(/\s+/g, ' ').slice(0, 28);
   const top = document.querySelector('.sh-top');
-  const tabbar = document.querySelector('.sh-tabs');
+  const tabbar = document.querySelector('.sh-tabs-glass'); // the floating pill itself: .sh-tabs reserves no height by design
   const dlg = document.querySelector('[role=dialog]');
   const region = dlg || document.querySelector('.sh-content') || document.body;
   const sel = 'a[href],button,input:not([type=hidden]),select,textarea,[role=button],[role=tab],[role=link],[role=menuitem],[role=switch]';

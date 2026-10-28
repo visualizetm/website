@@ -27,9 +27,9 @@ export const scrollAreaStyles = `
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     padding: var(--v-gutter) var(--v-gutter-r)
-             calc(var(--v-gutter) + var(--v-scroll-extra, 0px))
+             calc(var(--v-gutter) + var(--v-scroll-extra, 0px) + var(--v-tabbar-now, 0px) + var(--v-inset-bottom))
              var(--v-gutter-l);
-    scroll-padding-bottom: calc(var(--v-scroll-extra, 0px) + var(--v-space-4));
+    scroll-padding-bottom: calc(var(--v-scroll-extra, 0px) + var(--v-tabbar-now, 0px) + var(--v-inset-bottom) + var(--v-space-4));
   }
   .lay-content {
     width: 100%; max-width: var(--v-content-w); margin: 0 auto;

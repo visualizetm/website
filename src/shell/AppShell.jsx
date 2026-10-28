@@ -221,10 +221,17 @@ export default function AppShell({
 
 export const shellStyles = `
   .sh-root { height: 100vh; height: 100dvh; display: flex; background: var(--v-ground); color: var(--v-text); font-family: var(--v-font-body); overflow: hidden; }
-  /* The tab bar's current height: what a bar pinned above it (SaveBar) adds, 0 while a focused screen hides the bar. */
-  .sh-root { --v-tabbar-now: var(--v-tabbar-h); }
+  /* The floating tab bar's footprint above the safe area (its own height plus the gap it floats above the bottom
+     edge, src/shell/TabBar.jsx's --v-space-3): what a bar pinned above it (SaveBar) adds itself to clear it, and
+     what every scrolling container (ScrollArea, StickyFooterBar) reserves at its own bottom so nothing hides
+     behind the pill. Consumers still add --v-inset-bottom themselves, the same split as before. 0 while a focused
+     screen hides the bar (src/shell/chrome.js), 0 on desktop where there is no tab bar at all. */
+  .sh-root { --v-tabbar-now: calc(var(--v-tabbar-h) + var(--v-space-3)); }
   .sh-root.is-focused { --v-tabbar-now: 0px; }
-  @media (max-width: 767px) { .sh-root.is-focused .sh-content { padding-bottom: var(--v-inset-bottom); } }
+  @media (min-width: 768px) { .sh-root { --v-tabbar-now: 0px; } }
+  /* Focused mode's own safe-area clearance now lives in ScrollArea's own padding (--v-tabbar-now is 0 there, so it
+     is just --v-inset-bottom), the same place tabs mode's clearance lives, instead of a second rule here that
+     would double it up. */
   .sh-col { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
   @media (min-width: 768px) { .sh-col { --v-gutter-l: var(--v-gutter); --lay-gutter-l: var(--v-gutter); } }
   .sh-content { flex: 1; min-height: 0; min-width: 0; display: flex; }
