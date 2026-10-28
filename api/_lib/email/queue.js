@@ -1,11 +1,10 @@
 /* Queued sends (the email system, milestone 4). Send tomorrow at 9am queues a
- * log entry with sendAt; the reminders cron, the one thing that runs on its
- * own (13:00 UTC, once a day on the Hobby plan), sends every queued entry
- * whose sendAt falls on or before the run's New York day. The day, not the
- * instant: 9am Eastern is 13:00 UTC in summer and 14:00 in winter, and a
- * morning email must not wait a day for the clocks. With the cron on a
- * fifteen minute schedule (FIFTEEN_MINUTE_MODE in cron-reminders.js) the
- * instant rule applies instead. A failure writes the task and the push
+ * log entry with sendAt; the reminders cron runs this every 15 minutes (its
+ * own gate, minute mode) by the instant rule (byDay: false), so a queued
+ * send goes out within a quarter hour of its sendAt. The byDay option stays
+ * here for anything that wants the day rule instead (sendAt falls on or
+ * before the run's New York day, not the instant: useful when the instant
+ * itself is not minute precise). A failure writes the task and the push
  * (failed.js); the hour's rate guard stops the run and leaves the rest
  * queued for the next one. */
 import { zoneDayKey } from '../zone.js';

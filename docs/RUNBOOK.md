@@ -67,55 +67,54 @@ nightly enrichment and scraper health. The notifications drawer raises a
 System item when the enrichment scan or the scraper is quiet for 36 hours.
 A job can be run by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://admin.visualizeclients.com/api/cron/daily`.
 
-Both crons run once a day because the Hobby plan only allows daily cron
-schedules (a schedule that fires more than once a day fails the Vercel
-deploy). `/api/cron/reminders` runs at 13:00 UTC (9am Eastern) and sends one
-morning digest push instead of a push per event: every callback due today or
-overdue, every meeting today, retainer bills due today, and review asks due,
-as one notification with a deep link to Next up. `sentReminderKeys`
-dedupes on one key per day, so a manual rerun the same day sends nothing.
-`/api/cron/daily` is unchanged, at 06:00 UTC; since CRM revamp step 4 it also
-moves nurture records past their `until` day back to triage (with a
-"Back from nurture" note) and recomputes every live lead's score, and reports
-both as `resurfaced` and `scored`. Since step 5 it also moves a booked
-record an hour past its meeting to stage deal, ticks Concepts and Call done
-on their own, sets and clears `deal.stalledSince`, and drafts the next plan
-or retainer month on its bill day (`dealsMoved`, `drafted`). Since step 7 it
-runs the follow up rules in api/_lib/rules.js before the next action
-recompute, once per record per condition, and reports each rule's count
-under `rules` and in health.crons.daily.rules (docs/ARCHITECTURE.md lists
-the seven rules). Every date the cron and its rules compute is
-America/New_York through api/_lib/zone.js; no TZ variable is needed on
-Vercel, and setting one changes nothing.
+`/api/cron/reminders` runs every minute (the Pro plan allows a per minute
+schedule; `/api/cron/daily` stays at 06:00 UTC, unchanged). A thing is due
+when its time is at or before now and it has not pushed yet: a callback
+pushes "Call back: <business>, <time>" the minute `callbackAt` passes, a
+meeting pushes "Meeting now: <business>, <time>" the minute it starts (a
+meeting with no time keeps the 09:00 default), each on a dedupe key that
+carries its time (`sentReminderKeys`, cap 2,000), so editing the time to a
+new instant pushes again. Ten or more things due in one run become one
+combined push ("N reminders due now") instead of a flood; a run that is
+late (a deploy, an outage) still sends anything still due, but anything
+more than six hours late is stamped as handled without a push, so a gap in
+the schedule never fires a pile of stale ones at once.
 
-If the account moves to the Pro plan, near-real-time reminders (a push the
-moment a callback or meeting is due) can come back with two changes: set
-`FIFTEEN_MINUTE_MODE = true` at the top of api/_routes/cron-reminders.js, and
-change the reminders schedule in vercel.json back to every 15 minutes. The
-file keeps the old per-event logic behind that flag for exactly this.
+The morning digest still sends once, now on the first run at or after
+8:30am America/New_York (the old 9am Eastern run always qualified; minute
+mode can reach that time well before the old daily run would have): every
+callback due today or overdue, every meeting today, retainer bills due
+today, review asks due and every task due today under Tasks, as one
+notification with a deep link to Next up. Its own queries (bills, review
+asks, today's tasks) only run on the one run a day that could actually
+send it, so the other 1,439 runs stay a fast, indexed check of what is due
+this minute.
 
-Tasks with a due date (a custom next action set through the Set task sheet on
-a lead, a deal, a client or a project) get two reminders from the same
-endpoint. The 9am digest lists every task due today under Tasks, after the
-callbacks and the meetings. And on every call, whenever it comes, the endpoint
-pushes "Task due: <label>" once for every live lead and project whose task has
-`remindAt` in the past, `notifiedAt` empty and `doneAt` empty, then stamps
-`notifiedAt`. Hobby crons run once a day, so with nothing else set up a task
-due at 2:30pm is pushed the next morning at 9am. For reminders at the due
-time, point an outside scheduler (cron-job.org or similar) at the endpoint:
-GET https://admin.visualizeclients.com/api/cron/reminders every 15 minutes
-with the header `Authorization: Bearer CRON_SECRET`. Nothing else changes
-when it does: `notifiedAt` keys the per task push and the digest keys on the
-day, so the daily Vercel run and the 15 minute pings can overlap without a
-duplicate. Settings, Notifications reads "Reminder timing: Every 15 minutes"
-once the endpoint has run more than once in the last day (health keeps the
-last twelve run times), and "Task reminders" is the toggle for both paths.
+Running every minute means 1,440 runs a day, so the heavier work inside the
+same endpoint is time gated, each gate keeping its own last-run stamp on
+the `notifications` settings document: queued emails (Send tomorrow) go out
+by the instant rule at most every 15 minutes; the email rules run once a
+day, on the first run at or after 9:00am America/New_York; the client push
+sweep keeps its own six hour spacing per client and is cheap to call every
+minute. Every date and gate reads api/_lib/zone.js, never server local time.
 
-Checklist tasks (the task system, src/shared/taskRules.js) get the same two
-reminders: a task with `remindAt` in the past and `notifiedAt` empty is
-pushed once and `notifiedAt` is stamped on the item itself, and today's
-tasks join the digest. A pinned task is the record's next action but carries
-no reminder of its own, so nothing is pushed twice.
+Tasks with a due date (a custom next action set through the Set task sheet
+on a lead, a deal, a client or a project, or a checklist item) push
+"Task: <label>, <business>" to /tasks?open=<leadId> the minute `remindAt`
+passes, or, when the Remind me choice was Off and there is no `remindAt`,
+the minute the due time itself passes: a task is never silently due with no
+push. `notifiedAt` is stamped on the item once pushed (or once stamped
+stale past six hours late), so a rerun never sends it twice, and the 8:30
+digest still lists every task due today under Tasks, after the callbacks
+and the meetings. A pinned task is the record's next action but carries no
+reminder of its own, so nothing is pushed twice.
+
+A job can still be run by hand: GET
+https://admin.visualizeclients.com/api/cron/reminders with the header
+`Authorization: Bearer CRON_SECRET` runs one minute's worth of work on
+demand (useful right after a deploy, or to confirm the production schedule
+before trusting it). Settings, Notifications shows the last twelve run
+times, now a minute apart once the Vercel cron is armed.
 
 A client's idea (the Ideas tab on their planner) is pushed the moment it is
 written, by api/planner.js, not by a cron: "New idea from <client>" with a
@@ -136,7 +135,7 @@ still runs), so the whole system can be walked before the key exists.
 - Compose (/email/compose): the template row and its picker (the suggestion pinned, an unavailable template greyed with what it needs), To and Cc, the blocks, Insert field, the sandboxed preview at phone and desktop width, Send, Send test to me, Send tomorrow at 9am. A draft of an edit lives on the device per record and template.
 - The record's Emails section (lead, deal and client): every entry with its status pill, Automatic and To me marks; a row opens the sent email sheet (the exact HTML, Send again, Cancel send on a queued one, Send now and Edit on a draft).
 - Next up: a drafted or failed email is a task on the record's Emails checklist carrying the entry; the row's one control is Send, the menu has Send email and Edit email. On a lead it is the next step until it is sent or ticked.
-- The daily rhythm: the reminders cron (13:00 UTC) sends what was queued for the day, then runs the rules; Rob gets "N emails ready to send" (to Tasks) and "N emails went out for you" (to Settings, Emails) when there is anything. The digest push lists the tasks due today as before.
+- The reminders cron sends what is queued by the instant rule, at most every 15 minutes, and runs the rules once a day at or after 9am Eastern; Rob gets "N emails ready to send" (to Tasks) and "N emails went out for you" (to Settings, Emails) when there is anything. The digest push lists the tasks due today as before.
 - The invoice email gives the line its number (INV-0001 and up, once, on the first real send) and makes its Stripe payment link when Stripe is set up, both written on the line; the pay block offers the card link, the portal for the other ways (Cash App, Venmo, Zelle from Settings, Pay methods), or one button per method.
 - The delivery email refuses unless the project is paid in full, the Drive folder is linked and the box "The Drive folder is shared as Viewer" is ticked in Compose; a send ticks the delivery steps, sets deliveredAt and writes the retainer follow up and review tasks three days out.
 - A marketing email (the lead templates) carries an opt out link (/u/<token>) and the List-Unsubscribe headers; an opt out is never sent one again, by hand or by a rule.
@@ -171,7 +170,8 @@ each endpoint's logic from api/_routes/<name>.js in `route()`
 try/catch). Both crons dispatch out of api/cron/[job].js.
 `/api/submissions`, `/api/push-key`, and `/api/stripe/webhook` keep their
 own files since the webhook needs the raw body and its own config. That is 8
-functions against the Hobby plan's cap of 12.
+of the 10 functions the deployment uses (api/showcase.js and api/planner.js,
+the other two public endpoints, are the rest).
 
 - Every non public route sits behind the admin cookie. Public: /api/submissions (POST), /api/push-key, /api/admin/session, /api/admin/login, /api/admin/logout. The Stripe webhook and both crons verify their own secret instead.
 - Method allow lists per route (405 with Allow), a body size cap per route (413; 512KB default, 1MB call-leads and the webhook, 2MB the spreadsheet import, small caps on settings, push, reconcile).

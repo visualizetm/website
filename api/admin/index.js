@@ -1,5 +1,5 @@
 /* Every /api/admin/* endpoint except login, logout, and session in one Vercel
- * function (Hobby plan's 12 function cap). No dynamic path segment: the route
+ * function, to keep the deployment's function count low. No dynamic path segment: the route
  * name arrives as ?r=<name>, put there by one vercel.json rewrite per URL
  * (/api/admin/call-leads -> /api/admin/index?r=call-leads), so every URL the
  * client already calls keeps working and the rest of the query string

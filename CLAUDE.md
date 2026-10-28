@@ -102,7 +102,7 @@ scripts/feel-audit.mjs --boot`.
 
 ## Shape of the repo
 
-api/ (10 Vercel functions, under the Hobby plan's cap of 12: api/admin/login.js,
+api/ (10 Vercel functions: api/admin/login.js,
 logout.js, and session.js stand alone; api/admin/index.js dispatches every
 other admin endpoint on ?r=<name>, put there by one vercel.json rewrite per
 URL, to api/_routes/<name>.js, one file per route's logic, each still wrapped

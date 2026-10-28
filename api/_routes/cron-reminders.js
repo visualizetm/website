@@ -2,84 +2,126 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import { clientPushSweep } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
-import { zoneDayKey, ZONE } from '../_lib/zone.js';
+import { zoneDayKey, zoneParts, zoneMeetingMs, ZONE } from '../_lib/zone.js';
 import { runQueuedSends } from '../_lib/email/queue.js';
 import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
 
-/* Vercel cron (vercel.json). Hobby plan cron jobs must run once daily, so by
- * default this runs at 13:00 UTC / 9am Eastern and sends one morning digest
- * push: every callback due today or overdue, every meeting today, retainer
- * bills due today, and review asks due, as one notification with a deep
- * link to the Dashboard. sentReminderKeys (settings 'notifications'
- * document) dedupes on a single per-day key, so a manual rerun the same day
- * sends nothing.
+/* Vercel cron (vercel.json), minute mode: Pro plan crons can run once a
+ * minute, so this fires every minute and pushes each thing (a task, a
+ * callback, a meeting) the minute it becomes due, not the next morning. A
+ * thing is due when its time is at or before now; each one pushes exactly
+ * once, on a dedupe key that carries its time, so editing the time to a new
+ * instant pushes again. Catch-up: a run late (a deploy, an outage) still
+ * sends anything still due, but anything more than CATCHUP_MS late is
+ * stamped as handled without a push, so a gap in the schedule never fires a
+ * pile of stale pushes at once. Ten or more things due in one run become one
+ * combined push instead of a flood (COMBINE_THRESHOLD).
  *
- * FIFTEEN_MINUTE_MODE is the only thing to flip if the account moves to the
- * Pro plan and near-real-time reminders are wanted back: set it to true
- * here and change vercel.json's reminders schedule back to every 15 minutes
- * (the cron expression this file used before the Hobby plan limit: minute
- * star-slash-15, then a star for every hour, day, month, and weekday).
- * With it true the cron instead pushes one notification per callback within
- * CALLBACK_LOOKAHEAD_MS of due and per meeting within MEETING_LOOKAHEAD_MS
- * of start, each with its own dedupe key, the way this file worked before
- * that limit.
+ * Running every minute means up to 1,440 runs a day, so everything that does
+ * not need minute precision is gated by time, its own last-run stamp kept on
+ * the 'notifications' settings document next to sentReminderKeys:
+ *   - the morning digest (today's callbacks, meetings, bills, review asks
+ *     and tasks) sends once, on the first run at or after 8:30am
+ *     America/New_York, and the bills/reviews/today's-tasks queries that
+ *     feed it only run when the digest is actually due, not every minute;
+ *   - queued emails (Send tomorrow, the email system) go out by the instant
+ *     rule (api/_lib/email/queue.js, byDay: false) at most every 15 minutes
+ *     (QUEUE_GATE_MS);
+ *   - the email rules (api/_lib/email/rules.js) run once a day, on the first
+ *     run at or after 9:00am America/New_York;
+ *   - the client push sweep (api/_lib/clientPush.js) keeps its own six hour
+ *     spacing per client and runs every call; the per-client gate inside it
+ *     already makes the query cheap.
+ * Every clock reads api/_lib/zone.js, never server local time or process TZ.
  *
- * Tasks with a due date (a custom nextAction with auto false, set through the
- * Set task sheet) ride on both modes and on every call, however often it
- * comes: the digest lists every task due today under Tasks, and every live
- * lead and project whose task has remindAt in the past, notifiedAt empty and
- * doneAt empty gets one push, then notifiedAt is stamped. notifiedAt is the
- * key, so calling this endpoint every 15 minutes (an outside scheduler, see
- * docs/RUNBOOK.md) or once a day both work without a duplicate.
+ * Tasks with a due date (a custom nextAction with auto false, or a
+ * checklist item, set through the Set task sheet) push on remindAt, or on
+ * their due time when remindAt is empty (the Remind me choice was Off): a
+ * task is never silently due with no push. notifiedAt is stamped on the
+ * item once pushed (or once stamped stale past CATCHUP_MS), so a rerun never
+ * sends it twice.
  */
-const FIFTEEN_MINUTE_MODE = false;
-const CALLBACK_LOOKAHEAD_MS = 15 * 60e3; // FIFTEEN_MINUTE_MODE only: how far ahead a callback counts as due
-const MEETING_LOOKAHEAD_MS = 60 * 60e3; // FIFTEEN_MINUTE_MODE only: how far ahead a meeting counts as starting soon
-const REVIEW_ASK_DELAY_MS = 3 * 864e5; // both modes: how long after a release with no ask logged before it is due
+const SENT_KEYS_CAP = 2000; // raised from 500 (Decision: a busy day's dedupe keys, one callback or meeting key per due event plus the digest key, must not push the digest key out before it fires)
+const CATCHUP_MS = 6 * 3600e3;
+const COMBINE_THRESHOLD = 10;
+const QUEUE_GATE_MS = 15 * 60e3;
+const DIGEST_AT = { h: 8, min: 30 }; // America/New_York
+const RULES_AT = { h: 9, min: 0 }; // America/New_York
+const REVIEW_ASK_DELAY_MS = 3 * 864e5; // how long after a release with no ask logged before it is due
 
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const fmtTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const localDate = (l) => { if (!l.meeting?.date) return null; const d = new Date(`${l.meeting.date}T${l.meeting.time || '09:00'}`); return Number.isNaN(d.getTime()) ? null : d; };
 const list = (items, more = 5) => items.slice(0, more).join(', ') + (items.length > more ? `, +${items.length - more} more` : '');
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+const fmtZoneTime = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ZONE });
+/** Is the zone's wall clock at or after h:min right now. */
+const atOrAfter = (nowMs, h, min) => { const p = zoneParts(nowMs); return p.h > h || (p.h === h && p.min >= min); };
 
-export async function handler(req, res) {
-  const secret = process.env.CRON_SECRET;
-  const auth = req.headers.authorization || '';
-  const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
-  const sha = (s) => createHash('sha256').update(String(s)).digest();
-  if (!secret || !timingSafeEqual(sha(given), sha(secret))) return res.status(401).json({ error: 'unauthorized' });
-  const db = await getDb();
+/** Two indexes for the per-minute scans (call_leads on callback/meeting, on the task fields); created once per warm instance. */
+async function ensureReminderIndexes(db) {
+  if (globalThis._vzReminderIdx) return;
+  const leads = db.collection('call_leads');
+  const specs = [
+    { deleted: 1, callStatus: 1, callbackAt: 1 },
+    { deleted: 1, 'meeting.date': 1 },
+    { deleted: 1, 'nextAction.kind': 1, 'nextAction.auto': 1 },
+    { deleted: 1, 'checklists.items.remindAt': 1 },
+  ];
+  for (const spec of specs) { try { await leads.createIndex(spec); } catch { /* exists, or the database is down; the queries below still run, just unindexed */ } }
+  globalThis._vzReminderIdx = true;
+}
+
+/** One combined push for ten or more due items at once, instead of a flood. */
+function combinedPush(items, base) {
+  const WORD = { callback: 'callback', meeting: 'meeting', task: 'task' };
+  const counts = {};
+  for (const it of items) counts[it.kind] = (counts[it.kind] || 0) + 1;
+  const kinds = Object.keys(counts);
+  if (kinds.length === 1) return { title: `${plural(counts[kinds[0]], WORD[kinds[0]])} due now`, body: list(items.map(it => it.business)), url: `${base}/` };
+  return { title: `${items.length} reminders due now`, body: `${kinds.map(k => plural(counts[k], WORD[k])).join(', ')} due now.`, url: `${base}/` };
+}
+
+/** The one minute's worth of work, as a pure function of (db, now): auth and the HTTP shell are handler()'s job, so a
+ * test can drive this directly with a chosen instant, the same way runQueuedSends and runEmailRules take now. */
+export async function runReminders(db, nowMs = Date.now()) {
+  await ensureReminderIndexes(db);
   const settings = db.collection('settings');
   const doc = (await settings.findOne({ _id: 'notifications' })) || {};
   const prefs = { meetings: doc.reminders?.meetings !== false, callbacks: doc.reminders?.callbacks !== false, bills: doc.reminders?.bills !== false, reviews: doc.reminders?.reviews !== false, tasks: doc.reminders?.tasks !== false };
   const sent = new Set(doc.sentReminderKeys || []);
-  const now = new Date();
-  const today = dayKey(now);
+  const now = new Date(nowMs);
+  const today = zoneDayKey(nowMs);
   const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
 
   const leads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ callStatus: 'callback', callbackAt: { $exists: true, $ne: '' } }, { 'meeting.date': { $exists: true, $ne: '' } }] }).project({ business: 1, callbackAt: 1, callStatus: 1, meeting: 1, stage: 1, phone: 1 }).toArray();
 
-  // Bills and review asks are gathered the same way in both modes.
-  const bills = []; // due today
-  const reviews = []; // due, until asked
-  if (prefs.bills || prefs.reviews) {
-    const clients = await db.collection('call_leads').find({ deleted: { $ne: true }, stage: 'client' }).project({ business: 1, retainer: 1, reviews: 1 }).toArray();
-    const released = prefs.reviews ? await db.collection('projects').find({ archived: { $ne: true }, releasedAt: { $exists: true, $ne: '' } }).project({ leadId: 1, name: 1, releasedAt: 1 }).toArray() : [];
-    for (const l of clients) {
-      const r = l.retainer;
-      if (prefs.bills && r && ['active', 'ending'].includes(r.status) && String(r.nextBillAt || '').slice(0, 10) === today) bills.push({ _id: l._id, business: l.business, amount: r.amount });
-      if (prefs.reviews && !(l.reviews?.asks || []).length) {
-        const rel = released.filter(p => String(p.leadId) === String(l._id)).sort((a, b) => new Date(b.releasedAt) - new Date(a.releasedAt))[0];
-        if (rel && now.getTime() - new Date(rel.releasedAt).getTime() >= REVIEW_ASK_DELAY_MS) reviews.push({ _id: l._id, business: l.business, releasedAt: rel.releasedAt, project: rel.name });
+  /* Callbacks and meetings due this minute: each a push item, or stamped stale if more than CATCHUP_MS late. */
+  const dueItems = [];
+  const staleKeys = [];
+  for (const l of leads) {
+    if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
+      const t = Date.parse(l.callbackAt);
+      if (Number.isFinite(t) && t <= nowMs) {
+        const key = `cb:${l._id}:${l.callbackAt}`;
+        if (!sent.has(key)) {
+          const item = { key, kind: 'callback', business: l.business, title: `Call back: ${l.business}, ${fmtZoneTime(t)}`, body: l.phone || '', url: `${base}/leads?open=${l._id}` };
+          if (nowMs - t > CATCHUP_MS) staleKeys.push(key); else dueItems.push(item);
+        }
+      }
+    }
+    if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage) && l.meeting?.date) {
+      const t = zoneMeetingMs(l.meeting.date, l.meeting.time);
+      if (Number.isFinite(t) && t <= nowMs) {
+        const key = `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`;
+        if (!sent.has(key)) {
+          const item = { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(t)}`, body: l.meeting.location || '', url: `${base}/booked?open=${l._id}` };
+          if (nowMs - t > CATCHUP_MS) staleKeys.push(key); else dueItems.push(item);
+        }
       }
     }
   }
 
-  /* Tasks with a due date: gathered once, used by the digest (due today, America/New_York) and the per task push (remindAt past, not yet notified, not done).
-     Two sources, one shape: the checklists on every live lead and project (the task system), and a legacy next action set in TaskSheet before
-     checklists carried tasks (auto false, no taskId). A pinned task's next action carries no remindAt, so nothing is pushed twice. */
+  /* Tasks with a due date: the checklists on every live lead and project (the task system), and a legacy next action set in
+     TaskSheet before checklists carried tasks (auto false, no taskId). Due on remindAt, or on the due time itself when
+     remindAt is empty (Remind me was Off): a task is never silently due with no push. */
   const taskRows = [];
   if (prefs.tasks) {
     const isLegacy = (a) => a && typeof a === 'object' && a.kind === 'custom' && a.auto === false && !a.doneAt && a.label && !a.taskId;
@@ -94,95 +136,130 @@ export async function handler(req, res) {
       for (const p of taskProjects) { const who = nameOf.get(String(p.leadId)) || p.name || 'Project'; if (isLegacy(p.nextAction)) taskRows.push({ coll: 'projects', _id: p._id, leadId: p.leadId, business: who, action: p.nextAction }); fromLists('projects', p, who); }
     }
   }
-  const nowMsTasks = now.getTime();
-  const tasksToday = taskRows.filter(t => t.action.dueAt && zoneDayKey(new Date(t.action.dueAt).getTime()) === zoneDayKey(nowMsTasks)).sort((a, b) => String(a.action.dueAt).localeCompare(String(b.action.dueAt)));
-  const tasksDue = taskRows.filter(t => t.action.remindAt && !t.action.notifiedAt && new Date(t.action.remindAt).getTime() <= nowMsTasks && !Number.isNaN(new Date(t.action.remindAt).getTime()));
-  const fmtZoneTime = (iso) => new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ZONE });
-  let taskPushes = 0;
-  for (const t of tasksDue) {
-    try { await sendPush(db, { title: `Task due: ${t.action.label}`, body: `${t.business} · due ${fmtZoneTime(t.action.dueAt || t.action.remindAt)}`, url: `${base}/tasks?open=${t.leadId}` }); } catch { /* one bad subscription must not stop the rest */ }
+  const tasksToday = taskRows.filter(t => t.action.dueAt && zoneDayKey(new Date(t.action.dueAt).getTime()) === today).sort((a, b) => String(a.action.dueAt).localeCompare(String(b.action.dueAt)));
+  const taskStale = [];
+  const taskDue = [];
+  for (const t of taskRows) {
+    if (t.action.notifiedAt) continue;
+    const at = t.action.remindAt ? Date.parse(t.action.remindAt) : (t.action.dueAt ? Date.parse(t.action.dueAt) : NaN);
+    if (!Number.isFinite(at) || at > nowMs) continue;
+    const item = { kind: 'task', business: t.business, title: `Task: ${t.action.label}, ${t.business}`, body: '', url: `${base}/tasks?open=${t.leadId}`, ref: t };
+    if (nowMs - at > CATCHUP_MS) taskStale.push(t); else taskDue.push(item);
+  }
+
+  /* Push: combined when ten or more are due at once, otherwise one push each. Stale items (more than CATCHUP_MS late) are
+     stamped as handled without ever pushing. */
+  const allDue = [...dueItems, ...taskDue];
+  let sentCount = 0;
+  if (allDue.length >= COMBINE_THRESHOLD) {
+    try { await sendPush(db, combinedPush(allDue, base)); } catch { /* one bad subscription must not stop the stamp */ }
+    sentCount = 1;
+  } else {
+    for (const item of allDue) {
+      try { await sendPush(db, { title: item.title, body: item.body, url: item.url }); } catch { /* one bad subscription must not stop the rest */ }
+      sentCount++;
+    }
+  }
+  /* Stamp every handled item: the due ones that just pushed, the stale ones that never will. Tasks stamp on their own
+     record (notifiedAt on the checklist item or the next action); callbacks and meetings stamp into sentReminderKeys. */
+  for (const t of [...taskDue.map(i => i.ref), ...taskStale]) {
     if (t.taskId) {
-      /* A checklist task: stamp the one item, by id, writing the whole array back the way every checklist write does. */
       const rec = await db.collection(t.coll).findOne({ _id: t._id }, { projection: { checklists: 1 } });
       const lists = (rec?.checklists || []).map(l => ({ ...l, items: (l?.items || []).map(it => (it?.id === t.taskId ? { ...it, notifiedAt: now.toISOString() } : it)) }));
       await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { checklists: lists } });
     } else {
       await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': now.toISOString() } });
     }
-    taskPushes++;
   }
-  /* Queued emails (the email system): Send tomorrow at 9am lands here. Once a day, every queued email whose sendAt falls on or before
-     the run's New York day goes out (api/_lib/email/queue.js); on the fifteen minute schedule the instant rule applies instead. */
-  let emails = { checked: 0, sent: 0, failed: 0, limited: false };
-  try { emails = await runQueuedSends(db, now.getTime(), { byDay: !FIFTEEN_MINUTE_MODE }); } catch { /* the digest still goes; the queue waits for the next run */ }
-  /* The email rules (the email system, milestone 8): each template's Automation setting decides what the day's rules draft or send (api/_lib/email/rules.js). */
-  let rules = emptyRun();
-  try { rules = await runEmailRules(db, now.getTime()); } catch { /* the digest still goes; the rules run again tomorrow */ }
-  /* Health: lastRunAt plus the last twelve run times, so Settings can tell a fifteen minute schedule from a daily one. */
-  const stampHealth = async (checked, sentN) => settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': checked, 'crons.reminders.sent': sentN, 'crons.reminders.tasks': taskPushes, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules, updatedAt: new Date() }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  const newKeys = [...dueItems.map(i => i.key), ...staleKeys];
 
-  if (FIFTEEN_MINUTE_MODE) {
-    // Pro plan: near-real-time, one push per event, each with its own dedupe key.
-    const nowMs = now.getTime();
-    const due = [];
+  /* The morning digest: once a day, on the first run at or after 8:30am America/New_York. Everything it needs (bills,
+     review asks, today's tasks are already gathered above) only runs this query when the digest could actually fire. */
+  const digestKey = `digest:${today}`;
+  const digestReady = atOrAfter(nowMs, DIGEST_AT.h, DIGEST_AT.min) && !sent.has(digestKey);
+  let digestSent = 0;
+  if (digestReady) {
+    const bills = []; // due today
+    const reviews = []; // due, until asked
+    if (prefs.bills || prefs.reviews) {
+      const clients = await db.collection('call_leads').find({ deleted: { $ne: true }, stage: 'client' }).project({ business: 1, retainer: 1, reviews: 1 }).toArray();
+      const released = prefs.reviews ? await db.collection('projects').find({ archived: { $ne: true }, releasedAt: { $exists: true, $ne: '' } }).project({ leadId: 1, name: 1, releasedAt: 1 }).toArray() : [];
+      for (const l of clients) {
+        const r = l.retainer;
+        if (prefs.bills && r && ['active', 'ending'].includes(r.status) && String(r.nextBillAt || '').slice(0, 10) === today) bills.push({ _id: l._id, business: l.business, amount: r.amount });
+        if (prefs.reviews && !(l.reviews?.asks || []).length) {
+          const rel = released.filter(p => String(p.leadId) === String(l._id)).sort((a, b) => new Date(b.releasedAt) - new Date(a.releasedAt))[0];
+          if (rel && nowMs - new Date(rel.releasedAt).getTime() >= REVIEW_ASK_DELAY_MS) reviews.push({ _id: l._id, business: l.business, releasedAt: rel.releasedAt, project: rel.name });
+        }
+      }
+    }
+    const callbacks = []; // due today or overdue
+    const meetings = []; // today only
     for (const l of leads) {
       if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
-        const t = new Date(l.callbackAt).getTime();
-        if (t >= nowMs - 60e3 && t <= nowMs + CALLBACK_LOOKAHEAD_MS) due.push({ key: `cb:${l._id}:${l.callbackAt}`, title: `Call back ${l.business}`, body: `Due ${new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.phone ? `, ${l.phone}` : ''}`, url: `${base}/leads?open=${l._id}` });
+        const t = new Date(l.callbackAt);
+        if (!Number.isNaN(t.getTime()) && zoneDayKey(t.getTime()) <= today) callbacks.push({ business: l.business, overdue: zoneDayKey(t.getTime()) < today });
       }
-      if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage)) {
-        const d = localDate(l);
-        if (d && d.getTime() >= nowMs - 60e3 && d.getTime() <= nowMs + MEETING_LOOKAHEAD_MS) due.push({ key: `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`, title: `Meeting with ${l.business}`, body: `Starts ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${l.meeting.location ? `, ${l.meeting.location}` : ''}`, url: `${base}/booked?open=${l._id}` });
+      if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage) && l.meeting?.date === today) {
+        const t = zoneMeetingMs(l.meeting.date, l.meeting.time);
+        if (Number.isFinite(t)) meetings.push({ business: l.business, at: t });
       }
     }
-    for (const b of bills) due.push({ key: `bill:${b._id}:${today}`, title: `Bill ${b.business} today`, body: `$${Number(b.amount || 0).toLocaleString()} retainer bill is due today.`, url: `${base}/clients?open=${b._id}` });
-    for (const r of reviews) due.push({ key: `review:${r._id}:${String(r.releasedAt).slice(0, 10)}`, title: `Ask ${r.business} for a review`, body: `${r.project} was released three days ago and nobody has asked yet.`, url: `${base}/reviews?open=${r._id}` });
-
-    const fresh = due.filter(d => !sent.has(d.key));
-    for (const d of fresh) { try { await sendPush(db, { title: d.title, body: d.body, url: d.url }); } catch { /* one bad subscription must not stop the rest */ } }
-    if (fresh.length) {
-      const keys = [...sent, ...fresh.map(d => d.key)].slice(-500);
-      await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+    const total = callbacks.length + meetings.length + bills.length + reviews.length + tasksToday.length;
+    if (total) {
+      const title = `Today: ${plural(callbacks.length, 'callback')}, ${plural(meetings.length, 'meeting')}`;
+      const parts = [];
+      if (callbacks.length) parts.push(`${plural(callbacks.length, 'callback')}: ${list(callbacks.map(c => `${c.business}${c.overdue ? ' (overdue)' : ''}`))}`);
+      if (meetings.length) parts.push(`${plural(meetings.length, 'meeting')}: ${list(meetings.map(m => `${m.business} at ${fmtZoneTime(m.at)}`))}`);
+      if (bills.length) parts.push(`${plural(bills.length, 'bill')} due: ${list(bills.map(b => `${b.business} $${Number(b.amount || 0).toLocaleString()}`))}`);
+      if (reviews.length) parts.push(`${plural(reviews.length, 'review ask')} due: ${list(reviews.map(r => r.business))}`);
+      if (tasksToday.length) parts.push(`Tasks: ${list(tasksToday.map(t => `${t.action.label} (${t.business}, ${fmtZoneTime(new Date(t.action.dueAt).getTime())})`))}`);
+      try { await sendPush(db, { title, body: parts.join('. '), url: `${base}/` }); } catch { /* one bad subscription must not stop the digest from being marked sent */ }
+      digestSent = 1;
     }
-    await stampHealth(due.length, fresh.length);
-    return res.status(200).json({ ok: true, checked: due.length, sent: fresh.length, tasks: taskPushes, emails, rules });
+    newKeys.push(digestKey); // marks today handled either way, so a quiet day never re-checks after 8:30
   }
-
-  // Hobby plan: one digest, once a day.
-  const callbacks = []; // due today or overdue
-  const meetings = []; // today only
-  for (const l of leads) {
-    if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
-      const t = new Date(l.callbackAt);
-      if (!Number.isNaN(t.getTime()) && dayKey(t) <= today) callbacks.push({ business: l.business, overdue: dayKey(t) < today });
-    }
-    if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage) && l.meeting?.date === today) {
-      const d = localDate(l);
-      if (d) meetings.push({ business: l.business, at: d });
-    }
-  }
-
-  const total = callbacks.length + meetings.length + bills.length + reviews.length + tasksToday.length;
-  const digestKey = `digest:${today}`;
-  const alreadySent = sent.has(digestKey);
-
-  if (total && !alreadySent) {
-    const title = `Today: ${plural(callbacks.length, 'callback')}, ${plural(meetings.length, 'meeting')}`;
-    const parts = [];
-    if (callbacks.length) parts.push(`${plural(callbacks.length, 'callback')}: ${list(callbacks.map(c => `${c.business}${c.overdue ? ' (overdue)' : ''}`))}`);
-    if (meetings.length) parts.push(`${plural(meetings.length, 'meeting')}: ${list(meetings.map(m => `${m.business} at ${fmtTime(m.at)}`))}`);
-    if (bills.length) parts.push(`${plural(bills.length, 'bill')} due: ${list(bills.map(b => `${b.business} $${Number(b.amount || 0).toLocaleString()}`))}`);
-    if (reviews.length) parts.push(`${plural(reviews.length, 'review ask')} due: ${list(reviews.map(r => r.business))}`);
-    if (tasksToday.length) parts.push(`Tasks: ${list(tasksToday.map(t => `${t.action.label} (${t.business}, ${fmtZoneTime(t.action.dueAt)})`))}`);
-    try { await sendPush(db, { title, body: parts.join('. '), url: `${base}/` }); } catch { /* one bad subscription must not stop the digest from being marked sent */ }
-    const keys = [...sent, digestKey].slice(-500);
+  if (newKeys.length) {
+    const keys = [...sent, ...newKeys].slice(-SENT_KEYS_CAP);
     await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
-  /* Client pushes (portal prompt 4): one batched push per client with a device, six hours apart at most. */
+  /* Queued emails (Send tomorrow), by the instant rule, gated to once every QUEUE_GATE_MS. */
+  let emails = { checked: 0, sent: 0, failed: 0, limited: false };
+  const queueGate = db.collection('settings');
+  const gateDoc = (await queueGate.findOne({ _id: 'cronGates' })) || {};
+  const runQueue = !gateDoc.queueLastRunAt || nowMs - Date.parse(gateDoc.queueLastRunAt) >= QUEUE_GATE_MS;
+  if (runQueue) {
+    try { emails = await runQueuedSends(db, nowMs, { byDay: false }); } catch { /* the next gate tries again */ }
+  }
+  /* The email rules, once a day, on the first run at or after 9:00am America/New_York. */
+  let rules = emptyRun();
+  const runRules = atOrAfter(nowMs, RULES_AT.h, RULES_AT.min) && zoneDayKey(Date.parse(gateDoc.rulesLastRunAt || 0)) !== today;
+  if (runRules) {
+    try { rules = await runEmailRules(db, nowMs); } catch { /* the digest still goes; the rules try again next run */ }
+  }
+  if (runQueue || runRules) {
+    await queueGate.updateOne({ _id: 'cronGates' }, { $set: { ...(runQueue ? { queueLastRunAt: now.toISOString() } : {}), ...(runRules ? { rulesLastRunAt: now.toISOString() } : {}) }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  }
+
+  /* Client pushes (portal prompt 4): one batched push per client with a device, six hours apart at most; the gate is
+     per client, inside the sweep, so this is cheap to call every minute. */
   let clientPushes = { checked: 0, sent: 0 };
-  try { clientPushes = await clientPushSweep(db, now.getTime()); } catch { /* the digest is done; next run */ }
-  const didSend = total > 0 && !alreadySent;
-  await stampHealth(total, didSend ? 1 : 0);
-  return res.status(200).json({ ok: true, checked: total, sent: didSend ? 1 : 0, tasks: taskPushes, clientPushes: clientPushes.sent, emails, rules });
+  try { clientPushes = await clientPushSweep(db, nowMs); } catch { /* next run */ }
+
+  /* Health: lastRunAt plus the last twelve run times, now a minute apart. */
+  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+
+  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, clientPushes: clientPushes.sent, emails, rules };
+}
+
+export async function handler(req, res) {
+  const secret = process.env.CRON_SECRET;
+  const auth = req.headers.authorization || '';
+  const given = auth.startsWith('Bearer ') ? auth.slice(7) : (req.headers['x-cron-secret'] || '');
+  const sha = (s) => createHash('sha256').update(String(s)).digest();
+  if (!secret || !timingSafeEqual(sha(given), sha(secret))) return res.status(401).json({ error: 'unauthorized' });
+  const db = await getDb();
+  const out = await runReminders(db, Date.now());
+  return res.status(200).json(out);
 }

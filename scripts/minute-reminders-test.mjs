@@ -1,0 +1,144 @@
+#!/usr/bin/env node
+/* Minute mode reminders (CLAUDE_CODE_PROMPT: on time push notifications):
+ * a callback or a meeting pushes the minute it is due, once, on a key that
+ * carries its time so an edited time pushes again; anything more than six
+ * hours late is stamped without a push; the morning digest sends once, on
+ * the first run at or after 8:30am America/New_York; the email rules run
+ * once a day; ten or more things due at once become one combined push.
+ *   node scripts/minute-reminders-test.mjs */
+import fs from 'fs';
+import path from 'path';
+import { pathToFileURL } from 'url';
+import { spawnSync } from 'node:child_process';
+const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+if (process.env.TZ !== 'America/New_York') {
+  const r = spawnSync(process.execPath, [process.argv[1]], { env: { ...process.env, TZ: 'America/New_York' }, encoding: 'utf8' });
+  process.stdout.write(r.stdout || ''); process.stderr.write(r.stderr || '');
+  process.exit(r.status ?? 1);
+}
+let fails = 0; let passes = 0;
+const ok = (c, m) => { if (c) { passes++; console.log(`  ok   ${m}`); } else { fails++; console.log(`  FAIL ${m}`); } };
+const section = (t) => console.log(`\n${t}`);
+
+const Z = await import(pathToFileURL(path.join(repoRoot, 'api', '_lib', 'zone.js')).href);
+const MIN = 60e3;
+const HOUR = 3600e3;
+
+const tmpBase = path.join(repoRoot, '.tmp-verify'); fs.mkdirSync(tmpBase, { recursive: true });
+const tmp = fs.mkdtempSync(path.join(tmpBase, 'minute-')); const apiDst = path.join(tmp, 'api');
+fs.cpSync(path.join(repoRoot, 'api'), apiDst, { recursive: true });
+fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
+fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const _pushes = [];\nexport async function sendPush(db, p) { _pushes.push(p); }\nexport async function sendClientPush() {}\n");
+const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
+const { _stores, _reset, getDb } = await load('_lib/mongo.js');
+const { _pushes } = await load('_lib/notify.js');
+const { runReminders } = await load('_routes/cron-reminders.js');
+const db = await getDb();
+const iso = (t) => new Date(t).toISOString();
+
+const L1 = '507f1f77bcf86cd7994390e1', L2 = '507f1f77bcf86cd7994390e2';
+const AFTERNOON = Z.zoneDateAt('2026-10-02', 15, 0); // 3pm New York: past the 8:30 digest gate and the 9:00 rules gate
+const BEFORE_DIGEST = Z.zoneDateAt('2026-10-02', 7, 0); // 7am: before the 8:30 gate
+
+const seed = () => {
+  _reset(); _pushes.length = 0;
+  _stores.settings = [{ _id: 'notifications', reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true }, sentReminderKeys: [] }];
+  _stores.call_leads = [];
+  _stores.projects = [];
+  _stores.push_subscriptions = [];
+};
+
+section('1. a callback at 5:00 PM pushes on the 5:00 run, not before, and only once across four runs');
+{
+  seed();
+  const at5 = Z.zoneDateAt('2026-10-02', 17, 0);
+  _stores.call_leads = [{ _id: L1, business: 'Bella Rosy Pizzeria', stage: 'lead', callStatus: 'callback', callbackAt: iso(at5), socials: {} }];
+  let r = await runReminders(db, at5 - 10 * MIN);
+  ok(r.sent === 0 && !_pushes.some(p => /Bella Rosy Pizzeria/.test(p.title)), 'ten minutes before 5:00, nothing pushes yet');
+  r = await runReminders(db, at5);
+  const cb = _pushes.find(p => /Bella Rosy Pizzeria/.test(p.title));
+  ok(r.sent === 1 && !!cb && cb.title === 'Call back: Bella Rosy Pizzeria, 5:00 PM', `the 5:00 run pushes "Call back: Bella Rosy Pizzeria, 5:00 PM" (${cb?.title})`);
+  const before = _pushes.length;
+  await runReminders(db, at5 + MIN);
+  await runReminders(db, at5 + 2 * MIN);
+  await runReminders(db, at5 + 3 * MIN);
+  ok(_pushes.length === before, 'three more runs after 5:00 push nothing more: the callback key already dedupes it');
+}
+
+section('2. an edited time pushes again');
+{
+  const at530 = Z.zoneDateAt('2026-10-02', 17, 30);
+  const lead = _stores.call_leads.find(l => l._id === L1);
+  lead.callbackAt = iso(at530); // the callback was moved half an hour out
+  const before = _pushes.length;
+  await runReminders(db, at530 - MIN); // not yet due at the new time
+  ok(_pushes.length === before, 'not yet due at the edited time');
+  await runReminders(db, at530);
+  const again = _pushes.filter(p => /Bella Rosy Pizzeria/.test(p.title));
+  ok(again.length === 2, `the edited time pushes again, a second time for the same lead (${again.length})`);
+}
+
+section('3. a thing due more than six hours ago is stamped without a push (catch-up)');
+{
+  seed();
+  _stores.settings[0].sentReminderKeys = [`digest:${Z.zoneDayKey(AFTERNOON)}`]; // isolate from the digest, not under test here
+  const sevenHoursAgo = AFTERNOON - 7 * HOUR;
+  _stores.call_leads = [{ _id: L2, business: 'Late Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(sevenHoursAgo), socials: {} }];
+  const r = await runReminders(db, AFTERNOON);
+  ok(r.sent === 0 && _pushes.length === 0, 'seven hours late: no push at all');
+  await runReminders(db, AFTERNOON + MIN);
+  ok(_pushes.length === 0, 'the next run never catches up on it either: it was stamped handled, not left pending');
+  const key = (_stores.settings.find(s => s._id === 'notifications').sentReminderKeys || []);
+  ok(key.some(k => k.startsWith(`cb:${L2}:`)), 'the stale callback key is stamped into sentReminderKeys so it is never reconsidered');
+}
+
+section('4. the digest sends once, on the first run at or after 8:30 America/New_York');
+{
+  seed();
+  _stores.call_leads = [{ _id: L1, business: 'Due Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(BEFORE_DIGEST - HOUR), socials: {} }];
+  let r = await runReminders(db, BEFORE_DIGEST);
+  ok(r.digest === 0 && !_pushes.some(p => /^Today: /.test(p.title)), 'at 7am, before 8:30, no digest yet (its own callback still pushes on its own key)');
+  const digest830 = Z.zoneDateAt('2026-10-02', 8, 30);
+  r = await runReminders(db, digest830);
+  ok(r.digest === 1 && _pushes.some(p => /^Today: /.test(p.title)), 'the first run at or after 8:30 sends the digest');
+  const before = _pushes.filter(p => /^Today: /.test(p.title)).length;
+  await runReminders(db, Z.zoneDateAt('2026-10-02', 9, 0));
+  await runReminders(db, Z.zoneDateAt('2026-10-02', 12, 0));
+  const after = _pushes.filter(p => /^Today: /.test(p.title)).length;
+  ok(before === 1 && after === 1, 'later runs the same day send no second digest');
+}
+
+section('5. the email rules run once a day, on the first run at or after 9:00 America/New_York');
+{
+  seed();
+  const at9 = Z.zoneDateAt('2026-10-02', 9, 0);
+  let r = await runReminders(db, Z.zoneDateAt('2026-10-02', 8, 59));
+  const gate1 = (_stores.settings.find(s => s._id === 'cronGates') || {}).rulesLastRunAt;
+  ok(!gate1, 'before 9:00, the rules gate has not stamped a run yet');
+  r = await runReminders(db, at9);
+  const gate2 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
+  ok(!!gate2, 'the first run at or after 9:00 stamps the rules gate');
+  r = await runReminders(db, at9 + MIN);
+  const gate3 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
+  ok(gate2 === gate3, 'a run a minute later does not run the rules again: same day, already stamped');
+  r = await runReminders(db, Z.zoneDateAt('2026-10-03', 9, 0));
+  const gate4 = _stores.settings.find(s => s._id === 'cronGates').rulesLastRunAt;
+  ok(gate4 !== gate3, 'the next day, the first run at or after 9:00 runs the rules again');
+}
+
+section('6. twelve things due at once make one combined push, not a flood');
+{
+  seed();
+  const now = Z.zoneDateAt('2026-10-02', 16, 0);
+  _stores.settings[0].sentReminderKeys = [`digest:${Z.zoneDayKey(now)}`]; // isolate from the digest, not under test here
+  _stores.call_leads = Array.from({ length: 12 }, (_, i) => ({ _id: `cb${i}`, business: `Combine Co ${i}`, stage: 'lead', callStatus: 'callback', callbackAt: iso(now), socials: {} }));
+  const r = await runReminders(db, now);
+  ok(r.sent === 1 && _pushes.length === 1, `twelve due callbacks make exactly one push (${_pushes.length})`);
+  ok(/^12 callbacks due now$/.test(_pushes[0].title), `the combined push names the count ("${_pushes[0].title}")`);
+  const keys = _stores.settings.find(s => s._id === 'notifications').sentReminderKeys || [];
+  ok(Array.from({ length: 12 }, (_, i) => `cb:cb${i}:${iso(now)}`).every(k => keys.includes(k)), 'every one of the twelve is still stamped, even though only one push went out');
+}
+
+fs.rmSync(tmp, { recursive: true, force: true });
+console.log(`\n${passes} passed, ${fails} failed.`);
+process.exit(fails ? 1 : 0);
