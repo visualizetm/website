@@ -58,10 +58,10 @@ export const COPY = {
     /* Projects (CRM revamp, step 7) */
     'projects.none': { title: 'No projects yet', description: 'A project starts when a deal is paid, or from a client record. It lands here with its next action and its next invoice.', action: 'Open Clients' },
     /* Deals (CRM revamp, step 5) */
-    'deals.none': { title: 'No deals yet', description: 'Book a meeting from the Call Console and it lands here. The checkpoints carry it from the call to the first payment.', action: 'Open Call Console' },
+    'deals.none': { title: 'No deals yet', description: 'Book a meeting from Calls and it lands here. The checkpoints carry it from the call to the first payment.', action: 'Open Calls' },
     'deals.column': { title: 'Nothing here', description: 'A deal moves into this column when its checkpoint ticks.' },
     'deals.invoices': { title: 'No invoices yet', description: 'Add the first one from the package or the plan. Mark paid on it makes the client and the project.', action: 'Add invoice' },
-    'booked.none': { title: 'No booked leads yet', description: 'Book one from the Call Console. A booked outcome lands it here for meeting prep.', action: 'Open Call Console' },
+    'booked.none': { title: 'No booked leads yet', description: 'Book one from Calls. A booked outcome lands it here for meeting prep.', action: 'Open Calls' },
     'booked.filter': { title: 'Nothing booked in this filter', description: 'Every booked lead is under All.', action: 'Show all' },
     /* Calendar */
     'calendar.day': { title: 'Nothing scheduled', description: 'A clear day. Book something or set a callback.', action: 'Start call session', secondary: 'Add a callback' },
@@ -108,7 +108,7 @@ export const COPY = {
     'settings.deleted': { title: 'Nothing in the bin', description: 'Deleted leads, submissions and docs wait here for 30 days, then purge on their own.' },
     'settings.reconcile': { title: 'Nothing to reconcile', description: 'Every payment the webhook stored matched a client.' },
     /* Shell */
-    'notifications.none': { title: 'All caught up', description: 'Nothing due, nothing new. Start a call session.', action: 'Open Call Console' },
+    'notifications.none': { title: 'All caught up', description: 'Nothing due, nothing new. Start a call session.', action: 'Open Calls' },
   },
   error: {
     posts: { title: 'The planner did not load', description: 'The posts for this client could not be fetched. Try again.', action: 'Try again' },
