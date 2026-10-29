@@ -7,7 +7,7 @@
  * brings it back; the check on a callback opens the Log outcome sheet and writes nothing until an outcome is saved; the check on a rule
  * action opens its record; Coming up is folded on a phone and open on a computer and the choice is remembered. */
 import { chromium } from 'playwright-core';
-import { mockRoutes } from './audit-fixtures.mjs';
+import { mockRoutes, leads as FIXTURE_LEADS } from './audit-fixtures.mjs';
 import { tomorrowNineNY } from '../src/lib/nextAction.js';
 
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
@@ -128,6 +128,44 @@ for (const w of WIDTHS) {
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForSelector('.nh-row');
   ok((await coming.locator('.nh-coming-head').getAttribute('aria-expanded')) === String(!open0), 'the choice survives a reload');
+
+  // 6. Nine overdue (Rob's real number): five rows, "Show 4 more", open in place, "Show fewer"; Today is never capped.
+  const day = 864e5;
+  const extra = Array.from({ length: 4 }, (_, i) => ({ _id: `XO${i}`, business: `Extra Overdue Co ${i + 1}`, stage: 'lead', callStatus: 'callback', callbackAt: new Date(Date.now() - (6 + i) * day).toISOString(), phone: '(302) 555-01' + String(10 + i) }));
+  const extraToday = Array.from({ length: 4 }, (_, i) => ({ _id: `XT${i}`, business: `Extra Today Co ${i + 1}`, stage: 'lead', callStatus: 'callback', callbackAt: new Date(Date.now() - (i + 1) * 60e3).toISOString(), phone: '(302) 555-02' + String(10 + i) }));
+  const page2 = await ctx.newPage();
+  await mockRoutes(page2, { session: true });
+  await page2.route('**/api/admin/call-leads**', async (r) => { if (r.request().method() !== 'GET' || r.request().url().includes('deleted=1')) return r.fallback(); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [...FIXTURE_LEADS, ...extra, ...extraToday] }) }); });
+  await page2.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
+  await page2.waitForSelector('.nh-row');
+  await page2.waitForTimeout(800);
+  const od = page2.locator('[data-card="next-overdue"]'); const td = page2.locator('[data-card="next-today"]');
+  ok(await od.locator('.nh-row').count() === 5, `nine overdue show five rows (${await od.locator('.nh-row').count()})`);
+  ok(Number((await od.locator('.nh-count').textContent()).trim()) === 9, 'the count pill says 9');
+  ok(await td.locator('.nh-row').count() === 3 + 4, `Today shows all seven, never capped (${await td.locator('.nh-row').count()})`);
+  const more = od.getByRole('button', { name: /^Show 4 more$/ });
+  ok(await more.count() === 1 && (await more.getAttribute('aria-expanded')) === 'false', 'a "Show 4 more" button with aria-expanded false');
+  await more.click();
+  await page2.waitForTimeout(300);
+  ok(await od.locator('.nh-row').count() === 9 && (await od.getByRole('button', { name: /^Show fewer$/ }).getAttribute('aria-expanded')) === 'true', 'it expands in place to nine rows');
+  await od.getByRole('button', { name: /^Show fewer$/ }).click();
+  await page2.waitForTimeout(300);
+  ok(await od.locator('.nh-row').count() === 5, 'and folds back to five');
+
+  // 7. The empty and the error states.
+  const page3 = await ctx.newPage();
+  await mockRoutes(page3, { session: true, empty: ['leads'] });
+  await page3.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
+  await page3.waitForSelector('[data-card="next-today"]');
+  await page3.waitForTimeout(600);
+  ok(await page3.getByText('Today is clear. Nice work.').isVisible(), 'Today says "Today is clear. Nice work." with nothing due');
+  ok(await page3.getByText("Nothing overdue. You're caught up.").isVisible(), 'Overdue says "Nothing overdue. You\'re caught up."');
+  ok(await page3.locator('.nh-clear.is-good').evaluate(e => getComputedStyle(e).color) !== await page3.locator('.nh-card--today .nh-clear').evaluate(e => getComputedStyle(e).color), 'the overdue line is green, the today line is not');
+  const page4 = await ctx.newPage();
+  await mockRoutes(page4, { session: true, fail: ['leads'] });
+  await page4.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
+  await page4.waitForTimeout(1200);
+  ok(await page4.locator('.v-error').count() > 0 && await page4.getByRole('button', { name: /try again|retry/i }).count() > 0, 'a leads failure shows the error state with Retry where Next up goes');
   await ctx.close();
 }
 await browser.close();

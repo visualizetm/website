@@ -226,6 +226,13 @@ Use when: row-by-row edits on a detail page. Not when: several fields save toget
 `checked`, `onChange(next)`, `label`, `description`, `disabled`, `size` md|sm. `role="switch"`.
 Use when: a setting that applies immediately. Not when: part of a form that submits (Checkbox).
 
+### RoundCheck
+`label` (required), `done`, `tone` neutral | danger, `onClick`. The round done control of a row on the home's Next up cards:
+one `<button>` (`aria-pressed`, disabled once done) with a 44px tap target around a 26px ring; done is a filled `--v-red` circle with
+a white check; danger tones the ring on an overdue row. A button rather than a Checkbox because the same control also opens
+something (the Log outcome sheet on a call, the record on a rule action). Use when: a row has one primary "done" action and a
+round control reads better than a square. Not when: a form field (use Checkbox).
+
 ### Checkbox
 `checked`, `onChange(next)`, `label`, `indeterminate`, `disabled`.
 The whole 44px row is the target.

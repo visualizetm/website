@@ -24,8 +24,8 @@ Resume with: "Continue the client docs job from docs/MOBILE-PROGRESS.md." Milest
 ## Next up on the home page (today, overdue, coming up)
 Resume with: "Continue the Next up home job from docs/MOBILE-PROGRESS.md." Decisions: the last section of docs/MOBILE-DECISIONS.md.
 - [x] Milestone 1: homeRowAction, lateLabel, homeTimeLabel, tomorrowNineNY (src/lib/nextAction.js), homeLists, checkWrite, tomorrowWrite (src/lib/homeRows.js), section 4 of scripts/next-action-test.mjs (both zones). Faults put back and shown failing: a callback check writing done, Tomorrow in the browser zone, Today capped at 5.
-- [ ] Milestone 2: the Today and Overdue cards on the home, the old Open tasks card removed.
-- [ ] Milestone 3: Coming up, the widths, the audits at five widths.
+- [x] Milestone 2: RoundCheck (kit), OutcomeSheet and callOutcome extracted from the Call Console, src/components/NextUpHome.jsx (Today, Overdue, the check, Undo, Tomorrow, Log outcome, Show more, skeleton, error, live region), the old Open tasks card removed, the range control under Next up; scripts/home-nextup-test.mjs.
+- [x] Milestone 3 (built): Coming up (remembered, open from 768), the two column grid, motion; audits at five widths run in milestone 4's gate.
 - [ ] Milestone 4: ship (preship, the script list, push, deploy Ready).
 
 ## Logo rollout (Brand v3), one run, five milestones

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card, Button, IconButton, Pill, RoundCheck, ProgressBar, SkeletonBlock, SkeletonCircle, ErrorState, Sheet, Stack, Icon, Collapsible, Reveal,
-  useToast, useDelayedLoading,
+  useToast,
 } from '../ui';
 import { durationMs } from '../ui/motion';
 import { COPY } from '../shared/copy';
@@ -30,6 +30,8 @@ const readLS = (k) => { try { return localStorage.getItem(k); } catch { return n
 const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage may be off */ } };
 const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null'); return { t: Math.min(6, Math.max(0, Number(o?.t) || 0)), o: Math.min(5, Math.max(0, Number(o?.o) || 0)), l: Math.min(4, Math.max(0, Number(o?.l) || 0)) }; } catch { return { t: 0, o: 0, l: 0 }; } };
 
+/* Whether Coming up opens on arrival: what Rob left it at, else open on a computer and folded on a phone. */
+const comingOpen = () => { const v = readLS(COMING_KEY); return v === '1' ? true : v === '0' ? false : (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)').matches : false); };
 const kindLabel = (a) => (a.taskId ? 'Task' : nextActionKindOf(a.kind).label);
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -64,20 +66,25 @@ function NuRow({ r, overdue, now, onCheck, onTomorrow, onOpen, onCall, onOpenBtn
 
 /* ── The shape of the loaded block, drawn while the leads load: the same cards, the same row heights ─ */
 function Skeleton({ counts }) {
-  const rows = (n, key) => Array.from({ length: n }, (_, i) => (
-    <li key={`${key}${i}`} className="nh-row nh-row--skel">
-      <SkeletonCircle size={26} />
-      <div className="nh-body"><SkeletonBlock width="55%" height={18} /><SkeletonBlock width="40%" height={14} /><SkeletonBlock width="30%" height={20} radius="var(--v-radius-pill)" /></div>
+  const rows = (n, key, later) => Array.from({ length: n }, (_, i) => (
+    <li key={`${key}${i}`} className={`nh-row nh-row--skel${later ? ' nh-row--later' : ''}`}>
+      {later ? <SkeletonBlock width={44} height={40} radius="var(--v-radius-md)" /> : <SkeletonCircle size={26} />}
+      <div className="nh-body"><SkeletonBlock width="55%" height={18} />{!later && <SkeletonBlock width="40%" height={14} />}{!later && <SkeletonBlock width="30%" height={20} radius="var(--v-radius-pill)" />}</div>
     </li>
   ));
   const head = (w) => (<div className="nh-head"><div className="nh-headl"><SkeletonBlock width={56} height={12} /><SkeletonBlock width={w} height={30} /></div></div>);
+  const open = comingOpen();
   return (
     <div className="nh" aria-busy="true" aria-hidden="true">
       <div className="nh-grid">
         <Card className="nh-card">{head(96)}<ul className="nh-list">{rows(counts.t || 3, 't')}</ul></Card>
         <Card className="nh-card">{head(120)}<ul className="nh-list">{rows(counts.o || 5, 'o')}</ul></Card>
       </div>
-      <Card className="nh-card nh-card--coming"><div className="nh-coming-head"><SkeletonBlock width={112} height={14} /></div></Card>
+      <Card className="nh-card nh-card--coming">
+        <div className="nh-coming-head"><SkeletonBlock width={112} height={14} /></div>
+        {open && <ul className="nh-list">{rows(counts.l || 1, 'l', true)}</ul>}
+      </Card>
+      <div className="nh-foot"><SkeletonBlock width={104} height={44} radius="var(--v-radius-md)" /></div>
     </div>
   );
 }
@@ -85,7 +92,9 @@ function Skeleton({ counts }) {
 export default function NextUpHome({ leads = [], projects = [], sets = [], loading = false, error = false, onRetry, onPatchLead, onPatchProject }) {
   const shell = useShell();
   const toast = useToast();
-  const showSkel = useDelayedLoading(loading && !leads.length);
+  /* No delay before the skeleton: the block is the tallest thing above the numbers, and a region that is empty for the first moments and then
+     appears pushes everything under it down (the feel audit's layout shift). The skeleton holds the place from the first paint. */
+  const showSkel = loading && !leads.length;
   const now = Date.now();
   const q = useMemo(() => nextUpItems(leads, projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
   const taskCtx = useMemo(() => ({ projects, sets }), [projects, sets]);
@@ -97,7 +106,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   const ghost = useCallback((item, mode) => setGhosts(g => ({ ...g, [rowKey(item)]: { key: rowKey(item), item, card: item.bucket === 'overdue' ? 'overdue' : 'today', mode } })), []);
   const unghost = useCallback((key) => { clearTimeout(timers.current[key]); delete timers.current[key]; setGhosts(g => Object.fromEntries(Object.entries(g).filter(([k]) => k !== key))); }, []);
   const [expanded, setExpanded] = useState(false);
-  const [coming, setComing] = useState(() => { const v = readLS(COMING_KEY); return v === '1' ? true : v === '0' ? false : (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)').matches : false); });
+  const [coming, setComing] = useState(comingOpen);
   const toggleComing = () => setComing(c => { writeLS(COMING_KEY, c ? '0' : '1'); return !c; });
   const [said, setSaid] = useState({ n: 0, text: '' });
   const say = (text) => setSaid(s => ({ n: s.n + 1, text }));
@@ -175,7 +184,6 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
 
   if (error && !leads.length) return <Card className="nh-card"><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={onRetry} /></Card>;
   if (showSkel) return <Skeleton counts={lastCounts()} />;
-  if (loading && !leads.length) return null;
 
   const rowProps = (r, overdue) => ({
     r, overdue, now,
@@ -276,13 +284,18 @@ export const nextUpHomeStyles = `
   .nh-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: -2px; border-radius: var(--v-radius-md); }
   .nh-row .v-stretch:focus-visible { outline: 0; }
   .nh-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; pointer-events: none; }
-  .nh-title { font-size: var(--v-text-lg); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); transition: color var(--v-dur-base) var(--v-ease-out); text-decoration: line-through transparent; text-decoration-thickness: 2px; }
+  .nh-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); transition: color var(--v-dur-base) var(--v-ease-out); text-decoration: line-through transparent; text-decoration-thickness: 2px; }
   .nh-biz { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .nh-meta { display: flex; align-items: center; gap: var(--v-space-2); min-width: 0; min-height: 22px; }
-  .nh-when { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .nh-when { flex: 0 0 auto; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* The late words are the point of an overdue row, so the kind pill is what gives way when the line is short. */
+  .nh-meta .v-pill { flex: 0 1 auto; min-width: 0; overflow: hidden; }
+  .nh-meta .v-pill-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .nh-when.is-late { color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
   .nh-when.is-done { color: var(--v-status-booked-text); font-weight: var(--v-weight-semibold); }
   .nh-act { display: inline-flex; align-items: center; gap: var(--v-space-2); flex-shrink: 0; }
+  .nh-act .nh-tomorrow, .nh-act .nh-openbtn { padding: 0 var(--v-space-3); }
+  @media (max-width: 767px) { .nh-act { gap: var(--v-space-1); } }
   .nh-row.is-done .nh-title { color: var(--v-text-3); text-decoration-color: var(--v-text-3); }
   .nh-row.is-done .nh-biz { opacity: 0.7; }
   .nh-row.is-leaving { opacity: 0; pointer-events: none; }

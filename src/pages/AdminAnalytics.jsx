@@ -93,7 +93,7 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
   const nextUp = <NextUpHome leads={leads} projects={projects} sets={sets} loading={leadsLoading || forceLoading} error={leadsError} onRetry={onRetryLeads} onPatchLead={onPatchLead} onPatchProject={onPatchProject} />;
   const rangeBar = <div className="an-rangebar"><SegmentedControl options={RANGES} value={range} onChange={pick} label="Range" className="an-range" /></div>;
 
-  const body = showSkel ? <DashSkeleton cards={7} stats={6} /> : error && !data ? (
+  const body = showSkel ? <DashSkeleton cards={6} stats={6} /> : error && !data ? (
     <Card><ErrorState title="The numbers did not load" description={COPY.error.leads.description} onRetry={retry} /></Card>
   ) : data ? (
     <Stagger className="dash-grid" cap={6}>
