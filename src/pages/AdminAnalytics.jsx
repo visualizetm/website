@@ -20,7 +20,7 @@ import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
  * (api/_routes/analytics.js over api/_lib/analytics.js, mirrored in
  * src/lib/analytics.js): real records, honest empty states, no sample
  * data. The payload is small and cached here for a minute per range. Next up
- * (Today, Overdue, Coming up) sits under the greeting: src/components/NextUpHome.jsx,
+ * (Today, Coming up, Overdue) sits under the greeting: src/components/NextUpHome.jsx,
  * the task rules over the leads already in the shell. */
 
 const RANGES = [{ id: 'month', label: 'Month' }, { id: '90', label: '90 days' }, { id: 'year', label: 'Year' }];

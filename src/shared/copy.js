@@ -10,7 +10,7 @@
  * `secondary` a link-style second choice where the screen offers one.
  */
 export const COPY = {
-  /* The home's Next up block: Today, Overdue, Coming up. */
+  /* The home's Next up block: Today, Coming up, Overdue. */
   home: {
     todayClear: 'Today is clear. Nice work.',
     overdueClear: "Nothing overdue. You're caught up.",

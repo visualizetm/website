@@ -15,7 +15,7 @@ import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { applyOutcome, outcomeRemoves, restoreLead } from '../lib/lists';
 import OutcomeSheet from './OutcomeSheet';
 
-/* Next up on the home (the home page job): Today, Overdue and Coming up as three cards Rob can work from without leaving the page.
+/* Next up on the home (the home page job): Today, Coming up and Overdue, in that order, as three cards Rob can work from without leaving the page.
  * One rule for every row, in src/lib/nextAction.js (homeRowAction) and src/lib/homeRows.js (what each write is):
  *   the check     a real task completes (the same completePatch the Tasks page writes); a call or a callback opens the Log outcome
  *                 sheet and never writes done; a manual action stamps its doneAt; any other rule action opens the record at its step
@@ -28,9 +28,12 @@ const NU_KEY = 'vz_home_nextup_n';   // the last known row counts, so the skelet
 const COMING_KEY = 'vz_home_coming'; // the Coming up card: '1' open, '0' folded
 const readLS = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage may be off */ } };
-/* The last known row counts; a stored 0 is a real answer (that card said it was clear), only a missing one falls back to a normal day. */
+/* The last known row counts; a stored 0 is a real answer (that card said it was clear), only a missing one falls back to a normal day.
+   Today and Coming up are never capped (they share the first row, so they set where Overdue starts), so the skeleton draws as many rows as they had;
+   only Overdue is capped, at the five it shows. LIVE_MAX only guards a corrupt value from drawing a page of skeleton. */
+const LIVE_MAX = 60;
 const DEFAULT_COUNTS = { t: 3, o: 5, l: 1 };
-const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null'); const n = (v, max, d) => (Number.isFinite(Number(v)) && v !== null && v !== undefined && v !== '' ? Math.min(max, Math.max(0, Number(v))) : d); return o ? { t: n(o.t, 6, DEFAULT_COUNTS.t), o: n(o.o, 5, DEFAULT_COUNTS.o), l: n(o.l, 4, DEFAULT_COUNTS.l) } : DEFAULT_COUNTS; } catch { return DEFAULT_COUNTS; } };
+const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null'); const n = (v, max, d) => (Number.isFinite(Number(v)) && v !== null && v !== undefined && v !== '' ? Math.min(max, Math.max(0, Number(v))) : d); return o ? { t: n(o.t, LIVE_MAX, DEFAULT_COUNTS.t), o: n(o.o, OVERDUE_CAP, DEFAULT_COUNTS.o), l: n(o.l, LIVE_MAX, DEFAULT_COUNTS.l) } : DEFAULT_COUNTS; } catch { return DEFAULT_COUNTS; } };
 
 /* Whether Coming up opens on arrival: what Rob left it at, else open on a computer and folded on a phone. */
 const comingOpen = () => { const v = readLS(COMING_KEY); return v === '1' ? true : v === '0' ? false : (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)').matches : false); };
@@ -87,12 +90,12 @@ function Skeleton({ counts }) {
     <div className="nh" aria-busy="true" aria-hidden="true">
       <div className="nh-grid">
         <Card className="nh-card">{head(96)}{list(counts.t, 't')}</Card>
-        <Card className="nh-card">{head(120)}{list(counts.o, 'o')}</Card>
+        <Card className="nh-card nh-card--coming">
+          <div className="nh-coming-head"><SkeletonBlock width={112} height={14} /></div>
+          {open && list(counts.l, 'l', true)}
+        </Card>
+        <Card className="nh-card nh-wide">{head(120)}{list(counts.o, 'o')}</Card>
       </div>
-      <Card className="nh-card nh-card--coming">
-        <div className="nh-coming-head"><SkeletonBlock width={112} height={14} /></div>
-        {open && list(counts.l, 'l', true)}
-      </Card>
       <div className="nh-foot"><SkeletonBlock width={104} height={44} radius="var(--v-radius-md)" /></div>
     </div>
   );
@@ -135,7 +138,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   };
   useEffect(() => { // the last known counts, for the next skeleton
     if (loading) return;
-    writeLS(NU_KEY, JSON.stringify({ t: q.today.length, o: Math.min(5, q.overdue.length), l: Math.min(4, q.later.length) }));
+    writeLS(NU_KEY, JSON.stringify({ t: q.today.length, o: Math.min(OVERDUE_CAP, q.overdue.length), l: q.later.length }));
   }, [loading, q]);
 
   const openRecord = (item, intent) => { if (item.lead) shell.openRecord(item.lead, intent); };
@@ -222,7 +225,36 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
           {L.today.length ? <ul className="nh-list">{L.today.map(r => <NuRow key={r.key} {...rowProps(r, false)} />)}</ul> : <p className="nh-clear" role="status">{COPY.home.todayClear}</p>}
         </Card>
 
-        <Card className="nh-card nh-card--overdue" data-card="next-overdue">
+        <Card className="nh-card nh-card--coming" data-card="next-coming">
+          <button type="button" className="nh-coming-head" aria-expanded={coming} aria-controls="nh-coming-body" onClick={toggleComing}>
+            <span className="nh-coming-label">Coming up</span>
+            <span className="nh-coming-n">{L.later.length} this week</span>
+            <Icon icon="ChevronDown" size="var(--v-icon-md)" className={`nh-chev${coming ? ' is-open' : ''}`} />
+          </button>
+          <Collapsible open={coming}>
+            <div id="nh-coming-body">
+              {L.later.length ? (
+                <ul className="nh-list">
+                  {L.later.map(it => {
+                    const d = new Date(it.due);
+                    const biz = it.lead.business;
+                    const plan = homeRowAction(it, now);
+                    return (
+                      <li key={rowKey(it)} className="nh-row nh-row--later" data-row-id={it.lead._id}>
+                        <button type="button" className="v-stretch" onClick={() => openRecord(it)} aria-label={`Open ${biz}, ${plan.title}, ${fmtDateTime(it.due)}`}>{`Open ${biz}`}</button>
+                        <span className="nh-stamp" aria-hidden="true"><span className="nh-stamp-d">{DAYS[d.getDay()]}</span><span className="nh-stamp-n">{d.getDate()}</span></span>
+                        <div className="nh-body"><span className="nh-title lay-truncate">{plan.title}</span><span className="nh-biz lay-truncate">{biz}</span></div>
+                        <Pill tone={NEXT_TONE[it.action.kind] || 'neutral'} label={kindLabel(it.action)} size="sm" icon={false} variant="soft" className="nh-later-pill" />
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : <p className="nh-clear">{COPY.home.comingClear}</p>}
+            </div>
+          </Collapsible>
+        </Card>
+
+        <Card className="nh-card nh-card--overdue nh-wide" data-card="next-overdue">
           <div className="nh-head">
             <div className="nh-headl"><span className="nh-kicker">Next up</span><h2 className="nh-h">Overdue{L.overdueCount > 0 && <span className="nh-count">{L.overdueCount}</span>}</h2></div>
             <span className="nh-sort">Oldest first</span>
@@ -233,35 +265,6 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
           )}
         </Card>
       </div>
-
-      <Card className="nh-card nh-card--coming" data-card="next-coming">
-        <button type="button" className="nh-coming-head" aria-expanded={coming} aria-controls="nh-coming-body" onClick={toggleComing}>
-          <span className="nh-coming-label">Coming up</span>
-          <span className="nh-coming-n">{L.later.length} this week</span>
-          <Icon icon="ChevronDown" size="var(--v-icon-md)" className={`nh-chev${coming ? ' is-open' : ''}`} />
-        </button>
-        <Collapsible open={coming}>
-          <div id="nh-coming-body">
-            {L.later.length ? (
-              <ul className="nh-list">
-                {L.later.map(it => {
-                  const d = new Date(it.due);
-                  const biz = it.lead.business;
-                  const plan = homeRowAction(it, now);
-                  return (
-                    <li key={rowKey(it)} className="nh-row nh-row--later" data-row-id={it.lead._id}>
-                      <button type="button" className="v-stretch" onClick={() => openRecord(it)} aria-label={`Open ${biz}, ${plan.title}, ${fmtDateTime(it.due)}`}>{`Open ${biz}`}</button>
-                      <span className="nh-stamp" aria-hidden="true"><span className="nh-stamp-d">{DAYS[d.getDay()]}</span><span className="nh-stamp-n">{d.getDate()}</span></span>
-                      <div className="nh-body"><span className="nh-title lay-truncate">{plan.title}</span><span className="nh-biz lay-truncate">{biz}</span></div>
-                      <Pill tone={NEXT_TONE[it.action.kind] || 'neutral'} label={kindLabel(it.action)} size="sm" icon={false} variant="soft" className="nh-later-pill" />
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : <p className="nh-clear">{COPY.home.comingClear}</p>}
-          </div>
-        </Collapsible>
-      </Card>
 
       <div className="nh-foot"><Button variant="ghost" size="md" icon="ArrowRight" onClick={() => shell.go('tasks')} className="nh-all">All tasks</Button></div>
       <span className="visually-hidden" role="status" aria-live="polite" key={said.n}>{said.text}</span>
@@ -281,7 +284,8 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
 export const nextUpHomeStyles = `
   .nh { display: flex; flex-direction: column; gap: var(--v-space-3); min-width: 0; }
   .nh-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--v-space-3); min-width: 0; align-items: start; }
-  @media (min-width: 768px) { .nh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* Today, Coming up, Overdue, in that order at every width. From 768 Today and Coming up share the top row and Overdue takes the full row under them. */
+  @media (min-width: 768px) { .nh-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .nh-wide { grid-column: 1 / -1; } }
   .nh-card { gap: 0; min-width: 0; border-radius: var(--v-radius-xl); }
   .nh-card--overdue { border-color: color-mix(in srgb, var(--v-status-danger-text) 38%, var(--v-border)); }
   .nh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--v-space-3); min-height: 56px; min-width: 0; }

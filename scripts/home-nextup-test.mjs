@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Next up on the home page, in a browser against the audit fixtures (the home page job). Run at 390 and 1280 by default.
  *   npx vite preview --port 4330 &   AUDIT_BASE=http://127.0.0.1:4330 node scripts/home-nextup-test.mjs
- * Checks, per width: the three cards and their order above the range control and the KPIs; the check on a task completes it (a PATCH of
+ * Checks, per width: the three cards (Today, Coming up, Overdue, in that order) above the range control and the KPIs; the check on a task completes it (a PATCH of
  * the checklists, never a nextAction doneAt), the row stays, struck through, X of Y done counts it, the overview chip and the live region
  * follow, Undo takes it back; Tomorrow on a task and on a callback writes 9:00 AM New York tomorrow and the row leaves Overdue, Undo
  * brings it back; the check on a callback opens the Log outcome sheet and writes nothing until an outcome is saved; the check on a rule
@@ -42,8 +42,12 @@ for (const w of WIDTHS) {
   /* The fixtures are dated against the clock, so what is due today moves through the day: the rows must equal what the chips count. */
   const nToday = await today.locator('.nh-row').count(); const nOver = await overdue.locator('.nh-row').count();
   ok(nToday > 0 && nToday === await chip('today') && nOver > 0 && nOver === Math.min(5, await chip('overdue')), `Today shows every row the chip counts (${nToday}) and Overdue up to five (${nOver})`);
-  if (phone) { const sideBySide = await page.evaluate(() => { const a = document.querySelector('[data-card="next-today"]').getBoundingClientRect(); const b = document.querySelector('[data-card="next-overdue"]').getBoundingClientRect(); return Math.abs(a.top - b.top) < 4; }); ok(!sideBySide, 'the cards stack on a phone'); }
-  else { const sideBySide = await page.evaluate(() => { const a = document.querySelector('[data-card="next-today"]').getBoundingClientRect(); const b = document.querySelector('[data-card="next-overdue"]').getBoundingClientRect(); return Math.abs(a.top - b.top) < 4 && a.right <= b.left + 1; }); ok(sideBySide, 'Today and Overdue sit side by side from 768 up'); }
+  /* Today, Coming up, Overdue: that order down the page at every width, and in the document, so the tab order and a screen reader follow it. */
+  const box = await page.evaluate(() => { const r = (s) => { const b = document.querySelector(`[data-card="${s}"]`).getBoundingClientRect(); return { top: b.top, bottom: b.bottom, left: b.left, right: b.right }; }; const dom = [...document.querySelectorAll('[data-card="next-today"],[data-card="next-coming"],[data-card="next-overdue"]')].map((e) => e.dataset.card); return { t: r('next-today'), c: r('next-coming'), o: r('next-overdue'), dom }; });
+  ok(box.dom.join() === 'next-today,next-coming,next-overdue', `the cards run Today, Coming up, Overdue in the document (${box.dom})`);
+  ok(box.t.top <= box.c.top + 1 && box.c.top < box.o.top && box.c.bottom <= box.o.top + 1, 'Coming up sits above Overdue and no higher than Today');
+  if (phone) ok(Math.abs(box.t.left - box.c.left) < 2 && Math.abs(box.c.left - box.o.left) < 2 && box.t.bottom <= box.c.top + 1, 'the three cards stack on a phone');
+  else ok(Math.abs(box.t.top - box.c.top) < 4 && box.t.right <= box.c.left + 1 && box.o.top >= Math.max(box.t.bottom, box.c.bottom) - 1 && Math.abs(box.o.left - box.t.left) < 2 && Math.abs(box.o.right - box.c.right) < 2, 'from 768 up Today and Coming up share a row and Overdue takes the full row under them');
 
   // 1. The check on a task.
   const todayChip0 = await chip('today'); const overChip0 = await chip('overdue');
@@ -135,9 +139,12 @@ for (const w of WIDTHS) {
   const day = 864e5;
   const extra = Array.from({ length: 4 }, (_, i) => ({ _id: `XO${i}`, business: `Extra Overdue Co ${i + 1}`, stage: 'lead', callStatus: 'callback', callbackAt: new Date(Date.now() - (6 + i) * day).toISOString(), phone: '(302) 555-01' + String(10 + i) }));
   const extraToday = Array.from({ length: 4 }, (_, i) => ({ _id: `XT${i}`, business: `Extra Today Co ${i + 1}`, stage: 'lead', callStatus: 'callback', callbackAt: new Date(Date.now() - (i + 1) * 60e3).toISOString(), phone: '(302) 555-02' + String(10 + i) }));
+  /* Six callbacks a few days out: Coming up gets longer than the skeleton's old cap of four rows. */
+  const extraLater = Array.from({ length: 6 }, (_, i) => ({ _id: `XL${i}`, business: `Extra Later Co ${i + 1}`, stage: 'lead', callStatus: 'callback', callbackAt: new Date(Date.now() + (2 + (i % 4)) * day + i * 36e5).toISOString(), phone: '(302) 555-03' + String(10 + i) }));
+  const bigBody = JSON.stringify({ items: [...FIXTURE_LEADS, ...extra, ...extraToday, ...extraLater] });
   const page2 = await ctx.newPage();
   await mockRoutes(page2, { session: true });
-  await page2.route('**/api/admin/call-leads**', async (r) => { if (r.request().method() !== 'GET' || r.request().url().includes('deleted=1')) return r.fallback(); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [...FIXTURE_LEADS, ...extra, ...extraToday] }) }); });
+  await page2.route('**/api/admin/call-leads**', async (r) => { if (r.request().method() !== 'GET' || r.request().url().includes('deleted=1')) return r.fallback(); return r.fulfill({ status: 200, contentType: 'application/json', body: bigBody }); });
   await page2.goto(`${BASE}/admin`, { waitUntil: 'networkidle' });
   await page2.waitForSelector('.nh-row');
   await page2.waitForTimeout(800);
@@ -157,6 +164,23 @@ for (const w of WIDTHS) {
   await od.getByRole('button', { name: /^Show fewer$/ }).click();
   await page2.waitForTimeout(300);
   ok(await od.locator('.nh-row').count() === 5, 'and folds back to five');
+
+  // 6b. The skeleton holds the place of the two cards that share the first row, whatever their length: Overdue starts where it started
+  // in the skeleton. The stored counts come from the load just above (Today past six rows, Coming up past four).
+  const nLater = await page2.locator('[data-card="next-coming"] .nh-row--later').count();
+  const page5 = await ctx.newPage();
+  await mockRoutes(page5, { session: true });
+  await page5.route('**/api/admin/call-leads**', async (r) => { if (r.request().method() !== 'GET' || r.request().url().includes('deleted=1')) return r.fallback(); await new Promise((res) => setTimeout(res, 1800)); return r.fulfill({ status: 200, contentType: 'application/json', body: bigBody }); });
+  await page5.goto(`${BASE}/admin`, { waitUntil: 'commit' });
+  await page5.waitForSelector('.nh[aria-busy="true"] .nh-wide', { timeout: 8000 });
+  const skelTop = await page5.evaluate(() => document.querySelector('.nh[aria-busy="true"] .nh-wide').getBoundingClientRect().top);
+  await page5.waitForSelector('[data-card="next-overdue"]', { timeout: 12000 });
+  await page5.waitForTimeout(500);
+  const loadedTop = await page5.evaluate(() => document.querySelector('[data-card="next-overdue"]').getBoundingClientRect().top);
+  const comingOpenNow = (await page5.locator('[data-card="next-coming"] .nh-coming-head').getAttribute('aria-expanded')) === 'true';
+  ok(totalToday >= 7 && (nLater >= 5 || !comingOpenNow), `the long case is real: Today has ${totalToday} rows, Coming up ${nLater} and is ${comingOpenNow ? 'open' : 'folded'}`);
+  ok(Math.abs(skelTop - loadedTop) <= 4, `Overdue starts at ${Math.round(skelTop)}px in the skeleton and ${Math.round(loadedTop)}px when the data lands (no jump)`);
+  await page5.close();
 
   // 7. The empty and the error states.
   const page3 = await ctx.newPage();
