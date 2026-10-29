@@ -741,7 +741,7 @@ export default function AdminApp() {
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
-      {section === 'dashboard' && <AdminAnalytics leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} forceLoading={forceLoading} />}
+      {section === 'dashboard' && <AdminAnalytics leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} leadsError={errors.leads} onRetryLeads={loadCallLeads} onPatchLead={patchCallLead} onPatchProject={patchProject} forceLoading={forceLoading} />}
       {section === 'tasksAll' && (
         <AdminTasksHome leads={V.leads} projects={V.projects} sets={V.sets} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateProject={createProject} onOpenLead={openLead} submissions={V.items} onLinkSubmission={linkSubmission} />
       )}

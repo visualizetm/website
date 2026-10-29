@@ -9,7 +9,7 @@ import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, Input, SegmentedControl, Tabs, Pill, Avatar, Badge, Menu, Popover, Checkbox, Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, SegmentedControl, Tabs, Pill, Avatar, Badge, Menu, Popover, Checkbox, Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
@@ -17,6 +17,8 @@ import { useShell, useTopBar } from '../shell/ShellContext';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelection, useBack } from '../shell/nav-history';
 import { useDecline } from '../components/DeclineSheet';
+import OutcomeSheet from '../components/OutcomeSheet';
+import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { withNextAction } from '../lib/nextAction';
 import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey, restoreLead } from '../lib/lists';
 import ListCard, { listCardStyles } from '../components/ListCard';
@@ -26,13 +28,10 @@ import LeadHistory from '../components/LeadHistory';
 import LeadNotes from '../components/LeadNotes';
 import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/LeadPlaybook';
 import { effectiveStage } from '../lib/booked';
-import { saidNoPatch } from '../lib/nurture';
 import { defaultLead } from '../lib/defaultLead';
-import { emptyDeal } from '../lib/deal';
-import { dealFromOptions } from '../lib/dealConvert';
 import { industryFacets } from '../lib/leads';
-import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine, quickCallbacks, toLocalInput } from '../lib/calls';
-import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, MEETING_TYPES, industryKey, displayIndustry } from '../shared/semantics';
+import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine } from '../lib/calls';
+import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, industryKey, displayIndustry } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtMins, fmtDate } from '../shared/dates';
 import { ADMIN_HOME } from '../lib/adminPaths';
@@ -54,58 +53,6 @@ const writeLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } 
 export { defaultLead } from '../lib/defaultLead';
 
 const fmtClock = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
-
-/* ── Outcome sheet: one component, five outcomes ─────────────── */
-function OutcomeSheet({ outcome, lead, onLog, onClose }) {
-  const o = OUTCOMES.find(x => x.id === outcome);
-  const [note, setNote] = useState('');
-  const [email, setEmail] = useState(lead.email || lead.afterCall?.email || '');
-  const [date, setDate] = useState(() => (outcome === 'callback' ? toLocalInput(new Date(Date.now() + 3600e3)).date : ''));
-  const [time, setTime] = useState(() => (outcome === 'callback' ? toLocalInput(new Date(Date.now() + 3600e3)).time : ''));
-  const [type, setType] = useState('call');
-  const [busy, setBusy] = useState(false);
-  const quick = useMemo(() => quickCallbacks(), []);
-  const submit = async (e) => {
-    e?.preventDefault?.();
-    setBusy(true);
-    try {
-      if (outcome === 'booked') await onLog('booked', { note, email, meeting: date ? { date, time: time || '09:00', type } : null });
-      else if (outcome === 'callback') await onLog('callback', { note, callbackAt: date ? new Date(`${date}T${time || '09:00'}`).toISOString() : null });
-      else await onLog(outcome, { note });
-    } finally { setBusy(false); }
-  };
-  const title = { booked: 'Booked a meeting', callback: 'Call them back', 'no-answer': 'No answer', no: 'Said no', 'wrong-number': 'Wrong number' }[outcome];
-  return (
-    <Sheet open onClose={onClose} title={title} description={lead.business} className={`cc-osheet cc-osheet--${outcome}`}
-      footer={<><Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button variant={outcome === 'booked' ? 'primary' : outcome === 'callback' ? 'secondary' : 'secondary'} icon={o?.icon} loading={busy} onClick={submit} data-autofocus={outcome !== 'booked' && outcome !== 'callback'}>{outcome === 'booked' ? 'Book it' : outcome === 'callback' ? 'Set callback' : 'Log'}</Button></>}>
-      <form onSubmit={submit} className="cc-osheet-form">
-        {outcome === 'booked' && (
-          <Stack gap={3}>
-            <Grid minColumnWidth={140} gap={2}>
-              <Input label="Meeting date" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-autofocus />
-              <Input label="Time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </Grid>
-            <Select label="Type" value={type} onChange={(e) => setType(e.target.value)} options={MEETING_TYPES.map(t => ({ id: t.id, label: t.label }))} />
-            <Input label="Their email" type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="owner@business.com" />
-          </Stack>
-        )}
-        {outcome === 'callback' && (
-          <Stack gap={3}>
-            <Row gap={2} wrap>{quick.map(q => { const v = toLocalInput(q.at); const on = v.date === date && v.time === time; return <Chip key={q.id} label={q.label} selected={on} onClick={() => { setDate(v.date); setTime(v.time); }} />; })}</Row>
-            <Grid minColumnWidth={140} gap={2}>
-              <Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-              <Input label="Time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-            </Grid>
-          </Stack>
-        )}
-        <Input label={outcome === 'booked' ? 'What they said' : 'Note'} value={note} onChange={(e) => setNote(e.target.value)} placeholder={outcome === 'callback' ? 'Ask for the owner after 5' : 'Optional, one line'} autoComplete="off" data-autofocus={outcome !== 'booked' && outcome !== 'callback'} />
-        {outcome === 'wrong-number' && <p className="cc-hint">The phone note gets stamped "Wrong number ({fmtDate(new Date().toISOString())})". Nothing else changes.</p>}
-        {outcome === 'no' && <p className="cc-hint">A no parks them in Nurture for 90 days, then they come back through Triage. Undo for six seconds.</p>}
-        <button type="submit" hidden aria-hidden="true" />
-      </form>
-    </Sheet>
-  );
-}
 
 const KEYS = [['1', 'Booked'], ['2', 'Callback'], ['3', 'No answer'], ['4', 'Said no'], ['5', 'Wrong number'], ['N', 'Next lead'], ['S', 'Skip'], ['Right or Space', 'Next'], ['Left', 'Previous'], ['Esc', 'Back to the queue'], ['?', 'This list']];
 function ShortcutsModal({ open, onClose }) {
@@ -518,19 +465,10 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   /* ── Logging: optimistic, rollback, undo ── */
   const applyLog = async (outcome, extra = {}) => {
     const lead = current; if (!lead) return false;
-    const at = new Date().toISOString();
-    const entry = { at, outcome, note: (extra.note || '').trim(), meeting: outcome === 'booked' && extra.meeting ? `${extra.meeting.date} ${extra.meeting.time}` : '', email: outcome === 'booked' ? (extra.email || '').trim() : '' };
-    const prev = { _id: lead._id, callStatus: lead.callStatus || 'not-called', callLog: lead.callLog || [], stage: lead.stage, callbackAt: lead.callbackAt || '', phoneNote: lead.phoneNote || '', meeting: lead.meeting, afterCall: lead.afterCall, nurture: lead.nurture || null, listId: lead.listId || '' };
+    const { set, prev } = callOutcomeSet(lead, outcome, extra);
     // CRM revamp, step 4: where the lead sat on the list it came from, so an undo puts it back there.
     const prevList = session?.listId ? lists.find(l => String(l._id) === String(session.listId)) : null;
     const prevIndex = prevList ? (prevList.leadIds || []).map(String).indexOf(String(lead._id)) : -1;
-    const set = { callStatus: outcome, callLog: [...(lead.callLog || []), entry] };
-    // CRM revamp, step 5: a booking starts the deal, the package from the recommended pricing option.
-    if (outcome === 'booked') { set.stage = 'booked'; if (!lead.deal) set.deal = { ...emptyDeal(), ...dealFromOptions(lead.pricingOptions) }; if (extra.meeting) set.meeting = extra.meeting; if (entry.email || entry.meeting) set.afterCall = { ...(lead.afterCall || {}), meeting: entry.meeting || lead.afterCall?.meeting || '', email: entry.email || lead.afterCall?.email || '' }; }
-    if (outcome === 'callback') set.callbackAt = extra.callbackAt || '';
-    if (outcome === 'wrong-number') set.phoneNote = `Wrong number (${fmtDate(at)})`;
-    // CRM revamp, step 4: a no parks the lead in nurture for 90 days instead of deleting it.
-    if (outcome === 'no') Object.assign(set, saidNoPatch());
     setLeads(ls => ls.map(l => (l._id === lead._id ? { ...l, ...set } : l)));
     setSession(s => (s ? { ...s, stats: { ...s.stats, calls: s.stats.calls + 1, [STAT_KEY[outcome]]: (s.stats[STAT_KEY[outcome]] || 0) + 1 }, logged: { ...s.logged, [lead._id]: outcome } } : s));
     setSheet(null); setTimer(null);
@@ -556,7 +494,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (outcome === 'no') removeFromLists(lead._id);
     const label = OUTCOMES.find(o => o.id === outcome)?.label || outcome;
     toast.undo(`${label}: ${lead.business}`, async () => {
-      const back = await patch(lead._id, { callStatus: prev.callStatus, callLog: prev.callLog, stage: prev.stage, callbackAt: prev.callbackAt, phoneNote: prev.phoneNote, nurture: prev.nurture, listId: prev.listId, ...(prev.meeting ? { meeting: prev.meeting } : {}), ...(prev.afterCall ? { afterCall: prev.afterCall } : {}) });
+      const back = await patch(lead._id, outcomeUndoSet(prev));
       if (!back) { toast.error('Undo failed. Fix it on the lead.'); return; }
       /* CRM revamp, step 4: back on the list it came from, in its old place, and the callbacks list follows. */
       if (prevList && prevIndex >= 0 && listOps) { const cur = lists.find(l => String(l._id) === String(prevList._id)) || prevList; await listOps.patchList(prevList._id, { leadIds: restoreLead(cur.leadIds, lead._id, prevIndex) }); }

@@ -42,6 +42,7 @@ import Select, { selectStyles } from './Select';
 import InlineEdit, { inlineEditStyles } from './InlineEdit';
 import Toggle, { toggleStyles } from './Toggle';
 import Checkbox, { checkboxStyles } from './Checkbox';
+import RoundCheck, { roundCheckStyles } from './RoundCheck';
 import SegmentedControl, { segmentedControlStyles } from './SegmentedControl';
 import Tabs, { tabsStyles } from './Tabs';
 import Table, { tableStyles } from './Table';
@@ -80,7 +81,7 @@ export const uiStyles = [
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
   emptyStateStyles, swipeRowStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
   spinnerStyles, logoStyles, buttonStyles, iconButtonStyles, collapsiblePaneStyles, workspaceSwitcherStyles, overviewStripStyles, pageHeaderStyles, funnelBarStyles, chartStyles, qrCodeStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
-  toggleStyles, checkboxStyles, segmentedControlStyles, tabsStyles, tableStyles,
+  toggleStyles, checkboxStyles, roundCheckStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
   staggerStyles, revealStyles, progressRingStyles, progressBarStyles, recordSkeletonStyles, leadCardStyles, leadHistoryStyles, leadNotesStyles, playbookStyles, leadFormStyles, leadDetailStyles, clientStyles, collapsibleStyles,
 ].join('\n');
@@ -88,7 +89,7 @@ export const uiStyles = [
 export {
   PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider, CollapsiblePane, WorkspaceSwitcher, OverviewStrip, PageHeader, FunnelBar, BarChart, LineChart, DonutChart, QrCode,
   Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, NoResults, SwipeRow, ErrorState, ErrorBoundary, ListRow,
-  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, SegmentedControl, Tabs, Table, Collapsible,
+  Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, RoundCheck, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
   SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, Logo, LogoSpinner, logoSrc, logoSize, LOGO_VARIANTS, durationMs, motionReduced,
   useDelayedLoading, useOptimisticPatch, useMediaQuery, DESKTOP_QUERY, HOVER_QUERY, useFocusTrap, useScrollLock, useRetry, useOnline,

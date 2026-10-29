@@ -10,6 +10,14 @@
  * `secondary` a link-style second choice where the screen offers one.
  */
 export const COPY = {
+  /* The home's Next up block: Today, Overdue, Coming up. */
+  home: {
+    todayClear: 'Today is clear. Nice work.',
+    overdueClear: "Nothing overdue. You're caught up.",
+    comingClear: 'Nothing else this week.',
+    markedDone: 'Marked done',
+    movedTomorrow: 'Moved to tomorrow',
+  },
   /* Client docs (docs job): the lines that are not one screen's empty state. */
   docs: {
     savedHint: 'Save any doc as a template from its menu and it shows here.',

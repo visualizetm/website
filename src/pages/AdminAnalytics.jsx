@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, Button, StatCard, SegmentedControl, EmptyState, ErrorState, Stagger, SkeletonBlock, BarChart, LineChart, DonutChart, FunnelBar, useDelayedLoading, useMediaQuery,
+  PageShell, ScrollArea, Stack, Row, Card, Button, StatCard, SegmentedControl, EmptyState, ErrorState, Stagger, BarChart, LineChart, DonutChart, FunnelBar, useDelayedLoading, useMediaQuery,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
@@ -8,19 +8,20 @@ import { money } from '../shared/format';
 import { fmtDate, fmtWeekdayDateTime } from '../shared/dates';
 import { packageOf, RETAINERS } from '../shared/pricing';
 import { useShell, useTopBar } from '../shell/ShellContext';
-import { nextUpItems } from '../lib/nextAction';
+import NextUpHome, { nextUpHomeStyles } from '../components/NextUpHome';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
 /* Analytics (the nav revamp, milestone 6): the home. The greeting, then the
  * range (Month, 90 days, Year), the KPIs with their change against the
  * period before (Income, Clients gained, Tasks completed, Leads added, MRR,
  * outstanding beside income), the charts (income by week or month, clients
- * gained, tasks completed, the funnel, income by package), the meetings
- * card and the top open tasks. Every number comes from /api/admin/analytics
+ * gained, tasks completed, the funnel, income by package) and the meetings
+ * card. Every number comes from /api/admin/analytics
  * (api/_routes/analytics.js over api/_lib/analytics.js, mirrored in
  * src/lib/analytics.js): real records, honest empty states, no sample
- * data. The payload is small and cached here for a minute per range. The
- * open tasks are the task rules over the leads already in the shell. */
+ * data. The payload is small and cached here for a minute per range. Next up
+ * (Today, Overdue, Coming up) sits under the greeting: src/components/NextUpHome.jsx,
+ * the task rules over the leads already in the shell. */
 
 const RANGES = [{ id: 'month', label: 'Month' }, { id: '90', label: '90 days' }, { id: 'year', label: 'Year' }];
 const CACHE_MS = 60e3;
@@ -49,7 +50,7 @@ function useAnalytics(range) {
 
 const trendOf = (k, better = 'up') => (k && k.delta !== null && k.delta !== undefined ? { value: `${k.delta > 0 ? '+' : ''}${k.delta}%`, direction: k.delta > 0 ? 'up' : k.delta < 0 ? 'down' : 'flat', tone: k.delta === 0 ? 'neutral' : (k.delta > 0) === (better === 'up') ? 'booked' : 'danger' } : null);
 
-export default function AdminAnalytics({ leads = [], projects = [], sets = [], leadsLoading = false, forceLoading = false }) {
+export default function AdminAnalytics({ leads = [], projects = [], sets = [], leadsLoading = false, leadsError = false, onRetryLeads, onPatchLead, onPatchProject, forceLoading = false }) {
   const shell = useShell();
   const phone = useMediaQuery('(max-width: 767px)');
   const [range, setRange] = useState(() => { try { return RANGES.some(r => r.id === localStorage.getItem('vz_analytics_range')) ? localStorage.getItem('vz_analytics_range') : 'month'; } catch { return 'month'; } });
@@ -60,8 +61,6 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
   const now = Date.now();
   const name = (shell?.profile?.name || 'Rob').split(' ')[0];
   const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
-  const q = useMemo(() => nextUpItems(leads, projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
-  const open = useMemo(() => [...q.overdue, ...q.today, ...q.later, ...q.undated].slice(0, 5), [q]);
   const upcoming = useMemo(() => (shell?.events || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= now && e.at <= now + 7 * 864e5).sort((a, b) => a.at - b.at), [shell?.events, now]);
   const k = data?.kpis;
   const series = (key) => (data ? data.series.labels.map((label, i) => ({ label, value: data.series[key][i] || 0 })) : []);
@@ -87,10 +86,12 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
       <Row gap={2} wrap className="an-head-actions">
         <Button icon="PhoneCall01" onClick={() => shell.go('calls')}>Start call session</Button>
         <Button variant="secondary" icon="Plus" onClick={() => shell.newLead({})}>Add lead</Button>
-        <SegmentedControl options={RANGES} value={range} onChange={pick} label="Range" className="an-range" />
       </Row>
     </div>
   );
+  /* Next up first (the home page job), then the range and the numbers under it. */
+  const nextUp = <NextUpHome leads={leads} projects={projects} sets={sets} loading={leadsLoading || forceLoading} error={leadsError} onRetry={onRetryLeads} onPatchLead={onPatchLead} onPatchProject={onPatchProject} />;
+  const rangeBar = <div className="an-rangebar"><SegmentedControl options={RANGES} value={range} onChange={pick} label="Range" className="an-range" /></div>;
 
   const body = showSkel ? <DashSkeleton cards={7} stats={6} /> : error && !data ? (
     <Card><ErrorState title="The numbers did not load" description={COPY.error.leads.description} onRetry={retry} /></Card>
@@ -129,20 +130,6 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
           <Stack gap={1} className="dash-rows">{upcoming.slice(0, 3).map(e => <div key={e.id} className="dash-row"><button type="button" className="dash-row-main" onClick={() => shell.openRecord(e.lead)}><span className="dash-row-title lay-truncate">{e.lead.business}</span><span className="dash-row-sub">{fmtWeekdayDateTime(e.at)}</span></button></div>)}</Stack>
         ) : <p className="dash-muted">Nothing booked this week.</p>}
       </Dash>
-      <Dash title={`Open tasks, ${q.overdue.length + q.today.length} due`} data-card="open-tasks" className="dash-card--wide" action={<Button variant="ghost" size="md" icon="ArrowRight" onClick={() => shell.go('tasks')} className="an-open-tasks">All tasks</Button>}>
-        {leadsLoading && !leads.length ? <SkeletonBlock width="100%" height={44} /> : !open.length ? <EmptyState size="sm" icon="CheckDone01" title="Nothing waiting" description="Every next action is done or dated past this week." /> : (
-          <Stack gap={1} className="dash-rows">
-            {open.slice(0, 5).map(it => (
-              <div key={it.id} className="dash-row">
-                <button type="button" className="dash-row-main" onClick={() => shell.openRecord(it.lead)}>
-                  <span className="dash-row-title lay-truncate">{it.action.label}{it.project ? `, ${it.project.name}` : ''}</span>
-                  <span className={`dash-row-sub${it.bucket === 'overdue' ? ' dash-row-sub--danger' : ''}`}>{it.lead.business}{it.action.dueAt ? `, ${it.bucket === 'overdue' ? 'overdue ' : ''}${fmtDate(it.action.dueAt)}` : ', no date'}</span>
-                </button>
-              </div>
-            ))}
-          </Stack>
-        )}
-      </Dash>
     </Stagger>
   ) : null;
 
@@ -151,9 +138,11 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
       <ScrollArea wide className="dash-page an-page">
         {phone && shell?.overviewStrip ? <div className="an-overview">{shell.overviewStrip(true)}</div> : null}
         {header}
+        {nextUp}
+        {rangeBar}
         {body}
       </ScrollArea>
-      <style>{dashStyles}{anStyles}</style>
+      <style>{dashStyles}{anStyles}{nextUpHomeStyles}</style>
     </PageShell>
   );
 }
@@ -168,6 +157,7 @@ const anStyles = `
   .an-context { margin: 0; min-height: calc(2 * var(--v-lh-md)); font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }
   .an-head-actions { flex-shrink: 0; align-items: center; }
   .an-range { flex-shrink: 0; }
-  @media (max-width: 767px) { .an-head-actions > .v-btn { flex: 1 1 45%; } .an-head-actions > .v-seg { flex: 1 1 100%; } }
+  .an-rangebar { display: flex; min-width: 0; }
+  @media (max-width: 767px) { .an-head-actions > .v-btn { flex: 1 1 45%; } .an-rangebar > .v-seg { flex: 1 1 100%; } }
   .dash-stats .v-stat-label { overflow-wrap: anywhere; }
 `;
