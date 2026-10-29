@@ -1,6 +1,6 @@
-import { nextActionFor } from './nextAction';
-import { taskTimes, fmtTaskDue, dateKeyOf } from './tasks';
-import { allTasks, taskAsAction, setTaskDone, setTaskPinned, normalizeChecklists } from '../shared/taskRules';
+import { nextActionFor } from './nextAction.js';
+import { taskTimes, fmtTaskDue, dateKeyOf } from './tasks.js';
+import { allTasks, taskAsAction, setTaskDone, setTaskPinned, normalizeChecklists } from '../shared/taskRules.js';
 
 /* The task system's writes (planner dashboard and task system, milestone 5).
  *

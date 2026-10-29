@@ -21,6 +21,13 @@ Resume with: "Continue the client docs job from docs/MOBILE-PROGRESS.md." Milest
 - [x] Milestone 5: All docs per client and across clients, the More page Docs row, global search, Recently Deleted and History.
 - [x] Milestone 6: audit states at five widths, the gate, docs, reports/CLIENT-DOCS-REPORT.md.
 
+## Next up on the home page (today, overdue, coming up)
+Resume with: "Continue the Next up home job from docs/MOBILE-PROGRESS.md." Decisions: the last section of docs/MOBILE-DECISIONS.md.
+- [x] Milestone 1: homeRowAction, lateLabel, homeTimeLabel, tomorrowNineNY (src/lib/nextAction.js), homeLists, checkWrite, tomorrowWrite (src/lib/homeRows.js), section 4 of scripts/next-action-test.mjs (both zones). Faults put back and shown failing: a callback check writing done, Tomorrow in the browser zone, Today capped at 5.
+- [ ] Milestone 2: the Today and Overdue cards on the home, the old Open tasks card removed.
+- [ ] Milestone 3: Coming up, the widths, the audits at five widths.
+- [ ] Milestone 4: ship (preship, the script list, push, deploy Ready).
+
 ## Logo rollout (Brand v3), one run, five milestones
 Resume with: "Continue the logo rollout from docs/MOBILE-PROGRESS.md." Checklist: docs/LOGO-INVENTORY.md. Decisions: the "Logo rollout" section of docs/MOBILE-DECISIONS.md.
 - [x] M1: pack files placed (staging folder was the repo root, upload commit 55292f2), badge-96 and the two 480 wordmarks rendered (scripts/brand-render.mjs), src/ui/Logo.jsx, src/ui/LogoSpinner.jsx, scripts/logo-test.mjs, docs/LOGO-INVENTORY.md (37 rows: public 18, public and admin 2, admin 8, system 6, docs 2, staging 1).

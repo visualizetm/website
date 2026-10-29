@@ -165,3 +165,74 @@ export function nextUpItems(leads = [], projects = [], sets = [], now = Date.now
   return { overdue: of('overdue'), today: of('today'), later: of('later'), beyond: of('beyond'), undated: of('undated'), all: items.filter(i => i.bucket === 'overdue' || i.bucket === 'today' || i.bucket === 'later') };
 }
 export const nextUpBadge = (leads, projects, sets, now = Date.now()) => { const q = nextUpItems(leads, projects, sets, now); return q.overdue.length + q.today.length; };
+
+/* ── The home's rows (the Next up block on the home page) ────────────
+ * One pure answer for what a row on the home does, so the card, the tests and the audits read the same thing: what the check
+ * does, whether Tomorrow is offered and how it writes, whether there is a Call button, and the words under the title.
+ * The times are the browser's, like every other client mirror; only Tomorrow is pinned to America/New_York, because its 9:00 AM
+ * is Rob's morning in the zone the server runs the reminders in. */
+const NY_ZONE = 'America/New_York';
+const nyFmt = new Intl.DateTimeFormat('en-US', { timeZone: NY_ZONE, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const nyParts = (ms) => { const o = {}; for (const p of nyFmt.formatToParts(new Date(ms))) if (p.type !== 'literal') o[p.type] = Number(p.value); return { y: o.year, m: o.month, d: o.day, h: o.hour === 24 ? 0 : o.hour, min: o.minute, s: o.second }; };
+/** The instant of a New York wall clock time (a time inside the spring gap lands an hour on). */
+function nyMs(y, m, d, h = 0, min = 0) {
+  const want = Date.UTC(y, m - 1, d, h, min, 0);
+  let guess = want;
+  for (let i = 0; i < 3; i++) { const p = nyParts(guess); const diff = want - Date.UTC(p.y, p.m - 1, p.d, p.h, p.min, p.s); if (!diff) break; guess += diff; }
+  return guess;
+}
+/** The day after `now` in New York at 9:00 AM New York time, as an instant. Never the browser's zone. */
+export function tomorrowNineNY(now = Date.now()) {
+  const p = nyParts(now);
+  const next = new Date(Date.UTC(p.y, p.m - 1, p.d + 1));
+  return nyMs(next.getUTCFullYear(), next.getUTCMonth() + 1, next.getUTCDate(), 9, 0);
+}
+
+const HOME_OPEN = { 'log-outcome': 'outcome', 'chase-invoice': 'payments', 'build-concepts': 'concepts' };
+const daysBetweenKeys = (a, b) => { const [ya, ma, da] = a.split('-').map(Number); const [yb, mb, db] = b.split('-').map(Number); return Math.round((Date.UTC(yb, mb - 1, db) - Date.UTC(ya, ma - 1, da)) / DAY); };
+
+/** How late a row is: '' when it is not, "12m late" or "1h late" the same day, "Yesterday" or "3 days late" before that. */
+export function lateLabel(item, now = Date.now()) {
+  const at = parseDate(item?.action?.dueAt)?.getTime() || 0;
+  if (!at || at >= now) return '';
+  const days = daysBetweenKeys(dayKey(new Date(at)), dayKey(new Date(now)));
+  if (days >= 2) return `${days} days late`;
+  if (days === 1) return 'Yesterday';
+  const mins = Math.floor((now - at) / 60e3);
+  if (mins < 1) return '';
+  return mins < 60 ? `${mins}m late` : `${Math.floor(mins / 60)}h late`;
+}
+/** The third line of a Today row: "10:00 AM", or "10:00 AM, 1h late" once it is past. */
+export function homeTimeLabel(item, now = Date.now()) {
+  const at = parseDate(item?.action?.dueAt)?.getTime() || item?.due || 0;
+  if (!at) return '';
+  const time = new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const late = lateLabel(item, now);
+  return late ? `${time}, ${late}` : time;
+}
+
+/**
+ * What a home row does.
+ *   check     'task'    a real task (a taskId): the check completes it through completePatch
+ *             'manual'  a manual action with no task (a snooze, a task set by hand): the check stamps its doneAt, like the Tasks page
+ *             'outcome' a call or a callback: the check never writes done, it opens the Log outcome sheet
+ *             'open'    any other rule action: the check opens the record at that step
+ *   tomorrow  'task' | 'callback' | 'manual' | null; null for an action whose date the rules derive, which gets Open instead
+ *   open      the record section a tap opens: 'outcome', 'payments', 'concepts' or null (the record itself)
+ *   call      a Call button: a call or a callback with a phone number
+ */
+export function homeRowAction(item, now = Date.now()) {
+  const a = item?.action || {};
+  const kind = a.kind;
+  const task = !!a.taskId;
+  const manual = a.auto === false && !task;
+  const isCall = kind === 'call' || kind === 'callback';
+  const check = task ? 'task' : isCall ? 'outcome' : manual ? 'manual' : 'open';
+  const tomorrow = task ? 'task' : kind === 'callback' && !manual ? 'callback' : manual ? 'manual' : null;
+  return {
+    check, tomorrow, open: HOME_OPEN[kind] || null,
+    call: isCall && !!item?.lead?.phone,
+    late: lateLabel(item, now), time: homeTimeLabel(item, now),
+    title: `${a.label || nextActionKindOf(kind).label}${item?.project ? `, ${item.project.name}` : ''}`,
+  };
+}
