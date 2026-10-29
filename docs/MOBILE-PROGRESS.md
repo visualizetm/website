@@ -27,7 +27,7 @@ Resume with: "Continue the Next up home job from docs/MOBILE-PROGRESS.md." Decis
 - [x] Milestone 2: RoundCheck (kit), OutcomeSheet and callOutcome extracted from the Call Console, src/components/NextUpHome.jsx (Today, Overdue, the check, Undo, Tomorrow, Log outcome, Show more, skeleton, error, live region), the old Open tasks card removed, the range control under Next up; scripts/home-nextup-test.mjs.
 - [x] Milestone 3 (built): Coming up (remembered, open from 768), the two column grid, motion; audits at five widths run in milestone 4's gate.
 - [x] Review pass: five lens workflow, confirmed findings fixed (see the last decisions entry), tests tightened (section 4c2 of next-action-test, 157 checks).
-- [ ] Milestone 4: ship (preship:full, the script list, push, deploy Ready).
+- [x] Milestone 4: gate run (preship:full: layout 1270 views clean at five widths, scene, lint, hex 78, gesture, empty, docs audits pass; chrome-audit's one failure, triage-record, and back-test's four Calls hub failures are identical on a2771c2, before this job). a11y 658 rows both themes zero violations, regression 118 steps, site-regression 18, feel on the home 0 gaps, home-nextup-test passes at 320, 390 and 1280. pipeline-test and planner-endpoint-test fail on today's date identically on a2771c2.
 
 ## Logo rollout (Brand v3), one run, five milestones
 Resume with: "Continue the logo rollout from docs/MOBILE-PROGRESS.md." Checklist: docs/LOGO-INVENTORY.md. Decisions: the "Logo rollout" section of docs/MOBILE-DECISIONS.md.

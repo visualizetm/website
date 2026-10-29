@@ -39,7 +39,9 @@ for (const w of WIDTHS) {
   const y = await page.evaluate(() => { const top = (s) => document.querySelector(s)?.getBoundingClientRect().top ?? -1; return { greet: top('.an-greet'), today: top('[data-card="next-today"]'), range: top('.an-rangebar'), kpis: top('[data-card="kpis"]') }; });
   ok(y.greet < y.today && y.today < y.range && y.range < y.kpis, `greeting, Next up, range, KPIs in that order (${JSON.stringify(y)})`);
   ok(await page.locator('[data-card="open-tasks"]').count() === 0, 'the old Open tasks card is gone');
-  ok(await today.locator('.nh-row').count() === 3 && await overdue.locator('.nh-row').count() === 5, 'Today shows its three rows and Overdue its five');
+  /* The fixtures are dated against the clock, so what is due today moves through the day: the rows must equal what the chips count. */
+  const nToday = await today.locator('.nh-row').count(); const nOver = await overdue.locator('.nh-row').count();
+  ok(nToday > 0 && nToday === await chip('today') && nOver > 0 && nOver === Math.min(5, await chip('overdue')), `Today shows every row the chip counts (${nToday}) and Overdue up to five (${nOver})`);
   if (phone) { const sideBySide = await page.evaluate(() => { const a = document.querySelector('[data-card="next-today"]').getBoundingClientRect(); const b = document.querySelector('[data-card="next-overdue"]').getBoundingClientRect(); return Math.abs(a.top - b.top) < 4; }); ok(!sideBySide, 'the cards stack on a phone'); }
   else { const sideBySide = await page.evaluate(() => { const a = document.querySelector('[data-card="next-today"]').getBoundingClientRect(); const b = document.querySelector('[data-card="next-overdue"]').getBoundingClientRect(); return Math.abs(a.top - b.top) < 4 && a.right <= b.left + 1; }); ok(sideBySide, 'Today and Overdue sit side by side from 768 up'); }
 
@@ -57,7 +59,7 @@ for (const w of WIDTHS) {
   ok(await doneRow.count() === 1, 'the finished row stays in Today');
   ok(/line-through/.test(await doneRow.locator('.nh-title').evaluate(e => getComputedStyle(e).textDecorationLine)), 'the finished title is struck through');
   ok((await doneRow.locator('.nh-when').textContent()).trim() === 'Done', 'the finished row says Done');
-  ok(/^1 of 3 done$/.test((await today.locator('.nh-prog-t').textContent()).trim()), 'X of Y reads 1 of 3 done');
+  ok((await today.locator('.nh-prog-t').textContent()).trim() === `1 of ${nToday} done`, `X of Y reads 1 of ${nToday} done`);
   ok(await chip('today') === todayChip0 - 1, `the due today chip dropped from ${todayChip0} to ${await chip('today')}`);
   ok(/Marked done/.test(await page.locator('[role="status"][aria-live="polite"]').allTextContents().then(a => a.join(' '))), 'the polite live region says Marked done');
   ok(await page.getByText(/done for/).first().isVisible(), 'an Undo toast is up');
@@ -77,11 +79,11 @@ for (const w of WIDTHS) {
   const w2 = writes[n0];
   const due = w2?.body?.set?.checklists?.flatMap(l => l.items).map(i => i.due) || [];
   ok(due.includes(nine), `Tomorrow on a task writes 9:00 AM New York tomorrow (${nine})`);
-  ok(await overdue.locator('.nh-row').count() === 4 && Number((await overdue.locator('.nh-count').textContent()).trim()) === overChip0 - 1 && await chip('overdue') === overChip0 - 1, 'the row left Overdue, the count and the chip dropped');
+  ok(await overdue.locator('.nh-row').count() === Math.min(5, overChip0 - 1) && Number((await overdue.locator('.nh-count').textContent()).trim()) === overChip0 - 1 && await chip('overdue') === overChip0 - 1, 'the row left Overdue, the count and the chip dropped');
   ok(/moved to tomorrow/i.test(await page.locator('.v-toast, [role="status"]').allTextContents().then(a => a.join(' '))), 'a toast says it moved, with Undo');
   await page.getByRole('button', { name: 'Undo' }).first().click();
   await page.waitForTimeout(500);
-  ok(await overdue.locator('.nh-row').count() === 5 && await chip('overdue') === overChip0, 'Undo puts the row back in Overdue');
+  ok(await overdue.locator('.nh-row').count() === Math.min(5, overChip0) && await chip('overdue') === overChip0, 'Undo puts the row back in Overdue');
 
   const cbTomorrow = overdue.getByRole('button', { name: /^Move to tomorrow: Call back/ });
   const n1 = writes.length;
@@ -140,14 +142,18 @@ for (const w of WIDTHS) {
   await page2.waitForSelector('.nh-row');
   await page2.waitForTimeout(800);
   const od = page2.locator('[data-card="next-overdue"]'); const td = page2.locator('[data-card="next-today"]');
-  ok(await od.locator('.nh-row').count() === 5, `nine overdue show five rows (${await od.locator('.nh-row').count()})`);
-  ok(Number((await od.locator('.nh-count').textContent()).trim()) === 9, 'the count pill says 9');
-  ok(await td.locator('.nh-row').count() === 3 + 4, `Today shows all seven, never capped (${await td.locator('.nh-row').count()})`);
-  const more = od.getByRole('button', { name: /^Show 4 more$/ });
-  ok(await more.count() === 1 && (await more.getAttribute('aria-expanded')) === 'false', 'a "Show 4 more" button with aria-expanded false');
+  const chip2 = async (id) => Number((await page2.locator(`[data-ov="${id}"] .v-ov-n`).first().textContent()).trim());
+  const totalOver = await chip2('overdue'); const totalToday = await chip2('today');
+  ok(totalOver === overChip0 + 4 && totalOver > 5, `four more overdue make ${totalOver}`);
+  ok(await od.locator('.nh-row').count() === 5, `${totalOver} overdue show five rows (${await od.locator('.nh-row').count()})`);
+  ok(Number((await od.locator('.nh-count').textContent()).trim()) === totalOver, `the count pill says ${totalOver}`);
+  ok(await td.locator('.nh-row').count() === totalToday && totalToday >= 7, `Today shows all ${totalToday}, never capped (${await td.locator('.nh-row').count()})`);
+  const hidden = totalOver - 5;
+  const more = od.getByRole('button', { name: new RegExp(`^Show ${hidden} more$`) });
+  ok(await more.count() === 1 && (await more.getAttribute('aria-expanded')) === 'false', `a "Show ${hidden} more" button with aria-expanded false`);
   await more.click();
   await page2.waitForTimeout(300);
-  ok(await od.locator('.nh-row').count() === 9 && (await od.getByRole('button', { name: /^Show fewer$/ }).getAttribute('aria-expanded')) === 'true', 'it expands in place to nine rows');
+  ok(await od.locator('.nh-row').count() === totalOver && (await od.getByRole('button', { name: /^Show fewer$/ }).getAttribute('aria-expanded')) === 'true', `it expands in place to ${totalOver} rows`);
   await od.getByRole('button', { name: /^Show fewer$/ }).click();
   await page2.waitForTimeout(300);
   ok(await od.locator('.nh-row').count() === 5, 'and folds back to five');
