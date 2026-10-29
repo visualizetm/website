@@ -154,7 +154,7 @@ const itemOf = (id) => [...qHome.overdue, ...qHome.today, ...qHome.later].find(i
   const tw = home.checkWrite(task, {}, NOW);
   const doneItem = tw?.set.checklists?.[0]?.items?.find(i => i.id === 't1');
   ok(!!doneItem && doneItem.done === true && doneItem.doneAt === isoAt(NOW) && tw.set.checklists[0].items.find(i => i.id === 't2').done === false, 'the check on a task completes that task only, stamping doneAt');
-  ok(tw?.undo(task.record).checklists[0].items.find(i => i.id === 't1').done === false, 'the undo of a task check reopens it');
+  ok(tw?.undo({ ...task.record, ...tw.set }).checklists[0].items.find(i => i.id === 't1').done === false, 'the undo of a task check reopens it (run on the record as the write left it)');
   const mw = home.checkWrite(manual, {}, NOW);
   ok(mw?.set.nextAction.doneAt === isoAt(NOW) && mw.set.nextAction.label === 'Drop off the samples' && mw.undo().nextAction.doneAt === '', 'the check on a manual action stamps its doneAt, and the undo clears it');
 
@@ -164,7 +164,7 @@ const itemOf = (id) => [...qHome.overdue, ...qHome.today, ...qHome.later].find(i
   const moved = tt?.set.checklists?.[0]?.items?.find(i => i.id === 't1');
   okAll(!!moved && moved.due === nine && moved.text === 'Print the NFC sticker covers' && moved.done === false && moved.note === 'keep' && moved.notifiedAt === '', `Tomorrow on a task moves its due to 9:00 New York tomorrow and clears notifiedAt (${moved?.due})`);
   okAll(tt?.set.checklists[0].items.find(i => i.id === 't2').due === isoAt(NOW + 3 * DAY), 'Tomorrow leaves the other tasks alone');
-  okAll(tt?.undo(task.record).checklists[0].items.find(i => i.id === 't1').due === isoAt(NOW - DAY), 'the undo puts the old due back');
+  okAll(tt?.undo({ ...task.record, ...tt.set }).checklists[0].items.find(i => i.id === 't1').due === isoAt(NOW - DAY) && tt.undo({ ...task.record, ...tt.set }).checklists[0].items.find(i => i.id === 't1').notifiedAt === isoAt(NOW - DAY), 'the undo puts the old due and the old notifiedAt back (run on the record as the write left it)');
   const after = client.nextUpItems([{ ...taskClient, checklists: tt.set.checklists }], [], [], NOW);
   okAll(after.overdue.length === 0 && after.later.some(i => i.action.taskId === 't1' || i.action.taskId === 't2'), 'after Tomorrow the task is out of Overdue');
   const cbw = home.tomorrowWrite(call, {}, NOW);
@@ -172,6 +172,33 @@ const itemOf = (id) => [...qHome.overdue, ...qHome.today, ...qHome.later].find(i
   const mtw = home.tomorrowWrite(manual, {}, NOW);
   okAll(mtw?.set.nextAction.dueAt === nine && mtw.set.nextAction.auto === false && mtw.undo().nextAction.dueAt === manual.action.dueAt, 'Tomorrow on a manual action moves its dueAt and keeps it manual');
   okAll(home.tomorrowWrite(inv, {}, NOW) === null && home.tomorrowWrite(out, {}, NOW) === null, 'a derived row has no Tomorrow');
+}
+
+section('4c2. a pinned task, a reminder, a snoozed rule action');
+{
+  const pinnedItem = { id: 't1', text: 'Print the NFC sticker covers', done: false, doneAt: '', due: isoAt(NOW - DAY), note: '', order: 0, pinned: true, remindAt: isoAt(NOW - DAY - 3600e3), notifiedAt: isoAt(NOW - DAY) };
+  const pinnedClient = { _id: 'pc', business: 'Pinned Co', stage: 'client', checklists: [{ id: 'L', name: 'Print', items: [pinnedItem] }], nextAction: { kind: 'custom', label: pinnedItem.text, dueAt: pinnedItem.due, auto: false, doneAt: '', remindAt: '', notifiedAt: '', taskId: 't1' } };
+  const qp = client.nextUpItems([pinnedClient], [], [], NOW);
+  const pit = qp.overdue[0];
+  ok(!!pit && pit.action.taskId === 't1' && pit.action.auto === false, 'the pinned task is the stored next action and is overdue');
+  const pt = home.tomorrowWrite(pit, {}, NOW);
+  const nine2 = isoAt(Date.UTC(2026, 8, 29, 13, 0));
+  okAll(pt?.set.nextAction?.dueAt === nine2 && pt.set.nextAction.taskId === 't1' && pt.set.checklists[0].items[0].due === nine2, 'Tomorrow on a pinned task moves the stored next action with the task');
+  okAll(client.nextUpItems([{ ...pinnedClient, ...pt.set }], [], [], NOW).overdue.length === 0, 'and the pinned row leaves Overdue');
+  const ptBack = pt.undo({ ...pinnedClient, ...pt.set });
+  okAll(ptBack.checklists[0].items[0].due === pinnedItem.due && ptBack.nextAction?.dueAt === pinnedItem.due, 'its undo puts both back');
+  okAll(pt.set.checklists[0].items[0].remindAt === isoAt(Date.parse(nine2) - 3600e3) && pt.set.checklists[0].items[0].notifiedAt === '', 'the reminder moves with the due, an hour before, and the stamp is cleared so it fires for the new time');
+  okAll(ptBack.checklists[0].items[0].remindAt === pinnedItem.remindAt && ptBack.checklists[0].items[0].notifiedAt === pinnedItem.notifiedAt, 'the undo restores the old reminder and the old stamp');
+  const none = home.tomorrowWrite(client.nextUpItems([taskClient], [], [], NOW).overdue[0], {}, NOW);
+  okAll(none.set.checklists[0].items[0].remindAt === '', 'a task with no reminder stays without one');
+  const cw = home.checkWrite(pit, {}, NOW);
+  ok(!!cw && cw.set.checklists[0].items[0].pinned === false && cw.set.checklists[0].items[0].done === true, 'completing a pinned task clears its pin');
+  const back = cw.undo({ ...pinnedClient, ...cw.set });
+  ok(back.checklists[0].items[0].done === false && back.checklists[0].items[0].pinned === true && back.nextAction?.taskId === 't1' && back.nextAction.auto === false, 'its undo puts the pin back, and the next action with it');
+  const snoozedInv = client.nextUpItems([{ _id: 'inv', business: 'Invoice Co', stage: 'client', nextAction: { kind: 'chase-invoice', label: 'Chase the invoice', dueAt: isoAt(NOW - 2 * DAY), auto: false, doneAt: '' } }], [], [], NOW).overdue[0];
+  const ps = client.homeRowAction(snoozedInv, NOW);
+  ok(ps.check === 'open' && ps.tomorrow === 'manual', `a snoozed rule action is not a task to tick: the check opens its record, Tomorrow still moves the snooze (${JSON.stringify([ps.check, ps.tomorrow])})`);
+  ok(home.checkWrite(snoozedInv, {}, NOW) === null, 'so the check writes nothing');
 }
 
 section('4d. the late labels (the browser zone, asserted in the New York run)');
@@ -196,6 +223,10 @@ section('4e. the lists: Today is never capped, Overdue shows five and says how m
   ok(a.overdue.length === 5 && a.hidden === 4 && a.overdueCount === 9, `Overdue shows five and hides four of nine (got ${a.overdue.length} shown, ${a.hidden} hidden)`);
   ok(a.overdue[0].item.id === 'o0' && a.overdue[4].item.id === 'o4', 'Overdue is oldest first');
   ok(home.homeLists(many, {}, { expanded: true }).overdue.length === 9 && home.homeLists(many, {}, { expanded: true }).hidden === 0, 'Show more opens all nine');
+  const overGhost = mk('o0', NOW - 20 * DAY);
+  const sixRows = home.homeLists({ today: [], overdue: many.overdue.slice(0, 5), later: [] }, { g: { key: home.rowKey(overGhost), item: overGhost, card: 'overdue', mode: 'done' } });
+  ok(sixRows.overdueTotal === 6 && sixRows.overdue.length === 5 && sixRows.hidden === 1, `a finished row keeps its place and counts toward Show more (total ${sixRows.overdueTotal}, shown ${sixRows.overdue.length}, hidden ${sixRows.hidden})`);
+  ok(a.overdueTotal === 9 && home.homeLists({ today: [], overdue: many.overdue.slice(0, 4), later: [] }).overdueTotal === 4, 'overdueTotal is every row Overdue holds');
   const gone = mk('t0', NOW, {});
   const g = { [home.rowKey(gone)]: { key: home.rowKey(gone), item: gone, card: 'today', mode: 'done' } };
   const none = home.homeLists({ today: [], overdue: [], later: [] }, g);

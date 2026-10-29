@@ -8,7 +8,7 @@
  */
 import { homeRowAction, tomorrowNineNY } from './nextAction.js';
 import { completePatch, checklistsPatch } from './taskWrite.js';
-import { patchTask, allTasks } from '../shared/taskRules.js';
+import { patchTask, allTasks, setTaskDone, setTaskPinned } from '../shared/taskRules.js';
 
 /** Overdue shows this many rows before "Show N more". Today is never capped. */
 export const OVERDUE_CAP = 5;
@@ -38,6 +38,7 @@ export function homeLists(q, ghosts = {}, { expanded = false, cap = OVERDUE_CAP 
     hidden: overdueAll.length - overdue.length,
     doneToday: today.filter(r => r.done).length,
     overdueCount: (q?.overdue || []).length,
+    overdueTotal: overdueAll.length, // the rows Overdue holds, the ones kept in place included: what decides Show more
     later: q?.later || [],
   };
 }
@@ -46,7 +47,14 @@ export function homeLists(q, ghosts = {}, { expanded = false, cap = OVERDUE_CAP 
 export function checkWrite(item, ctx = {}, now = Date.now()) {
   const plan = homeRowAction(item, now);
   const a = item.action;
-  if (plan.check === 'task') return { set: completePatch(item.record, a.taskId, true, ctx, now), undo: (rec = item.record) => completePatch(rec, a.taskId, false, ctx, now) };
+  if (plan.check === 'task') {
+    /* Completing clears a pin, so the undo puts the pin back when the task had one. */
+    const wasPinned = !!allTasks(item.record).find(t => t.id === a.taskId)?.pinned;
+    return {
+      set: completePatch(item.record, a.taskId, true, ctx, now),
+      undo: (rec = item.record) => { let lists = setTaskDone(rec.checklists || [], a.taskId, false, now); if (wasPinned) lists = setTaskPinned(lists, a.taskId); return checklistsPatch(rec, lists, ctx, { pin: wasPinned ? a.taskId : null }); },
+    };
+  }
   if (plan.check === 'manual') return { set: { nextAction: { ...a, doneAt: new Date(now).toISOString() } }, undo: () => ({ nextAction: { ...a, doneAt: '' } }) };
   return null;
 }
@@ -57,9 +65,21 @@ export function tomorrowWrite(item, ctx = {}, now = Date.now()) {
   const a = item.action;
   const at = new Date(tomorrowNineNY(now)).toISOString();
   if (plan.tomorrow === 'task') {
-    const before = allTasks(item.record).find(t => t.id === a.taskId)?.due || '';
-    const move = (rec, due) => checklistsPatch(rec, patchTask(rec.checklists || [], a.taskId, { due, notifiedAt: '' }), ctx);
-    return { set: move(item.record, at), undo: (rec = item.record) => move(rec, before), dueAt: at };
+    const t = allTasks(item.record).find(x => x.id === a.taskId);
+    const before = { due: t?.due || '', remindAt: t?.remindAt || '', notifiedAt: t?.notifiedAt || '' };
+    /* The reminder moves with the due, keeping its distance from it: the reminders cron pushes on remindAt (or the due when it is empty),
+       so a reminder left on the old time would fire at once or be stamped as stale and never push for the new one. */
+    const oldDue = Date.parse(before.due) || 0;
+    const shifted = before.remindAt ? (oldDue ? Date.parse(before.remindAt) + (Date.parse(at) - oldDue) : Date.parse(at)) : 0;
+    const remindAt = before.remindAt ? (shifted >= now ? new Date(shifted).toISOString() : at) : '';
+    const move = (rec, fields) => {
+      const set = checklistsPatch(rec, patchTask(rec.checklists || [], a.taskId, fields), ctx);
+      /* A pinned task IS the stored next action (auto false, taskId, a copy of its due): the copy moves with the task or the row never leaves Overdue. */
+      const cur = rec.nextAction;
+      if (!('nextAction' in set) && cur && cur.auto === false && cur.taskId === a.taskId && !cur.doneAt) set.nextAction = { ...cur, dueAt: fields.due };
+      return set;
+    };
+    return { set: move(item.record, { due: at, remindAt, notifiedAt: '' }), undo: (rec = item.record) => move(rec, before), dueAt: at };
   }
   if (plan.tomorrow === 'callback') {
     const before = item.lead?.callbackAt || '';

@@ -12,7 +12,7 @@ import { tomorrowNineNY } from '../src/lib/nextAction.js';
 
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const WIDTHS = (process.env.AUDIT_WIDTHS || '390,1280').split(',').map(Number);
+const WIDTHS = (process.env.AUDIT_WIDTHS || '320,390,1280').split(',').map(Number);
 let fails = 0;
 const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else console.log('ok  ', m); };
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -110,7 +110,7 @@ for (const w of WIDTHS) {
   ok(await today.locator('.nh-row.is-done').count() === 1, 'the callback row shows done once the outcome is saved');
 
   // 4. The check on a rule action opens the record.
-  const ruleCheck = today.getByRole('button', { name: /^Open .* at this step: Chase the invoice/ }).first();
+  const ruleCheck = today.getByRole('button', { name: /^Open at this step: Chase the invoice/ }).first();
   const n3 = writes.length;
   await ruleCheck.click();
   await page.waitForTimeout(900);

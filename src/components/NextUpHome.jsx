@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Card, Button, IconButton, Pill, RoundCheck, ProgressBar, SkeletonBlock, SkeletonCircle, ErrorState, Sheet, Stack, Icon, Collapsible, Reveal,
-  useToast,
+  useToast, useMediaQuery,
 } from '../ui';
 import { durationMs } from '../ui/motion';
 import { COPY } from '../shared/copy';
@@ -10,7 +10,7 @@ import { telHref } from '../shared/phone';
 import { fmtDateTime } from '../shared/dates';
 import { useShell } from '../shell/ShellContext';
 import { nextUpItems, homeRowAction, NEXT_TONE } from '../lib/nextAction';
-import { homeLists, rowKey, checkWrite, tomorrowWrite } from '../lib/homeRows';
+import { homeLists, rowKey, checkWrite, tomorrowWrite, OVERDUE_CAP } from '../lib/homeRows';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { applyOutcome, outcomeRemoves, restoreLead } from '../lib/lists';
 import OutcomeSheet from './OutcomeSheet';
@@ -28,7 +28,9 @@ const NU_KEY = 'vz_home_nextup_n';   // the last known row counts, so the skelet
 const COMING_KEY = 'vz_home_coming'; // the Coming up card: '1' open, '0' folded
 const readLS = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
 const writeLS = (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage may be off */ } };
-const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null'); return { t: Math.min(6, Math.max(0, Number(o?.t) || 0)), o: Math.min(5, Math.max(0, Number(o?.o) || 0)), l: Math.min(4, Math.max(0, Number(o?.l) || 0)) }; } catch { return { t: 0, o: 0, l: 0 }; } };
+/* The last known row counts; a stored 0 is a real answer (that card said it was clear), only a missing one falls back to a normal day. */
+const DEFAULT_COUNTS = { t: 3, o: 5, l: 1 };
+const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null'); const n = (v, max, d) => (Number.isFinite(Number(v)) && v !== null && v !== undefined && v !== '' ? Math.min(max, Math.max(0, Number(v))) : d); return o ? { t: n(o.t, 6, DEFAULT_COUNTS.t), o: n(o.o, 5, DEFAULT_COUNTS.o), l: n(o.l, 4, DEFAULT_COUNTS.l) } : DEFAULT_COUNTS; } catch { return DEFAULT_COUNTS; } };
 
 /* Whether Coming up opens on arrival: what Rob left it at, else open on a computer and folded on a phone. */
 const comingOpen = () => { const v = readLS(COMING_KEY); return v === '1' ? true : v === '0' ? false : (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)').matches : false); };
@@ -36,12 +38,12 @@ const kindLabel = (a) => (a.taskId ? 'Task' : nextActionKindOf(a.kind).label);
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /* ── One row of Today or Overdue ───────────────────────────────── */
-function NuRow({ r, overdue, now, onCheck, onTomorrow, onOpen, onCall, onOpenBtn }) {
+function NuRow({ r, overdue, now, compact, onCheck, onTomorrow, onOpen, onCall, onOpenBtn }) {
   const { item, done, leaving } = r;
   const plan = homeRowAction(item, now);
   const a = item.action;
   const biz = item.lead.business;
-  const checkLabel = plan.check === 'outcome' ? `Log the outcome: ${plan.title}, ${biz}` : plan.check === 'open' ? `Open ${biz} at this step: ${plan.title}` : `Mark done: ${plan.title}, ${biz}`;
+  const checkLabel = plan.check === 'outcome' ? `Log the outcome: ${plan.title}, ${biz}` : plan.check === 'open' ? `Open at this step: ${plan.title}, ${biz}` : `Mark done: ${plan.title}, ${biz}`;
   const third = done ? <span className="nh-when is-done">Done</span> : overdue ? <span className="nh-when is-late">{plan.late || 'Overdue'}</span> : <span className={`nh-when${plan.late ? ' is-late' : ''}`}>{plan.time}</span>;
   return (
     <li className={`nh-row${done ? ' is-done' : ''}${leaving ? ' is-leaving' : ''}${overdue ? ' is-overdue' : ''}`} data-row-id={item.lead._id}>
@@ -56,8 +58,13 @@ function NuRow({ r, overdue, now, onCheck, onTomorrow, onOpen, onCall, onOpenBtn
         <span className="nh-act v-above">
           {plan.call && <IconButton icon="Phone" label={`Call ${biz}`} variant="secondary" onClick={onCall} tooltip={false} />}
           {overdue && (plan.tomorrow
-            ? <Button variant="secondary" size="md" onClick={onTomorrow} aria-label={`Move to tomorrow: ${plan.title}, ${biz}`} className="nh-tomorrow">Tomorrow</Button>
-            : <Button variant="secondary" size="md" icon="ArrowRight" onClick={onOpenBtn} aria-label={`Open ${biz} at this step: ${plan.title}`} className="nh-openbtn">Open</Button>)}
+            /* On a very narrow phone the words give way to an icon so the title keeps some room; the label still says it. */
+            ? (compact
+              ? <IconButton icon="Clock" label={`Move to tomorrow: ${plan.title}, ${biz}`} variant="secondary" onClick={onTomorrow} tooltip={false} className="nh-tomorrow" />
+              : <Button variant="secondary" size="md" onClick={onTomorrow} aria-label={`Move to tomorrow: ${plan.title}, ${biz}`} className="nh-tomorrow">Tomorrow</Button>)
+            : (compact
+              ? <IconButton icon="ArrowRight" label={`Open the record: ${plan.title}, ${biz}`} variant="secondary" onClick={onOpenBtn} tooltip={false} className="nh-openbtn" />
+              : <Button variant="secondary" size="md" icon="ArrowRight" onClick={onOpenBtn} aria-label={`Open the record: ${plan.title}, ${biz}`} className="nh-openbtn">Open</Button>))}
         </span>
       )}
     </li>
@@ -74,15 +81,17 @@ function Skeleton({ counts }) {
   ));
   const head = (w) => (<div className="nh-head"><div className="nh-headl"><SkeletonBlock width={56} height={12} /><SkeletonBlock width={w} height={30} /></div></div>);
   const open = comingOpen();
+  /* A card that was clear last time draws its one line, not rows. */
+  const list = (n, key, later) => (n > 0 ? <ul className="nh-list">{rows(n, key, later)}</ul> : <p className="nh-clear"><SkeletonBlock width={180} height={16} /></p>);
   return (
     <div className="nh" aria-busy="true" aria-hidden="true">
       <div className="nh-grid">
-        <Card className="nh-card">{head(96)}<ul className="nh-list">{rows(counts.t || 3, 't')}</ul></Card>
-        <Card className="nh-card">{head(120)}<ul className="nh-list">{rows(counts.o || 5, 'o')}</ul></Card>
+        <Card className="nh-card">{head(96)}{list(counts.t, 't')}</Card>
+        <Card className="nh-card">{head(120)}{list(counts.o, 'o')}</Card>
       </div>
       <Card className="nh-card nh-card--coming">
         <div className="nh-coming-head"><SkeletonBlock width={112} height={14} /></div>
-        {open && <ul className="nh-list">{rows(counts.l || 1, 'l', true)}</ul>}
+        {open && list(counts.l, 'l', true)}
       </Card>
       <div className="nh-foot"><SkeletonBlock width={104} height={44} radius="var(--v-radius-md)" /></div>
     </div>
@@ -95,6 +104,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   /* No delay before the skeleton: the block is the tallest thing above the numbers, and a region that is empty for the first moments and then
      appears pushes everything under it down (the feel audit's layout shift). The skeleton holds the place from the first paint. */
   const showSkel = loading && !leads.length;
+  const compact = useMediaQuery('(max-width: 380px)');
   const now = Date.now();
   const q = useMemo(() => nextUpItems(leads, projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
   const taskCtx = useMemo(() => ({ projects, sets }), [projects, sets]);
@@ -111,6 +121,8 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   const [said, setSaid] = useState({ n: 0, text: '' });
   const say = (text) => setSaid(s => ({ n: s.n + 1, text }));
   const [logging, setLogging] = useState(null); // { item, outcome | null }
+  /* The shell's lists as they are when an Undo runs, a few seconds after the write that made it. */
+  const shellRef = useRef(shell); shellRef.current = shell;
 
   const L = useMemo(() => homeLists(q, ghosts, { expanded }), [q, ghosts, expanded]);
   /* The newest copy of a record, for an undo that runs a few seconds after the write. */
@@ -145,12 +157,14 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   };
 
   /* Tomorrow: 9:00 AM New York. The row fades, then goes. */
-  const tomorrow = async (item) => {
+  const tomorrow = async (item, el) => {
     const w = tomorrowWrite(item, taskCtx, Date.now());
     if (!w) return;
     const key = rowKey(item);
+    /* The button that was pressed goes with its row; focus moves to the neighbouring row's check rather than dropping to the page. */
+    const li = el?.closest?.('li'); const near = li?.nextElementSibling || li?.previousElementSibling || null;
     ghost(item, 'leaving');
-    timers.current[key] = setTimeout(() => unghost(key), durationMs('--v-dur-slow') + 60);
+    timers.current[key] = setTimeout(() => { unghost(key); setTimeout(() => { if (near?.isConnected && (!document.activeElement || document.activeElement === document.body)) near.querySelector('.v-rcheck')?.focus(); }, 0); }, durationMs('--v-dur-slow') + 60);
     const ok = await patch(item, w.set);
     if (!ok) { unghost(key); return; }
     say(COPY.home.movedTomorrow);
@@ -176,7 +190,8 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
       unghost(key);
       const back = await onPatchLead(lead._id, outcomeUndoSet(prev));
       if (!back) { toast.error('Undo failed. Fix it on the lead.'); return; }
-      if (list && prevIndex >= 0 && shell.listOps) { const cur = (shell.lists || []).find(l => String(l._id) === listId) || list; await shell.listOps.patchList(list._id, { leadIds: restoreLead(cur.leadIds, lead._id, prevIndex) }); }
+      const sh = shellRef.current;
+      if (list && prevIndex >= 0 && sh.listOps) { const cur = (sh.lists || []).find(l => String(l._id) === listId) || list; await sh.listOps.patchList(list._id, { leadIds: restoreLead(cur.leadIds, lead._id, prevIndex) }); }
       toast.success(`Undid ${label.toLowerCase()} for ${lead.business}.`);
     }, { seconds: 6 });
     return true;
@@ -186,9 +201,9 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   if (showSkel) return <Skeleton counts={lastCounts()} />;
 
   const rowProps = (r, overdue) => ({
-    r, overdue, now,
+    r, overdue, now, compact,
     onCheck: () => check(r.item),
-    onTomorrow: () => tomorrow(r.item),
+    onTomorrow: (e) => tomorrow(r.item, e?.currentTarget),
     onOpen: () => openRecord(r.item),
     onCall: () => { if (r.item.lead.phone) window.location.href = telHref(r.item.lead.phone); },
     onOpenBtn: () => openStep(r.item, homeRowAction(r.item, now)),
@@ -213,7 +228,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
             <span className="nh-sort">Oldest first</span>
           </div>
           {L.overdue.length ? <ul className="nh-list">{L.overdue.map(r => <NuRow key={r.key} {...rowProps(r, true)} />)}</ul> : <p className="nh-clear is-good" role="status">{COPY.home.overdueClear}</p>}
-          {(L.hidden > 0 || expanded) && L.overdueCount > 5 && (
+          {L.overdueTotal > OVERDUE_CAP && (
             <Button variant="ghost" size="md" icon={expanded ? 'ChevronUp' : 'ChevronDown'} aria-expanded={expanded} onClick={() => setExpanded(e => !e)} className="nh-more">{expanded ? 'Show fewer' : `Show ${L.hidden} more`}</Button>
           )}
         </Card>
@@ -294,10 +309,9 @@ export const nextUpHomeStyles = `
   .nh-when.is-late { color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
   .nh-when.is-done { color: var(--v-status-booked-text); font-weight: var(--v-weight-semibold); }
   .nh-act { display: inline-flex; align-items: center; gap: var(--v-space-2); flex-shrink: 0; }
-  .nh-act .nh-tomorrow, .nh-act .nh-openbtn { padding: 0 var(--v-space-3); }
+  .nh-act .v-btn.nh-tomorrow, .nh-act .v-btn.nh-openbtn { padding: 0 var(--v-space-3); }
   @media (max-width: 767px) { .nh-act { gap: var(--v-space-1); } }
   .nh-row.is-done .nh-title { color: var(--v-text-3); text-decoration-color: var(--v-text-3); }
-  .nh-row.is-done .nh-biz { opacity: 0.7; }
   .nh-row.is-leaving { opacity: 0; pointer-events: none; }
   .nh-row--skel { gap: var(--v-space-3); padding-left: var(--v-space-2); }
   .nh-clear { margin: 0; display: flex; align-items: center; min-height: 56px; border-top: 1px solid var(--v-border); font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }

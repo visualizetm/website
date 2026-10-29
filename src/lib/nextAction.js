@@ -214,7 +214,7 @@ export function homeTimeLabel(item, now = Date.now()) {
 /**
  * What a home row does.
  *   check     'task'    a real task (a taskId): the check completes it through completePatch
- *             'manual'  a manual action with no task (a snooze, a task set by hand): the check stamps its doneAt, like the Tasks page
+ *             'manual'  a task set by hand with no checklist (custom, auto false): the check stamps its doneAt, like the Tasks page
  *             'outcome' a call or a callback: the check never writes done, it opens the Log outcome sheet
  *             'open'    any other rule action: the check opens the record at that step
  *   tomorrow  'task' | 'callback' | 'manual' | null; null for an action whose date the rules derive, which gets Open instead
@@ -227,7 +227,8 @@ export function homeRowAction(item, now = Date.now()) {
   const task = !!a.taskId;
   const manual = a.auto === false && !task;
   const isCall = kind === 'call' || kind === 'callback';
-  const check = task ? 'task' : isCall ? 'outcome' : manual ? 'manual' : 'open';
+  /* Only a task made by hand (custom) is ticked by stamping its doneAt; a rule action whose date was snoozed (auto false, any other kind) is still the rule's: the check opens its record. */
+  const check = task ? 'task' : isCall ? 'outcome' : manual && kind === 'custom' ? 'manual' : 'open';
   const tomorrow = task ? 'task' : kind === 'callback' && !manual ? 'callback' : manual ? 'manual' : null;
   return {
     check, tomorrow, open: HOME_OPEN[kind] || null,
