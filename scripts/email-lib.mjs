@@ -171,6 +171,13 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(due.length === 1 && String(due[0]._id) === String(old._id), 'by the instant, queuedDue answers the queued entry whose sendAt has passed');
       await L.updateLog(db, old._id, { sendAt: new Date(Date.now() + 3600e3).toISOString() });
       ok((await Q0.queuedDue(db, Date.now(), { byDay: false })).length === 0, 'and not one still in the future');
+      /* The cron's cutoff: a queued send already a day late stays queued (never sent on its own), a recent one is due. */
+      await L.updateLog(db, old._id, { sendAt: new Date(Date.now() - 3 * 864e5).toISOString() });
+      ok((await Q0.queuedDue(db, Date.now(), { byDay: false })).length === 1, 'without a cutoff a three day old queued entry is still due (the default is unchanged)');
+      ok((await Q0.queuedDue(db, Date.now(), { byDay: false, maxAgeMs: Q0.QUEUE_MAX_AGE_MS })).length === 0, 'with the cron\'s cutoff a queued entry three days late is left queued, not sent', 'queue-max-age');
+      await L.updateLog(db, old._id, { sendAt: new Date(Date.now() - 3600e3).toISOString() });
+      ok((await Q0.queuedDue(db, Date.now(), { byDay: false, maxAgeMs: Q0.QUEUE_MAX_AGE_MS })).length === 1, 'and one an hour late is still due under the cutoff');
+      await L.updateLog(db, old._id, { sendAt: new Date(Date.now() + 3600e3).toISOString() });
     }
     /* 5. the route: methods and unknown actions, the admin guard. */
     _reset();

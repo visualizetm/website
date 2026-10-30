@@ -5,7 +5,7 @@
  *
  * It builds to its own directory and serves that (never dist/, so a rebuild cannot break a running audit), starts the mock server the
  * scene audit needs, and runs layout-audit and scene-audit as detached processes writing to .tmp-verify/preship/, polling them. One
- * pass or fail line each, with the first error on a fail. Then lint, the hex count, the gesture, chrome and empty audits and the two client docs
+ * pass or fail line each, with the first error on a fail. Then lint, the hex count, the routing test, the gesture, chrome and empty audits and the two client docs
  * browser audits (the editor, the flows) run against the same build. Exit code 1 when anything failed. A full run takes about forty minutes; quick takes about fifteen.
  */
 import { spawn, spawnSync } from 'node:child_process';
@@ -69,6 +69,7 @@ const run = (name, cmd, args, env = {}) => {
 };
 run('lint', 'npm', ['run', 'lint', '--silent']);
 run('hex count', 'node', ['-e', "const s=require('child_process').spawnSync('node',['scripts/hex-count.js'],{encoding:'utf8'}).stdout;const n=Number(/: *(\\d+)/.exec(s)[1]);console.log('hex '+n+' of 90');process.exit(n<=90?0:1)"]);
+run('routing-test', 'node', ['scripts/routing-test.mjs']);
 run('gesture-test', 'node', ['scripts/gesture-test.mjs'], { AUDIT_BASE: base });
 run('chrome-audit', 'node', ['scripts/chrome-audit.mjs'], { AUDIT_BASE: base });
 run('empty-audit', 'node', ['scripts/empty-audit.mjs'], { AUDIT_BASE: base });

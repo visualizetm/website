@@ -75,10 +75,14 @@ meeting pushes "Meeting now: <business>, <time>" the minute it starts (a
 meeting with no time keeps the 09:00 default), each on a dedupe key that
 carries its time (`sentReminderKeys`, cap 2,000), so editing the time to a
 new instant pushes again. Ten or more things due in one run become one
-combined push ("N reminders due now") instead of a flood; a run that is
-late (a deploy, an outage) still sends anything still due, but anything
-more than six hours late is stamped as handled without a push, so a gap in
-the schedule never fires a pile of stale ones at once.
+combined push ("N reminders due now") instead of a flood. A reminder is
+fresh for ten minutes (`PUSH_WINDOW_MS`): a run that finds one whose time
+is more than ten minutes past stamps it as handled with the reason `stale`
+(kept in `reminderOutcomes` on the notifications document) and never
+pushes it, so a gap in the schedule, a deploy, or the first run of a cron
+that was down for weeks never fires a pile of old ones. A queued email
+(Send tomorrow) already a day late is left queued for Rob to send or
+cancel, never sent by the cron on its own.
 
 The morning digest still sends once, now on the first run at or after
 8:30am America/New_York (the old 9am Eastern run always qualified; minute
@@ -104,7 +108,7 @@ on a lead, a deal, a client or a project, or a checklist item) push
 passes, or, when the Remind me choice was Off and there is no `remindAt`,
 the minute the due time itself passes: a task is never silently due with no
 push. `notifiedAt` is stamped on the item once pushed (or once stamped
-stale past six hours late), so a rerun never sends it twice, and the 8:30
+stale past ten minutes late), so a rerun never sends it twice, and the 8:30
 digest still lists every task due today under Tasks, after the callbacks
 and the meetings. A pinned task is the record's next action but carries no
 reminder of its own, so nothing is pushed twice.

@@ -58,7 +58,7 @@ const CUTS = [
   { name: 'fail-task', file: 'api/_lib/email/failed.js', from: "    await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: next, updatedAt: new Date() } });\n    lead.checklists = next;", to: "    void next;" },
   { name: 'fail-push', file: 'api/_lib/email/failed.js', from: "    await sendPush(db, { title: `Email failed: ${name}`, body: `${business}. ${said}`, url: `${base}/leads?open=${String(lead._id)}` });", to: "    void base;" },
   { name: 'recent-failures-first', file: 'api/_lib/email/log.js', from: "  return [...rows.filter(r => r.status === 'failed'), ...rows.filter(r => r.status !== 'failed')].slice(0, limit);", to: "  return rows.slice(0, limit);" },
-  { name: 'cron-queue', file: 'api/_routes/cron-reminders.js', from: "  try { emails = await runQueuedSends(db, now.getTime(), { byDay: !FIFTEEN_MINUTE_MODE }); } catch { /* the digest still goes; the queue waits for the next run */ }", to: "  void runQueuedSends;" },
+  { name: 'cron-queue', file: 'api/_routes/cron-reminders.js', from: "    try { emails = await runQueuedSends(db, nowMs, { byDay: false, maxAgeMs: QUEUE_MAX_AGE_MS }); } catch { /* the next gate tries again */ }", to: "    void runQueuedSends;" },
   /* Milestone 5: the contract's checkpoint, the concepts offer stamp, a template option, the lead route's fields. */
   { name: 'contract-tick', file: 'api/_lib/email.js', from: ", contract: 'contractSent' };", to: " };" },
   { name: 'offer-stamp', file: 'api/_lib/email/stamps.js', from: "  if (kind === 'concepts_in_progress' && !lead.conceptsOffered) set.conceptsOffered = sentAt;", to: "" },
@@ -102,12 +102,13 @@ const CUTS = [
   { name: 'rule-cap', file: 'api/_lib/email/rules.js', from: "        if (autoSent >= AUTO_SEND_CAP) { out.capped = true; await draft(); continue; }", to: "        void AUTO_SEND_CAP;" },
   { name: 'rule-limited', file: 'api/_lib/email/rules.js', from: "        else if (r.status === 429) { out.limited = true; return finish(db, out, drafted); }", to: "        else if (r.status === 429) out.failed++;" },
   { name: 'rule-per-project', file: 'api/_lib/email/rules.js', from: "      const targets = rule.scope === 'project' ? [...own, ...(dealToo ? [null] : [])] : [null];", to: "      const targets = rule.scope === 'project' ? [own[0] || null] : [null];" },
-  { name: 'cron-rules', file: 'api/_routes/cron-reminders.js', from: "  try { rules = await runEmailRules(db, now.getTime()); } catch { /* the digest still goes; the rules run again tomorrow */ }", to: "  void runEmailRules;" },
+  { name: 'cron-rules', file: 'api/_routes/cron-reminders.js', from: "    try { rules = await runEmailRules(db, nowMs); } catch { /* the digest still goes; the rules try again next run */ }", to: "    void runEmailRules;" },
   { name: 'send-draft-door', file: 'api/_routes/email.js', from: "      if (b.send === true) {\n        const r = await sendDraft(db, row, { confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true });", to: "      if (b.send === true) {\n        const r = await sendDraft(db, row, { confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true }); r.status = r.status === 200 ? 200 : r.status; if (r.status === 200) await db.collection('email_log').insertOne({ ...row, _id: undefined, status: 'draft' });" },
   { name: 'send-draft-only', file: 'api/_lib/email/drafts.js', from: "  if (!row || !['draft', 'queued'].includes(row.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };", to: "  if (!row) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };" },
   { name: 'send-draft-renders', file: 'api/_lib/email/drafts.js', from: "  const r = await sendComposed(db, ctx, { templateId: row.templateId }, { auto: opts.auto === true, confirmDuplicate: opts.confirmDuplicate === true, driveShared: opts.driveShared === true, reuseLogId: row._id });", to: "  const r = await (async () => { const { sendLogged } = await import('./send.js'); const x = await sendLogged(db, row); return x.ok ? { status: 200, body: { ok: true, sentAt: x.sentAt } } : { status: 502, body: { error: x.error } }; })();" },
   { name: 'draft-task-done', file: 'api/_lib/email/drafts.js', from: "  if (r.status === 200 && !r.body.queued) r.body.taskDone = await finishDraftTask(db, ctx.lead._id, row._id, now);", to: "  if (r.status === 200 && !r.body.queued) r.body.taskDone = true; void finishDraftTask;" },
   { name: 'task-email-id', file: 'api/_lib/taskRules.js', from: "      emailId: str(it?.emailId, 40),\n", to: "" },
+  { name: 'queue-max-age', file: 'api/_lib/email/queue.js', from: "    if (maxAgeMs > 0 && now - at > maxAgeMs) return false;\n", to: "" },
   { name: 'cron-unknown-job', file: 'api/cron/index.js', from: "const fn = typeof job === 'string' && Object.hasOwn(JOBS, job) ? JOBS[job] : null;", to: "const fn = JOBS[job];" },
   { name: 'zapier-410', file: 'api/_routes/send-email.js', from: "  if (emailConnected()) return res.status(410).json({ error: RETIRED, retired: true });", to: "  void emailConnected; void RETIRED;" },
   { name: 'preview-lint', file: 'api/_lib/email/templates.js', from: "    subject: 'Good talking to you, {{firstName}}', preheader: 'Grab a time and I will walk you through some ideas.',", to: "    subject: 'AI wrote this for {{firstName}}', preheader: 'Grab a time and I will walk you through some ideas.'," },
@@ -115,7 +116,9 @@ const CUTS = [
 
 const tmpBase = path.join(repoRoot, '.tmp-verify'); fs.mkdirSync(tmpBase, { recursive: true });
 let bad = 0; let proven = 0;
+const ONLY = process.env.GUARD_ONLY ? process.env.GUARD_ONLY.split(',') : null; // GUARD_ONLY=cron-queue,cron-rules runs just those cuts
 for (const cut of CUTS) {
+  if (ONLY && !ONLY.includes(cut.name)) continue;
   const tmp = fs.mkdtempSync(path.join(tmpBase, 'email-cut-')); const apiCopy = path.join(tmp, 'api'); const srcCopy = path.join(tmp, 'src');
   fs.cpSync(path.join(repoRoot, 'api'), apiCopy, { recursive: true });
   for (const d of ['lib', 'shared', 'components/email']) fs.cpSync(path.join(repoRoot, 'src', d), path.join(srcCopy, d), { recursive: true });

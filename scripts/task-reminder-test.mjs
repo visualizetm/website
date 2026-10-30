@@ -2,7 +2,8 @@
 /* Tasks with a due date: remindAt for each Remind me choice in
  * America/New_York, then the reminders cron with the in-memory mongo: a due
  * task pushes once and never again, a done task never pushes, the toggle off
- * sends nothing, the digest lists today's tasks under Tasks.
+ * sends nothing, the digest lists today's tasks under Tasks. The seeded tasks are a few minutes past
+ * their reminder, inside the ten minute push window (older ones are skipped as stale).
  *   node scripts/task-reminder-test.mjs */
 import fs from 'fs';
 import path from 'path';
@@ -68,12 +69,12 @@ section('2. the reminders cron: once per task, never done, toggle off, the diges
     _reset(); _pushes.length = 0;
     _stores.settings = [{ _id: 'notifications', reminders: { meetings: true, callbacks: true, bills: true, reviews: true, ...prefs }, sentReminderKeys: [] }];
     _stores.call_leads = [
-      { _id: L1, business: 'Due Co', stage: 'lead', callStatus: 'not-called', socials: {}, nextAction: { kind: 'custom', label: 'Drop off the proof', dueAt: iso(now - 20 * 60e3), auto: false, doneAt: '', remindAt: iso(now - 20 * 60e3), notifiedAt: '' } },
+      { _id: L1, business: 'Due Co', stage: 'lead', callStatus: 'not-called', socials: {}, nextAction: { kind: 'custom', label: 'Drop off the proof', dueAt: iso(now - 8 * 60e3), auto: false, doneAt: '', remindAt: iso(now - 8 * 60e3), notifiedAt: '' } },
       { _id: L2, business: 'Done Co', stage: 'client', callStatus: 'booked', socials: {}, nextAction: { kind: 'custom', label: 'Call about the sign', dueAt: iso(now - 60e3), auto: false, doneAt: iso(now - 30e3), remindAt: iso(now - 60e3), notifiedAt: '' } },
       { _id: L3, business: 'Later Co', stage: 'client', callStatus: 'booked', socials: {}, nextAction: { kind: 'custom', label: 'Send the proof', dueAt: iso(Z.zoneDateAt(todayKey, 23, 30)), auto: false, doneAt: '', remindAt: iso(now + 6 * 3600e3), notifiedAt: '' } },
       /* The task system: a checklist task with its own reminder, and a pinned one whose next action carries no reminder (so it is pushed once, from the task). */
-      { _id: L4, business: 'List Co', stage: 'client', callStatus: 'booked', socials: {}, nextAction: { kind: 'custom', label: 'Hang the sign', dueAt: iso(now - 10 * 60e3), auto: false, doneAt: '', remindAt: '', notifiedAt: '', taskId: 'tk1' },
-        checklists: [{ id: 'ck', name: 'Launch', items: [{ id: 'tk1', text: 'Hang the sign', done: false, due: iso(now - 10 * 60e3), remindAt: iso(now - 10 * 60e3), notifiedAt: '', pinned: true }, { id: 'tk2', text: 'Done already', done: true, due: iso(now - 60e3), remindAt: iso(now - 60e3), notifiedAt: '' }, { id: 'tk3', text: 'Tonight', done: false, due: iso(Z.zoneDateAt(todayKey, 22, 0)), remindAt: iso(now + 5 * 3600e3), notifiedAt: '' }] }] },
+      { _id: L4, business: 'List Co', stage: 'client', callStatus: 'booked', socials: {}, nextAction: { kind: 'custom', label: 'Hang the sign', dueAt: iso(now - 6 * 60e3), auto: false, doneAt: '', remindAt: '', notifiedAt: '', taskId: 'tk1' },
+        checklists: [{ id: 'ck', name: 'Launch', items: [{ id: 'tk1', text: 'Hang the sign', done: false, due: iso(now - 6 * 60e3), remindAt: iso(now - 6 * 60e3), notifiedAt: '', pinned: true }, { id: 'tk2', text: 'Done already', done: true, due: iso(now - 60e3), remindAt: iso(now - 60e3), notifiedAt: '' }, { id: 'tk3', text: 'Tonight', done: false, due: iso(Z.zoneDateAt(todayKey, 22, 0)), remindAt: iso(now + 5 * 3600e3), notifiedAt: '' }] }] },
     ];
     _stores.projects = [{ _id: PJ, leadId: L2, name: 'Sign', kind: 'print', stage: 'design', invoices: [], nextAction: { kind: 'custom', label: 'Pick up the vinyl', dueAt: iso(now - 5 * 60e3), auto: false, doneAt: '', remindAt: iso(now - 5 * 60e3), notifiedAt: '' } }];
     _stores.push_subscriptions = [];

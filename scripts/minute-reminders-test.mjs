@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /* Minute mode reminders (CLAUDE_CODE_PROMPT: on time push notifications):
  * a callback or a meeting pushes the minute it is due, once, on a key that
- * carries its time so an edited time pushes again; anything more than six
- * hours late is stamped without a push; the morning digest sends once, on
+ * carries its time so an edited time pushes again; anything more than ten
+ * minutes late is stamped without a push (the first live run after weeks of
+ * a dead cron pushes nothing old); the morning digest sends once, on
  * the first run at or after 8:30am America/New_York; the email rules run
  * once a day; ten or more things due at once become one combined push.
  *   node scripts/minute-reminders-test.mjs */
@@ -78,7 +79,7 @@ section('2. an edited time pushes again');
   ok(again.length === 2, `the edited time pushes again, a second time for the same lead (${again.length})`);
 }
 
-section('3. a thing due more than six hours ago is stamped without a push (catch-up)');
+section('3. a thing due more than ten minutes ago is stamped without a push (seven hours is the long case)');
 {
   seed();
   _stores.settings[0].sentReminderKeys = [`digest:${Z.zoneDayKey(AFTERNOON)}`]; // isolate from the digest, not under test here
@@ -90,6 +91,49 @@ section('3. a thing due more than six hours ago is stamped without a push (catch
   ok(_pushes.length === 0, 'the next run never catches up on it either: it was stamped handled, not left pending');
   const key = (_stores.settings.find(s => s._id === 'notifications').sentReminderKeys || []);
   ok(key.some(k => k.startsWith(`cb:${L2}:`)), 'the stale callback key is stamped into sentReminderKeys so it is never reconsidered');
+}
+
+const notif = () => _stores.settings.find(s => s._id === 'notifications');
+const lateTask = (id, business, label, at) => ({ _id: id, business, stage: 'lead', callStatus: 'not-called', socials: {}, nextAction: { kind: 'custom', label, dueAt: iso(at), auto: false, doneAt: '', remindAt: iso(at), notifiedAt: '' } });
+
+section('3b. the window is ten minutes: nine minutes late still pushes, eleven does not, and the reason is kept');
+{
+  seed();
+  _stores.settings[0].sentReminderKeys = [`digest:${Z.zoneDayKey(AFTERNOON)}`]; // isolate from the digest
+  _stores.call_leads = [
+    { _id: L1, business: 'Nine Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(AFTERNOON - 9 * MIN), socials: {} },
+    { _id: L2, business: 'Eleven Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(AFTERNOON - 11 * MIN), socials: {} },
+  ];
+  const r = await runReminders(db, AFTERNOON);
+  ok(r.sent === 1 && _pushes.length === 1 && /Nine Co/.test(_pushes[0].title), `nine minutes late pushes, eleven minutes late does not (${_pushes.map(p => p.title).join(' | ')})`);
+  ok((notif().sentReminderKeys || []).some(k => k.startsWith(`cb:${L2}:`)), 'the eleven minute one is stamped handled, so it is not reconsidered');
+  const skipped = (notif().reminderOutcomes || []).filter(o => o.status === 'skipped' && o.reason === 'stale');
+  ok(skipped.length === 1 && skipped[0].kind === 'callback' && skipped[0].key.startsWith(`cb:${L2}:`), `its outcome is kept as skipped, stale (${JSON.stringify(skipped)})`, 'stale-window');
+  await runReminders(db, AFTERNOON + MIN);
+  ok(_pushes.length === 1, 'and it never pushes later');
+}
+
+section('3c. the first live run after weeks down pushes nothing old, only what is fresh');
+{
+  seed();
+  _stores.settings[0].sentReminderKeys = [`digest:${Z.zoneDayKey(AFTERNOON)}`]; // isolate from the digest
+  const day = 864e5;
+  const overdue = Array.from({ length: 9 }, (_, i) => ({ _id: `old${i}`, business: `Overdue Co ${i}`, stage: 'lead', callStatus: 'callback', callbackAt: iso(AFTERNOON - (2 + i * 6) * day), socials: {} }));
+  const today = Z.zoneDayKey(AFTERNOON);
+  const meetings = [['m1', '08:00'], ['m2', '11:00']].map(([id, time]) => ({ _id: id, business: `Meeting Co ${id}`, stage: 'booked', callStatus: 'booked', meeting: { date: today, time }, socials: {} }));
+  const tasks = [lateTask('t1', 'Task Co 1', 'Send the proof', AFTERNOON - 3 * day), lateTask('t2', 'Task Co 2', 'Call the printer', AFTERNOON - 30 * day), lateTask('t3', 'Task Co 3', 'Hang the sign', AFTERNOON - 2 * HOUR)];
+  const fresh = [{ _id: 'fresh1', business: 'Fresh Co', stage: 'lead', callStatus: 'callback', callbackAt: iso(AFTERNOON - 3 * MIN), socials: {} }, lateTask('fresh2', 'Fresh Task Co', 'Fresh task', AFTERNOON - 2 * MIN)];
+  _stores.call_leads = [...overdue, ...meetings, ...tasks, ...fresh];
+  const r = await runReminders(db, AFTERNOON);
+  const titles = _pushes.map(p => p.title);
+  ok(r.sent === 2 && _pushes.length === 2 && titles.some(t => /^Call back: Fresh Co/.test(t)) && titles.some(t => /^Task: Fresh task, Fresh Task Co/.test(t)), `only the two fresh items push (${JSON.stringify(titles)})`);
+  const stale = (notif().reminderOutcomes || []).filter(o => o.status === 'skipped' && o.reason === 'stale');
+  ok(stale.length === 14 && stale.filter(o => o.kind === 'callback').length === 9 && stale.filter(o => o.kind === 'meeting').length === 2 && stale.filter(o => o.kind === 'task').length === 3, `fourteen old things are recorded skipped, stale: 9 callbacks, 2 meetings, 3 tasks (${stale.length})`);
+  ok(['t1', 't2', 't3'].every(id => !!_stores.call_leads.find(l => l._id === id).nextAction.notifiedAt), 'the old tasks are stamped handled on their own record');
+  const before = _pushes.length;
+  await runReminders(db, AFTERNOON + MIN);
+  await runReminders(db, AFTERNOON + 2 * MIN);
+  ok(_pushes.length === before, 'the next runs push nothing more, not even a late catch-up of the stale ones');
 }
 
 section('4. the digest sends once, on the first run at or after 8:30 America/New_York');

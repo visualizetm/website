@@ -3,7 +3,7 @@ import { clientPushSweep } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, zoneParts, zoneMeetingMs, ZONE } from '../_lib/zone.js';
-import { runQueuedSends } from '../_lib/email/queue.js';
+import { runQueuedSends, QUEUE_MAX_AGE_MS } from '../_lib/email/queue.js';
 import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
 
 /* Vercel cron (vercel.json), minute mode: Pro plan crons can run once a
@@ -11,11 +11,13 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
  * callback, a meeting) the minute it becomes due, not the next morning. A
  * thing is due when its time is at or before now; each one pushes exactly
  * once, on a dedupe key that carries its time, so editing the time to a new
- * instant pushes again. Catch-up: a run late (a deploy, an outage) still
- * sends anything still due, but anything more than CATCHUP_MS late is
- * stamped as handled without a push, so a gap in the schedule never fires a
- * pile of stale pushes at once. Ten or more things due in one run become one
- * combined push instead of a flood (COMBINE_THRESHOLD).
+ * instant pushes again. Freshness: a reminder pushes only while its time is
+ * within the last PUSH_WINDOW_MS (ten minutes). Anything older is stamped as
+ * handled with the reason 'stale' (the notifications document's
+ * reminderOutcomes keeps the reason) and never pushed, so a gap in the
+ * schedule, a deploy, or the very first run of a cron that has been dead for
+ * weeks never fires a pile of old pushes. Ten or more things due in one run
+ * become one combined push instead of a flood (COMBINE_THRESHOLD).
  *
  * Running every minute means up to 1,440 runs a day, so everything that does
  * not need minute precision is gated by time, its own last-run stamp kept on
@@ -26,7 +28,8 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
  *     feed it only run when the digest is actually due, not every minute;
  *   - queued emails (Send tomorrow, the email system) go out by the instant
  *     rule (api/_lib/email/queue.js, byDay: false) at most every 15 minutes
- *     (QUEUE_GATE_MS);
+ *     (QUEUE_GATE_MS), and never one already QUEUE_MAX_AGE_MS (a day) late:
+ *     that stays queued for Rob;
  *   - the email rules (api/_lib/email/rules.js) run once a day, on the first
  *     run at or after 9:00am America/New_York;
  *   - the client push sweep (api/_lib/clientPush.js) keeps its own six hour
@@ -38,11 +41,12 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
  * checklist item, set through the Set task sheet) push on remindAt, or on
  * their due time when remindAt is empty (the Remind me choice was Off): a
  * task is never silently due with no push. notifiedAt is stamped on the
- * item once pushed (or once stamped stale past CATCHUP_MS), so a rerun never
- * sends it twice.
+ * item once pushed (or once stamped stale past PUSH_WINDOW_MS), so a rerun
+ * never sends it twice.
  */
 const SENT_KEYS_CAP = 2000; // raised from 500 (Decision: a busy day's dedupe keys, one callback or meeting key per due event plus the digest key, must not push the digest key out before it fires)
-const CATCHUP_MS = 6 * 3600e3;
+const PUSH_WINDOW_MS = 10 * 60e3; // a reminder is pushed only while its time is within the last ten minutes
+const OUTCOMES_KEPT = 200;
 const COMBINE_THRESHOLD = 10;
 const QUEUE_GATE_MS = 15 * 60e3;
 const DIGEST_AT = { h: 8, min: 30 }; // America/New_York
@@ -54,6 +58,9 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const fmtZoneTime = (ms) => new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: ZONE });
 /** Is the zone's wall clock at or after h:min right now. */
 const atOrAfter = (nowMs, h, min) => { const p = zoneParts(nowMs); return p.h > h || (p.h === h && p.min >= min); };
+
+/** One line of the reminder outcomes log (the notifications document keeps the last OUTCOMES_KEPT). */
+const outcome = (nowIso, key, kind, status, reason = '') => ({ key, kind, status, reason, at: nowIso });
 
 /** Two indexes for the per-minute scans (call_leads on callback/meeting, on the task fields); created once per warm instance. */
 async function ensureReminderIndexes(db) {
@@ -93,9 +100,10 @@ export async function runReminders(db, nowMs = Date.now()) {
 
   const leads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ callStatus: 'callback', callbackAt: { $exists: true, $ne: '' } }, { 'meeting.date': { $exists: true, $ne: '' } }] }).project({ business: 1, callbackAt: 1, callStatus: 1, meeting: 1, stage: 1, phone: 1 }).toArray();
 
-  /* Callbacks and meetings due this minute: each a push item, or stamped stale if more than CATCHUP_MS late. */
+  /* Callbacks and meetings due this minute: each a push item, or stamped stale if more than PUSH_WINDOW_MS late. */
   const dueItems = [];
   const staleKeys = [];
+  const outcomes = []; // this run's reminderOutcomes lines
   for (const l of leads) {
     if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
       const t = Date.parse(l.callbackAt);
@@ -103,7 +111,7 @@ export async function runReminders(db, nowMs = Date.now()) {
         const key = `cb:${l._id}:${l.callbackAt}`;
         if (!sent.has(key)) {
           const item = { key, kind: 'callback', business: l.business, title: `Call back: ${l.business}, ${fmtZoneTime(t)}`, body: l.phone || '', url: `${base}/leads?open=${l._id}` };
-          if (nowMs - t > CATCHUP_MS) staleKeys.push(key); else dueItems.push(item);
+          if (nowMs - t > PUSH_WINDOW_MS) { staleKeys.push(key); outcomes.push(outcome(now.toISOString(), key, 'callback', 'skipped', 'stale')); } else dueItems.push(item);
         }
       }
     }
@@ -113,7 +121,7 @@ export async function runReminders(db, nowMs = Date.now()) {
         const key = `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`;
         if (!sent.has(key)) {
           const item = { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(t)}`, body: l.meeting.location || '', url: `${base}/booked?open=${l._id}` };
-          if (nowMs - t > CATCHUP_MS) staleKeys.push(key); else dueItems.push(item);
+          if (nowMs - t > PUSH_WINDOW_MS) { staleKeys.push(key); outcomes.push(outcome(now.toISOString(), key, 'meeting', 'skipped', 'stale')); } else dueItems.push(item);
         }
       }
     }
@@ -144,10 +152,10 @@ export async function runReminders(db, nowMs = Date.now()) {
     const at = t.action.remindAt ? Date.parse(t.action.remindAt) : (t.action.dueAt ? Date.parse(t.action.dueAt) : NaN);
     if (!Number.isFinite(at) || at > nowMs) continue;
     const item = { kind: 'task', business: t.business, title: `Task: ${t.action.label}, ${t.business}`, body: '', url: `${base}/tasks?open=${t.leadId}`, ref: t };
-    if (nowMs - at > CATCHUP_MS) taskStale.push(t); else taskDue.push(item);
+    if (nowMs - at > PUSH_WINDOW_MS) { taskStale.push(t); outcomes.push(outcome(now.toISOString(), `tk:${t.coll}:${t._id}:${t.taskId || 'next'}:${at}`, 'task', 'skipped', 'stale')); } else taskDue.push(item);
   }
 
-  /* Push: combined when ten or more are due at once, otherwise one push each. Stale items (more than CATCHUP_MS late) are
+  /* Push: combined when ten or more are due at once, otherwise one push each. Stale items (more than PUSH_WINDOW_MS late) are
      stamped as handled without ever pushing. */
   const allDue = [...dueItems, ...taskDue];
   let sentCount = 0;
@@ -219,9 +227,10 @@ export async function runReminders(db, nowMs = Date.now()) {
     }
     newKeys.push(digestKey); // marks today handled either way, so a quiet day never re-checks after 8:30
   }
-  if (newKeys.length) {
+  if (newKeys.length || outcomes.length) {
     const keys = [...sent, ...newKeys].slice(-SENT_KEYS_CAP);
-    await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+    const log = [...(Array.isArray(doc.reminderOutcomes) ? doc.reminderOutcomes : []), ...outcomes].slice(-OUTCOMES_KEPT);
+    await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, reminderOutcomes: log, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
   /* Queued emails (Send tomorrow), by the instant rule, gated to once every QUEUE_GATE_MS. */
@@ -230,7 +239,7 @@ export async function runReminders(db, nowMs = Date.now()) {
   const gateDoc = (await queueGate.findOne({ _id: 'cronGates' })) || {};
   const runQueue = !gateDoc.queueLastRunAt || nowMs - Date.parse(gateDoc.queueLastRunAt) >= QUEUE_GATE_MS;
   if (runQueue) {
-    try { emails = await runQueuedSends(db, nowMs, { byDay: false }); } catch { /* the next gate tries again */ }
+    try { emails = await runQueuedSends(db, nowMs, { byDay: false, maxAgeMs: QUEUE_MAX_AGE_MS }); } catch { /* the next gate tries again */ }
   }
   /* The email rules, once a day, on the first run at or after 9:00am America/New_York. */
   let rules = emptyRun();
@@ -248,7 +257,7 @@ export async function runReminders(db, nowMs = Date.now()) {
   try { clientPushes = await clientPushSweep(db, nowMs); } catch { /* next run */ }
 
   /* Health: lastRunAt plus the last twelve run times, now a minute apart. */
-  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.skippedStale': staleKeys.length + taskStale.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
   return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, clientPushes: clientPushes.sent, emails, rules };
 }
