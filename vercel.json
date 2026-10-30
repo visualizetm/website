@@ -150,6 +150,10 @@
       "destination": "/api/admin/index?r=log"
     },
     {
+      "source": "/api/cron/:job",
+      "destination": "/api/cron/index?job=:job"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

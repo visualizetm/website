@@ -186,6 +186,29 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(rw && rw.destination === '/api/admin/index?r=email&a=:action', 'vercel.json rewrites /api/admin/email/<action> onto the admin function with r=email and a=<action>');
       const funcs = fs.readdirSync(path.join(repoRoot, 'api')).filter(f => f.endsWith('.js') && !f.startsWith('_')).length + fs.readdirSync(path.join(repoRoot, 'api', 'admin')).length + fs.readdirSync(path.join(repoRoot, 'api', 'cron')).length + fs.readdirSync(path.join(repoRoot, 'api', 'stripe')).length;
       ok(funcs === 10, `ten Vercel functions of the Hobby plan's twelve, no new one (${funcs})`);
+      /* The routes the platform reaches. This project has no framework preset and ends its rewrites with /(.*) to /index.html, which wins over a
+         dynamic [param] file: /api/cron/reminders answered with the SPA's index.html (status 200) and the crons never ran. So a function is a plain
+         file plus a rewrite above the catch-all, and these four checks keep it that way. */
+      const apiNames = (d, rel = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => [rel + e.name, ...(e.isDirectory() ? apiNames(path.join(d, e.name), rel + e.name + '/') : [])]);
+      const dynamicNames = apiNames(path.join(repoRoot, 'api')).filter(n => /[\[\]]/.test(n));
+      ok(dynamicNames.length === 0, `no file or folder under api/ has a [param] name, the catch-all would swallow it (${dynamicNames.join(', ') || 'none'})`, 'no-dynamic-api-file');
+      const rws = vj.rewrites || [];
+      const catchAll = rws.findIndex(x => x.source === '/(.*)');
+      const cronRw = rws.findIndex(x => x.source === '/api/cron/:job');
+      ok(cronRw >= 0 && rws[cronRw].destination === '/api/cron/index?job=:job' && catchAll > cronRw, 'vercel.json rewrites /api/cron/:job onto api/cron/index with job=:job, above the /(.*) catch-all', 'cron-rewrite');
+      ok(catchAll >= 0 && !rws.some((x, i) => i > catchAll && /^\/api\//.test(x.source)), 'every /api/ rewrite sits above the catch-all, none after it');
+      const fileFor = (p) => [p + '.js', p + '/index.js'].map(f => path.join(repoRoot, f.replace(/^\//, ''))).find(f => fs.existsSync(f));
+      const reFor = (src) => new RegExp('^' + src.split('/').map(seg => (seg.startsWith(':') ? '[^/]+' : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('/') + '$');
+      const cronFile = path.join(repoRoot, 'api', 'cron', 'index.js');
+      const cronSrc = fs.existsSync(cronFile) ? fs.readFileSync(cronFile, 'utf8') : '';
+      ok((vj.crons || []).length >= 2, 'vercel.json registers the crons');
+      for (const c of vj.crons || []) {
+        const hit = rws.slice(0, catchAll < 0 ? rws.length : catchAll).find(x => reFor(x.source).test(c.path));
+        const served = hit ? fileFor(hit.destination.split('?')[0]) : fileFor(c.path);
+        const job = c.path.split('/').pop();
+        ok(!!served, `cron ${c.path} reaches a real function file (${hit ? `${hit.source} to ${hit.destination.split('?')[0]}` : 'a file of that name'})`, 'cron-path');
+        ok(new RegExp(`\\b${job}:\\s*route\\(`).test(cronSrc), `api/cron/index.js registers the ${job} job under route()`);
+      }
     }
     /* 6. the renderer: every block, the escaping, the marks, the links, the skeleton, the size cap, the missing fields. */
     {
@@ -491,8 +514,14 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
     {
       const Q = await load('_lib/email/queue.js');
       const Z = await load('_lib/zone.js');
-      const cron = (await load('cron/[job].js')).default;
+      const cron = (await load('cron/index.js')).default;
       const cronCall = async () => { const req = { method: 'GET', query: { job: 'reminders' }, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }; const res = fakeRes(); await cron(req, res); return res; };
+      /* The dispatcher answers an unknown job 404 (JSON) and never reaches for a prototype member: /api/cron/constructor used to be Object(req, res) and hang. */
+      for (const job of ['nothing', 'constructor', '__proto__', 'toString', 'hasOwnProperty', ['reminders', 'daily'], undefined]) {
+        const res = fakeRes(); let threw = null;
+        try { await cron({ method: 'GET', query: { job }, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/x', socket: {} }, res); } catch (e) { threw = e; }
+        ok(!threw && res._status === 404 && res._json?.error === 'not found', `the cron dispatcher answers job ${Array.isArray(job) ? 'a list' : String(job)} with a 404 JSON, never a hang or a throw${threw ? ` (${threw.message})` : ''}`, 'cron-unknown-job');
+      }
       globalThis.__vzPushes = [];
       const run8am = Date.parse('2026-01-20T13:00:00Z'); // the morning run, 8am in New York in winter
       const at9 = (key) => new Date(Z.zoneDateAt(key, 9, 0)).toISOString();

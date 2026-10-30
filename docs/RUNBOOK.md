@@ -167,7 +167,11 @@ one vercel.json rewrite per URL (`/api/admin/call-leads` becomes
 `/api/admin/index?r=call-leads`, so no client URL changed); index.js wraps
 each endpoint's logic from api/_routes/<name>.js in `route()`
 (api/_lib/handler.js: method allow list, admin guard, body cap, one
-try/catch). Both crons dispatch out of api/cron/[job].js.
+try/catch). Both crons dispatch out of api/cron/index.js, reached by the
+`/api/cron/:job` rewrite (`/api/cron/index?job=:job`), so the cron paths in
+vercel.json did not change.
+
+API functions use plain file names plus a rewrite. A `[param]` file is swallowed by the SPA catch-all.
 `/api/submissions`, `/api/push-key`, and `/api/stripe/webhook` keep their
 own files since the webhook needs the raw body and its own config. That is 8
 of the 10 functions the deployment uses (api/showcase.js and api/planner.js,

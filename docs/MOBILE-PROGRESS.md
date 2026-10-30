@@ -196,3 +196,15 @@ Plan: 1. data shape, the token, normalizeBrandColor, the Delivery template, the 
   - Production: no Vercel access from this session (the Vercel MCP tools were not connected), so the live deploy status and Settings health's real run cadence could not be confirmed here. Rob should check the Vercel dashboard for the deploy and Settings, Integrations for the live run times once this is live.
 
 Resume here: read this section and docs/MOBILE-DECISIONS.md's matching entries, then continue with Milestone 2 (src/shell/TabBar.jsx, src/ui/tokens.js, the five tabs Home/Calls/Deals/Clients/More, the glass tokens and fallbacks, content bottom padding everywhere a screen scrolls).
+
+## Cron route fix (branch cron-route-fix)
+
+- [x] Rename api/cron/[job].js to api/cron/index.js, add the /api/cron/:job rewrite above the catch-all.
+- [x] Guard in the email test (no [param] file under api/, rewrite order, every cron path reaches a function) and its fault proofs; dispatcher hardened with Object.hasOwn and the cron-unknown-job cut.
+- [x] Docs that named api/cron/[job].js updated (CLAUDE.md, RUNBOOK, ARCHITECTURE, CRM-REBUILD-BRIEF); RUNBOOK and CLAUDE.md state the rule: API functions use plain file names plus a rewrite.
+- [x] lint, build, hex 78, preship (every check passes except the chrome-audit failure that predates it), the handler tests, security-test.
+- [ ] Merge to main after deciding the first-run effects (queued emails, the daily backlog, double pushes), then confirm the deploy is Ready.
+- [ ] Production checks: both paths answer 401 JSON without the secret, runtime logs show /api/cron/reminders invocations, settings.health exists and lastRunAt moves each minute, read the latest crons.reminders.runs entry. Needs admin.visualizeclients.com reachable from the session.
+
+Resume here: read docs/NOTIFICATIONS-AUDIT.md section 13, then item 9 before merging.
+
