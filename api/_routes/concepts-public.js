@@ -117,7 +117,7 @@ async function tellRob(db, set, answers, name) {
     if (notif?.reminders?.concepts !== false) {
       const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
       const who = lead?.showcase?.displayName || lead?.business || name || 'A client';
-      await sendPush(db, { title: `${who} sent their answers`, body: summaryLine(answers), url: `${base}/leads/${String(set.leadId)}/concepts?set=${String(set._id)}` });
+      await sendPush(db, { title: `${who} sent their answers`, body: summaryLine(answers), url: `${base}/leads/${String(set.leadId)}/concepts?set=${String(set._id)}`, category: 'client' });
     }
   } catch { /* a push that fails never fails their answers */ }
 }

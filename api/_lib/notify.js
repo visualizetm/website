@@ -1,11 +1,16 @@
 import webpush from 'web-push';
+import { pushSkipReason } from './pushPrefs.js';
 
 /* Web push, one door. Every send answers what actually happened: { attempted, delivered, removed, errors } (counts and short codes
  * only, never an endpoint or a key). A caller that must not lose a reminder (the minute cron) stamps it handled only when
  * delivered is above zero; the Test button prints the counts. errors holds codes: 'no-vapid', 'bad-vapid', 'no-devices',
  * 'http-<status>' for a refusal by the push service, 'network' for no answer. A 404 or 410 means the device is gone: its row is
  * deleted (removed), and when that was the last owner device the notifications document is flagged pushNeedsResubscribe so the
- * app can subscribe again on its next open. */
+ * app can subscribe again on its next open.
+ *
+ * Every message names a category (src/shared/pushCategories.js). Settings > Notifications can switch a category off or set quiet hours;
+ * a push held back that way is answered { attempted: 0, delivered: 0, removed: 0, errors: [], skipped: 'off' | 'quiet' } and never
+ * reaches a device. A caller treats skipped as handled (it was decided, not lost): the minute cron stamps it, a sweep moves its mark. */
 let vapidReady = false;
 let vapidProblem = '';
 function initVapid() {
@@ -35,8 +40,10 @@ export const clientSubs = (db, leadId) => db.collection('push_subscriptions').fi
 const nothing = (code) => ({ attempted: 0, delivered: 0, removed: 0, errors: [code] });
 
 // Send a web push to every one of Rob's devices; prune subscriptions that are gone. Answers the counts.
-// message: { title, body, url, kind: 'reminder' | 'digest' | 'event' (default), category }.
-export async function sendPush(db, message) {
+// message: { title, body, url, kind: 'reminder' | 'digest' | 'event' (default), category }. opts.now: the instant quiet hours are judged at (the cron's clock).
+export async function sendPush(db, message, opts = {}) {
+  const skipped = await pushSkipReason(db, message.category, opts.now);
+  if (skipped) return { attempted: 0, delivered: 0, removed: 0, errors: [], skipped };
   if (!initVapid()) return nothing(vapidProblem || 'no-vapid');
   const res = await sendTo(db, await ownerSubs(db), message);
   if (res.removed) await flagIfNoDevices(db);

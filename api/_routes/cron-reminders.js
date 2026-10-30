@@ -4,6 +4,7 @@ import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, zoneParts, zoneMeetingMs, ZONE } from '../_lib/zone.js';
 import { callbackDue } from '../_lib/nextAction.js';
+import { pushSkipReason } from '../_lib/pushPrefs.js';
 import { runOverdueInvoices, runLeadSweep, runCalendlyPoll, OVERDUE_AT } from '../_lib/coveragePush.js';
 import { normalizeStage } from '../_semantics.js';
 import { runQueuedSends, QUEUE_MAX_AGE_MS } from '../_lib/email/queue.js';
@@ -85,6 +86,8 @@ export function meetingOf(l) {
   return Number.isFinite(at) ? { at, stamp: `${date}:${time}` } : null;
 }
 
+/** The category a due thing belongs to in Settings > Notifications: a callback, a task and a bill are Reminders, a meeting is Meetings. */
+const categoryOf = (kind) => (kind === 'meeting' || kind === 'meeting-soon' ? 'meetings' : 'reminders');
 /** Why a push reached no device, as one short code (sendPush's counts, never an endpoint). */
 const reasonOf = (res) => (res && Array.isArray(res.errors) && res.errors[0]) || (res && res.removed ? 'device-gone' : 'not-delivered');
 
@@ -193,23 +196,31 @@ export async function runReminders(db, nowMs = Date.now()) {
   const triesBefore = JSON.stringify(tries);
   const allDue = [...dueItems, ...taskDue];
   const delivered = []; // things a device took
+  const silenced = []; // things Settings says not to push (a category switched off, quiet hours): decided, not lost, so stamped like the rest
   const failedNow = []; // things given up on this run
   let sentCount = 0; let retrying = 0; let lastError = ''; let lastDevices = null;
-  const push = async (message, kind = 'reminder') => { try { return await sendPush(db, { ...message, kind }); } catch { return { attempted: 0, delivered: 0, removed: 0, errors: ['push-error'] }; } };
+  const push = async (message, kind = 'reminder') => { try { return await sendPush(db, { ...message, kind }, { now: nowMs }); } catch { return { attempted: 0, delivered: 0, removed: 0, errors: ['push-error'] }; } };
   const settle = (items, res) => {
     const took = !!res && Number(res.delivered) > 0;
-    if (res && Number.isFinite(res.attempted)) lastDevices = res.attempted;
+    if (res && Number.isFinite(res.attempted) && !res.skipped) lastDevices = res.attempted;
     if (took) sentCount++;
     for (const it of items) {
       if (took) { delivered.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'sent')); delete tries[it.key]; continue; }
+      if (res && res.skipped) { silenced.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'skipped', res.skipped)); delete tries[it.key]; continue; }
       lastError = reasonOf(res);
       const n = (Number(tries[it.key]) || 0) + 1;
       if (n >= MAX_TRIES) { failedNow.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'failed', lastError)); delete tries[it.key]; } else { tries[it.key] = n; retrying++; }
     }
   };
-  if (allDue.length >= COMBINE_THRESHOLD) settle(allDue, await push(combinedPush(allDue, base)));
-  else for (const item of allDue) settle([item], await push({ title: item.title, body: item.body, url: item.url }));
-  const handled = [...delivered, ...failedNow];
+  /* Settings first: a thing whose category is switched off, or that falls in quiet hours, is stamped as decided and never pushed. */
+  const reasons = {};
+  for (const c of new Set(allDue.map(i => categoryOf(i.kind)))) reasons[c] = await pushSkipReason(db, c, nowMs);
+  const audible = [];
+  for (const it of allDue) { const why = reasons[categoryOf(it.kind)]; if (why) settle([it], { attempted: 0, delivered: 0, removed: 0, errors: [], skipped: why }); else audible.push(it); }
+  const groupCategory = (items) => (new Set(items.map(i => categoryOf(i.kind))).size === 1 ? categoryOf(items[0].kind) : 'reminders');
+  if (audible.length >= COMBINE_THRESHOLD) settle(audible, await push({ ...combinedPush(audible, base), category: groupCategory(audible) }));
+  else for (const item of audible) settle([item], await push({ title: item.title, body: item.body, url: item.url, category: categoryOf(item.kind) }));
+  const handled = [...delivered, ...failedNow, ...silenced];
   /* Stamp every handled thing: the ones a device took, the ones given up on, the stale ones that never push. Tasks stamp on
      their own record (notifiedAt on the checklist item or the next action); callbacks and meetings stamp into sentReminderKeys. */
   for (const t of [...handled.filter(i => i.kind === 'task').map(i => i.ref), ...taskStale]) {
@@ -260,9 +271,10 @@ export async function runReminders(db, nowMs = Date.now()) {
       if (bills.length) parts.push(`${plural(bills.length, 'bill')} due: ${list(bills.map(b => `${b.business} $${Number(b.amount || 0).toLocaleString()}`))}`);
       if (reviews.length) parts.push(`${plural(reviews.length, 'review ask')} due: ${list(reviews.map(r => r.business))}`);
       if (tasksToday.length) parts.push(`Tasks: ${list(tasksToday.map(t => `${t.action.label} (${t.business}, ${fmtZoneTime(new Date(t.action.dueAt).getTime())})`))}`);
-      const dres = await push({ title, body: parts.join('. '), url: `${base}/` }, 'digest');
-      if (Number.isFinite(dres.attempted)) lastDevices = dres.attempted;
+      const dres = await push({ title, body: parts.join('. '), url: `${base}/`, category: 'digest' }, 'digest');
+      if (Number.isFinite(dres.attempted) && !dres.skipped) lastDevices = dres.attempted;
       if (dres.delivered > 0) { digestSent = 1; newKeys.push(digestKey); delete tries[digestKey]; outcomes.push(outcome(nowIso, digestKey, 'digest', 'sent')); }
+      else if (dres.skipped) { newKeys.push(digestKey); delete tries[digestKey]; outcomes.push(outcome(nowIso, digestKey, 'digest', 'skipped', dres.skipped)); } // switched off or quiet: today's digest is decided
       else {
         lastError = reasonOf(dres);
         const n = (Number(tries[digestKey]) || 0) + 1;

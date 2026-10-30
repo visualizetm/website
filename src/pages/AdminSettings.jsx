@@ -21,6 +21,7 @@ import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
 import EmailSettingsPanel from '../components/email/EmailSettingsPanel';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
 import { reminderHealth, armedState, nextRunText, testMessage, ago } from '../lib/pushStatus';
+import { PUSH_CATEGORIES, categoriesShape, quietShape } from '../shared/pushCategories';
 import { fetchDeletedDocs, restoreDoc, typeLabel } from '../lib/docs';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
@@ -154,6 +155,10 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const savePrefs = async (next) => { const before = prefs; setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) { setData(d => ({ ...d, prefs: before })); toast.error(COPY.error.save); } };
   const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true };
   const saveReminders = async (next) => { const before = reminders; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: before } })); toast.error(COPY.error.save); } };
+  /* Which kinds of push, and quiet hours (src/shared/pushCategories.js): each change is saved at once and rolled back with a toast when the save fails. */
+  const categories = categoriesShape(data?.notifications?.categories);
+  const quiet = quietShape(data?.notifications?.quiet);
+  const saveNotif = async (key, next) => { const before = data?.notifications?.[key]; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), [key]: next } })); const r = await patch({ notifications: { [key]: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), [key]: before } })); toast.error(COPY.error.save); } };
   /* The Test button says what happened: how many devices took it, and why when none did (src/lib/pushStatus.js testMessage). */
   const testPush = async () => {
     setTestingPush(true);
@@ -317,6 +322,18 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   ) : tab === 'notifications' ? (
     <Stagger className="v-stack st-stack">
       <Card className="st-card"><p className="pb-card-h">Alerts</p><Stack gap={0}><Toggle label="Push notifications" description="New submissions and orders, to every device you enabled." checked={prefs.pushEnabled !== false} onChange={(v) => savePrefs({ ...prefs, pushEnabled: v })} /><Toggle label="Email backup" description="contact@visualizeclients.com on every submission." checked={prefs.emailEnabled !== false} onChange={(v) => savePrefs({ ...prefs, emailEnabled: v })} /></Stack></Card>
+      <Card className="st-card" data-card="push-categories">
+        <p className="pb-card-h">What gets pushed</p>
+        <p className="dt-muted">Switch off a kind of push and it is never sent. Quiet hours hold back everything except due reminders and meetings.</p>
+        <Stack gap={0}>
+          {PUSH_CATEGORIES.map(c => <Toggle key={c.id} label={c.label} description={c.hint} checked={categories[c.id] !== false} onChange={(v) => saveNotif('categories', { ...categories, [c.id]: v })} className={`st-cat-${c.id}`} />)}
+        </Stack>
+        <Stack gap={0} className="st-quiet" data-card="quiet-hours">
+          <Toggle label="Quiet hours" description="No pushes between these times (New York), except due reminders and meetings. A push held back is not sent later." checked={quiet.on} onChange={(v) => saveNotif('quiet', { ...quiet, on: v })} />
+          {quiet.on && <Grid minColumnWidth={140} gap={2}><Input label="From" type="time" value={quiet.from} onChange={(e) => saveNotif('quiet', { ...quiet, from: e.target.value })} /><Input label="To" type="time" value={quiet.to} onChange={(e) => saveNotif('quiet', { ...quiet, to: e.target.value })} /></Grid>}
+          {quiet.on && <Toggle label="Quiet reminders and meetings too" description="Also hold back due reminders and meetings during quiet hours." checked={quiet.reminders} onChange={(v) => saveNotif('quiet', { ...quiet, reminders: v })} />}
+        </Stack>
+      </Card>
       <Card className="st-card">
         <p className="pb-card-h">Reminders</p>
         <p className="dt-muted">A push the exact minute a callback or a meeting is due, plus one morning digest at 8:30am Eastern with today's callbacks, meetings, bills, and review asks.</p>

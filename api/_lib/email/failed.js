@@ -30,7 +30,7 @@ export async function failedSendItem(db, { lead, logId, templateId, error }, now
   let push = false;
   try {
     const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-    await sendPush(db, { title: `Email failed: ${name}`, body: `${business}. ${said}`, url: `${base}/leads?open=${String(lead._id)}` });
+    await sendPush(db, { title: `Email failed: ${name}`, body: `${business}. ${said}`, url: `${base}/leads?open=${String(lead._id)}`, category: 'email' });
     push = true;
   } catch { /* the task is written; a push failure must not undo that */ }
   return { task, push };

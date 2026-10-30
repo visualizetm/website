@@ -172,9 +172,11 @@ section('5c. a repeated heal is counted, and the drawer names both');
   const { healItems } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'heals.js')).href);
   const buildNotifications = (leads, o) => healItems(o.health?.crons?.daily?.healedRecords, leads, {}, o.now);
   seed();
-  lead(CLIENT).stage = ''; lead(CLIENT).stageHeals = { count: 2, lastAt: '2026-09-18T06:00:00Z', lastRules: ['clientSince'] };
+  /* The earlier heal is five days old on the real clock: the health list keeps thirty days of heals, so a fixed date rots into the dropped ones. */
+  const EARLIER = new Date(Date.now() - 5 * 864e5).toISOString();
+  lead(CLIENT).stage = ''; lead(CLIENT).stageHeals = { count: 2, lastAt: EARLIER, lastRules: ['clientSince'] };
   lead(WON).stage = '';
-  _stores.settings.push({ _id: 'health', crons: { daily: { healedRecords: [{ id: CLIENT, business: 'Abyssinia Bar and Restaurant', at: '2026-09-18T06:00:00.000Z', count: 2, rules: ['clientSince'] }] } } });
+  _stores.settings.push({ _id: 'health', crons: { daily: { healedRecords: [{ id: CLIENT, business: 'Abyssinia Bar and Restaurant', at: EARLIER, count: 2, rules: ['clientSince'] }] } } });
   const r = await call(cronDaily, 'GET', { headers: { authorization: 'Bearer cron-test-secret' } });
   ok(r._status === 200 && lead(CLIENT).stageHeals.count === 3, `the third heal counts to three (${lead(CLIENT).stageHeals?.count})`);
   const health = _stores.settings.find(s => s._id === 'health');

@@ -27,6 +27,11 @@ let fails = 0;
 const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++; };
 
 const THIS_MONTH = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`;
+/* The preferred date of the idea under test is always ahead of the real clock (40 New York days out), so the check below does not rot as the calendar moves;
+   the task is due 9:00 AM New York the day before, which is 13:00Z in daylight time and 14:00Z once it ends. */
+const { zoneDayKey: __dayKey, zoneDateAt: __dateAt, keyAddDays: __addDays } = await import(pathToFileURL(path.join(repoRoot, 'api', '_lib', 'zone.js')).href);
+const PREFERRED = __addDays(__dayKey(Date.now()), 40);
+const PREFERRED_DUE = new Date(__dateAt(__addDays(PREFERRED, -1), 9, 0)).toISOString();
 const ON_TOKEN = 'plnr_on_token_abcdefghijklmno';
 const OFF_TOKEN = 'plnr_off_token_abcdefghijklmn';
 
@@ -286,18 +291,18 @@ async function call(method, query = {}, body = undefined) {
 
 /* ── POST: suggest (the Ideas tab) ───────────────────────────────────── */
 {
-  const good = { action: 'suggest', kind: 'ad', subject: '  Half off coating in October  ', goal: 'offer', details: 'Ten percent off for the month, mention the free pickup', preferredDate: `${THIS_MONTH}-20`, link: 'https://example.com/offer', photos: ['https://res.cloudinary.com/testcloud/image/upload/v1/a.jpg', 'https://evil.example/x.jpg', 'http://res.cloudinary.com/testcloud/b.jpg'] };
+  const good = { action: 'suggest', kind: 'ad', subject: '  Half off coating in October  ', goal: 'offer', details: 'Ten percent off for the month, mention the free pickup', preferredDate: PREFERRED, link: 'https://example.com/offer', photos: ['https://res.cloudinary.com/testcloud/image/upload/v1/a.jpg', 'https://evil.example/x.jpg', 'http://res.cloudinary.com/testcloud/b.jpg'] };
   process.env.VITE_CLOUDINARY_CLOUD_NAME = '';
   const res = await call('POST', { token: ON_TOKEN }, good);
   ok(res._status === 200 && res._json.ok && res._json.suggestion && res._json.suggestion.status === 'new', `suggest writes an idea and answers it (got ${res._status} ${JSON.stringify(res._json).slice(0, 120)})`);
   const doc = _stores.suggestionsStore.find(s => s.leadId === enabledClient._id);
-  ok(!!doc && doc.subject === 'Half off coating in October' && doc.kind === 'ad' && doc.goal === 'offer' && doc.preferredDate === `${THIS_MONTH}-20` && doc.link === 'https://example.com/offer', 'the idea is stored trimmed with its kind, goal, date and link');
+  ok(!!doc && doc.subject === 'Half off coating in October' && doc.kind === 'ad' && doc.goal === 'offer' && doc.preferredDate === PREFERRED && doc.link === 'https://example.com/offer', 'the idea is stored trimmed with its kind, goal, date and link');
   ok(doc.photos.length === 1 && doc.photos[0].startsWith('https://res.cloudinary.com/'), `only an https photo on res.cloudinary.com is kept (got ${JSON.stringify(doc.photos)})`);
   ok(Object.keys(res._json.suggestion).sort().join(',') === 'createdAt,goal,id,kind,note,status,subject', `the public idea shape (got ${Object.keys(res._json.suggestion).sort().join(',')})`);
   ok(_pushes.length === 1 && /^New idea from Kims Cafe/.test(_pushes[0].title) && /Half off coating/.test(_pushes[0].body) && /\/planner\?ideas=1$/.test(_pushes[0].url), `Rob gets one push naming the client (got ${JSON.stringify(_pushes[0])})`);
   const leadDoc = _stores.leadsStore.find(l => l._id === enabledClient._id);
   const ideasList = (leadDoc.checklists || []).find(l => l.name === 'Ideas');
-  ok(!!ideasList && ideasList.items.length === 1 && ideasList.items[0].text === 'New idea: Half off coating in October' && ideasList.items[0].source === 'suggestion' && ideasList.items[0].suggestionId === String(doc._id) && ideasList.items[0].due === `${THIS_MONTH}-19T13:00:00.000Z`, `the New idea task lands on the client's Ideas checklist, due the day before the preferred date (got ${JSON.stringify(ideasList?.items?.[0])})`);
+  ok(!!ideasList && ideasList.items.length === 1 && ideasList.items[0].text === 'New idea: Half off coating in October' && ideasList.items[0].source === 'suggestion' && ideasList.items[0].suggestionId === String(doc._id) && ideasList.items[0].due === PREFERRED_DUE, `the New idea task lands on the client's Ideas checklist, due the day before the preferred date (got ${JSON.stringify(ideasList?.items?.[0])})`);
   const mine = await call('GET', { token: ON_TOKEN });
   ok(mine._json.suggestions.length === 1 && mine._json.suggestions[0].subject === 'Half off coating in October' && mine._json.suggestions[0].note === '', 'the client reads their own idea back, with no note while it is new');
   ok(!JSON.stringify(mine._json.suggestions).includes('Ten percent'), 'the details are not echoed back (they are for Rob)');

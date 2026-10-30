@@ -7,6 +7,7 @@ import { safeUrl } from './_lib/url.js';
 import { sendPush } from './_lib/notify.js';
 import { SUGGESTION_KIND_IDS, SUGGESTION_GOAL_IDS } from './_semantics.js';
 import { addTask } from './_lib/taskRules.js';
+import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -120,13 +121,16 @@ const publicPost = (p) => ({
 /** Exactly the fields a client may see about one of their own ideas. */
 const publicSuggestion = (s) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : '' });
 
-/** When the New idea task is due: the day before the preferred date when there is one, else two working days from now (New York day keys are not needed here: the admin's own zone reads it back). */
-function suggestionDue(preferredDate, nowMs) {
-  const key = (d) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-  if (preferredDate) { const [y, m, d] = preferredDate.split('-').map(Number); const before = new Date(Date.UTC(y, m - 1, d - 1)); if (before.getTime() > nowMs) return `${key(before)}T13:00:00.000Z`; }
-  const d = new Date(nowMs); let left = 2;
-  while (left > 0) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) left--; }
-  return `${key(d)}T13:00:00.000Z`;
+/** When the New idea task is due, as an ISO instant: 9:00 AM New York the day before the preferred date when there is one (and that is still ahead),
+ * else 9:00 AM New York two working days from now. Both read the zone helpers (api/_lib/zone.js), never a fixed UTC hour: 13:00Z is 9:00 AM
+ * only while daylight time lasts, and from Sunday November 1 it is 8:00 AM. Days are New York days, so an evening after 8 PM there (already
+ * tomorrow in UTC) is still today. */
+export function suggestionDue(preferredDate, nowMs) {
+  const at9 = (key) => new Date(zoneDateAt(key, 9, 0)).toISOString();
+  if (preferredDate) { const before = keyAddDays(preferredDate, -1); if (zoneDateAt(before, 9, 0) > nowMs) return at9(before); }
+  let key = zoneDayKey(nowMs); let left = 2;
+  while (left > 0) { key = keyAddDays(key, 1); const dow = new Date(`${key}T12:00:00Z`).getUTCDay(); if (dow !== 0 && dow !== 6) left--; }
+  return at9(key);
 }
 
 async function handler(req, res) {
@@ -213,7 +217,7 @@ async function handler(req, res) {
         const notif = await db.collection('settings').findOne({ _id: 'notifications' });
         if (notif?.reminders?.ideas !== false) {
           const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-          await sendPush(db, { title: `New idea from ${lead.showcase?.displayName || lead.business}`, body: `${doc.kind === 'ad' ? 'An ad' : doc.kind === 'video' ? 'A video' : 'A post'}: ${subject}`, url: `${base}/clients/${lead._id}/planner?ideas=1` });
+          await sendPush(db, { title: `New idea from ${lead.showcase?.displayName || lead.business}`, body: `${doc.kind === 'ad' ? 'An ad' : doc.kind === 'video' ? 'A video' : 'A post'}: ${subject}`, url: `${base}/clients/${lead._id}/planner?ideas=1`, category: 'client' });
         }
       } catch { /* a push that fails never fails their idea */ }
       return res.status(200).json({ ok: true, suggestion: publicSuggestion({ ...doc, _id: r.insertedId }) });

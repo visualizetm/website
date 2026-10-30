@@ -21,7 +21,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const list = (items, more = 5) => items.slice(0, more).join(', ') + (items.length > more ? `, +${items.length - more} more` : '');
 const when = (isoOrMs) => new Date(isoOrMs).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: ZONE });
 const NONE = { attempted: 0, delivered: 0, removed: 0, errors: ['push-error'] };
-const send = async (db, message) => { try { return await sendPush(db, { kind: 'event', ...message }); } catch { return NONE; } };
+const send = async (db, message, nowMs = Date.now()) => { try { return await sendPush(db, { kind: 'event', ...message }, { now: nowMs }); } catch { return NONE; } };
 /** A push is handled when a device took it, or when Settings has that category switched off (sendPush answers skipped): either way it is not retried. */
 export const handled = (res) => !!res && (Number(res.delivered) > 0 || !!res.skipped);
 
@@ -79,7 +79,7 @@ export async function runOverdueInvoices(db, nowMs, gate = {}) {
     const one = eligible.length === 1 ? eligible[0] : null;
     const res = await send(db, one
       ? { title: `Overdue: ${one.who} ${money(one.amount)}`, body: `${one.label}, due ${one.dueAt}.`, url: `${adminBase()}/clients/${encodeURIComponent(one.leadId)}`, category: 'payments' }
-      : { title: `${plural(eligible.length, 'invoice')} overdue`, body: list(eligible.map(l => `${l.who} ${money(l.amount)}`)), url: `${adminBase()}/clients`, category: 'payments' });
+      : { title: `${plural(eligible.length, 'invoice')} overdue`, body: list(eligible.map(l => `${l.who} ${money(l.amount)}`)), url: `${adminBase()}/clients`, category: 'payments' }, nowMs);
     if (handled(res)) {
       for (const l of eligible) nudges[l.id] = { n: (Number(nudges[l.id]?.n) || 0) + 1, day: today };
       out.pushed = eligible.length;
@@ -112,7 +112,7 @@ export async function runLeadSweep(db, nowMs, gate = {}) {
     const newest = fresh.reduce((m, l) => Math.max(m, new Date(l.createdAt).getTime() || 0), 0);
     const res = await send(db, fresh.length === 1
       ? { title: `New lead: ${fresh[0].business || 'a business'}`, body: 'Waiting in Triage.', url: `${adminBase()}/leads?open=${String(fresh[0]._id)}`, category: 'leads' }
-      : { title: `${plural(fresh.length, 'new lead')}`, body: list(fresh.map(l => l.business || 'a business')), url: `${adminBase()}/leads`, category: 'leads' });
+      : { title: `${plural(fresh.length, 'new lead')}`, body: list(fresh.map(l => l.business || 'a business')), url: `${adminBase()}/leads`, category: 'leads' }, nowMs);
     if (handled(res)) { out.pushed = res.delivered > 0; out.patch.leadSweepMark = newest; }
   } catch { out.patch = { leadSweepAt: stamp }; }
   return out;
@@ -182,9 +182,9 @@ export async function runCalendlyPoll(db, nowMs, gate = {}) {
       ? { title: `${noun}: ${items[0].name}`, body: when(items[0].at), url: `${adminBase()}/calendar`, category: 'meetings' }
       : { title: `${plural(items.length, noun === 'Booked' ? 'new booking' : 'cancellation')}`, body: list(items.map(i => `${i.name}, ${when(i.at)}`), 4), url: `${adminBase()}/calendar`, category: 'meetings' });
     let announced = [];
-    if (booked.length && handled(await send(db, message(booked, 'Booked')))) { announced = booked; out.booked = booked.length; }
+    if (booked.length && handled(await send(db, message(booked, 'Booked'), nowMs))) { announced = booked; out.booked = booked.length; }
     let released = [];
-    if (gone.length && handled(await send(db, message(gone, 'Canceled')))) { released = gone; out.canceled = gone.length; }
+    if (gone.length && handled(await send(db, message(gone, 'Canceled'), nowMs))) { released = gone; out.canceled = gone.length; }
 
     /* The ids the next poll compares against: still active, plus the bookings just announced, plus a cancellation not yet announced. */
     const next = {};

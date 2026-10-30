@@ -5,6 +5,7 @@ import { emailConnected } from '../_lib/email/transport.js';
 import { sendPush, ownerSubs } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
 import { RETAINERS } from '../_lib/pricing.js';
+import { categoriesShape, quietShape } from '../_lib/pushCategories.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
@@ -42,6 +43,9 @@ const notifShape = (d = {}) => ({
   lastSeenAt: typeof d.lastSeenAt === 'string' ? d.lastSeenAt : null,
   snoozedUntil: d.snoozedUntil && typeof d.snoozedUntil === 'object' ? Object.fromEntries(Object.entries(d.snoozedUntil).filter(([, v]) => typeof v === 'string').slice(-200)) : {},
   reminders: { meetings: d.reminders?.meetings !== false, callbacks: d.reminders?.callbacks !== false, bills: d.reminders?.bills !== false, reviews: d.reminders?.reviews !== false, tasks: d.reminders?.tasks !== false, ideas: d.reminders?.ideas !== false },
+  /* Which kinds of push Rob wants and his quiet hours (src/shared/pushCategories.js). A missing value is on / off, so a document from before changes nothing. */
+  categories: categoriesShape(d.categories),
+  quiet: quietShape(d.quiet),
 });
 const clampTarget = (v) => {
   const n = Math.round(Number(v));
@@ -128,13 +132,15 @@ export async function handler(req, res) {
       await settings.updateOne({ _id: 'profile' }, { $set: { ...next, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
       if (!Object.keys(allowed).length && !set.notifications) return res.status(200).json({ ok: true, profile: next });
     }
-    // Prompt 9: PATCH { set: { notifications: { readIds?, lastSeenAt?, snoozedUntil?, reminders? } } }
+    // Prompt 9: PATCH { set: { notifications: { readIds?, lastSeenAt?, snoozedUntil?, reminders?, categories?, quiet? } } }
     if (set.notifications && typeof set.notifications === 'object') {
       const n = set.notifications; const upd = {};
       if (n.readIds !== undefined) upd.readIds = strList(n.readIds, 500);
       if (n.lastSeenAt !== undefined) upd.lastSeenAt = typeof n.lastSeenAt === 'string' ? n.lastSeenAt : null;
       if (n.snoozedUntil !== undefined) upd.snoozedUntil = notifShape({ snoozedUntil: n.snoozedUntil }).snoozedUntil;
       if (n.reminders !== undefined) upd.reminders = notifShape({ reminders: n.reminders }).reminders;
+      if (n.categories !== undefined) upd.categories = categoriesShape(n.categories);
+      if (n.quiet !== undefined) upd.quiet = quietShape(n.quiet);
       if (!Object.keys(upd).length) return res.status(400).json({ error: 'nothing to update' });
       await settings.updateOne({ _id: 'notifications' }, { $set: { ...upd, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
       const doc = await settings.findOne({ _id: 'notifications' });

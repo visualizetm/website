@@ -103,7 +103,7 @@ export async function handler(req, res) {
   await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'reviews.testimonials': list, checklists: lists, updatedAt: new Date() } });
   try {
     const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-    await sendPush(db, { title: `New review from ${business}`, body: `${rating} stars from ${name}. Approve or hide it on Reviews.`, url: `${base}/reviews?open=${String(lead._id)}` });
+    await sendPush(db, { title: `New review from ${business}`, body: `${rating} stars from ${name}. Approve or hide it on Reviews.`, url: `${base}/reviews?open=${String(lead._id)}`, category: 'client' });
   } catch { /* the review is stored; a push failure must not undo that */ }
   return res.status(200).json({ ok: true });
 }

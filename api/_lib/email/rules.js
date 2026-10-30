@@ -91,7 +91,7 @@ export async function runEmailRules(db, now = Date.now()) {
 async function finish(db, out, drafted) {
   const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
   const n = (k, word) => `${k} ${word}${k === 1 ? '' : 's'}`;
-  if (drafted.length) { try { await sendPush(db, { title: `${n(drafted.length, 'email')} ready to send`, body: 'Written for you from today\'s rules. Send or edit each one from Next up.', url: `${base}/tasks` }); } catch { /* the drafts and their tasks are written */ } }
-  if (out.sent) { try { await sendPush(db, { title: `${n(out.sent, 'email')} went out for you`, body: out.failed ? `${n(out.failed, 'email')} did not go; the tasks say why.` : 'Recent sends in Settings has each one.', url: `${base}/settings/emails` }); } catch { /* sent either way */ } }
+  if (drafted.length) { try { await sendPush(db, { title: `${n(drafted.length, 'email')} ready to send`, body: 'Written for you from today\'s rules. Send or edit each one from Next up.', url: `${base}/tasks`, category: 'email' }); } catch { /* the drafts and their tasks are written */ } }
+  if (out.sent) { try { await sendPush(db, { title: `${n(out.sent, 'email')} went out for you`, body: out.failed ? `${n(out.failed, 'email')} did not go; the tasks say why.` : 'Recent sends in Settings has each one.', url: `${base}/settings/emails`, category: 'email' }); } catch { /* sent either way */ } }
   return out;
 }

@@ -145,7 +145,7 @@ async function approve(db, lead, token, b, res) {
   await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.approvals': approvals, checklists: lists, updatedAt: new Date() } });
   try {
     const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-    await sendPush(db, { title: decision === 'approved' ? `${business} approved ${label}` : `${business} wants changes`, body: decision === 'approved' ? 'Signed off from their portal.' : `${label}: ${note}`.slice(0, 200), url: `${base}/clients?open=${String(lead._id)}` });
+    await sendPush(db, { title: decision === 'approved' ? `${business} approved ${label}` : `${business} wants changes`, body: decision === 'approved' ? 'Signed off from their portal.' : `${label}: ${note}`.slice(0, 200), url: `${base}/clients?open=${String(lead._id)}`, category: 'client' });
   } catch { /* the answer is stored; a push failure must not undo that */ }
   return res.status(200).json({ ok: true, item: { id: next.id, label: String(next.label).slice(0, 120), status: next.status, note: next.note, respondedAt: next.respondedAt } });
 }
@@ -189,7 +189,7 @@ async function reorder(db, lead, token, b, res) {
   await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, updatedAt: new Date() } });
   try {
     const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-    await sendPush(db, { title: `Print reorder from ${business}`, body: `${summary} (${money(subtotal)}). Send the payment link.`, url: `${base}/orders?open=${String(r.insertedId)}` });
+    await sendPush(db, { title: `Print reorder from ${business}`, body: `${summary} (${money(subtotal)}). Send the payment link.`, url: `${base}/orders?open=${String(r.insertedId)}`, category: 'client' });
   } catch { /* the order is stored; a push failure must not undo that */ }
   return res.status(200).json({ ok: true, summary, subtotalText: money(subtotal), line: "Got it. I'll send you a payment link." });
 }
@@ -225,7 +225,7 @@ async function siteChange(db, lead, token, b, res) {
   await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, 'portal.siteChanges': log, updatedAt: new Date() } });
   try {
     const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
-    await sendPush(db, { title: `Site change from ${business}`, body: `${text.slice(0, 160)}${image ? ' (with a picture)' : ''}`, url: `${base}/clients/${encodeURIComponent(String(lead._id))}/tasks` });
+    await sendPush(db, { title: `Site change from ${business}`, body: `${text.slice(0, 160)}${image ? ' (with a picture)' : ''}`, url: `${base}/clients/${encodeURIComponent(String(lead._id))}/tasks`, category: 'client' });
   } catch { /* the ask is stored; a push failure must not undo that */ }
   const recent = siteChangesOf({ ...lead, checklists: lists, portal: { ...(lead.portal || {}), siteChanges: log } });
   return res.status(200).json({ ok: true, recent, line: "Got it. I'll take a look and let you know when it's live." });
