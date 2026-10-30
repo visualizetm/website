@@ -19,6 +19,8 @@ import LeadPicker from '../components/LeadPicker';
 import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
 import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
 import EmailSettingsPanel from '../components/email/EmailSettingsPanel';
+import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
+import { reminderHealth, armedState, nextRunText, testMessage, ago } from '../lib/pushStatus';
 import { fetchDeletedDocs, restoreDoc, typeLabel } from '../lib/docs';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
@@ -43,24 +45,33 @@ const statusPill = (ok, okLabel, badLabel, warn) => <Pill tone={ok ? 'booked' : 
 
 function usePush() {
   const [state, setState] = useState('idle');
+  const [error, setError] = useState('');
   useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { setState('unsupported'); return; }
-    if (Notification.permission === 'denied') { setState('denied'); return; }
-    navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => { if (sub) setState('subscribed'); }).catch(() => {});
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { setState('unsupported'); return undefined; }
+    if (Notification.permission === 'denied') { setState('denied'); return undefined; }
+    const look = () => navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => setState(st => (sub ? 'subscribed' : st === 'subscribed' ? 'idle' : st))).catch(() => {});
+    look();
+    window.addEventListener('vz:push-synced', look); // the app's own open-time sync finished: read the subscription again
+    return () => window.removeEventListener('vz:push-synced', look);
   }, []);
-  const enable = useCallback(async () => {
+  /* force drops the browser's old subscription first (the server removed it as gone), so the new one is not the dead one again. */
+  const enable = useCallback(async ({ force = false } = {}) => {
+    setError('');
     try {
       const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setState('denied'); return; }
+      if (perm !== 'granted') { setState('denied'); return false; }
       const key = (await apiFetch('/api/push-key')).data?.key;
-      if (!key) { setState('error'); return; }
+      if (!key) { setState('error'); setError('The server has no push key (VAPID_PUBLIC_KEY), so this device cannot subscribe.'); return false; }
       const reg = await navigator.serviceWorker.ready;
+      if (force) { const old = await reg.pushManager.getSubscription(); if (old) { try { await old.unsubscribe(); } catch { /* the subscribe below makes a fresh one */ } } }
       const subscription = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       const res = await apiFetch('/api/admin/push-subscribe', { method: 'POST', body: { subscription: subscription.toJSON() } });
-      setState(res.ok ? 'subscribed' : 'error');
-    } catch { setState('error'); }
+      if (!res.ok) { setState('error'); setError('The subscription was made but the server did not save it. Try again.'); return false; }
+      setState('subscribed');
+      return true;
+    } catch { setState('error'); setError('Could not turn on push. Try again, and make sure the app is installed to your Home Screen on iPhone.'); return false; }
   }, []);
-  return { state, enable };
+  return { state, enable, error };
 }
 
 /* Client error log (Prompt 15): the last 20 entries the admin posted to
@@ -126,7 +137,9 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const fetching = !data && !loadError;
   const showSkel = useDelayedLoading(fetching || loading);
   const pending = (fetching || loading) && !showSkel;
-  const { state: pushState, enable: enablePush } = usePush();
+  const { state: pushState, enable: enablePush, error: pushError } = usePush();
+  const [testing, setTestingPush] = useState(false);
+  const [testNote, setTestNote] = useState(null); // { tone, text }: what the last Test button press really did
   const [installTick, setInstallTick] = useState(0);
   useEffect(() => onInstallChange(() => setInstallTick(t => t + 1)), []);
 
@@ -141,7 +154,21 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const savePrefs = async (next) => { const before = prefs; setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) { setData(d => ({ ...d, prefs: before })); toast.error(COPY.error.save); } };
   const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true };
   const saveReminders = async (next) => { const before = reminders; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: before } })); toast.error(COPY.error.save); } };
-  const testPush = async () => { const r = await post({ action: 'test-push' }); if (r.ok) toast.success('Test notification sent to every subscribed device.'); else toast.error('Could not send the test.'); };
+  /* The Test button says what happened: how many devices took it, and why when none did (src/lib/pushStatus.js testMessage). */
+  const testPush = async () => {
+    setTestingPush(true);
+    const r = await post({ action: 'test-push' });
+    setTestingPush(false);
+    const m = r.ok ? testMessage(r.data) : { tone: 'error', text: 'Could not send the test.' };
+    setTestNote(m);
+    if (m.tone === 'success') toast.success(m.text); else if (m.tone === 'warning') toast.info(m.text); else toast.error(m.text);
+  };
+  useEffect(() => { // the open-time sync dropped and remade the subscription: the server no longer needs one
+    const done = (e) => { if (e.detail?.result === 'resubscribe') setData(d => ({ ...d, push: { ...(d?.push || {}), needsResubscribe: false } })); };
+    window.addEventListener('vz:push-synced', done);
+    return () => window.removeEventListener('vz:push-synced', done);
+  }, [setData]);
+  const turnOnAgain = async () => { const ok = await enablePush({ force: true }); if (ok) setData(d => ({ ...d, push: { ...(d?.push || {}), needsResubscribe: false } })); };
   const install = async () => { const r = await promptInstall(); if (r === 'accepted') toast.success('Installed. Open it from your home screen.'); else if (r === 'unavailable') toast.info('Use your browser menu to install.'); };
 
   /* Integrations */
@@ -149,14 +176,17 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   /* Reminder timing: the Vercel cron runs the endpoint every minute; two or more of the last twelve runs landing within the
      last five minutes of each other says it is actually keeping that pace, rather than only going off a manual run or a stale
      deploy. */
-  const reminderRunTimes = (health?.crons?.reminders?.runs || []).map(t => new Date(t).getTime()).sort((a, b) => b - a);
-  const reminderTiming = reminderRunTimes.length > 1 && reminderRunTimes[0] - reminderRunTimes[1] <= 5 * 60e3 ? 'Every minute' : 'Not running every minute yet, see Runbook';
+  const rh = reminderHealth(health);
+  const armed = armedState({ health, keysSet: !!data?.reminders?.push, subscribed: pushState === 'subscribed' });
+  const needsResub = !!data?.push?.needsResubscribe;
+  const clock = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const lastPushText = rh.lastPushAt ? `${relativeTime(rh.lastPushAt)}${rh.devices !== null ? `, ${rh.devices} device${rh.devices === 1 ? '' : 's'}` : ''}` : rh.lastPushError ? `Failed: ${rh.lastPushError}` : 'None yet';
   const stripe = data?.stripe || { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
   /* Emails (CRM revamp, step 6): four Zapier catch hooks, one per kind. The settings GET says which variables exist; Send test posts a fixed sample flagged test: true. */
   const EMAIL_KINDS = [['intro', 'Intro'], ['onboarding', 'Onboarding'], ['invoice', 'Invoice'], ['delivery', 'Delivery']];
   const emails = data?.emails || {};
   const emailsOn = EMAIL_KINDS.filter(([k]) => emails[k]).length;
-  const [testing, setTesting] = useState('');
+  const [testingEmail, setTesting] = useState('');
   const testEmail = async (kind, label) => { setTesting(kind); const r = await apiFetch('/api/admin/send-email', { method: 'POST', body: { kind, test: true } }); setTesting(''); if (r.ok) toast.success(`${label} test sent. It carries test: true, so the zap can skip it.`); else toast.error(r.data?.error || 'The test did not go out.'); };
   const [reconcile, setReconcile] = useState(null); // rows
   const [linkEv, setLinkEv] = useState(null);
@@ -192,7 +222,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const tabs = SETTINGS_TABS.map(t => ({ ...t, count: t.id === 'integrations' && stripe.unmatched ? stripe.unmatched : undefined }));
   useTopBar(phone && tab ? { title: (SETTINGS_TABS.find(t => t.id === tab) || {}).label } : null);
   const crons = [
-    { id: 'reminders', label: 'Reminders', every: 'Every minute', what: 'A push the exact minute a callback, a meeting or a task is due (ten or more at once become one combined push), plus one morning digest at 8:30am Eastern with everything due today and a deep link to Next up.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 1), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent last run` : '' },
+    { id: 'reminders', label: 'Reminders', every: 'Every minute', what: 'A push the exact minute a callback, a meeting or a task is due (ten or more at once become one combined push), plus one morning digest at 8:30am Eastern with everything due today and a deep link to Next up.', last: health?.crons?.reminders?.lastRunAt, next: nextRun(health?.crons?.reminders?.lastRunAt, 1), extra: health?.crons?.reminders ? `${health.crons.reminders.sent || 0} sent, ${health.crons.reminders.failed || 0} failed last run` : '' },
     { id: 'daily', label: 'Daily', every: 'Once a day, 06:00 UTC', what: 'Rolls retainer bill dates forward, extends retainer schedules, cancels retainers past their notice, and writes task health.', last: health?.crons?.daily?.lastRunAt, next: nextRun(health?.crons?.daily?.lastRunAt, 24 * 60), extra: health?.crons?.daily ? `${health.crons.daily.rolled || 0} rolled, ${health.crons.daily.cancelled || 0} cancelled` : '' },
   ];
   const cronArmed = !!(data?.cron?.configured ?? data?.reminders?.configured);
@@ -298,15 +328,26 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
           <Toggle label="Client ideas" description="A push the moment a client sends an idea from their planner. The idea also lands as a task on their Ideas checklist either way." checked={reminders.ideas !== false} onChange={(v) => saveReminders({ ...reminders, ideas: v })} className="st-rem-ideas" />
           <Toggle label="Review ask reminders" description="Include clients due for a review ask (three days after a release, none logged yet) in the morning digest." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
         </Stack>
-        <p className="dt-muted st-rem-timing">Reminder timing: {reminderTiming}</p>
-        {!cronArmed && <p className="dt-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
-        <Row gap={2}><Button variant="secondary" icon={Bell01} onClick={testPush}>Send test notification</Button></Row>
+        <div className="st-pushstat" data-card="push-status">
+          <Row gap={2} align="center" wrap><Pill tone={armed.armed ? 'booked' : 'new'} label={armed.label} size="sm" icon={armed.armed ? 'CheckCircle' : 'AlertTriangle'} /><span className="dt-muted st-rem-timing">{armed.why}</span></Row>
+          {!cronArmed && <p className="dt-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
+          <Grid minColumnWidth={140} gap={2}>
+            <div className="cw-kv"><span className="dt-fact-label">Last run</span><span>{rh.lastRunAt ? `${ago(rh.ageMs)}` : 'Never'}</span></div>
+            <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{nextRunText(health)}</span></div>
+            <div className="cw-kv"><span className="dt-fact-label">Devices</span><span>{data?.push?.devices ?? 0}</span></div>
+            <div className="cw-kv"><span className="dt-fact-label">Last push</span><span>{lastPushText}</span></div>
+          </Grid>
+          <p className="dt-muted st-rem-runs">Last runs: {rh.runs.length ? rh.runs.map(clock).join(', ') : 'none yet'}</p>
+        </div>
+        <Row gap={2}><Button variant="secondary" icon={Bell01} onClick={testPush} loading={testing}>Send test notification</Button></Row>
+        <p className={`st-test-note${testNote ? ` is-${testNote.tone}` : ''}`} role="status" aria-live="polite">{testNote?.text || ''}</p>
       </Card>
       <Card className="st-card">
         <p className="pb-card-h">This device</p>
-        {pushState === 'subscribed' ? <Row gap={2} align="center"><Pill tone="booked" label="Push is on for this device" size="sm" icon="CheckCircle" /></Row>
+        {pushState === 'subscribed' && needsResub ? <Stack gap={2}><p className="dt-muted" role="status">Push stopped working on this device: the push service removed it. Turn it on again to keep getting reminders.</p><Row gap={2}><Button icon={Bell01} onClick={turnOnAgain}>Turn push on again</Button></Row></Stack>
+          : pushState === 'subscribed' ? <Row gap={2} align="center"><Pill tone="booked" label="Push is on for this device" size="sm" icon="CheckCircle" /></Row>
           : pushState === 'unsupported' ? <p className="dt-muted">This browser cannot receive push. On iPhone, install the app to your Home Screen first.</p>
-          : <Row gap={2}><Button icon={Bell01} onClick={enablePush} disabled={pushState === 'denied'}>{pushState === 'denied' ? 'Notifications blocked in browser settings' : 'Enable push on this device'}</Button></Row>}
+          : <Stack gap={2}><Row gap={2}><Button icon={Bell01} onClick={() => enablePush()} disabled={pushState === 'denied'}>{pushState === 'denied' ? 'Notifications blocked in browser settings' : 'Enable push on this device'}</Button></Row>{pushState === 'error' && pushError && <p className="dt-muted" role="alert">{pushError}</p>}</Stack>}
       </Card>
       <Card className="st-card st-install" key={installTick}>
         <Row gap={3} align="start"><IconTile icon="Download04" tone="won" size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
@@ -340,7 +381,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
             {EMAIL_KINDS.map(([k, label]) => (
               <Row key={k} gap={2} align="center" justify="between" wrap className="st-email-row">
                 <Row gap={2} align="center" wrap><span className="st-email-label">{label}</span>{statusPill(!!emails[k], 'Connected', 'Not connected')}</Row>
-                {emails[k] && !emails.resend && <Button variant="secondary" size="md" icon="Send01" loading={testing === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
+                {emails[k] && !emails.resend && <Button variant="secondary" size="md" icon="Send01" loading={testingEmail === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
               </Row>
             ))}
           </Stack>
@@ -349,8 +390,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       </Card>
       <Card className="st-card st-integration">
         <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Scheduled tasks</p>{statusPill(cronArmed, 'Armed', 'CRON_SECRET missing')}</Row>
-          <p className="dt-muted">Reminders ran {health?.crons?.reminders?.lastRunAt ? relativeTime(health.crons.reminders.lastRunAt) : 'never'}; the daily job ran {health?.crons?.daily?.lastRunAt ? relativeTime(health.crons.daily.lastRunAt) : 'never'}. {cronArmed ? 'Both are on the Vercel cron schedule.' : 'Add CRON_SECRET in Vercel and both jobs start on their own.'}</p>
+          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Scheduled tasks</p>{!cronArmed ? statusPill(false, 'Running', 'CRON_SECRET missing') : statusPill(rh.ranRecently, 'Running', 'Reminders not running', true)}</Row>
+          <p className="dt-muted">Reminders ran {health?.crons?.reminders?.lastRunAt ? relativeTime(health.crons.reminders.lastRunAt) : 'never'}; the daily job ran {health?.crons?.daily?.lastRunAt ? relativeTime(health.crons.daily.lastRunAt) : 'never'}. {!cronArmed ? 'Add CRON_SECRET in Vercel and both jobs start on their own.' : rh.ranRecently ? 'Both are on the Vercel cron schedule.' : 'The reminders job should run every minute: open the Vercel dashboard, Settings, Cron Jobs.'}</p>
 
         </Stack></Row>
       </Card>
@@ -368,11 +409,11 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       {crons.map(c => (
         <Card key={c.id} className="st-card st-cron">
           <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? (c.last ? 'booked' : 'new') : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-            <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{c.label}</p><Pill tone="neutral" label={c.every} size="sm" icon="Clock" variant="outline" />{!cronArmed && <Pill tone="new" label="Not armed" size="sm" icon="AlertTriangle" />}</Row>
+            <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{c.label}</p><Pill tone="neutral" label={c.every} size="sm" icon="Clock" variant="outline" />{(!cronArmed || (c.id === 'reminders' && !rh.ranRecently)) && <Pill tone="new" label={cronArmed ? 'Not running' : 'Not armed'} size="sm" icon="AlertTriangle" />}</Row>
             <p className="dt-muted">{c.what}</p>
             <Grid minColumnWidth={140} gap={2}>
               <div className="cw-kv"><span className="dt-fact-label">Last run</span><span>{c.last ? fmtDateTime(c.last) : 'Never'}</span></div>
-              <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{cronArmed ? fmtDateTime(c.next) : 'Needs CRON_SECRET'}</span></div>
+              <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{!cronArmed ? 'Needs CRON_SECRET' : c.id === 'reminders' ? nextRunText(health) : fmtDateTime(c.next)}</span></div>
               {c.extra && <div className="cw-kv"><span className="dt-fact-label">Last result</span><span>{c.extra}</span></div>}
             </Grid>
           </Stack></Row>
@@ -455,6 +496,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         ) : (
           <>
             {!phone && <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />}
+            <CronAlarm actionLabel="Open Notifications" onOpen={tab !== 'notifications' ? () => setTab('notifications') : null} />
             {!phone && <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>}
             <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
           </>
@@ -486,12 +528,17 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         </Sheet>
       )}
       {linkEv && <LeadPicker leads={leads} title="Link this payment" description={`${money(linkEv.amount)} goes on the client's ledger.`} onClose={() => setLinkEv(null)} onPick={linkEvent} />}
-      <style>{stStyles}</style>
+      <style>{stStyles}{cronAlarmStyles}</style>
     </PageShell>
   );
 }
 
 const stStyles = `
+  .st-pushstat { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
+  .st-test-note { margin: 0; min-height: var(--v-lh-sm); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
+  .st-test-note.is-success { color: var(--v-status-booked-text); }
+  .st-test-note.is-warning { color: var(--v-status-new-text); }
+  .st-test-note.is-error { color: var(--v-status-danger-text); }
   .st-email-row { min-height: var(--v-tap); }
   .st-email-label { font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 96px; }
   .st-log-row { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); min-width: 0; }

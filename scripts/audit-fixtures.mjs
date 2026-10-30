@@ -569,7 +569,8 @@ export function docsHandler(store, method, query, body) {
 /** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
 export const PAYLOADS = {
   submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),
-  settings: () => SETTINGS_DOC,
+  /* A healthy install on every request: the reminders job ran seconds ago (so the red cron alarm stays away), one device is subscribed. */
+  settings: () => ({ ...SETTINGS_DOC, health: { ...SETTINGS_DOC.health, crons: { ...SETTINGS_DOC.health.crons, reminders: { ...SETTINGS_DOC.health.crons.reminders, lastRunAt: new Date(Date.now() - 40e3).toISOString(), runs: [40, 100, 160, 220, 280, 340].map(s2 => new Date(Date.now() - s2 * 1e3).toISOString()), devices: 1, failed: 0 } } }, push: { devices: 1, needsResubscribe: false } }),
   stripe: () => ({ configured: true, items: stripeEvents.filter(e => !e.matchedLeadId), events: stripeEvents, ok: true }),
   calendly: () => ({ configured: true, events: CALENDLY_EVENTS }),
   leads: () => ({ items: leads }),

@@ -2,7 +2,7 @@ import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { emailsConfigured } from '../_lib/email.js';
 import { emailConnected } from '../_lib/email/transport.js';
-import { sendPush } from '../_lib/notify.js';
+import { sendPush, ownerSubs } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
 import { RETAINERS } from '../_lib/pricing.js';
 
@@ -97,6 +97,8 @@ export async function handler(req, res) {
       cron: { configured: !!process.env.CRON_SECRET },
       calendly: { configured: !!(process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT) },
       reminders: { configured: !!process.env.CRON_SECRET, push: !!(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) },
+      // Rob's push devices (a count, never an endpoint) and whether a send removed the last one, so the app subscribes again on its next open.
+      push: { devices: (await ownerSubs(db).catch(() => [])).length, needsResubscribe: !!notif?.pushNeedsResubscribe },
       // CRM revamp, step 6: which email hooks exist. Only whether the variable is set, never its value.
       // The email system: `resend` says whether RESEND_API_KEY is set; connected, the old Send buttons open Compose instead of the Zapier modal.
       emails: { ...emailsConfigured(), resend: emailConnected() },
@@ -169,9 +171,12 @@ export async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
+    /* The Test button: the answer is what really happened (devices tried, devices that took it, devices removed as gone, codes), never a
+       bare ok. A server that cannot push at all (no keys, a refused key, a throw) still answers 200 with the code, so the screen can say why. */
     if (b.action === 'test-push') {
-      await sendPush(db, { title: 'Visualize test', body: 'Push reminders reach this device.', url: '/' });
-      return res.status(200).json({ ok: true });
+      let out;
+      try { out = await sendPush(db, { title: 'Visualize test', body: 'Push reminders reach this device.', url: '/', kind: 'event', category: 'test' }); } catch { out = { attempted: 0, delivered: 0, removed: 0, errors: ['push-error'] }; }
+      return res.status(200).json({ ok: true, attempted: out.attempted, delivered: out.delivered, removed: out.removed, errors: out.errors });
     }
 
     if (b.action === 'purge') {

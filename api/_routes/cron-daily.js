@@ -9,7 +9,8 @@ import { syncCallbacksDue } from '../_lib/lists.js';
 import { scoreFor, topClientIndustries, briefedLeadIds } from '../_lib/score.js';
 import { dealAutoPatch } from '../_lib/deal.js';
 import { LEAD_RULES, PROJECT_RULES, dueRules, RULE_IDS } from '../_lib/rules.js';
-import { zoneDayKey, keyAddMonths } from '../_lib/zone.js';
+import { zoneDayKey, keyAddMonths, ZONE } from '../_lib/zone.js';
+import { sendPush } from '../_lib/notify.js';
 import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } from '../_lib/invoices.js';
 
 /* Vercel cron, once a day at 06:00 UTC (vercel.json). CRON_SECRET guarded.
@@ -36,6 +37,8 @@ import { invoicesOf, newInvoice, hasMonthLine, monthLineLabel, addMonthsKey } fr
  *     crons, stripe) the Integrations cards and the drawer read. */
 // Closeout: today and every bill day read America/New_York (api/_lib/zone.js), whatever zone the function runs in.
 const addMonths = (dateStr, n, dayOfMonth) => keyAddMonths(String(dateStr).slice(0, 10), n, dayOfMonth);
+
+const REMINDERS_STALE_MS = 10 * 60e3; // the same ten minutes the Settings alarm uses (src/lib/pushStatus.js STALE_MS)
 
 export async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
@@ -253,5 +256,17 @@ export async function handler(req, res) {
     updatedAt: new Date(),
   };
   await settings.updateOne({ _id: 'health' }, { $set: health, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  return res.status(200).json({ ok: true, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, rules, health });
+  /* The watchdog the daily job gives the minute job (no cron of its own): when the reminders job has not run in the last ten
+     minutes, say so by push, from the same health document the Settings alarm reads. Once a day, and never fatal. */
+  let reminderAlarm = false;
+  try {
+    const last = Date.parse(prev.crons?.reminders?.lastRunAt || '');
+    if (!Number.isFinite(last) || Date.now() - last > REMINDERS_STALE_MS) {
+      const when = Number.isFinite(last) ? new Date(last).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: ZONE }) : '';
+      const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+      const r = await sendPush(db, { title: 'Reminders have not run', body: when ? `Reminders have not run since ${when}. Pushes will not arrive until they do.` : 'Reminders have never run. Pushes will not arrive until they do.', url: `${base}/settings`, kind: 'event', category: 'system' });
+      reminderAlarm = !!(r && r.delivered > 0);
+    }
+  } catch { /* the alarm is a convenience; the daily job is done */ }
+  return res.status(200).json({ ok: true, reminderAlarm, rolled, cancelled, extended, healed: healedRecords, stamped, nextActions, callbacksDue: (callbacksDue.leadIds || []).length, resurfaced, scored, dealsMoved, drafted, rules, health });
 }

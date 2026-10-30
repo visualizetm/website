@@ -134,7 +134,7 @@ export const _stores = { leadsStore, postsStore, settingsStore, suggestionsStore
 export const _pushes = [];
 `);
 
-fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "import { _pushes } from './mongo.js';\nexport async function sendPush(db, p) { _pushes.push(p); }\nexport async function sendClientPush() {}\n");
+fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "import { _pushes } from './mongo.js';\nexport async function sendPush(db, p) { _pushes.push(p); return { attempted: 1, delivered: 1, removed: 0, errors: [] }; }\nexport async function sendClientPush() {}\n");
 const plannerUrl = pathToFileURL(path.join(apiDst, 'planner.js')).href;
 const { default: plannerHandler } = await import(plannerUrl);
 const { _stores, _pushes } = await import(pathToFileURL(path.join(apiDst, '_lib', 'mongo.js')).href);

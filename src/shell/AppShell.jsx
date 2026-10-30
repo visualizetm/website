@@ -4,6 +4,7 @@ import { ShellCtx } from './ShellContext';
 import Sidebar, { sidebarStyles } from './Sidebar';
 import TopBar, { topBarStyles } from './TopBar';
 import { useBack, navHistoryStyles } from './nav-history';
+import usePushSync from '../lib/usePushSync';
 import { useLocation } from 'react-router-dom';
 import { chromeOf, CHROME } from './chrome';
 import { useEdgeBack, edgeBackStyles } from './useEdgeBack';
@@ -60,6 +61,8 @@ export default function AppShell({
   const [notifDoc, setNotifDoc] = useState(() => ({ readIds: readJSON(KEYS.notifRead, []), lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true } }));
   const [calendly, setCalendly] = useState({ configured: null, events: [] });
   const [health, setHealth] = useState(null);
+  const [healthLoaded, setHealthLoaded] = useState(false); // the first settings read answered: before it, no alarm
+  const [pushInfo, setPushInfo] = useState(null); // { devices, needsResubscribe } from the settings GET
   const [emails, setEmails] = useState(null); // CRM revamp, step 6: which email hooks are connected (booleans from the settings GET)
   const [profile, setProfile] = useState(null);
   const appearance = useAppearance();
@@ -81,7 +84,7 @@ export default function AppShell({
     apiFetch('/api/admin/settings').then(r => {
       if (r.ok && r.data?.notifications) setNotifDoc(r.data.notifications);
       if (r.ok && r.data) {
-        setHealth(r.data.health || null); setProfile(r.data.profile || null); setEmails(r.data.emails || null);
+        setHealth(r.data.health || null); setPushInfo(r.data.push || null); setHealthLoaded(true); setProfile(r.data.profile || null); setEmails(r.data.emails || null);
         // Another device may have changed the appearance; the document wins over the local mirror.
         const p = r.data.profile || {};
         const cur = appearanceRef.current;
@@ -92,6 +95,19 @@ export default function AppShell({
     const from = new Date(Date.now() - 7 * 864e5).toISOString(); const to = new Date(Date.now() + 30 * 864e5).toISOString();
     apiFetch(`/api/admin/calendly/events?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`).then(r => { if (r.ok && r.data) setCalendly({ configured: !!r.data.configured, events: r.data.events || [] }); });
   }, []);
+  /* The reminders job's health, kept fresh: re-read the settings every five minutes while the app is on screen and when it comes
+     back to the front (the alarm component keeps its own minute clock). */
+  const refreshHealth = useCallback(() => apiFetch('/api/admin/settings').then(r => {
+    if (r.ok && r.data) { setHealth(r.data.health || null); setPushInfo(r.data.push || null); setHealthLoaded(true); }
+    return r;
+  }), []);
+  useEffect(() => {
+    const again = () => { if (document.visibilityState === 'visible') refreshHealth(); };
+    const slow = setInterval(again, 5 * 60e3);
+    document.addEventListener('visibilitychange', again);
+    return () => { clearInterval(slow); document.removeEventListener('visibilitychange', again); };
+  }, [refreshHealth]);
+  usePushSync({ ready: healthLoaded, needsResubscribe: !!pushInfo?.needsResubscribe });
   const readIds = useMemo(() => new Set(notifDoc.readIds || []), [notifDoc.readIds]);
   const saveNotif = useCallback(async (patch) => {
     let prev; setNotifDoc(d => { prev = d; return { ...d, ...patch }; });
@@ -155,10 +171,10 @@ export default function AppShell({
 
   const ctx = useMemo(() => ({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openTasks: onOpenTasks, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
-    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, setProfile, appearance, saveAppearance,
+    newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, healthLoaded, pushInfo, refreshHealth, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts, openCompose: onOpenCompose, openProjectNew: onOpenProjectNew, openListFill: onOpenListFill,
     lists, openListPicker: onOpenListPicker, listOps, docsApi, overview, overviewStrip,
-  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenCompose, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance]);
+  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenCompose, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance, healthLoaded, pushInfo, refreshHealth]);
 
   /* Chrome mode (src/shell/chrome.js): tabs on a section root, focused on a record, an editor, a setup page or the call room. */
   const location = useLocation();

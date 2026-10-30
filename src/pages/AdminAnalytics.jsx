@@ -9,6 +9,7 @@ import { fmtDate, fmtWeekdayDateTime } from '../shared/dates';
 import { packageOf, RETAINERS } from '../shared/pricing';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import NextUpHome, { nextUpHomeStyles } from '../components/NextUpHome';
+import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
 /* Analytics (the nav revamp, milestone 6): the home. The greeting, then the
@@ -138,11 +139,12 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
       <ScrollArea wide className="dash-page an-page">
         {phone && shell?.overviewStrip ? <div className="an-overview">{shell.overviewStrip(true)}</div> : null}
         {header}
+        <CronAlarm onOpen={() => shell.go('settings')} />
         {nextUp}
         {rangeBar}
         {body}
       </ScrollArea>
-      <style>{dashStyles}{anStyles}{nextUpHomeStyles}</style>
+      <style>{dashStyles}{anStyles}{nextUpHomeStyles}{cronAlarmStyles}</style>
     </PageShell>
   );
 }

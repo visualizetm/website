@@ -61,6 +61,28 @@ self.addEventListener('push', (event) => {
   );
 });
 
+/* The browser replaced or dropped this device's push subscription (the push service rotated it): make a new one and tell the server,
+ * so reminders do not go quiet until someone opens Settings. The admin cookie goes along with the request. If anything here fails
+ * the app subscribes again on its next open (src/lib/usePushSync.js). */
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    try {
+      const old = event.oldSubscription;
+      let sub = event.newSubscription || null;
+      if (!sub) {
+        let options = old && old.options ? { userVisibleOnly: true, applicationServerKey: old.options.applicationServerKey } : null;
+        if (!options || !options.applicationServerKey) {
+          const key = (await (await fetch('/api/push-key')).json()).key;
+          if (!key) return;
+          options = { userVisibleOnly: true, applicationServerKey: key };
+        }
+        sub = await self.registration.pushManager.subscribe(options);
+      }
+      await fetch('/api/admin/push-subscribe', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON() }) });
+    } catch { /* the app subscribes again on its next open */ }
+  })());
+});
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';

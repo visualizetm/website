@@ -11,5 +11,7 @@ export async function handler(req, res) {
     { $set: { subscription: sub, updatedAt: new Date() } },
     { upsert: true },
   );
+  // A device is saved again: the "subscribe again" flag a pruned last device set is done.
+  await db.collection('settings').updateOne({ _id: 'notifications' }, { $set: { pushNeedsResubscribe: false }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   return res.status(200).json({ ok: true });
 }

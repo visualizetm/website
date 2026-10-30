@@ -47,6 +47,7 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
 const SENT_KEYS_CAP = 2000; // raised from 500 (Decision: a busy day's dedupe keys, one callback or meeting key per due event plus the digest key, must not push the digest key out before it fires)
 const PUSH_WINDOW_MS = 10 * 60e3; // a reminder is pushed only while its time is within the last ten minutes
 const OUTCOMES_KEPT = 200;
+const MAX_TRIES = 3; // a thing no device took is tried again on the next run, this many times in all, then stamped failed
 const COMBINE_THRESHOLD = 10;
 const QUEUE_GATE_MS = 15 * 60e3;
 const DIGEST_AT = { h: 8, min: 30 }; // America/New_York
@@ -61,6 +62,11 @@ const atOrAfter = (nowMs, h, min) => { const p = zoneParts(nowMs); return p.h > 
 
 /** One line of the reminder outcomes log (the notifications document keeps the last OUTCOMES_KEPT). */
 const outcome = (nowIso, key, kind, status, reason = '') => ({ key, kind, status, reason, at: nowIso });
+
+/** The key of a task's reminder: the record, the task (or the record's own next action) and the instant it is due. */
+const taskKey = (t, at) => `tk:${t.coll}:${t._id}:${t.taskId || 'next'}:${at}`;
+/** Why a push reached no device, as one short code (sendPush's counts, never an endpoint). */
+const reasonOf = (res) => (res && Array.isArray(res.errors) && res.errors[0]) || (res && res.removed ? 'device-gone' : 'not-delivered');
 
 /** Two indexes for the per-minute scans (call_leads on callback/meeting, on the task fields); created once per warm instance. */
 async function ensureReminderIndexes(db) {
@@ -151,41 +157,55 @@ export async function runReminders(db, nowMs = Date.now()) {
     if (t.action.notifiedAt) continue;
     const at = t.action.remindAt ? Date.parse(t.action.remindAt) : (t.action.dueAt ? Date.parse(t.action.dueAt) : NaN);
     if (!Number.isFinite(at) || at > nowMs) continue;
-    const item = { kind: 'task', business: t.business, title: `Task: ${t.action.label}, ${t.business}`, body: '', url: `${base}/tasks?open=${t.leadId}`, ref: t };
-    if (nowMs - at > PUSH_WINDOW_MS) { taskStale.push(t); outcomes.push(outcome(now.toISOString(), `tk:${t.coll}:${t._id}:${t.taskId || 'next'}:${at}`, 'task', 'skipped', 'stale')); } else taskDue.push(item);
+    const key = taskKey(t, at);
+    const item = { key, kind: 'task', business: t.business, title: `Task: ${t.action.label}, ${t.business}`, body: '', url: `${base}/tasks?open=${t.leadId}`, ref: t };
+    if (nowMs - at > PUSH_WINDOW_MS) { taskStale.push(t); outcomes.push(outcome(now.toISOString(), key, 'task', 'skipped', 'stale')); } else taskDue.push(item);
   }
 
-  /* Push: combined when ten or more are due at once, otherwise one push each. Stale items (more than PUSH_WINDOW_MS late) are
-     stamped as handled without ever pushing. */
+  /* Push, and settle each thing by what actually happened. sendPush answers { attempted, delivered, removed, errors }: a thing is
+     stamped handled only when at least one device took it. Otherwise it is tried again on the next run, MAX_TRIES times in all
+     (the window is ten minutes, so that is inside it), and then stamped failed with the reason. reminderTries keeps the count.
+     Stale items (more than PUSH_WINDOW_MS late) were stamped above without ever pushing. */
+  const nowIso = now.toISOString();
+  const tries = { ...(doc.reminderTries && typeof doc.reminderTries === 'object' ? doc.reminderTries : {}) };
+  const triesBefore = JSON.stringify(tries);
   const allDue = [...dueItems, ...taskDue];
-  let sentCount = 0;
-  if (allDue.length >= COMBINE_THRESHOLD) {
-    try { await sendPush(db, combinedPush(allDue, base)); } catch { /* one bad subscription must not stop the stamp */ }
-    sentCount = 1;
-  } else {
-    for (const item of allDue) {
-      try { await sendPush(db, { title: item.title, body: item.body, url: item.url }); } catch { /* one bad subscription must not stop the rest */ }
-      sentCount++;
+  const delivered = []; // things a device took
+  const failedNow = []; // things given up on this run
+  let sentCount = 0; let retrying = 0; let lastError = ''; let lastDevices = null;
+  const push = async (message, kind = 'reminder') => { try { return await sendPush(db, { ...message, kind }); } catch { return { attempted: 0, delivered: 0, removed: 0, errors: ['push-error'] }; } };
+  const settle = (items, res) => {
+    const took = !!res && Number(res.delivered) > 0;
+    if (res && Number.isFinite(res.attempted)) lastDevices = res.attempted;
+    if (took) sentCount++;
+    for (const it of items) {
+      if (took) { delivered.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'sent')); delete tries[it.key]; continue; }
+      lastError = reasonOf(res);
+      const n = (Number(tries[it.key]) || 0) + 1;
+      if (n >= MAX_TRIES) { failedNow.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'failed', lastError)); delete tries[it.key]; } else { tries[it.key] = n; retrying++; }
     }
-  }
-  /* Stamp every handled item: the due ones that just pushed, the stale ones that never will. Tasks stamp on their own
-     record (notifiedAt on the checklist item or the next action); callbacks and meetings stamp into sentReminderKeys. */
-  for (const t of [...taskDue.map(i => i.ref), ...taskStale]) {
+  };
+  if (allDue.length >= COMBINE_THRESHOLD) settle(allDue, await push(combinedPush(allDue, base)));
+  else for (const item of allDue) settle([item], await push({ title: item.title, body: item.body, url: item.url }));
+  const handled = [...delivered, ...failedNow];
+  /* Stamp every handled thing: the ones a device took, the ones given up on, the stale ones that never push. Tasks stamp on
+     their own record (notifiedAt on the checklist item or the next action); callbacks and meetings stamp into sentReminderKeys. */
+  for (const t of [...handled.filter(i => i.kind === 'task').map(i => i.ref), ...taskStale]) {
     if (t.taskId) {
       const rec = await db.collection(t.coll).findOne({ _id: t._id }, { projection: { checklists: 1 } });
-      const lists = (rec?.checklists || []).map(l => ({ ...l, items: (l?.items || []).map(it => (it?.id === t.taskId ? { ...it, notifiedAt: now.toISOString() } : it)) }));
+      const lists = (rec?.checklists || []).map(l => ({ ...l, items: (l?.items || []).map(it => (it?.id === t.taskId ? { ...it, notifiedAt: nowIso } : it)) }));
       await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { checklists: lists } });
     } else {
-      await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': now.toISOString() } });
+      await db.collection(t.coll).updateOne({ _id: t._id }, { $set: { 'nextAction.notifiedAt': nowIso } });
     }
   }
-  const newKeys = [...dueItems.map(i => i.key), ...staleKeys];
+  const newKeys = [...handled.filter(i => i.kind !== 'task').map(i => i.key), ...staleKeys];
 
   /* The morning digest: once a day, on the first run at or after 8:30am America/New_York. Everything it needs (bills,
      review asks, today's tasks are already gathered above) only runs this query when the digest could actually fire. */
   const digestKey = `digest:${today}`;
   const digestReady = atOrAfter(nowMs, DIGEST_AT.h, DIGEST_AT.min) && !sent.has(digestKey);
-  let digestSent = 0;
+  let digestSent = 0; let digestFailed = 0;
   if (digestReady) {
     const bills = []; // due today
     const reviews = []; // due, until asked
@@ -222,15 +242,23 @@ export async function runReminders(db, nowMs = Date.now()) {
       if (bills.length) parts.push(`${plural(bills.length, 'bill')} due: ${list(bills.map(b => `${b.business} $${Number(b.amount || 0).toLocaleString()}`))}`);
       if (reviews.length) parts.push(`${plural(reviews.length, 'review ask')} due: ${list(reviews.map(r => r.business))}`);
       if (tasksToday.length) parts.push(`Tasks: ${list(tasksToday.map(t => `${t.action.label} (${t.business}, ${fmtZoneTime(new Date(t.action.dueAt).getTime())})`))}`);
-      try { await sendPush(db, { title, body: parts.join('. '), url: `${base}/` }); } catch { /* one bad subscription must not stop the digest from being marked sent */ }
-      digestSent = 1;
-    }
-    newKeys.push(digestKey); // marks today handled either way, so a quiet day never re-checks after 8:30
+      const dres = await push({ title, body: parts.join('. '), url: `${base}/` }, 'digest');
+      if (Number.isFinite(dres.attempted)) lastDevices = dres.attempted;
+      if (dres.delivered > 0) { digestSent = 1; newKeys.push(digestKey); delete tries[digestKey]; outcomes.push(outcome(nowIso, digestKey, 'digest', 'sent')); }
+      else {
+        lastError = reasonOf(dres);
+        const n = (Number(tries[digestKey]) || 0) + 1;
+        if (n >= MAX_TRIES) { digestFailed = 1; newKeys.push(digestKey); delete tries[digestKey]; outcomes.push(outcome(nowIso, digestKey, 'digest', 'failed', lastError)); } else { tries[digestKey] = n; retrying++; }
+      }
+    } else newKeys.push(digestKey); // nothing to say today: handled, so a quiet day never re-checks after 8:30
   }
-  if (newKeys.length || outcomes.length) {
+  /* A retry count belongs only to a thing still due (or the digest still owed); the rest is dropped. */
+  const live = new Set([...allDue.map(i => i.key), ...(digestReady && !newKeys.includes(digestKey) ? [digestKey] : [])]);
+  for (const k of Object.keys(tries)) if (!live.has(k)) delete tries[k];
+  if (newKeys.length || outcomes.length || JSON.stringify(tries) !== triesBefore) {
     const keys = [...sent, ...newKeys].slice(-SENT_KEYS_CAP);
     const log = [...(Array.isArray(doc.reminderOutcomes) ? doc.reminderOutcomes : []), ...outcomes].slice(-OUTCOMES_KEPT);
-    await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, reminderOutcomes: log, lastReminderAt: now.toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+    await settings.updateOne({ _id: 'notifications' }, { $set: { sentReminderKeys: keys, reminderOutcomes: log, reminderTries: tries, lastReminderAt: nowIso }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
   /* Queued emails (Send tomorrow), by the instant rule, gated to once every QUEUE_GATE_MS. */
@@ -257,9 +285,13 @@ export async function runReminders(db, nowMs = Date.now()) {
   try { clientPushes = await clientPushSweep(db, nowMs); } catch { /* next run */ }
 
   /* Health: lastRunAt plus the last twelve run times, now a minute apart. */
-  await settings.updateOne({ _id: 'health' }, { $set: { 'crons.reminders.lastRunAt': now.toISOString(), 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.skippedStale': staleKeys.length + taskStale.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules }, $push: { 'crons.reminders.runs': { $each: [now.toISOString()], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  const healthSet = { 'crons.reminders.lastRunAt': nowIso, 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.skippedStale': staleKeys.length + taskStale.length, 'crons.reminders.failed': failedNow.length + digestFailed, 'crons.reminders.retrying': retrying, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules };
+  if (lastDevices !== null) healthSet['crons.reminders.devices'] = lastDevices;
+  if (sentCount + digestSent > 0) { healthSet['crons.reminders.lastPushAt'] = nowIso; if (!lastError) healthSet['crons.reminders.lastPushError'] = ''; }
+  if (lastError) healthSet['crons.reminders.lastPushError'] = lastError;
+  await settings.updateOne({ _id: 'health' }, { $set: healthSet, $push: { 'crons.reminders.runs': { $each: [nowIso], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
-  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, clientPushes: clientPushes.sent, emails, rules };
+  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, failed: failedNow.length + digestFailed, retrying, clientPushes: clientPushes.sent, emails, rules };
 }
 
 export async function handler(req, res) {

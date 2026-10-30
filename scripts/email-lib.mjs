@@ -33,7 +33,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
   const loadSrc = async (rel) => import(pathToFileURL(path.join(srcDst, rel)).href);
   fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
   /* Pushes are recorded, never sent: the stub stands in for web-push and the VAPID keys. */
-  fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const ownerSubs = async () => [];\nexport const clientSubs = async () => [];\nexport async function sendPush(db, msg) { (globalThis.__vzPushes ||= []).push({ ...msg }); }\nexport async function sendClientPush(db, leadId, msg) { (globalThis.__vzClientPushes ||= []).push({ leadId: String(leadId), ...msg }); }\nexport async function sendEmail() { return { ok: true }; }\n");
+  fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "export const ownerSubs = async () => [];\nexport const clientSubs = async () => [];\nexport async function sendPush(db, msg) { (globalThis.__vzPushes ||= []).push({ ...msg }); return { attempted: 1, delivered: 1, removed: 0, errors: [] }; }\nexport async function sendClientPush(db, leadId, msg) { (globalThis.__vzClientPushes ||= []).push({ leadId: String(leadId), ...msg }); }\nexport async function sendEmail() { return { ok: true }; }\n");
   process.env.SESSION_SECRET = 'test-not-real'; process.env.CRON_SECRET = 'cron-test-secret'; delete process.env.VERCEL; delete process.env.RESEND_API_KEY;
   const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
   const { _stores, _reset } = await load('_lib/mongo.js');
