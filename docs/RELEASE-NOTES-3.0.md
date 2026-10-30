@@ -117,7 +117,7 @@ Variables (Production), then redeploy.
    in Vercel, Project, Settings, Cron Jobs after the deploy: `/api/cron/reminders`
    once a day at 13:00 UTC (9am Eastern, a morning digest of the day's
    callbacks, meetings, bills, and review asks; the Hobby plan only allows a
-   daily schedule) and `/api/cron/daily` at 06:00 UTC. Settings, Automation
+   daily schedule) and `/api/cron/daily` at 06:00 UTC. Settings, Integrations
    shows their last run.
 7. **CALENDLY_TOKEN**: Calendly, Integrations, API and webhooks, Personal
    access token. Unlocks Calendly bookings on the Calendar and in the bell.
@@ -149,6 +149,6 @@ rate limited, the Stripe webhook claims each event before writing, the admin
 host sends a Content-Security-Policy, fonts are served from the app, the
 screens are separate chunks with the shell and Dashboard first, the service
 worker keeps the shell and the last data for offline reading, render errors
-land in a per screen boundary and in Settings, Automation, and the release
+land in a per screen boundary and in Settings, Integrations, and the release
 gate is the audit set in docs/RUNBOOK.md (layout, feel, a11y, regression,
 hex count, css orphans, dates).

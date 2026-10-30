@@ -61,11 +61,14 @@ screen no longer changes it.
 
 ## Check cron health
 
-Settings, Automation lists both jobs with last run, next run, and last result.
-Settings, Integrations shows Scheduled tasks (armed or not), Stripe, and the
-nightly enrichment and scraper health. The notifications drawer raises a
+Settings, Integrations lists both jobs (Scheduled tasks) with last run, next run
+and last result, and shows Stripe and the nightly enrichment and scraper health.
+Settings, Notifications shows the reminders job's pulse: Armed only when it ran in
+the last three minutes, the server has push keys and this device is subscribed,
+its last five runs, and a red alarm on Settings and the home when it has not run
+for ten minutes (the daily job also pushes "Reminders have not run"). The notifications drawer raises a
 System item when the enrichment scan or the scraper is quiet for 36 hours.
-A job can be run by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://admin.visualizeclients.com/api/cron/daily`.
+A job can be run by hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://admin.visualizeclients.com/api/cron/daily`. Before the 2026-10-30 route fix this answered with the single page app (status 200, the admin's index.html) and no job ran; it now answers JSON, and without the secret a 401 JSON `{"error":"unauthorized"}`. If either ever returns HTML again, the rewrite is gone: `node scripts/routing-test.mjs` fails on it.
 
 `/api/cron/reminders` runs every minute (the Pro plan allows a per minute
 schedule; `/api/cron/daily` stays at 06:00 UTC, unchanged). A thing is due
@@ -89,14 +92,14 @@ The morning digest still sends once, now on the first run at or after
 mode can reach that time well before the old daily run would have): every
 callback due today or overdue, every meeting today, retainer bills due
 today, review asks due and every task due today under Tasks, as one
-notification with a deep link to Next up. Its own queries (bills, review
+notification that opens the app's home, where Next up is. Its own queries (bills, review
 asks, today's tasks) only run on the one run a day that could actually
 send it, so the other 1,439 runs stay a fast, indexed check of what is due
 this minute.
 
 Running every minute means 1,440 runs a day, so the heavier work inside the
 same endpoint is time gated, each gate keeping its own last-run stamp on
-the `notifications` settings document: queued emails (Send tomorrow) go out
+the `cronGates` settings document (queue and rules stamps, and the gates of the sweeps below): queued emails (Send tomorrow) go out
 by the instant rule at most every 15 minutes; the email rules run once a
 day, on the first run at or after 9:00am America/New_York; the client push
 sweep keeps its own six hour spacing per client and is cheap to call every
@@ -117,8 +120,8 @@ A job can still be run by hand: GET
 https://admin.visualizeclients.com/api/cron/reminders with the header
 `Authorization: Bearer CRON_SECRET` runs one minute's worth of work on
 demand (useful right after a deploy, or to confirm the production schedule
-before trusting it). Settings, Notifications shows the last twelve run
-times, now a minute apart once the Vercel cron is armed.
+before trusting it). `health.crons.reminders.runs` keeps the last twelve run
+times, a minute apart; Settings, Notifications lists the latest five.
 
 A client's idea (the Ideas tab on their planner) is pushed the moment it is
 written, by api/planner.js, not by a cron: "New idea from <client>" with a
@@ -363,7 +366,7 @@ The admin logs its own errors: a screen that throws shows the kit ErrorState
 with Reload inside its region (the shell stays up), the shell itself failing
 shows the login card outline with the message, and every such error, every
 unhandled promise rejection, every write refused offline, and every API call
-that answered 500 posts to /api/admin/log. Settings, Automation, Errors on
+that answered 500 posts to /api/admin/log. Settings, Integrations, Errors on
 this app shows the last 20 with a Clear button; the settings `client-log`
 document keeps 500. Server side errors go to the Vercel function log with the
 stack; the client only ever sees `{ error: 'server error' }`.
@@ -371,11 +374,17 @@ stack; the client only ever sees `{ error: 'server error' }`.
 ## If something is off
 
 - Nothing loads after sign in: check MONGODB_URI and the Atlas network access list.
-- Push never arrives: Settings, Notifications, This device must say push is on; VAPID keys must be set; iPhone needs the app installed to the Home Screen.
+- Push never arrives. Work down this list; each step rules out one link.
+  1. The reminders job is running: Settings, Notifications must say Armed (the job ran in the last three minutes) and no red alarm shows. Not armed names the missing link. Vercel, Settings, Cron Jobs must list `/api/cron/reminders` every minute, and a GET with no secret must answer a 401 JSON, never HTML. CRON_SECRET must be set.
+  2. The server can send: VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY set (Send test notification says so when they are not).
+  3. This device is in the list: Settings, Notifications, This device says Push is on. A phone that stopped getting them shows Turn push on again (the push service removed the device). Blocked shows the steps to allow notifications again.
+  4. The test reaches it: Send test notification prints "Sent to N of M devices" or why not (no device, a refusal with its status, no keys). On an iPhone it must be the Home Screen app, notifications allowed for it, and Focus off.
+  5. The kind is switched on: Settings, Notifications, What gets pushed, and quiet hours. A held push is never sent later.
+  6. Last, the run itself: `reminderOutcomes` on the notifications document says per reminder sent, skipped (stale, off, quiet) or failed with the reason, and `health.crons.reminders` has the counts and the last push error.
 - Calendar has no Calendly events: CALENDLY_TOKEN missing or expired; the Calendly card says which.
 - Payments do not appear on a client: Settings, Integrations, Stripe, Reconcile; unmatched events wait there. Matching is by email, then phone, then business name.
 - Sign in says Wrong password: the password is the ADMIN_PASSWORD constant in api/_lib/config.js unless an ADMIN_PASSWORD environment variable is set in Vercel, in which case the variable wins (check it for stray whitespace).
 - Sign in says Server error 404 or 405: the deployment is not serving api/admin/login.js as its own function; check the Functions tab of the deployment lists admin/login, admin/logout, admin/session, and admin/index.
 - Every list answers 401 right after sign in: the cookie did not verify. SESSION_SECRET changed between the sign in and the request (a deploy that rotated it), or the browser dropped a Secure cookie on a plain http origin.
 - The admin is blank after a change to index.html's pre-paint script: the CSP hash moved. `npm run build` rewrites it in vercel.json; commit that file with the change.
-- A screen shows Something broke: reload it; the message is under Settings, Automation, Errors on this app, and in the browser console.
+- A screen shows Something broke: reload it; the message is under Settings, Integrations, Errors on this app, and in the browser console.

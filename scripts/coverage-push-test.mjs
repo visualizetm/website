@@ -51,7 +51,9 @@ const at = (h, m = 0) => Z.zoneDateAt(DAY, h, m);
 
 const DELIVERED = { attempted: 1, delivered: 1, removed: 0, errors: [] };
 const NO_DEVICE = { attempted: 0, delivered: 0, removed: 0, errors: ['no-devices'] };
+const allUrls = new Set();
 const seed = (reminders = {}, digestDone = true) => {
+  for (const p of _pushes) if (p.url) allUrls.add(p.url);
   _reset(); _pushes.length = 0; _attempts.length = 0;
   _stores.settings = [{ _id: 'notifications', reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true, ...reminders }, sentReminderKeys: digestDone ? ['2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'].map(d => `digest:${d}`) : [] }];
   _state.result = DELIVERED;
@@ -206,7 +208,7 @@ section('7. Stripe: Paid, once per payment');
   seedPay();
   let r = await post(ev('evt_1', 'checkout.session.completed', { object: 'checkout.session', amount_total: 120000, currency: 'usd', customer_details: { email: 'dan@sharpless.example', name: 'Dan' }, description: 'Website deposit' }));
   ok(r._status === 200 && titles().join('|') === 'Paid: Sharpless Detailing $1,200', `a payment pushes "Paid: Sharpless Detailing $1,200" (${titles().join('|')})`);
-  ok(_pushes[0]?.url.endsWith(`/clients/${LEAD}`) && _pushes[0]?.category === 'payments', 'it opens the client and carries the payments category');
+  ok(_pushes[0]?.url.endsWith(`/clients?open=${LEAD}`) && _pushes[0]?.category === 'payments', 'it opens the client and carries the payments category');
   await post(ev('evt_2', 'charge.succeeded', { object: 'charge', amount: 120000, currency: 'usd', billing_details: { email: 'dan@sharpless.example' } }));
   await post(ev('evt_3', 'invoice.paid', { object: 'invoice', amount_paid: 120000, currency: 'usd', customer_email: 'dan@sharpless.example' }));
   ok(_pushes.length === 1, `the charge and the invoice events of the same payment say nothing more (${_pushes.length} push)`);
@@ -236,7 +238,7 @@ section('8. invoices past due');
   ok(_pushes.length === 0, 'before 9:00 New York nothing is said (the phone may be asleep)');
   await runReminders(db, day('2026-10-02'));
   ok(titles().join('|') === 'Overdue: Owed Co $350', `at 9:05 one overdue line pushes "Overdue: Owed Co $350" (${titles().join('|')})`);
-  ok(_pushes[0]?.url.endsWith(`/clients/${LEAD}`) && _pushes[0]?.category === 'payments', 'it opens the client');
+  ok(_pushes[0]?.url.endsWith(`/clients?open=${LEAD}`) && _pushes[0]?.category === 'payments', 'it opens the client');
   await runReminders(db, day('2026-10-02', 15, 0)); await runReminders(db, day('2026-10-02', 15, 1));
   ok(_pushes.length === 1, 'once per invoice per day');
   await runReminders(db, day('2026-10-03')); await runReminders(db, day('2026-10-04'));
@@ -367,6 +369,19 @@ section('10. Calendly bookings');
     await runReminders(db, T0 + 160 * MIN);
     ok(world.calls === before, 'without a token Calendly is never asked');
   } finally { globalThis.fetch = realFetch; delete process.env.CALENDLY_TOKEN; }
+}
+
+section('12. every tap opens a screen');
+{
+  for (const p of _pushes) if (p.url) allUrls.add(p.url);
+  const nav = fs.readFileSync(path.join(repoRoot, 'src', 'shell', 'nav.js'), 'utf8');
+  const screens = new Set([...nav.matchAll(/path: '(\/[a-z-]*)'/g)].map(m => m[1]));
+  /* Paths the app resolves that are not a nav entry: the record deep links are ?open= on a screen, /booked redirects to /deals. */
+  for (const extra of ['/', '/booked', '/leads', '/tasks', '/clients', '/calendar', '/settings']) screens.add(extra); // '/' is the home, where Next up is
+  const bad = [...allUrls].filter(u => { try { const x = new URL(u); return x.origin !== 'https://admin.visualizeclients.com' || !screens.has('/' + x.pathname.split('/')[1]); } catch { return true; } });
+  ok(allUrls.size >= 8, `${allUrls.size} distinct urls were pushed in this run`);
+  ok(bad.length === 0, `each opens a screen the app has, on the admin host (${bad.join(', ') || 'all of them'})`);
+  ok([...allUrls].some(u => /\/leads\?open=/.test(u)) && [...allUrls].some(u => /\/clients\?open=/.test(u)) && [...allUrls].some(u => /\/booked\?open=/.test(u)) && [...allUrls].some(u => /\/calendar$/.test(u)), 'callbacks and leads open the lead, payments the client, meetings the booked record, Calendly the calendar');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

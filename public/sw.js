@@ -57,6 +57,7 @@ self.addEventListener('push', (event) => {
       icon: '/icon-192.png',
       badge: '/badge-96.png',
       data: { url: data.url || '/' },
+      ...(data.tag ? { tag: String(data.tag), renotify: true } : {}), // a repeat of the same thing replaces the banner on the lock screen
     })
   );
 });
@@ -86,12 +87,13 @@ self.addEventListener('pushsubscriptionchange', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const url = event.notification.data?.url || '/';
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-      for (const w of wins) {
-        if ('focus' in w) { w.navigate(url); return w.focus(); }
-      }
-      return self.clients.openWindow(url);
-    })
-  );
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) {
+      if (!('focus' in w)) continue;
+      /* Awaited, so a window that cannot be driven (a page of another origin, one that is closing) is skipped instead of eating the tap. */
+      try { if ('navigate' in w) await w.navigate(url); await w.focus(); return; } catch { /* try the next window */ }
+    }
+    try { await self.clients.openWindow(url); } catch { /* nothing more can be done from here */ }
+  })());
 });

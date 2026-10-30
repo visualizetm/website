@@ -56,6 +56,12 @@ const GUARDS = [
     edits: [[CRON, "      if (res && res.skipped) { silenced.push(it); outcomes.push(outcome(nowIso, it.key, it.kind, 'skipped', res.skipped)); delete tries[it.key]; continue; }\n", '']] },
   { name: 'call-without-category', what: 'a push call site forgets its category', test: 'push-prefs-test.mjs',
     edits: [['api/planner.js', ", category: 'client' });", " });"]] },
+  { name: 'sw-tap-swallowed', what: 'a tap that cannot drive any window opens nothing', test: 'sw-test.mjs',
+    edits: [['public/sw.js', "    try { await self.clients.openWindow(url); } catch { /* nothing more can be done from here */ }\n", '']] },
+  { name: 'sw-tag-dropped', what: 'a repeat of the same reminder stacks instead of replacing the banner', test: 'sw-test.mjs',
+    edits: [['public/sw.js', "      ...(data.tag ? { tag: String(data.tag), renotify: true } : {}), // a repeat of the same thing replaces the banner on the lock screen\n", '']] },
+  { name: 'url-not-an-app-screen', what: 'a payment push opens /clients/<id>, which the app reads as the clients list', test: 'coverage-push-test.mjs',
+    edits: [[COV, "`${adminBase()}/clients?open=${encodeURIComponent(String(lead._id))}`", "`${adminBase()}/clients/${encodeURIComponent(String(lead._id))}`"]] },
   { name: 'import-no-push', what: 'the spreadsheet import pushes nothing', test: 'coverage-push-test.mjs',
     edits: [['api/_routes/leads-import.js', "if (created > 0) { try { await sendPush", "if (false) { try { await sendPush"]] },
 ];

@@ -28,18 +28,26 @@ iOS only delivers web push to sites installed on the Home Screen (iOS 16.4+):
 1. Open **Safari** → `admin.visualizeclients.com`
 2. Tap **Share** (square with arrow) → **Add to Home Screen** → Add
 3. Open the new **Visualize.** app icon from your Home Screen
-4. Sign in, tap **Enable notifications**, and **Allow**
+4. Sign in, open **Settings, Notifications, This device**, tap **Enable push on this device**, and **Allow**. Then tap **Send test notification**: it says "Sent to 1 of 1 devices" and a banner reads "Visualize test" on your lock screen. If it does not, the screen says why.
 
 If you previously installed the app from visualizestudio.org, delete that icon
 and re-install from the subdomain — push subscriptions are per-domain, and new
 lead notifications now deep-link to the subdomain.
 
-That's it. Every new submission now pushes to your phone with the business
-name and service type. Tapping the notification opens the admin panel
-directly on that submission.
+That's it. Your phone now gets a push for: a callback, a task or an invoice
+past due at its time; a meeting 15 minutes before it starts and when it starts;
+a payment received; a new lead from the website form, the scraper or an
+import; a client approving, asking for changes, reviewing or sending an idea;
+an email that did not send; Calendly bookings and cancellations; and the 8:30
+AM digest. Tapping one opens the thing it is about (the lead, the task, the
+client, the booking). Settings, Notifications, What gets pushed turns each kind
+on or off and sets quiet hours. Settings says Armed only when the reminders job
+has run in the last three minutes; if it stops, a red alarm shows on Settings
+and the home.
 
-Desktop Chrome/Edge also works: just visit `/admin` and click Enable
-notifications (no install required).
+Desktop Chrome/Edge also works: visit `admin.visualizeclients.com`, open Settings,
+Notifications, and tap Enable push on this device (no install required).
+Blocked? The same card shows the steps to allow notifications again.
 
 ## Email backup — always on
 

@@ -42,7 +42,7 @@ Order: a lead whose `calendlyEventUri` equals the event uri; then `last10` phone
 ## 6. Push dedupe and reminders
 
 - `/api/admin/push-subscribe` already upserts by `subscription.endpoint`, so a device re-enabling push updates its row instead of adding one; verified, no change needed.
-- The cron loads live leads with a `callbackAt` or a `meeting.date`, builds due items (callbacks due within the next 15 minutes, meetings starting within the next 60 minutes, both honoring the reminder toggles), skips keys already in `sentReminderKeys`, sends through the existing `sendPush` (which prunes dead subscriptions), then appends the keys (kept to the last 500).
+- The cron loads live leads with a `callbackAt` or a `meeting.date`, builds due items (callbacks due within the next 15 minutes, meetings starting within the next 60 minutes, both honoring the reminder toggles) [Superseded by minute mode, and again since: a callback pushes at its time, a meeting 15 minutes before it starts and when it starts; see docs/MOBILE-DECISIONS.md, finish notifications, milestone 3], skips keys already in `sentReminderKeys`, sends through the existing `sendPush` (which prunes dead subscriptions), then appends the keys (kept to the last 500).
 
 ## 7. Additive schema
 

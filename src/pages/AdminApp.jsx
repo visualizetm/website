@@ -16,6 +16,7 @@ import { effectiveStage } from '../lib/booked';
 import { reviewAsksDue } from '../lib/reviews';
 import { conceptsBadge } from '../lib/concepts';
 import { withNextAction, nextUpBadge } from '../lib/nextAction';
+import { useAppBadge } from '../lib/appBadge';
 import { callbacksDueIds, sameIds, systemList, openLists, withLeads, withoutLead, listsBadge } from '../lib/lists';
 import ListPicker from '../components/ListPicker';
 import CaptureSheet from '../components/CaptureSheet';
@@ -709,6 +710,9 @@ export default function AdminApp() {
     setBootHint(false);
     setAuthed(false);
   };
+
+  /* The icon's badge follows the Tasks tab count (overdue plus today); signed out it is cleared. Above the early returns, hooks run every render. */
+  useAppBadge(authed ? nextUpBadge(callLeads, projects, sets) : 0);
 
   // While the session check is in flight the parser's boot frame stays up (index.html) and React renders the same frame over it.
   if (authed === null) return <BootFrame />;

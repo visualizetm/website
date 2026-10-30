@@ -13,7 +13,7 @@ const section = (t) => console.log(`\n${t}`);
 const src = fs.readFileSync(path.join(repoRoot, 'public', 'sw.js'), 'utf8');
 
 /* A fresh worker per case, so what one case does never leaks into the next. */
-function worker({ windows = [], fetchImpl, subscribeImpl } = {}) {
+function worker({ windows = [], fetchImpl, subscribeImpl, navigateFails = false, focusFails = false, openFails = false } = {}) {
   const listeners = {}; const log = { shown: [], fetches: [], opened: [], navigated: [], focused: [], subscribed: [], closed: 0 };
   const self = {
     addEventListener: (t, f) => { listeners[t] = f; },
@@ -25,8 +25,8 @@ function worker({ windows = [], fetchImpl, subscribeImpl } = {}) {
     },
     clients: {
       claim: () => Promise.resolve(),
-      matchAll: async () => windows.map((w) => ({ ...w, focus: async () => { log.focused.push(w.url); return w; }, navigate: async (u) => { log.navigated.push(u); } })),
-      openWindow: async (u) => { log.opened.push(u); return {}; },
+      matchAll: async () => windows.map((w) => ({ ...w, focus: async () => { if (focusFails || w.focusFails) throw new Error('cannot focus'); log.focused.push(w.url); return w; }, navigate: async (u) => { if (navigateFails || w.navigateFails) throw new Error('cannot navigate'); log.navigated.push(u); } })),
+      openWindow: async (u) => { if (openFails) throw new Error('cannot open'); log.opened.push(u); return {}; },
     },
   };
   const ctx = vm.createContext({ self, caches: { open: async () => ({ addAll: async () => {}, put: async () => {} }), keys: async () => [], match: async () => undefined, delete: async () => true }, fetch: async (url, init) => { log.fetches.push({ url: String(url), init }); if (fetchImpl) return fetchImpl(url, init); return { ok: true, json: async () => ({ key: 'SERVER-KEY' }), clone() { return this; } }; }, URL, Response, Promise, JSON, console, setTimeout });
@@ -60,6 +60,32 @@ section('2. the tap');
   w = worker({ windows: [] });
   await w.fire('notificationclick', { notificationData: undefined });
   ok(w.log.opened.join() === '/', 'a notification with no url opens the home');
+}
+
+section('2b. a tap that cannot drive the window');
+{
+  let w = worker({ windows: [{ url: 'https://other.example/', navigateFails: true }, { url: 'https://admin.visualizeclients.com/' }] });
+  await w.fire('notificationclick', { notificationData: { url: 'https://admin.visualizeclients.com/leads?open=L3' } });
+  ok(w.log.navigated.join() === 'https://admin.visualizeclients.com/leads?open=L3' && w.log.opened.length === 0, 'a window that refuses to navigate is skipped, the next one is used');
+  w = worker({ windows: [{ url: 'https://admin.visualizeclients.com/' }], navigateFails: true });
+  await w.fire('notificationclick', { notificationData: { url: 'https://admin.visualizeclients.com/tasks?open=L4' } });
+  ok(w.log.opened.join() === 'https://admin.visualizeclients.com/tasks?open=L4', 'if no window can be driven the tap opens one: it is never swallowed', 'sw-tap-fallback');
+  w = worker({ windows: [{ url: 'https://admin.visualizeclients.com/' }], focusFails: true });
+  await w.fire('notificationclick', { notificationData: { url: 'https://admin.visualizeclients.com/' } });
+  ok(w.log.opened.length === 1, 'a window that cannot be focused falls through to opening one');
+  w = worker({ windows: [], openFails: true });
+  let threw = false; try { await w.fire('notificationclick', { notificationData: { url: '/' } }); } catch { threw = true; }
+  ok(!threw, 'and when even that fails the worker does not throw');
+}
+
+section('2c. a repeat replaces the banner');
+{
+  const w = worker();
+  await w.fire('push', { data: { json: () => ({ title: 'Task: Call Dana, Co', body: '', url: '/tasks', tag: 'tk:call_leads:1:next:99' }) } });
+  ok(w.log.shown[0].opts.tag === 'tk:call_leads:1:next:99' && w.log.shown[0].opts.renotify === true, 'a payload with a tag shows with that tag, so the same reminder again replaces it');
+  const w2 = worker();
+  await w2.fire('push', { data: { json: () => ({ title: 'Paid: X $5', body: '', url: '/' }) } });
+  ok(!('tag' in w2.log.shown[0].opts), 'a payload without one gets none');
 }
 
 section('3. a replaced subscription is made again and sent to the server');

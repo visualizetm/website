@@ -39,7 +39,7 @@ export async function paymentPush(db, row, lead = null) {
     const identity = lead ? { matchedLeadId: String(lead._id) } : row.customerEmail ? { customerEmail: row.customerEmail } : {};
     const same = await col.findOne({ amount: row.amount, pushedAt: { $gte: new Date(Date.now() - PAYMENT_PUSH_WINDOW_MS) }, ...identity });
     if (same) return { pushed: false, why: 'same-payment' };
-    const res = await send(db, { title: `Paid: ${who} ${money(row.amount)}`, body: String(row.description || '').slice(0, 120), url: lead ? `${adminBase()}/clients/${encodeURIComponent(String(lead._id))}` : `${adminBase()}/settings`, category: 'payments' });
+    const res = await send(db, { title: `Paid: ${who} ${money(row.amount)}`, body: String(row.description || '').slice(0, 120), url: lead ? `${adminBase()}/clients?open=${encodeURIComponent(String(lead._id))}` : `${adminBase()}/settings`, category: 'payments' });
     if (handled(res)) await col.updateOne({ id: row.id }, { $set: { pushedAt: new Date() } });
     return { pushed: res.delivered > 0, why: handled(res) ? (res.skipped || '') : (res.errors[0] || 'not-delivered') };
   } catch { return { pushed: false, why: 'error' }; }
@@ -78,7 +78,7 @@ export async function runOverdueInvoices(db, nowMs, gate = {}) {
     eligible.sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)));
     const one = eligible.length === 1 ? eligible[0] : null;
     const res = await send(db, one
-      ? { title: `Overdue: ${one.who} ${money(one.amount)}`, body: `${one.label}, due ${one.dueAt}.`, url: `${adminBase()}/clients/${encodeURIComponent(one.leadId)}`, category: 'payments' }
+      ? { title: `Overdue: ${one.who} ${money(one.amount)}`, body: `${one.label}, due ${one.dueAt}.`, url: `${adminBase()}/clients?open=${encodeURIComponent(one.leadId)}`, category: 'payments' }
       : { title: `${plural(eligible.length, 'invoice')} overdue`, body: list(eligible.map(l => `${l.who} ${money(l.amount)}`)), url: `${adminBase()}/clients`, category: 'payments' }, nowMs);
     if (handled(res)) {
       for (const l of eligible) nudges[l.id] = { n: (Number(nudges[l.id]?.n) || 0) + 1, day: today };

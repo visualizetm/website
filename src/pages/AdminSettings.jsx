@@ -155,6 +155,13 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const savePrefs = async (next) => { const before = prefs; setData(d => ({ ...d, prefs: next })); const r = await post({ action: 'prefs', ...next }); if (!r.ok) { setData(d => ({ ...d, prefs: before })); toast.error(COPY.error.save); } };
   const reminders = data?.notifications?.reminders || { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true };
   const saveReminders = async (next) => { const before = reminders; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: next } })); const r = await patch({ notifications: { reminders: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), reminders: before } })); toast.error(COPY.error.save); } };
+  /* After the person allows notifications again in the phone's own settings: read the permission (no prompt) and subscribe if it is granted. A tap is the gesture iOS needs. */
+  const [blockedNote, setBlockedNote] = useState('');
+  const recheckPush = async () => {
+    setBlockedNote('');
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') { const done = await enablePush(); setBlockedNote(done ? '' : 'Notifications are allowed now, but this device could not subscribe yet. Tap Enable push.'); return; }
+    setBlockedNote('Still blocked. Allow notifications in the settings above, then tap Check again.');
+  };
   /* Which kinds of push, and quiet hours (src/shared/pushCategories.js): each change is saved at once and rolled back with a toast when the save fails. */
   const categories = categoriesShape(data?.notifications?.categories);
   const quiet = quietShape(data?.notifications?.quiet);
@@ -364,7 +371,14 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         {pushState === 'subscribed' && needsResub ? <Stack gap={2}><p className="dt-muted" role="status">Push stopped working on this device: the push service removed it. Turn it on again to keep getting reminders.</p><Row gap={2}><Button icon={Bell01} onClick={turnOnAgain}>Turn push on again</Button></Row></Stack>
           : pushState === 'subscribed' ? <Row gap={2} align="center"><Pill tone="booked" label="Push is on for this device" size="sm" icon="CheckCircle" /></Row>
           : pushState === 'unsupported' ? <p className="dt-muted">This browser cannot receive push. On iPhone, install the app to your Home Screen first.</p>
-          : <Stack gap={2}><Row gap={2}><Button icon={Bell01} onClick={() => enablePush()} disabled={pushState === 'denied'}>{pushState === 'denied' ? 'Notifications blocked in browser settings' : 'Enable push on this device'}</Button></Row>{pushState === 'error' && pushError && <p className="dt-muted" role="alert">{pushError}</p>}</Stack>}
+          : pushState === 'denied' ? <Stack gap={2} data-card="push-recovery">
+              <p className="dt-muted" role="status">Notifications are blocked for this app, so nothing can reach this device until they are allowed again.</p>
+              {isIOS() ? <ol className="st-steps"><li>Open the iPhone Settings app and tap Notifications.</li><li>Find Visualize in the list and tap it.</li><li>Turn on Allow Notifications, with Lock Screen switched on.</li><li>Come back here and tap Check again.</li><li>Visualize not in the list? Delete the Home Screen app, add it again from Safari (Share, then Add to Home Screen), open it and tap Enable push.</li></ol>
+                : <ol className="st-steps"><li>Click the lock or settings icon next to the address.</li><li>Set Notifications to Allow.</li><li>Come back here and tap Check again.</li></ol>}
+              <Row gap={2}><Button icon={Bell01} variant="secondary" onClick={recheckPush}>Check again</Button></Row>
+              {blockedNote && <p className="dt-muted" role="status" aria-live="polite">{blockedNote}</p>}
+            </Stack>
+          : <Stack gap={2}><Row gap={2}><Button icon={Bell01} onClick={() => enablePush()}>Enable push on this device</Button></Row>{pushState === 'error' && pushError && <p className="dt-muted" role="alert">{pushError}</p>}</Stack>}
       </Card>
       <Card className="st-card st-install" key={installTick}>
         <Row gap={3} align="start"><IconTile icon="Download04" tone="won" size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
@@ -551,6 +565,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 }
 
 const stStyles = `
+  .st-steps { margin: 0; padding-left: var(--v-space-5); display: flex; flex-direction: column; gap: var(--v-space-1); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .st-pushstat { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .st-test-note { margin: 0; min-height: var(--v-lh-sm); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .st-test-note.is-success { color: var(--v-status-booked-text); }

@@ -181,7 +181,7 @@ section('5. the settings route');
   ok(saved.reminders?.meetings === true, 'saving categories leaves the reminder switches alone');
 }
 
-section('6. every push names a category');
+section('6. every push names a category and a url');
 {
   const files = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } };
   walk(path.join(repoRoot, 'api'));
@@ -202,6 +202,7 @@ section('6. every push names a category');
   const direct = calls.filter(c => !c.spread);
   ok(direct.length >= 20, `${direct.length} push calls found in api/`);
   for (const c of direct) ok(/category\s*[:,]/.test(c.body) || (c.helper && /category\s*:/.test(c.helper)), `${c.file}:${c.line} names a category${c.helper ? ' (through its message helper)' : ''}`);
+  for (const c of direct) ok(/\burl\s*[:,]/.test(c.body) || /combinedPush\(/.test(c.body) || (c.helper && /\burl\s*:/.test(c.helper)), `${c.file}:${c.line} carries a url, so the tap opens something`);
   ok(calls.filter(c => c.spread).length === 2, 'the two wrappers that spread a caller\'s message (the cron\'s push and the sweeps\' send) are the only calls without one; their callers are in the list above');
 }
 

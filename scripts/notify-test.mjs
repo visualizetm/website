@@ -99,6 +99,8 @@ section('4. what is asked of the push service');
   ok([rem, dig, evt].every(o => o.timeout > 0 && o.timeout <= 15000), 'every send has a timeout, so the minute cron is never held by a silent push service');
   const body = JSON.parse(stub.calls[0].payload);
   ok(body.title === 'T' && body.url === msg.url && !('kind' in body), 'the payload is the title, body and url');
+  await N.sendPush(db, { ...msg, tag: 'tk:call_leads:1:next:99' });
+  ok(JSON.parse(stub.calls[3].payload).tag === 'tk:call_leads:1:next:99' && !('tag' in body), 'a tag rides in the payload when the caller gives one (a repeat replaces the banner), and not otherwise');
 }
 
 section('5. Rob\'s pushes stay with Rob, a client\'s with that client');

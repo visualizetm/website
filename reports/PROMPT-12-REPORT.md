@@ -68,7 +68,7 @@ vercel.json crons: /api/cron/reminders every 15 minutes (unchanged), /api/cron/d
 
 Daily job: for every client with a retainer in active, ending, or paused: an ending retainer whose cancelAt has passed becomes cancelled; a paused one is skipped; otherwise the retainer project's schedule is extended so at least six unpaid future months exist, and retainer.nextBillAt is rolled to the next unpaid future item when the stored date has passed (a client with no retainer project just moves one month on the bill day). Then it writes health.
 
-Reminders job additions: bills due today (once per bill date, key bill:<leadId>:<date>) and review asks (key review:<leadId>:<releaseDay>) behind the new bills and reviews toggles; it stamps crons.reminders { lastRunAt, checked, sent }.
+Reminders job additions: bills due today (once per bill date, key bill:<leadId>:<date>) and review asks (key review:<leadId>:<releaseDay>) behind the new bills and reviews toggles [correction: the code never pushed them one by one; retainer bills and review asks appear only inside the 8:30 AM digest, and an invoice past due has its own push since the finish notifications job]; it stamps crons.reminders { lastRunAt, checked, sent }.
 
 settings _id 'health':
 ```
@@ -130,7 +130,7 @@ Full five-width run on the final Prompt 12 build (dist, port 4360), exit 0:
 - The webhook answers 503 without a secret so Stripe keeps retrying rather than dropping events; every other missing key degrades to a Settings row.
 - Schedule matching on Stripe payments requires the same amount and a due date on or before today, so a payment never marks a future month paid by accident; a mismatch just lands on the ledger and shows on the client.
 - The Stripe subscription id is entered by hand (InlineEdit) rather than guessed from Stripe, because the read endpoints cannot tell which client a subscription belongs to without the same fuzzy match; a wrong guess would cancel the wrong retainer.
-- Bill reminders fire on the bill day itself (once per date), review asks once per release.
+- Bill reminders fire on the bill day itself (once per date), review asks once per release. [Correction: both are lines inside the 8:30 AM digest, not pushes of their own.]
 - The health notification threshold is 36 hours so a single skipped night does not nag before the next run has a chance.
 - Submissions keeps the legacy submission statuses (LEAD_STATUSES) on its status Menu, and its Unread badge now counts every unread submission of every type.
 - Recently deleted merges submissions and leads into one Table sorted by deletion time; the nav entry still opens /settings/deleted, which lands on the Data tab.

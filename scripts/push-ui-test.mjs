@@ -8,7 +8,9 @@
  * subscription and saves a new one; on app open an allowed device with no subscription subscribes and the server is told, a
  * device that has not allowed notifications is never asked; axe finds nothing on the alarm. Milestone 4: Settings > Notifications lists
  * the seven kinds of push as switches (each save is one PATCH and a failed save puts the switch back), and quiet hours, off by default,
- * show their From and To and the reminders switch only when turned on. */
+ * show their From and To and the reminders switch only when turned on. Milestone 5: the Home Screen icon badge follows the Tasks count
+ * (set when above zero, cleared at zero, never a throw); blocked notifications show a recovery card with the iPhone steps and a
+ * Check again that subscribes once the phone allows them. */
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { mockRoutes, SETTINGS_DOC, json } from './audit-fixtures.mjs';
@@ -30,8 +32,11 @@ const pushInit = (o) => {
   if (o.hasSub) sub = mk();
   const reg = { pushManager: { getSubscription: async () => sub, subscribe: async () => { if (window.__push.failNext > 0) { window.__push.failNext--; throw new Error('subscribe refused'); } window.__push.subscribes++; sub = mk(); return sub; } } };
   Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve(reg), register: () => Promise.resolve(reg), addEventListener() {}, controller: null } });
+  window.__badge = [];
+  navigator.setAppBadge = (n) => { window.__badge.push(n); return Promise.resolve(); };
+  navigator.clearAppBadge = () => { window.__badge.push(0); return Promise.resolve(); };
   window.PushManager = window.PushManager || function PushManager() {};
-  window.Notification = Object.assign(function Notification() {}, { permission: o.permission, requestPermission: async () => { window.__push.permissionAsks++; return o.permission === 'denied' ? 'denied' : 'granted'; } });
+  window.Notification = Object.assign(function Notification() {}, { permission: o.permission, requestPermission: async () => { window.__push.permissionAsks++; return window.Notification.permission === 'denied' ? 'denied' : 'granted'; } });
   try { localStorage.setItem('vz_theme', 'dark'); localStorage.setItem('vz_boot', '1'); } catch { /* storage may be off */ }
 };
 
@@ -163,6 +168,35 @@ for (const w of WIDTHS) {
   await t.page.waitForTimeout(600);
   ok(await t.page.locator('[data-card="push-categories"] .st-cat-leads input').isChecked() && /could not save|Could not save|try again/i.test(await t.page.locator('.v-toast, [role="status"], [role="alert"]').allInnerTexts().then(a => a.join(' '))), 'a save the server refuses puts the switch back and says so');
   await t.page.close();
+
+  // 6. The icon badge and the blocked recovery card.
+  t = await open(ctx, '/admin');
+  const badge = await t.page.evaluate(() => window.__badge);
+  ok(badge.length >= 1 && badge.every(n => Number.isInteger(n) && n >= 0), `the app sets the icon badge to a whole number (${JSON.stringify(badge)})`);
+  await t.page.close();
+  t = await open(ctx, '/admin/settings', { tab: 'Notifications', hasSub: false, permission: 'denied' });
+  const rec = t.page.locator('[data-card="push-recovery"]');
+  ok(await rec.count() === 1 && /blocked for this app/.test(await rec.innerText()), 'blocked notifications show the recovery card');
+  ok(await rec.locator('ol li').count() === 3 && /lock or settings icon/.test(await rec.innerText()), 'with the browser steps on a computer');
+  ok(await t.page.getByRole('button', { name: 'Enable push on this device' }).count() === 0, 'and no dead Enable button');
+  await rec.getByRole('button', { name: 'Check again' }).click();
+  await t.page.waitForTimeout(400);
+  ok(/Still blocked/.test(await rec.innerText()) && (await t.page.evaluate(() => window.__push.permissionAsks)) === 0, 'Check again while still blocked says so and does not prompt');
+  await t.page.evaluate(() => { window.Notification.permission = 'granted'; });
+  await rec.getByRole('button', { name: 'Check again' }).click();
+  await t.page.waitForTimeout(800);
+  const after = await t.page.evaluate(() => window.__push);
+  ok(after.subscribes >= 1 && await t.page.getByText('Push is on for this device').count() === 1, `once the phone allows it, Check again subscribes and the card says Push is on (${JSON.stringify(after)})`);
+  await t.page.close();
+  const phoneCtx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, serviceWorkers: 'block', userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1' });
+  t = await open(phoneCtx, '/admin/settings', { tab: 'Notifications', hasSub: false, permission: 'denied' });
+  const rec2 = t.page.locator('[data-card="push-recovery"]');
+  ok(/iPhone Settings app/.test(await rec2.innerText()) && /Allow Notifications/.test(await rec2.innerText()) && /Add to Home Screen/.test(await rec2.innerText()), 'on an iPhone the steps are the iPhone ones: Settings, Notifications, Visualize, Allow, and re-adding the app');
+  const axeR = await t.page.evaluate(async (src) => { const s = document.createElement('script'); s.textContent = src; document.head.appendChild(s); const r = await window.axe.run(document.querySelector('[data-card="push-recovery"]'), { runOnly: ['wcag2a', 'wcag2aa'] }); return r.violations.map(v => v.id); }, AXE);
+  ok(axeR.length === 0, `axe finds nothing on the recovery card (${axeR.join(', ') || 'clean'})`);
+  const tiny = await rec2.getByRole('button').evaluateAll(els => els.filter(e => e.getBoundingClientRect().height < 44).length);
+  ok(tiny === 0, 'its button is at least 44px tall');
+  await t.page.close(); await phoneCtx.close();
 
   // 4. A server that removed the last device.
   t = await open(ctx, '/admin/settings', { tab: 'Notifications', needsResubscribe: true, saveFails: 1 });

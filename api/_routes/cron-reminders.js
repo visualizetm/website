@@ -23,9 +23,22 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
  * weeks never fires a pile of old pushes. Ten or more things due in one run
  * become one combined push instead of a flood (COMBINE_THRESHOLD).
  *
+ * What it pushes (finish notifications): a callback at its time (callbackDue in
+ * api/_lib/nextAction.js, the same rule Next up reads, whatever callStatus
+ * says), a meeting 15 minutes before it starts and when it starts (meetingOf:
+ * the meeting date and time, or the outcome sheet's afterCall text, on a
+ * booked, deal, won or client record), a task at its remindAt or due time, and
+ * the morning digest. A push is stamped handled only when a device took it, or
+ * when Settings decided not to send it (a category off, quiet hours); one no
+ * device took is tried on the next run, three times in all, then stamped failed
+ * with the reason. Beyond reminders it runs the sweeps in api/_lib/coveragePush.js:
+ * invoices past due (from 9:00, once per invoice per day, three at most), leads
+ * the scraper wrote and Calendly bookings (every 15 minutes).
+ *
  * Running every minute means up to 1,440 runs a day, so everything that does
  * not need minute precision is gated by time, its own last-run stamp kept on
- * the 'notifications' settings document next to sentReminderKeys:
+ * the small 'cronGates' settings document (the dedupe keys, outcomes and
+ * retry counts stay on 'notifications'):
  *   - the morning digest (today's callbacks, meetings, bills, review asks
  *     and tasks) sends once, on the first run at or after 8:30am
  *     America/New_York, and the bills/reviews/today's-tasks queries that
@@ -219,7 +232,7 @@ export async function runReminders(db, nowMs = Date.now()) {
   for (const it of allDue) { const why = reasons[categoryOf(it.kind)]; if (why) settle([it], { attempted: 0, delivered: 0, removed: 0, errors: [], skipped: why }); else audible.push(it); }
   const groupCategory = (items) => (new Set(items.map(i => categoryOf(i.kind))).size === 1 ? categoryOf(items[0].kind) : 'reminders');
   if (audible.length >= COMBINE_THRESHOLD) settle(audible, await push({ ...combinedPush(audible, base), category: groupCategory(audible) }));
-  else for (const item of audible) settle([item], await push({ title: item.title, body: item.body, url: item.url, category: categoryOf(item.kind) }));
+  else for (const item of audible) settle([item], await push({ title: item.title, body: item.body, url: item.url, tag: item.key, category: categoryOf(item.kind) }));
   const handled = [...delivered, ...failedNow, ...silenced];
   /* Stamp every handled thing: the ones a device took, the ones given up on, the stale ones that never push. Tasks stamp on
      their own record (notifiedAt on the checklist item or the next action); callbacks and meetings stamp into sentReminderKeys. */

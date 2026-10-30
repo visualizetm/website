@@ -214,8 +214,8 @@ Resume here: read docs/NOTIFICATIONS-AUDIT.md section 13, then item 9 before mer
 - [x] Milestone 2 (610095c, deploy Ready): sendPush answers real delivery, the cron stamps only on delivery with three tries, the Test button and Armed card are honest, the stale cron alarm (Settings and home, plus the daily push), TTL and urgency, resubscribe on open, pushsubscriptionchange. Tests: notify-test, push-route-test, push-status-test, sw-test, push-ui-test, minute-reminders-test 7 to 13.
 - [x] Milestone 3 (built, gate run): callbacks regardless of callStatus (one shared rule with Next up), every meeting source and the 15 minute heads-up, Stripe paid, invoices past due, new leads, Calendly bookings. coverage-push-test 105 checks, notifications-guard-proof 14 cuts.
 - [x] Milestone 4 (built, gate running): planner due times on the zone helpers (dst-test, three process zones), date proof planner and pipeline tests, seven push categories and quiet hours (push-prefs-test 63 checks), every sendPush names a category.
-- [ ] Milestone 5: tap targets, app badge, recovery card, docs that overclaim, the audit's Status after fix table.
+- [x] Milestone 5 (built, gate running): tap targets and tags (sw-test 18), the icon badge (app-badge-test), the blocked-notifications recovery card, docs that overclaim, the Status after fix table (audit section 16).
 - [ ] Milestone 6: preship and the full script list, push, hand off the production checks.
 
-Resume here: read docs/MOBILE-DECISIONS.md "Finish notifications", then continue with Milestone 5.
+Resume here: read docs/MOBILE-DECISIONS.md "Finish notifications", then continue with Milestone 6.
 

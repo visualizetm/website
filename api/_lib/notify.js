@@ -40,7 +40,7 @@ export const clientSubs = (db, leadId) => db.collection('push_subscriptions').fi
 const nothing = (code) => ({ attempted: 0, delivered: 0, removed: 0, errors: [code] });
 
 // Send a web push to every one of Rob's devices; prune subscriptions that are gone. Answers the counts.
-// message: { title, body, url, kind: 'reminder' | 'digest' | 'event' (default), category }. opts.now: the instant quiet hours are judged at (the cron's clock).
+// message: { title, body, url, tag (a repeat with the same tag replaces the banner), kind: 'reminder' | 'digest' | 'event' (default), category }. opts.now: the instant quiet hours are judged at (the cron's clock).
 export async function sendPush(db, message, opts = {}) {
   const skipped = await pushSkipReason(db, message.category, opts.now);
   if (skipped) return { attempted: 0, delivered: 0, removed: 0, errors: [], skipped };
@@ -59,10 +59,10 @@ async function flagIfNoDevices(db) {
     if ((await ownerSubs(db)).length === 0) await db.collection('settings').updateOne({ _id: 'notifications' }, { $set: { pushNeedsResubscribe: true, pushLostAt: new Date().toISOString() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   } catch { /* the flag is a convenience; the prune already happened */ }
 }
-async function sendTo(db, subs, { title, body, url, kind = 'event' }) {
+async function sendTo(db, subs, { title, body, url, tag, kind = 'event' }) {
   const out = { attempted: subs.length, delivered: 0, removed: 0, errors: [] };
   if (!subs.length) { out.errors.push('no-devices'); return out; }
-  const payload = JSON.stringify({ title, body, url });
+  const payload = JSON.stringify({ title, body, url, ...(tag ? { tag: String(tag).slice(0, 120) } : {}) });
   const opts = { ...(PUSH_DELIVERY[kind] || PUSH_DELIVERY.event), timeout: SEND_TIMEOUT_MS };
   await Promise.allSettled(subs.map(async (s) => {
     try {
