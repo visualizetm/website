@@ -38,12 +38,41 @@ export function dayBeforeAt9(meetingIso) {
   return new Date(m.getFullYear(), m.getMonth(), m.getDate() - 1, 9, 0, 0, 0).getTime();
 }
 
+/* The callback a lead is waiting on, in ms (0 for none). The Next up row (leadAction) and the reminders cron (callbackDue) read this
+ * and nothing else. It is a callbackAt on an open record (triage or lead) that nothing has answered; callStatus is not required to
+ * be 'callback', because the record's own picker wrote callbackAt alone while the Call Console, the calendar and the swipe write
+ * both. A call outcome that closes the call (booked, no, wrong number) is not a callback, and a call logged at or after the time
+ * has answered it. */
+const CALL_CLOSED = ['booked', 'no', 'wrong-number'];
+export function callbackAtOf(lead) {
+  if (!lead || typeof lead !== 'object' || lead.deleted) return 0;
+  const stage = normalizeStage(lead);
+  if (stage !== 'lead' && stage !== 'triage') return 0;
+  if (CALL_CLOSED.includes(lead.callStatus)) return 0;
+  const at = parseDate(lead.callbackAt)?.getTime() || 0;
+  if (!at) return 0;
+  if (lead.callStatus === 'callback') return at;
+  const last = Math.max(0, ...(Array.isArray(lead.callLog) ? lead.callLog : []).map(e => parseDate(e?.at)?.getTime() || 0));
+  return last >= at ? 0 : at;
+}
+
+/** The callback the reminders cron owes a push for, as { at, stamp } (stamp is the stored string, the dedupe key's tail), or null.
+ * The same answer Next up shows: a manual next action of kind callback (a snoozed callback row, auto false) wins, else callbackAtOf. */
+export function callbackDue(lead) {
+  if (!lead || typeof lead !== 'object' || lead.deleted) return null;
+  const a = lead.nextAction;
+  if (a && typeof a === 'object' && a.kind === 'callback' && a.auto === false && !a.doneAt) {
+    const t = parseDate(a.dueAt)?.getTime() || 0;
+    if (t) return { at: t, stamp: String(a.dueAt) };
+  }
+  const t = callbackAtOf(lead);
+  return t ? { at: t, stamp: String(lead.callbackAt) } : null;
+}
+
 function leadAction(lead, ctx, now) {
   const stage = normalizeStage(lead);
   if (stage === 'declined' || stage === 'nurture') return null;
-  if (stage === 'lead' && lead.callStatus === 'callback' && lead.callbackAt) {
-    const at = parseDate(lead.callbackAt); if (at) return act('callback', at.getTime());
-  }
+  const cb = callbackAtOf(lead); if (cb) return act('callback', cb);
   if (stage === 'booked' || stage === 'deal') {
     /* The deal (CRM revamp, step 5): the checkpoints say what comes next. */
     const d = dealOf(lead);

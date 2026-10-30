@@ -174,6 +174,8 @@ async function handler(req, res) {
         title: `New ${kind}: ${who}`,
         body: `${doc.name} · ${doc.email}`,
         url: `https://admin.visualizeclients.com/?submission=${id}`,
+        kind: 'event',
+        category: doc.type === 'review' ? 'client' : 'leads',
       }),
       prefs.emailEnabled === false ? Promise.resolve() : sendEmail({
         subject: `New ${kind}: ${who}`,

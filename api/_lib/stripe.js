@@ -188,9 +188,10 @@ export async function ingestEvent(db, ev) {
   const row = { ...normalizeEvent(ev), matchedLeadId: '', ledgerId: '', receivedAt: new Date(), processedAt: null };
   try { await col.insertOne(row); } catch (e) { if (e?.code === 11000) return { row: await col.findOne({ id: row.id }), duplicate: true }; throw e; }
   const set = {};
+  let matched = null;
   if (PAYMENT_TYPES.includes(row.type)) {
     const lead = await matchClient(db, { email: row.customerEmail, phone: row.customerPhone, name: row.customerName });
-    if (lead) { const r = await applyPayment(db, row, lead); row.matchedLeadId = set.matchedLeadId = String(lead._id); row.ledgerId = set.ledgerId = r.ledgerId; }
+    if (lead) { const r = await applyPayment(db, row, lead); matched = lead; row.matchedLeadId = set.matchedLeadId = String(lead._id); row.ledgerId = set.ledgerId = r.ledgerId; }
   }
   if (row.type === 'customer.subscription.deleted' && row.subscriptionId) {
     const leads = db.collection('call_leads');
@@ -202,7 +203,7 @@ export async function ingestEvent(db, ev) {
   }
   row.processedAt = set.processedAt = new Date();
   await col.updateOne({ id: row.id }, { $set: set });
-  return { row, duplicate: false };
+  return { row, duplicate: false, lead: matched };
 }
 
 /** Health counters for the settings 'health' document and the Integrations card. */

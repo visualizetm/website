@@ -1,4 +1,5 @@
 import { getDb } from '../_lib/mongo.js';
+import { sendPush } from '../_lib/notify.js';
 
 /* ── Normalizers (self-contained; serverless can't import from src/) ── */
 
@@ -171,5 +172,7 @@ export async function handler(req, res) {
     }
   }
 
+  /* One push for the whole file, never one per row: a spreadsheet of 200 leads is a single piece of news. Best effort. */
+  if (created > 0) { try { await sendPush(db, { title: `${created} new lead${created === 1 ? '' : 's'} imported`, body: `${updated} updated, ${skipped.length} skipped. They are in Triage.`, url: `${process.env.ADMIN_URL || 'https://admin.visualizeclients.com'}/leads`, kind: 'event', category: 'leads' }); } catch { /* the import is done */ } }
   return res.status(200).json({ ok: true, created, updated, skipped });
 }

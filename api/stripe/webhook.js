@@ -1,10 +1,12 @@
 import { getDb } from '../_lib/mongo.js';
-import { verifyStripeSignature, ingestEvent, ALL_TYPES } from '../_lib/stripe.js';
+import { verifyStripeSignature, ingestEvent, ALL_TYPES, PAYMENT_TYPES } from '../_lib/stripe.js';
+import { paymentPush } from '../_lib/coveragePush.js';
 import { route } from '../_lib/handler.js';
 
 /* POST /api/stripe/webhook (Prompt 12). Verifies STRIPE_WEBHOOK_SECRET against
  * the raw body, stores every handled event once (unique on id), matches a
- * client, appends to the ledger, and marks schedule items paid. A missing
+ * client, appends to the ledger, and marks schedule items paid, then pushes
+ * "Paid: Client $1,200" to Rob once per payment. A missing
  * secret answers 503 so Stripe retries later instead of dropping the event. */
 export const config = { api: { bodyParser: false } };
 
@@ -27,8 +29,10 @@ async function handler(req, res) {
   if (!ev?.id || !ev?.type) return res.status(400).json({ error: 'not an event' });
   if (!ALL_TYPES.includes(ev.type)) return res.status(200).json({ ok: true, ignored: ev.type });
   const db = await getDb();
-  const { row, duplicate } = await ingestEvent(db, ev);
+  const { row, duplicate, lead } = await ingestEvent(db, ev);
   await db.collection('settings').updateOne({ _id: 'health' }, { $set: { 'stripe.lastWebhookAt': new Date(), updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  /* Paid: Client $1,200. Best effort and once per payment (a retry of the same event is a duplicate and says nothing); the ledger is already written. */
+  if (!duplicate && PAYMENT_TYPES.includes(row?.type)) await paymentPush(db, row, lead);
   return res.status(200).json({ ok: true, duplicate: !!duplicate, matched: !!row?.matchedLeadId });
 }
 export default route(handler, { methods: ['POST'], admin: false, csrf: false, maxBody: 1024 * 1024 });

@@ -3,6 +3,9 @@ import { clientPushSweep } from '../_lib/clientPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, zoneParts, zoneMeetingMs, ZONE } from '../_lib/zone.js';
+import { callbackDue } from '../_lib/nextAction.js';
+import { runOverdueInvoices, runLeadSweep, runCalendlyPoll, OVERDUE_AT } from '../_lib/coveragePush.js';
+import { normalizeStage } from '../_semantics.js';
 import { runQueuedSends, QUEUE_MAX_AGE_MS } from '../_lib/email/queue.js';
 import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
 
@@ -46,6 +49,7 @@ import { runEmailRules, emptyRun } from '../_lib/email/rules.js';
  */
 const SENT_KEYS_CAP = 2000; // raised from 500 (Decision: a busy day's dedupe keys, one callback or meeting key per due event plus the digest key, must not push the digest key out before it fires)
 const PUSH_WINDOW_MS = 10 * 60e3; // a reminder is pushed only while its time is within the last ten minutes
+const MEETING_HEADS_UP_MS = 15 * 60e3; // a meeting pushes once this long before it starts, and again when it starts
 const OUTCOMES_KEPT = 200;
 const MAX_TRIES = 3; // a thing no device took is tried again on the next run, this many times in all, then stamped failed
 const COMBINE_THRESHOLD = 10;
@@ -65,6 +69,22 @@ const outcome = (nowIso, key, kind, status, reason = '') => ({ key, kind, status
 
 /** The key of a task's reminder: the record, the task (or the record's own next action) and the instant it is due. */
 const taskKey = (t, at) => `tk:${t.coll}:${t._id}:${t.taskId || 'next'}:${at}`;
+/** When a lead's meeting starts, as { at, stamp } (stamp is the date and time the dedupe keys end with), or null. Every place a meeting
+ * lives: the structured meeting (date and time), and the Log outcome sheet's afterCall.meeting text ("2026-11-03 15:00") when no
+ * structured date was saved. Only on a meeting stage, read with normalizeStage (booked, deal, won, client), so a deal and a record
+ * with no stage field whose callStatus is booked count; a declined, nurture or open lead with a leftover meeting does not. */
+const MEETING_STAGES = ['booked', 'deal', 'won', 'client'];
+const AFTER_CALL_MEETING = /^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}:\d{2})/;
+export function meetingOf(l) {
+  if (!l || !MEETING_STAGES.includes(normalizeStage(l))) return null;
+  let date = ''; let time = '';
+  if (l.meeting?.date) { date = String(l.meeting.date); time = String(l.meeting.time || ''); }
+  else { const m = AFTER_CALL_MEETING.exec(String(l.afterCall?.meeting || '').trim()); if (m) { date = m[1]; time = m[2].padStart(5, '0'); } }
+  if (!date) return null;
+  const at = zoneMeetingMs(date, time || '09:00');
+  return Number.isFinite(at) ? { at, stamp: `${date}:${time}` } : null;
+}
+
 /** Why a push reached no device, as one short code (sendPush's counts, never an endpoint). */
 const reasonOf = (res) => (res && Array.isArray(res.errors) && res.errors[0]) || (res && res.removed ? 'device-gone' : 'not-delivered');
 
@@ -73,7 +93,7 @@ async function ensureReminderIndexes(db) {
   if (globalThis._vzReminderIdx) return;
   const leads = db.collection('call_leads');
   const specs = [
-    { deleted: 1, callStatus: 1, callbackAt: 1 },
+    { deleted: 1, callbackAt: 1 },
     { deleted: 1, 'meeting.date': 1 },
     { deleted: 1, 'nextAction.kind': 1, 'nextAction.auto': 1 },
     { deleted: 1, 'checklists.items.remindAt': 1 },
@@ -84,7 +104,7 @@ async function ensureReminderIndexes(db) {
 
 /** One combined push for ten or more due items at once, instead of a flood. */
 function combinedPush(items, base) {
-  const WORD = { callback: 'callback', meeting: 'meeting', task: 'task' };
+  const WORD = { callback: 'callback', meeting: 'meeting', 'meeting-soon': 'meeting starting soon', task: 'task' };
   const counts = {};
   for (const it of items) counts[it.kind] = (counts[it.kind] || 0) + 1;
   const kinds = Object.keys(counts);
@@ -104,32 +124,34 @@ export async function runReminders(db, nowMs = Date.now()) {
   const today = zoneDayKey(nowMs);
   const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
 
-  const leads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ callStatus: 'callback', callbackAt: { $exists: true, $ne: '' } }, { 'meeting.date': { $exists: true, $ne: '' } }] }).project({ business: 1, callbackAt: 1, callStatus: 1, meeting: 1, stage: 1, phone: 1 }).toArray();
+  /* Every place a callback or a meeting lives: a callbackAt (whatever callStatus says: the record's own picker writes it alone), a
+     manual next action of kind callback (a snoozed callback row), the structured meeting and the outcome sheet's afterCall text. */
+  const leads = await db.collection('call_leads').find({ deleted: { $ne: true }, $or: [{ callbackAt: { $exists: true, $ne: '' } }, { 'nextAction.kind': 'callback', 'nextAction.auto': false }, { 'meeting.date': { $exists: true, $ne: '' } }, { 'afterCall.meeting': { $exists: true, $ne: '' } }] }).project({ business: 1, callbackAt: 1, callStatus: 1, callLog: 1, meeting: 1, afterCall: 1, stage: 1, phone: 1, nextAction: 1 }).toArray();
 
-  /* Callbacks and meetings due this minute: each a push item, or stamped stale if more than PUSH_WINDOW_MS late. */
+  /* Callbacks and meetings due this minute: each a push item, or stamped stale if more than PUSH_WINDOW_MS late. A meeting pushes
+     twice, once MEETING_HEADS_UP_MS before it starts and once when it starts, each with its own key. */
   const dueItems = [];
   const staleKeys = [];
   const outcomes = []; // this run's reminderOutcomes lines
+  const settleLate = (key, kind, at, item, reason = 'stale') => {
+    if (nowMs - at > PUSH_WINDOW_MS || reason !== 'stale') { staleKeys.push(key); outcomes.push(outcome(now.toISOString(), key, kind, 'skipped', reason)); } else dueItems.push(item);
+  };
   for (const l of leads) {
-    if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
-      const t = Date.parse(l.callbackAt);
-      if (Number.isFinite(t) && t <= nowMs) {
-        const key = `cb:${l._id}:${l.callbackAt}`;
-        if (!sent.has(key)) {
-          const item = { key, kind: 'callback', business: l.business, title: `Call back: ${l.business}, ${fmtZoneTime(t)}`, body: l.phone || '', url: `${base}/leads?open=${l._id}` };
-          if (nowMs - t > PUSH_WINDOW_MS) { staleKeys.push(key); outcomes.push(outcome(now.toISOString(), key, 'callback', 'skipped', 'stale')); } else dueItems.push(item);
-        }
-      }
+    const cb = prefs.callbacks ? callbackDue(l) : null;
+    if (cb && cb.at <= nowMs) {
+      const key = `cb:${l._id}:${cb.stamp}`;
+      if (!sent.has(key)) settleLate(key, 'callback', cb.at, { key, kind: 'callback', business: l.business, title: `Call back: ${l.business}, ${fmtZoneTime(cb.at)}`, body: l.phone || '', url: `${base}/leads?open=${l._id}` });
     }
-    if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage) && l.meeting?.date) {
-      const t = zoneMeetingMs(l.meeting.date, l.meeting.time);
-      if (Number.isFinite(t) && t <= nowMs) {
-        const key = `mt:${l._id}:${l.meeting.date}:${l.meeting.time || ''}`;
-        if (!sent.has(key)) {
-          const item = { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(t)}`, body: l.meeting.location || '', url: `${base}/booked?open=${l._id}` };
-          if (nowMs - t > PUSH_WINDOW_MS) { staleKeys.push(key); outcomes.push(outcome(now.toISOString(), key, 'meeting', 'skipped', 'stale')); } else dueItems.push(item);
-        }
+    const mt = prefs.meetings ? meetingOf(l) : null;
+    if (mt) {
+      const headsUpAt = mt.at - MEETING_HEADS_UP_MS;
+      const hkey = `mh:${l._id}:${mt.stamp}`;
+      if (headsUpAt <= nowMs && !sent.has(hkey)) {
+        const mins = Math.max(1, Math.round((mt.at - nowMs) / 60e3));
+        settleLate(hkey, 'meeting-soon', headsUpAt, { key: hkey, kind: 'meeting-soon', business: l.business, title: `Meeting in ${mins} min: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}` }, nowMs >= mt.at ? 'started' : 'stale');
       }
+      const key = `mt:${l._id}:${mt.stamp}`;
+      if (mt.at <= nowMs && !sent.has(key)) settleLate(key, 'meeting', mt.at, { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}` });
     }
   }
 
@@ -224,14 +246,10 @@ export async function runReminders(db, nowMs = Date.now()) {
     const callbacks = []; // due today or overdue
     const meetings = []; // today only
     for (const l of leads) {
-      if (prefs.callbacks && l.callStatus === 'callback' && l.callbackAt) {
-        const t = new Date(l.callbackAt);
-        if (!Number.isNaN(t.getTime()) && zoneDayKey(t.getTime()) <= today) callbacks.push({ business: l.business, overdue: zoneDayKey(t.getTime()) < today });
-      }
-      if (prefs.meetings && ['booked', 'won', 'client'].includes(l.stage) && l.meeting?.date === today) {
-        const t = zoneMeetingMs(l.meeting.date, l.meeting.time);
-        if (Number.isFinite(t)) meetings.push({ business: l.business, at: t });
-      }
+      const cb = prefs.callbacks ? callbackDue(l) : null;
+      if (cb && zoneDayKey(cb.at) <= today) callbacks.push({ business: l.business, overdue: zoneDayKey(cb.at) < today });
+      const mt = prefs.meetings ? meetingOf(l) : null;
+      if (mt && zoneDayKey(mt.at) === today) meetings.push({ business: l.business, at: mt.at });
     }
     const total = callbacks.length + meetings.length + bills.length + reviews.length + tasksToday.length;
     if (total) {
@@ -275,8 +293,16 @@ export async function runReminders(db, nowMs = Date.now()) {
   if (runRules) {
     try { rules = await runEmailRules(db, nowMs); } catch { /* the digest still goes; the rules try again next run */ }
   }
-  if (runQueue || runRules) {
-    await queueGate.updateOne({ _id: 'cronGates' }, { $set: { ...(runQueue ? { queueLastRunAt: now.toISOString() } : {}), ...(runRules ? { rulesLastRunAt: now.toISOString() } : {}) }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+  /* The pushes beyond a reminder at its due time (api/_lib/coveragePush.js): invoices past due once a day from 9:00 New York (the daily
+     job runs at 1 or 2 AM there, a push then would wake the phone), leads the scraper wrote and Calendly bookings every 15 minutes. Each
+     keeps its state in cronGates and is never fatal. */
+  const sweeps = { overdue: 0, leads: 0, booked: 0, canceled: 0 };
+  const gatePatch = {};
+  if (prefs.bills && atOrAfter(nowMs, OVERDUE_AT.h, OVERDUE_AT.min)) { const r = await runOverdueInvoices(db, nowMs, gateDoc); Object.assign(gatePatch, r.patch); sweeps.overdue = r.pushed; }
+  { const r = await runLeadSweep(db, nowMs, gateDoc); Object.assign(gatePatch, r.patch); sweeps.leads = r.found; }
+  { const r = await runCalendlyPoll(db, nowMs, gateDoc); Object.assign(gatePatch, r.patch); sweeps.booked = r.booked; sweeps.canceled = r.canceled; }
+  if (runQueue || runRules || Object.keys(gatePatch).length) {
+    await queueGate.updateOne({ _id: 'cronGates' }, { $set: { ...(runQueue ? { queueLastRunAt: now.toISOString() } : {}), ...(runRules ? { rulesLastRunAt: now.toISOString() } : {}), ...gatePatch }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
   }
 
   /* Client pushes (portal prompt 4): one batched push per client with a device, six hours apart at most; the gate is
@@ -291,7 +317,7 @@ export async function runReminders(db, nowMs = Date.now()) {
   if (lastError) healthSet['crons.reminders.lastPushError'] = lastError;
   await settings.updateOne({ _id: 'health' }, { $set: healthSet, $push: { 'crons.reminders.runs': { $each: [nowIso], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
-  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, failed: failedNow.length + digestFailed, retrying, clientPushes: clientPushes.sent, emails, rules };
+  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, failed: failedNow.length + digestFailed, retrying, clientPushes: clientPushes.sent, emails, rules, sweeps };
 }
 
 export async function handler(req, res) {
