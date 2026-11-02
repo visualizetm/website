@@ -224,7 +224,7 @@ Resume here: read docs/MOBILE-DECISIONS.md "Finish notifications", then continue
 - [x] Milestone 1: the approval gate, the approve door, rules that only draft, the Drafts screen and Home card, the send sheet, every send path rewired, Draft into Gmail behind the toggle. Tests: email-safety-test, email-test (369), send-sheet-test (browser).
 - [x] Milestone 2: one back stack (src/shell/backTree.js, useBack on the tree, the call console's modes as paths, the hub's ?section=, Escape as Back, back-test 124 checks).
 - [x] Milestone 3: the shell (the More card gone, Settings cleaned, the glass bar at 45%, one header rule, Pipeline overview and Client overview).
-- [ ] Milestone 4: the gate, the fault proofs, docs, push, the report.
+- [x] Milestone 4: the gate (lint, build, every handler test, email-safety-test, back-test, regression 118, a11y both themes, layout at 320, 390, 430, 768 and 1280, chrome, empty, gesture, security, pipeline, preship), the four fault proofs, docs, pushed as 343b253, 62d43a2, b070d48, deploy dpl_4efkjuVmSrUH8kacaeJWWZL5NiwH Ready.
 
-Resume here: read docs/MOBILE-DECISIONS.md "Email safety, one back stack, the shell", then Milestone 4: the gate, the fault proofs, the push, the report.
+Resume here: prompt 1 of 3 shipped (b070d48). Next is prompt 2 of 3.
 
