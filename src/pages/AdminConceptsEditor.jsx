@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, SegmentedControl, Toggle, InlineEdit, Tabs, Menu,
+  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Input, Textarea, Select, SegmentedControl, Toggle, InlineEdit, Tabs, Menu, Sheet,
   EmptyState, ErrorState, Stagger, SkeletonText, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow } from '../ui';
 import { COPY } from '../shared/copy';
+import { apiFetch } from '../shared/api';
+import { useShell } from '../shell/ShellContext';
 import { CONCEPT_ITEM_KINDS, CONCEPT_APPROVAL_MODES, conceptSetStatusOf, conceptFeedbackActionOf, conceptDecisionOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
 import { projectsOf, activeProject, revisionsUsed, revisionsMax, extraRoundFeeFor, roundLogPatch, money } from '../lib/projects';
@@ -211,6 +213,7 @@ export default function AdminConceptsEditor({
   lead, sets = [], projects = [], loading = false, error = false, onRetry, onCreate, onPatch, onPatchProject, onBack, setId: setIdProp = '', readOnly = false,
 }) {
   const toast = useToast();
+  const shell = useShell();
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
@@ -316,14 +319,31 @@ export default function AdminConceptsEditor({
     if (item) { setActiveId(String(item._id)); toast.success(`Round ${item.round} started from round ${active.round}. It is a draft until you send it.`); }
     else toast.error(COPY.error.save);
   }, [active, busy, draft, saveFirst, onCreate, toast]);
+  /* Send to client (email safety, prompt 1 of 3): a confirm, then the link works, then Tell them: Email it opens Compose on the concepts
+     ready email (its Send writes a draft the send sheet shows before anything goes), Text it writes a text draft with the link and opens
+     the send sheet, whose Text it opens Messages with it filled. Nothing here sends an email. */
+  const [tell, setTell] = useState(false);
   const send = useCallback(async () => {
     if (!active || busy) return;
     if (!(await saveFirst())) return;
+    const yes = await confirm({ title: 'Send these concepts?', body: 'Their link starts working and the time is stamped. Then tell them: email it or text them the link. Nothing goes out until you tap Send on the email or the text.', confirmLabel: 'Send to client' });
+    if (!yes) return;
     setBusy(true);
     const ok = await onPatch(active._id, { status: 'sent' });
     setBusy(false);
-    if (ok) toast.success(COPY.concepts.editor.sent); else toast.error(COPY.error.save);
-  }, [active, busy, saveFirst, onPatch, toast]);
+    if (!ok) { toast.error(COPY.error.save); return; }
+    toast.success(COPY.concepts.editor.sent);
+    setTell(true);
+  }, [active, busy, saveFirst, onPatch, toast, confirm]);
+  const emailIt = () => { setTell(false); if (lead) shell?.openCompose?.(lead, { templateId: 'concepts_ready' }); };
+  const textIt = async () => {
+    if (!lead || !active) return;
+    const first = String(lead.askFor || '').trim().split(/[\s,]+/)[0];
+    const r = await apiFetch('/api/admin/email/drafts', { method: 'POST', body: { channel: 'text', recordId: String(lead._id), subject: 'Your concepts are ready', body: `Hey${first ? ` ${first}` : ''}, your concepts are ready: ${publicUrl(active)}`, reason: 'Concepts sent' } });
+    if (!r.ok) { toast.error(r.data?.error || COPY.error.save); return; }
+    setTell(false);
+    shell?.openSendSheet?.({ _id: r.data.logId });
+  };
   const regenerate = useCallback(async () => {
     if (!active) return;
     const yes = await confirm({ title: 'Make a new link?', body: 'The link they have stops working immediately. Anyone still holding the old one gets a not active page, and you will need to send them the new one.', confirmLabel: 'Make a new link', danger: true });
@@ -645,6 +665,15 @@ export default function AdminConceptsEditor({
       </ScrollArea>
 
       <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
+      {tell && lead && (
+        <Sheet open onClose={() => setTell(false)} title="Tell them" label="Tell them the concepts are ready" description="Their link works now. Pick how to send it; you read it before anything goes." width={440} className="ce-tell"
+          footer={<Button variant="ghost" onClick={() => setTell(false)}>Later</Button>}>
+          <Stack gap={2}>
+            <ListRow leading={<Icon icon="Mail01" size="var(--v-icon-md)" />} title="Email it" subtitle="The concepts ready email, in Compose" onClick={emailIt} className="ce-tell-email" />
+            <ListRow leading={<Icon icon="MessageCircle01" size="var(--v-icon-md)" />} title="Text it" subtitle={lead.phone ? 'The link in a text, from Messages' : 'No phone on the record'} onClick={lead.phone ? textIt : undefined} className="ce-tell-text" />
+          </Stack>
+        </Sheet>
+      )}
       {confirmDialog}
       {roundLog.modal}
       <style>{saveBarStyles + imageFieldStyles + ceStyles}</style>

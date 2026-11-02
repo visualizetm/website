@@ -51,6 +51,20 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
   const ok = (c, m, guard = null) => { results.push({ ok: !!c, msg: m, guard }); };
   const cookie = `vz_admin=${signSession()}`;
   const admin = async (a, method = 'GET', body, extra = {}) => { const req = { method, query: { r: 'email', a, ...(extra.query || {}) }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9', ...(extra.headers || {}) }, url: `/api/admin/index?r=email&a=${a}`, socket: {} }; const res = fakeRes(); await adminIndex(req, res); return res; };
+  /* The Drafts rule (email safety): email/send writes a draft, email/approve is the one door out. sendNow does both, as the preview
+     sheet does: draft, then approve with the same confirm, Drive and time options. A refusal at the door (a duplicate inside ten
+     minutes, 409) keeps the draft; the retry with confirmDuplicate approves that same row, so the log keeps one entry per send. */
+  let pendingDraft = null;
+  const sendNow = async (body) => {
+    const keyOf = (b) => `${b.recordId}:${b.templateId}:${b.invoiceId || ''}`;
+    const approveArgs = { confirmDuplicate: !!body.confirmDuplicate, driveShared: !!body.driveShared, ...(body.sendAt ? { sendAt: body.sendAt } : {}) };
+    if (body.confirmDuplicate && pendingDraft && pendingDraft.key === keyOf(body)) { const id = pendingDraft.id; pendingDraft = null; return admin('approve', 'POST', { id, ...approveArgs }); }
+    const d = await admin('send', 'POST', body);
+    if (d._status !== 200 || !d._json?.draft) return d;
+    const a = await admin('approve', 'POST', { id: d._json.logId, ...approveArgs });
+    pendingDraft = a._status === 409 ? { id: d._json.logId, key: keyOf(body) } : null;
+    return a;
+  };
   const pub = async (method, query = {}, body) => { const req = { method, query: { r: 'unsubscribe', ...query }, body, headers: { 'x-forwarded-for': '203.0.113.9' }, url: '/api/unsubscribe', socket: {} }; const res = fakeRes(); await showcase(req, res); return res; };
   const realFetch = globalThis.fetch;
   const stub = fetchStub(); globalThis.fetch = stub.fn;
@@ -165,7 +179,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(mine.length === 3 && mine[0].subject === 'two' && mine[2].subject === 'old' && mine.every(r => !('html' in r)), `logFor answers one record's entries newest first without html (${mine.map(r => r.subject).join(',')})`);
       const recent = await L.recentLog(db, { limit: 50 });
       ok(recent[0].status === 'failed' && recent.length === 4, `recentLog puts failures first (${recent.map(r => r.status).join(',')})`);
-      await L.updateLog(db, old._id, { status: 'queued', sendAt: new Date(Date.now() - 60e3).toISOString() });
+      await L.updateLog(db, old._id, { status: 'queued', sendAt: new Date(Date.now() - 60e3).toISOString(), approvedAt: new Date().toISOString(), approvedBy: 'rob' });
       const Q0 = await load('_lib/email/queue.js');
       const due = await Q0.queuedDue(db, Date.now(), { byDay: false });
       ok(due.length === 1 && String(due[0]._id) === String(old._id), 'by the instant, queuedDue answers the queued entry whose sendAt has passed');
@@ -323,27 +337,27 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(r._status === 200 && r._json.subject === 'My own line Mike' && r._json.html.includes('Short and sweet, 3 ideas.') && !r._json.html.includes('Book the call'), 'an override renders this one email with its own subject and blocks');
       r = await admin('preview', 'POST', { templateId: 'custom', recordId: LEAD, override: { blocks: [{ type: 'text', text: 'Your portal: {{portalLink}}' }, { type: 'button', label: 'Open', url: '{{portalLink}}' }] } });
       ok(r._status === 200 && r._json.available === false && r._json.missing.includes('portalLink') && r._json.lacking.includes('portalLink'), `a template reading a value the record lacks is unavailable, the field named (${dump(r._json.missing)})`);
-      r = await admin('send', 'POST', { templateId: 'custom', recordId: LEAD, override: { blocks: [{ type: 'button', label: 'Open', url: '{{portalLink}}' }] } });
+      r = await sendNow({ templateId: 'custom', recordId: LEAD, override: { blocks: [{ type: 'button', label: 'Open', url: '{{portalLink}}' }] } });
       ok(r._status === 400 && r._json.missing.includes('portalLink') && /Fill in portalLink/.test(r._json.error) && _stores.email_log.length === 0, 'send refuses on a missing field and logs nothing', 'missing-refuses');
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD, to: ['not an address'] });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD, to: ['not an address'] });
       ok(r._status === 400 && /not an email address/.test(r._json.error), 'a bad address is refused');
       /* A real send in test mode (no key): logged as test, the token minted, the checkpoint ticked, the contact log and the next action written. */
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD });
       ok(r._status === 200 && r._json.ok === true && r._json.test === true && r._json.logId && /Test only/.test(r._json.message), `a send in test mode answers ok and test: true (${dump(r._json)})`);
       const log1 = _stores.email_log[0];
       ok(log1 && log1.status === 'test' && log1.templateId === 'intro_call' && log1.class === 'marketing' && dump(log1.to) === dump(['mike@mikestacos.example']) && log1.subject === 'Good talking to you, Mike' && log1.html.includes('<h1 ') && log1.recordId === LEAD && log1.auto === false, 'the log holds the test entry with the rendered html');
       ok(/^[A-Za-z0-9_-]{24}$/.test(lead().emailToken || ''), `a marketing send mints the record's 24 character opt out token (${lead().emailToken})`);
       ok(log1.html.includes(`/u/${lead().emailToken}`), 'and the email carries the opt out link with it');
       ok(lead().deal.checkpoints.introSent?.by === 'auto' && lead().contactLog.length === 1 && /intro call/i.test(lead().contactLog[0].note) && lead().nextAction?.kind, `the send ticks Intro sent through the shared stamps and writes the next action (${lead().nextAction?.kind})`, 'checkpoint-tick');
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD });
       ok(r._status === 409 && /minutes ago/.test(r._json.error) && r._json.duplicate?.subject === 'Good talking to you, Mike', 'the same template to the same record inside ten minutes is a 409 that asks', 'duplicate');
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 200 && _stores.email_log.length === 2, 'and goes with confirmDuplicate');
       /* Opt out: marketing refused, transactional allowed. */
       lead().emailOptOut = true;
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 403 && r._json.optedOut === true && _stores.email_log.length === 2, 'an opted out record refuses a marketing email', 'optout-marketing');
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD });
       ok(r._status === 200 && _stores.email_log.length === 3 && _stores.email_log[2].class === 'transactional' && lead().deal.checkpoints.onboardingSent?.by === 'auto', 'and still sends a transactional one, which ticks Onboarding sent', 'optout-transactional');
       lead().emailOptOut = false;
       /* Test to self: the sender's address, the [Test] subject, nothing ticked. */
@@ -355,24 +369,24 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(JSON.stringify(lead().deal.checkpoints) + lead().contactLog.length === before, 'and ticks nothing', 'test-no-tick');
       /* With the key: the headers on a marketing send, none on a transactional one; the request's html never used. */
       process.env.RESEND_API_KEY = KEY; stub.calls.length = 0; stub.set([{ status: 200, body: { id: 'em_a' } }, { status: 200, body: { id: 'em_b' } }]);
-      r = await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true, html: '<script>alert(1)</script>', cc: ['Partner@MikesTacos.example'] });
+      r = await sendNow({ templateId: 'intro_call', recordId: LEAD, confirmDuplicate: true, html: '<script>alert(1)</script>', cc: ['Partner@MikesTacos.example'] });
       const c1 = stub.calls[0];
       ok(r._status === 200 && r._json.test === false && c1 && c1.body.headers?.['List-Unsubscribe'] === `<https://visualizestudio.org/api/unsubscribe?token=${lead().emailToken}>` && c1.body.headers?.['List-Unsubscribe-Post'] === 'List-Unsubscribe=One-Click', `a marketing send carries List-Unsubscribe and the one click header (${dump(c1?.body?.headers)})`, 'unsub-headers');
       ok(!c1.body.html.includes('<script') && c1.body.html.includes('<h1 ') && dump(c1.body.cc) === dump(['partner@mikestacos.example']), 'the server renders the email itself: the request\'s html never leaves, the cc rides');
       ok(_stores.email_log[_stores.email_log.length - 1].status === 'sent' && _stores.email_log[_stores.email_log.length - 1].providerId === 'em_a', 'a connected send logs sent with the provider id');
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
       const c2 = stub.calls[1];
       ok(r._status === 200 && c2 && !c2.body.headers, 'a transactional send carries no unsubscribe header');
       stub.set([{ status: 500, body: {} }, { status: 500, body: {} }]);
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 502 && /did not go out/.test(r._json.error) && _stores.email_log[_stores.email_log.length - 1].status === 'failed', 'a failed send is a 502 with a failed log entry');
       delete process.env.RESEND_API_KEY;
       /* Send tomorrow: queued with sendAt, cancel makes it a draft. */
       const tomorrow = new Date(Date.now() + 20 * 3600e3).toISOString();
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true, sendAt: tomorrow });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true, sendAt: tomorrow });
       const q = _stores.email_log[_stores.email_log.length - 1];
       ok(r._status === 200 && r._json.queued === true && q.status === 'queued' && q.sendAt === tomorrow && q.html.includes('<h1 '), 'a sendAt queues the rendered email with its time');
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true, sendAt: new Date(Date.now() - 3600e3).toISOString() });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true, sendAt: new Date(Date.now() - 3600e3).toISOString() });
       ok(r._status === 400, 'a sendAt in the past is refused');
       r = await admin('log', 'POST', { id: String(q._id), cancel: true });
       ok(r._status === 200 && q.status === 'draft' && q.sendAt === '', 'cancelling a queued email makes it a draft');
@@ -386,7 +400,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(r._status === 200 && r._json.items[0].status === 'failed', 'the recent log puts the failure first');
       /* The hour's guard answers 429 with Retry-After. */
       for (let i = 0; i < 30; i++) await T.sendEmail(db, msg());
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 429 && r._headers['Retry-After'], 'the thirty first send in the hour is 429 with Retry-After');
     }
     /* 10. the settings: overrides saved, reset, the sender. */
@@ -412,7 +426,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
     /* 11. the opt out door. */
     seedRecords();
     {
-      await admin('send', 'POST', { templateId: 'intro_call', recordId: LEAD });
+      await sendNow({ templateId: 'intro_call', recordId: LEAD });
       const token = lead().emailToken;
       let r = await pub('GET', { token });
       ok(r._status === 200 && r._json.business === "Mike's Tacos" && r._json.firstName === 'Mike' && r._json.optedOut === false && r._headers['Cache-Control'] === 'no-store', `GET with the token answers the name and the state (${dump(r._json)})`);
@@ -505,7 +519,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       /* The log tells a test to Rob from a send, and the duplicate guard ignores the test. */
       r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, testToSelf: true });
       ok(r._status === 200 && _stores.email_log.length === 1 && _stores.email_log[0].toSelf === true, 'a test to Rob is logged as toSelf', 'log-toself');
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD });
       ok(r._status === 200 && _stores.email_log.length === 2 && _stores.email_log[1].toSelf === false, `and the real send right after it is not a duplicate of the test (${r._status} ${dump(r._json).slice(0, 80)})`, 'dup-ignores-self');
       /* The preview iframe runs nothing: sandbox with no allow-scripts. */
       const pvSrc = fs.readFileSync(path.join(srcDst, 'components/email/EmailPreview.jsx'), 'utf8');
@@ -532,7 +546,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       globalThis.__vzPushes = [];
       const run8am = Date.parse('2026-01-20T13:00:00Z'); // the morning run, 8am in New York in winter
       const at9 = (key) => new Date(Z.zoneDateAt(key, 9, 0)).toISOString();
-      const entry = { recordId: LEAD, templateId: 'onboarding', class: 'transactional', to: ['mike@mikestacos.example'], cc: [], text: 'q', html: '<p>q</p>', status: 'queued' };
+      const entry = { recordId: LEAD, templateId: 'onboarding', class: 'transactional', to: ['mike@mikestacos.example'], cc: [], text: 'q', html: '<p>q</p>', status: 'queued', approvedAt: new Date().toISOString(), approvedBy: 'rob' };
       const q1 = await L.writeLog(db, { ...entry, subject: 'Q1', sendAt: at9('2026-01-20') });
       const q2 = await L.writeLog(db, { ...entry, subject: 'Q2', sendAt: at9('2026-01-21') });
       const q3 = await L.writeLog(db, { ...entry, subject: 'Q3', sendAt: at9('2026-01-19') });
@@ -566,7 +580,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(list().items.length === 1, 'the same entry failing again adds no second task');
       /* A direct send that fails writes the same task and push; a failed test to Rob writes neither. */
       stub.set([{ status: 500, body: {} }, { status: 500, body: {} }]);
-      r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'onboarding', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 502 && list().items.length === 2 && globalThis.__vzPushes.length === 3, `a failed send from Compose writes the task and the push too (${r._status}, ${list().items.length} tasks, ${globalThis.__vzPushes.length} pushes)`, 'fail-task');
       stub.set([{ status: 500, body: {} }, { status: 500, body: {} }]);
       r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD, testToSelf: true });
@@ -590,11 +604,11 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
     {
       const adminAny = async (r, method = 'GET', body, extra = {}) => { const req = { method, query: { r, ...(extra.query || {}) }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9' }, url: `/api/admin/index?r=${r}`, socket: {} }; const res = fakeRes(); await adminIndex(req, res); return res; };
       ok(TP.TEMPLATE_IDS.length >= 13 && ['concepts_in_progress', 'concepts_ready', 'booking_nudge', 'missed_call', 'nurture_checkin', 'form_nudge', 'contract', 'contract_nudge'].every(id => TP.templateOf(id)), `the registry holds the lead and deal templates (${TP.TEMPLATE_IDS.length})`);
-      let r = await admin('send', 'POST', { templateId: 'contract', recordId: LEAD });
+      let r = await sendNow({ templateId: 'contract', recordId: LEAD });
       ok(r._status === 200 && lead().deal.checkpoints.contractSent && lead().deal.checkpoints.contractSent.by === 'auto', `the contract email ticks Contract sent (${r._status} ${dump(lead().deal.checkpoints.contractSent)})`, 'contract-tick');
       ok(lead().contactLog.some(e => e.type === 'email' && /contract/i.test(e.note)), 'and logs the contact');
       ok(!lead().conceptsOffered, 'the fixture carries no offer stamp');
-      r = await admin('send', 'POST', { templateId: 'concepts_in_progress', recordId: LEAD });
+      r = await sendNow({ templateId: 'concepts_in_progress', recordId: LEAD });
       ok(r._status === 200 && /^\d{4}-/.test(String(lead().conceptsOffered || '')), `the concepts in progress email stamps conceptsOffered (${r._status} ${lead().conceptsOffered})`, 'offer-stamp');
       r = await admin('preview', 'POST', { templateId: 'concepts_ready', recordId: LEAD });
       ok(r._status === 200 && r._json.available === true && /I made \d directions for Mike/.test(r._json.text) && !r._json.html.includes('Peek at one direction'), `concepts ready renders the count and no teaser by default (${dump({ status: r._status, available: r._json.available, text: String(r._json.text).slice(0, 120) })})`);
@@ -618,7 +632,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const link = lead().deal.contractLink; lead().deal.contractLink = '';
       r = await admin('preview', 'POST', { templateId: 'contract', recordId: LEAD });
       ok(r._json.available === false && r._json.lacking.includes('contractLink'), 'the contract is unavailable without its link', 'availability');
-      r = await admin('send', 'POST', { templateId: 'contract', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'contract', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 400 && /contractLink/.test(r._json.error), 'and never goes out blank', 'missing-refuses');
       lead().deal.contractLink = link;
       for (const id of ['booking_nudge', 'missed_call', 'nurture_checkin', 'form_nudge']) { const p = await admin('preview', 'POST', { templateId: id, recordId: LEAD }); ok(p._status === 200 && p._json.available === true && p._json.missing.length === 0, `${id} renders whole on the fixture`); }
@@ -639,12 +653,12 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const line = (id) => proj().invoices.find(i => i.id === id);
       const draftLine = (id, label, amount, dueAt, extra = {}) => ({ id, label, amount, dueAt, status: 'draft', sentAt: '', paidAt: '', note: '', ...extra });
       proj().invoices = [line('pv1'), draftLine('q1', 'Month 2 of 6', 200, '2026-11-01'), draftLine('q2', 'Month 3 of 6', 200, '2026-12-01'), draftLine('q3', 'Month 4 of 6', 200, '2027-01-01'), draftLine('q4', 'Month 5 of 6', 200, '2027-02-01'), draftLine('q5', 'Month 6 of 6', 200, '2027-03-01')];
-      const sends = await Promise.all(['q1', 'q2', 'q3', 'q4', 'q5'].map(id => admin('send', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: id, confirmDuplicate: true })));
+      const sends = await Promise.all(['q1', 'q2', 'q3', 'q4', 'q5'].map(id => sendNow({ templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: id, confirmDuplicate: true })));
       const nums = ['q1', 'q2', 'q3', 'q4', 'q5'].map(id => line(id).number);
       ok(sends.every(x => x._status === 200) && new Set(nums).size === 5 && nums.every(n => /^INV-\d{4}$/.test(n)), `five sends at once take five numbers (${sends.map(x => x._status).join(',')}; ${nums.join(',')})`, 'invoice-number-atomic');
       const sorted = [...nums].sort();
       ok(sorted[0] === 'INV-0001' && sorted[4] === 'INV-0005', `numbered from one, in a row (${sorted.join(',')})`, 'invoice-number-atomic');
-      const again = await admin('send', 'POST', { templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q1', confirmDuplicate: true });
+      const again = await sendNow({ templateId: 'invoice', recordId: LEAD, projectId: PROJ, invoiceId: 'q1', confirmDuplicate: true });
       ok(again._status === 200 && line('q1').number === nums[0] && _stores.settings.find(d => d._id === 'emails').invoiceCounter === 5, `a second send keeps the number and the counter stays (${line('q1').number}, ${_stores.settings.find(d => d._id === 'emails')?.invoiceCounter})`, 'invoice-number-kept');
       ok(_stores.email_log.filter(e => e.templateId === 'invoice').every(e => /INV-\d{4}/.test(e.subject)) && line('q1').status === 'sent' && line('q1').sentAt, 'every invoice email names its number, and the line is marked sent');
       proj().invoices.push(draftLine('q6', 'Final', 240, '2026-11-15', { kind: 'final' }));
@@ -715,43 +729,43 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
       const payAll = () => { proj().invoices = proj().invoices.map(i => ({ ...i, status: 'paid', paidAt: i.paidAt || '2026-10-20T12:00:00.000Z' })); };
       ok(TP.TEMPLATE_IDS.length >= 24 && ['kickoff', 'needs_you', 'review_ready', 'revision_ready', 'plan_complete', 'retainer_followup', 'review_request', 'retainer_month_ready'].every(id => TP.templateOf(id)), `the registry holds the client and project templates (${TP.TEMPLATE_IDS.length})`);
-      let r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      let r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
       ok(r._status === 400 && /full payment/.test(r._json.error), `the delivery email waits for full payment (${r._status} ${r._json.error})`, 'delivery-paid');
       payAll();
-      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ });
+      r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ });
       ok(r._status === 400 && /shared as Viewer/.test(r._json.error), `and for the Drive box (${r._status} ${r._json.error})`, 'delivery-checkbox');
       const drive = proj().links.drive; proj().links.drive = '';
-      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
       ok(r._status === 400 && /Drive/.test(r._json.error), `and for the Drive link (${r._status} ${r._json.error})`, 'delivery-drive');
       proj().links.drive = drive;
       r = await admin('preview', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ });
       ok(r._status === 200 && r._json.available === true && r._json.html.includes('Brand Files') && r._json.html.includes('Keep it running') && /Site Care|Content Kit|Growth/.test(r._json.html) && r._json.html.includes('https://buy.stripe.com/'), `the delivery email draws the files, the red box with the one retainer and its link (${r._json.text.replace(/\n/g, ' ').slice(0, 200)})`);
       ok(r._json.html.includes('sticker sample pack') && r._json.html.includes('NFC card'), 'the Launch plan gets the sticker pack and the NFC card line');
-      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
+      r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true });
       ok(r._status === 200 && proj().delivery.emailSent === true && proj().delivery.pitchSent === true && proj().delivery.driveShared === true && !!proj().deliveredAt, `the send ticks the steps and sets deliveredAt (${r._status} ${dump(proj().delivery)} ${proj().deliveredAt})`, 'delivery-stamps');
       const dl = () => (proj().checklists || []).find(l => l.name === 'Delivery');
       ok(!!dl() && dl().items.some(it => /retainer follow up/i.test(it.text)) && dl().items.some(it => /review/i.test(it.text)), `and writes the two follow up tasks on the project (${dump(dl() && dl().items.map(it => it.text))})`, 'delivery-tasks');
       { const ret = dl() && dl().items.find(it => /retainer/i.test(it.text)); const rev = dl() && dl().items.find(it => /review/i.test(it.text)); const days = (iso) => Math.round((Date.parse(iso) - Date.parse(proj().deliveredAt)) / 864e5);
         ok(!!ret && !!rev && days(ret.due) === 3 && days(rev.due) === 3, `three days on each, the delivery day standing in for a release (${ret && days(ret.due)}, ${rev && days(rev.due)})`, 'delivery-tasks'); }
       const nTasks = dl().items.length;
-      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
       ok(r._status === 200 && dl().items.length === nTasks, 'a second send adds no second pair of tasks');
       proj().invoices = proj().invoices.map(i => (i.id === 'pv2' ? { ...i, status: 'sent' } : i));
       r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, testToSelf: true });
       ok(r._status === 200 && r._json.toSelf === true, 'a test to Rob goes without the gate');
       payAll();
       const dels = proj().deliverables; proj().deliverables = [];
-      r = await admin('send', 'POST', { templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'delivery', recordId: LEAD, projectId: PROJ, driveShared: true, confirmDuplicate: true });
       ok(r._status === 400 && /deliverables/.test(r._json.error), `no deliverables, no delivery email (${r._status} ${r._json.error})`, 'missing-refuses');
       proj().deliverables = dels;
       /* The review request mints the link on the first send and keeps it. */
       ok(!lead().reviews?.visualize?.token, 'the fixture has no review link');
       r = await admin('preview', 'POST', { templateId: 'review_request', recordId: LEAD });
       ok(r._status === 200 && r._json.available === false && r._json.lacking.includes('reviewLink'), 'before a send the preview says the link is missing', 'availability');
-      r = await admin('send', 'POST', { templateId: 'review_request', recordId: LEAD });
+      r = await sendNow({ templateId: 'review_request', recordId: LEAD });
       const tok = lead().reviews?.visualize?.token;
       ok(r._status === 200 && /^[A-Za-z0-9_-]{24}$/.test(String(tok)) && _stores.email_log.some(e => e.templateId === 'review_request' && e.html.includes(`/r/${tok}`)), `the send mints the review link and the email carries it (${r._status} ${tok})`, 'review-mint');
-      r = await admin('send', 'POST', { templateId: 'review_request', recordId: LEAD, confirmDuplicate: true });
+      r = await sendNow({ templateId: 'review_request', recordId: LEAD, confirmDuplicate: true });
       ok(r._status === 200 && lead().reviews.visualize.token === tok, 'a second send keeps the token');
       /* Kickoff: the client's open items and the portal button only when they exist; needs you insists on both. */
       r = await admin('preview', 'POST', { templateId: 'kickoff', recordId: LEAD, projectId: PROJ });
@@ -808,7 +822,7 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const pushes = () => (globalThis.__vzPushes || []);
       const allOff = Object.fromEntries(TR.EMAIL_RULES.map(x => [x.template, 'off']));
       const proj = () => _stores.projects.find(p => String(p._id) === PROJ);
-      ok(RU.automationOf({ automation: {} }, TP.templateOf('form_nudge')) === 'draft' && RU.automationOf({ automation: { form_nudge: 'send' } }, TP.templateOf('form_nudge')) === 'send' && RU.automationOf({ automation: {} }, TP.templateOf('invoice')) === 'off', "a template's Automation is Rob's setting, else its default");
+      ok(RU.automationOf({ automation: {} }, TP.templateOf('form_nudge')) === 'draft' && RU.automationOf({ automation: { form_nudge: 'send' } }, TP.templateOf('form_nudge')) === 'draft' && RU.automationOf({ automation: {} }, TP.templateOf('invoice')) === 'off', "a template's Automation is Rob's setting, else its default; a saved 'send' from before the Drafts rule reads as draft", 'automation-no-send');
       ok(RU.liveRules({ automation: {} }).every(x => x.rule.id !== 'plan_invoice') && RU.liveRules({ automation: {} }).some(x => x.rule.id === 'invoice_reminder'), "the month's invoice never goes on its own until Rob turns it on; the reminders draft by default");
       await admin('settings', 'PUT', { automation: allOff });
       lead().deal.checkpoints.onboardingSent = { at: iso(-5) };
@@ -826,24 +840,25 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(entries('form_nudge').every(e => e.status === 'draft') && stub.calls.length === 0 && lead().contactLog.length === 0, 'and sends nothing', 'rule-draft');
       const task = () => (lead().checklists || []).flatMap(l => l.items || []).find(it => it.emailId === String(d()._id));
       ok(!!task() && /^Email ready: Form nudge for Mike's Tacos\. Three days with no form/.test(task().text) && task().done === false, `with its task carrying the entry (${dump(task() && task().text)})`, 'task-email-id');
-      ok(pushes().length === 1 && pushes()[0].title === '1 email ready to send' && /\/tasks$/.test(pushes()[0].url), `and one push to the Tasks screen (${dump(pushes())})`, 'rule-push');
+      ok(pushes().length === 1 && pushes()[0].title === '1 email ready to send' && /\/drafts$/.test(pushes()[0].url), `and one push to the Drafts screen (${dump(pushes())})`, 'rule-push');
       r = await RU.runEmailRules(db, now);
       ok(r.drafted === 0 && r.skipped === 1 && entries('form_nudge').length === 1 && pushes().length === 1, `a second run adds no second draft and no second push (${dump(r)})`);
-      /* Send for me: the standing draft goes on its own entry, its task is ticked, the cooldown holds the next one. */
+      /* The Drafts rule: 'send' is not a mode. Saved anyway, it drafts; nothing a rule does ever sends, fetch is never called. */
       await admin('settings', 'PUT', { automation: { ...allOff, form_nudge: 'send' } });
+      ok(_stores.settings.find(x => x._id === 'emails').automation.form_nudge === 'draft', "a 'send' sent to the settings route is stored as draft", 'automation-no-send');
+      stub.calls.length = 0;
       r = await RU.runEmailRules(db, now);
-      ok(r.sent === 1 && entries('form_nudge').length === 1 && d().status === 'test' && d().auto === true && !!d().sentAt && !d().error, `Send for me sends the standing draft on its own entry (${dump(r)}; ${dump(entries('form_nudge').map(e => e.status))})`, 'rule-send-draft');
-      ok(task().done === true, 'and ticks its task', 'draft-task-done');
-      ok(lead().contactLog.some(c => /form nudge/i.test(c.note)), 'and stamps the contact log like a tap');
-      ok(pushes().length === 2 && /1 email went out for you/.test(pushes()[1].title), `one push says it went (${dump(pushes().map(p => p.title))})`);
-      d().sentAt = new Date(now - 11 * 60e3).toISOString(); d().createdAt = new Date(now - 11 * 60e3); /* past the ten minute duplicate window, so only the cooldown holds it */
+      ok(r.sent === 0 && r.drafted === 0 && r.skipped === 1 && entries('form_nudge').length === 1 && d().status === 'draft' && stub.calls.length === 0 && pushes().length === 1, `with the setting on send the standing draft stands, nothing goes (${dump(r)})`, 'rules-never-send');
+      ok(task().done === false && lead().contactLog.length === 0, 'its task is open and nothing is stamped', 'rules-never-send');
+      /* The cooldown counts from the newest real send: once Rob sends the draft, the rule waits its seven days. */
+      d().status = 'test'; d().sentAt = new Date(now - 11 * 60e3).toISOString(); d().createdAt = new Date(now - 11 * 60e3);
       r = await RU.runEmailRules(db, now);
-      ok(r.sent === 0 && r.skipped === 1 && entries('form_nudge').length === 1, `the cooldown holds it (${dump(r)})`, 'rule-cooldown');
+      ok(r.drafted === 0 && r.skipped === 1 && entries('form_nudge').length === 1, `the cooldown holds it (${dump(r)})`, 'rule-cooldown');
       d().sentAt = iso(-8); d().createdAt = new Date(now - 8 * day);
       r = await RU.runEmailRules(db, now);
-      ok(r.sent === 1 && entries('form_nudge').length === 2, `and lets it go again once the seven days pass (${dump(r)})`, 'rule-cooldown');
-      /* The booking nudge is marketing: an opt out is never sent, the stage must fit, a lead with no address gets a draft. */
-      await admin('settings', 'PUT', { automation: { ...allOff, booking_nudge: 'send' } });
+      ok(r.drafted === 1 && entries('form_nudge').length === 2 && entries('form_nudge', 'draft').length === 1 && stub.calls.length === 0, `and lets it draft again once the seven days pass, still no send (${dump(r)})`, 'rule-cooldown');
+      /* The booking nudge is marketing: an opt out is never even drafted, the stage must fit, a lead with no address still gets a draft. */
+      await admin('settings', 'PUT', { automation: { ...allOff, booking_nudge: 'draft' } });
       lead().stage = 'lead'; lead().callStatus = ''; lead().meeting = {}; delete lead().calendlyEventUri;
       _stores.email_log.push({ ...L.logEntry({ recordId: LEAD, templateId: 'intro_call', class: 'marketing', to: ['mike@mikestacos.example'], subject: 'x', text: 'x', html: '<p>x</p>', status: 'sent', sentAt: iso(-2), createdAt: new Date(now - 2 * day) }), _id: 'intro1' });
       r = await RU.runEmailRules(db, now);
@@ -851,28 +866,24 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       _stores.email_log.find(e => e._id === 'intro1').sentAt = iso(-3);
       lead().emailOptOut = true;
       r = await RU.runEmailRules(db, now);
-      ok(r.fired === 1 && r.sent === 0 && r.drafted === 0 && r.skipped === 1 && entries('booking_nudge').length === 0, `an opt out gets neither the send nor a draft (${dump(r)})`, 'rule-optout');
+      ok(r.fired === 1 && r.sent === 0 && r.drafted === 0 && r.skipped === 1 && entries('booking_nudge').length === 0, `an opt out gets no draft (${dump(r)})`, 'rule-optout');
       lead().emailOptOut = false; lead().stage = 'declined';
       r = await RU.runEmailRules(db, now);
       ok(r.checked === 0 && entries('booking_nudge').length === 0, `a declined lead is never looked at (${dump(r)})`, 'rule-stage');
       lead().stage = 'lead';
       const email = lead().email; lead().email = '';
       r = await RU.runEmailRules(db, now);
-      ok(r.sent === 0 && r.drafted === 1 && entries('booking_nudge', 'draft').length === 1, `no address: a draft for Rob instead (${dump(r)})`, 'rule-400-drafts');
+      ok(r.sent === 0 && r.drafted === 1 && entries('booking_nudge', 'draft').length === 1, `no address: a draft for Rob, which says so (${dump(r)})`, 'rule-draft');
       lead().email = email;
       r = await RU.runEmailRules(db, now);
-      ok(r.sent === 1 && entries('booking_nudge').length === 1 && entries('booking_nudge')[0].status === 'test' && entries('booking_nudge')[0].auto === true, `with the address back the standing draft goes, once (${dump(r)})`, 'rule-send');
-      r = await RU.runEmailRules(db, now);
-      ok(r.sent === 0 && entries('booking_nudge').length === 1, 'and not again');
-      /* The run cap and the hour's rate guard. */
-      await admin('settings', 'PUT', { automation: { ...allOff, missed_call: 'send' } });
+      ok(r.drafted === 0 && r.skipped === 1 && entries('booking_nudge').length === 1 && entries('booking_nudge')[0].status === 'draft', `with the address back the standing draft stands, nothing goes (${dump(r)})`, 'rules-never-send');
+      /* Many at once: every one is a draft, none is sent, no cap and no rate guard apply because nothing leaves. */
+      await admin('settings', 'PUT', { automation: { ...allOff, missed_call: 'draft' } });
       const noShow = (i) => ({ _id: `507f1f77bcf86cd7994391${String(i).padStart(2, '0')}`, business: `Shop ${i}`, askFor: `Owner ${i}`, email: `owner${i}@shops.example`, stage: 'booked', callStatus: 'booked', meeting: { date: iso(-5).slice(0, 10), time: '10:00', noShowAt: iso(-1) }, contactLog: [], deal: { checkpoints: {} } });
-      _stores.call_leads = Array.from({ length: 25 }, (_, i) => noShow(i + 1));
+      _stores.call_leads = Array.from({ length: 35 }, (_, i) => noShow(i + 1));
+      stub.calls.length = 0;
       r = await RU.runEmailRules(db, now);
-      ok(r.fired === 25 && r.sent === 20 && r.drafted === 5 && r.capped === true && entries('missed_call', 'test').length === 20 && entries('missed_call', 'draft').length === 5, `twenty five no shows: twenty go out, five are drafted, the run says it capped (${dump(r)})`, 'rule-cap');
-      _stores.call_leads.push(...Array.from({ length: 10 }, (_, i) => noShow(i + 26)));
-      r = await RU.runEmailRules(db, now);
-      ok(r.limited === true && r.sent > 0 && r.sent <= 8 && entries('missed_call', 'test').length === 20 + r.sent, `the hour's thirty stop the run and leave the rest for tomorrow (${dump(r)})`, 'rule-limited');
+      ok(r.fired === 35 && r.sent === 0 && r.drafted === 35 && r.capped === false && r.limited === false && entries('missed_call', 'draft').length === 35 && stub.calls.length === 0, `thirty five no shows: thirty five drafts, nothing sent (${dump(r)})`, 'rules-never-send');
       /* The money rules run per project and on the deal while it is one: a reminder three days before, past due the day after, each once per line. */
       seedRecords(); globalThis.__vzPushes = [];
       await admin('settings', 'PUT', { automation: { ...allOff, invoice_reminder: 'draft', invoice_past_due: 'draft' } });
@@ -897,7 +908,8 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
     }
     /* 18. The draft send door (milestone 8): a draft sent now renders again from the record onto its own entry and ticks its task; only a
        draft or a queued entry; the duplicate guard across the door; a draft that lacks a value is refused with the live list and stands; the
-       Zapier door answers 410 once Resend is connected and posts nothing; the checklist keeps a task's entry; every preview fixture renders whole. */
+       Zapier door answers 410 once Resend is connected and posts nothing; the checklist keeps a task's entry; every preview fixture renders whole.
+       The Drafts rule (email safety): the door is email/approve; { send: true } on the log answers 403 and nothing moves. */
     seedRecords();
     {
       const DR = await load('_lib/email/drafts.js');
@@ -908,26 +920,28 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const d = await DR.draftEmail(db, { recordId: LEAD, projectId: PROJ, invoiceId: 'pv2', templateId: 'invoice_reminder' });
       const task = (id) => (lead().checklists || []).flatMap(l => l.items || []).find(it => it.emailId === String(id));
       ok(d.ok && !!task(d.log._id) && task(d.log._id).done === false, 'a draft and its task, the task carrying the entry', 'task-email-id');
-      let r = await admin('log', 'POST', { id: String(d.log._id), send: true });
-      ok(r._status === 200 && r._json.ok === true && r._json.taskDone === true && row(d.log._id).status === 'test' && !!row(d.log._id).sentAt && _stores.email_log.length === 1, `Send now sends the draft on its own entry (${r._status} ${dump(r._json)}; ${_stores.email_log.length} entries)`, 'send-draft-door');
+      let r = await admin('approve', 'POST', { id: String(d.log._id) });
+      ok(r._status === 200 && r._json.ok === true && r._json.taskDone === true && row(d.log._id).status === 'test' && !!row(d.log._id).sentAt && row(d.log._id).approvedBy === 'rob' && !!row(d.log._id).approvedAt && _stores.email_log.length === 1, `Send now (approve) sends the draft on its own entry with the stamp (${r._status} ${dump(r._json)}; ${_stores.email_log.length} entries)`, 'send-draft-door');
       ok(task(d.log._id).done === true && !!task(d.log._id).doneAt, 'and ticks the task', 'draft-task-done');
       ok(lead().contactLog.some(c => /reminder/i.test(c.note)) && !/\{\{/.test(row(d.log._id).html), 'with the stamps of a real send and nothing unfilled');
-      r = await admin('log', 'POST', { id: String(d.log._id), send: true });
+      r = await admin('approve', 'POST', { id: String(d.log._id) });
       ok(r._status === 409 && /draft or a queued/.test(r._json.error), `a sent entry cannot be sent again this way (${r._status} ${r._json.error})`, 'send-draft-only');
+      r = await admin('log', 'POST', { id: String(d.log._id), send: true });
+      ok(r._status === 403 && r._json.needsApproval === true, `the old log door with send: true is refused (${r._status})`, 'log-send-refused');
       const d2 = await DR.draftEmail(db, { recordId: LEAD, projectId: PROJ, invoiceId: 'pv2', templateId: 'invoice_reminder' });
       ok(d2.ok && !d2.already && _stores.email_log.length === 2, 'a new draft after the send');
-      r = await admin('log', 'POST', { id: String(d2.log._id), send: true });
+      r = await admin('approve', 'POST', { id: String(d2.log._id) });
       ok(r._status === 409 && !!r._json.duplicate && row(d2.log._id).status === 'draft', `inside ten minutes the door asks first (${r._status})`, 'duplicate');
-      r = await admin('log', 'POST', { id: String(d2.log._id), send: true, confirmDuplicate: true });
+      r = await admin('approve', 'POST', { id: String(d2.log._id), confirmDuplicate: true });
       ok(r._status === 200 && row(d2.log._id).status === 'test' && _stores.email_log.length === 2, 'and goes with the confirm, still on its own entry', 'send-draft-door');
       /* A draft whose record lacks a value: refused with the live list, the draft and its task stand; once the record has it the same draft goes. */
       const link = lead().deal.contractLink; lead().deal.contractLink = '';
       const d3 = await DR.draftEmail(db, { recordId: LEAD, templateId: 'contract_nudge' });
       ok(d3.ok && /^Missing: contractLink/.test(d3.log.error) && /needs contractLink/.test(task(d3.log._id).text), `a draft that lacks a value says so in the entry and the task (${d3.log.error})`);
-      r = await admin('log', 'POST', { id: String(d3.log._id), send: true });
+      r = await admin('approve', 'POST', { id: String(d3.log._id) });
       ok(r._status === 400 && dump(r._json.missing) === dump(['contractLink']) && row(d3.log._id).status === 'draft' && task(d3.log._id).done === false, `Send now refuses it with the live list and the draft stands (${r._status} ${dump(r._json)})`, 'missing-refuses');
       lead().deal.contractLink = link;
-      r = await admin('log', 'POST', { id: String(d3.log._id), send: true });
+      r = await admin('approve', 'POST', { id: String(d3.log._id) });
       ok(r._status === 200 && row(d3.log._id).status === 'test' && row(d3.log._id).html.includes(link) && task(d3.log._id).done === true, `once the record has it the same draft goes, rendered from the record as it stands (${r._status})`, 'send-draft-renders');
       /* The Zapier door retires once Resend is connected. */
       process.env.RESEND_API_KEY = KEY; process.env.ZAPIER_HOOK_INTRO = 'https://hooks.zapier.test/catch/1/intro'; stub.calls.length = 0;

@@ -19,7 +19,8 @@
 export const TEMPLATE_GROUPS = [
   { id: 'lead', label: 'Lead' }, { id: 'deal', label: 'Deal' }, { id: 'client', label: 'Client' }, { id: 'project', label: 'Project' }, { id: 'any', label: 'Any' },
 ];
-export const AUTOMATION_OPTIONS = [{ id: 'off', label: 'Off' }, { id: 'draft', label: 'Draft for me' }, { id: 'send', label: 'Send for me' }];
+/* The Drafts rule (email safety): a rule drafts, it never sends, so there is no Send for me. */
+export const AUTOMATION_OPTIONS = [{ id: 'off', label: 'Off' }, { id: 'draft', label: 'Draft for me' }];
 export const SERVICE_IDS = ['brand', 'web', 'combined', 'general'];
 
 const T = (text) => ({ type: 'text', text });

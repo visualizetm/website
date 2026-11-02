@@ -18,19 +18,22 @@ export const NAV = [
   /* The home (milestone 6): Analytics, pinned above both workspaces; the phone's first tab reads Home. The Next up queue is /tasks. */
   { id: 'dashboard',   label: 'Analytics',        icon: 'BarChart01',      path: '',            workspace: 'top',      group: 'Pipeline', badge: null,        tab: true, tabOrder: 0, tabLabel: 'Home', pinned: 'top' },
   // PIPELINE: the work of landing someone.
-  { id: 'pipeline',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/pipeline',  workspace: 'pipeline', group: 'Pipeline', badge: null,        moreLabel: 'Pipeline dashboard' },
-  { id: 'triage',      label: 'Triage',           icon: 'Inbox01',         path: '/triage',     workspace: 'pipeline', group: 'Pipeline', badge: 'triage',    more: 0 },
-  { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      workspace: 'pipeline', group: 'Pipeline', badge: 'leads',     more: 1 },
+  { id: 'pipeline',    label: 'Pipeline overview', icon: 'BarChartSquare01', path: '/pipeline', workspace: 'pipeline', group: 'Pipeline', badge: null },
+  // Triage, Leads and Lists are sections of the Calls hub (hubOnly: no row of their own in the sidebar, the More page or Jump to; the badges still count).
+  { id: 'triage',      label: 'Triage',           icon: 'Inbox01',         path: '/triage',     href: '/calls?section=triage', workspace: 'pipeline', group: 'Pipeline', badge: 'triage', hubOnly: true },
+  { id: 'leads',       label: 'Leads',            icon: 'Users01',         path: '/leads',      href: '/calls?section=leads', workspace: 'pipeline', group: 'Pipeline', badge: 'leads', hubOnly: true },
   { id: 'calls',       label: 'Calls',            icon: 'PhoneCall01',     path: '/calls',      workspace: 'pipeline', group: 'Pipeline', badge: 'calls',     tab: true, tabOrder: 1 },
-  { id: 'lists',       label: 'Lists',            icon: 'Rows01',          path: '/lists',      workspace: 'pipeline', group: 'Pipeline', badge: 'lists',     more: 0.5 },
+  { id: 'lists',       label: 'Lists',            icon: 'Rows01',          path: '/lists',      href: '/calls?section=lists', workspace: 'pipeline', group: 'Pipeline', badge: 'lists', hubOnly: true },
   { id: 'deals',       label: 'Deals',            icon: 'Zap',             path: '/deals',      workspace: 'pipeline', group: 'Pipeline', badge: 'deals',     tab: true, tabOrder: 2 },
   { id: 'calendar',    label: 'Calendar',         icon: 'Calendar',        path: '/calendar',   workspace: 'pipeline', group: 'Pipeline', badge: 'calendar',  more: 6 },
   // CLIENTS: the work after they say yes. Planner is the Clients screen with a filter applied (href carries the query; path is what the active state matches on).
-  { id: 'overview',    label: 'Dashboard',        icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null,        moreLabel: 'Clients dashboard' },
+  { id: 'overview',    label: 'Client overview',  icon: 'BarChartSquare01', path: '/overview',  workspace: 'clients',  group: 'Clients',  badge: null },
   { id: 'clients',     label: 'Clients',          icon: 'Briefcase01',     path: '/clients',    workspace: 'clients',  group: 'Clients',  badge: 'clients',   tab: true, tabOrder: 3 },
   { id: 'projects',    label: 'Projects',         icon: 'Folder',          path: '/projects',   workspace: 'clients',  group: 'Clients',  badge: 'projects',  more: 3 },
   // Docs (client docs job): every client's docs in one list, between Projects and Planner; a doc itself is /docs/:id.
   { id: 'docs',        label: 'Docs',             icon: 'File02',          path: '/docs',       workspace: 'clients',  group: 'Clients',  badge: null,        more: 3.5 },
+  // Drafts (email safety, prompt 1 of 3): every email and text waiting for Rob's tap; nothing sends until he opens one there.
+  { id: 'drafts',      label: 'Drafts',           icon: 'Mail01',          path: '/drafts',     workspace: 'clients',  group: 'Clients',  badge: 'drafts',    more: 3.6 },
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', workspace: 'clients', group: 'Clients', badge: 'planner' },
   { id: 'tasks',       label: 'Tasks',            icon: 'CheckDone01',     path: '/tasks',      workspace: 'clients',  group: 'Clients',  badge: 'tasks' },
   // STUDIO: what gets made and what comes in from the site. Rows under the Clients workspace (seven is the cap per workspace).
@@ -41,12 +44,13 @@ export const NAV = [
   { id: 'landing',     label: 'Landing',          icon: 'Browser',         path: '/landing',    workspace: 'studio',   group: 'Studio',   badge: null,        more: 12 },
   // SYSTEM: pinned under both workspaces, plus the rows only the More page lists.
   { id: 'settings',    label: 'Settings',         icon: 'Settings01',      path: '/settings',   workspace: 'system',   group: 'System',   badge: null,        more: 11, pinned: 'bottom' },
-  { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     workspace: 'system',   group: 'System',   badge: null,        more: 13, pinned: 'bottom' },
+  // Design (the design system) lives under Settings only (milestone 3): no row of its own anywhere, one level in for Back.
+  { id: 'design',      label: 'Design',           icon: 'Palette',         path: '/design',     workspace: 'system',   group: 'System',   badge: null,        moreOnly: true, hubOnly: true },
   { id: 'deleted',     label: 'Recently Deleted', icon: 'Trash01',         path: '/settings/deleted', workspace: 'system', group: 'System', badge: null,     more: 8, moreOnly: true },
   // The phone's More screen: not a destination of its own, so the sidebar and the command bar skip it (phoneOnly).
   { id: 'more',        label: 'More',             icon: 'Rows01',          path: '/more',       workspace: 'system',   group: 'System',   badge: null,        phoneOnly: true },
   // The More screen's Declined row: the Leads screen on its Declined pool. moreOnly keeps it out of the sidebar.
-  { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/leads',      href: '/leads?pool=declined', search: 'pool=declined', workspace: 'pipeline', group: 'Pipeline', badge: null, more: 10, moreOnly: true },
+  { id: 'declined',    label: 'Declined',         icon: 'SlashCircle01',   path: '/calls',      href: '/calls?section=leads&pool=declined', search: 'pool=declined', workspace: 'pipeline', group: 'Pipeline', badge: null, more: 10, moreOnly: true },
 ];
 
 /* The two workspaces the switcher offers, in order. Studio rides under Clients; system is pinned. */
@@ -67,7 +71,7 @@ export const NAV_GROUP_META = {
 
 export const NAV_GROUPS = ['Pipeline', 'Clients', 'Studio', 'System'];
 
-const listed = (n) => !n.moreOnly && !n.phoneOnly;
+const listed = (n) => !n.moreOnly && !n.phoneOnly && !n.hubOnly;
 
 /** Entries grouped in display order (the older sidebar and the More page). */
 export const navGroups = () => NAV_GROUPS.map(g => ({ group: g, items: NAV.filter(n => n.group === g && listed(n)) }));
@@ -94,13 +98,15 @@ export const TAB_NAV = NAV.filter(n => n.tab).sort((a, b) => (a.tabOrder ?? 99) 
 
 /** Everything that is not a thumb tab (the More page's flat list, the tab bar's badge sum). */
 export const MORE_NAV = NAV.filter(n => !n.tab && !n.phoneOnly);
+/** The More page's rows: everything that is not a thumb tab and has a row of its own (the hub's sections ride under Calls). */
+const moreRow = (n) => !n.tab && !n.phoneOnly && !n.hubOnly;
 
 /** The More page by workspace (milestone 7): Pipeline, Clients, Studio, then System, each in NAV order, tabs left out. */
 export const MORE_SECTIONS = [
-  { id: 'pipeline', label: 'Pipeline', items: NAV.filter(n => n.workspace === 'pipeline' && !n.tab && !n.phoneOnly) },
-  { id: 'clients',  label: 'Clients',  items: NAV.filter(n => n.workspace === 'clients' && !n.tab && !n.phoneOnly) },
-  { id: 'studio',   label: 'Studio',   items: NAV.filter(n => n.workspace === 'studio' && !n.tab && !n.phoneOnly) },
-  { id: 'system',   label: 'System',   items: NAV.filter(n => n.workspace === 'system' && !n.tab && !n.phoneOnly) },
+  { id: 'pipeline', label: 'Pipeline', items: NAV.filter(n => n.workspace === 'pipeline' && moreRow(n)) },
+  { id: 'clients',  label: 'Clients',  items: NAV.filter(n => n.workspace === 'clients' && moreRow(n)) },
+  { id: 'studio',   label: 'Studio',   items: NAV.filter(n => n.workspace === 'studio' && moreRow(n)) },
+  { id: 'system',   label: 'System',   items: NAV.filter(n => n.workspace === 'system' && moreRow(n)) },
 ].filter(s => s.items.length);
 
 /** Active entry for a path relative to the admin base. Longest path wins so

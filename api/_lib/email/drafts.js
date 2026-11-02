@@ -6,10 +6,11 @@
  * entry instead of going out blank. The paid event (Rob's tap or the Stripe
  * webhook), the plan's bill day and the cron's rules (rules.js) write these.
  * The task carries the entry (emailId), and sendDraft() is the one door that
- * sends a draft: the Next up row, the email sheet and a Send for me rule
- * all come through it. */
+ * sends a draft, called by approve.js alone (the Drafts rule): a draft goes
+ * only with Rob's stamp, after the preview sheet. */
 import { loadContext, composeEmail, sendComposed } from './send.js';
 import { writeLog } from './log.js';
+import { mirrorToGmail } from './gmail.js';
 import { templateOf } from './templates.js';
 import { addTask, setTaskDone } from '../taskRules.js';
 import { zoneDayKey, zoneDateAt } from '../zone.js';
@@ -39,8 +40,9 @@ export async function draftEmail(db, { recordId, projectId = '', invoiceId = '',
   const missing = [...new Set([...rendered.missing, ...lacking])];
   const log = await writeLog(db, {
     recordId: String(ctx.lead._id), projectId: ctx.project ? String(ctx.project._id) : '', invoiceId: ctx.invoice ? String(ctx.invoice.id) : '', templateId: base.id, class: base.class,
-    to, cc: [], subject: rendered.subject, text: rendered.text, html: rendered.html, status: 'draft', auto: auto === true, error: missing.length ? `Missing: ${missing.join(', ')}` : '',
+    to, cc: [], subject: rendered.subject, text: rendered.text, html: rendered.html, status: 'draft', auto: auto === true, reason, error: missing.length ? `Missing: ${missing.join(', ')}` : '',
   });
+  if (!missing.length) await mirrorToGmail(db, log, ctx.settings);
   const business = String(ctx.lead.showcase?.displayName || ctx.lead.business || 'a lead').slice(0, 120);
   const id = draftTaskId(log._id);
   const lists = Array.isArray(ctx.lead.checklists) ? ctx.lead.checklists : [];
@@ -71,7 +73,8 @@ export async function sendDraft(db, row, opts = {}, now = Date.now()) {
   if (!row || !['draft', 'queued'].includes(row.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };
   const ctx = await loadContext(db, { recordId: row.recordId, projectId: row.projectId, invoiceId: row.invoiceId });
   if (ctx.error) return { status: ctx.status, body: { error: ctx.error } };
-  const r = await sendComposed(db, ctx, { templateId: row.templateId }, { auto: opts.auto === true, confirmDuplicate: opts.confirmDuplicate === true, driveShared: opts.driveShared === true, reuseLogId: row._id });
+  /* The draft's own edits (Compose's override) and addresses ride along, so what Rob saw is what goes. */
+  const r = await sendComposed(db, ctx, { templateId: row.templateId, override: row.override || null }, { to: Array.isArray(row.to) && row.to.length ? row.to : undefined, cc: row.cc, auto: opts.auto === true, confirmDuplicate: opts.confirmDuplicate === true, driveShared: opts.driveShared === true, reuseLogId: row._id, approval: opts.approval || null });
   if (r.status === 200 && !r.body.queued) r.body.taskDone = await finishDraftTask(db, ctx.lead._id, row._id, now);
   return r;
 }

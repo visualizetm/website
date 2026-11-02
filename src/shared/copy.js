@@ -56,6 +56,7 @@ export const COPY = {
     'leads.detail.history': { title: 'No calls yet', description: 'The first outcome you log lands here.' },
     /* The email system: the record's Emails section and Settings, Emails. */
     'record.emails': { title: 'No emails yet', description: 'Every email you send from here lands in this list.', action: 'Email' },
+    'drafts': { title: 'Nothing waiting for your tap', description: 'Emails and texts written for you land here. Nothing sends until you open one and tap Send.', action: 'Open Leads' },
     'settings.emails.recent': { title: 'Nothing sent yet', description: 'The last fifty emails land here, failures first.', action: 'Open Leads' },
     'leads.detail.submissions': { title: 'No site submissions from them yet', description: 'When one matches their email, phone, or business name it shows up here to link.' },
     'leads.picker': { title: 'No match', description: 'Try the business name or a phone number.' },

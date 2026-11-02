@@ -2,7 +2,9 @@
  * _id 'emails', the one place Rob's edits to the email system live.
  *
  *   { sender { name, address, replyTo }, signatureName, calendlyLink, invoiceTerms, invoiceCounter,
- *     automation { [templateId]: 'off' | 'draft' | 'send' }, templates { [templateId]: { subject, preheader, blocks, auto, updatedAt } } }
+ *     automation { [templateId]: 'off' | 'draft' }, templates { [templateId]: { subject, preheader, blocks, auto, updatedAt } },
+ *     gmailDrafts (Draft into Gmail, off by default) }
+ * The Drafts rule (email safety): there is no 'send' mode any more; a saved 'send' reads as 'draft' (automationModeOf).
  *
  * Milestone 1 shapes the sender and the counter; milestone 2 adds the
  * template overrides, milestone 6 the invoice terms. Every reader goes
@@ -12,7 +14,9 @@ import { senderOf } from './transport.js';
 import { safeUrl } from '../url.js';
 
 export const EMAIL_SETTINGS_ID = 'emails';
-export const AUTOMATION_IDS = ['off', 'draft', 'send'];
+export const AUTOMATION_IDS = ['off', 'draft'];
+/** A stored automation value as the mode the rules run: 'send' (from before the Drafts rule) is 'draft', anything unknown is 'off'. */
+export const automationModeOf = (v) => (v === 'send' ? 'draft' : AUTOMATION_IDS.includes(v) ? v : 'off');
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
 
 export const INVOICE_KIND_IDS = ['deposit', 'final', 'plan', 'retainer', 'custom'];
@@ -34,8 +38,9 @@ export function emailSettingsOf(doc) {
     calendlyLink: safeUrl(d.calendlyLink, 400),
     invoiceTerms: termsOf(d.invoiceTerms && typeof d.invoiceTerms === 'object' ? d.invoiceTerms : {}),
     invoiceCounter: Math.max(0, Math.round(Number(d.invoiceCounter) || 0)),
-    automation: d.automation && typeof d.automation === 'object' ? Object.fromEntries(Object.entries(d.automation).filter(([, v]) => AUTOMATION_IDS.includes(v))) : {},
+    automation: d.automation && typeof d.automation === 'object' ? Object.fromEntries(Object.entries(d.automation).filter(([, v]) => AUTOMATION_IDS.includes(v) || v === 'send').map(([k, v]) => [k, automationModeOf(v)])) : {},
     templates: d.templates && typeof d.templates === 'object' ? d.templates : {},
+    gmailDrafts: d.gmailDrafts === true,
   };
 }
 export async function readEmailSettings(db) {

@@ -75,7 +75,8 @@ function SubmissionDetail({ sub: s, leads, onPatch, onPatchRaw, onDelete, onLink
           {onClose && <IconButton icon={XClose} label="Close" variant="ghost" onClick={onClose} />}
         </Row>
         <Row gap={1} wrap>
-          <Button variant="secondary" size="md" icon="Mail01" href={s.email ? `mailto:${s.email}` : undefined} disabled={!s.email} className="sb-email">{s.email || 'No email'}</Button>
+          {linked && shell?.openCompose ? <Button variant="secondary" size="md" icon="Mail01" onClick={() => shell.openCompose(linked)} className="sb-email">Email {linked.business}</Button>
+            : <Button variant="secondary" size="md" icon="Mail01" href={s.email ? `mailto:${s.email}` : undefined} disabled={!s.email} className="sb-email">{s.email || 'No email'}</Button>}
           <Button variant="secondary" size="md" icon="Phone" href={hasPhone(s) ? telHref(s.phone) : undefined} disabled={!hasPhone(s)}>{hasPhone(s) ? formatPhone(s.phone) || s.phone : 'No phone'}</Button>
           <Button variant="ghost" size="md" icon={s.read ? 'Mail01' : 'Check'} onClick={() => onPatch(s._id, { read: !s.read })} className="sb-read">{s.read ? 'Mark unread' : 'Mark read'}</Button>
         </Row>
@@ -147,7 +148,7 @@ export default function AdminSubmissions({ items = [], loading, error, onRetry, 
     <PageShell className={`aa-main aa-main--wide po-shell sb-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Submissions" loading={loading} description={loading ? undefined : (q.trim() || type || unreadOnly) ? matchLine(live.length, 'submissions', list.length) : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
+          <Section loading={loading} description={loading ? undefined : (q.trim() || type || unreadOnly) ? matchLine(live.length, 'submissions', list.length) : `${live.length} submission${live.length === 1 ? '' : 's'}, ${unread} unread`}>
             <Stack gap={2}>
               <ListSearch className="cl-search" placeholder="Search name, business, email, answers" value={q} onChange={setQ} label="Search submissions" />
               <Row gap={2} wrap className="sb-chips"><Chip label="All" count={live.length} selected={!type && !unreadOnly} onClick={() => { setType(''); setUnreadOnly(false); }} /><Chip label="Unread" count={unread} icon="Bell01" selected={unreadOnly} onClick={() => setUnreadOnly(v => !v)} />{SUBMISSION_TYPES.map(t => <Chip key={t.id} label={t.label} count={counts[t.id]} icon={t.icon} selected={type === t.id} onClick={() => setType(type === t.id ? '' : t.id)} />)}</Row>

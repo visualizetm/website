@@ -8,8 +8,7 @@ import { useShell, useTopBar } from '../shell/ShellContext';
 import { suggestEmail } from '../shared/taskRules';
 import { templateOf } from '../shared/emailTemplates';
 import { projectsOf, isActiveProject } from '../lib/projects';
-import { draftKey, readDraft, writeDraft, clearDraft, sameEmail, needsConfirmToSwitch, canSendNow, homeOf, pickerGroups, templateName, knownTemplate, lackingLine, sentMapOf, NO_INSERT, tomorrowNine, isAddress } from '../lib/compose';
-import { fmtDateTime } from '../shared/dates';
+import { draftKey, readDraft, writeDraft, clearDraft, sameEmail, needsConfirmToSwitch, canSendNow, homeOf, pickerGroups, templateName, knownTemplate, lackingLine, sentMapOf, NO_INSERT, isAddress } from '../lib/compose';
 
 /* Compose (the email system, milestone 3), at /email/compose?record=<id>&template=<id>&project=<id>&invoice=<id>: a focused screen on a phone
  * (the tab bar hidden, Back through nav-history and the edge swipe), a routed page on a computer, side by side with the preview from 1024 up.
@@ -21,15 +20,16 @@ import { fmtDateTime } from '../shared/dates';
  *                Insert field chips that carry the record's current values.
  *   Missing      a banner naming what the record lacks; each chip jumps to where that value is set; Send stays disabled until it is there.
  *   Preview      the server's render in a sandboxed iframe (src/components/email/EmailPreview.jsx), 400 ms after the last edit.
- *   Send         Send test to me, Send, and Send tomorrow at 9am in Send's menu; the confirm sheet only on the first send of a template to a
- *                record or on a duplicate inside ten minutes. Edits apply to this email; Save as my default sits behind the menu and a confirm.
+ *   Send         Send test to me (goes at once, to Rob's own address), Send and Send later. The Drafts rule (email safety): Send writes
+ *                the email as a draft with these edits (or saves them onto the draft this screen opened, ?draft=) and opens the send sheet
+ *                (src/components/email/SendSheet.jsx) on it; only that sheet's Send now sends, after Rob read the exact email. Send later
+ *                opens the same sheet on its times. Edits apply to this email; Save as my default sits behind the menu and a confirm.
  *   Draft        one per record and template on this device, offered on the next open ("Pick up where you left off?").
  * The server renders every email (POST /api/admin/email/preview, /send); nothing here builds HTML. */
 const MODES = [{ id: 'edit', label: 'Edit' }, { id: 'preview', label: 'Preview' }];
-const firstNameOf = (lead) => String(lead?.askFor || '').trim().split(/[\s,]+/)[0] || '';
 
 /* mode 'send' is Compose; mode 'template' (Settings, Emails) edits the template itself on a record to preview with: no To, Save as default in the footer, Reset to default in the menu, a draft under the template's own key. */
-export default function AdminCompose({ lead, projects = [], sets = [], loading = false, leadsError = false, onRetryLeads, templateId: initialTemplate = '', projectId = '', invoiceId = '', mode: composeMode = 'send', onBack }) {
+export default function AdminCompose({ lead, projects = [], sets = [], loading = false, leadsError = false, onRetryLeads, templateId: initialTemplate = '', projectId = '', invoiceId = '', mode: composeMode = 'send', draftId = '', onBack }) {
   const tplMode = composeMode === 'template';
   const shell = useShell();
   const toast = useToast();
@@ -55,7 +55,6 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
   const [pv, setPv] = useState({ state: 'idle', data: null, error: '' });
   const [sending, setSending] = useState('');
   const [sendError, setSendError] = useState('');
-  const [confirmReq, setConfirmReq] = useState(null); // { kind: 'first' | 'duplicate', message, opts }
   const [driveShared, setDriveShared] = useState(false); // the delivery email's one required box
   const reqId = useRef(0);
   const lastPreviewed = useRef('');
@@ -96,11 +95,19 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
       lastPreviewed.current = 'null';
       setSource(src); setValue(src);
       setTo(t => (t === null ? (data.to || []) : t));
+      /* Opened on a draft (Drafts, the Tasks row): its own edits and addresses are the starting point, not the template's. */
+      if (draftId) {
+        const dr = await apiFetch(`/api/admin/email/log?id=${encodeURIComponent(draftId)}`);
+        const it = on && dr.ok ? dr.data?.item : null;
+        if (it?.override && Array.isArray(it.override.blocks)) setValue({ subject: it.override.subject ?? src.subject, preheader: it.override.preheader ?? src.preheader, blocks: it.override.blocks });
+        if (Array.isArray(it?.to) && it.to.length) setTo(it.to);
+        return;
+      }
       const d = readDraft(keyOf(templateId));
       setDraftOffer(d && !sameEmail(d, src) ? d : null);
     })();
     return () => { on = false; };
-  }, [recordId, templateId, runPreview, keyOf]);
+  }, [recordId, templateId, runPreview, keyOf, draftId]);
 
   /* An edit: the draft on the device and, 400 ms later, the preview; back at the source the draft goes. */
   useEffect(() => {
@@ -145,30 +152,31 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
   const insertVars = useMemo(() => (data?.vars || []).filter(v => v.value && !NO_INSERT.includes(v.key)), [data]);
 
   const doSend = async (opts = {}) => {
-    const kind = opts.testToSelf ? 'test' : opts.sendAt ? 'later' : 'send';
+    const kind = opts.testToSelf ? 'test' : opts.later ? 'later' : 'send';
     lastOpts.current = opts;
     setSending(kind); setSendError('');
     const override = sameEmail(value, source) ? undefined : value;
-    const body = { templateId, recordId, projectId: project ? String(project._id) : '', invoiceId: invoiceId || '', ...(override ? { override } : {}), to, cc: copyMe && status?.sender?.address ? [status.sender.address] : [], testToSelf: !!opts.testToSelf, confirmDuplicate: !!opts.confirmDuplicate, ...(opts.sendAt ? { sendAt: opts.sendAt } : {}), ...(isDelivery ? { driveShared } : {}) };
-    const r = await apiFetch('/api/admin/email/send', { method: 'POST', body });
-    setSending('');
-    if (r.status === 409 && !opts.testToSelf) { setConfirmReq({ kind: 'duplicate', message: r.data?.error || 'This one went out a few minutes ago. Send it again?', opts: { ...opts, confirmDuplicate: true, confirmed: true } }); return; }
-    if (!r.ok) { setSendError(r.data?.error || 'That email did not go out.'); return; }
-    if (opts.testToSelf) { toast.success(r.data?.message || 'Test sent.'); return; }
-    clearDraft(keyOf(templateId));
-    if (r.data?.queued) toast.success(`Queued for ${fmtDateTime(r.data.sendAt)}.`);
-    else toast.success(r.data?.test ? (r.data.message || 'Test only, email is not connected yet.') : `Sent to ${firstNameOf(lead) || lead.business}`);
-    shell?.refreshLeads?.(); shell?.projectOps?.reload?.();
-    onBack?.();
-  };
-  const send = (opts = {}) => {
-    if (!canSend) return;
-    if (!opts.confirmed) {
-      const before = (log || []).some(e => e.templateId === templateId && !e.toSelf && ['sent', 'test', 'queued'].includes(e.status));
-      if (!before) { setConfirmReq({ kind: 'first', message: `The first ${templateName(templateId).toLowerCase()} email to ${lead.business}.`, opts: { ...opts, confirmed: true } }); return; }
+    const common = { templateId, recordId, projectId: project ? String(project._id) : '', invoiceId: invoiceId || '', to, cc: copyMe && status?.sender?.address ? [status.sender.address] : [], ...(isDelivery ? { driveShared } : {}) };
+    if (opts.testToSelf) {
+      const r = await apiFetch('/api/admin/email/send', { method: 'POST', body: { ...common, ...(override ? { override } : {}), testToSelf: true } });
+      setSending('');
+      if (!r.ok) { setSendError(r.data?.error || 'That test did not go out.'); return; }
+      toast.success(r.data?.message || 'Test sent.');
+      return;
     }
-    doSend(opts);
+    /* The Drafts rule: the server writes the draft (or takes the edits onto the draft this screen opened); the send sheet shows the exact
+       email and its Send now is the one door out. Nothing is sent from here. */
+    const r = draftId
+      ? await apiFetch('/api/admin/email/log', { method: 'POST', body: { id: draftId, edit: { subject: value.subject, preheader: value.preheader, blocks: value.blocks }, to } })
+      : await apiFetch('/api/admin/email/send', { method: 'POST', body: { ...common, ...(override ? { override } : {}), reason: 'Written in Compose' } });
+    setSending('');
+    if (!r.ok) { setSendError(r.data?.error || 'Could not save the draft.'); return; }
+    const id = draftId || r.data?.logId;
+    if (!id) { setSendError('Could not save the draft.'); return; }
+    clearDraft(keyOf(templateId));
+    shell?.openSendSheet?.({ _id: id }, { startLater: !!opts.later, onChanged: () => { shell?.refreshLeads?.(); shell?.projectOps?.reload?.(); onBack?.(); } });
   };
+  const send = (opts = {}) => { if (!canSend) return; doSend(opts); };
   const saveDefault = async () => {
     if (!value || !source || sameEmail(value, source)) return;
     const okx = await confirm({ title: `Make this my default ${templateName(templateId).toLowerCase()}?`, body: tplMode ? 'Every record gets this version from now on.' : 'Every record gets this version from now on. Reset to default lives in Settings, Emails.', confirmLabel: 'Save as default' });
@@ -306,8 +314,8 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
           <Row gap={2} className="cp-foot-row" wrap>
             <Button variant="secondary" onClick={() => doSend({ testToSelf: true })} loading={sending === 'test'} disabled={!canTest} className="cp-test">Send test to me</Button>
             {tplMode ? <Button icon="Save01" onClick={saveDefault} disabled={!edited || !!sending} className="cp-save-default">Save as default</Button> : <div className="cp-send-group">
-              <Button icon="Send01" onClick={() => send({})} loading={sending === 'send' || sending === 'later'} disabled={!canSend} className="cp-send">Send</Button>
-              <Menu label="Send options" items={[{ id: 'later', label: 'Send tomorrow at 9am', icon: 'Clock', disabled: !canSend, onSelect: () => send({ sendAt: tomorrowNine() }) }]} trigger={<IconButton icon="ChevronDown" label="Send options" variant="secondary" disabled={!canSend} className="cp-send-more" />} />
+              <Button icon="Send01" onClick={() => send({})} loading={sending === 'send' || sending === 'later'} disabled={!canSend} className="cp-send">{draftId ? 'Save and read it' : 'Send'}</Button>
+              <Menu label="Send options" items={[{ id: 'later', label: 'Send later', icon: 'Clock', disabled: !canSend, onSelect: () => send({ later: true }) }]} trigger={<IconButton icon="ChevronDown" label="Send options" variant="secondary" disabled={!canSend} className="cp-send-more" />} />
             </div>}
           </Row>
         </StickyFooterBar>
@@ -323,18 +331,6 @@ export default function AdminCompose({ lead, projects = [], sets = [], loading =
                 ))}
               </Stack>
             ))}
-          </Stack>
-        </Sheet>
-      )}
-      {confirmReq && (
-        <Sheet open onClose={() => setConfirmReq(null)} title={confirmReq.kind === 'duplicate' ? 'Send it again?' : 'Send this email?'} label="Confirm the send" width={440}
-          footer={<><Button variant="ghost" onClick={() => setConfirmReq(null)}>Cancel</Button><Button icon="Send01" onClick={() => { const o = confirmReq.opts; setConfirmReq(null); doSend(o); }} className="cp-confirm-send">{confirmReq.opts.sendAt ? 'Queue it' : 'Send'}</Button></>}>
-          <Stack gap={3}>
-            <p className="cp-confirm-msg">{confirmReq.message}</p>
-            <div className="cw-kv"><span className="dt-fact-label">To</span><span className="cp-kv-val">{(to || []).join(', ')}{copyMe && status?.sender?.address ? `, copy to ${status.sender.address}` : ''}</span></div>
-            <div className="cw-kv"><span className="dt-fact-label">Subject</span><span className="cp-kv-val">{data?.subject || value?.subject}</span></div>
-            {confirmReq.opts.sendAt && <div className="cw-kv"><span className="dt-fact-label">When</span><span className="cp-kv-val">Tomorrow at 9am</span></div>}
-            {status && !status.connected && <p className="cp-note">Email is not connected yet, so this is a test send: the record is stamped and nothing leaves.</p>}
           </Stack>
         </Sheet>
       )}

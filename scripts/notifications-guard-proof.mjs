@@ -43,7 +43,7 @@ const GUARDS = [
   { name: 'calendly-state-on-failure', what: 'a refused Calendly poll forgets what it knew', test: 'coverage-push-test.mjs',
     edits: [[COV, "catch (e) { patch.calendlyError = String(e?.code || 'network'); }", "catch (e) { patch.calendlyError = String(e?.code || 'network'); patch.calendlySeen = {}; }"]] },
   { name: 'calendly-stamp-undelivered', what: 'a booking no device took is marked announced', test: 'coverage-push-test.mjs',
-    edits: [[COV, "if (booked.length && handled(await send(db, message(booked, 'Booked')))) {", "await send(db, message(booked, 'Booked')); if (booked.length) {"]] },
+    edits: [[COV, "if (booked.length && handled(await send(db, message(booked, 'Booked'), nowMs))) {", "await send(db, message(booked, 'Booked'), nowMs); if (booked.length) {"]] },
   { name: 'planner-zone', what: 'the New idea task is due at a fixed 13:00Z again (8:00 AM once daylight time ends on November 1)', test: 'dst-test.mjs',
     edits: [['api/planner.js', "  const at9 = (key) => new Date(zoneDateAt(key, 9, 0)).toISOString();", "  const at9 = (key) => `${key}T13:00:00.000Z`;"]] },
   { name: 'category-pref-ignored', what: 'a category switched off in Settings is pushed anyway', test: 'push-prefs-test.mjs',

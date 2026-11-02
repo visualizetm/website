@@ -38,6 +38,9 @@ export default function EmailSettingsPanel({ leads = [] }) {
   const [picking, setPicking] = useState(false);
   const [previewLead, setPreviewLead] = useState(null);
   const [testing, setTesting] = useState('');
+  const [gmail, setGmail] = useState(null); // { connected, enabled, variables }
+  useEffect(() => { let on = true; apiFetch('/api/admin/email/gmail').then(r => { if (on && r.ok) setGmail(r.data); }); return () => { on = false; }; }, []);
+  const saveGmail = async (enabled) => { const before = gmail; setGmail(g => ({ ...(g || {}), enabled })); const r = await apiFetch('/api/admin/email/gmail', { method: 'POST', body: { enabled } }); if (!r.ok) { setGmail(before); toast.error(COPY.error.save); } };
   const load = useCallback(async () => {
     const [s, st, r] = await Promise.all([apiFetch('/api/admin/email/settings'), apiFetch('/api/admin/email/status'), apiFetch('/api/admin/email/log?recent=1')]);
     if (!s.ok) { setError(true); return; }
@@ -95,6 +98,12 @@ export default function EmailSettingsPanel({ leads = [] }) {
           <p className="dt-muted">{connected ? `Sending as ${status?.from || `${sender.name} <${sender.address}>`}. ${status?.sentLastHour || 0} of ${status?.limit || 30} sent this hour.` : 'Emails are test only: every send is logged and stamps the record, nothing leaves. To connect, add RESEND_API_KEY in Vercel, verify visualizeclients.com in Resend and redeploy. The Runbook has the steps under Email.'}</p>
         </Stack></Row>
       </Card>
+      <Card className="st-card st-integration" data-card="email-gmail">
+        <Row gap={3} align="start"><IconTile icon="Mail01" tone={gmail?.connected ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Draft into Gmail</p>{gmail ? <Pill tone={gmail.connected ? 'booked' : 'neutral'} label={gmail.connected ? 'Connected' : 'Not connected'} size="sm" icon={gmail.connected ? 'CheckCircle' : false} /> : null}</Row>
+          <Toggle label="Draft into Gmail" description={gmail?.connected ? 'Every new draft and every email you queue for later is also saved as a Gmail draft, so you can send it from Gmail. The CRM copy stays the record.' : 'Not connected. Add GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in Vercel and redeploy; until then this changes nothing.'} checked={!!gmail?.enabled} onChange={saveGmail} disabled={!gmail} className="es-gmail" />
+        </Stack></Row>
+      </Card>
       <Card className="st-card" data-card="email-sender">
         <p className="pb-card-h">Sender</p>
         <Stack gap={2}>
@@ -138,7 +147,7 @@ export default function EmailSettingsPanel({ leads = [] }) {
           <Stack gap={3}>
             <Row gap={2} align="center" wrap><Pill tone={current.class === 'marketing' ? 'new' : 'neutral'} label={current.class === 'marketing' ? 'Marketing' : 'Transactional'} size="sm" icon={false} variant="outline" />{edited(current.id) && <Pill tone="progress" label="Edited" size="sm" icon={false} />}</Row>
             {hasRule(current) ? (
-              <div className="v-field"><span className="v-field-label">Automation</span><SegmentedControl label={`${current.name} automation`} options={AUTOMATION_OPTIONS} value={autoOf(current)} onChange={(v) => put({ automation: { [current.id]: v } })} full className="es-auto" /><p className="dt-muted">Draft for me saves the email and puts it in Next up. Send for me sends it after every guard.</p></div>
+              <div className="v-field"><span className="v-field-label">Automation</span><SegmentedControl label={`${current.name} automation`} options={AUTOMATION_OPTIONS} value={autoOf(current)} onChange={(v) => put({ automation: { [current.id]: v } })} full className="es-auto" /><p className="dt-muted">Draft for me writes the email into Drafts for your tap. Nothing sends on its own.</p></div>
             ) : <p className="dt-muted">Sent by hand from a record. Nothing goes out on its own.</p>}
             {Array.isArray(current.options) && current.options.map(op => <Toggle key={op.id} label={op.label} checked={!!s.templates?.[current.id]?.options?.[op.id]} onChange={(v) => put({ templates: { [current.id]: { options: { [op.id]: v } } } })} className={`es-opt es-opt--${op.id}`} />)}
             <Row gap={2} wrap>

@@ -7,9 +7,11 @@ import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
 import { fmtDate, fmtWeekdayDateTime } from '../shared/dates';
 import { packageOf, RETAINERS } from '../shared/pricing';
+import { usePushRel } from '../shell/nav-history';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import NextUpHome, { nextUpHomeStyles } from '../components/NextUpHome';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
+import DraftsCard from '../components/DraftsCard';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
 /* Analytics (the nav revamp, milestone 6): the home. The greeting, then the
@@ -53,6 +55,7 @@ const trendOf = (k, better = 'up') => (k && k.delta !== null && k.delta !== unde
 
 export default function AdminAnalytics({ leads = [], projects = [], sets = [], leadsLoading = false, leadsError = false, onRetryLeads, onPatchLead, onPatchProject, forceLoading = false }) {
   const shell = useShell();
+  const pushRel = usePushRel();
   const phone = useMediaQuery('(max-width: 767px)');
   const [range, setRange] = useState(() => { try { return RANGES.some(r => r.id === localStorage.getItem('vz_analytics_range')) ? localStorage.getItem('vz_analytics_range') : 'month'; } catch { return 'month'; } });
   const pick = (id) => { setRange(id); try { localStorage.setItem('vz_analytics_range', id); } catch { /* storage may be off */ } };
@@ -139,8 +142,9 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
       <ScrollArea wide className="dash-page an-page">
         {phone && shell?.overviewStrip ? <div className="an-overview">{shell.overviewStrip(true)}</div> : null}
         {header}
-        <CronAlarm onOpen={() => shell.go('settings')} />
+        <CronAlarm actionLabel="Open Notifications" onOpen={() => pushRel('/settings/notifications')} />
         {nextUp}
+        <DraftsCard />
         {rangeBar}
         {body}
       </ScrollArea>

@@ -219,3 +219,12 @@ Resume here: read docs/NOTIFICATIONS-AUDIT.md section 13, then item 9 before mer
 
 Resume here: read docs/MOBILE-DECISIONS.md "Finish notifications", then continue with Milestone 6.
 
+## Email safety, one back stack, the shell (prompt 1 of 3)
+
+- [x] Milestone 1: the approval gate, the approve door, rules that only draft, the Drafts screen and Home card, the send sheet, every send path rewired, Draft into Gmail behind the toggle. Tests: email-safety-test, email-test (369), send-sheet-test (browser).
+- [x] Milestone 2: one back stack (src/shell/backTree.js, useBack on the tree, the call console's modes as paths, the hub's ?section=, Escape as Back, back-test 124 checks).
+- [x] Milestone 3: the shell (the More card gone, Settings cleaned, the glass bar at 45%, one header rule, Pipeline overview and Client overview).
+- [ ] Milestone 4: the gate, the fault proofs, docs, push, the report.
+
+Resume here: read docs/MOBILE-DECISIONS.md "Email safety, one back stack, the shell", then Milestone 4: the gate, the fault proofs, the push, the report.
+

@@ -54,9 +54,7 @@ const CUTS = [
   { name: 'iframe-sandbox', file: 'src/components/email/EmailPreview.jsx', from: 'sandbox=""', to: 'sandbox="allow-scripts"' },
   /* Milestone 4: the queue's day rule, cancel, the failed send's task and push, Recent sends, the cron. */
   { name: 'queue-day', file: 'api/_lib/email/queue.js', from: "    return byDay ? zoneDayKey(at) <= today : at <= now;", to: "    return at <= now;" },
-  { name: 'queue-cancel', file: 'api/_routes/email.js', from: "      await updateLog(db, _id, { status: 'draft', sendAt: '' });", to: "" },
   { name: 'fail-task', file: 'api/_lib/email/failed.js', from: "    await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: next, updatedAt: new Date() } });\n    lead.checklists = next;", to: "    void next;" },
-  { name: 'fail-push', file: 'api/_lib/email/failed.js', from: "    await sendPush(db, { title: `Email failed: ${name}`, body: `${business}. ${said}`, url: `${base}/leads?open=${String(lead._id)}` });", to: "    void base;" },
   { name: 'recent-failures-first', file: 'api/_lib/email/log.js', from: "  return [...rows.filter(r => r.status === 'failed'), ...rows.filter(r => r.status !== 'failed')].slice(0, limit);", to: "  return rows.slice(0, limit);" },
   { name: 'cron-queue', file: 'api/_routes/cron-reminders.js', from: "    try { emails = await runQueuedSends(db, nowMs, { byDay: false, maxAgeMs: QUEUE_MAX_AGE_MS }); } catch { /* the next gate tries again */ }", to: "    void runQueuedSends;" },
   /* Milestone 5: the contract's checkpoint, the concepts offer stamp, a template option, the lead route's fields. */
@@ -92,20 +90,23 @@ const CUTS = [
   /* Milestone 8: the rules (the day, the draft, the push, the send, the cooldown, the opt out, the stage, the address, the cap, the rate guard,
      per project, the cron), the draft send door, the task's entry, the Zapier retirement, the preview lint. */
   { name: 'rule-day', file: 'api/_lib/taskRules.js', from: "const REMINDER_DAYS = 3;", to: "const REMINDER_DAYS = 0;" },
-  { name: 'rule-draft', file: 'api/_lib/email/rules.js', from: "        if (mode === 'draft') { await draft(); continue; }", to: "        if (mode === 'draft') { mode = 'send'; }", also: [["    for (const { rule, tpl, mode } of live) {", "    for (let { rule, tpl, mode } of live) {"]] },
   { name: 'rule-push', file: 'api/_lib/email/rules.js', from: "  if (drafted.length) { try { await sendPush(db, { title: `${n(drafted.length, 'email')} ready to send`,", to: "  if (false) { try { await sendPush(db, { title: `${n(drafted.length, 'email')} ready to send`," },
-  { name: 'rule-send-draft', file: 'api/_lib/email/rules.js', from: "        if (standing) r = await sendDraft(db, standing, { auto: true }, now);\n        else {", to: "        void standing; void sendDraft;\n        {" },
+  { name: 'rule-draft', file: 'api/_lib/email/rules.js', from: "        const r = await draftEmail(db, { ...target, auto: true, reason: rule.reason }, now);", to: "        const r = { ok: false };" },
+  /* The Drafts rule (email safety, prompt 1 of 3): the rules never send, the log door never sends, the queue needs the stamp, cancel clears it. */
+  { name: 'rules-never-send', file: 'api/_lib/email/rules.js', from: "        const r = await draftEmail(db, { ...target, auto: true, reason: rule.reason }, now);", to: "        const SD = await import('./send.js'); const ctx = await SD.loadContext(db, target); const sr = ctx.error ? { status: 500 } : await SD.sendComposed(db, ctx, { templateId: rule.template }, { auto: true, approval: { approvedAt: new Date().toISOString(), approvedBy: 'rob' } }); if (sr.status === 200) out.sent++; const r = { ok: true, already: true };" },
+  { name: 'automation-no-send', file: 'api/_lib/email/settings.js', from: "export const automationModeOf = (v) => (v === 'send' ? 'draft' : AUTOMATION_IDS.includes(v) ? v : 'off');", to: "export const automationModeOf = (v) => (v === 'send' ? 'send' : AUTOMATION_IDS.includes(v) ? v : 'off');" },
+  { name: 'log-send-refused', file: 'api/_routes/email.js', from: "      if (b.send === true) return res.status(403).json({ error: NEEDS_TAP, needsApproval: true });", to: "      if (b.send === true) { const r = await approveAndSend(db, row, { confirmDuplicate: b.confirmDuplicate === true }); return res.status(r.status).json(r.body); }" },
+  { name: 'send-draft-door', file: 'api/_routes/email.js', from: "    const r = await approveAndSend(db, row, { sendAt: typeof b.sendAt === 'string' ? b.sendAt : '', confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true });", to: "    const r = { status: 200, body: { ok: true } };" },
+  { name: 'send-draft-renders', file: 'api/_lib/email/drafts.js', from: "  const r = await sendComposed(db, ctx, { templateId: row.templateId, override: row.override || null }, { to: Array.isArray(row.to) && row.to.length ? row.to : undefined, cc: row.cc, auto: opts.auto === true, confirmDuplicate: opts.confirmDuplicate === true, driveShared: opts.driveShared === true, reuseLogId: row._id, approval: opts.approval || null });", to: "  const r = { status: 200, body: { ok: true, test: true, sentAt: new Date().toISOString(), logId: String(row._id) } }; await (await import('./log.js')).updateLog(db, row._id, { status: 'test', sentAt: new Date().toISOString() });" },
+  { name: 'queue-cancel', file: 'api/_routes/email.js', from: "      await updateLog(db, _id, { status: 'draft', sendAt: '', approvedAt: '', approvedBy: '' });", to: "" },
+  { name: 'fail-push', file: 'api/_lib/email/failed.js', from: "    await sendPush(db, { title: `Email failed: ${name}`, body: `${business}. ${said}`, url: `${base}/leads?open=${String(lead._id)}`, category: 'email' });", to: "    void base;" },
   { name: 'rule-cooldown', file: 'api/_lib/email/rules.js', from: "        if (last && last + rule.cooldownDays * DAY_MS > now) { out.skipped++; continue; }", to: "        void last;" },
   { name: 'rule-optout', file: 'api/_lib/email/rules.js', from: "        if (isMarketing(tpl) && lead.emailOptOut) { out.skipped++; continue; }", to: "        void isMarketing;" },
   { name: 'rule-stage', file: 'api/_lib/email/rules.js', from: "find({ deleted: { $ne: true }, stage: { $nin: ['declined', 'lost'] } }).toArray();", to: "find({ deleted: { $ne: true } }).toArray();" },
-  { name: 'rule-400-drafts', file: 'api/_lib/email/rules.js', from: "        else if (r.status === 400) await draft(); /* no address, a missing value: the draft and its task say what to fill in */", to: "        else if (r.status === 400) out.failed++;" },
-  { name: 'rule-cap', file: 'api/_lib/email/rules.js', from: "        if (autoSent >= AUTO_SEND_CAP) { out.capped = true; await draft(); continue; }", to: "        void AUTO_SEND_CAP;" },
-  { name: 'rule-limited', file: 'api/_lib/email/rules.js', from: "        else if (r.status === 429) { out.limited = true; return finish(db, out, drafted); }", to: "        else if (r.status === 429) out.failed++;" },
   { name: 'rule-per-project', file: 'api/_lib/email/rules.js', from: "      const targets = rule.scope === 'project' ? [...own, ...(dealToo ? [null] : [])] : [null];", to: "      const targets = rule.scope === 'project' ? [own[0] || null] : [null];" },
   { name: 'cron-rules', file: 'api/_routes/cron-reminders.js', from: "    try { rules = await runEmailRules(db, nowMs); } catch { /* the digest still goes; the rules try again next run */ }", to: "    void runEmailRules;" },
-  { name: 'send-draft-door', file: 'api/_routes/email.js', from: "      if (b.send === true) {\n        const r = await sendDraft(db, row, { confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true });", to: "      if (b.send === true) {\n        const r = await sendDraft(db, row, { confirmDuplicate: b.confirmDuplicate === true, driveShared: b.driveShared === true }); r.status = r.status === 200 ? 200 : r.status; if (r.status === 200) await db.collection('email_log').insertOne({ ...row, _id: undefined, status: 'draft' });" },
-  { name: 'send-draft-only', file: 'api/_lib/email/drafts.js', from: "  if (!row || !['draft', 'queued'].includes(row.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };", to: "  if (!row) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };" },
-  { name: 'send-draft-renders', file: 'api/_lib/email/drafts.js', from: "  const r = await sendComposed(db, ctx, { templateId: row.templateId }, { auto: opts.auto === true, confirmDuplicate: opts.confirmDuplicate === true, driveShared: opts.driveShared === true, reuseLogId: row._id });", to: "  const r = await (async () => { const { sendLogged } = await import('./send.js'); const x = await sendLogged(db, row); return x.ok ? { status: 200, body: { ok: true, sentAt: x.sentAt } } : { status: 502, body: { error: x.error } }; })();" },
+  { name: 'send-draft-only', file: 'api/_lib/email/approve.js', from: "  if (!row || !['draft', 'queued'].includes(row.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent.' } };", to: "  if (!row) return { status: 409, body: { error: 'Only a draft or a queued email can be sent.' } };",
+    also: [['api/_lib/email/drafts.js', "  if (!row || !['draft', 'queued'].includes(row.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };", "  if (!row) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } };"]] },
   { name: 'draft-task-done', file: 'api/_lib/email/drafts.js', from: "  if (r.status === 200 && !r.body.queued) r.body.taskDone = await finishDraftTask(db, ctx.lead._id, row._id, now);", to: "  if (r.status === 200 && !r.body.queued) r.body.taskDone = true; void finishDraftTask;" },
   { name: 'task-email-id', file: 'api/_lib/taskRules.js', from: "      emailId: str(it?.emailId, 40),\n", to: "" },
   { name: 'queue-max-age', file: 'api/_lib/email/queue.js', from: "    if (maxAgeMs > 0 && now - at > maxAgeMs) return false;\n", to: "" },
@@ -122,13 +123,18 @@ for (const cut of CUTS) {
   const tmp = fs.mkdtempSync(path.join(tmpBase, 'email-cut-')); const apiCopy = path.join(tmp, 'api'); const srcCopy = path.join(tmp, 'src');
   fs.cpSync(path.join(repoRoot, 'api'), apiCopy, { recursive: true });
   for (const d of ['lib', 'shared', 'components/email']) fs.cpSync(path.join(repoRoot, 'src', d), path.join(srcCopy, d), { recursive: true });
-  const file = path.join(tmp, cut.file);
-  let text = fs.readFileSync(file, 'utf8');
-  const edits = [[cut.from, cut.to], ...(cut.also || [])];
-  let missing = false;
-  for (const [from, to] of edits) { if (!text.includes(from)) { missing = true; break; } text = text.replace(from, to); }
-  if (missing) { console.log(`FAIL ${cut.name}: the guard's line is not in ${cut.file}`); bad++; fs.rmSync(tmp, { recursive: true, force: true }); continue; }
-  fs.writeFileSync(file, text);
+  // `also` entries are [from, to] on the cut's file, or [file, from, to] on another (a guard with two fences).
+  const edits = [[cut.file, cut.from, cut.to], ...(cut.also || []).map(a => (a.length === 3 ? a : [cut.file, a[0], a[1]]))];
+  let missing = '';
+  const texts = new Map();
+  for (const [f, from, to] of edits) {
+    const file = path.join(tmp, f);
+    const text = texts.get(file) ?? fs.readFileSync(file, 'utf8');
+    if (!text.includes(from)) { missing = f; break; }
+    texts.set(file, text.replace(from, to));
+  }
+  if (missing) { console.log(`FAIL ${cut.name}: the guard's line is not in ${missing}`); bad++; fs.rmSync(tmp, { recursive: true, force: true }); continue; }
+  for (const [file, text] of texts) fs.writeFileSync(file, text);
   let results = [];
   try { results = await runEmail(apiCopy, srcCopy); } catch (e) { results = [{ ok: false, msg: `threw: ${e.message}`, guard: cut.name }]; }
   finally { fs.rmSync(tmp, { recursive: true, force: true }); }

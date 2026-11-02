@@ -43,6 +43,7 @@ import { COPY } from '../shared/copy';
  */
 export default function AppShell({
   activeNavId, counts, countsLoading, leads, leadsLoading, leadsError, onRetryLeads, onRefetchLeads, hasDetail,
+  onOpenSendSheet = null, drafts = null, draftsLoading = false,
   onGo, onOpenLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenProjectNew, onOpenListFill, onNewLead, onNewClient, onNewOrder, onCapture, onLogout, projectOps = null, leadOps = null, onPatchLead, projects = [], posts = [], sets = [], lists = [], onOpenConcepts, onOpenCompose, onOpenListPicker, listOps = null, docsApi = null, styles, children,
 }) {
   const [keysOpen, setKeysOpen] = useState(false);
@@ -173,8 +174,9 @@ export default function AppShell({
     go, openRecord: openLead, openShowcase: onOpenShowcase, openPlanner: onOpenPlanner, openTasks: onOpenTasks, openCommand: () => setCmdOpen(true), openNotifications: () => setNotifOpen(true),
     newLead: onNewLead, newClient: onNewClient, newOrder: onNewOrder, capture: onCapture, projectOps, leadOps, emails, refreshLeads: leadOps?.reload || onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, healthLoaded, pushInfo, refreshHealth, profile, setProfile, appearance, saveAppearance,
     openConcepts: onOpenConcepts, openCompose: onOpenCompose, openProjectNew: onOpenProjectNew, openListFill: onOpenListFill,
+    openSendSheet: onOpenSendSheet, drafts, draftsLoading,
     lists, openListPicker: onOpenListPicker, listOps, docsApi, overview, overviewStrip,
-  }), [overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenCompose, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance, healthLoaded, pushInfo, refreshHealth]);
+  }), [onOpenSendSheet, drafts, draftsLoading, overview, overviewStrip, docsApi, go, openLead, onOpenShowcase, onOpenPlanner, onOpenTasks, onOpenConcepts, onOpenCompose, onOpenProjectNew, onOpenListFill, onOpenListPicker, listOps, lists, onNewLead, onNewClient, onNewOrder, onCapture, projectOps, leadOps, emails, onRefetchLeads, setTopBar, events, calendly, projects, posts, sets, health, profile, appearance, saveAppearance, healthLoaded, pushInfo, refreshHealth]);
 
   /* Chrome mode (src/shell/chrome.js): tabs on a section root, focused on a record, an editor, a setup page or the call room. */
   const location = useLocation();
@@ -182,6 +184,20 @@ export default function AppShell({
   const focused = chrome === CHROME.FOCUSED;
   const backFn = topBar?.back || navBack?.back || null;
   useEdgeBack({ enabled: !!backFn, onBack: backFn, idx: location.state?.idx || 0, locKey: location.key });
+  /* Escape on a computer is the same Back as the phone's edge swipe (one back stack, milestone 2): one level up the
+     tree, unless a sheet, a modal, a menu or the command bar is open (they close themselves on Escape) or the
+     key lands in a field. */
+  const backRef = useRef(backFn); backRef.current = backFn;
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || !backRef.current) return;
+      if (e.target?.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      if (document.querySelector('.v-sheet, .v-modal, [role="dialog"], [role="menu"], [role="listbox"]')) return;
+      e.preventDefault(); backRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const nav = navById(activeNavId) || navById('dashboard');
   const title = topBar?.title ?? nav.label;
   /* The breadcrumb: the workspace, then the page; the workspace crumb opens its dashboard once that screen exists. */
@@ -194,7 +210,6 @@ export default function AppShell({
   const modeLabel = (m) => THEME_MODES.find(x => x.id === m)?.label || m;
   const menuItems = [
     { id: 'settings', label: 'Settings', icon: 'Settings01', onSelect: () => go('settings') },
-    { id: 'design', label: 'Design system', icon: 'Palette', onSelect: () => go('design') },
     { id: 'keys', label: 'Keyboard shortcuts', icon: 'Keyboard01', onSelect: () => setKeysOpen(true) },
     { id: 'theme', label: `Theme: ${modeLabel(appearance.mode)}, switch to ${modeLabel(nextMode).toLowerCase()}`, icon: appearance.theme === 'light' ? 'Sun' : appearance.mode === 'system' ? 'Monitor01' : 'Moon01', onSelect: () => saveAppearance({ theme: nextMode }) },
     'divider',

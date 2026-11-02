@@ -3,15 +3,24 @@
  * email_log collection.
  *
  *   { recordId, projectId, invoiceId, templateId, class, to[], cc[], subject,
- *     text, html, status, sendAt, providerId, error, auto, createdAt, sentAt, updatedAt }
+ *     text, html, status, sendAt, providerId, error, auto, createdAt, sentAt, updatedAt,
+ *     approvedAt, approvedBy, override, reason, channel, phone, gmailDraftId, gmailMessageId }
  *
- * status: draft (an automatic rule wrote it for Rob to send), queued (a
- * Send tomorrow, sent by the reminders cron once sendAt has passed), sent,
- * failed, test (test mode: nothing left the server). Indexed on recordId
+ * status: draft (written for Rob to send: a rule, an event, or Compose's Send
+ * before his tap), queued (approved for a later time, sent by the reminders
+ * cron once sendAt has passed), sent, failed, test (test mode: nothing left
+ * the server). The Drafts rule (email safety): approvedAt and approvedBy are
+ * written by api/_lib/email/approve.js alone, after Rob saw the recipient, the
+ * subject and the body and tapped Send; nothing is sent without them. override
+ * keeps Compose's edits to this one email so the send renders them again;
+ * reason says why the draft exists; channel is email, or text for a message
+ * Rob sends from Messages (the Drafts screen's Text it); gmailDraftId is the
+ * Gmail draft mirrored when Draft into Gmail is on. Indexed on recordId
  * with createdAt and on status with createdAt. Every string is capped so a
  * runaway template cannot grow a document past what the screens show. */
 export const EMAIL_STATUS_IDS = ['draft', 'queued', 'sent', 'failed', 'test'];
 export const EMAIL_CLASS_IDS = ['marketing', 'transactional'];
+export const EMAIL_CHANNEL_IDS = ['email', 'text'];
 export const HTML_CAP = 120000; // the renderer keeps an email under 90 KB; the log refuses anything far past it
 export const LOG_PAGE = 50;
 export const DUPLICATE_WINDOW_MS = 10 * 60 * 1000;
@@ -20,6 +29,15 @@ const str = (v, max) => String(v ?? '').slice(0, max);
 const list = (v, max = 10) => (Array.isArray(v) ? v : v ? [v] : []).map(x => str(x, 200)).filter(Boolean).slice(0, max);
 const idStr = (v) => (v == null ? '' : str(typeof v === 'object' && typeof v.toHexString === 'function' ? v.toHexString() : v, 64));
 
+/** Compose's edits to one email, kept on its draft: subject, preheader and blocks (already sanitized by send.js), nothing else. */
+const overrideOf = (o) => {
+  if (!o || typeof o !== 'object') return null;
+  const out = {};
+  if (typeof o.subject === 'string') out.subject = str(o.subject, 200);
+  if (typeof o.preheader === 'string') out.preheader = str(o.preheader, 200);
+  if (Array.isArray(o.blocks)) out.blocks = o.blocks.slice(0, 60);
+  return Object.keys(out).length ? out : null;
+};
 /** The stored shape from any input: what writeLog accepts and nothing else. */
 export function logEntry(e = {}, now = new Date()) {
   return {
@@ -29,6 +47,9 @@ export function logEntry(e = {}, now = new Date()) {
     status: EMAIL_STATUS_IDS.includes(e.status) ? e.status : 'draft',
     sendAt: str(e.sendAt, 40), providerId: str(e.providerId, 80), error: str(e.error, 300), auto: !!e.auto, toSelf: !!e.toSelf,
     createdAt: e.createdAt instanceof Date ? e.createdAt : now, sentAt: str(e.sentAt, 40), updatedAt: now,
+    approvedAt: str(e.approvedAt, 40), approvedBy: str(e.approvedBy, 20),
+    override: overrideOf(e.override), reason: str(e.reason, 200), channel: EMAIL_CHANNEL_IDS.includes(e.channel) ? e.channel : 'email', phone: str(e.phone, 40),
+    gmailDraftId: str(e.gmailDraftId, 120), gmailMessageId: str(e.gmailMessageId, 120),
   };
 }
 
@@ -59,6 +80,14 @@ export async function logFor(db, { recordId, projectId = '', limit = LOG_PAGE } 
 export async function logById(db, _id) {
   return db.collection('email_log').findOne({ _id });
 }
+/** The Drafts screen's list: everything waiting on Rob (drafts and queued, newest due first), then what went (sent, test, failed) in the last thirty days, no html. */
+export async function draftsList(db, { limit = 150, now = Date.now() } = {}) {
+  const rows = await db.collection('email_log').find({ toSelf: { $ne: true } }).sort({ createdAt: -1 }).limit(400).project({ html: 0 }).toArray();
+  const waiting = rows.filter(r => r.status === 'draft' || r.status === 'queued').sort((a, b) => dueOf(a) - dueOf(b));
+  const done = rows.filter(r => ['sent', 'test', 'failed'].includes(r.status) && now - new Date(r.sentAt || r.createdAt).getTime() < 30 * 864e5);
+  return [...waiting, ...done].slice(0, limit);
+}
+const dueOf = (r) => (r.status === 'queued' && r.sendAt ? new Date(r.sendAt).getTime() : new Date(r.createdAt).getTime());
 /** The newest entries across every record, failures first, for Settings. */
 export async function recentLog(db, { limit = LOG_PAGE } = {}) {
   const rows = await db.collection('email_log').find({}).sort({ createdAt: -1 }).limit(Math.max(1, Math.min(200, limit)) * 2).project({ html: 0 }).toArray();

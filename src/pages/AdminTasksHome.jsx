@@ -3,7 +3,6 @@ import {
   PageShell, ScrollArea, Stack, Row, Card, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
-import { apiFetch } from '../shared/api';
 import { emailTaskOf } from '../lib/compose';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
@@ -219,7 +218,7 @@ function NextUpSkeleton() {
 export default function AdminTasksHome({ leads, projects = [], sets = [], loading, error, onRetry, onPatchLead, onPatchProject, onCreateProject, onOpenLead, submissions = [], onLinkSubmission }) {
   const shell = useShell();
   const toast = useToast();
-  const [confirm, confirmEl] = useConfirm();
+  const [, confirmEl] = useConfirm();
   const [retry, retrying] = useRetry(onRetry);
   const desktop = useMediaQuery('(min-width: 1024px)');
   const phone = useMediaQuery('(max-width: 767px)');
@@ -283,26 +282,12 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     }
     if (what === 'edittask') { setTaskEdit(item); return; }
     if (what === 'tasks') { shell?.openTasks?.(item.lead, item.project || undefined); return; }
-    /* The email system (milestone 8): Send sends the draft through the one door (the server renders it again from the record and ticks the
-       task); Edit opens Compose on the draft's template, project and invoice. */
+    /* The email system (milestone 8), under the Drafts rule (email safety): Send opens the send sheet on the draft, where Rob reads it and
+       taps Send now (the only door out); Edit opens the same sheet editing. Nothing here posts a send. */
     if (what === 'sendemail' || what === 'editemail') {
       const t = emailTaskOf(item.record, item.action.taskId);
       if (!t) { openRecord(item); return; }
-      if (what === 'editemail') {
-        const r = await apiFetch(`/api/admin/email/log?id=${encodeURIComponent(t.emailId)}`);
-        const e = r.ok ? r.data?.item : null;
-        if (!e) { toast.error(r.data?.error || 'That email did not load.'); return; }
-        const project = (projects || []).find(p => String(p._id) === String(e.projectId || '')) || null;
-        const invoice = e.invoiceId ? { id: e.invoiceId } : null;
-        shell?.openCompose?.(item.lead, { templateId: e.templateId, project, invoice });
-        return;
-      }
-      const send = async (confirmDuplicate) => apiFetch('/api/admin/email/log', { method: 'POST', body: { id: t.emailId, send: true, ...(confirmDuplicate ? { confirmDuplicate: true } : {}) } });
-      let r = await send(false);
-      if (r.status === 409 && r.data?.duplicate) { const yes = await confirm({ title: 'Send it again?', body: r.data.error, confirmLabel: 'Send again' }); if (!yes) return; r = await send(true); }
-      if (!r.ok) { toast.error(r.data?.error || COPY.error.save); return; }
-      toast.success(r.data?.message || `Sent for ${item.lead.business}.`);
-      onRetry?.();
+      shell?.openSendSheet?.({ _id: t.emailId }, { startEdit: what === 'editemail', onChanged: () => onRetry?.() });
       return;
     }
     if (what === 'pin' && item.action.taskId) { const ok = await writeRecord(item, pinPatch(item.record, item.action.taskId, taskCtx)); if (ok) toast.success(`${item.action.label} pinned as Next up.`); return; }

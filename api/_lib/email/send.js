@@ -19,6 +19,14 @@ import { sendEmail, senderOf, isEmail, TEST_MESSAGE } from './transport.js';
 import { writeLog, updateLog, logEntry, sentWithin, DUPLICATE_WINDOW_MS } from './log.js';
 import { applySendStamps } from './stamps.js';
 import { failedSendItem } from './failed.js';
+import { mirrorToGmail } from './gmail.js';
+
+/* The Drafts rule (email safety): the one gate every real send passes. A send carries Rob's stamp only when it came through
+ * api/_lib/email/approve.js (the approve action, after the preview sheet); anything else that reaches sendComposed is written as a
+ * draft for him instead of leaving. A test to his own address is the one send that needs no stamp. */
+export const APPROVED_BY = 'rob';
+export const approvalOf = (opts) => (opts && opts.approval && typeof opts.approval === 'object' && opts.approval.approvedBy === APPROVED_BY && typeof opts.approval.approvedAt === 'string' && opts.approval.approvedAt ? { approvedAt: opts.approval.approvedAt, approvedBy: APPROVED_BY } : null);
+export const isApproved = (row) => !!row && typeof row.approvedAt === 'string' && row.approvedAt.length > 0 && row.approvedBy === APPROVED_BY;
 
 export const TOKEN_BYTES = 18; // 24 base64url characters, the planner's and the portal's rule
 export const QUEUE_MAX_DAYS = 30;
@@ -154,12 +162,15 @@ export function deliveryRefusal(ctx, opts = {}) {
 const addresses = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(x => String(x || '').trim().toLowerCase()).filter(Boolean);
 
 /**
- * sendComposed(db, ctx, { templateId, override }, { to, cc, testToSelf, confirmDuplicate, sendAt, auto, driveShared, reuseLogId })
+ * sendComposed(db, ctx, { templateId, override }, { to, cc, testToSelf, confirmDuplicate, sendAt, auto, driveShared, reuseLogId, approval, reason })
  *   -> { status: 200 | 4xx | 5xx, body }
- * Renders on the server (never a request's HTML), refuses on a missing field, a bad address, an opt out (marketing
- * only) or a duplicate inside ten minutes; a sendAt queues; testToSelf goes to the sender with "[Test]" and stamps
- * nothing; a real send logs, stamps the template's checkpoint through the one stamps function and recomputes the next
- * action, all on this request. reuseLogId (a draft sent now, drafts.js) writes the outcome onto that entry instead of a new one.
+ * Renders on the server (never a request's HTML), refuses on a missing field, a bad address or an opt out (marketing
+ * only). Without Rob's approval stamp (approve.js) the email is written as a draft ({ ok, draft: true, logId }) and
+ * nothing leaves: Compose's Send, a rule, an event all land here. With the stamp: a duplicate inside ten minutes is
+ * refused unless confirmed, a sendAt queues, else the email goes, is logged with the stamp, stamps the template's
+ * checkpoint through the one stamps function and recomputes the next action, all on this request. testToSelf goes to
+ * the sender with "[Test]", needs no stamp and stamps nothing. reuseLogId (a draft sent now, drafts.js) writes the
+ * outcome onto that entry instead of a new one.
  */
 export async function sendComposed(db, ctx, args = {}, opts = {}) {
   const testToSelf = opts.testToSelf === true;
@@ -184,10 +195,6 @@ export async function sendComposed(db, ctx, args = {}, opts = {}) {
   const bad = [...to, ...cc].find(x => !isEmail(x));
   if (bad) return { status: 400, body: { error: `${bad} is not an email address.` } };
   if (marketing && !testToSelf && lead.emailOptOut) return { status: 403, body: { error: `${lead.business || 'They'} opted out of these emails.`, optedOut: true } };
-  if (!testToSelf && opts.confirmDuplicate !== true) {
-    const dup = await sentWithin(db, { recordId: String(lead._id), templateId: base.id, ms: DUPLICATE_WINDOW_MS });
-    if (dup) return { status: 409, body: { error: `${base.name} went to ${lead.business || 'them'} ${Math.max(1, Math.round((Date.now() - new Date(dup.createdAt).getTime()) / 60000))} minutes ago. Send it again?`, duplicate: { at: dup.createdAt, subject: dup.subject } } };
-  }
   const headers = {};
   if (marketing && !testToSelf) {
     const token = lead.emailToken;
@@ -195,10 +202,21 @@ export async function sendComposed(db, ctx, args = {}, opts = {}) {
     headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
   }
   const subject = testToSelf ? `[Test] ${rendered.subject}` : rendered.subject;
-  const entry = { recordId: String(lead._id), projectId: project ? String(project._id) : '', invoiceId: invoice ? String(invoice.id) : '', templateId: base.id, class: base.class, to, cc, subject, text: rendered.text, html: rendered.html, auto: opts.auto === true, toSelf: testToSelf };
+  const approval = testToSelf ? null : approvalOf(opts);
+  const entry = { recordId: String(lead._id), projectId: project ? String(project._id) : '', invoiceId: invoice ? String(invoice.id) : '', templateId: base.id, class: base.class, to, cc, subject, text: rendered.text, html: rendered.html, auto: opts.auto === true, toSelf: testToSelf, ...(approval || {}) };
   /* The log: a new entry, or the draft's own when a draft is sent now (its createdAt stays; sendAt clears). */
   const keep = opts.reuseLogId || null;
   const record = async (fields) => { if (!keep) return writeLog(db, { ...entry, ...fields }); const { createdAt, ...rest } = logEntry({ ...entry, ...fields }); void createdAt; await updateLog(db, keep, rest); return { ...rest, _id: keep }; };
+  /* No stamp: a draft for Rob, with the edits kept, never a send. The duplicate guard waits for the tap. */
+  if (!testToSelf && !approval) {
+    const log = await record({ status: 'draft', override: sanitizeOverride(args.override), reason: str(opts.reason, 200), sendAt: '', approvedAt: '', approvedBy: '' });
+    await mirrorToGmail(db, log, ctx.settings);
+    return { status: 200, body: { ok: true, draft: true, needsApproval: true, logId: String(log._id), to, subject, message: 'Saved to Drafts. Open it and tap Send now.' } };
+  }
+  if (!testToSelf && opts.confirmDuplicate !== true) {
+    const dup = await sentWithin(db, { recordId: String(lead._id), templateId: base.id, ms: DUPLICATE_WINDOW_MS });
+    if (dup) return { status: 409, body: { error: `${base.name} went to ${lead.business || 'them'} ${Math.max(1, Math.round((Date.now() - new Date(dup.createdAt).getTime()) / 60000))} minutes ago. Send it again?`, duplicate: { at: dup.createdAt, subject: dup.subject } } };
+  }
   if (opts.sendAt && !testToSelf) {
     const at = new Date(opts.sendAt).getTime();
     if (!Number.isFinite(at) || at < Date.now() - 60e3 || at > Date.now() + QUEUE_MAX_DAYS * 864e5) return { status: 400, body: { error: 'Pick a time in the next thirty days.' } };
@@ -222,6 +240,8 @@ export async function sendComposed(db, ctx, args = {}, opts = {}) {
 
 /** A queued or drafted log entry sent now, exactly as rendered then; the stamps follow a real send. */
 export async function sendLogged(db, log) {
+  /* The Drafts rule: a queued entry Rob never approved (written before the rule, or by anything but approve.js) is never sent; it becomes a draft and waits for his tap. */
+  if (!isApproved(log)) { await updateLog(db, log._id, { status: 'draft', sendAt: '', error: 'Needs your tap: open it in Drafts and send it from there.' }); return { ok: false, error: 'not approved', needsApproval: true }; }
   const ctx = await loadContext(db, { recordId: log.recordId, projectId: log.projectId, invoiceId: log.invoiceId });
   if (ctx.error) { await updateLog(db, log._id, { status: 'failed', error: ctx.error }); return { ok: false, error: ctx.error }; }
   const base = templateOf(log.templateId);

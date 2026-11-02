@@ -8,7 +8,7 @@ import {
 } from '../ui';
 import { COPY } from '../shared/copy';
 import ListSearch, { matchLine } from '../components/ListSearch';
-import { useTopBar } from '../shell/ShellContext';
+import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
 import LeadPicker from '../components/LeadPicker';
 import LeadCard from '../components/LeadCard';
@@ -118,6 +118,7 @@ function NewOrderSheet({ leads, onClose, onCreate, preset }) {
 
 /* ── Order detail ──────────────────────────────────────────────── */
 function OrderDetail({ order: o, leads, projects, onPatch, onPatchRaw, onPatchLead, onCreateProject, onClose }) {
+  const shell = useShell();
   const toast = useToast();
   const [paidPulse, setPaidPulse] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
@@ -173,7 +174,8 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchRaw, onPatchLe
         </Row>
         <Row gap={1} wrap>
           <Button variant="secondary" size="md" icon="Phone" href={c.phone ? telHref(c.phone) : undefined} disabled={!c.phone}>{c.phone ? formatPhone(c.phone) : 'No phone'}</Button>
-          <Button variant="secondary" size="md" icon="Mail01" href={c.email ? `mailto:${c.email}` : undefined} disabled={!c.email} className="po-email">{c.email || 'No email'}</Button>
+          {c.lead && shell?.openCompose ? <Button variant="secondary" size="md" icon="Mail01" onClick={() => shell.openCompose(c.lead)} className="po-email">Draft payment link</Button>
+            : <Button variant="secondary" size="md" icon="Mail01" href={c.email ? `mailto:${c.email}` : undefined} disabled={!c.email} className="po-email">{c.email || 'No email'}</Button>}
           <Button variant={c.lead ? 'ghost' : 'secondary'} size="md" icon="Briefcase01" onClick={() => setPick(true)} className="po-link-client">{c.lead ? 'Change client' : 'Link to client'}</Button>
         </Row>
         {project && <p className="dt-muted">Project: {project.name}</p>}
@@ -277,7 +279,7 @@ export default function AdminOrders({ orders = [], loading, error, onRetry, unim
     <PageShell className={`aa-main aa-main--wide po-shell${panelOpen && desktop ? ' has-panel' : ''}`}>
       <div className="po-split">
         <ScrollArea wide className="po-page">
-          <Section title="Print Orders" loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(live.length, 'orders', list.length) : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
+          <Section loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(live.length, 'orders', list.length) : summary} action={<Button icon={Plus} onClick={() => setCreating(true)} className="po-new">New order</Button>}>
             <Stack gap={2}>
               <ListSearch className="cl-search" placeholder="Search customer, item, note" value={q} onChange={setQ} label="Search orders" />
               <Row gap={2} wrap className="po-chips">{ORDER_FILTERS.map(([id, label]) => <Chip key={id} label={chipLabel(id, label)} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>

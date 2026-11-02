@@ -24,8 +24,8 @@ const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linu
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const ONLY = process.env.AUDIT_ONLY || '';
 
-const MUST_TABS = /^(analytics|analytics-year|analytics-empty|tasks-home|pipeline|overview|docs-all|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|design|more|settings-profile|back-[a-z]+)$/;
-const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|clients-profile.*|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|compose.*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|doc-templates|data|danger-zone|emails.*)|docs-client|clients-docs-empty|doc-(empty|blocks|keyboard|save-failed))$/;
+const MUST_TABS = /^(analytics|analytics-year|analytics-empty|tasks-home|pipeline|overview|docs-all|drafts|drafts-sent|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|more|settings-profile|back-[a-z]+)$/;
+const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|clients-profile.*|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|compose.*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|doc-templates|data|danger-zone|emails.*)|docs-client|clients-docs-empty|doc-(empty|blocks|keyboard|save-failed)|design)$/;
 const GLOBAL = ['Search', 'Quick add', 'Notifications'];
 
 const url = (s) => `${BASE}${s.path}${s.open ? `${s.path.includes('?') ? '&' : '?'}open=${s.open}` : ''}`;
@@ -40,7 +40,9 @@ const read = () => {
   const pillOnscreen = !!(pill && pillRect && pillRect.bottom > 0 && pillRect.top < window.innerHeight && getComputedStyle(pill).opacity !== '0');
   const tabButtons = [...document.querySelectorAll('.sh-tab')];
   const everyTabLabelled = tabButtons.length > 0 && tabButtons.every(e => !!e.getAttribute('aria-label'));
-  return { chrome: root?.dataset.chrome || '', pillH, pillOnscreen, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, everyTabLabelled, current: document.querySelector('.sh-tab.is-active')?.getAttribute('aria-label') || null };
+  /* The More page carries no account card and no Sign out (the shell, milestone 3): a thumb cannot land on it there. */
+  const accountCard = !!document.querySelector('.sh-content .mo-user') || [...document.querySelectorAll('.sh-content button, .sh-content a')].some(e => /^sign out$/i.test(e.textContent.trim()));
+  return { chrome: root?.dataset.chrome || '', pillH, pillOnscreen, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, everyTabLabelled, accountCard, current: document.querySelector('.sh-tab.is-active')?.getAttribute('aria-label') || null };
 };
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -79,6 +81,7 @@ for (const s of SCREENS) {
       if (r.top.some(t => GLOBAL.includes(t))) bad.push(`focused mode keeps ${r.top.filter(t => GLOBAL.includes(t)).join(', ')}`);
       if (extra.length > 1) bad.push(`${extra.length} declared actions (${extra.join(', ')})`);
     }
+    if (s.id === 'more' && r.accountCard) bad.push('More shows an account card or a Sign out');
     if (MUST_TABS.test(s.id) && mode !== 'tabs') bad.push(`must be tabs, is ${mode}`);
     if (MUST_FOCUSED.test(s.id) && mode !== 'focused') bad.push(`must be focused, is ${mode}`);
   } catch (e) { bad.push(String(e.message || e).split('\n')[0].slice(0, 100)); }

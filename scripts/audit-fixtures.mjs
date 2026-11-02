@@ -595,7 +595,7 @@ export const UNSUB_TOKEN = 'unsubTESTtoken0123456789';
 const logHtml = (templateId, recordId, projectId = '') => { const r = emailPreviewPayload({ templateId, recordId, projectId }); return r.status === 200 ? { subject: r.body.subject, text: r.body.text, html: r.body.html } : { subject: 'Email', text: 'Email', html: '<p>Email</p>' }; };
 const hoursAgo = (h) => new Date(Date.now() - h * 3600e3).toISOString();
 const tomorrowNine = () => { const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(9, 0, 0, 0); return t.toISOString(); };
-const logEntry = (o) => ({ projectId: '', invoiceId: '', cc: [], sendAt: '', providerId: '', error: '', auto: false, toSelf: false, sentAt: '', ...o });
+const logEntry = (o) => ({ projectId: '', invoiceId: '', cc: [], sendAt: '', providerId: '', error: '', auto: false, toSelf: false, sentAt: '', approvedAt: '', approvedBy: '', override: null, reason: '', channel: 'email', phone: '', gmailDraftId: '', gmailMessageId: '', ...o });
 export const emailLog = [
   logEntry({ _id: 'EL1', recordId: 'L8', templateId: 'intro_call', class: 'marketing', to: ['owner8@example.com'], ...logHtml('intro_call', 'L8'), status: 'sent', providerId: 'em_fixture_1', createdAt: hoursAgo(50), sentAt: hoursAgo(50) }),
   logEntry({ _id: 'EL2', recordId: 'L8', templateId: 'intro_call', class: 'marketing', to: ['contact@visualizeclients.com'], ...logHtml('intro_call', 'L8'), subject: '[Test] Hey Damian, me again', status: 'test', toSelf: true, createdAt: hoursAgo(51), sentAt: hoursAgo(51) }),
@@ -604,8 +604,11 @@ export const emailLog = [
   logEntry({ _id: 'EL5', recordId: 'L11', projectId: 'P11', templateId: 'delivery', class: 'transactional', to: ['owner11@example.com'], ...logHtml('delivery', 'L11', 'P11'), status: 'test', createdAt: hoursAgo(100), sentAt: hoursAgo(100) }),
   /* Milestone 8: a draft the contract nudge rule wrote this morning (auto), the newest entry on L9, so its sheet shows Send now and Edit. */
   logEntry({ _id: 'EL6', recordId: 'L9', templateId: 'contract_nudge', class: 'transactional', to: ['owner9@example.com'], ...logHtml('contract_nudge', 'L9'), status: 'draft', auto: true, createdAt: hoursAgo(1) }),
-  logEntry({ _id: 'EL7', recordId: 'L10', templateId: 'form_nudge', class: 'transactional', to: ['owner10@example.com'], ...logHtml('form_nudge', 'L10'), status: 'draft', auto: true, createdAt: hoursAgo(1) }),
+  logEntry({ _id: 'EL7', recordId: 'L10', templateId: 'form_nudge', class: 'transactional', to: ['owner10@example.com'], ...logHtml('form_nudge', 'L10'), status: 'draft', auto: true, reason: 'Three days with no form', createdAt: hoursAgo(1) }),
+  /* The Drafts rule (email safety): a queued email carries the stamp, a text draft waits for Text it. */
+  logEntry({ _id: 'ET1', recordId: 'L8', templateId: 'custom', class: 'transactional', to: [], subject: 'Your concepts are ready', text: 'Hey Damian, your concepts are ready: https://visualizestudio.org/concepts/cncpTESTtoken0123456789abcdEF', html: '', status: 'draft', channel: 'text', phone: '3025550118', reason: 'Concepts sent', createdAt: hoursAgo(0.5) }),
 ];
+emailLog.find(e => e._id === 'EL3').approvedAt = hoursAgo(2); emailLog.find(e => e._id === 'EL3').approvedBy = 'rob';
 const logRow = ({ html, ...rest }) => rest;
 export function emailPreviewPayload(body = {}) {
   const lead = leads.find(l => String(l._id) === String(body.recordId)) || null;
@@ -633,10 +636,30 @@ export function emailHandler(method, action, query = {}, body = {}) {
     if (!templateOf(body.templateId)) return { status: 400, body: { error: 'templateId must name a template' } };
     const message = "Test only, email isn't connected yet.";
     if (body.testToSelf) return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: 'EL1', toSelf: true, message } };
-    if (body.sendAt) return { status: 200, body: { ok: true, queued: true, sendAt: body.sendAt, logId: 'EL2' } };
-    return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: 'EL3', stamped: [], message } };
+    /* The Drafts rule: without Rob's tap in the send sheet, a send writes a draft row and answers with its id. */
+    const lead = leads.find(l => String(l._id) === String(body.recordId)) || null;
+    const e = logEntry({ _id: `ED${emailLog.length + 1}`, recordId: body.recordId || '', projectId: body.projectId || '', templateId: body.templateId, class: templateOf(body.templateId).class || 'transactional', to: lead?.email ? [lead.email] : [], ...logHtml(body.templateId, body.recordId, body.projectId || ''), status: 'draft', override: body.override || null, reason: body.reason || '', createdAt: NOW_ISO });
+    emailLog.push(e);
+    return { status: 200, body: { ok: true, draft: true, needsApproval: true, logId: e._id, to: e.to, subject: e.subject, message: 'Saved to Drafts. Open it and tap Send now.' } };
   }
+  /* The Drafts rule (email safety): the list, the approve door, the text draft, the Gmail status; send: true on the log is refused. */
+  if (action === 'drafts') {
+    if (method === 'POST') { const e = logEntry({ _id: `ET${emailLog.length + 1}`, recordId: body.recordId, templateId: 'custom', class: 'transactional', to: [], subject: body.subject || 'Text', text: body.body || '', html: '', status: 'draft', channel: 'text', phone: '3025550118', reason: body.reason || '', createdAt: NOW_ISO }); emailLog.push(e); return { status: 200, body: { ok: true, logId: e._id, item: logRow(e) } }; }
+    const open = emailLog.filter(e => e.status === 'draft' || e.status === 'queued'); const done = emailLog.filter(e => ['sent', 'test', 'failed'].includes(e.status) && !e.toSelf);
+    return { status: 200, body: { items: [...open, ...done].map(logRow) } };
+  }
+  if (action === 'approve') {
+    const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } };
+    if (!['draft', 'queued'].includes(e.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent.' } };
+    e.approvedAt = NOW_ISO; e.approvedBy = 'rob';
+    if (body.sendAt) { e.status = 'queued'; e.sendAt = body.sendAt; return { status: 200, body: { ok: true, queued: true, sendAt: body.sendAt, logId: e._id } }; }
+    const text = e.channel === 'text'; e.status = text ? 'sent' : 'test'; e.sentAt = NOW_ISO; e.sendAt = '';
+    return { status: 200, body: { ok: true, test: !text, text, sentAt: NOW_ISO, logId: e._id, message: text ? 'Marked sent.' : "Test only, email isn't connected yet." } };
+  }
+  if (action === 'gmail') return method === 'POST' ? { status: 200, body: { ok: true, enabled: body.enabled === true, connected: false } } : { status: 200, body: { connected: false, enabled: false, variables: ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN'] } };
   if (action === 'log') {
+    if (method === 'POST' && body.send === true) return { status: 403, body: { error: 'Nothing sends without your tap: open it in Drafts and send it from there.', needsApproval: true } };
+    if (method === 'POST' && body.edit && typeof body.edit === 'object') { const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } }; if (typeof body.edit.subject === 'string') e.subject = body.edit.subject; if (typeof body.edit.text === 'string') e.text = body.edit.text; if (Array.isArray(body.edit.blocks)) e.override = { subject: body.edit.subject, preheader: body.edit.preheader, blocks: body.edit.blocks }; if (Array.isArray(body.to) && body.to.length) e.to = body.to; e.status = 'draft'; e.sendAt = ''; e.approvedAt = ''; e.approvedBy = ''; return { status: 200, body: { ok: true, item: e } }; }
     if (method === 'POST' && body.send === true) { const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } }; if (!['draft', 'queued'].includes(e.status)) return { status: 409, body: { error: 'Only a draft or a queued email can be sent now.' } }; e.status = 'test'; e.sentAt = NOW_ISO; e.sendAt = ''; return { status: 200, body: { ok: true, test: true, sentAt: NOW_ISO, logId: String(e._id), taskDone: true, message: "Test only, email isn't connected yet." } }; }
     if (method === 'POST') { const e = emailLog.find(x => String(x._id) === String(body.id)); if (!e) return { status: 404, body: { error: 'not found' } }; if (e.status !== 'queued') return { status: 409, body: { error: 'Only a queued email can be cancelled.' } }; e.status = 'draft'; e.sendAt = ''; return { status: 200, body: { ok: true } }; }
     if (query.id) { const e = emailLog.find(x => String(x._id) === String(query.id)); return e ? { status: 200, body: { item: e } } : { status: 404, body: { error: 'not found' } }; }
@@ -725,7 +748,7 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/email/**', (r) => {
     if (failing.has('email')) return r.fulfill(fail());
     const u = new URL(r.request().url()); const action = u.pathname.split('/').pop();
-    if (empty.has('email') && action === 'log' && r.request().method() === 'GET') return r.fulfill(json({ items: [] }));
+    if (empty.has('email') && (action === 'log' || action === 'drafts') && r.request().method() === 'GET') return r.fulfill(json({ items: [] }));
     let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
     const out = emailHandler(r.request().method(), action, Object.fromEntries(u.searchParams.entries()), b);
     return r.fulfill({ status: out.status, contentType: 'application/json', body: JSON.stringify(out.body) });
