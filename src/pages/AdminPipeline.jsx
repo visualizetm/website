@@ -13,7 +13,7 @@ import { isTicked } from '../lib/deal';
 import { useDecline } from '../components/DeclineSheet';
 import { computeDashboard } from '../lib/dashboardStats';
 
-/* The Pipeline dashboard (the nav revamp, milestone 5): the Pipeline
+/* The Pipeline overview (the nav revamp, milestone 5; titled Pipeline overview since the shell, milestone 3): the Pipeline
  * workspace's home for cold calling. The funnel as one bar (Triage, Leads,
  * Contacted, Booked, Deals, Clients with the step conversion), the newest
  * five in Triage with Accept and Deny, today's calls and the active list's

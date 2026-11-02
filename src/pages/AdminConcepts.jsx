@@ -31,7 +31,7 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
   return (
     <PageShell className="aa-main aa-main--wide">
       <ScrollArea wide>
-        <Section title="Concepts" description={rows.length ? `${rows.filter(r => statusOf(r.set) !== 'archived').length} out with clients` : ' '} loading={showSkel}>
+        <Section description={rows.length ? `${rows.filter(r => statusOf(r.set) !== 'archived').length} out with clients` : ' '} loading={showSkel}>
           {error && !rows.length ? (
             <Card><ErrorState title={COPY.error.sets.title} description={COPY.error.sets.description} onRetry={retry} retrying={retrying} /></Card>
           ) : showSkel ? (

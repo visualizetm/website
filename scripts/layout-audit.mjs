@@ -734,11 +734,6 @@ for (const width of WIDTHS) {
       await page.locator('.st-import-orders').first().click({ timeout: 3000 }).catch(() => {});
       await check('settings: orders csv import sheet');
       await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-      await page.evaluate(() => { try { localStorage.setItem('vz_print_orders', JSON.stringify([{ id: 1, date: new Date().toISOString(), source: 'shop', status: 'pending', name: 'Local Person Superlongunbrokenname', email: 'p4@x.com', phone: '', cartItems: [{ productId: 'logo-sticker', productName: 'Logo Die-Cut Sticker', label: 'Qty 100', priceMode: 'sticker', priceTotal: 100, vals: { qty: '100', size: '3 in' } }], summary: 'x', estimatedSubtotal: 100, hasQuoteItems: false }])); } catch {} }).catch(() => {});
-      await page.locator('.st-import-device').first().click({ timeout: 3000 }).catch(() => {});
-      await check('settings: device import preview');
-      await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-      await page.evaluate(() => localStorage.removeItem('vz_print_orders')).catch(() => {});
     }
   }
   await goto('/admin/settings?loading=1');

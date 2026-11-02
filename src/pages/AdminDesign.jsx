@@ -90,7 +90,7 @@ function Pill({ label, tone, variant }) {
   return <span className="ds-pill" style={style}>{label}</span>;
 }
 
-export default function AdminDesign({ onBack, loading = false }) {
+export default function AdminDesign({ onBack, backLabel = 'Back', loading = false }) {
   const t = useTokens();
   const themes = useThemeTokens();
   const showSkel = useDelayedLoading(loading);
@@ -130,7 +130,7 @@ export default function AdminDesign({ onBack, loading = false }) {
           </p>
           <div className="ds-toolbar">
             <a className="ds-btn ds-btn--ghost" href="#components">Jump to components</a>
-            {onBack && <button type="button" className="ds-btn ds-btn--ghost" onClick={onBack}>Back to settings</button>}
+            {onBack && <button type="button" className="ds-btn ds-btn--ghost" onClick={onBack}>{backLabel}</button>}
           </div>
         </Reveal>
 
@@ -367,8 +367,9 @@ const dsStyles = `
   .ds-group-name { font-size: var(--v-text-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   .ds-group-row { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
   .ds-bars { display: flex; align-items: flex-end; gap: var(--v-space-2); height: 140px; }
-  .ds-bar { flex: 1; border-radius: var(--v-radius-sm) var(--v-radius-sm) 0 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: var(--v-space-1); }
-  .ds-bar span { font-size: 10px; color: var(--v-chart-text); font-weight: var(--v-weight-bold); }
+  /* A bar may shrink under its label at 320 (min-width 0): the label clips instead of pushing the row past the viewport. */
+  .ds-bar { flex: 1; min-width: 0; overflow: hidden; border-radius: var(--v-radius-sm) var(--v-radius-sm) 0 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: var(--v-space-1); }
+  .ds-bar span { font-size: 10px; color: var(--v-chart-text); font-weight: var(--v-weight-bold); max-width: 100%; overflow: hidden; white-space: nowrap; }
   .ds-type { display: flex; flex-direction: column; gap: var(--v-space-4); }
   .ds-type-row { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; overflow-wrap: anywhere; }
   .ds-spaces { display: flex; flex-direction: column; gap: var(--v-space-1); }

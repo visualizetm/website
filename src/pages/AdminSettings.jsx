@@ -4,9 +4,8 @@ import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import Trash01 from '@untitled-ui/icons-react/build/esm/Trash01';
 import FlipBackward from '@untitled-ui/icons-react/build/esm/FlipBackward';
 import RefreshCw01 from '@untitled-ui/icons-react/build/esm/RefreshCw01';
-import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, Icon } from '../ui';
+  PageShell, ScrollArea, Collapsible, Section, Stack, Row, Grid, Card, Tabs, Pill, Avatar, Input, Button, IconButton, InlineEdit, Toggle, SegmentedControl, Table, Sheet, ListRow, EmptyState, ErrorState, IconTile, Stagger, SkeletonBlock, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useConfirm, useRetry, Icon } from '../ui';
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -16,7 +15,7 @@ import { THEME_MODES } from '../shell/appearance';
 import LeadImport from '../components/LeadImport';
 import OrdersImport from '../components/OrdersImport';
 import LeadPicker from '../components/LeadPicker';
-import { SUBMISSION_TYPES, PRINT_ORDER_STATUSES } from '../shared/semantics';
+import { SUBMISSION_TYPES } from '../shared/semantics';
 import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
 import EmailSettingsPanel from '../components/email/EmailSettingsPanel';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
@@ -25,9 +24,8 @@ import { PUSH_CATEGORIES, categoriesShape, quietShape } from '../shared/pushCate
 import { fetchDeletedDocs, restoreDoc, typeLabel } from '../lib/docs';
 import { apiFetch } from '../shared/api';
 import { money } from '../shared/format';
-import { fmtDate, fmtDateTime, relativeTime } from '../shared/dates';
+import { fmtDateTime, relativeTime } from '../shared/dates';
 import { EXPORTS, downloadText } from '../lib/exports';
-import { readLocalOrders, planImport, itemSummary, orderSubtotal } from '../lib/orders';
 
 /* Settings (Prompt 12): every setting on the kit under a Tabs sub nav.
  * Profile, Notifications, Integrations (with the crons and the client log,
@@ -38,10 +36,20 @@ export const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' }, { id: 'emails', label: 'Emails', icon: 'Mail01' },
   { id: 'templates', label: 'Doc templates', icon: 'File02' }, { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
-const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', emails: 'The sender, the templates, what goes out on its own', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'Sign out and the things you cannot undo' };
+const SETTINGS_BLURB = { profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', emails: 'The sender, the templates, what goes out on its own', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'The things you cannot undo' };
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
 const nextRun = (lastRunAt, minutes) => { const base = lastRunAt ? new Date(lastRunAt).getTime() : Date.now(); return new Date(base + minutes * 60e3); };
+/* How to connect (the shell, milestone 3): an integration's setup text sits behind one fold, so the card reads Connected or Not connected first. */
+function HowTo({ children }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Stack gap={1} className="st-howto">
+      <Button variant="ghost" size="md" icon={open ? 'ChevronUp' : 'ChevronDown'} onClick={() => setOpen(o => !o)} aria-expanded={open} className="st-howto-btn">How to connect</Button>
+      <Collapsible open={open}><p className="dt-muted st-howto-text">{children}</p></Collapsible>
+    </Stack>
+  );
+}
 const statusPill = (ok, okLabel, badLabel, warn) => <Pill tone={ok ? 'booked' : warn ? 'new' : 'neutral'} label={ok ? okLabel : badLabel} size="sm" icon={ok ? 'CheckCircle' : warn ? 'AlertTriangle' : false} />;
 
 function usePush() {
@@ -166,6 +174,10 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const categories = categoriesShape(data?.notifications?.categories);
   const quiet = quietShape(data?.notifications?.quiet);
   const saveNotif = async (key, next) => { const before = data?.notifications?.[key]; setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), [key]: next } })); const r = await patch({ notifications: { [key]: next } }); if (!r.ok) { setData(d => ({ ...d, notifications: { ...(d?.notifications || {}), [key]: before } })); toast.error(COPY.error.save); } };
+  /* One notifications list: a category switch also carries the reminder toggles it covers (the cron reads notifications.reminders, sendPush reads the categories). */
+  const REMINDERS_OF = { reminders: ['callbacks', 'tasks', 'bills'], meetings: ['meetings'], client: ['ideas', 'reviews'] };
+  const categoryOn = (id) => categories[id] !== false && (REMINDERS_OF[id] || []).every(k => reminders[k] !== false);
+  const saveCategory = async (id, v) => { await saveNotif('categories', { ...categories, [id]: v }); if (REMINDERS_OF[id]) await saveReminders({ ...reminders, ...Object.fromEntries(REMINDERS_OF[id].map(k => [k, v])) }); };
   /* The Test button says what happened: how many devices took it, and why when none did (src/lib/pushStatus.js testMessage). */
   const testPush = async () => {
     setTestingPush(true);
@@ -194,12 +206,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const clock = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   const lastPushText = rh.lastPushAt ? `${relativeTime(rh.lastPushAt)}${rh.devices !== null ? `, ${rh.devices} device${rh.devices === 1 ? '' : 's'}` : ''}` : rh.lastPushError ? `Failed: ${rh.lastPushError}` : 'None yet';
   const stripe = data?.stripe || { configured: false, webhookConfigured: false, lastWebhookAt: null, unmatched: 0 };
-  /* Emails (CRM revamp, step 6): four Zapier catch hooks, one per kind. The settings GET says which variables exist; Send test posts a fixed sample flagged test: true. */
-  const EMAIL_KINDS = [['intro', 'Intro'], ['onboarding', 'Onboarding'], ['invoice', 'Invoice'], ['delivery', 'Delivery']];
-  const emails = data?.emails || {};
-  const emailsOn = EMAIL_KINDS.filter(([k]) => emails[k]).length;
-  const [testingEmail, setTesting] = useState('');
-  const testEmail = async (kind, label) => { setTesting(kind); const r = await apiFetch('/api/admin/send-email', { method: 'POST', body: { kind, test: true } }); setTesting(''); if (r.ok) toast.success(`${label} test sent. It carries test: true, so the zap can skip it.`); else toast.error(r.data?.error || 'The test did not go out.'); };
   const [reconcile, setReconcile] = useState(null); // rows
   const [linkEv, setLinkEv] = useState(null);
   const openReconcile = async () => { const r = await apiFetch('/api/admin/stripe/events?stored=1&unmatched=1'); setReconcile(r.ok ? (r.data?.items || []) : []); };
@@ -225,9 +231,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   };
   const [leadImport, setLeadImport] = useState(false);
   const [orderImport, setOrderImport] = useState(false);
-  const [devicePlan, setDevicePlan] = useState(null);
-  const [deviceBusy, setDeviceBusy] = useState(false);
-  const runDevice = async () => { setDeviceBusy(true); let created = 0; for (const row of devicePlan) { if (row.skip) continue; if (await onCreateOrder?.(row.doc)) created++; } setDeviceBusy(false); toast.success(`${created} imported, ${devicePlan.filter(r => r.skip).length} skipped.`); setDevicePlan(null); };
   const exportOne = (ex) => { try { downloadText(ex.file(), ex.build({ leads, projects, orders })); toast.success(`${ex.label} exported.`); } catch { toast.error('Could not build the file.'); } };
   const backup = async () => { const a = document.createElement('a'); a.href = '/api/admin/backup'; a.download = ''; a.click(); setTimeout(load, 1500); };
 
@@ -241,7 +244,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   const stale = (at) => !at || Date.now() - new Date(at).getTime() > 36 * 3600e3;
 
   // One skeleton per tab, shaped like that tab's cards (Prompt 14).
-  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 7, emails: 5, templates: 7, data: 4, danger: 3 };
+  const TAB_CARDS = { profile: 5, notifications: 4, integrations: 6, emails: 5, templates: 7, data: 4, danger: 3 };
   const line = (w, h = 14) => <SkeletonBlock width={w} height={h} />;
   const tablet = useMediaQuery('(min-width: 768px)');
   const narrow = !desktop && !tablet; // descriptions wrap to two lines under 768
@@ -255,8 +258,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
   ];
   // Card heights per tab, measured against the loaded tabs at 390 (n) and 1280 (d), so the skeleton lines up.
   const TAB_HEIGHTS = {
-    notifications: { n: [190, 612, 114, 150], d: [158, 424, 114, 74] },
-    integrations: { n: [96, 222, 435], d: [78, 126, 126, 102, 124, 124, 106] },
+    notifications: { n: [760, 300, 114, 150], d: [560, 220, 114, 74] },
+    integrations: { n: [96, 222, 435], d: [78, 126, 102, 124, 124, 106] },
     data: { n: [396, 272, 260, 150], d: [378, 272, 260, 150] },
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
     templates: { n: [88, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
@@ -328,12 +331,12 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     </Stagger>
   ) : tab === 'notifications' ? (
     <Stagger className="v-stack st-stack">
-      <Card className="st-card"><p className="pb-card-h">Alerts</p><Stack gap={0}><Toggle label="Push notifications" description="New submissions and orders, to every device you enabled." checked={prefs.pushEnabled !== false} onChange={(v) => savePrefs({ ...prefs, pushEnabled: v })} /><Toggle label="Email backup" description="contact@visualizeclients.com on every submission." checked={prefs.emailEnabled !== false} onChange={(v) => savePrefs({ ...prefs, emailEnabled: v })} /></Stack></Card>
       <Card className="st-card" data-card="push-categories">
-        <p className="pb-card-h">What gets pushed</p>
-        <p className="dt-muted">Switch off a kind of push and it is never sent. Quiet hours hold back everything except due reminders and meetings.</p>
+        <p className="pb-card-h">Notifications</p>
+        <p className="dt-muted">One list: each switch covers the push and the reminders behind it. Switch one off and it is never sent. Quiet hours hold back everything except due reminders and meetings.</p>
         <Stack gap={0}>
-          {PUSH_CATEGORIES.map(c => <Toggle key={c.id} label={c.label} description={c.hint} checked={categories[c.id] !== false} onChange={(v) => saveNotif('categories', { ...categories, [c.id]: v })} className={`st-cat-${c.id}`} />)}
+          {PUSH_CATEGORIES.map(c => <Toggle key={c.id} label={c.label} description={c.hint} checked={categoryOn(c.id)} onChange={(v) => saveCategory(c.id, v)} className={`st-cat-${c.id}`} />)}
+          <Toggle label="Email backup" description="contact@visualizeclients.com on every submission." checked={prefs.emailEnabled !== false} onChange={(v) => savePrefs({ ...prefs, emailEnabled: v })} />
         </Stack>
         <Stack gap={0} className="st-quiet" data-card="quiet-hours">
           <Toggle label="Quiet hours" description="No pushes between these times (New York), except due reminders and meetings. A push held back is not sent later." checked={quiet.on} onChange={(v) => saveNotif('quiet', { ...quiet, on: v })} />
@@ -342,19 +345,11 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         </Stack>
       </Card>
       <Card className="st-card">
-        <p className="pb-card-h">Reminders</p>
-        <p className="dt-muted">A push the exact minute a callback or a meeting is due, plus one morning digest at 8:30am Eastern with today's callbacks, meetings, bills, and review asks.</p>
-        <Stack gap={0}>
-          <Toggle label="Meeting reminders" description="A push the minute a booked meeting starts, and today's meetings in the morning digest." checked={reminders.meetings !== false} onChange={(v) => saveReminders({ ...reminders, meetings: v })} />
-          <Toggle label="Callback reminders" description="A push the minute a callback is due, and callbacks due or overdue in the morning digest." checked={reminders.callbacks !== false} onChange={(v) => saveReminders({ ...reminders, callbacks: v })} />
-          <Toggle label="Bill reminders" description="Include retainer bills due today in the morning digest." checked={reminders.bills !== false} onChange={(v) => saveReminders({ ...reminders, bills: v })} className="st-rem-bills" />
-          <Toggle label="Task reminders" description="A push when a task you set comes due, and today's tasks in the morning digest." checked={reminders.tasks !== false} onChange={(v) => saveReminders({ ...reminders, tasks: v })} className="st-rem-tasks" />
-          <Toggle label="Client ideas" description="A push the moment a client sends an idea from their planner. The idea also lands as a task on their Ideas checklist either way." checked={reminders.ideas !== false} onChange={(v) => saveReminders({ ...reminders, ideas: v })} className="st-rem-ideas" />
-          <Toggle label="Review ask reminders" description="Include clients due for a review ask (three days after a release, none logged yet) in the morning digest." checked={reminders.reviews !== false} onChange={(v) => saveReminders({ ...reminders, reviews: v })} className="st-rem-reviews" />
-        </Stack>
+        <p className="pb-card-h">The reminders job</p>
+        <p className="dt-muted">A push the exact minute a callback, a meeting or a task is due, plus one morning digest at 8:30am Eastern. Which ones you get is the list above.</p>
         <div className="st-pushstat" data-card="push-status">
           <Row gap={2} align="center" wrap><Pill tone={armed.armed ? 'booked' : 'new'} label={armed.label} size="sm" icon={armed.armed ? 'CheckCircle' : 'AlertTriangle'} /><span className="dt-muted st-rem-timing">{armed.why}</span></Row>
-          {!cronArmed && <p className="dt-muted">Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</p>}
+          {!cronArmed && <HowTo>Cron is not armed yet: add CRON_SECRET in Vercel so the reminders job can run.</HowTo>}
           <Grid minColumnWidth={140} gap={2}>
             <div className="cw-kv"><span className="dt-fact-label">Last run</span><span>{rh.lastRunAt ? `${ago(rh.ageMs)}` : 'Never'}</span></div>
             <div className="cw-kv"><span className="dt-fact-label">Next run</span><span>{nextRunText(health)}</span></div>
@@ -395,34 +390,21 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <Card className="st-card st-integration">
         <Row gap={3} align="start"><IconTile icon="Calendar" tone={data?.calendly?.configured ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Calendly</p>{statusPill(!!data?.calendly?.configured, 'Connected', 'Not connected')}</Row>
-          <p className="dt-muted">{data?.calendly?.configured ? 'Scheduled events show on the Calendar and in notifications, refreshed every five minutes.' : 'Add CALENDLY_TOKEN (a personal access token) in Vercel environment variables and redeploy. Nothing else is needed.'}</p>
+          {data?.calendly?.configured ? <p className="dt-muted">Scheduled events show on the Calendar and in notifications, refreshed every five minutes.</p> : <HowTo>Add CALENDLY_TOKEN (a personal access token) in Vercel environment variables and redeploy. Nothing else is needed.</HowTo>}
         </Stack></Row>
       </Card>
       <Card className="st-card st-integration">
         <Row gap={3} align="start"><IconTile icon="CreditCard01" tone={stripe.configured ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Stripe</p>{statusPill(stripe.configured, 'Connected', 'Not connected')}{stripe.configured && statusPill(stripe.webhookConfigured, 'Webhook armed', 'Webhook secret missing', true)}{stripe.unmatched > 0 && <Pill tone="new" label={`${stripe.unmatched} unmatched`} size="sm" icon="AlertTriangle" />}</Row>
-          <p className="dt-muted">{stripe.configured ? `Read only. Last webhook ${stripe.lastWebhookAt ? relativeTime(stripe.lastWebhookAt) : 'never'}. Payments that match a client by email, phone, or name land on their ledger on their own.` : 'Add STRIPE_SECRET_KEY for read access and STRIPE_WEBHOOK_SECRET for the webhook (endpoint /api/stripe/webhook, events charge.succeeded, invoice.paid, checkout.session.completed, customer.subscription.created, updated, deleted). Missing keys only hide this card.'}</p>
+          {stripe.configured ? <p className="dt-muted">{`Read only. Last webhook ${stripe.lastWebhookAt ? relativeTime(stripe.lastWebhookAt) : 'never'}. Payments that match a client by email, phone, or name land on their ledger on their own.`}</p> : <HowTo>Add STRIPE_SECRET_KEY for read access and STRIPE_WEBHOOK_SECRET for the webhook (endpoint /api/stripe/webhook, events charge.succeeded, invoice.paid, checkout.session.completed, customer.subscription.created, updated, deleted). Missing keys only hide this card.</HowTo>}
           <Row gap={2} wrap><Button variant="secondary" size="md" onClick={openReconcile} className="st-reconcile">Reconcile{stripe.unmatched ? ` (${stripe.unmatched})` : ''}</Button></Row>
-        </Stack></Row>
-      </Card>
-      <Card className="st-card st-integration st-emails">
-        <Row gap={3} align="start"><IconTile icon="Mail01" tone={emailsOn === 4 ? 'booked' : emailsOn ? 'new' : 'neutral'} size="md" /><Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>{emails.resend ? 'Zapier emails' : 'Emails'}</p>{emails.resend ? <Pill tone="neutral" label="Retired" size="sm" icon={false} variant="outline" /> : statusPill(emailsOn === 4, 'Connected', emailsOn ? `${emailsOn} of 4 connected` : 'Not connected', emailsOn > 0)}</Row>
-          <Stack gap={1}>
-            {EMAIL_KINDS.map(([k, label]) => (
-              <Row key={k} gap={2} align="center" justify="between" wrap className="st-email-row">
-                <Row gap={2} align="center" wrap><span className="st-email-label">{label}</span>{statusPill(!!emails[k], 'Connected', 'Not connected')}</Row>
-                {emails[k] && !emails.resend && <Button variant="secondary" size="md" icon="Send01" loading={testingEmail === k} onClick={() => testEmail(k, label)} className="st-email-test">Send test</Button>}
-              </Row>
-            ))}
-          </Stack>
-          <p className="dt-muted">{emails.resend ? 'Retired: Resend is connected, so Compose sends every email now and these hooks answer nothing. Turn off the old Google Form Zaps and delete the ZAPIER_HOOK_* variables in Vercel.' : 'Each email is a Zapier catch hook. The hook URL goes in Vercel as an environment variable (ZAPIER_HOOK_INTRO, ZAPIER_HOOK_ONBOARDING, ZAPIER_HOOK_INVOICE, ZAPIER_HOOK_DELIVERY). Add RESEND_API_KEY and Compose takes over (Settings, Emails).'}</p>
         </Stack></Row>
       </Card>
       <Card className="st-card st-integration">
         <Row gap={3} align="start"><IconTile icon="RefreshCw01" tone={cronArmed ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Scheduled tasks</p>{!cronArmed ? statusPill(false, 'Running', 'CRON_SECRET missing') : statusPill(rh.ranRecently, 'Running', 'Reminders not running', true)}</Row>
-          <p className="dt-muted">Reminders ran {health?.crons?.reminders?.lastRunAt ? relativeTime(health.crons.reminders.lastRunAt) : 'never'}; the daily job ran {health?.crons?.daily?.lastRunAt ? relativeTime(health.crons.daily.lastRunAt) : 'never'}. {!cronArmed ? 'Add CRON_SECRET in Vercel and both jobs start on their own.' : rh.ranRecently ? 'Both are on the Vercel cron schedule.' : 'The reminders job should run every minute: open the Vercel dashboard, Settings, Cron Jobs.'}</p>
+          <p className="dt-muted">Reminders ran {health?.crons?.reminders?.lastRunAt ? relativeTime(health.crons.reminders.lastRunAt) : 'never'}; the daily job ran {health?.crons?.daily?.lastRunAt ? relativeTime(health.crons.daily.lastRunAt) : 'never'}.{cronArmed && rh.ranRecently ? ' Both are on the Vercel cron schedule.' : ''}</p>
+          {!cronArmed ? <HowTo>Add CRON_SECRET in Vercel and both jobs start on their own.</HowTo> : !rh.ranRecently ? <HowTo>The reminders job should run every minute: open the Vercel dashboard, Settings, Cron Jobs.</HowTo> : null}
 
         </Stack></Row>
       </Card>
@@ -476,7 +458,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <Stack gap={2}>
           <ListRow leading={<IconTile icon="Upload01" tone="progress" size="sm" glow={false} />} title="Leads from a spreadsheet" subtitle="CSV or XLSX with a preview and duplicate matching. Also on the Leads screen." trailing={<Button variant="secondary" size="md" onClick={() => setLeadImport(true)} className="st-import-leads">Import</Button>} chevron={false} />
           <ListRow leading={<IconTile icon="Package" tone="progress" size="sm" glow={false} />} title="Print orders from CSV" subtitle="Map the columns, preview, and skip duplicates by email, day, and subtotal." trailing={<Button variant="secondary" size="md" onClick={() => setOrderImport(true)} className="st-import-orders">Import</Button>} chevron={false} />
-          <ListRow leading={<IconTile icon="Printer" tone="neutral" size="sm" glow={false} />} title="Print orders saved on this device" subtitle="From the old print dashboard in this browser. Nothing is deleted from the browser." trailing={<Button variant="secondary" size="md" onClick={() => setDevicePlan(planImport(readLocalOrders(), orders))} className="st-import-device">Preview</Button>} chevron={false} />
         </Stack>
       </Card>
       <Card className="st-card">
@@ -500,11 +481,6 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
         <Row gap={2}><Button variant="danger" icon={Trash01} onClick={purge} disabled={!deleted?.length}>Purge all now</Button></Row>
       </Card>
       <Card className="st-card">
-        <p className="pb-card-h">Sign out</p>
-        <p className="dt-muted">Signs this device out. Sign out everywhere is not available yet: sessions are signed with SESSION_SECRET and carry no generation number, so the only way to end every session at once is to rotate SESSION_SECRET in Vercel and redeploy.</p>
-        <Row gap={2}><Button variant="secondary" icon={LogOut01} onClick={onLogout}>Sign out this device</Button></Row>
-      </Card>
-      <Card className="st-card">
         <p className="pb-card-h">Design system</p>
         <p className="dt-muted">Every token, color, and status pill rendered live. The old print dashboard was retired; its orders live in Print Orders and its saved orders import from the Data tab.</p>
         <Row gap={2} wrap><Button variant="ghost" icon="Palette" onClick={() => pushRel('/design')}>Open design system</Button></Row>
@@ -517,39 +493,27 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
       <ScrollArea wide className="cl-page">
         {phone && !tab ? (
           <>
-            <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
+            <Section loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />
             {loadError && !data && !fetching && <Card><ErrorState title={COPY.error.settings.title} description={COPY.error.settings.description} onRetry={retry} retrying={retrying} /></Card>}
             <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>
               {tabs.map(t => <ListRow key={t.id} leading={t.icon ? <Icon icon={t.icon} size="var(--v-icon-md)" /> : undefined} title={t.label} subtitle={SETTINGS_BLURB[t.id]} meta={t.count ? <span className="st-count">{t.count}</span> : undefined} onClick={() => pushTab(t.id, { tab: t.id })} />)}
               <ListRow leading={<Icon icon="Palette" size="var(--v-icon-md)" />} title="Design system" subtitle="Every token and status, rendered live" onClick={() => pushRel('/design')} />
             </Stagger>
+            <button type="button" className="st-signout" onClick={onLogout}>Sign out</button>
           </>
         ) : (
           <>
-            {!phone && <Section title="Settings" loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />}
+            {!phone && <Section loading={fetching || loading} description={fetching || loading ? undefined : `${profile.name}, ${leads.length} leads loaded`} />}
             <CronAlarm actionLabel="Open Notifications" onOpen={tab !== 'notifications' ? () => setTab('notifications') : null} />
             {!phone && <div className="st-tabs"><Tabs label="Settings sections" tabs={tabs} value={tab} onChange={setTab} /></div>}
             <div className="lay-tabbody" key={showSkel ? 'skeleton' : tab}>{body}</div>
+            {(tab === 'danger' || !phone) && <button type="button" className="st-signout" onClick={onLogout}>Sign out</button>}
           </>
         )}
       </ScrollArea>
       {confirmDialog}
       {leadImport && <LeadImport existingLeads={leads} onClose={() => setLeadImport(false)} onImported={() => { setLeadImport(false); onLeadsImported?.(); }} />}
       {orderImport && <OrdersImport existing={orders} onClose={() => setOrderImport(false)} onCreate={onCreateOrder} />}
-      {devicePlan && (
-        <Sheet open onClose={() => setDevicePlan(null)} title="Import print orders" description={devicePlan.length ? `${devicePlan.filter(r => !r.skip).length} to create, ${devicePlan.filter(r => r.skip).length} skipped as duplicates.` : 'Nothing saved on this device.'} tall width={720}
-          footer={<><Button variant="ghost" onClick={() => setDevicePlan(null)} disabled={deviceBusy}>Cancel</Button><Button loading={deviceBusy} disabled={!devicePlan.some(r => !r.skip)} icon={Download01} onClick={runDevice}>Create {devicePlan.filter(r => !r.skip).length}</Button></>}>
-          <Table aria-label="Orders to import" density="sm" columnChooser={false} rows={devicePlan} rowKey={(r) => r.key + r.doc.localId}
-            columns={[
-              { id: 'customer', label: 'Customer', always: true, render: (r) => r.doc.customer.name || r.doc.customer.email || 'Unknown' },
-              { id: 'date', label: 'Date', render: (r) => fmtDate(r.doc.createdAt) },
-              { id: 'items', label: 'Items', render: (r) => itemSummary(r.doc) },
-              { id: 'subtotal', label: 'Subtotal', align: 'end', render: (r) => money(orderSubtotal(r.doc)) },
-              { id: 'status', label: 'Status', render: (r) => <Pill id={r.doc.status} list={PRINT_ORDER_STATUSES} size="sm" /> },
-              { id: 'result', label: 'Result', render: (r) => (r.skip ? <Pill tone="neutral" label="Skip" size="sm" icon={false} /> : <Pill tone="booked" label="Create" size="sm" icon={false} />) },
-            ]} empty={<EmptyState size="sm" icon="Printer" title={COPY.empty['orders.import.device'].title} description={COPY.empty['orders.import.device'].description} />} />
-        </Sheet>
-      )}
       {reconcile && (
         <Sheet open onClose={() => setReconcile(null)} title="Reconcile Stripe" description={reconcile.length ? `${reconcile.length} payment${reconcile.length === 1 ? '' : 's'} with no matching client.` : 'Every stored payment is matched.'} tall width={640} className="st-reconcile-sheet">
           <Stack gap={2}>
@@ -565,14 +529,16 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
 }
 
 const stStyles = `
+  /* Sign out is a plain text link at the very bottom (the shell, milestone 3): a 44px target, nothing a thumb lands on by accident. */
+  .st-signout { align-self: center; margin-top: var(--v-space-6); min-height: var(--v-tap); padding: var(--v-space-2) var(--v-space-3); border: 0; background: none; color: var(--v-text-3); font: inherit; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; border-radius: var(--v-radius-sm); }
+  .st-signout:hover { color: var(--v-text); }
+  .st-signout:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .st-steps { margin: 0; padding-left: var(--v-space-5); display: flex; flex-direction: column; gap: var(--v-space-1); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .st-pushstat { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }
   .st-test-note { margin: 0; min-height: var(--v-lh-sm); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .st-test-note.is-success { color: var(--v-status-booked-text); }
   .st-test-note.is-warning { color: var(--v-status-new-text); }
   .st-test-note.is-error { color: var(--v-status-danger-text); }
-  .st-email-row { min-height: var(--v-tap); }
-  .st-email-label { font-weight: var(--v-weight-semibold); color: var(--v-text); min-width: 96px; }
   .st-log-row { display: flex; flex-direction: column; gap: 2px; padding: var(--v-space-2) 0; border-bottom: 1px solid var(--v-border); min-width: 0; }
   .st-log-row:last-child { border-bottom: 0; }
   .st-log-msg { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text); overflow-wrap: anywhere; }
@@ -580,6 +546,8 @@ const stStyles = `
   .st-tabs { position: sticky; top: calc(-1 * var(--v-space-4)); z-index: var(--v-z-sticky); background: var(--v-ground); padding-top: var(--v-space-1); }
   .st-stack { gap: var(--v-space-3); }
   .st-card { gap: var(--v-space-3); }
+  .st-howto { align-items: flex-start; }
+  .st-howto-text { margin: 0; padding-top: var(--v-space-1); }
   .st-form { max-width: 520px; }
   .st-name { font-size: var(--v-text-xl); font-weight: var(--v-weight-bold); }
   .st-target { font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); }

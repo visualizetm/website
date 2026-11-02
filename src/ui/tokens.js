@@ -77,13 +77,15 @@ export const tokenStyles = `
     --v-safe-bottom: calc(var(--v-tabbar-h) + env(safe-area-inset-bottom, 0px));
     /* The glass tab bar (floating pill, phone only, src/shell/TabBar.jsx): colors derived from the existing
        bar/border tokens through color-mix so both themes stay correct automatically with one declaration each,
-       never a new literal. Raised to 80% here (dark) rather than a lower, more "glassy" opacity, because a busy
-       scrolled list read muddy underneath at anything lower: readability over effect (the prompt's decision rule). */
-    --v-glass-bg: color-mix(in srgb, var(--v-bar) 80%, transparent);
+       never a new literal. 45% of the bar with a 24px blur and 180% saturation (the shell, milestone 3): see
+       through, with an inset top highlight for the glass edge; the icons stay at 4.5:1 over the brightest content
+       (the red Start call session button under the bar) and the a11y audit proves it. Reduced transparency keeps
+       the solid fallback in TabBar.jsx. */
+    --v-glass-bg: color-mix(in srgb, var(--v-bar) 45%, transparent);
     --v-glass-border: var(--v-border-strong);
-    --v-glass-blur: 20px;
+    --v-glass-blur: 24px;
     --v-glass-saturate: 180%;
-    --v-glass-shadow: 0 10px 30px rgba(0,0,0,0.30);
+    --v-glass-shadow: 0 10px 30px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.10);
 
     /* Radius */
     --v-radius-sm: 6px; --v-radius-md: 10px; --v-radius-lg: 16px; --v-radius-xl: 22px; --v-radius-pill: 999px;
@@ -185,9 +187,10 @@ export const tokenStyles = `
     /* Shadows: more spread, warm */
     --v-shadow-2: 0 6px 20px rgba(26,22,19,0.12), 0 0 0 1px var(--v-border);
     --v-shadow-3: 0 16px 48px rgba(26,22,19,0.18), 0 0 0 1px var(--v-border-strong);
-    /* The glass tab bar reads muddier over a cream background than a near black one at the same opacity, so light raises it to 88%. */
-    --v-glass-bg: color-mix(in srgb, var(--v-bar) 88%, transparent);
-    --v-glass-shadow: 0 10px 30px rgba(26,22,19,0.18);
+    /* The glass tab bar on cream: the bar is light, so a lower opacity keeps the icons over 4.5:1 against the lightest card
+       (white) underneath only with a bit more body than dark; 62% with the same blur, and the highlight stays white. */
+    --v-glass-bg: color-mix(in srgb, var(--v-bar) 62%, transparent);
+    --v-glass-shadow: 0 10px 30px rgba(26,22,19,0.18), inset 0 1px 0 rgba(255,255,255,0.10);
     /* Charts (Prompt 15): darker fills so a bar reads 3:1 on the cream layers and a white label passes 4.5:1 on it */
     --v-chart-1: var(--v-red-hover); --v-chart-2: #1d4ed8; --v-chart-3: #15803d;
     --v-chart-4: #b45309; --v-chart-5: var(--v-status-callback-text); --v-chart-6: #047857;

@@ -87,9 +87,9 @@ for (const w of WIDTHS) {
   ok(y.alarm > 0 && y.alarm < y.today, 'it sits above Next up');
   const axe = await t.page.evaluate(async (src) => { const s = document.createElement('script'); s.textContent = src; document.head.appendChild(s); const r = await window.axe.run(document.querySelector('[data-card="cron-alarm"]'), { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'] } }); return r.violations.map(v => v.id); }, AXE);
   ok(axe.length === 0, `axe finds nothing on the alarm (${axe.join(', ') || 'clean'})`);
-  await alarm.getByRole('button', { name: 'Open Settings' }).click();
+  await alarm.getByRole('button', { name: 'Open Notifications' }).click();
   await t.page.waitForTimeout(500);
-  ok(/\/admin\/settings/.test(t.page.url()), `its button opens Settings (${t.page.url().replace(BASE, '')})`);
+  ok(/\/admin\/settings\/notifications/.test(t.page.url()), `its button opens the Notifications tab of Settings (${t.page.url().replace(BASE, '')})`);
   await t.page.close();
   t = await open(ctx, '/admin', { never: true });
   ok(/^Reminders have never run\./.test((await t.page.locator('[data-card="cron-alarm"]').innerText()).split('\n')[0]), 'home: no run on record at all says never');

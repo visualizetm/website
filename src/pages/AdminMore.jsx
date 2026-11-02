@@ -1,19 +1,19 @@
-import LogOut01 from '@untitled-ui/icons-react/build/esm/LogOut01';
-import { PageShell, ScrollArea, Section, Stack, Card, ListRow, Button, Avatar, SkeletonBlock, Icon, Stagger } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, ListRow, SkeletonBlock, Icon, Stagger } from '../ui';
 import { MORE_SECTIONS, WORKSPACES, NAV_GROUP_META } from '../shell/nav';
 import { useTopBar } from '../shell/ShellContext';
 
 /* More (CRM mobile revamp, milestone 3): the phone's way to everything that is not a tab, as one screen
  * instead of a sheet of buttons. Sections as the sidebar groups them (Pipeline, Clients, Studio, System), one row per screen with its count on
- * the right, then the account row. A tab screen: the tab bar stays, More is the active tab. */
-export default function AdminMore({ counts = {}, countsLoading = false, onGo, onLogout }) {
+ * the right. No account card (the shell, milestone 3): Sign out is a text link at the bottom of Settings, where a thumb
+ * cannot land on it by accident. A tab screen: the tab bar stays, More is the active tab. */
+export default function AdminMore({ counts = {}, countsLoading = false, onGo }) {
   useTopBar(null);
   /* The nav revamp (milestone 7): the sections are the workspaces (Pipeline, Clients), then Studio and System, the same rows the sidebar lists. */
   const groups = MORE_SECTIONS.map(sec => ({ group: sec.label, blurb: WORKSPACES.find(w => w.id === sec.id)?.blurb || NAV_GROUP_META[sec.label]?.blurb, items: sec.items }));
   return (
     <PageShell className="aa-main aa-main--wide mo-shell">
       <ScrollArea wide className="mo-page">
-        <Section title="Everything else" description="What is not on the tab bar." />
+        <Section description="What is not on the tab bar." />
         <Stack gap={5}>
           {groups.map(g => (
             <section key={g.group} className="mo-group" aria-label={g.group}>
@@ -29,11 +29,6 @@ export default function AdminMore({ counts = {}, countsLoading = false, onGo, on
               </Stagger>
             </section>
           ))}
-          <Card className="mo-user" padding={3}>
-            <Avatar name="Rob" size="md" />
-            <span className="mo-user-text"><strong>Rob</strong><span>Visualize Studio</span></span>
-            <Button variant="ghost" icon={LogOut01} onClick={onLogout}>Sign out</Button>
-          </Card>
         </Stack>
       </ScrollArea>
       <style>{moreStyles}</style>
@@ -47,7 +42,4 @@ const moreStyles = `
   .mo-group-b { text-transform: none; letter-spacing: 0; font-weight: var(--v-weight-regular, 400); }
   .mo-rows { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .mo-count { min-width: 24px; padding: 0 var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-3); color: var(--v-text); font-size: var(--v-text-sm); line-height: 24px; text-align: center; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
-  .mo-user { display: flex; align-items: center; gap: var(--v-space-3); }
-  .mo-user-text { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: var(--v-text-sm); color: var(--v-text-3); }
-  .mo-user-text strong { color: var(--v-text); font-size: var(--v-text-md); }
 `;

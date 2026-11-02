@@ -125,7 +125,7 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
   return (
     <PageShell className="aa-main aa-main--wide pj-shell">
       <ScrollArea wide>
-        <Section title="Projects" loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(rows.length, 'projects', shown.length) : `${rows.filter(r => !r.p.archived).length} in the list`}
+        <Section loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(rows.length, 'projects', shown.length) : `${rows.filter(r => !r.p.archived).length} in the list`}
           action={<Row gap={2} wrap><Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />{onNew && <Button icon="Plus" onClick={onNew} className="pj-new">New project</Button>}</Row>} />
         {strip}
         {showSkel ? <div aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /></div> : <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />}

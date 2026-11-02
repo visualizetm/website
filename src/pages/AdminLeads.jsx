@@ -344,7 +344,7 @@ export default function AdminLeads({
   return (
     <PageShell className="aa-main aa-main--wide ld-shell">
       <ScrollArea wide className="ld-page">
-        <Section title="Leads" loading={loading} description={loading ? undefined : activeCount ? matchLine(pool.length, 'leads', sorted.length) : summary}
+        <Section loading={loading} description={loading ? undefined : activeCount ? matchLine(pool.length, 'leads', sorted.length) : summary}
           action={<Row gap={2} wrap>
             <SegmentedControl size="sm" label="Pool" options={[{ id: 'open', label: 'Open' }, { id: 'declined', label: 'Declined' }, { id: 'nurture', label: 'Nurture' }]} value={poolView} onChange={setPool} />
             {poolView === 'open' && <SegmentedControl size="sm" label="View" options={[{ id: 'kanban', label: 'Kanban', icon: 'Columns03' }, { id: 'list', label: 'List', icon: 'Rows01' }]} value={mode} onChange={setMode} />}

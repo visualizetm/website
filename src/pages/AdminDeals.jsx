@@ -94,7 +94,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   return (
     <PageShell className="aa-main aa-main--wide dl-shell">
       <ScrollArea wide className="dl-page">
-        <Section title="Deals" loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(pool.length, 'deals', shown.length) : `${pool.length} in play, ${pool.filter(isStalled).length} stalled`} />
+        <Section loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(pool.length, 'deals', shown.length) : `${pool.length} in play, ${pool.filter(isStalled).length} stalled`} />
         {!showSkel && !pending && pool.length > 0 && <ListSearch value={q} onChange={setQ} placeholder="Search deals" label="Search deals" className="dl-search" />}
         {showSkel && <Stack gap={4} aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /></Stack>}
         {pending ? null : showSkel ? skeleton

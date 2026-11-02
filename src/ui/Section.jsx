@@ -1,6 +1,7 @@
 import { SkeletonBlock } from './Skeleton';
 /**
- * Section: a titled block with consistent spacing.
+ * Section: a titled block with consistent spacing. At the top of a page the title is left out (one header rule, the shell,
+ * milestone 3): the top bar holds the title and Back, the page shows only its count line (the description).
  * @param {object} props
  * @param {import('react').ReactNode} props.title
  * @param {import('react').ReactNode} [props.description]
@@ -13,7 +14,7 @@ export default function Section({ title, description, action, gap = 3, loading =
     <section className={`v-section ${className}`.trim()} style={{ gap: `var(--v-space-${gap})` }} {...rest}>
       <header className="v-section-head">
         <div className="v-section-text">
-          <h2 className="v-section-title">{title}</h2>
+          {title && <h2 className="v-section-title">{title}</h2>}
           {loading ? <p className="v-section-desc"><SkeletonBlock width={180} height={14} style={{ margin: '2px 0' }} /></p> : description && <p className="v-section-desc">{description}</p>}
         </div>
         {action && <div className="v-section-action">{action}</div>}

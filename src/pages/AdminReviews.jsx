@@ -268,7 +268,7 @@ export default function AdminReviews({ leads = [], projects = [], submissions = 
   return (
     <PageShell className="aa-main aa-main--wide cl-shell rv-shell">
       <ScrollArea wide className="cl-page">
-        <Section title="Reviews" loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(clients.length, 'clients', list.length) : summary}>
+        <Section loading={loading} description={loading ? undefined : (q.trim() || filter !== 'all') ? matchLine(clients.length, 'clients', list.length) : summary}>
           <Stack gap={2}>
             <ListSearch className="cl-search" placeholder="Search clients" value={q} onChange={setQ} label="Search clients" />
             <Row gap={2} wrap className="rv-chips">{REVIEW_FILTERS.map(([id, label]) => <Chip key={id} label={label} count={counts[id]} selected={filter === id} onClick={() => setFilter(id)} />)}</Row>

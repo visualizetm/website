@@ -11,7 +11,7 @@ import { nextUpItems } from '../lib/nextAction';
 import { livePosts, postsInReview, monthOf, isDone } from '../lib/posts';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
-/* The Clients dashboard (the nav revamp, milestone 5): the Clients
+/* The Client overview (the nav revamp, milestone 5; titled Client overview since the shell, milestone 3): the Clients
  * workspace's home. Active clients, projects in progress, retainers and
  * their monthly total, unpaid invoices, tasks due across clients, the
  * planner's state and the latest activity, on the same card grid as the

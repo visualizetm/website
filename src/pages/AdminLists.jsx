@@ -152,7 +152,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   return (
     <PageShell className="aa-main aa-main--wide ls-shell">
       <ScrollArea wide>
-        {!sel && !(showSkel && selId) && <Section title="Lists" loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
+        {!sel && !(showSkel && selId) && <Section loading={showSkel} description={showSkel ? undefined : `${open.filter(l => !l.system).length} open, ${open.filter(isFull).length} ready to start`}
           action={<Button icon="Plus" onClick={() => { setName(''); setTarget('25'); setWin('any'); setModal({ kind: 'new' }); }}>New list</Button>} />}
         {body}
       </ScrollArea>

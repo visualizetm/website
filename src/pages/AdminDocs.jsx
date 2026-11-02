@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Row, Button, Select, Menu, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
+import { PageShell, ScrollArea, Row, Button, Select, Menu, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
 import RowSheet from '../components/RowSheet';
 import ListSearch from '../components/ListSearch';
 import DocRow from '../components/docs/DocRow';
@@ -39,7 +39,7 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
 
   const newDoc = () => { if (lead) docsApi.newDoc(lead); else docsApi.pickClient(); };
   /* A per client page is a focused screen and declares New doc; the all clients page is a tabs screen (More), whose top bar is Search, Quick add (it has New doc) and Notifications. */
-  useTopBar({ title: 'Docs', back: onBack, actions: lead || forClient ? [{ id: 'new', label: 'New doc', icon: 'Plus', onClick: newDoc }] : undefined });
+  useTopBar({ title: lead ? `${lead.business}, docs` : 'Docs', back: onBack, actions: lead || forClient ? [{ id: 'new', label: 'New doc', icon: 'Plus', onClick: newDoc }] : undefined });
 
   const pin = async (d) => { const r = await ops.patch(d._id, { pinned: !d.pinned }); if (!r.ok) toast.error(COPY.error.save); else toast.success(d.pinned ? 'Unpinned.' : 'Pinned to the card.'); };
   const dup = async (d) => { const item = await ops.duplicate(d); if (item) toast.success('Duplicated.'); else toast.error(COPY.error.save); };
@@ -114,15 +114,12 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
   return (
     <PageShell className="aa-main aa-main--wide ad-page">
       <ScrollArea wide className="ad-scroll">
+        {/* One header rule (the shell, milestone 3): the top bar holds the title and Back; the page shows its count line and, on All docs, New doc (a client's docs declare it as a top bar action). */}
         {!phone && (
           <div className="ad-top">
             <Row gap={2} align="center" justify="between" wrap>
-              <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-                {(lead || forClient) && <Button variant="ghost" icon="ArrowLeft" onClick={onBack} className="ad-back">Back</Button>}
-                <h1 className="ad-title lay-title">{lead ? `${lead.business}, docs` : 'Docs'}</h1>
-                {mine.length > 0 && <Pill tone="neutral" label={`${mine.length}`} size="sm" icon={false} variant="soft" />}
-              </Row>
-              <Button icon="Plus" onClick={newDoc} className="ad-new">New doc</Button>
+              <p className="ad-count">{lead ? `${lead.business}: ${mine.length} ${mine.length === 1 ? 'doc' : 'docs'}` : `${mine.length} ${mine.length === 1 ? 'doc' : 'docs'}`}</p>
+              {!(lead || forClient) && <Button icon="Plus" onClick={newDoc} className="ad-new">New doc</Button>}
             </Row>
           </div>
         )}
@@ -137,8 +134,8 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
 }
 
 const adStyles = `
+  .ad-count { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .ad-top { position: sticky; top: 0; z-index: var(--v-z-sticky); padding: var(--v-space-3) 0; background: var(--v-surface-1); border-bottom: 1px solid var(--v-border-1); }
-  .ad-title { margin: 0; font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; }
   .ad-title--phone { font-size: var(--v-text-md); line-height: var(--v-lh-md); min-height: var(--v-lh-md); color: var(--v-text-2); }
   .ad-body { display: flex; flex-direction: column; gap: var(--v-space-3); padding-top: var(--v-space-4); padding-bottom: var(--v-space-6); min-width: 0; }
   .ad-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); min-width: 0; }
