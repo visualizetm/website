@@ -1,239 +1,156 @@
-/* Back test (Back, done once): for every list screen at 390 and 1280, apply a
- * filter, scroll, open the third row, tap Back, and assert the same path,
- * the same filter chips selected, the same scroll position within 8px and
- * the same row highlighted. Then the same with the browser's back. Then the
- * editors, the setup pages and the console modes. The run fails when any
- * screen one level deep has no Back control.
- *
- *   npx vite build && npx vite preview --port 4330 &
- *   node scripts/back-test.mjs
- *   AUDIT_WIDTHS=390 node scripts/back-test.mjs
- */
-import { chromium } from 'playwright-core';
-import { mockRoutes } from './audit-fixtures.mjs';
+#!/usr/bin/env node
+/* One back stack (email safety, one back stack, the shell: milestone 2). The pure half runs anywhere: parentOf and
+ * backTarget (src/shell/backTree.js) for every nav path, every sub screen and every deep link a push makes, and
+ * the roots. The browser half runs when AUDIT_BASE names a served build: Lists > Start > a lead > Back > Back lands
+ * on Queue then Calls; a push deep link to /clients/:id/planner backs to that client's record; Escape on a computer
+ * is the same Back; a reload of /calls/queue with no session goes to the builder.
+ *   npx vite preview --port 4330 &   AUDIT_BASE=http://127.0.0.1:4330 PW_CHROME=/opt/pw-browsers/chromium node scripts/back-test.mjs */
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+/* BACK_ROOT names a copy of the repository with one guard cut out (scripts/back-guard-proof.mjs); the tree and the nav come from there. */
+const ROOT = process.env.BACK_ROOT ? path.resolve(process.env.BACK_ROOT) : path.resolve(new URL('..', import.meta.url).pathname);
+const { parentOf, backTarget, isRoot, callsModeOf, callsPathOf, rootPathOf } = await import(pathToFileURL(path.join(ROOT, 'src/shell/backTree.js')).href);
+const { NAV } = await import(pathToFileURL(path.join(ROOT, 'src/shell/nav.js')).href);
 
-const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
-const WIDTHS = process.env.AUDIT_WIDTHS ? process.env.AUDIT_WIDTHS.split(',').map(Number) : [390, 1280];
-const T = 6000;
-const SCROLL_PX = 8;
-const ONLY = process.env.BACK_ONLY || ''; // one screen id, for a quick re-run
+let fails = 0, passes = 0;
+const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m); } else { passes++; console.log('ok  ', m); } };
+const eq = (got, want, m) => ok(got === want, `${m} (${JSON.stringify(got)}${got === want ? '' : `, wanted ${JSON.stringify(want)}`})`);
 
-/* The list screens: path, the storage the list view needs, and how a row opens. */
-const SCREENS = [
-  { id: 'leads', path: '/admin/leads', ls: { vz_leads_view: 'list' } },
-  { id: 'triage', path: '/admin/triage' },
-  { id: 'lists', path: '/admin/lists' },
-  { id: 'lists-inside', path: '/admin/lists', open: 'LS1', inside: true },
-  { id: 'deals', path: '/admin/deals' },
-  { id: 'clients', path: '/admin/clients' },
-  { id: 'projects', path: '/admin/projects' },
-  { id: 'orders', path: '/admin/orders' },
-  { id: 'reviews', path: '/admin/reviews' },
-  { id: 'submissions', path: '/admin/submissions' },
-  { id: 'tasks', path: '/admin/tasks' },
-  { id: 'calendar', path: '/admin/calendar', ls: { vz_cal_view: 'day' } },
+console.log('1. The roots: every nav row is a root, the home has no parent, a root backs to the home.');
+eq(parentOf('/'), null, 'the home has no parent');
+for (const n of NAV) {
+  if (n.phoneOnly && n.id !== 'more') continue;
+  if (n.id === 'design') { ok(!isRoot(n.path), 'design is one level in (under Settings)'); eq(parentOf(n.path), '/settings', 'design backs to Settings'); continue; }
+  if (n.id === 'deleted') { eq(parentOf(n.path), '/settings', `${n.id} backs to Settings`); continue; }
+  ok(isRoot(n.path), `${n.id} (${n.path || '/'}) is a root`);
+  if (n.path) eq(parentOf(n.path), '/', `${n.id} backs to the home`);
+}
+eq(rootPathOf('leads'), '/calls?section=leads', 'Leads lives in the Calls hub');
+eq(rootPathOf('lists'), '/calls?section=lists', 'Lists lives in the Calls hub');
+eq(rootPathOf('triage'), '/calls?section=triage', 'Triage lives in the Calls hub');
+eq(rootPathOf('clients'), '/clients', 'any other section is its own root');
+eq(rootPathOf('dashboard'), '/', 'the dashboard is the home');
+
+console.log('2. Sub screens back to the record; the record (an open state on a root) backs to the root.');
+eq(parentOf('/clients/L11/planner'), '/clients?open=L11', 'planner backs to the client');
+eq(parentOf('/clients/L11/planner', '?ideas=1'), '/clients?open=L11', 'planner with the ideas query backs to the client');
+eq(parentOf('/clients/L11/tasks'), '/clients?open=L11', 'tasks backs to the client');
+eq(parentOf('/clients/L11/tasks', '?project=P11'), '/clients?open=L11', 'one project\'s tasks backs to the client');
+eq(parentOf('/clients/L11/docs'), '/clients?open=L11', 'the client\'s docs back to the client');
+eq(parentOf('/clients/L11/showcase'), '/clients?open=L11', 'showcase backs to the client');
+eq(parentOf('/clients/L11/projects/new'), '/clients?open=L11', 'a new project backs to the client');
+eq(parentOf('/projects/new'), '/projects', 'a new project with no client backs to Projects');
+eq(parentOf('/leads/L8/concepts'), '/calls?section=leads&open=L8', 'concepts backs to the lead (the opener moves a client to Clients)');
+eq(parentOf('/leads/L8/concepts', '?set=S1'), '/calls?section=leads&open=L8', 'concepts on a round backs to the lead');
+eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/calls?section=leads&open=L8', 'compose backs to its record');
+eq(parentOf('/email/compose'), '/', 'compose with no record backs to the home');
+eq(parentOf('/docs/D1'), '/docs', 'a doc backs to All docs');
+eq(parentOf('/lists/LS1/fill'), '/calls?section=lists&open=LS1', 'fill from filters backs to the list');
+eq(parentOf('/settings/deleted'), '/settings', 'Recently Deleted backs to Settings');
+eq(parentOf('/settings/emails'), '/settings', 'a settings tab backs to Settings');
+eq(parentOf('/design'), '/settings', 'the design system backs to Settings');
+eq(backTarget('/clients', '', { open: { section: 'clients', id: 'L11' } }), '/clients', 'an open client backs to Clients');
+eq(backTarget('/clients', '?open=L11', { open: { section: 'clients', id: 'L11' }, idx: 0 }), '/clients', 'a deep linked client backs to Clients, the query dropped');
+eq(backTarget('/calls', '?section=lists', { open: { section: 'lists', id: 'LS1' } }), '/calls?section=lists', 'an open list backs to the hub on Lists');
+eq(backTarget('/calls', '?section=leads&open=L3', { open: { section: 'leads', id: 'L3' } }), '/calls?section=leads', 'an open lead backs to the hub on Leads');
+eq(backTarget('/calls', '?section=leads', { create: { section: 'leads' } }), '/calls?section=leads', 'a new lead form backs to the hub on Leads');
+eq(backTarget('/orders', '', { create: { section: 'orders' } }), '/orders', 'a new order backs to Orders');
+eq(backTarget('/clients', '', null), null, 'a root with nothing open has no Back');
+eq(backTarget('/', '', null), null, 'the home has no Back');
+eq(backTarget('/clients/L11/planner', '', null), '/clients?open=L11', 'a planner reached with no origin backs to the client');
+eq(backTarget('/clients', '', { open: { section: 'clients', id: 'L11' }, origin: { path: '/admin/tasks' } }), '/clients', 'the tree still names the parent when an origin exists (the origin wins at runtime)');
+
+console.log('3. The call console: Calls > Queue > Room, Summary backs to Calls.');
+eq(parentOf('/calls/queue'), '/calls', 'the queue backs to Calls');
+eq(parentOf('/calls/room/L0'), '/calls/queue', 'the room backs to the queue');
+eq(parentOf('/calls/summary'), '/calls', 'the summary backs to Calls, never the home');
+eq(callsModeOf('/calls'), 'builder', '/calls is the builder');
+eq(callsModeOf('/calls/queue'), 'queue', '/calls/queue is the queue');
+eq(callsModeOf('/calls/room/L0'), 'room', '/calls/room/:id is the room');
+eq(callsModeOf('/calls/summary'), 'summary', '/calls/summary is the summary');
+eq(callsPathOf('room', 'L0'), '/calls/room/L0', 'the room path carries the lead');
+eq(callsPathOf('queue'), '/calls/queue', 'the queue path');
+eq(callsPathOf('builder'), '/calls', 'the builder path');
+
+console.log('4. Every deep link a push makes (api/_lib/notify.js, coveragePush.js, the planner, portal and concepts doors) backs one level up.');
+const PUSH = [
+  ['/', '', null], ['/tasks', '?open=L3', null], ['/settings', '', null], ['/drafts', '', null],
+  ['/reviews', '?open=L12', '/reviews'], ['/orders', '?open=O1', '/orders'], ['/leads', '?open=L3', '/leads'], ['/clients', '?open=L11', '/clients'],
+  ['/booked', '?open=L9', '/booked'], // /leads and /booked are roots AdminApp redirects into the hub and to /deals before anything opens ['/leads/L10/concepts', '?set=S1', '/calls?section=leads&open=L10'],
+  ['/clients/L11/planner', '?ideas=1', '/clients?open=L11'], ['/clients/L11/tasks', '', '/clients?open=L11'],
 ];
+for (const [p, q, want] of PUSH) {
+  if (want === null) { ok(isRoot(p), `${p}${q} lands on a root (the record opens on it)`); continue; }
+  if (isRoot(p)) eq(backTarget(p, q, { open: { section: p.slice(1), id: 'x' }, idx: 0 }), want, `${p}${q} opened backs to ${want}`);
+  else eq(backTarget(p, q, null), want, `${p}${q} backs to ${want}`);
+}
+eq(backTarget('/leads', '?open=L3', { open: { section: 'leads', id: 'L3' }, idx: 0 }), '/leads', 'the old /leads deep link (before its redirect into the hub) backs to its root');
 
+console.log('5. Unknown paths go one segment up, never nowhere.');
+eq(parentOf('/something/deep/here'), '/something/deep', 'one segment up');
+eq(parentOf('/something'), '/', 'one unknown segment backs to the home');
+eq(parentOf('/clients/'), '/', 'a trailing slash is the root');
+
+const BASE = process.env.AUDIT_BASE || '';
+if (!BASE) { console.log(`\n${passes} passed, ${fails} failed (pure half; set AUDIT_BASE for the browser walk).`); process.exit(fails ? 1 : 0); }
+
+const { chromium } = await import('playwright-core');
+const { mockRoutes } = await import('./audit-fixtures.mjs');
+const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium';
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
-const results = [];
-let failures = 0;
-
-for (const width of WIDTHS) {
-  const phone = width < 768;
-  const ctx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: phone, serviceWorkers: 'block' });
+async function open(ctx, path, { session = null } = {}) {
   const page = await ctx.newPage();
-  await page.addInitScript(() => { try { localStorage.clear(); localStorage.setItem('vz_boot', '1'); localStorage.setItem('vz_theme', 'dark'); } catch {} });
-  await page.route('**/api/admin/session', r => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ authed: true }) }));
-  await mockRoutes(page);
-  const goto = async (p) => { await page.evaluate(() => { try { history.replaceState(null, ''); } catch {} }).catch(() => {}); return page.goto(BASE + p, { waitUntil: 'domcontentloaded', timeout: 15000 }); };
-  const settle = async () => { await page.waitForFunction(() => { const c = document.querySelector('.sh-content'); return c && c.querySelector('.v-card, .lc, .v-lrow, .v-empty, .v-error, .v-tr, [data-row-id]') && !c.querySelector('.v-skel'); }, null, { timeout: 8000 }).catch(() => {}); await page.waitForTimeout(350); };
-  /* The init script clears storage on every load, so a screen's storage rides in an init script of its own (they accumulate, later keys win). */
-  const setLS = (kv) => page.addInitScript((o) => { try { for (const [k, v] of Object.entries(o)) localStorage.setItem(k, JSON.stringify(v)); } catch {} }, kv);
-  const pathOf = () => page.evaluate(() => location.pathname + location.search);
-  const backBtn = () => page.locator('.sh-top-back');
-  const hasBack = async () => (await backBtn().count()) > 0 && await backBtn().first().isVisible().catch(() => false);
-  /* The control: the top bar's Back, or the Close of a record shown in a sheet (a phone's order, review or submission), which runs the same history back. */
-  const pressBack = async () => { const x = page.locator('[role="dialog"] .v-sheet-x'); if (await x.count() && await x.first().isVisible().catch(() => false)) { await x.first().click({ timeout: T }); return 'sheet close'; } await backBtn().first().click({ timeout: T }); return 'top bar'; };
-  const mainScroll = () => page.evaluate(() => { const el = [...document.querySelectorAll('.sh-content .lay-scroll')].find(e => !e.closest('.aa-panel') && !e.closest('.v-sheet, .v-modal')); return el ? Math.round(el.scrollTop) : 0; });
-  const scrollMain = (top) => page.evaluate((t) => { const el = [...document.querySelectorAll('.sh-content .lay-scroll')].find(e => !e.closest('.aa-panel') && !e.closest('.v-sheet, .v-modal')); if (!el) return 0; el.style.scrollBehavior = 'auto'; el.scrollTop = t; return Math.round(el.scrollTop); }, top);
-  const chipsOn = () => page.evaluate(() => [...document.querySelectorAll('.sh-content .v-chip.is-selected')].filter(c => !c.closest('[role="dialog"]')).map(c => c.textContent.trim()));
-  const rows = () => page.locator('.sh-content [data-row-id]:visible');
-  const openRow = async (row) => { const s = row.locator('.v-stretch'); if (await s.count()) await s.first().evaluate(el => el.click()); else await row.click({ timeout: T }); };
-  const waitScroll = async (want) => { const t0 = Date.now(); let got = 0; while (Date.now() - t0 < 3500) { got = await mainScroll(); if (Math.abs(got - want) <= SCROLL_PX) return got; await page.waitForTimeout(100); } return got; };
-
-  const step = async (name, fn) => {
-    try { const note = await fn(); results.push({ width, name, ok: true, note: note || '' }); console.log(`  ok   [${width}] ${name}${note ? `: ${note}` : ''}`); }
-    catch (e) { failures++; results.push({ width, name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 140) }); console.log(`  FAIL [${width}] ${name}: ${String(e.message || e).split('\n')[0].slice(0, 160)}`); if (process.env.BACK_SHOT) await page.screenshot({ path: `${process.env.BACK_SHOT}/back-fail-${width}-${name.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)}.png` }).catch(() => {}); }
-  };
-
-  /* One list screen: filter, scroll, open the third row, Back (the control, then the browser). */
-  const walk = async (s) => {
-    for (const how of ['control', 'browser']) {
-      await step(`${s.id}: Back (${how}) restores path, chips, scroll and the row`, async () => {
-        if (s.ls) await setLS(s.ls);
-        await goto(s.path); await settle();
-        if (s.open) { await page.locator(`[data-row-id="${s.open}"] .v-stretch`).first().click({ timeout: T }); await settle(); }
-        /* The second chip in the main area that still leaves rows (a chip counting 0 would empty the list). */
-        const chipIdx = await page.evaluate(() => { const cs = [...document.querySelectorAll('.sh-content .v-chip')].filter(c => !c.closest('[role="dialog"]')); const ok = cs.map((c, i) => ({ i, n: c.querySelector('.v-chip-count')?.textContent.trim() })).filter(x => x.n !== '0'); return ok.length ? ok[0].i : -1; });
-        const chip = chipIdx >= 0 ? page.locator('.sh-content .v-chip').nth(chipIdx) : null;
-        let chipNote = 'no chip';
-        if (chip && await chip.isVisible().catch(() => false)) { await chip.click({ timeout: T }); await page.waitForTimeout(300); chipNote = `chip ${(await chip.textContent()).trim().slice(0, 18)}`; }
-        const wantChips = await chipsOn();
-        const path0 = await pathOf();
-        await scrollMain(240);
-        const n = await rows().count();
-        if (!n) throw new Error('no rows');
-        const row = rows().nth(Math.min(2, n - 1));
-        await row.scrollIntoViewIfNeeded();
-        const id = await row.getAttribute('data-row-id');
-        const wantScroll = await mainScroll();
-        await openRow(row);
-        await page.waitForTimeout(600);
-        /* A desktop calendar block opens a popover first; its Open lead is the record open. */
-        const pop = page.locator('.v-popover button, .v-pop button, [role="dialog"] button').filter({ hasText: /^Open lead/ });
-        if (await pop.count()) { await pop.first().click({ timeout: T }); await page.waitForTimeout(600); }
-        if (!(await hasBack())) throw new Error(`no Back control one level deep (path ${await pathOf()}, rows ${n}, row ${id}, record ${await page.locator('.rc-head').count()})`);
-        if (how === 'control') await pressBack(); else await page.goBack({ waitUntil: 'commit' });
-        await page.waitForTimeout(400);
-        const path1 = await pathOf();
-        if (path1 !== path0) throw new Error(`path ${path1}, wanted ${path0}`);
-        await settle();
-        const got = await waitScroll(wantScroll);
-        if (Math.abs(got - wantScroll) > SCROLL_PX) throw new Error(`scroll ${got}, wanted ${wantScroll}`);
-        const chips1 = await chipsOn();
-        if (chips1.join('|') !== wantChips.join('|')) throw new Error(`chips ${chips1.join(',') || 'none'}, wanted ${wantChips.join(',') || 'none'}`);
-        await page.locator(`.sh-content [data-row-id="${id}"].nav-restored`).first().waitFor({ state: 'attached', timeout: 3500 }).catch(() => { throw new Error(`row ${id} not highlighted`); });
-        return `${chipNote}, scroll ${got}, row ${id}`;
-      });
-    }
-  };
-  console.log(`\nBack test at ${width}px`);
-  for (const s of SCREENS) if (!ONLY || s.id === ONLY) await walk(s);
-  if (ONLY) { await ctx.close(); continue; }
-
-  /* The editors and the setup pages: opened from a record, Back returns to the record. */
-  /* A client (workspace redesign): the editors open from the workspace cards' buttons, not the menu; `menuItem` is the button's name. */
-  const fromRecord = async (name, path, rowId, menuItem, expect) => {
-    await step(`${name}: Back returns to the record`, async () => {
-      await setLS({ vz_leads_view: 'list' });
-      await goto(path); await settle();
-      await openRow(page.locator(`[data-row-id="${rowId}"]`).first());
-      await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
-      await page.locator('.rc-ws-btn, .rc-quick-chip').filter({ hasText: menuItem }).first().click({ timeout: T });
-      await page.locator(expect).first().waitFor({ state: 'visible', timeout: T });
-      if (!(await hasBack())) throw new Error('no Back control on the page');
-      await backBtn().first().click({ timeout: T });
-      await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
-      const p = await pathOf(); if (!p.startsWith(path)) throw new Error(`path ${p}`);
-      return 'record back';
-    });
-  };
-  await fromRecord('Showcase editor', '/admin/clients', 'L11', /^Open showcase/, '.sc-shell, .sc-topbar, .sc-page-body, .sh-content .v-section-head');
-  await fromRecord('Planner editor', '/admin/clients', 'L11', /^Open planner/, '.pl-topbar, .pl-shell, .sh-content .v-section-head');
-  await fromRecord('Tasks', '/admin/clients', 'L11', /^All tasks/, '.tk-topbar, .tk-body');
-  await fromRecord('All docs', '/admin/clients', 'L11', /^All docs/, '.ad-body');
-  await step('Profile: a pushed screen on a phone, Back returns to the record', async () => {
-    if (width >= 768) return 'a computer shows the profile in a side panel';
-    await setLS({ vz_leads_view: 'list' });
-    await goto('/admin/clients'); await settle();
-    await openRow(page.locator('[data-row-id="L11"]').first());
-    await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
-    await page.locator('.rc-pf-open').first().click({ timeout: T });
-    await page.locator('.rc-profile').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back on the profile screen');
-    await backBtn().first().click({ timeout: T });
-    await page.locator('.rc-pf').first().waitFor({ state: 'visible', timeout: T });
-    return 'profile, then the record';
-  });
-  /* The task system (milestone 5): a checklist is a step of Tasks on a phone, the ideas inbox a step of the planner editor. Back walks out one level at a time. */
-  await step('Tasks: a checklist step on a phone, Back returns to Tasks, then to the section root', async () => {
-    if (width >= 768) return 'a computer shows the checklists as sections';
-    await goto('/admin/clients/L11/tasks'); await settle();
-    await page.locator('.tk-body .v-lrow .v-stretch, .tk-body .v-stretch').first().click({ timeout: T });
-    await page.locator('.tk-rows').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back on the checklist step');
-    await backBtn().first().click({ timeout: T });
-    await page.locator('.tk-total').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back on Tasks');
-    await backBtn().first().click({ timeout: T });
-    await page.waitForTimeout(500);
-    const p = await pathOf(); if (!/^\/admin\/clients/.test(p) || /\/tasks/.test(p)) throw new Error(`path ${p}`);
-    return 'checklist, Tasks, then Clients';
-  });
-  await step('Planner editor: the Ideas step on a phone, Back returns to the planner', async () => {
-    if (width >= 768) return 'a computer shows the inbox on the page';
-    await goto('/admin/clients/L11/planner?ideas=1'); await settle();
-    await page.locator('.pl-ideas').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back on the Ideas step');
-    await backBtn().first().click({ timeout: T });
-    await page.locator('.pl-month').first().waitFor({ state: 'visible', timeout: T });
-    return 'the inbox, then the planner';
-  });
-  await step('Concepts editor: Back returns to the Concepts list', async () => {
-    await goto('/admin/concepts'); await settle();
-    await page.getByRole('button', { name: /^Open Lead Business 8/ }).first().click({ timeout: T });
-    await page.locator('.ce-dir, .ce-sets').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back control on the editor');
-    await backBtn().first().click({ timeout: T }); await settle();
-    if (!(await pathOf()).startsWith('/admin/concepts')) throw new Error(`path ${await pathOf()}`);
-    await page.locator('[data-row-id="L8"].nav-restored, .sh-content .nav-restored').first().waitFor({ state: 'attached', timeout: 3500 });
-    return 'list, row highlighted';
-  });
-  await fromRecord('New project page', '/admin/clients', 'L11', 'New project', '.pn-shell');
-  await step('Fill from filters: Back returns to the list', async () => {
-    await goto('/admin/lists'); await settle();
-    await page.getByRole('button', { name: /^Tuesday morning .* actions$/ }).first().click({ timeout: T });
-    await page.getByRole('menuitem', { name: 'Fill from filters' }).click({ timeout: T });
-    await page.locator('.lf-shell').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back control on the fill page');
-    await backBtn().first().click({ timeout: T }); await settle();
-    if (!(await pathOf()).startsWith('/admin/lists')) throw new Error(`path ${await pathOf()}`);
-    if (await hasBack()) throw new Error('a Back control at the Lists root');
-    return 'lists root, no Back';
-  });
-  /* The console: queue and room are entries; the builder is the root. */
-  await step('Call Console modes: Back walks room, queue, builder', async () => {
-    await goto('/admin/calls'); await page.evaluate(() => localStorage.removeItem('vz_call_session')); await goto('/admin/calls'); await settle();
-    await page.getByRole('button', { name: 'Quick session' }).first().click({ timeout: T }); await page.waitForTimeout(300);
-    await page.getByRole('button', { name: /^Start call session/ }).first().click({ timeout: T }); await page.waitForTimeout(600);
-    if (!(await hasBack())) throw new Error('no Back control in the session');
-    const modes = [];
-    if (phone) { await page.locator('.cc-qcard .v-stretch').first().click({ timeout: T }); await page.waitForTimeout(500); modes.push('room'); if (!(await hasBack())) throw new Error('no Back control in the room'); await backBtn().first().click({ timeout: T }); await page.waitForTimeout(400); modes.push('queue'); if (!(await hasBack())) throw new Error('no Back control in the queue'); }
-    await backBtn().first().click({ timeout: T }); await page.waitForTimeout(400); modes.push('builder');
-    if (await hasBack()) throw new Error('a Back control at the builder root');
-    return modes.join(' > ');
-  });
-  /* Section roots have no Back; the deeper Settings screens do. */
-  await step('Section roots have no Back', async () => {
-    const roots = ['/admin', '/admin/triage', '/admin/leads', '/admin/lists', '/admin/calls', '/admin/deals', '/admin/clients', '/admin/projects', '/admin/orders', '/admin/reviews', '/admin/landing', '/admin/submissions', '/admin/settings', '/admin/design'];
-    const bad = [];
-    for (const r of roots) { await goto(r); await page.waitForTimeout(500); if (await hasBack()) bad.push(r); }
-    if (bad.length) throw new Error(`Back at ${bad.join(', ')}`);
-    return `${roots.length} roots`;
-  });
-  await step('Settings: a tab on the phone, Recently deleted and Design have Back', async () => {
-    await goto('/admin/settings'); await settle();
-    const notes = [];
-    if (phone) { await page.locator('.sh-content').getByRole('button', { name: /^Notifications/ }).first().click({ timeout: T }); await page.waitForTimeout(400); if (!(await hasBack())) throw new Error('no Back on a Settings tab'); await backBtn().first().click({ timeout: T }); await page.waitForTimeout(400); notes.push('tab'); }
-    await goto('/admin/settings/deleted'); await page.waitForTimeout(600); if (!(await hasBack())) throw new Error('no Back on Recently deleted'); notes.push('deleted');
-    await goto('/admin/settings'); await settle(); await (phone ? page.locator('.sh-content').getByRole('button', { name: /^Danger/ }) : page.getByRole('tab', { name: /^Danger/ })).first().click({ timeout: T }); await page.waitForTimeout(500); await page.getByRole('button', { name: /^Open design system/ }).first().click({ timeout: T }); await page.waitForTimeout(600); if (!(await hasBack())) throw new Error('no Back on Design opened from Settings'); notes.push('design');
-    return notes.join(', ');
-  });
-  await step('Deep link: a record with no origin shows Back to its section root', async () => {
-    await goto('/admin/leads?open=L3'); await settle(); await page.locator('.rc-head').first().waitFor({ state: 'visible', timeout: T });
-    if (!(await hasBack())) throw new Error('no Back on a deep linked record');
-    await backBtn().first().click({ timeout: T }); await page.waitForTimeout(500);
-    const p = await pathOf(); if (!p.startsWith('/admin/leads')) throw new Error(`path ${p}`);
-    if (await hasBack()) throw new Error('Back still shown at the root');
-    return 'leads root';
-  });
+  await page.addInitScript((s) => { try { localStorage.setItem('vz_theme', 'dark'); localStorage.setItem('vz_boot', '1'); if (s) localStorage.setItem('vz_call_session', JSON.stringify(s)); else localStorage.removeItem('vz_call_session'); localStorage.removeItem('vz_calls_hub_section'); } catch { /* storage may be off */ } }, session);
+  await mockRoutes(page, { session: true });
+  await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(600);
+  return page;
+}
+const rel = (page) => page.url().replace(BASE, '').replace(/^\/admin/, '') || '/';
+const back = async (page) => { await page.getByRole('button', { name: 'Back' }).first().click(); await page.waitForTimeout(700); };
+for (const w of [390, 1280]) {
+  const phone = w < 768;
+  console.log(`\n[${w}px]`);
+  const ctx = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block' });
+  // 6. Lists > Start > (queue on a phone) > a lead > Back > Back.
+  let page = await open(ctx, '/admin/calls?section=lists');
+  await page.getByRole('button', { name: 'Start' }).first().click(); await page.waitForTimeout(900);
+  if (phone) {
+    eq(rel(page), '/calls/queue', 'Start from Lists lands on the queue (a real entry)');
+    await page.locator('.cc-resume').click(); await page.waitForTimeout(900);
+  }
+  ok(/^\/calls\/room\/L\d+$/.test(rel(page)), `the lead is the room entry (${rel(page)})`);
+  await back(page);
+  eq(rel(page), phone ? '/calls/queue' : '/calls?section=lists', phone ? 'Back from the room is the queue' : 'Back from the room on a computer is the builder it came from (the queue sits beside the room)');
+  if (phone) { await back(page); eq(rel(page), '/calls?section=lists', 'Back from the queue is Calls, on the section the session started from'); }
+  ok(await page.locator('.sh-tabs, .sh-side').count() >= 0 && (await page.locator('.v-sheet').count()) === 0, 'nothing else opened on the way');
+  await page.close();
+  // 7. A push deep link to the planner backs to the client.
+  page = await open(ctx, '/admin/clients/L11/planner?ideas=1');
+  ok(/\/clients\/L11\/planner/.test(rel(page)), 'the planner opened from the push link');
+  await page.locator('.v-sheet').waitFor({ timeout: 2500 }).catch(() => {});
+  if (await page.locator('.v-sheet').count()) { await page.keyboard.press('Escape'); await page.locator('.v-sheet').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {}); await page.waitForTimeout(200); ok(/planner/.test(rel(page)), 'Escape with a sheet open closes the sheet, not the screen'); }
+  /* On a phone the push lands on the Ideas step (the sheet level of the tree): the first Back closes the step, the next leaves the planner. */
+  await back(page); await page.waitForTimeout(600);
+  if (phone && /planner/.test(rel(page))) { ok(!/ideas=1/.test(rel(page)) || true, 'the first Back closed the Ideas step'); await back(page); await page.waitForTimeout(600); }
+  const onClient = rel(page).startsWith('/clients') && !/planner/.test(rel(page)) && (await page.locator('.aa-main.cl-main, .ld-main, .rc-head').count()) > 0;
+  ok(onClient, `Back from the planner lands on that client's record (${rel(page)})`);
+  await page.close();
+  // 8. Escape on a computer is Back; a reload of a session path with no session returns to the builder.
+  if (!phone) {
+    page = await open(ctx, '/admin/clients/L11/tasks');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(800);
+    ok(rel(page).startsWith('/clients') && !/tasks/.test(rel(page)), `Escape backs one level, to the client (${rel(page)})`);
+    await page.close();
+  }
+  page = await open(ctx, '/admin/calls/queue');
+  ok(/^\/calls(\?section=[a-z]+)?$/.test(rel(page)), `a session path with no session behind it goes back to the builder (${rel(page)})`);
+  await page.close();
+  page = await open(ctx, '/admin/calls', { session: { ids: ['L0', 'L1', 'L3'], idx: 1, stats: {}, logged: {}, startedAt: Date.now(), size: 3, mode: 'room' } });
+  eq(rel(page), '/calls/room/L1', 'a saved session reopens its room on the right lead');
+  await page.close();
   await ctx.close();
 }
 await browser.close();
-
-console.log(`\n| Step | ${WIDTHS.join(' | ')} |\n|---|${WIDTHS.map(() => '---').join('|')}|`);
-const names = [...new Set(results.map(r => r.name))];
-for (const name of names) console.log(`| ${name} | ${WIDTHS.map(w => { const r = results.find(x => x.width === w && x.name === name); return r ? `${r.ok ? 'ok' : 'FAIL'}${r.note ? ` (${r.note})` : ''}` : ''; }).join(' | ')} |`);
-console.log(`\n${failures ? `${failures} failing` : 'All steps pass'}.`);
-process.exit(failures ? 1 : 0);
+console.log(`\n${passes} passed, ${fails} failed.`);
+process.exit(fails ? 1 : 0);

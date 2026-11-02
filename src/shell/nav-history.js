@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { isRoot, backTarget } from './backTree';
 
 /* One navigation model for the admin (Back, done once).
  *
@@ -20,15 +21,16 @@ import { useLocation, useNavigate } from 'react-router-dom';
  * run through the same path, so Forward after Back re-opens the record from
  * the entry's own state.
  *
- * Section roots have no origin and no Back. A record reached by a deep link
- * (?open=, ?submission=, a push notification) has no origin either; its Back
- * goes to the section root. Sheets and modals are not history entries. */
+ * Section roots have no origin and no Back. A screen reached with no origin
+ * (?open=, ?submission=, a push notification, a reload, a bookmark) backs one
+ * level up the fixed tree in src/shell/backTree.js (one back stack, milestone
+ * 2), by a replace. Sheets and modals are not history entries. */
 
 let BASE = '';
 export const setNavBase = (b) => { BASE = b || ''; };
-const relOf = (pathname) => (BASE && pathname.startsWith(BASE) ? pathname.slice(BASE.length) : pathname) || '/';
-/* A section root is the first path segment alone: /, /leads, /settings. Everything deeper (an editor, /settings/deleted, /projects/new) is one level in. */
-export const isSectionRoot = (pathname) => relOf(pathname).split('/').filter(Boolean).length <= 1;
+export const relOf = (pathname) => (BASE && pathname.startsWith(BASE) ? pathname.slice(BASE.length) : pathname) || '/';
+/* A section root is one of the tree's roots: /, /leads, /settings. Everything deeper (an editor, /settings/deleted, /design, /projects/new) is one level in. */
+export const isSectionRoot = (pathname) => isRoot(relOf(pathname));
 export const sectionRootOf = (pathname) => { const seg = relOf(pathname).split('/').filter(Boolean)[0]; return `${BASE}/${seg || ''}`; };
 
 /* ── The pending restore, handed from the popstate handler to the screen ── */
@@ -151,15 +153,14 @@ export function usePushRel() { const push = usePush(); return useCallback((rel, 
 export function useOpenEntry(section) { const { state } = useLocation(); const o = state?.open; return o && o.section === section ? o : null; }
 export function useCreateEntry(section) { const { state } = useLocation(); const o = state?.create; return o && o.section === section ? o : null; }
 export function usePresetEntry(section) { const { state } = useLocation(); const o = state?.preset; return o && o.section === section ? o : null; }
-/** Back for the current entry: null at a section root, else { back, deep } (deep: no origin, Back goes to the section root). */
+/** Back for the current entry: null at a section root with nothing open, else { back, deep, parent } (deep: no origin, Back goes one level up the tree, to parent). */
 export function useBack() {
   const location = useLocation(); const navigate = useNavigate();
   const origin = location.state?.origin || null;
-  const inside = !!location.state?.open || !!location.state?.create || !isSectionRoot(location.pathname);
-  const root = sectionRootOf(location.pathname);
-  const back = useCallback(() => { if (origin) navigate(-1); else navigate(root, { replace: true }); }, [origin, navigate, root]);
-  if (!origin && !inside) return null;
-  return { back, deep: !origin, origin };
+  const parent = backTarget(relOf(location.pathname), location.search, location.state);
+  const back = useCallback(() => { if (origin) navigate(-1); else if (parent) navigate(`${BASE}${parent}`, { replace: true }); }, [origin, navigate, parent]);
+  if (!origin && !parent) return null;
+  return { back, deep: !origin, origin, parent };
 }
 /** A screen's own record or mode: selId from the entry, open() pushes, close() goes back. */
 export function useSelection(section) {

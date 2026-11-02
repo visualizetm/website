@@ -15,7 +15,8 @@ import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useSelection, useBack } from '../shell/nav-history';
+import { usePush, relOf } from '../shell/nav-history';
+import { callsModeOf, callsPathOf, parentOf } from '../shell/backTree';
 import { useDecline } from '../components/DeclineSheet';
 import OutcomeSheet from '../components/OutcomeSheet';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
@@ -232,7 +233,7 @@ function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = nu
             </Row>
           </Section></Card>
         )}
-        <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to Next up</Button></Row>
+        <Row gap={2} wrap><Button icon={Play} onClick={onNew}>New session</Button><Button variant="secondary" onClick={onDashboard}>Back to Calls</Button></Row>
       </Stagger>
     </ScrollArea>
   );
@@ -266,31 +267,31 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const indMoreRef = useRef(null);
 
   // Flow
-  /* Back (done once): queue, room and summary are history entries; builder is the root. The entry's mode wins on a popstate. */
-  const [mode, setModeState] = useState('builder'); // builder | queue | room | summary
-  const { entry: modeEntry, open: pushMode } = useSelection('calls');
-  const navigate = useNavigate();
-  const navBack = useBack(); const navBackRef = useRef(navBack); navBackRef.current = navBack;
+  /* One back stack (milestone 2): the mode IS the path. /calls is the builder, /calls/queue, /calls/room/:id and
+     /calls/summary are real history entries pushed by setMode; a step down the modes is Back (the entry's origin
+     popped, else the tree's parent by a replace), and New session pops straight to the builder entry the session
+     left. The browser's Back, the phone's edge swipe, Escape and the top bar's Back all land on the same entry. */
+  const navigate = useNavigate(); const push = usePush(); const location = useLocation();
+  const locRef = useRef(location); locRef.current = location;
+  const mode = callsModeOf(relOf(location.pathname)); // builder | queue | room | summary
   const modeRef = useRef(mode); modeRef.current = mode;
-  const location = useLocation(); const idxRef = useRef(0); idxRef.current = location.state?.idx || 0;
-  const idxOf = useRef({}); // the history depth each mode's entry sits at, so a move down the modes pops to it
+  const base = useMemo(() => location.pathname.slice(0, location.pathname.length - relOf(location.pathname).length), [location.pathname]);
+  const builderIdx = useRef(null); // the depth of the builder entry the session left, so New session pops back to it in one go
   const ORDER = { builder: 0, queue: 1, room: 2, summary: 3 };
-  useEffect(() => { const m = modeEntry?.mode; if (m && m !== modeRef.current) setModeState(m); if (!m && modeRef.current !== 'builder') setModeState('builder'); }, [modeEntry]);
   /* The Calls hub (AdminCallsHub.jsx) renders its own Triage/Lists/Leads view while this is idle at the builder
      root, and hides it the instant a session starts: it needs to know the mode, not just set it. */
   useEffect(() => { onModeChange?.(mode); }, [mode, onModeChange]);
-  const setMode = useCallback((m) => {
-    const cur = modeRef.current; if (m === cur) return;
+  const setMode = useCallback((m, id = '') => {
+    const loc = locRef.current; const rel = relOf(loc.pathname); const cur = callsModeOf(rel); const idx = loc.state?.idx || 0;
+    if (m === cur) { if (m === 'room' && id && rel !== callsPathOf('room', id)) navigate(`${base}${callsPathOf('room', id)}`, { replace: true, state: loc.state }); return; }
     if (ORDER[m] < ORDER[cur]) {
-      const at = m === 'builder' ? idxOf.current.builder : idxOf.current[m];
-      if (at != null && at < idxRef.current) { navigate(at - idxRef.current); return; }
-      if (navBackRef.current && m === 'builder') { navBackRef.current.back(); return; }
-      setModeState(m); return;
+      if (m === 'builder' && builderIdx.current != null && builderIdx.current < idx) { navigate(builderIdx.current - idx); return; }
+      if (ORDER[cur] - ORDER[m] === 1 && loc.state?.origin) { navigate(-1); return; }
+      navigate(`${base}${m === 'builder' ? '/calls' : parentOf(rel)}`, { replace: true }); return;
     }
-    if (cur === 'builder') idxOf.current.builder = idxRef.current;
-    idxOf.current[m] = idxRef.current + 1;
-    setModeState(m); pushMode(m, { mode: m });
-  }, [pushMode, navigate]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (cur === 'builder') builderIdx.current = idx;
+    push(`${base}${callsPathOf(m, id || sessionRef.current?.ids?.[sessionRef.current?.idx || 0] || '')}`);
+  }, [push, navigate, base]); // eslint-disable-line react-hooks/exhaustive-deps
   const [quick, setQuick] = useState(false); // builder mode shows the lists first; Quick session is the old builder (CRM revamp, step 3)
   const [session, setSession] = useState(null);
   const sessionRef = useRef(session); sessionRef.current = session;
@@ -333,15 +334,21 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [listsRetry, listsRetrying] = useRetry(onRetryLists || (() => {})); // the lists view's Try again (CRM revamp, step 3), a hook, so above the early return
   const loadFailed = loadError && !loaded && <Card><ErrorState title={COPY.error.calls.title} description={COPY.error.calls.description} onRetry={retry} retrying={retrying} /></Card>;
 
-  // Persisted session survives a phone call or a reload (a Start from Lists supersedes it).
+  // Persisted session survives a phone call or a reload (a Start from Lists supersedes it). A session path with no session behind it goes back to the builder.
+  const restored = useRef(false);
   useEffect(() => {
-    if (builderPreset) return;
+    if (builderPreset) { restored.current = true; return; }
     const s = readLS(SESSION_KEY, null);
     if (Array.isArray(s?.ids) && s.ids.length) {
-      setSession({ ids: s.ids, idx: Math.min(Math.max(0, s.idx || 0), s.ids.length - 1), stats: { ...EMPTY_STATS, ...(s.stats || {}) }, logged: s.logged || {}, startedAt: s.startedAt || Date.now(), size: s.size || s.ids.length, listId: s.listId || '' });
-      setMode(s.mode === 'summary' ? 'summary' : s.mode === 'room' ? 'room' : 'queue');
-    }
+      const idx = Math.min(Math.max(0, s.idx || 0), s.ids.length - 1);
+      const sess = { ids: s.ids, idx, stats: { ...EMPTY_STATS, ...(s.stats || {}) }, logged: s.logged || {}, startedAt: s.startedAt || Date.now(), size: s.size || s.ids.length, listId: s.listId || '' };
+      sessionRef.current = sess; setSession(sess);
+      const m = s.mode === 'summary' ? 'summary' : s.mode === 'room' ? 'room' : 'queue';
+      if (modeRef.current === 'builder') setMode(m, s.ids[idx]);
+    } else if (modeRef.current !== 'builder') navigate(`${base}/calls`, { replace: true });
+    restored.current = true;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (restored.current && mode !== 'builder' && !sessionRef.current && !builderPreset) navigate(`${base}/calls`, { replace: true }); }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (session) writeLS(SESSION_KEY, { ...session, mode }); else { try { localStorage.removeItem(SESSION_KEY); } catch { /* fine */ } } }, [session, mode]);
   useEffect(() => { writeLS(TAB_KEY, tab); }, [tab]);
   useEffect(() => { if (!timer) return undefined; const t = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(t); }, [timer]);
@@ -409,6 +416,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const sessionIds = useMemo(() => (session && loaded ? session.ids.filter(id => leadsById.has(id)) : session?.ids || []), [session, leadsById, loaded]);
   const curIdx = session ? Math.min(session.idx, Math.max(0, sessionIds.length - 1)) : 0;
   const current = session ? leadsById.get(sessionIds[curIdx]) : null;
+  useEffect(() => { if (mode === 'room' && current && relOf(location.pathname) !== callsPathOf('room', current._id)) navigate(`${base}${callsPathOf('room', current._id)}`, { replace: true, state: location.state }); }, [mode, current?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   const done = session ? sessionIds.filter(id => session.logged[id]).length : 0;
   const nextIdx = session ? sessionIds.findIndex((id, i) => i >= curIdx && !session.logged[id]) : -1;
 
@@ -418,7 +426,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     setAutostart(null);
     if (!ids.length) return;
     setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length });
-    setPredial({}); setTimer(null); setSheet(null); setMode('room');
+    setPredial({}); setTimer(null); setSheet(null); setMode('room', ids[0]);
   }, [autostart, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
   /* A list session (CRM revamp, step 3): the list's leads in its order, the
      list remembered on the session so every outcome updates it. */
@@ -431,7 +439,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     const ids = (list.leadIds || []).map(String).filter(id => leadsById.has(id));
     if (!ids.length) { toast.info(`${list.name} has nobody to call.`); return; }
     setSession({ ids, idx: 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length, listId: String(list._id) });
-    setPredial({}); setTimer(null); setSheet(null); setMode(desktop ? 'room' : 'queue');
+    setPredial({}); setTimer(null); setSheet(null); setMode(desktop ? 'room' : 'queue', ids[0]);
   }, [startList, loaded, lists]); // eslint-disable-line react-hooks/exhaustive-deps
   const startSession = (startId) => {
     let ids = sized.map(l => l._id);
@@ -439,11 +447,11 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (!ids.length) return;
     setSession({ ids, idx: startId ? Math.max(0, ids.indexOf(startId)) : 0, stats: { ...EMPTY_STATS }, logged: {}, startedAt: Date.now(), size: ids.length });
     setPredial({}); setTimer(null); setSheet(null);
-    setMode(startId || desktop ? 'room' : 'queue');
+    setMode(startId || desktop ? 'room' : 'queue', startId || ids[0]);
   };
   const endSession = () => { setSheet(null); setTimer(null); setMode('summary'); };
-  const newSession = () => { setSession(null); setSheet(null); setTimer(null); setMode('builder'); setQuick(false); };
-  const goTo = (i) => { setSession(s => (s ? { ...s, idx: i } : s)); setPredial({}); setTimer(null); setMode('room'); };
+  const newSession = () => { sessionRef.current = null; setSession(null); setSheet(null); setTimer(null); setMode('builder'); setQuick(false); };
+  const goTo = (i) => { setSession(s => (s ? { ...s, idx: i } : s)); setPredial({}); setTimer(null); setMode('room', sessionRef.current?.ids?.[i] || ''); };
   const advance = useCallback((d = 1) => {
     setSheet(null); setPredial({}); setTimer(null);
     const s = sessionRef.current; if (!s) return;
@@ -458,7 +466,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (mode === 'room' && current && !desktop) return { title: timer ? `${current.business}  ${fmtClock(Date.now() - timer.start)}` : current.business, back: () => setMode('queue') };
     if (mode === 'room' && current && desktop) return { title: timer ? `Call Console  ${fmtClock(Date.now() - timer.start)}` : 'Call Console', back: null };
     if (mode === 'queue') return { title: 'Session', back: () => setMode('builder') };
-    if (mode === 'summary') return { title: 'Session summary', back: () => shell?.go?.('dashboard') };
+    if (mode === 'summary') return { title: 'Session summary', back: () => setMode('builder') };
     return null;
   }, [embedded, mode, current?._id, current?.business, desktop, timer && Math.floor((Date.now() - timer.start) / 1000)])); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -527,7 +535,6 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
         case 'ArrowRight': case ' ': case 'n': case 'N': e.preventDefault(); advance(1); break;
         case 's': case 'S': e.preventDefault(); skipToEnd(current._id); break;
         case 'ArrowLeft': advance(-1); break;
-        case 'Escape': if (!desktop) setMode('queue'); break;
         case '?': setKeysOpen(true); break;
         default: break;
       }
@@ -735,7 +742,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   return (
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
       {mode === 'builder' && (quick ? builderView : listsView)}
-      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={() => { newSession(); shell?.go('dashboard'); }} onOpenLead={(l) => shell?.openRecord(l)} list={session.listId ? lists.find(l => String(l._id) === String(session.listId)) : null} onRoll={async (l) => { const ok = await listOps?.patchList(l._id, { scheduledFor: tomorrowKey() }); if (ok) { toast.success(`${l.name} rolls into tomorrow, ${listCount(l)} left.`); newSession(); } else toast.error(COPY.error.save); }} onDone={async (l) => { const ok = await listOps?.finishList(l._id); if (ok) { toast.success(`${l.name} done.`); newSession(); } else toast.error(COPY.error.save); }} />)}
+      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={newSession} onOpenLead={(l) => shell?.openRecord(l)} list={session.listId ? lists.find(l => String(l._id) === String(session.listId)) : null} onRoll={async (l) => { const ok = await listOps?.patchList(l._id, { scheduledFor: tomorrowKey() }); if (ok) { toast.success(`${l.name} rolls into tomorrow, ${listCount(l)} left.`); newSession(); } else toast.error(COPY.error.save); }} onDone={async (l) => { const ok = await listOps?.finishList(l._id); if (ok) { toast.success(`${l.name} done.`); newSession(); } else toast.error(COPY.error.save); }} />)}
       {(mode === 'queue' || mode === 'room') && session && (desktop ? (
         <div className="cc-desk">
           <aside className="cc-desk-left" aria-label="Queue"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>

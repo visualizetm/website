@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { SegmentedControl } from '../ui';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AdminCalls from './AdminCalls';
 import AdminTriage from './AdminTriage';
 import AdminLists from './AdminLists';
@@ -54,7 +55,12 @@ export default function AdminCallsHub({
   const activePreset = builderPreset || startPreset;
   /* A path-driven open (the old /triage or /lists bookmark) wins over the remembered section, once. */
   useEffect(() => { if (hubSection) { setSection(hubSection); writeSection(hubSection); } }, [hubSection]);
-  const choose = (id) => { setSection(id); writeSection(id); };
+  /* The section rides in the URL (?section=) and is remembered (milestone 2): a reload, a bookmark and Back all land on the same one. */
+  const navigate = useNavigate(); const location = useLocation();
+  const choose = (id) => { setSection(id); writeSection(id); navigate({ pathname: location.pathname, search: `?section=${id}` }, { replace: true, state: location.state }); };
+  /* On the bare /calls the remembered section is written into the URL once. The live window.location is read, not the
+     render's: AdminCalls (a child, its effects first) may just have pushed a session entry or replaced a stale one. */
+  useEffect(() => { const live = window.location; if (!hubSection && /\/calls\/?$/.test(live.pathname) && !/[?&]section=/.test(live.search)) navigate({ pathname: live.pathname, search: `?section=${section}` }, { replace: true, state: location.state }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   /* Once AdminCalls has picked a hub-started preset up (mode left 'builder'), drop it: a later return to the
      builder root must not carry a stale reference around, even though it is inert either way. */
   useEffect(() => { if (callsMode !== 'builder' && startPreset) setStartPreset(null); }, [callsMode]); // eslint-disable-line react-hooks/exhaustive-deps

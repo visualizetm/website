@@ -121,7 +121,7 @@ await step('a lead row follows the finger, arms and commits a callback, reverts 
   need(armed.s === 'armed' && /Callback/.test(armed.hint), `not armed: ${JSON.stringify(armed)}`);
   await g.t('touchEnd'); await g.wait(700);
   need(writes.length === 1 && /callback/.test(writes[0]), `no callback write: ${JSON.stringify(writes)}`);
-  need((await state(page)).path === '/admin/leads' && (await page.evaluate(() => !history.state?.usr?.open)), 'the swipe also opened the record');
+  need(/^\/admin\/(leads|calls)$/.test((await state(page)).path) && (await page.evaluate(() => !history.state?.usr?.open)), 'the swipe also opened the record'); // Leads lives in the Calls hub (one back stack, milestone 2)
   return 'followed, armed, wrote one callback, nothing else opened';
 });
 await step('a task row follows the finger, a swipe right completes it with one checklists write, a swipe left opens its sheet', async (page) => {
