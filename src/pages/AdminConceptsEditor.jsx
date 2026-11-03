@@ -608,7 +608,6 @@ export default function AdminConceptsEditor({
         <div className="pl-topbar">
           <Row gap={2} align="center" justify="between" wrap>
             <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-              <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="pl-back">Back</Button>
               <h1 className="pl-page-title lay-title">{name}</h1>
               {st && <Pill tone={st.tone} label={st.label} size="sm" icon={false} variant={status === 'approved' || status === 'changes' ? 'solid' : 'soft'} />}
             </Row>
@@ -684,7 +683,6 @@ export default function AdminConceptsEditor({
 export const ceStyles = `
   .pl-scroll { --v-scroll-extra: var(--sb-scroll-extra); }
   .pl-topbar { position: sticky; top: 0; z-index: 5; padding: var(--v-space-3) 0; background: var(--v-surface-1); border-bottom: 1px solid var(--v-border-1); }
-  @media (max-width: 767px) { .pl-topbar .pl-back { display: none; } }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .pl-page-body { padding-top: var(--v-space-4); }
   .ce-mode { display: flex; flex-direction: column; gap: var(--v-space-2); }

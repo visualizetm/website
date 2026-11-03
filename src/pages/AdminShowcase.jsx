@@ -859,7 +859,6 @@ export default function AdminShowcase({ lead, leads = [], loading = false, error
       <div className="sc-topbar">
         <Row gap={2} align="center" justify="between" wrap>
           <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-            <Button variant="ghost" icon="ArrowLeft" onClick={leave}>Back</Button>
             <h1 className="sc-page-title lay-truncate">{name}</h1>
             <Pill tone={sh.published ? 'booked' : 'neutral'} label={sh.published ? 'Published' : 'Draft'} size="sm" variant={sh.published ? 'solid' : 'soft'} icon={false} />
           </Row>

@@ -148,7 +148,7 @@ for (const width of [390, 1280]) {
   /* Back saves first. */
   await page.locator('.dc-row[data-block-id="b2"] .dc-rt').click(); await page.keyboard.press('End'); await page.keyboard.type(' ZZ');
   const before = S.patches.length;
-  await (phone ? page.locator('.sh-top-back') : page.locator('.dd-back')).click();
+  await page.locator('.sh-top-back').click(); // one header rule: the top bar's Back at every width
   await page.waitForTimeout(600);
   ok(S.patches.length > before && JSON.stringify(lastPatch(S.patches).blocks).includes(' ZZ'), 'Back saves what was typed before leaving');
   await S.ctx.close();
@@ -175,7 +175,7 @@ for (const width of [390, 1280]) {
   await K.page.waitForSelector('.dc-blocks');
   K.o.docsSaveFails = true;
   await K.page.locator('.dc-row[data-block-id="b2"] .dc-rt').click(); await K.page.keyboard.press('End'); await K.page.keyboard.type(' kept in memory');
-  await (phone ? K.page.locator('.sh-top-back') : K.page.locator('.dd-back')).click();
+  await K.page.locator('.sh-top-back').click();
   await K.page.waitForSelector('.rc-docs-row[data-doc-id="DOC1"]', { timeout: 8000 });
   ok(await K.page.$eval('.rc-docs-row[data-doc-id="DOC1"]', e => !!e), 'Back from the doc returns to the client\'s page');
   K.o.docsSaveFails = false;

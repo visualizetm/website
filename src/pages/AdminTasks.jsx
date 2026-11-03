@@ -371,7 +371,6 @@ export default function AdminTasks({
           <div className="tk-topbar">
             <Row gap={2} align="center" justify="between" wrap>
               <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-                <Button variant="ghost" icon="ArrowLeft" onClick={onBack} className="tk-back">Back</Button>
                 <h1 className="tk-title lay-title">{lead.business}, tasks</h1>
                 {total.total > 0 && <Pill tone={total.done === total.total ? 'booked' : 'neutral'} size="sm" icon={false} variant="soft" label={`${total.done} of ${total.total} done`} />}
               </Row>

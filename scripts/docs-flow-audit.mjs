@@ -56,7 +56,7 @@ for (const width of [390, 1280]) {
   ok(await page.$eval('.dd-title', e => e.textContent) === 'Agreement, Lead Business 11', 'the contract opens titled for this client');
   ok(text.includes('Lead Business 11') && text.includes('2 revision rounds') && text.includes('$50 for design work and $75 for web work') && text.includes('50 percent deposit') && text.includes('[deposit date]') && text.includes('Files are released only at full payment.'), 'it fills the client name, states the house rules and leaves [deposit date] as a visible placeholder');
   ok(S.reqs.some(r => r.method === 'POST' && r.url.includes('/docs') && r.body.type === 'contract' && r.body.leadId === 'L11' && r.body.projectId === 'P11'), 'the doc was created for the client, typed Contract and tied to their project');
-  await (phone ? page.locator('.sh-top-back') : page.locator('.dd-back')).click();
+  await page.locator('.sh-top-back').click(); // one header rule: the top bar's Back at every width
   await page.waitForSelector('.rc-docs-row');
   ok(await page.$eval('.rc-docs-count', e => e.textContent) === '6', 'back on the client page the card counts the new doc');
 
@@ -222,7 +222,7 @@ for (const width of [390, 1280]) {
   await H.page.waitForSelector('.rc-docs-new');
   await H.page.locator('.rc-docs-new').click(); await H.page.waitForSelector('.nd-opt[data-template="brief"]');
   await H.page.locator('.nd-opt[data-template="brief"]').click(); await H.page.waitForSelector('.dc-blocks');
-  await (phone ? H.page.locator('.sh-top-back') : H.page.locator('.dd-back')).click();
+  await H.page.locator('.sh-top-back').click();
   await H.page.waitForSelector('.rc-docs-row');
   await H.page.locator('.rc-docs-row').first().locator('.v-stretch').click(); await H.page.waitForSelector('.dc-blocks');
   await H.page.locator('.sh-top-action[aria-label="Doc actions"], .dd-more').first().click();

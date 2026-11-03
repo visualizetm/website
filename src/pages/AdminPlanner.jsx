@@ -579,7 +579,6 @@ export default function AdminPlanner({
         <div className="pl-topbar">
           <Row gap={2} align="center" justify="between" wrap>
             <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-              <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="pl-back">Back</Button>
               <h1 className="pl-page-title lay-title">{name}</h1>
               <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
                 variant={draft.enabled && !waiting ? 'solid' : 'soft'}
@@ -691,7 +690,6 @@ const plStyles = `
     background: var(--v-surface-1);
     border-bottom: 1px solid var(--v-border-1);
   }
-  @media (max-width: 767px) { .pl-topbar .pl-back { display: none; } }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
   .pl-page-body { padding-top: var(--v-space-4); }
   .pl-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }

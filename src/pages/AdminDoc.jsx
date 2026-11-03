@@ -237,7 +237,6 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
       <ScrollArea wide className="dd-scroll">
         {!phone && (
           <div className="dd-topbar">
-            <Button variant="ghost" icon="ArrowLeft" onClick={leave} className="dd-back">Back</Button>
             <span className="dd-topspace" />
             {!readOnly && !isTemplate && <Button variant="ghost" icon="Pin01" onClick={pin} disabled={load.state !== 'ready'} className="dd-pin" aria-pressed={pinned}>{pinned ? 'Pinned' : 'Pin to card'}</Button>}
             {!readOnly && <Button variant="secondary" icon="DotsHorizontal" onClick={() => setSheet('more')} disabled={load.state !== 'ready'} className="dd-more">Doc actions</Button>}
