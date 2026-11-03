@@ -22,10 +22,11 @@ text = text.replace(anchor, "          <div className=\"mo-user\"><strong>Rob</s
 fs.writeFileSync(more, text);
 const build = spawnSync('npx', ['vite', 'build', '--outDir', path.join(tmp, 'dist')], { cwd: tmp, encoding: 'utf8' });
 if (build.status !== 0) { console.log('FAIL the faulted copy did not build:', (build.stderr || build.stdout).slice(-400)); fs.rmSync(tmp, { recursive: true, force: true }); process.exit(1); }
-const server = spawn('npx', ['vite', 'preview', '--outDir', path.join(tmp, 'dist'), '--port', String(PORT), '--strictPort'], { cwd: tmp, stdio: 'ignore' });
+/* The preview runs in its own process group so the kill below reaches vite itself, not only npx: a server left behind on the port would serve the wrong build to the next run. */
+const server = spawn('npx', ['vite', 'preview', '--outDir', path.join(tmp, 'dist'), '--port', String(PORT), '--strictPort'], { cwd: tmp, stdio: 'ignore', detached: true });
 await new Promise(r => setTimeout(r, 3500));
 const r = spawnSync(process.execPath, [path.join(repoRoot, 'scripts', 'chrome-audit.mjs')], { cwd: repoRoot, env: { ...process.env, AUDIT_BASE: `http://127.0.0.1:${PORT}`, AUDIT_ONLY: 'more' }, encoding: 'utf8' });
-server.kill();
+try { process.kill(-server.pid, 'SIGTERM'); } catch { server.kill(); }
 fs.rmSync(tmp, { recursive: true, force: true });
 const flagged = r.status !== 0 && /account card/.test(r.stdout || '');
 console.log(flagged ? 'ok   account-card: with the card restored on More, the chrome audit flags it' : `FAIL account-card: the chrome audit let the restored card through\n${(r.stdout || '').slice(-600)}`);
