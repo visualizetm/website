@@ -133,7 +133,7 @@ function MergeModal({ group, onClose, onMerge }) {
 }
 
 export default function AdminLeads({
-  leads, submissions, loading, error, onRetry, onPatch, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
+  leads, submissions, loading, error, onRetry, onPatch, onBulkPatch = null, onCreate, onDelete, onBulkDelete, onRestore, onRefresh,
   onLinkSubmission, createPreset, filterPreset,
 }) {
   const shell = useShell();
@@ -207,7 +207,8 @@ export default function AdminLeads({
 
   // Writes: AdminApp's onPatch is already optimistic with rollback; this adds the error toast.
   const patch = async (id, set, fail = COPY.error.save) => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };
-  const bulkPatch = async (ids, set, label) => { const rs = await Promise.all(ids.map(id => onPatch(id, set))); const bad = rs.filter(r => !r).length; if (bad) toast.error(`${bad} of ${ids.length} could not be ${label}. Those were undone.`); else toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} ${label}.`); };
+  /* Bulk edits (prompt 2 of 3, audit item 19): one PATCH with the id array when the shell offers it (AdminApp.bulkPatchCallLeads); the per id loop stays as the fallback. */
+  const bulkPatch = async (ids, set, label) => { if (onBulkPatch) { const ok = await onBulkPatch(ids, set); if (!ok) toast.error(`Could not update ${ids.length} leads. Nothing changed.`); else toast.success(`${ids.length} ${label}.`); return; } const rs = await Promise.all(ids.map(id => onPatch(id, set))); const bad = rs.filter(r => !r).length; if (bad) toast.error(`${bad} of ${ids.length} could not be ${label}. Those were undone.`); else toast.success(`${ids.length} lead${ids.length === 1 ? '' : 's'} ${label}.`); };
   // onStatusStep is the keyboard path on the kanban (Shift+ArrowLeft, Shift+ArrowRight on a focused card): one column over.
   const stepStatus = (l, dir) => { const ids = BOARD_STATUSES.map(s => s.id); const i = ids.indexOf(l.callStatus || 'not-called'); const next = ids[i + dir]; if (next) { patch(l._id, { callStatus: next }); toast.info(`${l.business} moved to ${BOARD_STATUSES.find(s => s.id === next)?.label || next}.`); } };
   const decline = useDecline({ onPatch: patch, onDeclined: (l) => { if (sel?._id === l._id) back(); } });

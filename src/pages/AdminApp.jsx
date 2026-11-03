@@ -382,6 +382,16 @@ export default function AdminApp() {
   const applyLeadLocal = useCallback((id, set) => { setCallLeads(ls => ls.map(l => (l._id === id ? { ...l, ...set } : l))); }, []);
   const applyProjectLocal = useCallback((id, set) => { setProjects(ps => ps.map(p => (String(p._id) === String(id) ? { ...p, ...set } : p))); }, []);
   const projectOps = useMemo(() => ({ create: createProject, patch: patchProject, reload: () => loadProjects({ fresh: true }), applyLocal: applyProjectLocal }), [createProject, patchProject, loadProjects, applyProjectLocal]);
+  /* Bulk edits (prompt 2 of 3, audit item 19): one PATCH { ids, set }; every lead applied at once (the next action recomputed per lead like a single write), all rolled back on a failure. */
+  const bulkPatchCallLeads = useCallback(async (ids, set) => {
+    const want = new Set(ids.map(String));
+    const before = callLeadsRef.current;
+    setCallLeads(ls => ls.map(l => (want.has(String(l._id)) ? { ...l, ...withNextAction(l, set, { projects: projectsRef.current, sets: setsRef.current }) } : l)));
+    const r = await apiFetch('/api/admin/call-leads', { method: 'PATCH', body: { ids: [...want], set } });
+    if (r.ok) { loadCallLeads({ fresh: true }); return true; }
+    setCallLeads(before);
+    return false;
+  }, [loadCallLeads]);
   const leadOps = useMemo(() => ({ applyLocal: applyLeadLocal, reload: () => loadCallLeads({ fresh: true }) }), [applyLeadLocal, loadCallLeads]);
   const [pickerLeads, setPickerLeads] = useState(null);
   // Capture a lead (CRM revamp, step 4): the Quick add sheet and Triage's empty state open it.
@@ -921,7 +931,7 @@ export default function AdminApp() {
             onDataChanged={loadCallLeads} builderPreset={presetFor('calls')} forceLoading={forceLoading}
             lists={V.lists} listsLoading={listsLoading} listsError={errors.lists} onRetryLists={loadLists} listOps={listOps}
             leads={V.leads} submissions={V.items} triageLoading={callLeadsLoading || forceLoading} triageError={errors.leads}
-            onRetryTriage={loadCallLeads} onPatchLead={patchCallLead} onDeleteLead={deleteCallLead} onRestoreLeads={restoreCallLeads} onCapture={openCapture}
+            onRetryTriage={loadCallLeads} onPatchLead={patchCallLead} onBulkPatchLead={bulkPatchCallLeads} onDeleteLead={deleteCallLead} onRestoreLeads={restoreCallLeads} onCapture={openCapture}
             onOpenLead={openLead}
             onCreateLead={createCallLead} onBulkDeleteLeads={bulkDeleteCallLeads} onRefreshLeads={loadCallLeads} onLinkSubmission={linkSubmission}
             leadsCreatePreset={createFor('leads')} leadsFilterPreset={presetFor('leads')} />

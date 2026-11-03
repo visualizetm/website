@@ -5,11 +5,13 @@
  *      a no answer carries its callback, a booking carries the answers.
  *   3. The catalog: every package's items resolve to a catalog id, every package has items, the quote's math (milestone 4).
  *   4. The server whitelist: afterCall.closer, deal.quote and the counts land; an unknown key does not.
- * Run: node scripts/close-test.mjs */
+ * Run: node scripts/close-test.mjs (CLOSE_SRC=<dir> reads the pure half from a copy of src) */
 import path from 'path';
 import { pathToFileURL } from 'url';
 const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const src = (rel) => import(pathToFileURL(path.join(repoRoot, 'src', rel)).href);
+/* CLOSE_SRC points the pure half at a copy of src (close-guard-proof.mjs cuts a guard there and expects a failure). */
+const srcRoot = process.env.CLOSE_SRC ? path.resolve(process.env.CLOSE_SRC) : path.join(repoRoot, 'src');
+const src = (rel) => import(pathToFileURL(path.join(srcRoot, rel)).href);
 let fails = 0; let passes = 0;
 const ok = (c, m) => { if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
 const section = (t) => console.log(`\n${t}`);
@@ -172,6 +174,42 @@ const s2 = await callSettings('GET');
 ok(s1.status === 200 && s2.data?.profile?.nextOpenStart === '2026-11-10', `the profile keeps the next open start (${s1.status}, ${s2.data?.profile?.nextOpenStart})`);
 const s3 = await callSettings('PATCH', { set: { profile: { nextOpenStart: 'soon' } } });
 ok(s3.status === 200 && (await callSettings('GET')).data?.profile?.nextOpenStart === '', 'anything but a day clears it');
+
+section('8. The session (src/lib/callSession.js) and the bulk edit');
+const cs2 = await src('lib/callSession.js');
+const pf = cs2.prepFacts({ reviews: { latest: { count: 212, rating: 4.9 } }, socials: { instagram: 'https://instagram.com/shop', website: 'https://shop.example' }, intel: { gaps: ['Website is a dead link'], dropLines: ['Saw the new bay'] }, bestWindow: 'After 5pm' });
+ok(pf.rating === '4.9 on 212 reviews' && pf.website === 'Site: Website is a dead link' && pf.drop === 'Saw the new bay' && pf.window === 'After 5pm' && pf.instagram.includes('instagram'), 'the prep facts: the rating and count, the site from the gaps, the window, one drop line');
+ok(cs2.prepFacts({ intel: { accomplishments: ['4.8 stars on 40 reviews'] } }).rating === '4.8 stars on 40 reviews' && cs2.prepFacts({}).website === 'No site', 'the rating falls back to the intel line; no site reads No site');
+const sess = { ids: ['a', 'b', 'c', 'd'], stats: { calls: 4, noAnswer: 1, wrongNumber: 1, callbacks: 1 }, logged: { a: 'booked', b: 'callback', c: 'no-answer' }, startedAt: morning };
+const by = new Map([['a', { _id: 'a', business: 'A', afterCall: { partner: 'yes' } }], ['b', { _id: 'b', business: 'B', afterCall: { asks: 1, objection: 'money' } }], ['c', { _id: 'c' }], ['d', { _id: 'd', afterCall: { asks: 2 } }]]);
+const sm = cs2.sessionSummary(sess, by);
+ok(sm.dialed === 4 && sm.answered === 2 && sm.asked === 3 && sm.booked === 1 && sm.askRate === 33 && sm.bookedRows[0].business === 'A', `dialed, answered, asked, booked and the ask rate (${JSON.stringify({ ...sm, bookedRows: sm.bookedRows.length })})`);
+ok(cs2.askRateLine(sm, { askRate: 50 }).startsWith('Ask rate 33% (1 of 3 asked), down 17 points from last session') && cs2.askRateLine(sm, null).includes('First session') && cs2.askRateLine({ asked: 0 }, null).startsWith('No asks yet'), 'the ask rate line against the last session');
+ok(cs2.noDecisionIds(sess).join(',') === 'b', 'a callback logged is a no decision; a booking, a no answer and nothing logged are not');
+ok(cs2.concernOf(by.get('b')) === "That's a lot right now" && cs2.concernOf({ afterCall: { whatTheySaid: 'Site is old' } }) === 'Site is old', 'the saved concern: the objection they raised, else their words');
+const fu = cs2.followUpDrafts(by.get('b'));
+ok(fu.length === 3 && fu.map(d => d.day).join(',') === '1,3,7' && fu[0].body.includes("that's a lot right now") && fu[0].subject === 'Follow up, day 1', 'the day 1, 3 and 7 follow up texts carry the concern');
+_stores.call_leads.push({ _id: '507f1f77bcf86cd799439078', business: 'Bulk A', stage: 'lead', callStatus: 'not-called', priority: 'warm' }, { _id: '507f1f77bcf86cd799439079', business: 'Bulk B', stage: 'lead', callStatus: 'not-called', priority: 'warm', nextAction: { kind: 'manual', auto: false, label: 'Keep' } }, { _id: '507f1f77bcf86cd79943907a', business: 'Bulk C', stage: 'client', callStatus: 'not-called', priority: 'warm' });
+const bulk = await call('PATCH', { body: { ids: ['507f1f77bcf86cd799439078', '507f1f77bcf86cd799439079', '507f1f77bcf86cd79943907a', 'nope'], set: { priority: 'hot', evil: 1 } } });
+const bA = store.find(d => String(d._id) === '507f1f77bcf86cd799439078'); const bB = store.find(d => String(d._id) === '507f1f77bcf86cd799439079'); const bC = store.find(d => String(d._id) === '507f1f77bcf86cd79943907a');
+ok(bulk.status === 200 && bulk.data.updated === 3 && bA.priority === 'hot' && bB.priority === 'hot' && bC.priority === 'hot' && !('evil' in bA), `one PATCH with an id array updates every lead through the whitelist (${bulk.status}, ${bulk.data?.updated})`);
+ok(bulk.data.ids.length === 3 && !bulk.data.ids.includes('nope'), 'a bad id is dropped, the answer names the ids written');
+const bulk2 = await call('PATCH', { body: { ids: ['507f1f77bcf86cd799439078', '507f1f77bcf86cd799439079'], set: { callStatus: 'callback', callbackAt: new Date(morning + 864e5).toISOString() } } });
+const bB2 = store.find(d => String(d._id) === '507f1f77bcf86cd799439079'); const bA2 = store.find(d => String(d._id) === '507f1f77bcf86cd799439078');
+ok(bulk2.status === 200 && bA2.callStatus === 'callback' && bA2.nextAction?.kind === 'callback', `a bulk call status change recomputes the next action per lead (${JSON.stringify(bA2.nextAction)})`);
+ok(bB2.nextAction?.auto === false && bB2.nextAction?.label === 'Keep', 'and keeps a manual next action');
+const bulk3 = await call('PATCH', { body: { ids: ['507f1f77bcf86cd79943907a'], set: { stage: 'lead' } } });
+ok(bulk3.status === 400 && store.find(d => String(d._id) === '507f1f77bcf86cd79943907a').stage === 'client', 'a stage never rides on a bulk edit (the pipeline guard is per record)');
+ok((await call('PATCH', { body: { ids: [], set: { priority: 'hot' } } })).status === 400 && (await call('PATCH', { body: { ids: ['507f1f77bcf86cd799439078'], set: { evil: 1 } } })).status === 400, 'no ids or nothing the whitelist knows is a 400');
+
+section('9. Nothing in the console or the close sends');
+{
+  const files = ['components/calls/CallStepper.jsx', 'components/calls/CloserStepper.jsx', 'components/calls/ObjectionSheet.jsx', 'components/calls/PricePresenter.jsx', 'components/calls/CallSheet.jsx', 'pages/AdminQuote.jsx', 'pages/AdminCalls.jsx', 'lib/quote.js', 'lib/callSession.js', 'shared/callScript.js'];
+  for (const f of files) {
+    const text = fs.readFileSync(path.join(srcRoot, f), 'utf8');
+    ok(!/send:\s*true/.test(text) && !/approvedAt/.test(text) && !/approvedBy/.test(text) && !/email\/approve/.test(text), `${f} never posts a send or a stamp (the Drafts rule: only the send sheet's Send now does)`);
+  }
+}
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\nclose-test: ${passes} passed, ${fails} failed`);

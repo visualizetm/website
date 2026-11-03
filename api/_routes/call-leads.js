@@ -8,7 +8,7 @@ import { PORTAL_MODULE_IDS, PORTAL_STATE_IDS, PORTAL_TEMPLATE_IDS, PORTAL_TEMPLA
 import { sessionSecret } from '../_lib/config.js';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
-import { sanitizeNextAction } from '../_lib/nextAction.js';
+import { sanitizeNextAction, nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
 import { sanitizeChecklists } from '../_lib/checklists.js';
 import { sanitizeInvoices } from '../_lib/invoices.js';
 import { DEAL_CHECKPOINT_IDS, CRON_RULE_IDS } from '../_semantics.js';
@@ -527,6 +527,37 @@ export async function handler(req, res) {
       if (!ids.length) return res.status(400).json({ error: 'ids required' });
       await col.updateMany({ _id: { $in: ids } }, { $set: { deleted: false }, $unset: { deletedAt: '' } });
       return res.status(200).json({ ok: true, restored: ids.length });
+    }
+
+    /* Bulk edits (prompt 2 of 3, audit item 19): PATCH { ids: [...], set } is one request for every selected lead. The same
+       sanitize, the same whitelist; a stage never rides on a bulk edit (the pipeline guard is per record and the bulk bar only
+       sets a priority or a call status); each record gets its next action recomputed on the server mirror when the set touches
+       the fields the rule reads, a manual action kept (resolveNextAction), like the daily cron. */
+    if (Array.isArray(req.body?.ids) && req.body.set && typeof req.body.set === 'object') {
+      const ids = [...new Set(req.body.ids.map(oid).filter(Boolean).map(String))].map(x => oid(x)).slice(0, 200);
+      const set = req.body.set;
+      if ('stage' in set || 'planner' in set || 'portal' in set || 'reviews' in set) return res.status(400).json({ error: 'stage, planner, portal and reviews are edited one record at a time' });
+      const clean = sanitize(set);
+      const allowed = {};
+      for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
+      if (!ids.length || !Object.keys(allowed).length) return res.status(400).json({ error: 'ids and set required' });
+      const touches = Object.keys(allowed).some(k => ['callStatus', 'callbackAt', 'meeting', 'checklists', 'bookedOutcome', 'deal'].includes(k)); // the fields the next action rule reads that a bulk edit can carry
+      let ctx = null;
+      if (touches) {
+        const [projects, sets] = await Promise.all([
+          db.collection('projects').find({ archived: { $ne: true } }).project({ leadId: 1, stage: 1, schedule: 1, invoices: 1, delivery: 1, releasedAt: 1, deliveredAt: 1, revisions: 1, addonIds: 1, updatedAt: 1 }).toArray(),
+          db.collection('concept_sets').find({ deleted: { $ne: true }, archived: { $ne: true } }).project({ leadId: 1 }).toArray(),
+        ]);
+        ctx = { projects, sets };
+      }
+      const docs = await col.find({ _id: { $in: ids }, deleted: { $ne: true } }).toArray();
+      let updated = 0;
+      for (const doc of docs) {
+        const one = { ...allowed, updatedAt: new Date() };
+        if (ctx) one.nextAction = resolveNextAction({ ...doc, ...allowed }, nextActionFor({ ...doc, ...allowed }, ctx, Date.now()));
+        await col.updateOne({ _id: doc._id }, { $set: one }); updated++;
+      }
+      return res.status(200).json({ ok: true, updated, ids: docs.map(d => String(d._id)) });
     }
 
     const { id, set } = req.body || {};

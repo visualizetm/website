@@ -19,7 +19,7 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 
 async function open(w, path, seed = null) {
   const phone = w < 768;
-  const ctx = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block', timezoneId: 'America/New_York' }); // Rob's zone: the slots and the meeting agree, like his phone
   const page = await ctx.newPage();
   await page.addInitScript((s) => { try { localStorage.setItem('vz_theme', 'dark'); localStorage.setItem('vz_boot', '1'); if (s) localStorage.setItem('vz_call_session', JSON.stringify(s)); else localStorage.removeItem('vz_call_session'); } catch { /* fine */ } }, seed);
   await mockRoutes(page, { session: true });
@@ -78,7 +78,7 @@ for (const w of WIDTHS) {
     await page.locator('.cs-book').click();
     await page.waitForTimeout(900);
     const booked = writes.slice(before).find(x => x.body?.set?.callStatus === 'booked')?.body.set;
-    ok(!!booked && booked.meeting?.date && booked.meeting?.time && booked.stage === 'booked', `Book it is the booking write (${JSON.stringify(booked?.meeting)})`);
+    ok(!!booked && booked.meeting?.date && booked.meeting?.time && booked.stage === 'booked', `Book it is the booking write (${JSON.stringify(booked?.meeting)}, stage ${booked?.stage}, keys ${Object.keys(booked || {}).join(',')})`);
     ok(booked?.afterCall?.goal === 'More jobs' && booked?.afterCall?.partner === 'no' && booked?.afterCall?.email === 'owner3@example.com' && booked?.afterCall?.cell, 'the booking carries the answers');
     const inv = posts.find(p => p.url === 'send'); const txt = posts.find(p => p.url === 'drafts');
     ok(inv && inv.body.templateId === 'custom' && inv.body.override?.blocks?.length >= 3 && !inv.body.approvedAt && !inv.body.send, 'the invite is drafted through email/send with no stamp');
@@ -196,14 +196,119 @@ for (const w of WIDTHS) {
     ok(posts.every(p => !p.body?.send && !p.body?.approvedAt), 'nothing on this page posts a send');
     await ctx.close();
   }
+
+  /* Milestone 5: the Room's live line, the four buttons, the said box, the outcomes; the Queue's prep card; the Summary; the record's cards. */
+  {
+    const seed = { ids: ['L0', 'L3', 'L17'], idx: 0, stats: {}, logged: {}, startedAt: Date.now(), size: 3, mode: 'room' };
+    const { ctx, page, writes } = await open(w, '/admin/calls/room/L0', seed);
+    await page.waitForSelector('.cc-live-line', { timeout: 10000 });
+    ok((await page.locator('.cc-live-line').textContent()).trim().length > 0, 'the Room shows the live script line');
+    ok(await page.locator('.cc-four button').count() === 4 && (await page.locator('.cc-four').textContent()).includes('Objections') && (await page.locator('.cc-four').textContent()).includes('Two times'), 'four buttons: Objections, Say it back, Prices, Two times');
+    await page.locator('.cc-open-sayback').click(); await page.waitForSelector('.cs-sheet', { timeout: 5000 });
+    ok((await sheetTitle(page)).includes('What did they say?'), 'Say it back opens the stepper on What did they say?');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+    await page.locator('.cc-open-times').click(); await page.waitForSelector('.cs-sheet', { timeout: 5000 });
+    ok((await sheetTitle(page)).includes('Two times'), 'Two times opens the stepper on Two times');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+    await page.locator('.cc-open-prices').click(); await page.waitForSelector('.pp-sheet', { timeout: 5000 });
+    ok(await page.locator('.pp-ladder').count() === 1, 'Prices opens the presenter');
+    await page.keyboard.press('Escape'); await page.waitForTimeout(400);
+    await page.locator('.cc-said textarea').fill('The site is old'); await page.locator('.cc-live-btn').focus(); await page.waitForTimeout(300);
+    ok(lastAfter(writes)?.whatTheySaid === 'The site is old', 'the What they said box writes afterCall.whatTheySaid on blur');
+    const big = await page.locator('.cc-outs .cc-out').allTextContents();
+    ok(big.length === 3 && /Booked/.test(big[0]) && /Callback/.test(big[1]) && /No answer/.test(big[2]), `three large outcomes (${big.map(t => t.replace(/\d$/, '').trim()).join(', ')})`);
+    const row2 = await page.locator('.cc-outbar-row2').textContent();
+    ok(/Not interested/.test(row2) && /Skip/.test(row2), 'then Not interested and Skip');
+    await page.locator('.cc-out--no-answer').click(); await page.waitForSelector('.cc-osheet', { timeout: 5000 });
+    await page.locator('.cc-osheet .v-sheet-foot .v-btn').last().click(); await page.waitForTimeout(1400);
+    ok(writes.some(x => x.body?.set?.callStatus === 'no-answer') && /\/calls\/room\/L3/.test(page.url()), `an outcome tap logs and moves to the next lead (${page.url().replace(BASE, '')})`);
+    await ctx.close();
+    /* A lead with no phone: the DM instead of the dial. */
+    const r2 = await open(w, '/admin/calls/room/L17', { ...seed, idx: 2 });
+    await r2.page.waitForSelector('.cc-dm', { timeout: 10000 });
+    ok((await r2.page.locator('.cc-dm-text').textContent()).includes('Rob from Visualize') && await r2.page.locator('.cc-phone-btn').count() === 0, 'no phone: the DM script shows instead of Dial');
+    await r2.page.waitForTimeout(600); await r2.page.locator('.cc-open-stepper').dispatchEvent('click'); await r2.page.waitForSelector('.cs-sheet', { timeout: 5000 });
+    ok((await r2.page.locator('.cs-pos').textContent()).startsWith('2 of 8'), 'and the stepper starts at step 2');
+    await r2.ctx.close();
+    /* The Queue: the next lead's prep card on top; a done lead sinks. */
+    const q = await open(w, '/admin/calls/queue', { ...seed, idx: 0, logged: { L0: 'no-answer' }, stats: { calls: 1, noAnswer: 1 }, mode: 'queue' });
+    await q.page.waitForSelector('.cc-qprep', { timeout: 10000 });
+    ok((await q.page.locator('.cc-qprep-biz').textContent()).includes('Lead Business 3'), 'the prep card names the next lead (the logged one is not next)');
+    const prep = await q.page.locator('.cc-qprep .csh-grid').textContent();
+    ok(/Google|Website|Best window|Instagram/.test(prep), `the prep card carries the facts (${prep.slice(0, 60)})`);
+    const order = await q.page.locator('.cc-qcard').evaluateAll(els => els.map(e => e.classList.contains('is-done')));
+    ok(order.length === 3 && order[0] === false && order[2] === true, 'done leads sink to the bottom with their outcome pill');
+    ok(await q.page.locator('.cc-qcard.is-done .cc-qmark').count() === 1, 'the outcome pill on the done lead');
+    await q.ctx.close();
+    /* The Summary. */
+    const sm = await open(w, '/admin/calls/summary', { ...seed, idx: 2, logged: { L0: 'booked', L3: 'callback', L17: 'no-answer' }, stats: { calls: 3, booked: 1, callbacks: 1, noAnswer: 1 }, mode: 'summary' });
+    await sm.page.waitForSelector('.cc-askrate', { timeout: 10000 });
+    const stats = await sm.page.locator('.cc-stat-l').allTextContents();
+    ok(stats.includes('Dialed') && stats.includes('Answered') && stats.includes('Asked') && stats.includes('Booked'), `dialed, answered, asked, booked (${stats.join(',')})`);
+    ok(/Ask rate/.test(await sm.page.locator('.cc-askrate').textContent()) || /No asks/.test(await sm.page.locator('.cc-askrate').textContent()), 'the ask rate line');
+    ok((await sm.page.locator('.cc-booked-row').count()) === 1 && /Partner/.test(await sm.page.locator('.cc-booked-row').textContent()), 'the booked row carries the partner status');
+    await sm.page.waitForTimeout(800);
+    const fu = sm.posts.filter(p => p.url === 'drafts' && /No decision/.test(p.body?.reason || ''));
+    ok(fu.length === 3 && fu.map(p => p.body.subject).join('|') === 'Follow up, day 1|Follow up, day 3|Follow up, day 7' && fu.every(p => p.body.channel === 'text'), `a no decision drafts the day 1, 3 and 7 texts (${fu.length})`);
+    ok(await sm.page.locator('.cc-go-drafts').count() === 1 && await sm.page.locator('.cc-go-tasks').count() === 1, 'Drafted for you links to Drafts and Tasks');
+    await sm.ctx.close();
+  }
+  /* The record's Call sheet and Prep cards; Edit all's discard warning; the two step form. */
+  {
+    const { ctx, page, writes } = await open(w, '/admin/leads/L0');
+    await page.waitForSelector('[data-card="call-sheet"]:visible', { timeout: 10000 });
+    ok(await page.locator('[data-card="call-sheet"]:visible').count() === 1 && await page.locator('[data-card="prep"]:visible').count() === 1, 'the record shows the Call sheet and the Prep card');
+    ok(await page.locator('.csh-quote:visible').count() === 1, 'and a Quote button');
+    await page.locator('.rc-primary:visible').first().click(); await page.waitForSelector('.cs-sheet', { timeout: 5000 });
+    await page.getByRole('button', { name: 'Yes, the owner' }).click(); await page.waitForTimeout(300);
+    await page.locator('.cs-sheet .v-sheet-x').click(); await page.waitForTimeout(700);
+    ok(await page.locator('.cs-sheet').count() === 0, 'the stepper\'s X leaves it (what was saved stays)');
+    ok((await page.locator('[data-card="call-sheet"]:visible').textContent()).includes('Owner'), 'the Call sheet shows the saved answer after leaving the stepper');
+    await page.locator('[aria-label="More actions"]:visible').first().click();
+    await page.getByRole('menuitem', { name: 'Edit all' }).click();
+    await page.waitForSelector('.lf', { timeout: 5000 });
+    ok(await page.locator('.lf .lf-more-btn').count() === 1 && await page.getByRole('textbox', { name: 'Industry' }).count() === 0, 'the form opens on who and how to reach them; the rest is under More details');
+    await page.locator('.lf-more-btn').click(); await page.waitForTimeout(300);
+    ok(await page.getByRole('textbox', { name: 'Industry' }).count() === 1, 'More details opens the rest');
+    const n0 = writes.length;
+    await page.getByRole('textbox', { name: 'Contact name' }).fill('Dana R');
+    await page.getByRole('textbox', { name: 'Email' }).focus(); await page.waitForTimeout(500);
+    ok(writes.length > n0 && writes.at(-1).body?.set?.askFor === 'Dana R', 'a changed field saves on blur');
+    await page.getByRole('textbox', { name: 'Contact name' }).fill('Dana Q');
+    await page.locator('.v-sheet .v-sheet-x').last().click(); await page.waitForTimeout(500);
+    ok(/Discard the changes\?/.test(await page.locator('body').textContent()) && await page.locator('.lf').count() === 1, 'closing with unsaved text warns before discarding (the form stays)');
+    await ctx.close();
+  }
+  /* Deals: the Stalled chip. Leads: a bulk edit is one PATCH with an id array. */
+  {
+    const { ctx, page } = await open(w, '/admin/deals');
+    await page.waitForSelector('.dl-stalled-chip', { timeout: 10000 });
+    ok(/Stalled \(\d+\)/.test(await page.locator('.dl-stalled-chip').textContent()), 'the Stalled (n) chip');
+    await ctx.close();
+    if (w < 768) {
+      const l = await open(w, '/admin/calls?section=leads');
+      await l.page.waitForSelector('.ld-select', { timeout: 10000 });
+      await l.page.locator('.ld-select').click(); await l.page.waitForTimeout(300);
+      const boxes = l.page.locator('.sh-content .v-check input');
+      ok(await boxes.count() >= 2, `select mode shows a checkbox per lead (${await boxes.count()})`);
+      await boxes.nth(0).click({ force: true }); await boxes.nth(1).click({ force: true }); await l.page.waitForTimeout(300);
+      await l.page.waitForSelector('.ld-bulk', { timeout: 5000 });
+      await l.page.getByRole('button', { name: 'Priority' }).click();
+      await l.page.getByRole('menuitem', { name: 'Hot' }).click(); await l.page.waitForTimeout(600);
+      const bulk = l.writes.filter(x => Array.isArray(x.body?.ids));
+      const perId = l.writes.filter(x => x.body?.id && x.body?.set?.priority);
+      ok(bulk.length === 1 && bulk[0].body.ids.length === 2 && bulk[0].body.set.priority === 'hot' && perId.length === 0, `a bulk priority change is one PATCH with an id array (${bulk.length} bulk, ${l.writes.length} writes: ${JSON.stringify(l.writes.map(x => ({ id: x.body?.id, ids: x.body?.ids, set: Object.keys(x.body?.set || {}) })))})`);
+      await l.ctx.close();
+    }
+  }
   /* The Room and the Queue. */
   {
     const seed = { ids: ['L0', 'L3'], idx: 0, stats: {}, logged: {}, startedAt: Date.now(), size: 2, mode: 'room' };
     const { ctx, page } = await open(w, '/admin/calls/room/L0', seed);
     await page.waitForSelector('.cc-open-stepper', { timeout: 10000 });
-    await page.locator('.cc-open-stepper').click();
+    await page.waitForTimeout(600); await page.locator('.cc-open-stepper').dispatchEvent('click');
     await page.waitForSelector('.cs-sheet', { timeout: 5000 });
-    ok((await sheetTitle(page)).includes('Did they answer?'), 'the Room\'s Open the stepper opens the sheet');
+    ok((await sheetTitle(page)).includes('Did they answer?'), 'the Room\'s live line opens the stepper');
     await page.keyboard.press('Escape'); await page.waitForTimeout(300);
     await page.locator('.cc-open-obj').click();
     await page.waitForSelector('.ob-sheet', { timeout: 5000 });

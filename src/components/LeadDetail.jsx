@@ -27,6 +27,7 @@ import { isTask } from '../lib/tasks';
 import CallbackPicker from './CallbackPicker';
 import CallStepper from './calls/CallStepper';
 import CloserStepper from './calls/CloserStepper';
+import { CallSheetCard, PrepCard } from './calls/CallSheet';
 import { useDecline } from './DeclineSheet';
 import { useSendEmail } from './SendEmailModal';
 import { suggestEmail } from '../shared/taskRules';
@@ -141,7 +142,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
   const [scriptOpen, setScriptOpen] = useState(false); // the call stepper (prompt 2 of 3), a sheet over the record
-  const [closerOpen, setCloserOpen] = useState(false); // the concept call stepper, from Start the concept call and the meeting reminder's tap (intent closer)
+  const [closerOpen, setCloserOpen] = useState(false);
+  const [editDirty, setEditDirty] = useState(false); // Edit all warns before discarding (prompt 2 of 3, audit item 20) // the concept call stepper, from Start the concept call and the meeting reminder's tap (intent closer)
   useEffect(() => { if (intentKind === 'closer') setCloserOpen(true); }, [intentN, intentKind]);
   const [statusOpen, setStatusOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false); // the Set task sheet (tasks with a due date)
@@ -194,6 +196,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       if (ok) { toast.undo(`${lead.business} marked lost.`, () => onPatch(leadId, { stage: prevStage || 'booked', bookedOutcome: { result: 'lost', reason: '', at: '' }, explicit: true }), { seconds: 6 }); setOutcome(null); closeRecord(); }
     }
   };
+  const closeEditAll = async () => { if (editDirty && !(await confirm({ title: 'Discard the changes?', body: 'What you typed since the last save goes away.', danger: true, confirmLabel: 'Discard' }))) return; setEditDirty(false); setEditAll(false); };
   const openTask = () => setTaskOpen(true);
   const taskNow = isTask(next) && !next.doneAt ? next : null;
   const del = async () => { if (!onDelete) return; if (await confirm({ title: `Delete ${lead.business}?`, body: 'It moves to Recently deleted in Settings and can be restored for 30 days.', danger: true, confirmLabel: 'Delete' })) await onDelete(leadId); };
@@ -309,6 +312,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
           {/* The suggested email (the email system): one chip under the next action, from the shared rule; it opens Compose on that template. */}
           {!(phone && phoneTab) && suggested && shell?.openCompose ? <div className="rc-suggest"><Chip icon="Mail01" label={`Suggested email: ${templateName(suggested)}`} onClick={() => shell.openCompose(lead, { templateId: suggested, project: cw.current || null })} className="rc-suggest-chip" /></div> : null}
           {mode === 'lead' && !(phone && phoneTab) ? <SocialsStrip rec={rec} onAdd={() => setEditAll(true)} /> : null}
+          {/* The call sheet and the prep card (prompt 2 of 3, milestone 5): every answer the steppers saved, and what to know before dialing. */}
+          {!clientMode && !(phone && phoneTab) && <CallSheetCard lead={lead} next={next} onRun={mode === 'lead' && !readOnly && stage !== 'client' && stage !== 'won' ? () => setScriptOpen(true) : null} onCloser={mode === 'deal' && !readOnly ? () => setCloserOpen(true) : null} onQuote={!readOnly && shell?.openQuote ? () => shell.openQuote(lead) : null} />}
+          {mode === 'lead' && !(phone && phoneTab) && <PrepCard lead={lead} />}
           {/* A client (workspace redesign): the profile card and the four workspace cards, then the quick actions, under the strip at every width. */}
           {!(phone && phoneTab) && workspace}
           {!(phone && phoneTab) && quick.length > 0 && <QuickActions items={quick} />}
@@ -344,7 +350,7 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       {cw.modals}
       {decline.sheet}
       {profileOpen && !phone && clientMode && <Sheet open onClose={() => { setProfileOpen(false); setProfileFocus(''); }} title="Profile" description={lead.business} tall width={640} className="rc-profile-sheet"><ProfileSection rec={rec} focus={profileFocus} /></Sheet>}
-      {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(leadId, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
+      {editAll && <Sheet open onClose={closeEditAll} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} saveOnBlur onDirty={setEditDirty} onSave={async (v, o) => { const ok = await onPatch(leadId, v); if (ok && !o?.stay) { setEditDirty(false); setEditAll(false); } return ok; }} onCancel={closeEditAll} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
       {scriptOpen && <CallStepper key={`cs-${leadId}`} open lead={lead} onClose={() => setScriptOpen(false)} onPatch={patch} />}
       {closerOpen && <CloserStepper key={`cl-${leadId}`} open lead={lead} onClose={() => setCloserOpen(false)} onPatch={patch} />}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}

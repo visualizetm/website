@@ -244,8 +244,8 @@ Prompt 1b shipped (7b3f15d).
 - [x] Milestone 2: CloserStepper (Clarify, Label it, Pain cycle, Three pillars with the pitch clock, Three beliefs locking the ask, The ask with the presenter, the objection cards and the counter), from Start the concept call and the reminder's tap. close-test section 6; stepper-test.
 - [x] Milestone 3: ObjectionSheet (six cards, the lead's own line first, counts, Handled, ask again), from the Room, both steppers and the record.
 - [x] Milestone 4: PricePresenter (the gap, the fit, the ladder highest first, the start slot line, the retainer pitch, Draft the quote email, Make the Stripe invoice, Pick items), AdminQuote at /leads/:id/quote (catalog lines, Free, given free, the package the lines add up to, autosave on deal.quote), CATALOG and PACKAGE_ITEMS in pricing.js, nextOpenStart in Settings. close-test sections 3, 5 and 7; stepper-test.
-- [ ] Milestone 5: the Room, the Queue's prep card, the Summary, the record's Call sheet and Prep cards, audit fixes 19, 20, 21, 24, 33.
+- [x] Milestone 5: the Room (the live line, four buttons, What they said, the large outcomes, the DM for no phone), the Queue's prep card and sinking done leads, the Summary (dialed, answered, asked, booked, the ask rate against last session, partner status, Drafted for you, the no decision follow ups), the record's Call sheet and Prep cards, audit fixes 19 (one PATCH with ids), 20 (save on blur, warn before discarding), 21 (two step form, Use these), 24 (Stalled chip), 33 (10px text). close-test section 8; stepper-test milestone 5 sections.
 - [ ] Milestone 6: ship (the gate, the four fault proofs, docs, push, Ready).
 
-Resume here: milestones 0 to 4 built and green (close-test 116, stepper-test 132, the handler tests). Next is milestone 5.
+Resume here: milestones 0 to 5 built. Next is milestone 6, the ship.
 

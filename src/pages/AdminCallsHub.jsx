@@ -41,7 +41,7 @@ export default function AdminCallsHub({
   // AdminCalls passthrough (unchanged from the old /calls route)
   onDataChanged, builderPreset, forceLoading, lists, listsLoading, listsError, onRetryLists, listOps,
   // Triage
-  leads, submissions, triageLoading, triageError, onRetryTriage, onPatchLead, onDeleteLead, onRestoreLeads, onCapture,
+  leads, submissions, triageLoading, triageError, onRetryTriage, onPatchLead, onBulkPatchLead = null, onDeleteLead, onRestoreLeads, onCapture,
   // Lists (and Triage's own Add to list sheet)
   onOpenLead,
   // Leads
@@ -88,7 +88,7 @@ export default function AdminCallsHub({
         )}
         {section === 'leads' && (
           <AdminLeads leads={leads} submissions={submissions} loading={triageLoading} error={triageError} onRetry={onRetryTriage}
-            onPatch={onPatchLead} onCreate={onCreateLead} onDelete={onDeleteLead} onBulkDelete={onBulkDeleteLeads} onRestore={onRestoreLeads}
+            onPatch={onPatchLead} onBulkPatch={onBulkPatchLead} onCreate={onCreateLead} onDelete={onDeleteLead} onBulkDelete={onBulkDeleteLeads} onRestore={onRestoreLeads}
             onRefresh={onRefreshLeads} onLinkSubmission={onLinkSubmission} createPreset={leadsCreatePreset} filterPreset={leadsFilterPreset} />
         )}
       </div>

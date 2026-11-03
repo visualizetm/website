@@ -21,6 +21,7 @@ export const V2 = {
   ifNo: "No problem. Can I text you the concepts anyway? If they land, you know where I am.",
   noAnswer: "Hey, it's Rob from Visualize. I made a couple of concepts for your shop, no charge. I'll text them over. Call me back when you have a minute.",
   voicemail: "Hey, it's Rob from Visualize. I put together a couple of concepts for your shop, no charge. Reply here and I'll send them over, or call me back when you get a minute.",
+  dm: "Hey {{first}}, Rob from Visualize here. I made a couple of concepts for {{business}}, no charge, just to show you what I mean. Want me to send them over?",
   nightBefore: "Hey, it's Rob. Looking forward to tomorrow. I'll have your concepts ready to walk through. If anyone else wants in on the call, bring them along.",
 };
 
@@ -233,6 +234,11 @@ export function nightBeforeText(lead, meeting) {
   return meeting?.time ? base.replace('tomorrow', `tomorrow at${t}`) : base;
 }
 export function fmtTime12(hhmm) { const [h, m] = String(hhmm || '').split(':').map(Number); if (!Number.isFinite(h)) return ''; return `${((h + 11) % 12) + 1}:${String(m || 0).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; }
+/** The DM a lead with no phone gets instead of a dial (the Room shows it with a Copy button). */
+export function dmText(lead) {
+  const first = String(lead?.askFor || '').trim().split(/[\s,]+/)[0];
+  return scriptLine(lead, 'dm').replace('{{first}}', first || 'there').replace('{{business}}', lead?.business || 'the shop').replace(/\s+,/g, ',');
+}
 /** The invite email the stepper drafts after a yes: the custom template with these blocks. */
 export function inviteOverride(lead, meeting) {
   const first = String(lead?.askFor || '').trim().split(/[\s,]+/)[0] || 'there';

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import PhoneOutgoing01 from '@untitled-ui/icons-react/build/esm/PhoneOutgoing01';
-import {
+import { Row, Chip,
   PageShell, ScrollArea, Section, Stack, Card, IconButton, Pill, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
@@ -52,7 +52,10 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   const ctx = useMemo(() => ({ projects: shell?.projects || [], sets: shell?.sets || [] }), [shell?.projects, shell?.sets]);
   const pool = useMemo(() => leads.filter(l => ['booked', 'deal'].includes(effectiveStage(l))).sort((a, b) => Number(isStalled(b)) - Number(isStalled(a)) || daysHere(b) - daysHere(a)), [leads]);
   const [q, setQ] = useState('');
-  const shown = useMemo(() => (q.trim() ? pool.filter(l => matchesList(l, q)) : pool), [pool, q]);
+  /* Stalled (n) (prompt 2 of 3, audit item 24): one chip filters the board to the deals nothing has moved for a week; stalled sort first either way. */
+  const [stalledOnly, setStalledOnly] = useState(false);
+  const stalledCount = useMemo(() => pool.filter(isStalled).length, [pool]);
+  const shown = useMemo(() => (q.trim() ? pool.filter(l => matchesList(l, q)) : pool).filter(l => !stalledOnly || isStalled(l)), [pool, q, stalledOnly]);
   const groups = useMemo(() => DEAL_COLUMNS.map(c => ({ ...c, items: shown.filter(l => columnOf(dealOf(l)) === c.id) })), [shown]);
   const sel = selId ? leads.find(l => l._id === selId) : null;
   const pick = (id) => openSel(id);
@@ -96,6 +99,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
       <ScrollArea wide className="dl-page">
         <Section loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(pool.length, 'deals', shown.length) : `${pool.length} in play, ${pool.filter(isStalled).length} stalled`} />
         {!showSkel && !pending && pool.length > 0 && <ListSearch value={q} onChange={setQ} placeholder="Search deals" label="Search deals" className="dl-search" />}
+        {!showSkel && !pending && pool.length > 0 && <Row gap={2} wrap className="dl-chips"><Chip label={`Stalled (${stalledCount})`} icon="Clock" selected={stalledOnly} onClick={() => setStalledOnly(v => !v)} className="dl-stalled-chip" disabled={!stalledCount && !stalledOnly} /></Row>}
         {showSkel && <Stack gap={4} aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /></Stack>}
         {pending ? null : showSkel ? skeleton
           : error && !leads.length ? <Card><ErrorState title={COPY.error.leads.title} description={COPY.error.leads.description} onRetry={retry} retrying={retrying} /></Card>

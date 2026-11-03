@@ -9,7 +9,7 @@ import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import Download01 from '@untitled-ui/icons-react/build/esm/Download01';
 import AlertTriangle from '@untitled-ui/icons-react/build/esm/AlertTriangle';
 import {
-  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, SegmentedControl, Tabs, Pill, Avatar, Badge, Menu, Popover, Checkbox, Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, useDelayedLoading, useMediaQuery, useToast, useRetry, Tooltip, uiStyles,
+  PageShell, ScrollArea, StickyFooterBar, Section, Stack, Row, Grid, Card, Button, IconButton, Chip, ChipGroup, Select, SegmentedControl, Tabs, Pill, Avatar, Badge, Menu, Popover, Checkbox, Sheet, Modal, EmptyState, ErrorState, ListRow, ProgressBar, ProgressRing, Stagger, SkeletonBlock, SkeletonCircle, SkeletonText, Textarea, useDelayedLoading, useMediaQuery, useToast, useRetry, useConfirm, Tooltip, uiStyles,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
@@ -21,6 +21,10 @@ import { useDecline } from '../components/DeclineSheet';
 import OutcomeSheet from '../components/OutcomeSheet';
 import CallStepper from '../components/calls/CallStepper';
 import ObjectionSheet from '../components/calls/ObjectionSheet';
+import PricePresenter from '../components/calls/PricePresenter';
+import { PrepCard } from '../components/calls/CallSheet';
+import { scriptLine, dmText } from '../shared/callScript';
+import { sessionSummary, askRateLine, noDecisionIds, followUpDrafts, LAST_SESSION_KEY } from '../lib/callSession';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { withNextAction } from '../lib/nextAction';
 import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey, restoreLead } from '../lib/lists';
@@ -33,7 +37,7 @@ import { ScriptSteps, Objections, CloseCards, IntelCards } from '../components/L
 import { effectiveStage } from '../lib/booked';
 import { defaultLead } from '../lib/defaultLead';
 import { industryFacets } from '../lib/leads';
-import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, connectsOf, winLine } from '../lib/calls';
+import { windowsOf, currentWindow, matchesWindow, orderQueue, ORDERS, SIZES, sizeLabel, EMPTY_STATS, STAT_KEY, winLine } from '../lib/calls';
 import { OUTCOMES, PRIORITIES, CALL_STATUSES, WINDOWS, industryKey, displayIndustry } from '../shared/semantics';
 import { formatPhone, telHref } from '../shared/phone';
 import { fmtMins, fmtDate } from '../shared/dates';
@@ -94,7 +98,7 @@ function RoomHeader({ lead, pulse, onEdit, onDecline, onEmail, timerMs, onCallTa
           {lead.phone ? (
             <Button size="lg" full icon={PhoneCall01} href={telHref(lead.phone)} onClick={onCallTap} className="cc-phone-btn">{formatPhone(lead.phone)}{timerMs != null && <span className="cc-phone-timer">{fmtClock(timerMs)}</span>}</Button>
           ) : (
-            <div className="cc-phone-none"><AlertTriangle width={18} height={18} /> No phone on file. Find the number first.</div>
+            <DmCard lead={lead} />
           )}
         </div>
         <Button variant="ghost" size="md" icon="Users01" onClick={onAbout} className="cc-about-btn">About this lead</Button>
@@ -134,11 +138,29 @@ function RoomHeader({ lead, pulse, onEdit, onDecline, onEmail, timerMs, onCallTa
             {desktop && <IconButton icon={Copy01} label="Copy number" variant="secondary" size="lg" onClick={onCopy} />}
           </Row>
         ) : (
-          <div className="cc-phone-none"><AlertTriangle width={18} height={18} /> No phone on file. Find the number first.</div>
+          <DmCard lead={lead} />
         )}
         {lead.phoneNote && <p className="cc-phone-note">{lead.phoneNote}</p>}
       </div>
     </Card>
+  );
+}
+
+/* A lead with no phone (prompt 2 of 3): the Room shows the DM instead of a dial, with Copy and the profile to send it on; the stepper starts at step 2. */
+function DmCard({ lead }) {
+  const toast = useToast();
+  const text = dmText(lead);
+  const copy = async () => { try { await navigator.clipboard.writeText(text); toast.success('DM copied.'); } catch { toast.error(COPY.error.copy); } };
+  const ig = lead.socials?.instagram || lead.socials?.facebook || '';
+  return (
+    <div className="cc-dm" data-card="dm">
+      <p className="pb-card-h"><AlertTriangle width={16} height={16} /> No phone on file. Send the DM.</p>
+      <p className="cc-dm-text">{text}</p>
+      <Row gap={2} wrap>
+        <Button variant="secondary" icon={Copy01} onClick={copy} className="cc-dm-copy">Copy the DM</Button>
+        {ig && <Button variant="ghost" icon={lead.socials?.instagram ? 'Image01' : 'Users01'} href={ig} target="_blank" rel="noopener noreferrer">{lead.socials?.instagram ? 'Open Instagram' : 'Open Facebook'}</Button>}
+      </Row>
+    </div>
   );
 }
 
@@ -175,18 +197,24 @@ function RoomBody({ lead, tab, onTab, desktop, onSaveNotes }) {
   );
 }
 
+/* The outcomes (prompt 2 of 3): Booked, Callback and No answer as large buttons; Not interested, Wrong number and Skip under them. A tap logs and moves on. */
+const BIG_OUTCOMES = ['booked', 'callback', 'no-answer'];
+const BAR_LABEL = { no: 'Not interested' };
 function OutcomeBar({ current, position, total, onOutcome, onSkip, desktop, onKeys, disabled }) {
   return (
     <StickyFooterBar className="cc-outbar">
       <div className="cc-outs" role="group" aria-label="Outcome">
-        {OUTCOMES.map(o => (
-          <Button key={o.id} variant={o.id === 'booked' ? 'primary' : 'secondary'} icon={o.icon} className={`cc-out cc-out--${o.id}`} style={o.id === 'booked' ? undefined : { color: o.text }} onClick={() => onOutcome(o.id)} disabled={disabled || !current} aria-keyshortcuts={o.key}>
+        {OUTCOMES.filter(o => BIG_OUTCOMES.includes(o.id)).map(o => (
+          <Button key={o.id} size="lg" variant={o.id === 'booked' ? 'primary' : 'secondary'} icon={o.icon} className={`cc-out cc-out--${o.id}`} style={o.id === 'booked' ? undefined : { color: o.text }} onClick={() => onOutcome(o.id)} disabled={disabled || !current} aria-keyshortcuts={o.key}>
             <span className="cc-out-label">{o.label}</span>{desktop && <kbd className="sh-kbd cc-kbd">{o.key}</kbd>}
           </Button>
         ))}
       </div>
       <Row gap={2} className="cc-outbar-row2">
-        <Button variant="ghost" icon={SkipForward} onClick={onSkip} disabled={!current}>Skip{desktop && <kbd className="sh-kbd cc-kbd">S</kbd>}</Button>
+        {OUTCOMES.filter(o => !BIG_OUTCOMES.includes(o.id)).map(o => (
+          <Button key={o.id} variant="ghost" icon={o.icon} className={`cc-out2 cc-out--${o.id}`} onClick={() => onOutcome(o.id)} disabled={disabled || !current} aria-keyshortcuts={o.key}>{BAR_LABEL[o.id] || o.label}{desktop && <kbd className="sh-kbd cc-kbd">{o.key}</kbd>}</Button>
+        ))}
+        <Button variant="ghost" icon={SkipForward} onClick={onSkip} disabled={!current} className="cc-skip">Skip{desktop && <kbd className="sh-kbd cc-kbd">S</kbd>}</Button>
         <span className="cc-pos">{total ? `${position} of ${total}` : ''}</span>
         {desktop && <IconButton icon={Keyboard01} label="Keyboard shortcuts" onClick={onKeys} className="cc-keys-btn" />}
       </Row>
@@ -203,29 +231,69 @@ function StatGrid({ children }) {
     : <Grid minColumnWidth={110} gap={2} style={{ flex: '1 1 240px' }}>{children}</Grid>;
 }
 
-function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = null, onRoll, onDone }) {
+function Summary({ session, leadsById, onNew, onDashboard, onOpenLead, list = null, onRoll, onDone, onGo }) {
   const toast = useToast();
   const s = session.stats;
-  const connects = connectsOf(s);
-  const booked = session.ids.filter(id => session.logged[id] === 'booked').map(id => leadsById.get(id)).filter(Boolean);
+  const sum = sessionSummary(session, leadsById);
+  const [last] = useState(() => readLS(LAST_SESSION_KEY, null));
+  const [drafted, setDrafted] = useState(null); // the rows the session drafted (the invites, the texts, the follow ups)
+  const [followed, setFollowed] = useState(0);
   const copy = async () => { try { await navigator.clipboard.writeText(winLine(s)); toast.success('Copied the win line.'); } catch { toast.error(COPY.error.copy); } };
+  /* Once per session: the ask rate kept for next time, the day 1, 3 and 7 follow ups drafted for every no decision, then the drafted list read. */
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      const doneKey = `vz_call_summary_${session.startedAt}`;
+      if (!readLS(doneKey, false)) {
+        writeLS(doneKey, true);
+        if (!last || last.startedAt !== session.startedAt) writeLS(LAST_SESSION_KEY, { askRate: sum.askRate, asked: sum.asked, booked: sum.booked, startedAt: session.startedAt });
+        let n = 0;
+        for (const id of noDecisionIds(session)) {
+          const l = leadsById.get(id); if (!l) continue;
+          for (const d of followUpDrafts(l)) { const r = await apiFetch('/api/admin/email/drafts', { method: 'POST', body: { channel: 'text', recordId: String(l._id), subject: d.subject, body: d.body, reason: `No decision, day ${d.day}` } }); if (r.ok) n++; }
+        }
+        if (n) { setFollowed(n); window.dispatchEvent(new CustomEvent('vz:drafts-changed')); }
+      }
+      const r = await apiFetch('/api/admin/email/drafts', { fresh: true });
+      if (dead) return;
+      const ids = new Set(session.ids.map(String));
+      const rows = (r.ok ? r.data?.items || [] : []).filter(x => ids.has(String(x.recordId)) && new Date(x.createdAt).getTime() >= session.startedAt - 60e3);
+      setDrafted(rows);
+    })();
+    return () => { dead = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const tasked = sum.bookedRows.length;
   return (
     <ScrollArea className="cc-summary">
       <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
         <Card>
           <Section title="Session complete" description={fmtMins(Date.now() - session.startedAt) + ' on the phones'}>
             <Row gap={5} align="center" wrap className="cc-sumrow">
-              <ProgressRing value={connects ? Math.round((s.booked / connects) * 100) : 0} size={96} thickness={9} tone="booked" label="Booked of connects"><Stack gap={0} align="center"><span style={{ fontSize: 'var(--v-text-2xl)' }}>{s.booked}</span><span className="cc-ring-sub">of {connects}</span></Stack></ProgressRing>
+              <ProgressRing value={sum.askRate} size={96} thickness={9} tone="booked" label="Booked of asked"><Stack gap={0} align="center"><span style={{ fontSize: 'var(--v-text-2xl)' }}>{sum.booked}</span><span className="cc-stat-l">booked</span></Stack></ProgressRing>
               <StatGrid>
-                {[['Calls', s.calls], ['Connects', connects], ['Booked', s.booked], ['Callbacks', s.callbacks], ['Said no', s.no], ['Wrong number', s.wrongNumber]].map(([l, n]) => <Card key={l} level={2} padding={3}><span className="cc-stat-n">{n}</span><span className="cc-stat-l">{l}</span></Card>)}
+                {[['Dialed', sum.dialed], ['Answered', sum.answered], ['Asked', sum.asked], ['Booked', sum.booked], ['Callbacks', s.callbacks], ['Not interested', s.no]].map(([l, n]) => <Card key={l} level={2} padding={3} className="cc-stat"><span className="cc-stat-n">{n || 0}</span><span className="cc-stat-l">{l}</span></Card>)}
               </StatGrid>
             </Row>
+            <p className="cc-askrate" aria-live="polite">{askRateLine(sum, last && last.startedAt !== session.startedAt ? last : null)}</p>
             <Card level={2} padding={3} className="cc-winline"><p>{winLine(s)}</p><Button variant="secondary" icon={Copy01} onClick={copy}>Copy win line</Button></Card>
           </Section>
         </Card>
-        {booked.length > 0 && (
-          <Card><Section title="Booked this session"><Stack gap={2}>{booked.map(l => <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={l.meeting?.date ? `${l.meeting.date} ${l.meeting.time || ''}` : 'Meeting set'} onClick={() => onOpenLead(l)} />)}</Stack></Section></Card>
+        {sum.bookedRows.length > 0 && (
+          <Card><Section title="Booked this session"><Stack gap={2}>{sum.bookedRows.map(l => <ListRow key={l._id} leading={<Avatar name={l.business} size="sm" status="booked" />} title={l.business} subtitle={`${l.meeting?.date ? `${l.meeting.date} ${l.meeting.time || ''}`.trim() : l.afterCall?.meeting || 'No time set'}${l.afterCall?.partner === 'yes' ? ', partner on the call' : l.afterCall?.partner === 'no' ? ', decides alone' : ', partner not asked'}`} trailing={<Pill tone={l.afterCall?.partner === 'yes' ? 'booked' : 'neutral'} label={l.afterCall?.partner === 'yes' ? 'Partner: yes' : l.afterCall?.partner === 'no' ? 'Partner: no' : 'Partner: ?'} size="sm" icon={false} />} onClick={() => onOpenLead(l)} className="cc-booked-row" />)}</Stack></Section></Card>
         )}
+        <Card>
+          <Section title="Drafted for you" description={drafted === null ? 'Reading Drafts' : `${drafted.length} waiting in Drafts${tasked ? `, ${tasked} Build the concept task${tasked === 1 ? '' : 's'}` : ''}${followed ? `, ${followed} follow up texts for the no decisions` : ''}`}>
+            {drafted && drafted.length > 0 && (
+              <Stack gap={1} className="cc-drafted">
+                {drafted.slice(0, 8).map(d => <ListRow key={d._id} title={`${d.channel === 'text' ? 'Text' : 'Email'}: ${d.subject}`} subtitle={leadsById.get(String(d.recordId))?.business || ''} onClick={() => onGo?.('drafts')} className="cc-drafted-row" />)}
+              </Stack>
+            )}
+            <Row gap={2} wrap>
+              <Button variant="secondary" icon="Mail01" onClick={() => onGo?.('drafts')} className="cc-go-drafts">Open Drafts</Button>
+              <Button variant="secondary" icon="CheckDone01" onClick={() => onGo?.('tasks')} className="cc-go-tasks">Open Tasks</Button>
+            </Row>
+          </Section>
+        </Card>
         {list && (
           <Card><Section title={list.name} description={`${listCount(list)} left on the list`}>
             <Row gap={2} wrap>
@@ -307,7 +375,12 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [aboutOpen, setAboutOpen] = useState(false);
   /* The call stepper and the objection cards (prompt 2 of 3): sheets over the room, never history entries; both close when the room moves on. */
   const [stepperOpen, setStepperOpen] = useState(false);
+  const [stepperStep, setStepperStep] = useState(null);
   const [objOpen, setObjOpen] = useState(false);
+  const [pricesOpen, setPricesOpen] = useState(false);
+  const [said, setSaid] = useState('');
+  const [editDirty, setEditDirty] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const [newOpen, setNewOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -422,7 +495,12 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const curIdx = session ? Math.min(session.idx, Math.max(0, sessionIds.length - 1)) : 0;
   const current = session ? leadsById.get(sessionIds[curIdx]) : null;
   /* The stepper and the objection cards close when the room moves on to another lead. */
-  useEffect(() => { setStepperOpen(false); setObjOpen(false); }, [current?._id]);
+  useEffect(() => { setStepperOpen(false); setStepperStep(null); setObjOpen(false); setPricesOpen(false); setSaid(current?.afterCall?.whatTheySaid || ''); }, [current?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openStepper = (step = null) => { setStepperStep(step); setStepperOpen(true); };
+  const saveSaid = () => { if (!current) return; const v = said.trim(); if (v === String(current.afterCall?.whatTheySaid || '').trim()) return; patchLead(current._id, { afterCall: { ...(current.afterCall || {}), whatTheySaid: v } }); };
+  /* The live line: the step the script is on, from what the stepper saved. */
+  const liveKey = (() => { const st = Number(current?.afterCall?.step) || 0; return st <= 2 ? 'intro' : st === 3 ? 'homework' : st === 4 ? 'question' : st === 5 ? 'goalQuestion' : st === 6 ? 'hook' : st === 7 ? 'ask' : 'lockIt'; })();
+  const closeEdit = async () => { if (editDirty && !(await confirm({ title: 'Discard the changes?', body: 'What you typed since the last save goes away.', danger: true, confirmLabel: 'Discard' }))) return; setEditDirty(false); setEditOpen(false); };
   useEffect(() => { if (mode === 'room' && current && relOf(location.pathname) !== callsPathOf('room', current._id)) navigate(`${base}${callsPathOf('room', current._id)}`, { replace: true, state: location.state }); }, [mode, current?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   const done = session ? sessionIds.filter(id => session.logged[id]).length : 0;
   const nextIdx = session ? sessionIds.findIndex((id, i) => i >= curIdx && !session.logged[id]) : -1;
@@ -691,14 +769,28 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     </ScrollArea>
   );
 
+  /* The Queue (prompt 2 of 3): the next lead on top with its prep card; done leads sink to the bottom with their outcome pill. */
+  const nextLead = session && nextIdx >= 0 ? leadsById.get(sessionIds[nextIdx]) : null;
+  const queueOrder = session ? [...sessionIds.filter(id => !session.logged[id]), ...sessionIds.filter(id => session.logged[id])] : [];
   const queuePanel = session && (pending ? <div className="cc-queue" /> : loadFailed ? <div className="cc-queue">{loadFailed}</div> : showSkel ? queueSkeleton : (
     <div className="cc-queue">
       <Section title="Session" description={`${Math.max(0, sessionIds.length - done)} left of ${sessionIds.length}`}
         action={<Menu label="Session" items={[{ id: 'pause', label: 'Pause and come back later', icon: 'ClockRewind', onSelect: () => shell?.go('dashboard') }, { id: 'end', label: 'End session', icon: 'Check', onSelect: endSession }, 'divider', { id: 'new', label: 'Discard and start over', icon: 'Trash01', danger: true, onSelect: newSession }]} />}>
         <ProgressBar value={sessionIds.length ? Math.round((done / sessionIds.length) * 100) : 0} tone="booked" size="sm" />
       </Section>
+      {nextLead && (
+        <Card className="cc-qprep" data-card="queue-prep">
+          <p className="cc-qprep-k">Next up</p>
+          <h3 className="cc-qprep-biz lay-title">{nextLead.business}</h3>
+          <PrepCard lead={nextLead} compact />
+          <Row gap={2} wrap className="cc-qprep-actions">
+            {desktop && <Button icon={PhoneCall01} onClick={() => { goTo(nextIdx); setTimeout(() => setStepperOpen(true), 0); }} className="cc-qprep-dial">Dial and open the script</Button>}
+            <Button variant="ghost" icon={SkipForward} onClick={() => skipToEnd(nextLead._id)} className="cc-qprep-skip">Skip</Button>
+          </Row>
+        </Card>
+      )}
       <Stagger className="cc-qlist">
-        {sessionIds.map((id, i) => { const l = leadsById.get(id); if (!l) return null; const logged = session.logged[id]; return (
+        {queueOrder.map((id) => { const i = sessionIds.indexOf(id); const l = leadsById.get(id); if (!l) return null; const logged = session.logged[id]; return (
           <div key={id} className={`cc-qcard${i === curIdx ? ' is-cur' : ''}${i === nextIdx ? ' is-next' : ''}${logged ? ' is-done' : ''}`} {...qSwipe(id, i)}>
             <LeadCard lead={l} onOpen={() => goTo(i)} selected={i === curIdx} />
             {logged && <Pill id={logged} list={CALL_STATUSES} size="sm" variant="solid" className="cc-qmark" />}
@@ -712,7 +804,19 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
       <Stagger className="cc-room-inner lay-content" cap={3}>
         <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} onEmail={shell?.openCompose ? () => shell.openCompose(current) : null} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} onAbout={() => setAboutOpen(true)} />
-        <Row gap={2} className="cc-script-row"><Button size="lg" full icon={Play} onClick={() => setStepperOpen(true)} className="cc-open-stepper">Open the stepper</Button><Button size="lg" variant="secondary" icon="MessageCircle01" onClick={() => setObjOpen(true)} className="cc-open-obj">Objections</Button></Row>
+        <Card level={1} padding={0} className="cc-live">
+          <button type="button" className="cc-live-btn cc-open-stepper v-stretch" onClick={() => openStepper()} aria-label="Say the line, open the script stepper">
+            <span className="cc-live-k">Say it, then tap for the stepper</span>
+            <span className="cc-live-line">{scriptLine(current, liveKey)}</span>
+          </button>
+        </Card>
+        <div className="cc-four" role="group" aria-label="During the call">
+          <Button variant="secondary" icon="MessageCircle01" onClick={() => setObjOpen(true)} className="cc-open-obj">Objections</Button>
+          <Button variant="secondary" icon="RefreshCw01" onClick={() => openStepper(4)} className="cc-open-sayback">Say it back</Button>
+          <Button variant="secondary" icon="CurrencyDollar" onClick={() => setPricesOpen(true)} className="cc-open-prices">Prices</Button>
+          <Button variant="secondary" icon="Calendar" onClick={() => openStepper(7)} className="cc-open-times">Two times</Button>
+        </div>
+        <Textarea label="What they said" value={said} onChange={(e) => setSaid(e.target.value)} onBlur={saveSaid} rows={2} placeholder="Their words, as they say them" className="cc-said" />
         {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
       </Stagger>
@@ -725,7 +829,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const overlays = (
     <>
       {sheet && current && <OutcomeSheet key={`${current._id}-${sheet.outcome}`} outcome={sheet.outcome} lead={current} onLog={applyLog} onClose={() => setSheet(null)} />}
-      {stepperOpen && current && <CallStepper key={`cs-${current._id}`} open lead={current} onClose={() => setStepperOpen(false)} onPatch={(set) => patchLead(current._id, set)} onLog={applyLog} />}
+      {stepperOpen && current && <CallStepper key={`cs-${current._id}-${stepperStep || 0}`} open lead={current} startStep={stepperStep} onClose={() => { setStepperOpen(false); setStepperStep(null); }} onPatch={(set) => patchLead(current._id, set)} onLog={applyLog} />}
+      {pricesOpen && current && <PricePresenter key={`pp-${current._id}`} open lead={current} onClose={() => setPricesOpen(false)} onPatch={(set) => patchLead(current._id, set)} />}
+      {confirmDialog}
       {objOpen && current && <ObjectionSheet key={`ob-${current._id}`} open lead={current} onClose={() => setObjOpen(false)} onPatch={(set) => patchLead(current._id, set)} />}
       <ShortcutsModal open={keysOpen} onClose={() => setKeysOpen(false)} />
       {decline.sheet}
@@ -744,7 +850,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           </Stack>
         </Sheet>
       )}
-      {editOpen && current && <Sheet open onClose={() => setEditOpen(false)} title="Edit lead" description={current.business} tall width={640}><LeadForm lead={current} onSave={async (v) => { const ok = await patchLead(current._id, v); if (ok) setEditOpen(false); }} onCancel={() => setEditOpen(false)} onDelete={deleteLead} /></Sheet>}
+      {editOpen && current && <Sheet open onClose={closeEdit} title="Edit lead" description={current.business} tall width={640}><LeadForm lead={current} saveOnBlur onDirty={setEditDirty} onSave={async (v, o) => { const ok = await patchLead(current._id, v); if (ok && !o?.stay) { setEditDirty(false); setEditOpen(false); } return ok; }} onCancel={closeEdit} onDelete={deleteLead} /></Sheet>}
       {newOpen && <Sheet open onClose={() => setNewOpen(false)} title="New lead" tall width={640}><LeadForm creating lead={typeof newOpen === 'object' ? newOpen : undefined} onSave={createLead} onCancel={() => setNewOpen(false)} /></Sheet>}
     </>
   );
@@ -752,7 +858,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   return (
     <div className={`cc-page lay-root${embedded ? ' cc-page--embedded' : ''}`}>
       {mode === 'builder' && (quick ? builderView : listsView)}
-      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary session={session} leadsById={leadsById} onNew={newSession} onDashboard={newSession} onOpenLead={(l) => shell?.openRecord(l)} list={session.listId ? lists.find(l => String(l._id) === String(session.listId)) : null} onRoll={async (l) => { const ok = await listOps?.patchList(l._id, { scheduledFor: tomorrowKey() }); if (ok) { toast.success(`${l.name} rolls into tomorrow, ${listCount(l)} left.`); newSession(); } else toast.error(COPY.error.save); }} onDone={async (l) => { const ok = await listOps?.finishList(l._id); if (ok) { toast.success(`${l.name} done.`); newSession(); } else toast.error(COPY.error.save); }} />)}
+      {mode === 'summary' && session && (pending ? <div className="cc-summary" /> : showSkel ? summarySkeleton : <Summary onGo={(sec) => shell?.go(sec)} session={session} leadsById={leadsById} onNew={newSession} onDashboard={newSession} onOpenLead={(l) => shell?.openRecord(l)} list={session.listId ? lists.find(l => String(l._id) === String(session.listId)) : null} onRoll={async (l) => { const ok = await listOps?.patchList(l._id, { scheduledFor: tomorrowKey() }); if (ok) { toast.success(`${l.name} rolls into tomorrow, ${listCount(l)} left.`); newSession(); } else toast.error(COPY.error.save); }} onDone={async (l) => { const ok = await listOps?.finishList(l._id); if (ok) { toast.success(`${l.name} done.`); newSession(); } else toast.error(COPY.error.save); }} />)}
       {(mode === 'queue' || mode === 'room') && session && (desktop ? (
         <div className="cc-desk">
           <aside className="cc-desk-left" aria-label="Queue"><ScrollArea bare className="cc-desk-scroll">{queuePanel}</ScrollArea></aside>
@@ -796,7 +902,7 @@ const ccStyles = `
   .cc-qcard.is-done .lc { opacity: 0.55; }
   .cc-qcard.is-next .lc { border-color: var(--v-red); box-shadow: var(--v-glow-red); }
   .cc-qmark { position: absolute; right: var(--v-space-3); bottom: var(--v-space-3); }
-  .cc-qnext { position: absolute; top: -8px; left: var(--v-space-3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-on-red); background: var(--v-red); padding: 2px 8px; border-radius: var(--v-radius-pill); }
+  .cc-qnext { position: absolute; top: -8px; left: var(--v-space-3); font-size: var(--v-text-xs); letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text-on-red); background: var(--v-red); padding: 2px 8px; border-radius: var(--v-radius-pill); }
   /* Room */
   .cc-room { flex: 1; min-height: 0; padding: var(--v-space-4) var(--v-gutter-r) var(--v-space-4) var(--v-gutter-l); }
   .cc-room-inner { gap: var(--v-space-3); }
@@ -825,21 +931,34 @@ const ccStyles = `
   .cc-phone { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .cc-phone .v-row > .v-btn--full { flex: 1 1 auto; width: auto; min-width: 0; }
   .cc-phone .v-row > .v-ibtn { flex-shrink: 0; }
-  .cc-script-row { align-items: stretch; }
-  .cc-script-row .cc-open-stepper { flex: 1; }
   .cc-phone-btn { font-family: var(--v-font-display); font-size: var(--v-text-2xl); letter-spacing: 0.02em; }
   .cc-phone-timer { margin-left: var(--v-space-3); font-family: var(--v-font-body); font-size: var(--v-text-sm); font-variant-numeric: tabular-nums; opacity: 0.85; }
-  .cc-phone-none { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap-lg); padding: 0 var(--v-space-4); border-radius: var(--v-radius-lg); background: var(--v-status-danger-soft); color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
   .cc-phone-note { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-3); text-align: center; }
   .cc-predial { gap: var(--v-space-1); }
   /* Outcome bar */
   .cc-outbar { gap: var(--v-space-2); }
-  .cc-outs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--v-space-1); width: 100%; max-width: 760px; }
+  .cc-outs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--v-space-2); width: 100%; max-width: 760px; }
   .cc-out { padding: 0 var(--v-space-1); min-height: var(--v-tap-lg); flex-direction: column; }
   .cc-out .v-btn-inner { flex-direction: column; gap: 2px; }
-  .cc-out-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); white-space: normal; text-align: center; }
-  .cc-kbd { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 3px; }
-  .cc-outbar-row2 { width: 100%; max-width: 760px; justify-content: space-between; }
+  .cc-out-label { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); white-space: normal; text-align: center; }
+  .cc-out2 { position: relative; }
+  .cc-kbd { position: absolute; top: 4px; right: 4px; min-width: 16px; height: 16px; font-size: var(--v-text-xs); padding: 0 3px; }
+  .cc-outbar-row2 { width: 100%; max-width: 760px; justify-content: space-between; flex-wrap: wrap; }
+  .cc-outbar-row2 .cc-pos { margin-left: auto; }
+  .cc-live { overflow: hidden; }
+  .cc-live-btn { display: grid; gap: var(--v-space-1); width: 100%; padding: var(--v-space-3) var(--v-space-4); text-align: left; background: none; border: 0; color: inherit; font: inherit; cursor: pointer; min-height: var(--v-tap); }
+  .cc-live-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: -2px; }
+  .cc-live-k { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; color: var(--v-text-3); font-weight: var(--v-weight-semibold); }
+  .cc-live-line { font-family: var(--v-font-display); font-size: var(--v-text-xl); line-height: var(--v-lh-lg); }
+  .cc-four { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-2); }
+  @media (min-width: 768px) { .cc-four { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .cc-dm { display: grid; gap: var(--v-space-2); padding: var(--v-space-3); border-radius: var(--v-radius-md); background: var(--v-surface-2); border: 1px solid var(--v-border); }
+  .cc-dm .pb-card-h { display: inline-flex; align-items: center; gap: var(--v-space-2); }
+  .cc-dm-text { font-family: var(--v-font-display); font-size: var(--v-text-lg); line-height: var(--v-lh-lg); }
+  .cc-qprep { display: grid; gap: var(--v-space-2); margin-bottom: var(--v-space-3); }
+  .cc-qprep-k { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); letter-spacing: var(--v-ls-xs); text-transform: uppercase; color: var(--v-text-3); font-weight: var(--v-weight-semibold); margin: 0; }
+  .cc-qprep-biz { font-family: var(--v-font-display); font-size: var(--v-text-xl); line-height: var(--v-lh-lg); margin: 0; }
+  .cc-askrate { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); margin: var(--v-space-3) 0 0; }
   .cc-pos { font-size: var(--v-text-sm); color: var(--v-text-3); font-variant-numeric: tabular-nums; }
   .cc-keys { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .cc-keys-row { display: flex; align-items: center; gap: var(--v-space-3); font-size: var(--v-text-sm); color: var(--v-text-2); }
@@ -848,7 +967,6 @@ const ccStyles = `
   .cc-summary { --v-stack-gap: var(--v-space-4); flex: 1; }
   .cc-stat-n { display: block; font-family: var(--v-font-display); font-size: var(--v-display-sm); line-height: 1; font-weight: var(--v-weight-bold); }
   .cc-stat-l { font-size: var(--v-text-xs); color: var(--v-text-3); font-weight: var(--v-weight-semibold); }
-  .cc-ring-sub { font-family: var(--v-font-body); font-size: var(--v-text-xs); color: var(--v-text-3); }
   .cc-winline { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; }
   .cc-winline p { margin: 0; font-size: var(--v-text-md); }
   /* Desktop three columns */
