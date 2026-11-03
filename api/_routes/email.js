@@ -8,7 +8,7 @@ import { varRows } from '../_lib/email/vars.js';
 import { loadContext, composeEmail, sendComposed, availabilityFor } from '../_lib/email/send.js';
 import { logFor, logById, recentLog, updateLog, draftsList } from '../_lib/email/log.js';
 import { approveAndSend } from '../_lib/email/approve.js';
-import { gmailConnected, gmailEnabled, GMAIL_ENV } from '../_lib/email/gmail.js';
+import { gmailStatus, gmailEnabled, GMAIL_ENV, connectUrl, stateOk, exchangeCode, encryptToken } from '../_lib/email/gmail.js';
 import { safeUrl } from '../_lib/url.js';
 
 /* The email system's admin endpoints, one dispatched route: vercel.json
@@ -41,7 +41,8 @@ import { safeUrl } from '../_lib/url.js';
  *   PUT  email/settings    { sender?, signatureName?, calendlyLink?, invoiceTerms?, automation?, templates?, gmailDrafts? } merged;
  *                          templates[id] of null deletes the override (Reset to default)
  * An action with the wrong method answers 405 with Allow; an unknown action 404. */
-const METHODS = { status: ['GET'], preview: ['POST'], send: ['POST'], approve: ['POST'], drafts: ['GET', 'POST'], gmail: ['GET', 'POST'], log: ['GET', 'POST'], settings: ['GET', 'PUT'] };
+const METHODS = { status: ['GET'], preview: ['POST'], send: ['POST'], approve: ['POST'], drafts: ['GET', 'POST'], gmail: ['GET', 'POST'], 'gmail-callback': ['GET'], log: ['GET', 'POST'], settings: ['GET', 'PUT'] };
+const adminBase = () => String(process.env.ADMIN_URL || 'https://admin.visualizeclients.com').replace(/\/+$/, '');
 const NEEDS_TAP = 'Nothing sends without your tap: open it in Drafts and send it from there.';
 const actionOf = (req) => {
   const a = req.query?.a;
@@ -123,13 +124,34 @@ export async function handler(req, res) {
     return res.status(200).json({ ok: true, logId: String(log._id), item: { ...log, html: undefined } });
   }
 
+  /* Draft into Gmail (prompt 1b): the status (never a token), the toggle, Connect (the consent URL), Disconnect, and the callback
+     Google sends the browser back to (/api/settings/gmail/callback by rewrite), which trades the code for a refresh token and stores
+     it encrypted on the emails settings document. */
   if (a === 'gmail') {
     const settings = await readEmailSettings(db);
+    if (req.method === 'POST' && b.action === 'connect') {
+      const url = connectUrl(adminBase());
+      if (!url) return res.status(409).json({ error: 'Add GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET in Vercel first, then Connect.', variables: GMAIL_ENV.slice(0, 2) });
+      return res.status(200).json({ ok: true, url });
+    }
+    if (req.method === 'POST' && b.action === 'disconnect') {
+      await db.collection('settings').updateOne({ _id: EMAIL_SETTINGS_ID }, { $set: { gmail: null, gmailDrafts: false, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+      return res.status(200).json({ ok: true, ...gmailStatus({ ...settings, gmail: null }), enabled: false, variables: GMAIL_ENV });
+    }
     if (req.method === 'POST') {
       await db.collection('settings').updateOne({ _id: EMAIL_SETTINGS_ID }, { $set: { gmailDrafts: b.enabled === true, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-      return res.status(200).json({ ok: true, enabled: b.enabled === true, connected: gmailConnected() });
+      return res.status(200).json({ ok: true, enabled: b.enabled === true, ...gmailStatus(settings) });
     }
-    return res.status(200).json({ connected: gmailConnected(), enabled: gmailEnabled(settings), variables: GMAIL_ENV });
+    return res.status(200).json({ ...gmailStatus(settings), enabled: gmailEnabled(settings), variables: GMAIL_ENV });
+  }
+  if (a === 'gmail-callback') {
+    const back = (q) => { res.status(302); res.setHeader('Location', `${adminBase()}/settings/emails?gmail=${q}`); return res.end(); };
+    const code = typeof req.query?.code === 'string' ? req.query.code : '';
+    if (!code || !stateOk(req.query?.state)) return back('failed');
+    const got = await exchangeCode(code, adminBase());
+    if (!got.ok) return back('failed');
+    await db.collection('settings').updateOne({ _id: EMAIL_SETTINGS_ID }, { $set: { gmail: { token: encryptToken(got.token), email: got.email, connectedAt: new Date().toISOString() }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+    return back('connected');
   }
 
   if (a === 'log') {

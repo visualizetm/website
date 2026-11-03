@@ -11,6 +11,8 @@
  *   7. the stamp has one writer: approvalStamp in approve.js; the string that makes it appears nowhere else in api/; no client file
  *      posts send: true to the log; the approve action is called from the preview sheet alone
  *   8. Draft into Gmail: off and unconnected nothing happens; on and connected a draft is mirrored with the token used once, never
+ *      stored; the Connect flow (the consent URL, a forged state, a refused code, the good code stored encrypted with the address,
+ *      the status without a token, the mirror on the stored token, the variable override, Disconnect),
  *      stored on the row or in an error; a Gmail failure leaves the draft untouched
  *   node scripts/email-safety-test.mjs */
 import fs from 'fs';
@@ -54,7 +56,13 @@ globalThis.fetch = async (url, init = {}) => {
   calls.push({ url: u, body, auth: init.headers?.Authorization || '' });
   const json = (o, status = 200) => ({ ok: status < 300, status, json: async () => o });
   if (u.includes('api.resend.com')) return json({ id: 'em_ok' });
-  if (u.includes('oauth2.googleapis.com')) return globalThis.__gmailRefuse ? json({ error: 'invalid_grant' }, 400) : json({ access_token: 'ya29.test-access-token-not-real', expires_in: 3600 });
+  if (u.includes('oauth2.googleapis.com')) {
+    if (globalThis.__gmailRefuse) return json({ error: 'invalid_grant' }, 400);
+    /* The Connect flow: a code becomes a refresh token (never real); a refresh token becomes an access token. */
+    if (/grant_type=authorization_code/.test(String(body))) return /code=good-code/.test(String(body)) ? json({ access_token: 'ya29.test-access-token-not-real', refresh_token: '1//from-google-not-real', expires_in: 3600 }) : json({ error: 'invalid_grant' }, 400);
+    return json({ access_token: 'ya29.test-access-token-not-real', expires_in: 3600 });
+  }
+  if (u.includes('/users/me/profile')) return json({ emailAddress: 'rob@visualize.example' });
   if (u.includes('gmail.googleapis.com')) return json({ id: 'r-draft-1', message: { id: '18f00abc' } });
   return json({}, 404);
 };
@@ -231,6 +239,43 @@ seed();
   seed(); await admin('gmail', 'POST', { enabled: false });
   r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
   ok(gmailCalls().length === 0, 'connected but off: nothing is mirrored');
+  for (const k of ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN']) delete process.env[k];
+
+  /* The Connect button (prompt 1b): the token comes from Google through the callback, never pasted; GMAIL_REFRESH_TOKEN is an override only. */
+  seed();
+  r = await admin('gmail', 'POST', { action: 'connect' });
+  ok(r._status === 409 && /GMAIL_CLIENT_ID/.test(r._json.error) && !('url' in r._json), `Connect without the app variables says which two are needed (${r._status})`);
+  process.env.GMAIL_CLIENT_ID = 'cid.apps.googleusercontent.com'; process.env.GMAIL_CLIENT_SECRET = 'GOCSPX-not-real';
+  r = await admin('gmail', 'GET');
+  ok(r._status === 200 && r._json.connected === false && r._json.configured === true && r._json.source === '', 'with the two app variables alone: configured, not connected');
+  r = await admin('gmail', 'POST', { action: 'connect' });
+  const cu = new URL(r._json.url || 'https://x.invalid/');
+  ok(r._status === 200 && cu.hostname === 'accounts.google.com' && cu.searchParams.get('redirect_uri') === 'https://admin.visualizeclients.com/api/settings/gmail/callback' && cu.searchParams.get('scope') === 'https://www.googleapis.com/auth/gmail.compose' && cu.searchParams.get('access_type') === 'offline' && cu.searchParams.get('prompt') === 'consent' && !!cu.searchParams.get('state') && !cu.searchParams.get('client_secret'), 'Connect answers the consent URL: the callback, the drafts scope, offline, a state, no secret');
+  const state = cu.searchParams.get('state');
+  const cb = async (query) => { const rq = await admin('gmail-callback', 'GET', undefined, { query }); return rq; };
+  r = await cb({ code: 'good-code', state: 'forged' });
+  ok(r._status === 302 && /gmail=failed$/.test(r._headers?.Location || r._headers?.location || '') && !_stores.settings.find(x => x._id === 'emails')?.gmail, `a forged state is refused and nothing is stored (${r._status})`);
+  r = await cb({ code: 'bad-code', state });
+  ok(r._status === 302 && /gmail=failed$/.test(r._headers?.Location || r._headers?.location || '') && !_stores.settings.find(x => x._id === 'emails')?.gmail, 'a code Google refuses stores nothing');
+  r = await cb({ code: 'good-code', state });
+  const stored = _stores.settings.find(x => x._id === 'emails')?.gmail;
+  ok(r._status === 302 && /gmail=connected$/.test(r._headers?.Location || r._headers?.location || '') && !!stored?.token && stored.token !== '1//from-google-not-real' && !stored.token.includes('from-google') && stored.email === 'rob@visualize.example', 'the good code lands connected: the token stored encrypted with the address');
+  ok(G.decryptToken(stored.token) === '1//from-google-not-real' && G.decryptToken('v1.garbage') === '', 'the stored token decrypts under the session secret and nothing else reads');
+  r = await admin('gmail', 'GET');
+  ok(r._status === 200 && r._json.connected === true && r._json.email === 'rob@visualize.example' && r._json.source === 'connect' && !JSON.stringify(r._json).includes('from-google') && !JSON.stringify(r._json).includes('v1.'), 'the status reads Connected with the address and carries no token');
+  calls.length = 0; await admin('gmail', 'POST', { enabled: true });
+  r = await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
+  ok(gmailCalls().length === 2 && /refresh_token=1%2F%2Ffrom-google-not-real/.test(String(gmailCalls()[0].body)) && byId(r._json.logId).gmailDraftId === 'r-draft-1', 'a draft is mirrored with the stored token');
+  process.env.GMAIL_REFRESH_TOKEN = '1//override-not-real'; calls.length = 0;
+  r = await admin('gmail', 'GET');
+  ok(r._json.source === 'variable' && r._json.connected === true && r._json.email === '', 'GMAIL_REFRESH_TOKEN set: an override, the status says so');
+  await admin('send', 'POST', { templateId: 'onboarding', recordId: LEAD });
+  ok(/refresh_token=1%2F%2Foverride-not-real/.test(String(gmailCalls()[0]?.body || '')), 'and the mirror uses the override');
+  delete process.env.GMAIL_REFRESH_TOKEN;
+  r = await admin('gmail', 'POST', { action: 'disconnect' });
+  ok(r._status === 200 && r._json.connected === false && !_stores.settings.find(x => x._id === 'emails')?.gmail && _stores.settings.find(x => x._id === 'emails')?.gmailDrafts === false, 'Disconnect clears the token and turns the toggle off');
+  const src8 = fs.readFileSync(path.join(apiDst, '_lib', 'email', 'gmail.js'), 'utf8') + fs.readFileSync(path.join(apiDst, '_routes', 'email.js'), 'utf8');
+  ok(!/console\.(log|error|warn)\(/.test(src8), 'nothing in the Gmail code logs');
   for (const k of ['GMAIL_CLIENT_ID', 'GMAIL_CLIENT_SECRET', 'GMAIL_REFRESH_TOKEN']) delete process.env[k];
 }
 

@@ -41,6 +41,8 @@ export function emailSettingsOf(doc) {
     automation: d.automation && typeof d.automation === 'object' ? Object.fromEntries(Object.entries(d.automation).filter(([, v]) => AUTOMATION_IDS.includes(v) || v === 'send').map(([k, v]) => [k, automationModeOf(v)])) : {},
     templates: d.templates && typeof d.templates === 'object' ? d.templates : {},
     gmailDrafts: d.gmailDrafts === true,
+    /* The Gmail connection (prompt 1b): the refresh token as stored (encrypted), the address, when. Never sent to a client as is; the route answers gmailStatus(). */
+    gmail: d.gmail && typeof d.gmail === 'object' ? { token: String(d.gmail.token || ''), email: String(d.gmail.email || ''), connectedAt: String(d.gmail.connectedAt || '') } : null,
   };
 }
 export async function readEmailSettings(db) {

@@ -102,6 +102,10 @@
       "destination": "/api/admin/index?r=email&a=:action"
     },
     {
+      "source": "/api/settings/gmail/callback",
+      "destination": "/api/admin/index?r=email&a=gmail-callback"
+    },
+    {
       "source": "/api/concepts",
       "destination": "/api/showcase?r=concepts"
     },

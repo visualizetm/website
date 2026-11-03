@@ -40,6 +40,11 @@ export default function EmailSettingsPanel({ leads = [] }) {
   const [testing, setTesting] = useState('');
   const [gmail, setGmail] = useState(null); // { connected, enabled, variables }
   useEffect(() => { let on = true; apiFetch('/api/admin/email/gmail').then(r => { if (on && r.ok) setGmail(r.data); }); return () => { on = false; }; }, []);
+  /* Connect (prompt 1b): the server builds Google's consent URL, the browser goes there and comes back to the callback, which lands on ?gmail=connected or failed. */
+  const [gmailBusy, setGmailBusy] = useState(false);
+  const connectGmail = async () => { setGmailBusy(true); const r = await apiFetch('/api/admin/email/gmail', { method: 'POST', body: { action: 'connect' } }); setGmailBusy(false); if (r.ok && r.data?.url) { window.location.href = r.data.url; return; } toast.error(r.data?.error || 'Could not start the Google sign in.'); };
+  const disconnectGmail = async () => { setGmailBusy(true); const r = await apiFetch('/api/admin/email/gmail', { method: 'POST', body: { action: 'disconnect' } }); setGmailBusy(false); if (r.ok) { setGmail(g => ({ ...(g || {}), ...r.data })); toast.success('Gmail disconnected.'); } else toast.error('Could not disconnect.'); };
+  useEffect(() => { const q = new URLSearchParams(window.location.search).get('gmail'); if (!q) return; if (q === 'connected') toast.success('Gmail connected.'); else toast.error('Google did not finish the sign in. Try Connect again.'); try { const u = new URL(window.location.href); u.searchParams.delete('gmail'); window.history.replaceState(window.history.state, '', u.pathname + u.search); } catch { /* the query just stays */ } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const saveGmail = async (enabled) => { const before = gmail; setGmail(g => ({ ...(g || {}), enabled })); const r = await apiFetch('/api/admin/email/gmail', { method: 'POST', body: { enabled } }); if (!r.ok) { setGmail(before); toast.error(COPY.error.save); } };
   const load = useCallback(async () => {
     const [s, st, r] = await Promise.all([apiFetch('/api/admin/email/settings'), apiFetch('/api/admin/email/status'), apiFetch('/api/admin/email/log?recent=1')]);
@@ -100,8 +105,13 @@ export default function EmailSettingsPanel({ leads = [] }) {
       </Card>
       <Card className="st-card st-integration" data-card="email-gmail">
         <Row gap={3} align="start"><IconTile icon="Mail01" tone={gmail?.connected ? 'booked' : 'neutral'} size="md" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Draft into Gmail</p>{gmail ? <Pill tone={gmail.connected ? 'booked' : 'neutral'} label={gmail.connected ? 'Connected' : 'Not connected'} size="sm" icon={gmail.connected ? 'CheckCircle' : false} /> : null}</Row>
-          <Toggle label="Draft into Gmail" description={gmail?.connected ? 'Every new draft and every email you queue for later is also saved as a Gmail draft, so you can send it from Gmail. The CRM copy stays the record.' : 'Not connected. Add GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN in Vercel and redeploy; until then this changes nothing.'} checked={!!gmail?.enabled} onChange={saveGmail} disabled={!gmail} className="es-gmail" />
+          <Row gap={2} align="center" wrap><p className="pb-card-h" style={{ margin: 0 }}>Draft into Gmail</p>{gmail ? <Pill tone={gmail.connected ? 'booked' : 'neutral'} label={gmail.connected ? (gmail.email ? `Connected as ${gmail.email}` : 'Connected') : 'Not connected'} size="sm" icon={gmail.connected ? 'CheckCircle' : false} className="es-gmail-status" /> : null}</Row>
+          <Toggle label="Draft into Gmail" description={gmail?.connected ? 'Every new draft and every email you queue for later is also saved as a Gmail draft, so you can send it from Gmail. The CRM copy stays the record.' : gmail?.configured ? 'Not connected yet: tap Connect, sign in to the Gmail account the drafts should land in, and come back here.' : 'Not connected. Add GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET in Vercel and redeploy, then tap Connect; until then this changes nothing.'} checked={!!gmail?.enabled} onChange={saveGmail} disabled={!gmail} className="es-gmail" />
+          <Row gap={2} wrap>
+            {gmail?.source === 'variable' ? <p className="dt-muted" style={{ margin: 0 }}>Connected through GMAIL_REFRESH_TOKEN in Vercel; remove that variable to use Connect instead.</p>
+              : gmail?.connected ? <Button variant="secondary" size="md" icon="XClose" loading={gmailBusy} onClick={disconnectGmail} className="es-gmail-disconnect">Disconnect</Button>
+              : <Button size="md" icon="Link01" loading={gmailBusy} onClick={connectGmail} disabled={!gmail || !gmail.configured} className="es-gmail-connect">Connect</Button>}
+          </Row>
         </Stack></Row>
       </Card>
       <Card className="st-card" data-card="email-sender">
