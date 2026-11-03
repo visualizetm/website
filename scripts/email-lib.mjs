@@ -815,7 +815,8 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       const TR = await load('_lib/taskRules.js');
       const Z = await load('_lib/zone.js');
       const cronRem = (await load('_routes/cron-reminders.js')).handler;
-      const runCron = async () => { const req = { method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }; const res = fakeRes(); await cronRem(req, res); return res; };
+      /* The handler reads the clock itself, and the rules run only at or after 9:00am New York: the check is about the handler's answer, so the clock is pinned to 10:30am New York today (15:30 UTC in November) while it runs. */
+      const runCron = async () => { const req = { method: 'GET', query: {}, headers: { authorization: 'Bearer cron-test-secret' }, url: '/api/cron/reminders', socket: {} }; const res = fakeRes(); const realNow = Date.now; const pinned = new Date(); pinned.setUTCHours(15, 30, 0, 0); Date.now = () => pinned.getTime(); try { await cronRem(req, res); } finally { Date.now = realNow; } return res; };
       const now = Date.now(); const day = 864e5;
       const iso = (d) => new Date(now + d * day).toISOString();
       const entries = (tpl, st) => _stores.email_log.filter(e => e.templateId === tpl && (!st || e.status === st));

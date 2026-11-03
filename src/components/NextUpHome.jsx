@@ -116,7 +116,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   const [ghosts, setGhosts] = useState({});
   const timers = useRef({});
   useEffect(() => () => { Object.values(timers.current).forEach(clearTimeout); }, []);
-  const ghost = useCallback((item, mode) => setGhosts(g => ({ ...g, [rowKey(item)]: { key: rowKey(item), item, card: item.bucket === 'overdue' ? 'overdue' : 'today', mode } })), []);
+  const ghost = useCallback((item, mode, extra = {}) => setGhosts(g => ({ ...g, [rowKey(item)]: { key: rowKey(item), item, card: item.bucket === 'overdue' ? 'overdue' : 'today', mode, ...extra } })), []);
   const unghost = useCallback((key) => { clearTimeout(timers.current[key]); delete timers.current[key]; setGhosts(g => Object.fromEntries(Object.entries(g).filter(([k]) => k !== key))); }, []);
   const [expanded, setExpanded] = useState(false);
   const [coming, setComing] = useState(comingOpen);
@@ -182,7 +182,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
     const listId = lead.listId ? String(lead.listId) : '';
     const list = listId ? (shell.lists || []).find(l => String(l._id) === listId) : null;
     const prevIndex = list ? (list.leadIds || []).map(String).indexOf(String(lead._id)) : -1;
-    ghost(item, 'done');
+    ghost(item, 'done', { stay: true }); // the callback still derives a row until its time passes: the row stays, struck through
     setLogging(null);
     const ok = await onPatchLead(lead._id, set);
     if (!ok) { unghost(key); toast.error(COPY.error.save); return false; }

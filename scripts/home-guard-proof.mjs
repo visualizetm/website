@@ -17,7 +17,7 @@ for (const f of ['src', 'public', 'index.html', 'vite.config.js', 'vercel.json',
 fs.symlinkSync(path.join(repoRoot, 'node_modules'), path.join(tmp, 'node_modules'), 'dir');
 const rows = path.join(tmp, 'src', 'lib', 'homeRows.js');
 let text = fs.readFileSync(rows, 'utf8');
-const guard = "  const live = (list) => (list || []).map(item => { const g = ghosts?.[rowKey(item)]; return { key: rowKey(item), item, done: g?.mode === 'done', leaving: g?.mode === 'leaving' }; });";
+const guard = "  const live = (list) => (list || []).map(item => { const g = ghosts?.[rowKey(item)]; const stays = !!g?.stay; return { key: rowKey(item), item, done: stays && g.mode === 'done', leaving: stays && g.mode === 'leaving' }; });";
 if (!text.includes(guard)) { console.log('FAIL the home rows have changed shape; update the proof'); process.exit(1); }
 text = text.replace(guard, "  const live = (list) => (list || []).map(item => ({ key: rowKey(item), item, done: false, leaving: false }));");
 fs.writeFileSync(rows, text);

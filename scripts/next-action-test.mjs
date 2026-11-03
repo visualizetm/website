@@ -233,6 +233,8 @@ section('4e. the lists: Today is never capped, Overdue shows five and says how m
   ok(none.today.length === 1 && none.today[0].done === true && none.doneToday === 1, 'a task finished this session stays in Today, done, and counts toward X of Y');
   const dup = home.homeLists({ today: [gone], overdue: [], later: [] }, g);
   ok(dup.today.length === 1 && dup.today[0].done === false, 'a row that comes back (an undo) is the live row, not a second one');
+  const stays = home.homeLists({ today: [gone], overdue: [], later: [] }, { [home.rowKey(gone)]: { key: home.rowKey(gone), item: gone, card: 'today', mode: 'done', stay: true } });
+  ok(stays.today.length === 1 && stays.today[0].done === true && stays.doneToday === 1, 'a logged outcome whose row stays live (a callback) reads done from its ghost, once');
   const leaving = mk('o1', NOW - 2 * DAY);
   const lg = home.homeLists({ today: [], overdue: [], later: [] }, { k: { key: home.rowKey(leaving), item: leaving, card: 'overdue', mode: 'leaving' } });
   ok(lg.overdue.length === 1 && lg.overdue[0].leaving === true && lg.overdueCount === 0, 'a row moved to tomorrow fades in place and is not counted');
