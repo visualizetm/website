@@ -1,3 +1,5 @@
+import { nextOpenSlots } from '../_lib/calendly.js';
+import { meetingLink } from '../_lib/config.js';
 
 // GET /api/admin/calendly/events?from=ISO&to=ISO  (Prompt 9)
 // Reads the connected user's scheduled events through the Calendly API using
@@ -14,7 +16,9 @@ const phoneOf = (inv) => {
 
 export async function handler(req, res) {
   const token = process.env.CALENDLY_TOKEN || process.env.CALENDLY_PAT;
-  if (!token) return res.status(200).json({ configured: false, events: [] });
+  if (!token) return res.status(200).json({ configured: false, events: [], ...(req.query?.slots === '1' ? { slots: [] } : {}) });
+  /* ?slots=1 (prompt 2 of 3): the next two open starts of the meeting event type, for the call stepper's two times; [] when slow. */
+  if (req.query?.slots === '1') return res.status(200).json({ configured: true, slots: await nextOpenSlots({ n: 2, meetingLink: meetingLink() }) });
   const from = new Date(req.query?.from || Date.now() - 7 * 864e5);
   const to = new Date(req.query?.to || Date.now() + 30 * 864e5);
   if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return res.status(400).json({ error: 'bad range' });

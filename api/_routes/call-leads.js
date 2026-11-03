@@ -193,6 +193,9 @@ const logArr = (v, max = 200) => Array.isArray(v)
   : [];
 
 // Normalize an incoming lead object to the stored shape (defense in depth, // the endpoint is admin-only, but bad shapes would break the notepad render).
+/* Small counters and maps for the steppers: a count per objection id (the id capped, the count 0 to 999) or an ISO stamp per pillar. */
+const num = (v, lo, hi) => (v === undefined || v === null || v === '' ? undefined : Math.max(lo, Math.min(hi, Math.round(Number(v)) || 0)));
+const countMap = (m, stamps = false) => (m && typeof m === 'object' ? Object.fromEntries(Object.entries(m).slice(0, 12).filter(([k]) => /^[a-z-]{1,20}$/.test(k)).map(([k, v]) => [k, stamps ? String(v || '').slice(0, 40) : Math.max(0, Math.min(999, Math.round(Number(v)) || 0))])) : undefined);
 function sanitize(b) {
   const s = b.script || {};
   const c = b.close || {};
@@ -234,11 +237,32 @@ function sanitize(b) {
       ifNo: str(c.ifNo, 600),
       noAnswer: str(c.noAnswer, 400),
     },
+    /* The call stepper and the concept call (prompt 2 of 3) write here: every answer nested under afterCall, additive, strings capped. */
     afterCall: {
       meeting: str(a.meeting, 300),
       email: str(a.email, 200),
       whatTheySaid: str(a.whatTheySaid, 3000),
       nextAction: str(a.nextAction, 600),
+      answered: ['owner', 'other', 'none'].includes(a.answered) ? a.answered : '',
+      homework: ['landed', 'flat'].includes(a.homework) ? a.homework : '',
+      goal: str(a.goal, 600),
+      cell: str(a.cell, 40),
+      partner: ['yes', 'no'].includes(a.partner) ? a.partner : '',
+      objection: str(a.objection, 20),
+      objections: countMap(a.objections),
+      asks: num(a.asks, 0, 999),
+      step: num(a.step, 0, 20),
+      closer: a.closer && typeof a.closer === 'object' ? {
+        why: str(a.closer.why, 600), goal: str(a.closer.goal, 600),
+        label: ['yes', 'fix'].includes(a.closer.label) ? a.closer.label : '',
+        pain: Array.isArray(a.closer.pain) ? a.closer.pain.slice(0, 8).map(r => ({ tried: str(r?.tried, 200), howLong: str(r?.howLong, 80), result: str(r?.result, 300) })) : [],
+        pillars: countMap(a.closer.pillars, true),
+        beliefs: { closer: a.closer.beliefs?.closer === true, trust: a.closer.beliefs?.trust === true, works: a.closer.beliefs?.works === true },
+        asks: num(a.closer.asks, 0, 999),
+        gap: a.closer.gap && typeof a.closer.gap === 'object' ? { now: str(a.closer.gap.now, 300), want: str(a.closer.gap.want, 300), missing: str(a.closer.gap.missing, 300) } : { now: '', want: '', missing: '' },
+        step: num(a.closer.step, 0, 20),
+        at: str(a.closer.at, 40),
+      } : undefined,
     },
     intel: {
       accomplishments: strArr(i.accomplishments),
@@ -407,6 +431,16 @@ function sanitize(b) {
       contractLink: link(b.deal.contractLink),
       metAt: str(b.deal.metAt, 40),
       stalledSince: str(b.deal.stalledSince, 40),
+      /* The quote (prompt 2 of 3): the lines Rob picked, each price his (editable) or free, the given free total, the deposit. */
+      quote: b.deal.quote && typeof b.deal.quote === 'object' ? {
+        lines: Array.isArray(b.deal.quote.lines) ? b.deal.quote.lines.slice(0, 40).map(l => ({ id: str(l?.id, 40), label: str(l?.label, 120), price: Math.max(0, Math.min(100000, Math.round(Number(l?.price)) || 0)), listPrice: Math.max(0, Math.min(100000, Math.round(Number(l?.listPrice)) || 0)), free: l?.free === true })) : [],
+        packageId: str(b.deal.quote.packageId, 40),
+        retainerPitch: b.deal.quote.retainerPitch !== false,
+        givenFree: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.givenFree)) || 0)),
+        total: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.total)) || 0)),
+        deposit: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.deposit)) || 0)),
+        at: str(b.deal.quote.at, 40),
+      } : b.deal.quote === null ? null : undefined,
     } : undefined,
     // CRM revamp, step 4: parked until a day, with why; null clears it. And the score the rules computed.
     nurture: b.nurture === null ? null : b.nurture && typeof b.nurture === 'object' ? { until: /^\d{4}-\d{2}-\d{2}$/.test(String(b.nurture.until || '')) ? String(b.nurture.until) : '', reason: str(b.nurture.reason, 120) } : undefined,

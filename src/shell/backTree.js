@@ -2,7 +2,7 @@
  *
  * Back goes up exactly one level in a fixed tree, whatever brought the screen up:
  *
- *   Home > section root > record > sub screen (planner, tasks, docs, concepts, compose, showcase, a new project) > sheet
+ *   Home > section root > record > sub screen (planner, tasks, docs, concepts, quote, compose, showcase, a new project) > sheet
  *   Calls > Queue > Room; Summary backs to Calls
  *   Settings > Design system, Recently Deleted, an emails or notifications tab
  *
@@ -63,7 +63,7 @@ export function parentOf(rel, search = '') {
   // A record's sub screens back to the record; the record backs to its list (Leads is a section of the Calls hub).
   if ((m = p.match(/^\/clients\/([^/]+)\/(planner|tasks|docs|showcase)$/))) return recordPathOf('clients', m[1]);
   if ((m = p.match(/^\/clients\/([^/]+)\/projects\/new$/))) return recordPathOf('clients', m[1]);
-  if ((m = p.match(/^\/leads\/([^/]+)\/concepts$/))) return recordPathOf('leads', m[1]);
+  if ((m = p.match(/^\/leads\/([^/]+)\/(concepts|quote)$/))) return recordPathOf('leads', m[1]);
   if ((m = p.match(/^\/lists\/([^/]+)\/fill$/))) return `/calls?section=lists&open=${enc(m[1])}`;
   if (p.startsWith('/email/compose')) { const r = q.get('record'); return r ? recordPathOf('leads', r) : '/'; }
   if (/^\/leads\/[^/]+$/.test(p)) return '/calls?section=leads';

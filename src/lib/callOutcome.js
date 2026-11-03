@@ -1,7 +1,7 @@
-import { emptyDeal } from './deal';
-import { dealFromOptions } from './dealConvert';
-import { saidNoPatch } from './nurture';
-import { fmtDate } from '../shared/dates';
+import { emptyDeal } from './deal.js';
+import { dealFromOptions } from './dealConvert.js';
+import { saidNoPatch } from './nurture.js';
+import { fmtDate } from '../shared/dates.js';
 
 /* What logging a call outcome writes to a lead, in one place: the Call Console and the home's Next up block both build the write
  * here, so a callback logged from either lands the same way. Pure; the caller does the patch, the lists rule and the Undo toast.
@@ -16,6 +16,8 @@ export function callOutcomeSet(lead, outcome, extra = {}, now = Date.now()) {
   // CRM revamp, step 5: a booking starts the deal, the package from the recommended pricing option.
   if (outcome === 'booked') { set.stage = 'booked'; if (!lead.deal) set.deal = { ...emptyDeal(), ...dealFromOptions(lead.pricingOptions) }; if (extra.meeting) set.meeting = extra.meeting; if (entry.email || entry.meeting) set.afterCall = { ...(lead.afterCall || {}), meeting: entry.meeting || lead.afterCall?.meeting || '', email: entry.email || lead.afterCall?.email || '' }; }
   if (outcome === 'callback') set.callbackAt = extra.callbackAt || '';
+  // The call stepper (prompt 2 of 3): a no answer sets a callback for later today on the same write (the rule Next up and minute-reminders read is callbackAt, whatever callStatus says).
+  if (outcome === 'no-answer' && extra.callbackAt) set.callbackAt = extra.callbackAt;
   if (outcome === 'wrong-number') set.phoneNote = `Wrong number (${fmtDate(at)})`;
   // CRM revamp, step 4: a no parks the lead in nurture for 90 days instead of deleting it.
   if (outcome === 'no') Object.assign(set, saidNoPatch());

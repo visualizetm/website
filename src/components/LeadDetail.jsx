@@ -25,6 +25,8 @@ import LeadForm from './LeadForm';
 import TaskSheet from './TaskSheet';
 import { isTask } from '../lib/tasks';
 import CallbackPicker from './CallbackPicker';
+import CallStepper from './calls/CallStepper';
+import CloserStepper from './calls/CloserStepper';
 import { useDecline } from './DeclineSheet';
 import { useSendEmail } from './SendEmailModal';
 import { suggestEmail } from '../shared/taskRules';
@@ -37,6 +39,7 @@ import { invoiceStatus } from '../lib/invoices';
 import { nextUnpaid, brandText } from '../lib/projects';
 import { normalizeStage, PRIORITIES, CLIENT_STATUSES } from '../shared/semantics';
 import { formatPhone } from '../shared/phone';
+import { money } from '../shared/pricing';
 import { fmtDate, fmtDateTime } from '../shared/dates';
 import { COPY } from '../shared/copy';
 import { durationMs } from '../ui/motion';
@@ -137,6 +140,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   const suggested = shell?.openCompose && !readOnly ? knownTemplate(suggestEmail(lead, { project: cw.current || null, sets: shell?.sets || [], projects: shell?.projects || [] })) : null;
   const [editAll, setEditAll] = useState(false);
   const [cbOpen, setCbOpen] = useState(false);
+  const [scriptOpen, setScriptOpen] = useState(false); // the call stepper (prompt 2 of 3), a sheet over the record
+  const [closerOpen, setCloserOpen] = useState(false); // the concept call stepper, from Start the concept call and the meeting reminder's tap (intent closer)
+  useEffect(() => { if (intentKind === 'closer') setCloserOpen(true); }, [intentN, intentKind]);
   const [statusOpen, setStatusOpen] = useState(false);
   const [taskOpen, setTaskOpen] = useState(false); // the Set task sheet (tasks with a due date)
   /* The full profile (workspace redesign): a side panel on a computer; a phone pushes the profile section. `profileFocus` names the field a dimmed button on the profile card asked for. */
@@ -201,10 +207,12 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
   if (mode === 'lead') {
     primary = stage === 'client' || stage === 'won'
       ? <Button icon="User01" onClick={() => shell?.openRecord?.(lead)} className="rc-primary">Open client record</Button>
-      : <Button icon={PhoneCall01} disabled={!lead.phone} onClick={() => run('call')} className="rc-primary">Call</Button>;
+      : <Button icon={PhoneCall01} onClick={() => setScriptOpen(true)} className="rc-primary">Run the script</Button>;
     if (!readOnly && stage === 'lead' && shell?.openListPicker) secondary = <Button variant="secondary" icon="Rows01" onClick={() => shell.openListPicker([lead])} className="rc-secondary">{lead.listId ? 'Move list' : 'Add to list'}</Button>;
   } else if (mode === 'deal') {
-    if (ca && !readOnly) primary = <Button icon={ca.icon} loading={busy === runKeyFor(ca)} onClick={() => run(runKeyFor(ca))} className={`rc-primary${ca.kind === 'met' ? ' dt-met' : ''}`} aria-label={ca.label === 'Tick' ? `Tick ${ca.checkpoint.label.toLowerCase()}` : undefined}>{ca.label}</Button>;
+    /* A booked lead that has not been met (prompt 2 of 3): the primary is the concept call; the checkpoint action keeps its place once met. */
+    if (!readOnly && stage === 'booked' && !deal?.metAt) primary = <Button icon={PhoneCall01} onClick={() => setCloserOpen(true)} className="rc-primary rc-closer">Start the concept call</Button>;
+    else if (ca && !readOnly) primary = <Button icon={ca.icon} loading={busy === runKeyFor(ca)} onClick={() => run(runKeyFor(ca))} className={`rc-primary${ca.kind === 'met' ? ' dt-met' : ''}`} aria-label={ca.label === 'Tick' ? `Tick ${ca.checkpoint.label.toLowerCase()}` : undefined}>{ca.label}</Button>;
     secondary = <Button variant="secondary" icon="CurrencyDollar" onClick={() => openTab('money')} className="rc-secondary">Invoices</Button>;
   } else {
     const cur = cw.current; const nx = cur ? nextUnpaid(cur) : null;
@@ -253,6 +261,9 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
     'divider',
     ...(!readOnly && !clientMode && stage !== 'client' && stage !== 'won' && shell?.openListPicker ? [{ id: 'list', label: lead.listId ? 'Move list' : 'Add to list', icon: 'Rows01', onSelect: () => shell.openListPicker([lead]) }] : []),
     ...(!readOnly ? [{ id: 'callback', label: lead.callbackAt ? `Callback, ${fmtDateTime(lead.callbackAt)}` : 'Set a callback', icon: 'PhoneIncoming01', onSelect: () => setCbOpen(true) }] : []),
+    ...(!readOnly && mode === 'lead' && lead.phone ? [{ id: 'console', label: 'Open in Call Console', icon: 'PhoneCall01', onSelect: () => run('call') }] : []),
+    ...(!readOnly && mode === 'deal' ? [{ id: 'closer', label: 'Concept call script', icon: 'PhoneCall01', onSelect: () => setCloserOpen(true) }] : []),
+    ...(!readOnly && mode !== 'client' && shell?.openQuote ? [{ id: 'quote', label: lead.deal?.quote?.total ? `Quote, ${money(lead.deal.quote.total)}` : 'Quote', icon: 'CurrencyDollar', onSelect: () => shell.openQuote(lead) }] : []),
     ...(!readOnly && !clientMode && !['declined', 'won', 'client'].includes(stage) ? [{ id: 'decline', label: 'Decline', icon: 'SlashCircle01', onSelect: () => decline.open(lead) }] : []),
     ...(dealMode && !readOnly ? [{ id: 'lost', label: 'Mark as lost', icon: 'XClose', danger: true, onSelect: () => openOutcome('lost') }, { id: 'won', label: 'Mark won without payment', icon: 'Trophy01', onSelect: () => openOutcome('won') }] : []),
     ...(clientMode && !readOnly ? [{ id: 'newproj', label: 'New project', icon: 'Plus', onSelect: cw.openNew }, ...(!cw.ret || cw.ret.status === 'cancelled' ? [{ id: 'ret', label: 'Start a retainer', icon: 'RefreshCw01', onSelect: cw.openRet }] : [])] : []),
@@ -334,6 +345,8 @@ export default function LeadDetail({ lead: rawLead, submissions = [], onPatch, o
       {decline.sheet}
       {profileOpen && !phone && clientMode && <Sheet open onClose={() => { setProfileOpen(false); setProfileFocus(''); }} title="Profile" description={lead.business} tall width={640} className="rc-profile-sheet"><ProfileSection rec={rec} focus={profileFocus} /></Sheet>}
       {editAll && <Sheet open onClose={() => setEditAll(false)} title="Edit lead" description={lead.business} tall width={640}><LeadForm lead={lead} onSave={async (v) => { const ok = await onPatch(leadId, v); if (ok) setEditAll(false); }} onCancel={() => setEditAll(false)} onDelete={onDelete ? async (id) => { await onDelete(id); setEditAll(false); } : undefined} /></Sheet>}
+      {scriptOpen && <CallStepper key={`cs-${leadId}`} open lead={lead} onClose={() => setScriptOpen(false)} onPatch={patch} />}
+      {closerOpen && <CloserStepper key={`cl-${leadId}`} open lead={lead} onClose={() => setCloserOpen(false)} onPatch={patch} />}
       {cbOpen && <CallbackPicker open onClose={() => setCbOpen(false)} value={lead.callbackAt} business={lead.business} onSave={async (v) => { const ok = await patch({ callbackAt: v || '' }); if (ok) { setCbOpen(false); toast.success(v ? `Callback set for ${fmtDateTime(v)}.` : 'Callback cleared.'); } }} />}
       <Modal open={statusOpen} onClose={() => setStatusOpen(false)} title={clientMode ? 'Priority and status' : 'Priority'} description={lead.business} footer={<Button variant="ghost" onClick={() => setStatusOpen(false)}>Done</Button>}>
         <Stack gap={3}>

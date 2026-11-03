@@ -53,3 +53,31 @@ export async function nextMeetingFor(db, leadId, email) {
   try { await db.collection('settings').updateOne({ _id: key }, { $set: { at: Date.now(), data } }, { upsert: true }); } catch { /* best effort */ }
   return data;
 }
+
+/* The next open slots (prompt 2 of 3, the call stepper's "two times"): the meeting event type (the one whose scheduling link is the
+   studio's meeting link, else the first active one), its available times over the next seven days, the first n start times as ISO.
+   Anything slow or off answers [] and the stepper falls back to its default times; every call is capped at timeoutMs in total. */
+export async function nextOpenSlots({ n = 2, timeoutMs = 3500, meetingLink = '' } = {}) {
+  const token = calendlyToken();
+  if (!token) return [];
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const deadline = Date.now() + timeoutMs;
+  const left = () => Math.max(250, deadline - Date.now());
+  try {
+    const meRes = await fetch(`${BASE}/users/me`, { headers, signal: AbortSignal.timeout(left()) });
+    if (!meRes.ok) return [];
+    const { resource: user } = await meRes.json();
+    const etRes = await fetch(`${BASE}/event_types?${new URLSearchParams({ user: user.uri, active: 'true', count: '20' })}`, { headers, signal: AbortSignal.timeout(left()) });
+    if (!etRes.ok) return [];
+    const types = (await etRes.json()).collection || [];
+    const want = String(meetingLink || '').replace(/\/+$/, '').toLowerCase();
+    const type = types.find(t => want && String(t.scheduling_url || '').replace(/\/+$/, '').toLowerCase() === want) || types[0];
+    if (!type?.uri) return [];
+    const start = new Date(Date.now() + 3600e3); const end = new Date(Date.now() + 7 * 864e5);
+    const avRes = await fetch(`${BASE}/event_type_available_times?${new URLSearchParams({ event_type: type.uri, start_time: start.toISOString(), end_time: end.toISOString() })}`, { headers, signal: AbortSignal.timeout(left()) });
+    if (!avRes.ok) return [];
+    const times = ((await avRes.json()).collection || []).filter(t => t.status === 'available' && t.start_time).map(t => String(t.start_time)).sort();
+    return times.slice(0, n);
+  } catch { return []; }
+}
+

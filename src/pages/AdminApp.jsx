@@ -49,6 +49,7 @@ const loaders = {
   tasksAll: () => import('./AdminTasksHome'),
   overview: () => import('./AdminOverview'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
+  quote: () => import('./AdminQuote'),
   projects: () => import('./AdminProjects'),
   projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
   compose: () => import('./AdminCompose'),
@@ -75,6 +76,7 @@ const AdminPipeline = lazy(loaders.pipeline);
 const AdminTasksHome = lazy(loaders.tasksAll);
 const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
+const AdminQuote = lazy(loaders.quote);
 const AdminCompose = lazy(loaders.compose);
 const AdminDrafts = lazy(loaders.drafts);
 const AdminProjects = lazy(loaders.projects);
@@ -429,6 +431,7 @@ export default function AdminApp() {
     if (p.startsWith('/orders')) return 'orders';
     if (p.startsWith('/calls')) return 'calls';
     if (/^\/leads\/[^/]+\/concepts$/.test(p)) return 'conceptsEditor';
+    if (/^\/leads\/[^/]+\/quote$/.test(p)) return 'quote'; // the quote builder (prompt 2 of 3), a sub screen of the record
     if (p.startsWith('/leads')) return 'calls'; // Leads is a section of the Calls hub (milestone 2), like Lists and Triage
     if (/^\/clients\/[^/]+\/projects\/new$/.test(p) || p === '/projects/new') return 'projectNew';
     if (/^\/lists\/[^/]+\/fill$/.test(p)) return 'listFill';
@@ -500,6 +503,7 @@ export default function AdminApp() {
   const listFillId = (relPath.match(/^\/lists\/([^/]+)\/fill$/) || [])[1] || '';
   // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
   const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
+  const quoteLeadId = (relPath.match(/^\/leads\/([^/]+)\/quote$/) || [])[1] || '';
   // /email/compose (the email system): ?record= names the lead, ?template=, ?project= and ?invoice= what Compose opens on. A bare /email lands on Leads.
   const composeQ = new URLSearchParams(location.search);
   useEffect(() => { if (relPath === '/email' || relPath === '/email/') navigate(`${BASE}/calls?section=leads`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -528,6 +532,8 @@ export default function AdminApp() {
   const openPlanner = useCallback((lead, month) => { push(`${BASE}/clients/${lead._id}/planner${month ? `?month=${month}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openTasks = useCallback((lead, project) => { push(`${BASE}/clients/${lead._id}/tasks${project ? `?project=${project._id}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
+  /* The quote builder (prompt 2 of 3): a push from the record, the price presenter or the room; ?pkg= seeds the lines with a package. */
+  const openQuote = useCallback((lead, pkgId) => { push(`${BASE}/leads/${lead._id}/quote${pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
@@ -581,7 +587,9 @@ export default function AdminApp() {
     if (['tasksAll', 'deals', 'clients'].includes(section) || recordSec === 'leads') {
       if (callLeadsLoading) return;
       const lead = callLeads.find(l => String(l._id) === String(id));
-      if (lead) { deepOpened.current = true; openLead(lead, null, { replace: true }); return; }
+      /* ?intent=closer (prompt 2 of 3): the meeting reminder's tap opens the concept call stepper on the record. */
+      const intentQ = (new URLSearchParams(window.location.search).get('intent') || '').match(/^[a-z]{2,16}$/)?.[0] || null;
+      if (lead) { deepOpened.current = true; openLead(lead, intentQ, { replace: true }); return; }
       if (section === 'tasksAll') { deepOpened.current = true; return; }
     }
     deepOpened.current = true;
@@ -754,8 +762,10 @@ export default function AdminApp() {
   // A phone shows the record instead of the list while the entry opens one (the three split screens).
   /* Triage is now the Calls hub's own section (openReq.section stays 'triage', its own useSelection key, even
      though the top level section id is 'calls'), so it needs the same check under the hub's section id too. */
-  const hasDetail = (['deals', 'leads', 'clients'].includes(section) && !!(openReq?.section === section || createReq?.section === section))
-    || (section === 'calls' && !!(openReq?.section === 'triage' || createReq?.section === 'triage'));
+  /* A record path with no entry behind it (a cold open, a reload, a push on a phone) is a record too (prompt 2 of 3): the panel reads the path. */
+  const pathRecord = recordOf(relPath);
+  const hasDetail = (['deals', 'leads', 'clients'].includes(section) && !!(openReq?.section === section || createReq?.section === section || pathRecord?.section === section))
+    || (section === 'calls' && !!(openReq?.section === 'triage' || createReq?.section === 'triage' || openReq?.section === 'leads' || pathRecord?.section === 'leads'));
   /* Link a submission: a start brief linked to a deal ticks Form received (CRM revamp, step 5). */
   const linkSubmission = async (subId, leadId) => {
     const ok = await patch(subId, { linkedLeadId: leadId });
@@ -774,7 +784,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenQuote={openQuote} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
@@ -856,6 +866,10 @@ export default function AdminApp() {
       {section === 'docEditor' && (
         <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi} onPatchLead={patchCallLead}
           onBack={navBack ? navBack.back : null} />
+      )}
+      {section === 'quote' && (
+        <AdminQuote lead={V.leads.find(l => String(l._id) === quoteLeadId) || null} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
+          onPatch={patchCallLead} pkgId={new URLSearchParams(location.search).get('pkg') || ''} onBack={navBack ? navBack.back : null} />
       )}
       {section === 'conceptsEditor' && (
         <AdminConceptsEditor

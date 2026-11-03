@@ -164,10 +164,10 @@ export async function runReminders(db, nowMs = Date.now()) {
       const hkey = `mh:${l._id}:${mt.stamp}`;
       if (headsUpAt <= nowMs && !sent.has(hkey)) {
         const mins = Math.max(1, Math.round((mt.at - nowMs) / 60e3));
-        settleLate(hkey, 'meeting-soon', headsUpAt, { key: hkey, kind: 'meeting-soon', business: l.business, title: `Meeting in ${mins} min: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}` }, nowMs >= mt.at ? 'started' : 'stale');
+        settleLate(hkey, 'meeting-soon', headsUpAt, { key: hkey, kind: 'meeting-soon', business: l.business, title: `Meeting in ${mins} min: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}&intent=closer` }, nowMs >= mt.at ? 'started' : 'stale');
       }
       const key = `mt:${l._id}:${mt.stamp}`;
-      if (mt.at <= nowMs && !sent.has(key)) settleLate(key, 'meeting', mt.at, { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}` });
+      if (mt.at <= nowMs && !sent.has(key)) settleLate(key, 'meeting', mt.at, { key, kind: 'meeting', business: l.business, title: `Meeting now: ${l.business}, ${fmtZoneTime(mt.at)}`, body: l.meeting?.location || '', url: `${base}/booked?open=${l._id}&intent=closer` });
     }
   }
 

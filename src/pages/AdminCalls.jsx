@@ -19,6 +19,8 @@ import { usePush, relOf } from '../shell/nav-history';
 import { callsModeOf, callsPathOf, parentOf } from '../shell/backTree';
 import { useDecline } from '../components/DeclineSheet';
 import OutcomeSheet from '../components/OutcomeSheet';
+import CallStepper from '../components/calls/CallStepper';
+import ObjectionSheet from '../components/calls/ObjectionSheet';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { withNextAction } from '../lib/nextAction';
 import { openLists, listCount, applyOutcome, outcomeRemoves, tomorrowKey, restoreLead } from '../lib/lists';
@@ -303,6 +305,9 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const [pulse, setPulse] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  /* The call stepper and the objection cards (prompt 2 of 3): sheets over the room, never history entries; both close when the room moves on. */
+  const [stepperOpen, setStepperOpen] = useState(false);
+  const [objOpen, setObjOpen] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
   const [keysOpen, setKeysOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -416,6 +421,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const sessionIds = useMemo(() => (session && loaded ? session.ids.filter(id => leadsById.has(id)) : session?.ids || []), [session, leadsById, loaded]);
   const curIdx = session ? Math.min(session.idx, Math.max(0, sessionIds.length - 1)) : 0;
   const current = session ? leadsById.get(sessionIds[curIdx]) : null;
+  /* The stepper and the objection cards close when the room moves on to another lead. */
+  useEffect(() => { setStepperOpen(false); setObjOpen(false); }, [current?._id]);
   useEffect(() => { if (mode === 'room' && current && relOf(location.pathname) !== callsPathOf('room', current._id)) navigate(`${base}${callsPathOf('room', current._id)}`, { replace: true, state: location.state }); }, [mode, current?._id]); // eslint-disable-line react-hooks/exhaustive-deps
   const done = session ? sessionIds.filter(id => session.logged[id]).length : 0;
   const nextIdx = session ? sessionIds.findIndex((id, i) => i >= curIdx && !session.logged[id]) : -1;
@@ -471,8 +478,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   }, [embedded, mode, current?._id, current?.business, desktop, timer && Math.floor((Date.now() - timer.start) / 1000)])); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Logging: optimistic, rollback, undo ── */
-  const applyLog = async (outcome, extra = {}) => {
-    const lead = current; if (!lead) return false;
+  const applyLog = async (outcome, extra = {}, leadOverride = null) => {
+    const lead = leadOverride || current; if (!lead) return false;
     const { set, prev } = callOutcomeSet(lead, outcome, extra);
     // CRM revamp, step 4: where the lead sat on the list it came from, so an undo puts it back there.
     const prevList = session?.listId ? lists.find(l => String(l._id) === String(session.listId)) : null;
@@ -705,6 +712,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     <ScrollArea bare className="cc-room" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} key={current._id}>
       <Stagger className="cc-room-inner lay-content" cap={3}>
         <RoomHeader lead={current} pulse={pulse} onEdit={() => setEditOpen(true)} onDecline={() => decline.open(current)} onEmail={shell?.openCompose ? () => shell.openCompose(current) : null} timerMs={timer ? Date.now() - timer.start : null} onCallTap={() => setTimer({ start: Date.now() })} desktop={desktop} onCopy={copyNumber} onAbout={() => setAboutOpen(true)} />
+        <Row gap={2} className="cc-script-row"><Button size="lg" full icon={Play} onClick={() => setStepperOpen(true)} className="cc-open-stepper">Open the stepper</Button><Button size="lg" variant="secondary" icon="MessageCircle01" onClick={() => setObjOpen(true)} className="cc-open-obj">Objections</Button></Row>
         {(current.beforeYouDial || []).length > 0 && <BeforeYouDial lead={current} done={predial} onToggle={(i) => setPredial(p => ({ ...p, [i]: !p[i] }))} />}
         <RoomBody lead={current} tab={tab} onTab={setTab} desktop={desktop} onSaveNotes={saveNotes} />
       </Stagger>
@@ -717,6 +725,8 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
   const overlays = (
     <>
       {sheet && current && <OutcomeSheet key={`${current._id}-${sheet.outcome}`} outcome={sheet.outcome} lead={current} onLog={applyLog} onClose={() => setSheet(null)} />}
+      {stepperOpen && current && <CallStepper key={`cs-${current._id}`} open lead={current} onClose={() => setStepperOpen(false)} onPatch={(set) => patchLead(current._id, set)} onLog={applyLog} />}
+      {objOpen && current && <ObjectionSheet key={`ob-${current._id}`} open lead={current} onClose={() => setObjOpen(false)} onPatch={(set) => patchLead(current._id, set)} />}
       <ShortcutsModal open={keysOpen} onClose={() => setKeysOpen(false)} />
       {decline.sheet}
       {aboutOpen && current && (
@@ -752,7 +762,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
           </aside>
         </div>
       ) : mode === 'queue' ? (
-        <PageShell className="cc-shell"><ScrollArea className="cc-queue-scroll">{queuePanel}</ScrollArea>{current && <StickyFooterBar><Button size="lg" full icon={PhoneCall01} onClick={() => goTo(nextIdx >= 0 ? nextIdx : curIdx)} className="cc-resume">{done ? 'Next lead' : 'Open the first lead'}</Button></StickyFooterBar>}</PageShell>
+        <PageShell className="cc-shell"><ScrollArea className="cc-queue-scroll">{queuePanel}</ScrollArea>{current && <StickyFooterBar><Button size="lg" full icon={PhoneCall01} onClick={() => { goTo(nextIdx >= 0 ? nextIdx : curIdx); setTimeout(() => setStepperOpen(true), 0); }} className="cc-resume">Dial and open the script</Button></StickyFooterBar>}</PageShell>
       ) : (
         <PageShell className="cc-shell">{roomCenter}{bar}</PageShell>
       ))}
@@ -815,6 +825,8 @@ const ccStyles = `
   .cc-phone { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .cc-phone .v-row > .v-btn--full { flex: 1 1 auto; width: auto; min-width: 0; }
   .cc-phone .v-row > .v-ibtn { flex-shrink: 0; }
+  .cc-script-row { align-items: stretch; }
+  .cc-script-row .cc-open-stepper { flex: 1; }
   .cc-phone-btn { font-family: var(--v-font-display); font-size: var(--v-text-2xl); letter-spacing: 0.02em; }
   .cc-phone-timer { margin-left: var(--v-space-3); font-family: var(--v-font-body); font-size: var(--v-text-sm); font-variant-numeric: tabular-nums; opacity: 0.85; }
   .cc-phone-none { display: flex; align-items: center; gap: var(--v-space-2); min-height: var(--v-tap-lg); padding: 0 var(--v-space-4); border-radius: var(--v-radius-lg); background: var(--v-status-danger-soft); color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }

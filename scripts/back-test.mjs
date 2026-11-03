@@ -45,6 +45,7 @@ eq(parentOf('/leads/L3'), '/calls?section=leads', 'a lead record backs to the Le
 eq(parentOf('/projects/new'), '/projects', 'a new project with no client backs to Projects');
 eq(parentOf('/leads/L8/concepts'), '/leads/L8', 'concepts backs to the record (AdminApp moves it to the owner of its stage)');
 eq(parentOf('/leads/L8/concepts', '?set=S1'), '/leads/L8', 'concepts on a round backs to the record');
+eq(parentOf('/leads/L8/quote'), '/leads/L8', 'the quote builder backs to the record (prompt 2 of 3)');
 eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/leads/L8', 'compose backs to its record');
 eq(parentOf('/email/compose'), '/', 'compose with no record backs to the home');
 eq(parentOf('/docs/D1'), '/docs', 'a doc backs to All docs');
@@ -82,6 +83,7 @@ const PUSH = [
   ['/reviews', '?open=L12', '/reviews'], ['/orders', '?open=O1', '/orders'], ['/leads', '?open=L3', '/leads'], ['/clients', '?open=L11', '/clients'],
   ['/booked', '?open=L9', '/booked'], // /leads and /booked are roots AdminApp redirects into the hub and to /deals before anything opens
   ['/leads/L10/concepts', '?set=S1', '/leads/L10'],
+  ['/leads/L10/quote', '', '/leads/L10'],
   ['/clients/L11/planner', '?ideas=1', '/clients/L11'], ['/clients/L11/tasks', '', '/clients/L11'],
 ];
 for (const [p, q, want] of PUSH) {
@@ -157,6 +159,7 @@ for (const w of [390, 1280]) {
     ['/admin/clients/L11', '/clients', null],
     ['/admin/clients?open=L11', '/clients', null],
     ['/admin/leads/L3/concepts', '/leads/L3', 'Lead Business 3'],
+    ['/admin/leads/L3/quote', '/leads/L3', 'Lead Business 3'],
     ['/admin/leads/L8/concepts', '/deals/L8', 'Lead Business 8'], // L8 is a deal: the record moves to the section that owns its stage
     ['/admin/leads/L3', '/calls?section=leads', null],
     ['/admin/deals/L9', '/deals', null],

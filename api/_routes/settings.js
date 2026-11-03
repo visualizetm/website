@@ -12,7 +12,7 @@ const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 const NOTIF_DEFAULTS = { readIds: [], lastSeenAt: null, snoozedUntil: {}, sentReminderKeys: [], reminders: { meetings: true, callbacks: true, bills: true, reviews: true, tasks: true, ideas: true } };
 // Prompt 12: the profile document (greeting name, business hours for the best window).
 // Prompt 14 adds the additive appearance fields: theme (system, dark, light; default dark) and reduceMotion.
-const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false, googleReviewUrl: '', phone: '', email: '', calendlyLink: '', hours: '' };
+const PROFILE_DEFAULTS = { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false, googleReviewUrl: '', phone: '', email: '', calendlyLink: '', hours: '', nextOpenStart: '' };
 const hhmm = (v, d) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : d);
 const THEMES = new Set(['system', 'dark', 'light']);
 const profileShape = (d = {}) => ({
@@ -27,6 +27,8 @@ const profileShape = (d = {}) => ({
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(d.email || '').trim()) ? String(d.email).trim().slice(0, 120) : '',
   calendlyLink: safeUrl(d.calendlyLink, 400),
   hours: String(d.hours || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+  // The price presenter's honest urgency (prompt 2 of 3): the next open build start, a day; two builds a month.
+  nextOpenStart: /^\d{4}-\d{2}-\d{2}$/.test(String(d.nextOpenStart || '')) ? String(d.nextOpenStart) : '',
   /* Client portal (prompt 2): the ways a client can pay (the Pay card) and the Stripe link per retainer (the Retainer card's offer). All optional; empty means the row does not render. */
   payMethods: {
     stripe: safeUrl(d.payMethods?.stripe, 400),
