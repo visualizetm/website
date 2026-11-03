@@ -242,7 +242,7 @@ await step('edge Back from Compose returns to the record, and the edit is kept a
   need((await state(page)).chrome === 'focused', 'Compose is not a focused screen');
   await page.locator('.ee-subject input').fill('Edited on the way out'); await g.wait(600);
   await drag(g, 6, 400, 300, 401, 10, 16); await g.t('touchEnd'); await g.wait(900);
-  need((await state(page)).path === '/admin/deals', `edge Back landed on ${(await state(page)).path}`);
+  need((await state(page)).path === '/admin/deals/L8', `edge Back landed on ${(await state(page)).path}`); // the record is its own path (prompt 1b)
   const draft = await page.evaluate(() => localStorage.getItem('vz_email_draft:L8:intro_call'));
   need(draft && /Edited on the way out/.test(draft), 'the edit was not kept as a draft');
   return 'Compose opened from the suggestion chip, edge Back returned to the record, the draft survived';

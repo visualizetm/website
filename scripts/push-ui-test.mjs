@@ -211,7 +211,8 @@ for (const w of WIDTHS) {
   ok(await t.page.getByRole('button', { name: 'Enable push on this device' }).count() === 1, 'an open-time subscribe the browser refuses leaves the Enable push button, not a false Push is on');
   await t.page.close();
   t = await open(ctx, '/admin/settings', { tab: 'Notifications', needsResubscribe: true });
-  await t.page.waitForTimeout(400);
+  /* The open-time sync is asynchronous: wait for the card to settle (up to four seconds under a loaded machine) instead of a fixed beat; the assertion is unchanged. */
+  await t.page.getByText('Push is on for this device').waitFor({ timeout: 4000 }).catch(() => {});
   ok(await t.page.getByText('Push stopped working on this device').count() === 0 && await t.page.getByText('Push is on for this device').count() === 1, 'when the open-time sync does remake it, the Settings card never shows the stopped notice');
   await t.page.close();
 
