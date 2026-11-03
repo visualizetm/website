@@ -125,6 +125,8 @@ for (const w of [390, 1280]) {
   if (phone) {
     eq(rel(page), '/calls/queue', 'Start from Lists lands on the queue (a real entry)');
     await page.locator('.cc-resume').click(); await page.waitForTimeout(900);
+    /* Dial and open the script (prompt 2 of 3) opens the stepper over the room; a sheet is not a history entry, so it closes first and Back is the room's. */
+    if (await page.locator('.cs-sheet .v-sheet-x').count()) { await page.locator('.cs-sheet .v-sheet-x').click(); await page.waitForTimeout(500); }
   }
   ok(/^\/calls\/room\/L\d+$/.test(rel(page)), `the lead is the room entry (${rel(page)})`);
   await back(page);

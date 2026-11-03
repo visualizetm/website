@@ -22,6 +22,45 @@ export const PACKAGES = [
 ];
 
 /* monthly: what the Clients retainer tab counts each month (Prompt 10). */
+/* The a la carte catalog (prompt 2 of 3): the small jobs Rob quotes on their own, each with its usual price; the quote builder adds
+   them as lines, every price editable or Free. A package's `items` name the catalog ids it is made of (close-test asserts each one resolves). */
+export const CATALOG = [
+  { id: 'logo', label: 'Logo (primary and mark)', price: 250, kind: 'design' },
+  { id: 'logo-alt', label: 'Alternate logo', price: 100, kind: 'design' },
+  { id: 'palette-type', label: 'Color palette and type pair', price: 75, kind: 'design' },
+  { id: 'brand-sheet', label: 'Mini brand sheet', price: 50, kind: 'design' },
+  { id: 'brand-guide', label: 'Full brand guide', price: 150, kind: 'design' },
+  { id: 'card-design', label: 'Business card design', price: 30, kind: 'print' },
+  { id: 'facebook-banner', label: 'Facebook banner', price: 40, kind: 'design' },
+  { id: 'profile-cover', label: 'Profile and cover graphics', price: 60, kind: 'design' },
+  { id: 'highlight-covers', label: 'Highlight covers', price: 30, kind: 'design' },
+  { id: 'post-templates', label: 'Three post templates', price: 60, kind: 'design' },
+  { id: 'instagram-kit', label: 'Instagram kit', price: 75, kind: 'design' },
+  { id: 'social-kit', label: 'Social media kit', price: 120, kind: 'design' },
+  { id: 'launch-graphics', label: 'Launch social graphics', price: 90, kind: 'design' },
+  { id: 'stickers', label: 'Stickers', price: 40, kind: 'print' },
+  { id: 'vinyl', label: 'Vinyl decals', price: 60, kind: 'print' },
+  { id: 'nfc-card', label: 'NFC card', price: 25, kind: 'print' },
+  { id: 'google-business', label: 'Google Business setup', price: 75, kind: 'web' },
+  { id: 'one-page-site', label: 'One page site', price: 400, kind: 'web' },
+  { id: 'mobile-build', label: 'Mobile first build', price: 0, kind: 'web' },
+  { id: 'contact-map', label: 'Contact form and map', price: 50, kind: 'web' },
+  { id: 'five-pages', label: 'Up to five pages', price: 550, kind: 'web' },
+  { id: 'booking-form', label: 'Booking or quote form', price: 75, kind: 'web' },
+  { id: 'seo-setup', label: 'Basic SEO setup', price: 60, kind: 'web' },
+  { id: 'shop-booking', label: 'Online shop or booking', price: 250, kind: 'web' },
+];
+export const catalogOf = (id) => CATALOG.find(c => c.id === id) || null;
+/* Each package as catalog ids (the words in `included` are what the client reads; these are what the quote builder and the test resolve). */
+export const PACKAGE_ITEMS = {
+  'social-refresh': ['profile-cover', 'highlight-covers', 'post-templates'],
+  'brand-starter': ['logo', 'palette-type', 'brand-sheet'],
+  'web-essentials': ['one-page-site', 'mobile-build', 'contact-map', 'google-business'],
+  'brand-complete': ['logo', 'palette-type', 'brand-sheet', 'brand-guide', 'social-kit', 'card-design'],
+  'web-complete': ['five-pages', 'booking-form', 'seo-setup', 'google-business'],
+  'launch-plan': ['logo', 'palette-type', 'brand-sheet', 'one-page-site', 'mobile-build', 'contact-map', 'google-business', 'launch-graphics', 'nfc-card'],
+  'build-plan': ['logo', 'palette-type', 'brand-sheet', 'brand-guide', 'social-kit', 'card-design', 'five-pages', 'booking-form', 'seo-setup', 'google-business', 'shop-booking', 'launch-graphics', 'nfc-card'],
+};
 export const RETAINERS = [
   { id: 'site-care', label: 'Site Care', price: 100, included: ['Hosting and updates', 'Monthly content edits', 'Uptime and backups'], monthly: { count: 2, unit: 'hours', label: 'Up to 2 hours of site care' } },
   { id: 'content-kit', label: 'Content Kit', price: 250, included: ['Eight posts a month', 'Story templates', 'Monthly content plan'], monthly: { count: 8, unit: 'graphics', label: '8 graphics a month' } },
