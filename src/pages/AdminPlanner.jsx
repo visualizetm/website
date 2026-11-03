@@ -393,7 +393,7 @@ export default function AdminPlanner({
   const phone = useMediaQuery('(max-width: 767px)');
   const { selId: step, open: openStep, close: closeStep } = useSelection('planner-step');
   const inStep = phone && !!step;
-  useTopBar({ title: inStep ? step : undefined, back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
+  useTopBar({ title: inStep ? step : (lead?.business || 'Planner'), back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
   /* The push for a new idea lands on ?ideas=1: on a phone that is the Ideas step, on a computer the inbox is already on the page. */
   const ideasOpened = useRef(false);
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { isRoot, backTarget } from './backTree';
+import { isRoot, backTarget, recordOf, recordPathOf, RECORD_SECTIONS } from './backTree';
 
 /* One navigation model for the admin (Back, done once).
  *
@@ -149,8 +149,14 @@ export function usePush() {
 }
 /** push by admin relative path (/design), for a screen that does not hold BASE. */
 export function usePushRel() { const push = usePush(); return useCallback((rel, opts) => push(`${BASE}${rel}`, opts), [push]); }
-/** The entry's own request for one section: { section, id, intent, mode, n }. */
-export function useOpenEntry(section) { const { state } = useLocation(); const o = state?.open; return o && o.section === section ? o : null; }
+/** The entry's own request for one section: { section, id, intent, mode, n }. A record path (/clients/:id, /leads/:id, /deals/:id) is the request when the entry carries none (a cold open, a reload, a push). */
+export function useOpenEntry(section) {
+  const { state, pathname } = useLocation(); const o = state?.open;
+  if (o && o.section === section) return o;
+  if (o) return null;
+  const r = recordOf(relOf(pathname));
+  return r && r.section === section ? { section, id: r.id, n: 0 } : null;
+}
 export function useCreateEntry(section) { const { state } = useLocation(); const o = state?.create; return o && o.section === section ? o : null; }
 export function usePresetEntry(section) { const { state } = useLocation(); const o = state?.preset; return o && o.section === section ? o : null; }
 /** Back for the current entry: null at a section root with nothing open, else { back, deep, parent } (deep: no origin, Back goes one level up the tree, to parent). */
@@ -170,7 +176,9 @@ export function useSelection(section) {
   const loc = useRef(location); loc.current = location;
   const open = useCallback((id, extra = {}) => {
     const cur = loc.current;
-    push(cur.pathname + (cur.search || ''), { open: { section, id: String(id), n: Date.now(), ...extra }, selectedId: id, replace: !!extra.replace });
+    /* A record (clients, leads, deals) opens at its own path; every other open stays an entry on the screen's path. */
+    const to = RECORD_SECTIONS.includes(section) ? `${BASE}${recordPathOf(section, id)}` : cur.pathname + (cur.search || '');
+    push(to, { open: { section, id: String(id), n: Date.now(), ...extra }, selectedId: id, replace: !!extra.replace });
   }, [push, section]);
   const navRef = useRef(nav); navRef.current = nav;
   const close = useCallback(() => { navRef.current?.back(); }, []);

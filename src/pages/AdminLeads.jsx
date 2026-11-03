@@ -203,7 +203,7 @@ export default function AdminLeads({
     setFilters({ ...EMPTY_FILTERS, status: p.status || [], prio: p.prio || [], industry: p.industry && p.industry !== 'all' ? [industryKey(p.industry)] : [] });
     setQ('');
   }, [filterPreset]);
-  useTopBar(creating ? { title: 'New lead' } : null);
+  useTopBar(creating ? { title: 'New lead' } : sel ? undefined : null); // the open record owns the top bar
 
   // Writes: AdminApp's onPatch is already optimistic with rollback; this adds the error toast.
   const patch = async (id, set, fail = COPY.error.save) => { const ok = await onPatch(id, set); if (!ok) toast.error(fail); return ok; };

@@ -67,7 +67,7 @@ export default function AdminClients({
   useEffect(() => { if (createPreset) { setCreating(true); } }, [createPreset]);
   useScreenOrigin(() => ({ filters: { filter, q }, selectedId: selId }));
   useRestore((o) => { if (o.filters) { if (o.filters.filter) setFilter(o.filters.filter); setQ(o.filters.q || ''); } });  
-  useTopBar(null);
+  useTopBar(sel ? undefined : null); // the open record owns the top bar (its own useTopBar); the list restores the nav label when it closes
   const clientProps = { projects, onCreateProject, onPatchProject };
 
   const addClient = async (f) => {

@@ -59,7 +59,7 @@ export default function AdminDeals({ leads, submissions = [], loading, error, on
   const back = () => close();
   useScreenOrigin(() => ({ selectedId: selId, filters: { q } }));
   useRestore((o) => { if (o.filters) setQ(o.filters.q || ''); });
-  useTopBar(null);
+  useTopBar(sel ? undefined : null); // the open record owns the top bar
   const E = COPY.empty['deals.none'];
 
   /* The one button on a phone card does the action: a manual send ticks the step, Log the call is Met them, building concepts opens the editor, everything else opens the record on its fold. */

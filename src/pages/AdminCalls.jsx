@@ -467,7 +467,7 @@ export default function AdminCalls({ embedded = false, onDataChanged, builderPre
     if (mode === 'room' && current && desktop) return { title: timer ? `Call Console  ${fmtClock(Date.now() - timer.start)}` : 'Call Console', back: null };
     if (mode === 'queue') return { title: 'Session', back: () => setMode('builder') };
     if (mode === 'summary') return { title: 'Session summary', back: () => setMode('builder') };
-    return null;
+    return undefined; // the builder: the hub's section (and a record open in it) owns the bar; a session's own registration is released
   }, [embedded, mode, current?._id, current?.business, desktop, timer && Math.floor((Date.now() - timer.start) / 1000)])); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Logging: optimistic, rollback, undo ── */

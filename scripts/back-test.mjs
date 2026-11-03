@@ -32,17 +32,20 @@ eq(rootPathOf('clients'), '/clients', 'any other section is its own root');
 eq(rootPathOf('dashboard'), '/', 'the dashboard is the home');
 
 console.log('2. Sub screens back to the record; the record (an open state on a root) backs to the root.');
-eq(parentOf('/clients/L11/planner'), '/clients?open=L11', 'planner backs to the client');
-eq(parentOf('/clients/L11/planner', '?ideas=1'), '/clients?open=L11', 'planner with the ideas query backs to the client');
-eq(parentOf('/clients/L11/tasks'), '/clients?open=L11', 'tasks backs to the client');
-eq(parentOf('/clients/L11/tasks', '?project=P11'), '/clients?open=L11', 'one project\'s tasks backs to the client');
-eq(parentOf('/clients/L11/docs'), '/clients?open=L11', 'the client\'s docs back to the client');
-eq(parentOf('/clients/L11/showcase'), '/clients?open=L11', 'showcase backs to the client');
-eq(parentOf('/clients/L11/projects/new'), '/clients?open=L11', 'a new project backs to the client');
+eq(parentOf('/clients/L11/planner'), '/clients/L11', 'planner backs to the client');
+eq(parentOf('/clients/L11/planner', '?ideas=1'), '/clients/L11', 'planner with the ideas query backs to the client');
+eq(parentOf('/clients/L11/tasks'), '/clients/L11', 'tasks backs to the client');
+eq(parentOf('/clients/L11/tasks', '?project=P11'), '/clients/L11', 'one project\'s tasks backs to the client');
+eq(parentOf('/clients/L11/docs'), '/clients/L11', 'the client\'s docs back to the client');
+eq(parentOf('/clients/L11/showcase'), '/clients/L11', 'showcase backs to the client');
+eq(parentOf('/clients/L11/projects/new'), '/clients/L11', 'a new project backs to the client');
+eq(parentOf('/clients/L11'), '/clients', 'a client record backs to Clients');
+eq(parentOf('/deals/L9'), '/deals', 'a deal record backs to Deals');
+eq(parentOf('/leads/L3'), '/calls?section=leads', 'a lead record backs to the Leads section of the Calls hub');
 eq(parentOf('/projects/new'), '/projects', 'a new project with no client backs to Projects');
-eq(parentOf('/leads/L8/concepts'), '/calls?section=leads&open=L8', 'concepts backs to the lead (the opener moves a client to Clients)');
-eq(parentOf('/leads/L8/concepts', '?set=S1'), '/calls?section=leads&open=L8', 'concepts on a round backs to the lead');
-eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/calls?section=leads&open=L8', 'compose backs to its record');
+eq(parentOf('/leads/L8/concepts'), '/leads/L8', 'concepts backs to the record (AdminApp moves it to the owner of its stage)');
+eq(parentOf('/leads/L8/concepts', '?set=S1'), '/leads/L8', 'concepts on a round backs to the record');
+eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/leads/L8', 'compose backs to its record');
 eq(parentOf('/email/compose'), '/', 'compose with no record backs to the home');
 eq(parentOf('/docs/D1'), '/docs', 'a doc backs to All docs');
 eq(parentOf('/lists/LS1/fill'), '/calls?section=lists&open=LS1', 'fill from filters backs to the list');
@@ -57,7 +60,8 @@ eq(backTarget('/calls', '?section=leads', { create: { section: 'leads' } }), '/c
 eq(backTarget('/orders', '', { create: { section: 'orders' } }), '/orders', 'a new order backs to Orders');
 eq(backTarget('/clients', '', null), null, 'a root with nothing open has no Back');
 eq(backTarget('/', '', null), null, 'the home has no Back');
-eq(backTarget('/clients/L11/planner', '', null), '/clients?open=L11', 'a planner reached with no origin backs to the client');
+eq(backTarget('/clients/L11/planner', '', null), '/clients/L11', 'a planner reached with no origin backs to the client');
+eq(backTarget('/clients/L11', '', null), '/clients', 'a record reached with no origin backs to its list');
 eq(backTarget('/clients', '', { open: { section: 'clients', id: 'L11' }, origin: { path: '/admin/tasks' } }), '/clients', 'the tree still names the parent when an origin exists (the origin wins at runtime)');
 
 console.log('3. The call console: Calls > Queue > Room, Summary backs to Calls.');
@@ -76,8 +80,9 @@ console.log('4. Every deep link a push makes (api/_lib/notify.js, coveragePush.j
 const PUSH = [
   ['/', '', null], ['/tasks', '?open=L3', null], ['/settings', '', null], ['/drafts', '', null],
   ['/reviews', '?open=L12', '/reviews'], ['/orders', '?open=O1', '/orders'], ['/leads', '?open=L3', '/leads'], ['/clients', '?open=L11', '/clients'],
-  ['/booked', '?open=L9', '/booked'], // /leads and /booked are roots AdminApp redirects into the hub and to /deals before anything opens ['/leads/L10/concepts', '?set=S1', '/calls?section=leads&open=L10'],
-  ['/clients/L11/planner', '?ideas=1', '/clients?open=L11'], ['/clients/L11/tasks', '', '/clients?open=L11'],
+  ['/booked', '?open=L9', '/booked'], // /leads and /booked are roots AdminApp redirects into the hub and to /deals before anything opens
+  ['/leads/L10/concepts', '?set=S1', '/leads/L10'],
+  ['/clients/L11/planner', '?ideas=1', '/clients/L11'], ['/clients/L11/tasks', '', '/clients/L11'],
 ];
 for (const [p, q, want] of PUSH) {
   if (want === null) { ok(isRoot(p), `${p}${q} lands on a root (the record opens on it)`); continue; }
@@ -142,6 +147,46 @@ for (const w of [390, 1280]) {
     await page.keyboard.press('Escape'); await page.waitForTimeout(800);
     ok(rel(page).startsWith('/clients') && !/tasks/.test(rel(page)), `Escape backs one level, to the client (${rel(page)})`);
     await page.close();
+  }
+  // 9. Cold opens: every push deep link as the first entry of a fresh context (no in app history), the top bar Back, the exact parent path.
+  const COLD = [
+    ['/admin/clients/L11/planner', '/clients/L11', 'Lead Business 11'],
+    ['/admin/clients/L11/planner?ideas=1', '/clients/L11', 'Lead Business 11'],
+    ['/admin/clients/L11/tasks', '/clients/L11', 'Lead Business 11'],
+    ['/admin/clients/L11/docs', '/clients/L11', 'Lead Business 11'],
+    ['/admin/clients/L11', '/clients', null],
+    ['/admin/clients?open=L11', '/clients', null],
+    ['/admin/leads/L3/concepts', '/leads/L3', 'Lead Business 3'],
+    ['/admin/leads/L8/concepts', '/deals/L8', 'Lead Business 8'], // L8 is a deal: the record moves to the section that owns its stage
+    ['/admin/leads/L3', '/calls?section=leads', null],
+    ['/admin/deals/L9', '/deals', null],
+    ['/admin/docs/D1', '/docs', null],
+    ['/admin/email/compose?record=L8&template=intro_call', '/deals/L8', 'Lead Business 8'],
+    ['/admin/email/compose?record=L3&template=intro_call', '/leads/L3', 'Lead Business 3'],
+  ];
+  for (const [path, want, title] of COLD) {
+    const c2 = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block' });
+    const p2 = await open(c2, path);
+    await p2.locator('.v-sheet').waitFor({ timeout: 1500 }).catch(() => {});
+    if (await p2.locator('.v-sheet').count()) { await p2.keyboard.press('Escape'); await p2.locator('.v-sheet').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {}); }
+    // a phone push to the planner lands on the Ideas step first: one Back closes it
+    if (phone && /planner\?ideas=1/.test(path)) { await p2.locator('.sh-top-back').click(); await p2.waitForTimeout(500); }
+    await p2.locator('.sh-top-back').click({ timeout: 5000 }).catch(() => {}); await p2.waitForTimeout(1200);
+    const got = rel(p2);
+    eq(got, want, `cold ${path.replace('/admin', '')}: Back lands on ${want}`);
+    if (title) ok((await p2.locator('.sh-top-title').first().innerText().catch(() => '')).trim().toLowerCase() === title.toLowerCase(), `and the top bar reads the record's name (${(await p2.locator('.sh-top-title').first().innerText().catch(() => '')).trim()})`);
+    await c2.close();
+  }
+  {
+    const c2 = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block' });
+    const p2 = await open(c2, '/admin/drafts');
+    ok(await p2.locator('.sh-top-back').count() === 0 && (phone ? await p2.locator('.sh-tabs:not(.is-hidden)').count() === 1 : true), 'cold /drafts: a root, no Back, the tab bar on a phone');
+    await c2.close();
+    const c3 = await browser.newContext({ viewport: { width: w, height: phone ? 844 : 900 }, hasTouch: phone, serviceWorkers: 'block' });
+    const p3 = await open(c3, '/admin/calls/room/L1', { session: { ids: ['L0', 'L1', 'L3'], idx: 1, stats: {}, logged: {}, startedAt: Date.now(), size: 3, mode: 'room' } });
+    if (phone) { await p3.locator('.sh-top-back').click(); await p3.waitForTimeout(900); eq(rel(p3), '/calls/queue', 'cold /calls/room/:id with a saved session: Back is the queue'); }
+    else ok(rel(p3) === '/calls/room/L1', 'cold /calls/room/:id on a computer keeps the room (the queue sits beside it)');
+    await c3.close();
   }
   page = await open(ctx, '/admin/calls/queue');
   ok(/^\/calls(\?section=[a-z]+)?$/.test(rel(page)), `a session path with no session behind it goes back to the builder (${rel(page)})`);

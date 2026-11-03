@@ -14,7 +14,7 @@ import { spawnSync } from 'node:child_process';
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const T = 'src/shell/backTree.js';
 const CUTS = [
-  { name: 'planner-to-root', file: T, check: /planner|tasks backs to the client|docs back to the client|showcase/, from: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return `/clients?open=${enc(m[1])}`;", to: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return '/clients';" },
+  { name: 'planner-to-root', file: T, check: /planner|tasks backs to the client|docs back to the client|showcase/, from: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return recordPathOf('clients', m[1]);", to: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return '/clients';" },
   { name: 'room-to-calls', file: T, check: /room backs to the queue/, from: "  if (/^\\/calls\\/room\\/[^/]+$/.test(p)) return '/calls/queue';", to: "  if (/^\\/calls\\/room\\/[^/]+$/.test(p)) return '/calls';" },
   { name: 'summary-home', file: T, check: /summary backs to Calls/, from: "  if (p === '/calls/queue' || p === '/calls/summary') return '/calls';", to: "  if (p === '/calls/queue') return '/calls';\n  if (p === '/calls/summary') return '/';" },
   { name: 'design-root', file: T, check: /design/, from: "'settings', 'more', 'leads', 'lists', 'triage', 'booked'];", to: "'settings', 'more', 'leads', 'lists', 'triage', 'booked', 'design'];" },

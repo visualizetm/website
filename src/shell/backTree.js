@@ -13,8 +13,9 @@
  * open state on a root, not a path, so `backTarget` reads the entry: an open or a create on a root backs to the
  * root itself (keeping only the Calls hub's ?section=), everything else goes through parentOf.
  *
- * A record's sub screen backs to the record as `?open=` on the section named in the path; AdminApp's deep link
- * opener then moves a record to the screen that owns its stage (a client's concepts land on Clients, not Leads).
+ * A record is its own path (/clients/:id, /leads/:id, /deals/:id; an older ?open= link still resolves) and backs to its
+ * list; its sub screens back to it. AdminApp moves a record to the section that owns its stage when a link names the
+ * wrong one (a client's concepts land on /clients/:id, not /leads/:id).
  * Leads, Lists and Triage are sections of the Calls hub (/calls?section=), so their roots read as Calls.
  * Tested by scripts/back-test.mjs on every nav path and every push deep link. */
 
@@ -36,6 +37,15 @@ export function isRoot(rel) {
   return segs.length === 1 && ROOTS.includes(segs[0]);
 }
 
+/* A record has its own path (prompt 1b): /clients/:id, /leads/:id, /deals/:id. The section in the path is the one that owns the
+   record's stage; AdminApp moves a record to its owner when a link names the wrong one (a client's concepts back to /clients/:id). */
+export const RECORD_SECTIONS = ['clients', 'leads', 'deals'];
+export const recordPathOf = (section, id) => `/${section}/${enc(id)}`;
+/** { section, id } when the path is a record, else null. */
+export function recordOf(rel) {
+  const m = norm(rel).match(/^\/(clients|leads|deals)\/([^/]+)$/);
+  return m ? { section: m[1], id: decodeURIComponent(m[2]) } : null;
+}
 /** The root a hub section lives at, for a section id (leads, lists, triage) or any other section. */
 export const rootPathOf = (section) => (HUB_SECTIONS.includes(section) ? `/calls?section=${section}` : section === 'dashboard' || !section ? '/' : `/${section}`);
 
@@ -50,18 +60,20 @@ export function parentOf(rel, search = '') {
   if (/^\/calls\/room\/[^/]+$/.test(p)) return '/calls/queue';
   if (p === '/calls/queue' || p === '/calls/summary') return '/calls';
   if (p.startsWith('/calls/')) return '/calls';
-  // A record's sub screens back to the record.
-  if ((m = p.match(/^\/clients\/([^/]+)\/(planner|tasks|docs|showcase)$/))) return `/clients?open=${enc(m[1])}`;
-  if ((m = p.match(/^\/clients\/([^/]+)\/projects\/new$/))) return `/clients?open=${enc(m[1])}`;
-  if ((m = p.match(/^\/leads\/([^/]+)\/concepts$/))) return `/calls?section=leads&open=${enc(m[1])}`;
+  // A record's sub screens back to the record; the record backs to its list (Leads is a section of the Calls hub).
+  if ((m = p.match(/^\/clients\/([^/]+)\/(planner|tasks|docs|showcase)$/))) return recordPathOf('clients', m[1]);
+  if ((m = p.match(/^\/clients\/([^/]+)\/projects\/new$/))) return recordPathOf('clients', m[1]);
+  if ((m = p.match(/^\/leads\/([^/]+)\/concepts$/))) return recordPathOf('leads', m[1]);
   if ((m = p.match(/^\/lists\/([^/]+)\/fill$/))) return `/calls?section=lists&open=${enc(m[1])}`;
-  if (p.startsWith('/email/compose')) { const r = q.get('record'); return r ? `/calls?section=leads&open=${enc(r)}` : '/'; }
+  if (p.startsWith('/email/compose')) { const r = q.get('record'); return r ? recordPathOf('leads', r) : '/'; }
+  if (/^\/leads\/[^/]+$/.test(p)) return '/calls?section=leads';
+  if (/^\/(clients|deals)\/[^/]+$/.test(p)) return `/${p.split('/')[1]}`;
   if (p === '/projects/new') return '/projects';
   if (/^\/docs\/[^/]+$/.test(p)) return '/docs';
   // Settings holds the design system, Recently Deleted and its tabs.
   if (p === '/design') return '/settings';
   if (p.startsWith('/settings/')) return '/settings';
-  if (p.startsWith('/deals/') || p.startsWith('/booked/')) return '/deals';
+  if (p.startsWith('/booked/')) return '/deals';
   // Anything else: one segment up.
   const segs = p.split('/').filter(Boolean);
   return segs.length <= 1 ? '/' : `/${segs.slice(0, -1).join('/')}`;

@@ -8,7 +8,7 @@ import { wireClientLog } from '../shared/log';
 
 import AppShell, { shellStyles } from '../shell/AppShell';
 import { navForPath, navById, sectionOf } from '../shell/nav';
-import { rootPathOf } from '../shell/backTree';
+import { rootPathOf, recordPathOf, recordOf } from '../shell/backTree';
 import { setNavBase, useNavHistory, usePush, useBack } from '../shell/nav-history';
 import '../shell/install';
 import BootFrame from '../shell/BootFrame';
@@ -469,12 +469,21 @@ export default function AdminApp() {
   // open (the state carries forward so a ?open= deep link through either still resolves). /lists/:id/fill is its
   // own screen (listFillId below) and is not part of this redirect.
   useEffect(() => {
-    const m = relPath.match(/^\/(lists|triage|leads)(?:\/|$)/);
-    if (!m || /^\/lists\/[^/]+\/fill$/.test(relPath) || /^\/leads\/[^/]+\/concepts$/.test(relPath)) return;
+    /* Only the bare roots: /leads/:id is a record and /leads/:id/concepts, /lists/:id/fill are screens of their own. */
+    const m = relPath.match(/^\/(lists|triage|leads)\/?$/);
+    if (!m) return;
     const q = new URLSearchParams(location.search); q.set('section', m[1]);
     navigate(`${BASE}/calls?${q.toString()}`, { replace: true, state: location.state });
   }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
-  const hubSection = (relPath === '/calls' || relPath.startsWith('/calls')) ? (new URLSearchParams(location.search).get('section') || '') : '';
+  const hubSection = (relPath === '/calls' || relPath.startsWith('/calls')) ? (new URLSearchParams(location.search).get('section') || '') : relPath.startsWith('/leads/') ? 'leads' : '';
+  /* A record path names a section; the record's stage decides (prompt 1b): /leads/:id for a client replaces itself with /clients/:id, so Back and the title are the owner's. */
+  useEffect(() => {
+    const r = recordOf(relPath); if (!r || callLeadsLoading) return;
+    const lead = callLeads.find(l => String(l._id) === String(r.id)); if (!lead) return;
+    const stage = effectiveStage(lead);
+    const owner = (stage === 'booked' || stage === 'deal') ? 'deals' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
+    if (owner !== r.section) navigate(`${BASE}${recordPathOf(owner, r.id)}${location.search || ''}`, { replace: true, state: location.state });
+  }, [relPath, callLeadsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
   // /clients/:id/showcase (Site Prompt 7, Part 3): not a nav entry, so the
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
@@ -538,7 +547,7 @@ export default function AdminApp() {
     const stage = effectiveStage(lead);
     const sec = (stage === 'booked' || stage === 'deal') ? 'deals' : (stage === 'won' || stage === 'client') ? 'clients' : 'leads';
     // intent (CRM revamp, step 2): which fold the record opens on ('outcome', 'payments').
-    push(rootOf(sec), { open: { section: sec, id: String(lead._id), n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null }, selectedId: lead._id, replace: !!opts.replace });
+    push(`${BASE}${recordPathOf(sec, lead._id)}`, { open: { section: sec, id: String(lead._id), n: Date.now(), intent: intent ? { kind: intent, n: Date.now() } : null }, selectedId: lead._id, replace: !!opts.replace });
   }, [push]);
   const newLead = useCallback((preset) => { push(rootOf('leads'), { create: { section: 'leads', preset: preset || {}, n: Date.now() } }); }, [push]);
   const newClient = useCallback(() => { push(rootOf('clients'), { create: { section: 'clients', preset: {}, n: Date.now() } }); }, [push]);
