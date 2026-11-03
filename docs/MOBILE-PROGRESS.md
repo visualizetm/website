@@ -226,5 +226,14 @@ Resume here: read docs/MOBILE-DECISIONS.md "Finish notifications", then continue
 - [x] Milestone 3: the shell (the More card gone, Settings cleaned, the glass bar at 45%, one header rule, Pipeline overview and Client overview).
 - [x] Milestone 4: the gate (lint, build, every handler test, email-safety-test, back-test, regression 118, a11y both themes, layout at 320, 390, 430, 768 and 1280, chrome, empty, gesture, security, pipeline, preship), the four fault proofs, docs, pushed as 343b253, 62d43a2, b070d48, deploy dpl_4efkjuVmSrUH8kacaeJWWZL5NiwH Ready.
 
-Resume here: prompt 1 of 3 shipped (b070d48). Next is prompt 2 of 3.
+
+## Prompt 1b: finish prompt 1
+
+- [x] Item 1: records at their own paths, the cold open Back cases in back-test, the planner's title.
+- [x] Item 2: the dropped checks named (none restored, each tested a thing that no longer exists).
+- [x] Item 3: home-nextup-test green (the ghost merge), home-guard-proof.
+- [x] Item 4: the Gmail Connect button, the encrypted stored token, the callback, email-safety-test section 8.
+- [ ] Item 6: the gate, push, deploy Ready.
+
+Resume here: prompt 1b shipped once the gate passes. Next is prompt 2 of 3.
 
