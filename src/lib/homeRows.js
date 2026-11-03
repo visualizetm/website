@@ -24,7 +24,8 @@ const byDue = (a, b) => a.item.due - b.item.due;
  * moved this session. A done ghost stays in its card, struck through; a leaving ghost is the row fading out after Tomorrow.
  */
 export function homeLists(q, ghosts = {}, { expanded = false, cap = OVERDUE_CAP } = {}) {
-  const live = (list) => (list || []).map(item => ({ key: rowKey(item), item, done: false, leaving: false }));
+  /* A live row with a ghost of its own key (a callback whose outcome was just logged and still derives a row) reads done or leaving from the ghost: the row never renders done from the lead's callStatus. */
+  const live = (list) => (list || []).map(item => { const g = ghosts?.[rowKey(item)]; return { key: rowKey(item), item, done: g?.mode === 'done', leaving: g?.mode === 'leaving' }; });
   const kept = (card, rows) => {
     const have = new Set(rows.map(r => r.key));
     const extra = Object.values(ghosts || {}).filter(g => g.card === card && !have.has(g.key)).map(g => ({ key: g.key, item: g.item, done: g.mode === 'done', leaving: g.mode === 'leaving' }));
