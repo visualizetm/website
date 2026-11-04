@@ -27,6 +27,9 @@ export function sanitizeInvoice(s) {
     ...(s?.paymentLinkId ? { paymentLinkId: str(s.paymentLinkId, 80) } : {}),
     ...(s?.stripeMismatch ? { stripeMismatch: str(s.stripeMismatch, 160) } : {}),
     ...(str(s?.number, 20) ? { number: str(s.number, 20) } : {}),
+    /* The Invoices screen (prompt 3 of 3): how many reminders went out for this line and when the last one did (stamped by a send of the reminder or past due email). */
+    ...(Number(s?.reminders) > 0 ? { reminders: Math.min(99, Math.round(Number(s.reminders))) } : {}),
+    ...(str(s?.remindedAt, 40) ? { remindedAt: str(s.remindedAt, 40) } : {}),
     ...(INVOICE_KIND_IDS.includes(s?.kind) ? { kind: s.kind } : {}),
     ...(Array.isArray(s?.items) && s.items.length ? { items: s.items.slice(0, 30).map(itemOf).filter(it => it.label) } : {}),
   };

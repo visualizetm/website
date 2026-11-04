@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet, Stack, Row, Button, Input, Textarea, Select, ChipGroup, Toggle } from '../ui';
 import { REMIND_CHOICES, buildTask, taskTimes, dateKeyOf, timeKeyOf, remindChoiceOf } from '../lib/tasks';
+import { quickTaskDues } from '../lib/calls';
 
 /* Set task: the one editor for a task with a due date. Label, Due date
  * (today), Due time (09:00), Remind me (at the time, an hour before, the
@@ -15,16 +16,22 @@ import { REMIND_CHOICES, buildTask, taskTimes, dateKeyOf, timeKeyOf, remindChoic
  *                gives { text, due, remindAt, note, listId }.
  * `focus` picks the field to land in: 'label' (default) or 'date' (a
  * Reschedule). */
-export default function TaskSheet({ business = '', task = null, item = null, lists = [], focus = 'label', onSave, onClose, onDone = null }) {
+export default function TaskSheet({ business = '', task = null, item = null, lists = [], focus = 'label', onSave, onClose, onDone = null, isNew = false, title: titleProp = '' }) {
   const isItem = !!item;
   const has = isItem || !!task;
   const dueIso = isItem ? item.due : task?.dueAt;
   const due = has && dueIso ? new Date(dueIso) : null;
   const dueOk = due && !Number.isNaN(due.getTime());
   const [label, setLabel] = useState(isItem ? item.text || '' : has ? task.label || '' : '');
-  const [date, setDate] = useState(dueOk ? dateKeyOf(due) : isItem ? '' : dateKeyOf(new Date()));
-  const [time, setTime] = useState(dueOk ? timeKeyOf(due) : '09:00');
-  const [remind, setRemind] = useState(isItem ? (item.due ? remindChoiceOf({ dueAt: item.due, remindAt: item.remindAt }) : 'off') : has ? remindChoiceOf(task) : 'at');
+  /* The due date is chips (Today 5 PM, Tomorrow 9 AM, Next Monday, Pick; prompt 3 of 3), built like the callback picker's; Pick shows the two inputs. A new task starts on Tomorrow 9 AM with the reminder on. */
+  const chips = useMemo(() => quickTaskDues(new Date()), []);
+  const chipFor = (d) => chips.find(c => dateKeyOf(c.at) === dateKeyOf(d) && timeKeyOf(c.at) === timeKeyOf(d))?.id || 'pick';
+  const startChip = isNew ? (chips.find(c => c.id === 'tomorrow9') || chips[0]) : null;
+  const [when, setWhen] = useState(startChip ? startChip.id : focus === 'date' ? 'pick' : dueOk ? chipFor(due) : 'pick');
+  const [date, setDate] = useState(startChip ? dateKeyOf(startChip.at) : dueOk ? dateKeyOf(due) : isItem ? '' : dateKeyOf(new Date()));
+  const [time, setTime] = useState(startChip ? timeKeyOf(startChip.at) : dueOk ? timeKeyOf(due) : '09:00');
+  const [remind, setRemind] = useState(isNew ? 'at' : isItem ? (item.due ? remindChoiceOf({ dueAt: item.due, remindAt: item.remindAt }) : 'off') : has ? remindChoiceOf(task) : 'at');
+  const pickWhen = (id) => { if (!id) return; setWhen(id); const c = chips.find(x => x.id === id); if (c) { setDate(dateKeyOf(c.at)); setTime(timeKeyOf(c.at)); } };
   const [note, setNote] = useState(isItem ? item.note || '' : '');
   const [client, setClient] = useState(isItem ? !!item.client : false);
   const [url, setUrl] = useState(isItem ? item.url || '' : '');
@@ -45,16 +52,22 @@ export default function TaskSheet({ business = '', task = null, item = null, lis
       if (ok) onClose();
     } finally { setBusy(false); }
   };
-  const title = has ? 'Edit task' : 'Set task';
+  const title = titleProp || (isNew ? 'New task' : has ? 'Edit task' : 'Set task');
   return (
     <Sheet open onClose={onClose} title={title} description={business} label={title} width={460} className="ts-sheet"
       footer={<Row gap={2} justify="between" align="center" wrap><span>{has && onDone && <Button variant="secondary" icon="Check" onClick={async () => { const ok = await onDone(); if (ok) onClose(); }} className="ts-done">Done</Button>}</span><Row gap={2}><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!valid} loading={busy} className="ts-save">Save</Button></Row></Row>}>
       <Stack gap={3}>
         <Input label="Label" value={label} onChange={(e) => setLabel(e.target.value.slice(0, isItem ? 300 : 120))} placeholder="Drop off the proof" required data-autofocus={focus !== 'date' || undefined} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} />
-        <Row gap={2} wrap>
-          <Input ref={dateRef} label="Due date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="ts-date" required={!isItem} hint={isItem && !date ? 'No date: it waits its turn after every dated task.' : undefined} />
-          <Input label="Due time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className="ts-time" disabled={isItem && !date} />
-        </Row>
+        <Stack gap={1}>
+          <span className="v-field-label">Due</span>
+          <ChipGroup label="Due" multi={false} allWhenEmpty={false} value={when} onChange={pickWhen} options={[...chips.map(c => ({ id: c.id, label: c.label })), { id: 'pick', label: 'Pick' }]} className="ts-when" />
+        </Stack>
+        {when === 'pick' && (
+          <Row gap={2} wrap>
+            <Input ref={dateRef} label="Due date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="ts-date" required={!isItem} hint={isItem && !date ? 'No date: it waits its turn after every dated task.' : undefined} />
+            <Input label="Due time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className="ts-time" disabled={isItem && !date} />
+          </Row>
+        )}
         <Stack gap={1}>
           <span className="v-field-label">Remind me</span>
           <ChipGroup label="Remind me" multi={false} allWhenEmpty={false} value={isItem && !date ? 'off' : remind} onChange={(id) => { if (id) setRemind(id); }} options={REMIND_CHOICES} />

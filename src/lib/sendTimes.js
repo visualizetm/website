@@ -52,3 +52,14 @@ export function filterDrafts(rows = [], chip = 'all') {
   if (chip === 'text') return open.filter(r => r.channel === 'text');
   return open;
 }
+
+/** The draft that needs Rob first (prompt 3 of 3, the Home card): a failed one, then the queued one that goes soonest, then the oldest draft. */
+export function urgentDraft(rows = []) {
+  const open = (rows || []).filter(waiting);
+  if (!open.length) return null;
+  const failed = (rows || []).filter(r => r.status === 'failed');
+  if (failed.length) return failed[0];
+  const queued = open.filter(r => r.status === 'queued' && r.sendAt).sort((a, b) => String(a.sendAt).localeCompare(String(b.sendAt)));
+  if (queued.length) return queued[0];
+  return [...open].sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')))[0];
+}

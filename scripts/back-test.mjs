@@ -45,6 +45,7 @@ eq(parentOf('/leads/L3'), '/calls?section=leads', 'a lead record backs to the Le
 eq(parentOf('/projects/new'), '/projects', 'a new project with no client backs to Projects');
 eq(parentOf('/leads/L8/concepts'), '/leads/L8', 'concepts backs to the record (AdminApp moves it to the owner of its stage)');
 eq(parentOf('/leads/L8/concepts', '?set=S1'), '/leads/L8', 'concepts on a round backs to the record');
+eq(parentOf('/invoices'), '/', 'Invoices is a root under Home (prompt 3 of 3)');
 eq(parentOf('/leads/L8/quote'), '/leads/L8', 'the quote builder backs to the record (prompt 2 of 3)');
 eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/leads/L8', 'compose backs to its record');
 eq(parentOf('/email/compose'), '/', 'compose with no record backs to the home');

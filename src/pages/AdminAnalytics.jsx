@@ -12,6 +12,7 @@ import { useShell, useTopBar } from '../shell/ShellContext';
 import NextUpHome, { nextUpHomeStyles } from '../components/NextUpHome';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
 import DraftsCard from '../components/DraftsCard';
+import { kpiPath, lastSession, askRatePath } from '../lib/homeKpis';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
 /* Analytics (the nav revamp, milestone 6): the home. The greeting, then the
@@ -67,6 +68,7 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
   const dateLine = new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const upcoming = useMemo(() => (shell?.events || []).filter(e => e.lead && (e.kind === 'meeting' || e.kind === 'calendly') && e.at >= now && e.at <= now + 7 * 864e5).sort((a, b) => a.at - b.at), [shell?.events, now]);
   const k = data?.kpis;
+  const ask = useMemo(() => lastSession(), []);
   const series = (key) => (data ? data.series.labels.map((label, i) => ({ label, value: data.series[key][i] || 0 })) : []);
   const anyIncome = !!data && data.series.income.some(v => v > 0);
   const anyClients = !!data && data.series.clients.some(v => v > 0);
@@ -102,12 +104,13 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
   ) : data ? (
     <Stagger className="dash-grid" cap={6}>
       <div className="dash-stats dash-card--wide" data-card="kpis" aria-busy={loading || undefined}>
-        <StatCard icon="CurrencyDollar" tone="won" value={money(k.income.value)} label={`income, ${PREV_WORD[range]}`} trend={trendOf(k.income)} onClick={() => shell.go('projects')} data-kpi="income" />
-        <StatCard icon="CurrencyDollarCircle" tone={k.outstanding.value ? 'callback' : 'neutral'} value={money(k.outstanding.value)} label="outstanding, sent and unpaid" onClick={() => shell.go('overview')} data-kpi="outstanding" />
+        <StatCard icon="CurrencyDollar" tone="won" value={money(k.income.value)} label={`income, ${PREV_WORD[range]}`} trend={trendOf(k.income)} onClick={() => shell.goPath(kpiPath('income'))} data-kpi="income" />
+        <StatCard icon="CurrencyDollarCircle" tone={k.outstanding.value ? 'callback' : 'neutral'} value={money(k.outstanding.value)} label="outstanding, sent and unpaid" onClick={() => shell.goPath(kpiPath('outstanding'))} data-kpi="outstanding" />
         <StatCard icon="Briefcase01" tone="booked" value={k.clientsGained.value} label={`${k.clientsGained.value === 1 ? 'client' : 'clients'} gained`} trend={trendOf(k.clientsGained)} onClick={() => shell.go('clients')} data-kpi="clients" />
         <StatCard icon="CheckDone01" tone="progress" value={k.tasksCompleted.value} label={`${k.tasksCompleted.value === 1 ? 'task' : 'tasks'} completed${data.trackingSince ? `, tracking since ${fmtDate(data.trackingSince)}` : ''}`} trend={trendOf(k.tasksCompleted)} onClick={() => shell.go('tasks')} data-kpi="tasks" />
         <StatCard icon="Users01" tone="new" value={k.leadsAdded.value} label={`${k.leadsAdded.value === 1 ? 'lead' : 'leads'} added`} trend={trendOf(k.leadsAdded)} onClick={() => shell.go('leads')} data-kpi="leads" />
-        <StatCard icon="RefreshCw01" tone="neutral" value={money(k.mrr.value)} label="a month on retainers, today" onClick={() => shell.go('overview')} data-kpi="mrr" />
+        <StatCard icon="RefreshCw01" tone="neutral" value={money(k.mrr.value)} label="a month on retainers, today" onClick={() => shell.goPath(kpiPath('mrr'))} data-kpi="mrr" />
+        {ask && <StatCard icon="PhoneCall01" tone={ask.askRate >= 50 ? 'won' : 'neutral'} value={`${ask.askRate}%`} label={`ask rate, last session (${ask.booked} booked of ${ask.asked} asked)`} onClick={() => shell.goPath(askRatePath())} data-kpi="askRate" />}
       </div>
 
       <Dash title={`Income by ${data.unit}`} data-card="income">

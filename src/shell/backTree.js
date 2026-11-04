@@ -21,7 +21,7 @@
 
 /* Section roots: a tab bar, no Back. The home is ''. Leads, lists and triage redirect into the Calls hub; booked
    became deals; design sits under Settings (one level in). */
-export const ROOTS = ['', 'pipeline', 'calls', 'deals', 'calendar', 'overview', 'clients', 'projects', 'docs', 'drafts', 'tasks', 'orders', 'concepts', 'reviews', 'submissions', 'landing', 'settings', 'more', 'leads', 'lists', 'triage', 'booked'];
+export const ROOTS = ['', 'pipeline', 'calls', 'deals', 'calendar', 'overview', 'clients', 'projects', 'docs', 'drafts', 'invoices', 'tasks', 'orders', 'concepts', 'reviews', 'submissions', 'landing', 'settings', 'more', 'leads', 'lists', 'triage', 'booked'];
 /* The hub's sections: a root of one of these is /calls?section=<it>. */
 export const HUB_SECTIONS = ['triage', 'lists', 'leads'];
 

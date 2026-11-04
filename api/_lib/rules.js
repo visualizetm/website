@@ -9,6 +9,7 @@
  * own zone. */
 import { invoicesOf, invoiceStatus } from './invoices.js';
 import { zoneTomorrowAt, zoneMonthKey, zoneDayOfMonth, zoneDateAt } from './zone.js';
+import { addTask } from './taskRules.js';
 
 const DAY = 864e5;
 const iso = (t) => new Date(t).toISOString();
@@ -83,6 +84,17 @@ export const PROJECT_RULES = [
     if (last.status !== 'sent' || invoiceStatus(last, now) === 'paid') return null;
     const due = last.dueAt ? zoneDateAt(last.dueAt, 9, 0) : now;
     return { key: last.id, set: { nextAction: custom('Collect the last payment and release the files', due) } };
+  } },
+  /* A payment plan in its final month (prompt 3 of 3): a task for Rob to cancel the Stripe subscription so the next month does not charge,
+     due the day the last line is due, once per last line. The task is the one task system (checklists); nothing is sent. */
+  { id: 'planStripeCancel', run(p, ctx, now) {
+    if (!p.plan?.months || p.plan.stripeCancelled || p.archived) return null;
+    const lines = invoicesOf(p).filter(s => !s.extra).sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)));
+    const last = lines[lines.length - 1]; if (!last || lines.length < p.plan.months || !last.dueAt) return null;
+    if (zoneMonthKey(now) < String(last.dueAt).slice(0, 7)) return null;
+    const due = zoneDateAt(String(last.dueAt).slice(0, 10), 9, 0);
+    const lists = addTask(Array.isArray(p.checklists) ? p.checklists : [], '', { id: `scx${last.id}`.slice(0, 24), text: `Cancel the Stripe subscription${ctx.lead?.business ? ` for ${ctx.lead.business}` : ''}: the last payment is month ${p.plan.months}`, due: iso(due), source: 'manual', listName: 'Payment plan' });
+    return { key: last.id, set: { checklists: lists } };
   } },
 ];
 /** Run one rule set over a record: the first rule per id whose key is new. Returns [{ id, key, set, lists }]. */

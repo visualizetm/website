@@ -31,6 +31,9 @@ import { apiFetch } from '../shared/api';
 import useDocs from '../lib/useDocs';
 import NewDocSheet from '../components/docs/NewDocSheet';
 import ClientPickSheet from '../components/docs/ClientPickSheet';
+import TaskSheet from '../components/TaskSheet';
+import { addTask, normalizeChecklists } from '../shared/taskRules';
+import { checklistsPatch } from '../lib/taskWrite';
 
 /* Code split by screen (Prompt 15): the entry chunk is the shell plus the
  * Dashboard; every other screen is its own chunk, loaded on first visit.
@@ -54,6 +57,7 @@ const loaders = {
   projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
   compose: () => import('./AdminCompose'),
   drafts: () => import('./AdminDrafts'),
+  invoices: () => import('./AdminInvoices'),
 };
 const AdminLeads = lazy(loaders.leads);
 const AdminCallsHub = lazy(loaders.calls);
@@ -79,6 +83,7 @@ const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminQuote = lazy(loaders.quote);
 const AdminCompose = lazy(loaders.compose);
 const AdminDrafts = lazy(loaders.drafts);
+const AdminInvoices = lazy(loaders.invoices);
 const AdminProjects = lazy(loaders.projects);
 const AdminProjectNew = lazy(loaders.projectNew);
 const AdminListFill = lazy(loaders.listFill);
@@ -447,6 +452,7 @@ export default function AdminApp() {
     if (/^\/lists\/[^/]+\/fill$/.test(p)) return 'listFill';
     if (p.startsWith('/email/compose')) return 'compose';
     if (p === '/drafts' || p.startsWith('/drafts/')) return 'drafts';
+    if (p === '/invoices') return 'invoices';
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     /* Lists and Triage are now sections of the Calls hub (AdminCallsHub.jsx); a bookmark or a command bar row for
@@ -543,12 +549,20 @@ export default function AdminApp() {
   const openTasks = useCallback((lead, project) => { push(`${BASE}/clients/${lead._id}/tasks${project ? `?project=${project._id}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openConcepts = useCallback((lead, setId) => { push(`${BASE}/leads/${lead._id}/concepts${setId ? `?set=${setId}` : ''}`, { selectedId: lead._id }); }, [push]);
   /* The quote builder (prompt 2 of 3): a push from the record, the price presenter or the room; ?pkg= seeds the lines with a package. */
+  /* A path with its query (the Home numbers open Invoices on a chip and Clients on a filter). */
+  const goPath = useCallback((rel) => navigate(`${BASE}${rel}`), [navigate]);
   const openQuote = useCallback((lead, pkgId) => { push(`${BASE}/leads/${lead._id}/quote${pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : ''}`, { selectedId: lead._id }); }, [push]);
   const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
   const [newDocLead, setNewDocLead] = useState(null);
   const newDoc = useCallback((lead) => setNewDocLead(lead), []);
+  /* New task (prompt 3 of 3): the quick add picks a client, then the task sheet (due chips, the reminder on) writes it into that record's checklists through taskWrite. */
+  const [newTask, setNewTask] = useState(null); // null | 'pick' | the lead
+  const saveNewTask = useCallback(async (lead, v) => {
+    const lists = addTask(lead.checklists || [], v.listId || '', { text: v.text, due: v.due, remindAt: v.remindAt, note: v.note, client: v.client, url: v.url, source: 'manual', listName: 'Tasks' });
+    return patchCallLead(lead._id, checklistsPatch(lead, lists, { projects: projectsRef.current, sets: setsRef.current }));
+  }, [patchCallLead]);
   const [pickingDoc, setPickingDoc] = useState(false);
   const pickClient = useCallback(() => setPickingDoc(true), []);
   const createFromTemplate = useCallback(async (doc) => { const item = await docsState.ops.create(doc); if (item) openDoc(item); return !!item; }, [docsState.ops, openDoc]);
@@ -794,7 +808,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenQuote={openQuote} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenQuote={openQuote} onGoPath={goPath} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewTask={() => setNewTask('pick')} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
@@ -865,6 +879,7 @@ export default function AdminApp() {
         />
       )}
       {section === 'docs' && <AdminDocs leads={V.leads} docsApi={docsApi} loading={forceLoading} />}
+      {section === 'invoices' && <AdminInvoices leads={V.leads} projects={V.projects} loading={callLeadsLoading || projectsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatchLead={patchCallLead} onPatchProject={patchProject} />}
       {section === 'drafts' && <AdminDrafts drafts={drafts} loading={draftsLoading || forceLoading} error={draftsError} onRetry={loadDrafts} leads={V.leads} />}
       {section === 'pipeline' && (
         <AdminPipeline leads={V.leads} lists={V.lists} subs={subs} orders={orders} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads} onPatch={patchCallLead} />
@@ -938,6 +953,8 @@ export default function AdminApp() {
         </div>
       )}
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
+      {newTask === 'pick' && <ClientPickSheet leads={V.leads} title="Which client?" label="Pick a client for the new task" onPick={(l) => setNewTask(l)} onClose={() => setNewTask(null)} />}
+      {newTask && newTask !== 'pick' && <TaskSheet isNew business={newTask.business} item={{ text: '', due: '', remindAt: '', note: '' }} lists={normalizeChecklists(newTask.checklists || [])} onSave={(v) => saveNewTask(newTask, v)} onClose={() => setNewTask(null)} />}
       {pickingDoc && <ClientPickSheet leads={V.leads} onPick={newDoc} onClose={() => setPickingDoc(false)} />}
       {newDocLead && <NewDocSheet lead={newDocLead} projects={V.projects} onCreate={createFromTemplate} onClose={() => setNewDocLead(null)} />}
       {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}

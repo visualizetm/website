@@ -148,5 +148,36 @@ section('4. the checklist sanitizer on both routes, and the retainer delivered c
   ok(Po.missingForReview({ format: 'video', kind: 'ad' }).join(',') === 'a concept or the video,an ad name' && Po.missingForReview({ format: 'video', concept: 'A quick tour' }).length === 0, 'a planned video with a concept is ready; an ad needs a name');
 }
 
+section('N. one row everywhere (prompt 3 of 3)');
+{
+  const TR = await import(pathToFileURL(path.join(process.env.TASKS_SRC ? path.resolve(process.env.TASKS_SRC) : path.join(repoRoot, 'src'), 'lib', 'taskRows.js')).href);
+  const NA = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nextAction.js')).href);
+  const lead = { _id: 'L1', business: 'Dana Detailing', phone: '3025550100', stage: 'client' };
+  const emailRec = { ...lead, checklists: [{ id: 'c', name: 'Emails', items: [{ id: 'e1', text: 'Send the intro', done: false, due: iso(NOW - 3600e3), emailId: 'EL9' }] }] };
+  const plainRec = { ...lead, checklists: [{ id: 'c', name: 'Tasks', items: [{ id: 't1', text: 'Drop off the proof', done: false, due: iso(NOW + 2 * 3600e3) }] }] };
+  const q = NA.nextUpItems([emailRec, { ...plainRec, _id: 'L2', business: 'Bravo' }, { ...lead, _id: 'L3', business: 'Callum', callStatus: 'callback', callbackAt: iso(NOW - 600e3), stage: 'lead' }], [], [], NOW);
+  const all = [...q.overdue, ...q.today, ...q.later];
+  const byBiz = (b) => all.find(i => i.lead.business === b);
+  const e = byBiz('Dana Detailing'); const t = byBiz('Bravo'); const c = byBiz('Callum');
+  ok(!!e && !!t && !!c, `three items in the queue (${all.length})`);
+  const ve = TR.rowView(e, NOW); const vt = TR.rowView(t, NOW); const vc = TR.rowView(c, NOW);
+  ok(ve.email?.emailId === 'EL9' && ve.primary.id === 'preview' && /^Preview the email/.test(ve.primary.label), 'an email task\'s action is Preview, never Send');
+  ok(vc.check === 'outcome' && vc.primary.id === 'call', 'a callback\'s check opens the outcome and its action is Call (never done)');
+  ok(vt.check === 'task' && vt.kind.label === 'Task' && vt.primary === null, 'a plain task: the check completes it, the kind pill says Task');
+  ok(ve.title === NA.homeRowAction(e, NOW).title && vt.when === NA.homeRowAction(t, NOW).time, 'the row view is homeRowAction\'s: the same title and time Home shows');
+  ok(TR.rowView(e, NOW).biz === 'Dana Detailing' && JSON.stringify(TR.rowView(e, NOW)) === JSON.stringify(TR.rowView(e, NOW)), 'the same item reads the same way twice');
+  ok(TR.chipOf(e) === 'emails' && TR.chipOf(c) === 'calls' && TR.chipOf(t) === 'tasks', 'chips: emails, calls, tasks');
+  ok(TR.filterItems(all, 'calls').map(i => i.lead.business).join() === 'Callum' && TR.filterItems(all, 'all', 'bra').map(i => i.lead.business).join() === 'Bravo' && TR.filterItems(all, 'tasks', 'zzz').length === 0, 'a chip and a client search narrow the rows');
+  /* No row sends: the two screens and the row draw it from rowView, nothing on them posts a send or a stamp. */
+  const srcRoot = process.env.TASKS_SRC ? path.resolve(process.env.TASKS_SRC) : path.join(repoRoot, 'src');
+  for (const f of ['lib/taskRows.js', 'ui/TaskRow.jsx', 'components/NextUpHome.jsx', 'pages/AdminTasksHome.jsx', 'pages/AdminTasks.jsx']) {
+    const text = fs.readFileSync(path.join(srcRoot, f), 'utf8');
+    ok(!/send:\s*true/.test(text) && !/approvedAt/.test(text) && !/email\/approve/.test(text) && !/email\/send/.test(text), `${f} never posts a send or a stamp`);
+  }
+  const home = fs.readFileSync(path.join(srcRoot, 'components/NextUpHome.jsx'), 'utf8'); const tasks = fs.readFileSync(path.join(srcRoot, 'pages/AdminTasksHome.jsx'), 'utf8'); const per = fs.readFileSync(path.join(srcRoot, 'pages/AdminTasks.jsx'), 'utf8');
+  ok(/rowView\(/.test(home) && /<TaskRow/.test(home) && /rowView\(/.test(tasks) && /<TaskRow/.test(tasks) && /<TaskRow/.test(per), 'Home, Tasks and the client task list draw the shared TaskRow');
+  ok(!/useSwipe|nu-hint|touchstart|onTouchStart/i.test(tasks), 'the Tasks page has no private swipe code');
+}
+
 console.log(`\n${passes} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);

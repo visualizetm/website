@@ -56,7 +56,12 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
     }).sort((a, b) => Number(b.overdue) - Number(a.overdue) || a.nextKey.localeCompare(b.nextKey) || b.touch - a.touch);
   }, [projects, archived, showArchived, byId, ctx, now]);
   const allRows = rows;
-  const shown = useMemo(() => (q.trim() ? allRows.filter(r => (r.lead && matchesList(r.lead, q)) || String(r.p.name || '').toLowerCase().includes(q.trim().toLowerCase())) : allRows), [allRows, q]);
+  /* Stage chips plus Unpaid and Overdue (prompt 3 of 3, audit item 25): one chip at a time; Unpaid is a project with a sent line not yet paid, Overdue one whose next action is late. */
+  const [chip, setChip] = useState('all');
+  const passes = (r, id) => (id === 'all' ? true : id === 'unpaid' ? !!r.next && invoiceStatus(r.next, now) !== 'draft' : id === 'overdue' ? r.overdue : id === 'retainer' ? r.p.kind === 'retainer' : r.p.stage === id && r.p.kind !== 'retainer');
+  const chipCountOf = (id) => allRows.filter(r => passes(r, id)).length;
+  const searched = useMemo(() => (q.trim() ? allRows.filter(r => (r.lead && matchesList(r.lead, q)) || String(r.p.name || '').toLowerCase().includes(q.trim().toLowerCase())) : allRows), [allRows, q]);
+  const shown = useMemo(() => searched.filter(r => passes(r, chip)), [searched, chip]); // eslint-disable-line react-hooks/exhaustive-deps
   const summary = useMemo(() => {
     const live = (projects || []).filter(p => !p.archived);
     const open = live.filter(p => p.stage !== 'delivered').length;
@@ -97,8 +102,8 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
       : <Stack gap={2} aria-busy="true">{[1, 2, 3, 4].map(i => <Card key={i} as="div" padding={3} style={{ height: 150, boxSizing: 'border-box', overflow: 'hidden' }}><Stack gap={2}><Row gap={2} justify="between" align="start"><SkeletonBlock width="55%" height={22} /><SkeletonBlock width={72} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="40%" height={18} /><SkeletonBlock width="70%" height={18} /><Row gap={2} align="center"><SkeletonBlock width={110} height={18} /><SkeletonBlock width={56} height={22} radius="var(--v-radius-pill)" /></Row><SkeletonBlock width="45%" height={14} /></Stack></Card>)}</Stack>
   ) : error && !projects.length ? (
     <Card><ErrorState title={COPY.error.projects.title} description={COPY.error.projects.description} onRetry={retry} retrying={retrying} /></Card>
-  ) : !shown.length && q.trim() && allRows.length ? (
-    <Card><NoResults noun="projects" query={q} filters={showArchived ? ['Archived included'] : []} onClear={() => setQ('')} /></Card>
+  ) : !shown.length && (q.trim() || chip !== 'all') && allRows.length ? (
+    <Card><NoResults noun="projects" query={q} filters={[...(showArchived ? ['Archived included'] : []), ...(chip !== 'all' ? [chip] : [])]} onClear={() => { setQ(''); setChip('all'); }} /></Card>
   ) : !shown.length ? (
     <Card><EmptyState icon="Folder" title={E.title} description={E.description} action={{ label: E.action, icon: 'Briefcase01', onClick: () => shell?.go('clients') }} /></Card>
   ) : desktop ? (
@@ -128,6 +133,11 @@ export default function AdminProjects({ projects = [], leads = [], loading = fal
         <Section loading={showSkel} description={showSkel ? undefined : q.trim() ? matchLine(rows.length, 'projects', shown.length) : `${rows.filter(r => !r.p.archived).length} in the list`}
           action={<Row gap={2} wrap><Chip label="Show archived" icon="Trash01" selected={showArchived} onClick={() => setShowArchived(v => !v)} count={showArchived && archived ? archived.length : undefined} />{onNew && <Button icon="Plus" onClick={onNew} className="pj-new">New project</Button>}</Row>} />
         {strip}
+        {!showSkel && allRows.length > 0 && (
+          <Row gap={2} wrap className="pj-chips" role="group" aria-label="Show">
+            {[{ id: 'all', label: 'All' }, ...PROJECT_STAGES.map(st => ({ id: st.id, label: st.label })), { id: 'retainer', label: 'Retainers' }, { id: 'unpaid', label: 'Unpaid' }, { id: 'overdue', label: 'Overdue' }].map(c => <Chip key={c.id} label={c.label} count={chipCountOf(c.id)} selected={chip === c.id} onClick={() => setChip(c.id)} className={`pj-chip pj-chip--${c.id}`} />)}
+          </Row>
+        )}
         {showSkel ? <div aria-busy="true" aria-hidden="true"><SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" /></div> : <ListSearch value={q} onChange={setQ} placeholder="Search client, project" label="Search projects" className="pj-search" />}
         {body}
       </ScrollArea>

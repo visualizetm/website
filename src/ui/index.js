@@ -19,6 +19,7 @@ import Avatar, { avatarStyles, initialsOf } from './Avatar';
 import EmptyState, { emptyStateStyles } from './EmptyState';
 import NoResults from './NoResults';
 import SwipeRow, { swipeRowStyles } from './SwipeRow';
+import TaskRow, { taskRowStyles } from './TaskRow';
 import ErrorState, { errorStateStyles, useRetry } from './ErrorState';
 import ErrorBoundary, { errorBoundaryStyles } from './ErrorBoundary';
 import useOnline from './useOnline';
@@ -79,7 +80,7 @@ export const uiStyles = [
   tokenStyles, pageShellStyles, scrollAreaStyles, stickyFooterBarStyles,
   stackStyles, rowStyles, gridStyles, sectionStyles, dividerStyles,
   skeletonStyles, cardStyles, statCardStyles, iconTileStyles, pillStyles, badgeStyles, avatarStyles,
-  emptyStateStyles, swipeRowStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
+  emptyStateStyles, swipeRowStyles, taskRowStyles, errorStateStyles, errorBoundaryStyles, listRowStyles,
   spinnerStyles, logoStyles, buttonStyles, iconButtonStyles, collapsiblePaneStyles, workspaceSwitcherStyles, overviewStripStyles, pageHeaderStyles, funnelBarStyles, chartStyles, qrCodeStyles, chipStyles, fieldShellStyles, selectStyles, inlineEditStyles,
   toggleStyles, checkboxStyles, roundCheckStyles, segmentedControlStyles, tabsStyles, tableStyles,
   sheetStyles, modalStyles, toastStyles, tooltipStyles, popoverStyles, menuStyles,
@@ -88,7 +89,7 @@ export const uiStyles = [
 
 export {
   PageShell, ScrollArea, StickyFooterBar, Stack, Row, Grid, Section, Divider, CollapsiblePane, WorkspaceSwitcher, OverviewStrip, PageHeader, FunnelBar, BarChart, LineChart, DonutChart, QrCode,
-  Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, NoResults, SwipeRow, ErrorState, ErrorBoundary, ListRow,
+  Card, StatCard, IconTile, Pill, Badge, Avatar, initialsOf, EmptyState, NoResults, SwipeRow, TaskRow, ErrorState, ErrorBoundary, ListRow,
   Button, IconButton, Chip, ChipGroup, FieldShell, Input, Textarea, Select, InlineEdit, Toggle, Checkbox, RoundCheck, SegmentedControl, Tabs, Table, Collapsible,
   Sheet, Modal, ConfirmDialog, useConfirm, ToastProvider, ToastHost, useToast, Tooltip, Popover, Menu,
   SkeletonBlock, SkeletonText, SkeletonCircle, RecordSkeleton, Stagger, Reveal, ProgressRing, ProgressBar, Spinner, Logo, LogoSpinner, logoSrc, logoSize, LOGO_VARIANTS, durationMs, motionReduced,

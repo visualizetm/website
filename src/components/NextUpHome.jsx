@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Card, Button, IconButton, Pill, RoundCheck, ProgressBar, SkeletonBlock, SkeletonCircle, ErrorState, Sheet, Stack, Icon, Collapsible, Reveal,
+  Card, Button, Pill, TaskRow, ProgressBar, SkeletonBlock, SkeletonCircle, ErrorState, Sheet, Stack, Icon, Collapsible, Reveal,
   useToast, useMediaQuery,
 } from '../ui';
 import { durationMs } from '../ui/motion';
 import { COPY } from '../shared/copy';
-import { OUTCOMES, nextActionKindOf } from '../shared/semantics';
+import { OUTCOMES } from '../shared/semantics';
 import { telHref } from '../shared/phone';
 import { fmtDateTime } from '../shared/dates';
 import { useShell } from '../shell/ShellContext';
 import { nextUpItems, homeRowAction, NEXT_TONE } from '../lib/nextAction';
+import { rowView, kindLabelOf as kindLabel } from '../lib/taskRows';
 import { homeLists, rowKey, checkWrite, tomorrowWrite, OVERDUE_CAP } from '../lib/homeRows';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { applyOutcome, outcomeRemoves, restoreLead } from '../lib/lists';
@@ -37,40 +38,28 @@ const lastCounts = () => { try { const o = JSON.parse(readLS(NU_KEY) || 'null');
 
 /* Whether Coming up opens on arrival: what Rob left it at, else open on a computer and folded on a phone. */
 const comingOpen = () => { const v = readLS(COMING_KEY); return v === '1' ? true : v === '0' ? false : (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 768px)').matches : false); };
-const kindLabel = (a) => (a.taskId ? 'Task' : nextActionKindOf(a.kind).label);
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /* ── One row of Today or Overdue ───────────────────────────────── */
-function NuRow({ r, overdue, now, compact, onCheck, onTomorrow, onOpen, onCall, onOpenBtn }) {
+function NuRow({ r, overdue, now, compact, phone, onCheck, onTomorrow, onOpen, onCall, onOpenBtn }) {
   const { item, done, leaving } = r;
   const plan = homeRowAction(item, now);
-  const a = item.action;
-  const biz = item.lead.business;
-  const checkLabel = plan.check === 'outcome' ? `Log the outcome: ${plan.title}, ${biz}` : plan.check === 'open' ? `Open at this step: ${plan.title}, ${biz}` : `Mark done: ${plan.title}, ${biz}`;
-  const third = done ? <span className="nh-when is-done">Done</span> : overdue ? <span className="nh-when is-late">{plan.late || 'Overdue'}</span> : <span className={`nh-when${plan.late ? ' is-late' : ''}`}>{plan.time}</span>;
+  const v = rowView(item, now);
+  const biz = v.biz;
+  const actions = [];
+  if (plan.call) actions.push({ icon: 'Phone', label: `Call ${biz}`, onClick: onCall });
+  if (overdue) actions.push(plan.tomorrow
+    /* On a very narrow phone the words give way to an icon so the title keeps some room; the label still says it. */
+    ? { icon: 'Clock', label: `Move to tomorrow: ${plan.title}, ${biz}`, text: 'Tomorrow', compact, onClick: onTomorrow, className: 'nh-tomorrow' }
+    : { icon: 'ArrowRight', label: `Open the record: ${plan.title}, ${biz}`, text: 'Open', compact, onClick: onOpenBtn, className: 'nh-openbtn' });
   return (
-    <li className={`nh-row${done ? ' is-done' : ''}${leaving ? ' is-leaving' : ''}${overdue ? ' is-overdue' : ''}`} data-row-id={item.lead._id}>
-      <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${biz}, ${plan.title}`}>{`Open ${biz}`}</button>
-      <RoundCheck className="v-above" label={done ? `Done: ${plan.title}, ${biz}` : checkLabel} done={done} tone={overdue ? 'danger' : 'neutral'} onClick={onCheck} />
-      <div className="nh-body">
-        <span className="nh-title lay-truncate">{plan.title}</span>
-        <span className="nh-biz lay-truncate">{biz}</span>
-        <span className="nh-meta">{third}{!done && <Pill tone={NEXT_TONE[a.kind] || 'neutral'} label={kindLabel(a)} size="sm" icon={false} variant="soft" />}</span>
-      </div>
-      {!done && !leaving && (
-        <span className="nh-act v-above">
-          {plan.call && <IconButton icon="Phone" label={`Call ${biz}`} variant="secondary" onClick={onCall} tooltip={false} />}
-          {overdue && (plan.tomorrow
-            /* On a very narrow phone the words give way to an icon so the title keeps some room; the label still says it. */
-            ? (compact
-              ? <IconButton icon="Clock" label={`Move to tomorrow: ${plan.title}, ${biz}`} variant="secondary" onClick={onTomorrow} tooltip={false} className="nh-tomorrow" />
-              : <Button variant="secondary" size="md" onClick={onTomorrow} aria-label={`Move to tomorrow: ${plan.title}, ${biz}`} className="nh-tomorrow">Tomorrow</Button>)
-            : (compact
-              ? <IconButton icon="ArrowRight" label={`Open the record: ${plan.title}, ${biz}`} variant="secondary" onClick={onOpenBtn} tooltip={false} className="nh-openbtn" />
-              : <Button variant="secondary" size="md" icon="ArrowRight" onClick={onOpenBtn} aria-label={`Open the record: ${plan.title}, ${biz}`} className="nh-openbtn">Open</Button>))}
-        </span>
-      )}
-    </li>
+    <TaskRow as="li" className="nh-row" data-row-id={item.lead._id}
+      title={plan.title} biz={biz} done={done} leaving={leaving} overdue={overdue}
+      when={overdue ? (plan.late || 'Overdue') : plan.time} whenTone={overdue || plan.late ? 'late' : ''}
+      kind={v.kind} openLabel={`Open ${biz}, ${plan.title}`} onOpen={onOpen}
+      check={{ label: v.checkLabel, onClick: onCheck }}
+      actions={actions}
+      swipe={{ done: onCheck, snooze: plan.tomorrow ? onTomorrow : undefined, doneLabel: plan.check === 'outcome' ? 'Log' : 'Done', snoozeLabel: 'Tomorrow' }} swipeEnabled={phone} />
   );
 }
 
@@ -108,6 +97,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
      appears pushes everything under it down (the feel audit's layout shift). The skeleton holds the place from the first paint. */
   const showSkel = loading && !leads.length;
   const compact = useMediaQuery('(max-width: 380px)');
+  const phone = useMediaQuery('(max-width: 767px)');
   const now = Date.now();
   const q = useMemo(() => nextUpItems(leads, projects, sets, now), [leads, projects, sets]); // eslint-disable-line react-hooks/exhaustive-deps
   const taskCtx = useMemo(() => ({ projects, sets }), [projects, sets]);
@@ -204,7 +194,7 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
   if (showSkel) return <Skeleton counts={lastCounts()} />;
 
   const rowProps = (r, overdue) => ({
-    r, overdue, now, compact,
+    r, overdue, now, compact, phone,
     onCheck: () => check(r.item),
     onTomorrow: (e) => tomorrow(r.item, e?.currentTarget),
     onOpen: () => openRecord(r.item),
@@ -298,10 +288,10 @@ export const nextUpHomeStyles = `
   .nh-prog { display: flex; flex-direction: column; align-items: flex-end; gap: var(--v-space-2); width: 112px; flex-shrink: 0; padding-top: var(--v-space-1); }
   .nh-prog-t { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .nh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0; }
-  .nh-row { position: relative; display: flex; align-items: center; gap: var(--v-space-2); min-height: 88px; padding: var(--v-space-3) 0; box-sizing: border-box; min-width: 0; border-top: 1px solid var(--v-border); transition: opacity var(--v-dur-slow) var(--v-ease-out); }
-  .nh-row .v-stretch { border-radius: var(--v-radius-md); }
-  .nh-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: -2px; border-radius: var(--v-radius-md); }
-  .nh-row .v-stretch:focus-visible { outline: 0; }
+  .nh-row:not(.tr-row) { position: relative; display: flex; align-items: center; gap: var(--v-space-2); min-height: 88px; padding: var(--v-space-3) 0; box-sizing: border-box; min-width: 0; border-top: 1px solid var(--v-border); transition: opacity var(--v-dur-slow) var(--v-ease-out); }
+  .nh-row:not(.tr-row) .v-stretch { border-radius: var(--v-radius-md); }
+  .nh-row:not(.tr-row):has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: -2px; border-radius: var(--v-radius-md); }
+  .nh-row:not(.tr-row) .v-stretch:focus-visible { outline: 0; }
   .nh-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; pointer-events: none; }
   .nh-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); transition: color var(--v-dur-base) var(--v-ease-out); text-decoration: line-through transparent; text-decoration-thickness: 2px; }
   .nh-biz { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
@@ -315,7 +305,7 @@ export const nextUpHomeStyles = `
   .nh-act { display: inline-flex; align-items: center; gap: var(--v-space-2); flex-shrink: 0; }
   .nh-act .v-btn.nh-tomorrow, .nh-act .v-btn.nh-openbtn { padding: 0 var(--v-space-3); }
   @media (max-width: 767px) { .nh-act { gap: var(--v-space-1); } }
-  .nh-row.is-done .nh-title { color: var(--v-text-3); text-decoration-color: var(--v-text-3); }
+  .nh-row:not(.tr-row).is-done .nh-title { color: var(--v-text-3); text-decoration-color: var(--v-text-3); }
   .nh-row.is-leaving { opacity: 0; pointer-events: none; }
   .nh-row--skel { gap: var(--v-space-3); padding-left: var(--v-space-2); }
   .nh-clear { margin: 0; display: flex; align-items: center; min-height: 56px; border-top: 1px solid var(--v-border); font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-2); }

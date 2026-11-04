@@ -76,4 +76,16 @@ export function quickCallbacks(now = new Date()) {
     { id: 'mon', label: 'Next Monday', at: at(monday, 10) },
   ];
 }
+/** The due chips of a task (prompt 3 of 3), built like the callback picker's: Today 5 PM (while it is still before 5), Tomorrow 9 AM, Next Monday 9 AM. Pick is the sheet's own. */
+export function quickTaskDues(now = new Date()) {
+  const at = (d, h, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x; };
+  const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+  const monday = new Date(now); monday.setDate(now.getDate() + ((8 - now.getDay()) % 7 || 7));
+  const five = at(now, 17);
+  return [
+    ...(five.getTime() > now.getTime() ? [{ id: 'today5', label: 'Today 5 PM', at: five }] : []),
+    { id: 'tomorrow9', label: 'Tomorrow 9 AM', at: at(tomorrow, 9) },
+    { id: 'monday9', label: 'Next Monday', at: at(monday, 9) },
+  ];
+}
 export const toLocalInput = (d) => { const p = (n) => String(n).padStart(2, '0'); return { date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`, time: `${p(d.getHours())}:${p(d.getMinutes())}` }; };

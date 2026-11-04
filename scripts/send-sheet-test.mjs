@@ -82,8 +82,8 @@ for (const w of WIDTHS) {
     ok(await t.page.locator('.v-sheet .ss-send').count() === 1 && sends(t.posts).length === 0 && logSends(t.posts).length === 0 && approves(t.posts).length === 0, 'the Tasks row Send icon opens the sheet and posts nothing');
     await t.page.keyboard.press('Escape'); await t.page.waitForTimeout(300);
     const emailRow = t.page.locator('.nu-row', { has: t.page.locator('.nu-send') }).first();
-    await emailRow.locator('.nu-ctl .v-menu-trig button').first().click(); await t.page.waitForTimeout(400);
-    await t.page.getByRole('menuitem', { name: 'Send email' }).click({ timeout: 8000 }); await t.page.waitForTimeout(700);
+    await emailRow.locator('.tr-act .v-menu-trig button').first().click(); await t.page.waitForTimeout(400);
+    await t.page.getByRole('menuitem', { name: 'Preview the email' }).click({ timeout: 8000 }); await t.page.waitForTimeout(700);
     ok(await t.page.locator('.v-sheet .ss-send').count() === 1 && sends(t.posts).length === 0 && logSends(t.posts).length === 0, 'and so does its menu');
   } else ok(false, 'the Tasks fixture has an email task row');
   await t.page.close();

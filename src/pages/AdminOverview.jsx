@@ -71,10 +71,10 @@ export default function AdminOverview({ leads = [], projects = [], posts = [], s
       <div className="dash-stats dash-card--wide" data-card="stats">
         <StatCard icon="Briefcase01" tone="booked" value={clients.length} label={clients.length === 1 ? 'active client' : 'active clients'} onClick={() => shell.go('clients')} data-stat="clients" />
         <StatCard icon="Package" tone="progress" value={active.length} label={active.length === 1 ? 'project in progress' : 'projects in progress'} onClick={() => shell.go('projects')} data-stat="projects" />
-        <StatCard icon="RefreshCw01" tone="new" value={retainers.length} label={`${retainers.length === 1 ? 'retainer' : 'retainers'}, ${money(mrr)} a month`} onClick={() => shell.go('clients')} data-stat="retainers" />
-        <StatCard icon="CurrencyDollarCircle" tone={pastDue ? 'danger' : 'neutral'} value={money(owed)} label={`unpaid, ${unpaid.length} ${unpaid.length === 1 ? 'invoice' : 'invoices'}${pastDue ? `, ${pastDue} past due` : ''}`} onClick={() => shell.go('projects')} data-stat="unpaid" />
+        <StatCard icon="RefreshCw01" tone="new" value={retainers.length} label={`${retainers.length === 1 ? 'retainer' : 'retainers'}, ${money(mrr)} a month`} onClick={() => shell.goPath('/clients?filter=retainer')} data-stat="retainers" />
+        <StatCard icon="CurrencyDollarCircle" tone={pastDue ? 'danger' : 'neutral'} value={money(owed)} label={`unpaid, ${unpaid.length} ${unpaid.length === 1 ? 'invoice' : 'invoices'}${pastDue ? `, ${pastDue} past due` : ''}`} onClick={() => shell.goPath('/invoices')} data-stat="unpaid" />
         <StatCard icon="CheckDone01" tone={tasks.overdue.length ? 'danger' : 'neutral'} value={tasks.overdue.length + tasks.today.length} label={`${tasks.overdue.length + tasks.today.length === 1 ? 'task' : 'tasks'} due today${tasks.overdue.length ? `, ${tasks.overdue.length} overdue` : ''}`} onClick={() => shell.openTasks ? shell.go('tasks') : shell.go('dashboard')} data-stat="tasks" />
-        <StatCard icon="Pencil01" tone={planner.review ? 'new' : 'neutral'} value={planner.review} label={`${planner.review === 1 ? 'post' : 'posts'} with clients, ${planner.done} of ${planner.planned} done this month`} onClick={() => shell.go('calendar')} data-stat="planner" />
+        <StatCard icon="Pencil01" tone={planner.review ? 'new' : 'neutral'} value={planner.review} label={`${planner.review === 1 ? 'post' : 'posts'} with clients, ${planner.done} of ${planner.planned} done this month`} onClick={() => shell.goPath('/clients?filter=planner')} data-stat="planner" />
       </div>
 
       <Dash title="Tasks due across clients" data-card="tasks">

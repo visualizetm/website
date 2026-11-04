@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, Button, Pill, Checkbox, Menu, Sheet, Input, Select, ChipGroup, ProgressBar,
-  EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow,
+  PageShell, ScrollArea, Stack, Row, Card, Button, Pill, Menu, Sheet, Input, Select, ChipGroup, ProgressBar,
+  EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, TaskRow, useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { useTopBar } from '../shell/ShellContext';
@@ -39,7 +39,7 @@ const TEMPLATE_BLURB = {
  * the editor, the due label turns accent when overdue, the pin shows which
  * one is Next up. Swipe right completes; swipe left or a long press opens
  * the task's sheet with Pin, Reschedule and Delete; the menu has the same. */
-function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onUnpin, onReschedule, onDelete, onClient }) {
+function TaskItem({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onUnpin, onReschedule, onDelete, onClient }) {
   const [sheet, setSheet] = useState(false);
   const due = taskDueLabel(t, now);
   const overdue = isOverdue(t, now);
@@ -54,18 +54,15 @@ function TaskRow({ t, isNext, phone, readOnly, now, onToggle, onEdit, onPin, onU
     { id: 'del', label: 'Delete task', icon: 'Trash01', danger: true, onSelect: onDelete },
   ];
   const openSheet = () => { if (!readOnly) setSheet(true); };
+  /* The shared row (src/ui/TaskRow.jsx), the same one Home and the Tasks page draw: the round check, the title, the checklist, the due line with the kind pill. */
   return (
     <>
-      <SwipeRow enabled={phone && !readOnly}
-        right={t.done ? undefined : { label: 'Done', icon: 'Check', tone: 'booked', onCommit: () => onToggle(true) }}
-        left={{ label: 'More', icon: 'DotsHorizontal', tone: 'neutral', onCommit: openSheet }}
-        onHold={openSheet}>
-        <div className={`tk-row${t.done ? ' is-done' : ''}${isNext ? ' is-next' : ''}${overdue ? ' is-overdue' : ''}`} data-task-id={t.id}>
-          <Checkbox checked={!!t.done} onChange={(v) => onToggle(v)} disabled={readOnly} className="tk-check"
-            label={<span className="tk-text"><span className="tk-title">{t.text}</span>{(due || t.note || t.pinned || t.client) && <span className="tk-meta">{t.client && <span className="tk-client" title="Needs the client"><Icon icon="Grid01" size={12} /></span>}{t.pinned && <span className="tk-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned as Next up.</span></span>}{due && <span className={`tk-due${overdue ? ' is-overdue' : ''}`}>{due}</span>}{t.note && <span className="tk-note-dot" title="Has a note"><Icon icon="File02" size={12} /><span className="v-sr-only">Has a note.</span></span>}</span>}</span>} />
-          {!readOnly && <span className="tk-ctl"><Menu label={`${t.text} actions`} items={items} /></span>}
-        </div>
-      </SwipeRow>
+      <TaskRow as="div" variant="compact" className={`tk-row${isNext ? ' is-next' : ''}`} data-task-id={t.id}
+        title={t.text} biz={t.listName} when={due || (t.note ? 'Has a note' : '')} whenTone={overdue ? 'late' : ''} overdue={overdue} done={!!t.done}
+        kind={{ tone: t.client ? 'callback' : t.pinned ? 'progress' : 'neutral', label: t.client ? 'Needs the client' : t.pinned ? 'Next up' : 'Task' }}
+        check={readOnly ? null : { label: `${t.done ? 'Mark not done' : 'Mark done'}: ${t.text}`, onClick: () => onToggle(!t.done) }}
+        menu={readOnly ? null : items}
+        swipe={{ done: t.done ? undefined : () => onToggle(true), snooze: openSheet, hold: openSheet, snoozeLabel: 'More' }} swipeEnabled={phone && !readOnly} />
       {sheet && <RowSheet title={t.text} subtitle={due || 'No date'} facts={[{ label: 'Checklist', value: t.listName }, { label: 'Note', value: t.note }]} items={items} onClose={() => setSheet(false)} />}
     </>
   );
@@ -278,7 +275,7 @@ export default function AdminTasks({
   const rowsOf = (l) => (
     <Stack gap={1} className="tk-rows">
       {l.shown.map(t => (
-        <TaskRow key={t.id} t={{ ...t, listName: l.name }} isNext={nextIds.has(t.id)} phone={phone} readOnly={readOnly} now={now}
+        <TaskItem key={t.id} t={{ ...t, listName: l.name }} isNext={nextIds.has(t.id)} phone={phone} readOnly={readOnly} now={now}
           onToggle={(v) => toggle(l, t, v)} onEdit={() => setEdit({ l, t, mode: 'edit' })} onReschedule={() => setEdit({ l, t, mode: 'when' })}
           onPin={() => pin(l, t)} onUnpin={() => unpin(l)} onDelete={() => del(l, t)} onClient={(v) => setClient(l, t, v)} />
       ))}
@@ -414,23 +411,11 @@ const tkStyles = `
   .tk-list-bar { margin-top: var(--v-space-1); }
   /* Client portal (prompt 2): the chip of items the client has to do, and the mark on such a row. */
   .tk-list-client { margin-top: var(--v-space-2); align-self: flex-start; }
-  .tk-client { display: inline-flex; align-items: center; color: var(--v-text-3); }
   .tk-row-bar { display: inline-flex; width: 56px; }
   .tk-rows { min-width: 0; }
-  /* One task: a 44px row whose checkbox is the control, text that opens the editor, the pin and the due label. */
-  .tk-row { display: flex; align-items: center; gap: var(--v-space-1); min-height: var(--v-tap); padding: 0 var(--v-space-1); border-radius: var(--v-radius-md); background: var(--v-surface-2); border: 1px solid var(--v-border-1); min-width: 0; }
+  /* One task: the shared TaskRow (src/ui/TaskRow.jsx, compact); these only mark the pinned and the late one. */
   .tk-row.is-next { border-color: var(--v-status-progress-text); }
   .tk-row.is-overdue { border-color: var(--v-status-danger-text); }
-  .tk-row .tk-check { flex: 1; min-width: 0; }
-  .tk-row .v-check-label { min-width: 0; white-space: normal; }
-  .tk-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .tk-title { font-size: var(--v-text-sm); color: var(--v-text-1); overflow-wrap: anywhere; }
-  .tk-row.is-done .tk-title { color: var(--v-text-3); text-decoration: line-through; }
-  .tk-meta { display: flex; align-items: center; gap: var(--v-space-2); flex-wrap: wrap; font-size: var(--v-text-xs); color: var(--v-text-3); }
-  .tk-due.is-overdue { color: var(--v-status-danger-text); font-weight: var(--v-weight-bold); }
-  .tk-pin { display: inline-flex; color: var(--v-status-progress-text); }
-  .tk-note-dot { display: inline-flex; color: var(--v-text-3); }
-  .tk-ctl { display: inline-flex; flex: 0 0 auto; }
   .tk-empty-line { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-3); }
   .tk-addbar { padding-bottom: var(--v-space-4); }
   /* The template picker: one row per template, radio semantics. */

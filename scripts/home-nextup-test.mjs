@@ -61,8 +61,8 @@ for (const w of WIDTHS) {
   ok(!JSON.stringify(w1.body).includes('doneAt":"20') || JSON.stringify(w1.body?.set?.nextAction || {}).indexOf('"doneAt":"20') === -1, 'the check on a task writes no nextAction doneAt of its own');
   const doneRow = today.locator('.nh-row.is-done');
   ok(await doneRow.count() === 1, 'the finished row stays in Today');
-  ok(/line-through/.test(await doneRow.locator('.nh-title').evaluate(e => getComputedStyle(e).textDecorationLine)), 'the finished title is struck through');
-  ok((await doneRow.locator('.nh-when').textContent()).trim() === 'Done', 'the finished row says Done');
+  ok(/line-through/.test(await doneRow.locator('.tr-title').evaluate(e => getComputedStyle(e).textDecorationLine)), 'the finished title is struck through');
+  ok((await doneRow.locator('.tr-when').textContent()).trim() === 'Done', 'the finished row says Done');
   ok((await today.locator('.nh-prog-t').textContent()).trim() === `1 of ${nToday} done`, `X of Y reads 1 of ${nToday} done`);
   ok(await chip('today') === todayChip0 - 1, `the due today chip dropped from ${todayChip0} to ${await chip('today')}`);
   ok(/Marked done/.test(await page.locator('[role="status"][aria-live="polite"]').allTextContents().then(a => a.join(' '))), 'the polite live region says Marked done');

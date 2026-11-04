@@ -24,6 +24,13 @@ export async function applySendStamps(db, { lead, project = null, invoice = null
   if (fresh) { lead = { ...lead, deal: fresh.deal, contactLog: fresh.contactLog }; }
   let deal = dealOf(lead);
   if (cp && (lead.deal || lead.stage === 'booked' || lead.stage === 'deal') && !isTicked(deal, cp)) { deal = { ...deal, checkpoints: { ...deal.checkpoints, [cp]: { at: sentAt, by: 'auto' } }, stalledSince: '' }; set.deal = deal; }
+  /* A reminder or a past due email for an invoice counts on the line itself (the Invoices screen's "reminded N times"). */
+  if ((kind === 'invoice_reminder' || kind === 'invoice_past_due') && invoice) {
+    const next = { ...invoice, reminders: (Number(invoice.reminders) || 0) + 1, remindedAt: sentAt };
+    if (project && Array.isArray(project.invoices)) await projects.updateOne({ _id: project._id, 'invoices.id': invoice.id }, { $set: { 'invoices.$.reminders': next.reminders, 'invoices.$.remindedAt': next.remindedAt, updatedAt: new Date() } });
+    else if (project) await projects.updateOne({ _id: project._id }, { $set: { invoices: replaceInvoice(invoicesOf(project), next), updatedAt: new Date() } });
+    else { deal = { ...(set.deal || deal), invoices: replaceInvoice(invoicesOf(deal), next) }; set.deal = deal; }
+  }
   if (kind === 'invoice' && invoice) {
     if (project && Array.isArray(project.invoices)) { const sent = markSent(invoice, Date.parse(sentAt)); await projects.updateOne({ _id: project._id, 'invoices.id': invoice.id }, { $set: { 'invoices.$.status': sent.status, 'invoices.$.sentAt': sent.sentAt, ...(invoice.payUrl ? { 'invoices.$.payUrl': invoice.payUrl, 'invoices.$.paymentLinkId': invoice.paymentLinkId || '' } : {}), updatedAt: new Date() } }); }
     else if (project) await projects.updateOne({ _id: project._id }, { $set: { invoices: replaceInvoice(invoicesOf(project), markSent(invoice, Date.parse(sentAt))), updatedAt: new Date() } });

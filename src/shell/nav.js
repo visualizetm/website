@@ -33,6 +33,8 @@ export const NAV = [
   // Docs (client docs job): every client's docs in one list, between Projects and Planner; a doc itself is /docs/:id.
   { id: 'docs',        label: 'Docs',             icon: 'File02',          path: '/docs',       workspace: 'clients',  group: 'Clients',  badge: null,        more: 3.5 },
   // Drafts (email safety, prompt 1 of 3): every email and text waiting for Rob's tap; nothing sends until he opens one there.
+  // Invoices (prompt 3 of 3): every invoice across projects, deals, plans and retainers; the Home money numbers open it on a chip.
+  { id: 'invoices',    label: 'Invoices',         icon: 'CurrencyDollarCircle', path: '/invoices', workspace: 'clients', group: 'Clients', badge: null, more: 3.55 },
   { id: 'drafts',      label: 'Drafts',           icon: 'Mail01',          path: '/drafts',     workspace: 'clients',  group: 'Clients',  badge: 'drafts',    more: 3.6 },
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', workspace: 'clients', group: 'Clients', badge: 'planner' },
   { id: 'tasks',       label: 'Tasks',            icon: 'CheckDone01',     path: '/tasks',      workspace: 'clients',  group: 'Clients',  badge: 'tasks' },

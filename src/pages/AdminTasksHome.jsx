@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  PageShell, ScrollArea, Stack, Row, Card, IconTile, IconButton, Pill, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon, CollapsiblePane,
+  PageShell, ScrollArea, Stack, Row, Card, IconTile, TaskRow, Chip, NoResults, SkeletonCircle, EmptyState, ErrorState, Button, Menu, Sheet, Input, Stagger, SkeletonBlock, ProgressBar, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon, CollapsiblePane,
 } from '../ui';
 import { COPY } from '../shared/copy';
 import { emailTaskOf } from '../lib/compose';
@@ -17,6 +17,8 @@ import { openLists, isFull, listCount } from '../lib/lists';
 import LeadDetail from '../components/LeadDetail';
 import { RescheduleSheet } from '../components/record/MeetingSection';
 import TaskSheet from '../components/TaskSheet';
+import ListSearch from '../components/ListSearch';
+import { rowView, filterItems, TASK_CHIPS } from '../lib/taskRows';
 import { isTask, fmtTaskDue } from '../lib/tasks';
 
 /* Tasks (the nav revamp, milestone 6: the Next up list moved here from the
@@ -47,42 +49,26 @@ const SNOOZES = [
 /* The row count follows the data, so the skeleton reads the last known
    count from localStorage (written on every loaded render). */
 
-/* ── Swipe: right is done, left is snooze, a long press picks the snooze ── */
-function useSwipe({ onRight, onLeft, onHold, enabled }) {
-  const st = useRef(null);
-  const [dx, setDx] = useState(0);
-  const end = () => { const s = st.current; st.current = null; if (!s) return; clearTimeout(s.timer); };
-  if (!enabled) return { dx: 0, handlers: {} };
-  return {
-    dx,
-    handlers: {
-      onTouchStart: (e) => { const t = e.touches[0]; st.current = { x: t.clientX, y: t.clientY, moved: false, timer: setTimeout(() => { if (st.current && !st.current.moved) { st.current = null; setDx(0); onHold?.(); } }, 550) }; },
-      onTouchMove: (e) => { const s = st.current; if (!s) return; const t = e.touches[0]; const ddx = t.clientX - s.x; const ddy = t.clientY - s.y; if (!s.moved && Math.abs(ddy) > Math.abs(ddx)) { end(); setDx(0); return; } if (Math.abs(ddx) > 8) { s.moved = true; clearTimeout(s.timer); } setDx(Math.max(-120, Math.min(120, ddx))); },
-      onTouchEnd: () => { const moved = st.current?.moved; end(); const d = dx; setDx(0); if (!moved) return; if (d > 72) onRight?.(); else if (d < -72) onLeft?.(); },
-      onTouchCancel: () => { end(); setDx(0); },
-    },
-  };
-}
-
 function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, onEditTask, onPin, onAuto, onTasks, onSendEmail, onEditEmail }) {
   const { action, lead } = item;
   /* The task system: a client or a project with checklists shows how far it is; a task action gets Pin or Auto and the way into its Tasks screen. */
   const counts = item.record?.checklists?.length ? taskCounts(item.record) : null;
   const isTaskItem = !!action.taskId;
-  /* The email system (milestone 8): a task written for a drafted or failed email carries the entry; its one control sends it and the menu edits it. */
-  const emailTask = isTaskItem ? emailTaskOf(item.record, action.taskId) : null;
-  const swipe = useSwipe({ enabled: phone, onRight: onDone, onLeft: onSnooze, onHold: onPick });
+  const v = rowView(item, now);
+  /* The email system (milestone 8), under the Drafts rule: a task written for a drafted or failed email previews it. Its one control opens the send sheet, where
+     Rob reads it and taps Send now; nothing on this row sends. */
+  const emailTask = v.email;
   const kind = action.kind;
-  const primary = emailTask ? { icon: 'Send01', label: `Send the email for ${lead.business}` }
+  const primary = emailTask ? { icon: 'Mail01', label: v.primary.label, text: undefined, onClick: onSendEmail, className: 'nu-send' }
     : kind === 'call' || kind === 'callback'
-    ? (lead.phone ? { icon: 'Phone', label: `Call ${lead.business}`, href: telHref(lead.phone) } : { icon: 'Phone', label: `Open ${lead.business}, no phone on file` })
-    : kind === 'log-outcome' ? { icon: 'CheckCircle', label: `Log the outcome for ${lead.business}` }
-    : kind === 'build-concepts' ? { icon: 'LayersThree01', label: `Build concepts for ${lead.business}` }
-    : kind === 'chase-invoice' ? { icon: 'CurrencyDollar', label: `Open payments for ${lead.business}` }
-    : kind === 'custom' && action.label === 'Move to nurture?' ? { icon: 'Clock', label: `Move ${lead.business} to nurture` }
-    : { icon: 'ArrowRight', label: `Open ${lead.business}` };
+    ? (lead.phone ? { icon: 'Phone', label: `Call ${lead.business}`, onClick: () => { window.location.href = telHref(lead.phone); } } : { icon: 'Phone', label: `Open ${lead.business}, no phone on file`, onClick: onAct })
+    : kind === 'log-outcome' ? { icon: 'CheckCircle', label: `Log the outcome for ${lead.business}`, onClick: onAct }
+    : kind === 'build-concepts' ? { icon: 'LayersThree01', label: `Build concepts for ${lead.business}`, onClick: onAct }
+    : kind === 'chase-invoice' ? { icon: 'CurrencyDollar', label: `Open payments for ${lead.business}`, onClick: onAct }
+    : kind === 'custom' && action.label === 'Move to nurture?' ? { icon: 'Clock', label: `Move ${lead.business} to nurture`, onClick: onAct }
+    : { icon: 'ArrowRight', label: `Open ${lead.business}`, onClick: onAct };
   const menu = [
-    ...(emailTask ? [{ id: 'send-email', label: 'Send email', icon: 'Send01', onSelect: onSendEmail }, { id: 'edit-email', label: 'Edit email', icon: 'Edit02', onSelect: onEditEmail }] : []),
+    ...(emailTask ? [{ id: 'send-email', label: 'Preview the email', icon: 'Mail01', onSelect: onSendEmail }, { id: 'edit-email', label: 'Edit email', icon: 'Edit02', onSelect: onEditEmail }] : []),
     { id: 'done', label: 'Done', icon: 'Check', onSelect: onDone },
     { id: 'snooze', label: 'Snooze a day', icon: 'Clock', onSelect: onSnooze },
     { id: 'pick', label: 'Snooze until', icon: 'Calendar', onSelect: onPick },
@@ -92,31 +78,15 @@ function NextRow({ item, phone, now, onOpen, onAct, onDone, onSnooze, onPick, on
     'divider',
     { id: 'open', label: 'Open the record', icon: 'ArrowRight', onSelect: onOpen },
   ];
+  /* One rule per row (homeRowAction): a call or a callback never writes done, it opens the record at its outcome; a rule action opens its record. */
+  const check = v.check === 'outcome' ? () => onOpen('outcome') : v.check === 'open' ? onAct : onDone;
   return (
-    <div className={`nu-swipe${swipe.dx ? ' is-moving' : ''}`}>
-      <span className={`nu-hint nu-hint--done${swipe.dx > 72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Check" size={16} /> Done</span>
-      <span className={`nu-hint nu-hint--snooze${swipe.dx < -72 ? ' is-armed' : ''}`} aria-hidden="true"><Icon icon="Clock" size={16} /> Snooze</span>
-      <Card as="div" padding={3} interactive data-row-id={item.lead?._id} className={`nu-row lay-card${item.bucket === 'overdue' ? ' is-overdue' : ''}`} style={swipe.dx ? { transform: `translate3d(${swipe.dx}px, 0, 0)`, transition: 'none' } : undefined} {...swipe.handlers}>
-        <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Open ${lead.business}, ${action.label}`}>{`Open ${lead.business}`}</button>
-        <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
-          <IconTile icon={item.icon} tone={item.tone} size="sm" />
-          <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-            <span className="nu-biz lay-truncate">{lead.business}</span>
-            <span className="nu-what lay-truncate">{action.label}{item.project ? `, ${item.project.name}` : ''}</span>
-            <Row gap={2} align="center" wrap>
-              {item.bucket === 'overdue' && <Pill tone="danger" label="Overdue" size="sm" icon={false} variant="solid" />}
-              <span className="nu-due">{isTask(action) && action.dueAt ? fmtTaskDue(action.dueAt, now) : dueLabel(item, now)}</span>
-              {isTaskItem && action.auto === false && <span className="nu-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned.</span></span>}
-            </Row>
-            {counts && <ProgressBar value={counts.pct} size="sm" tone={counts.done === counts.total ? 'booked' : 'progress'} className="nu-bar" aria-label={`${counts.done} of ${counts.total} tasks done`} />}
-          </Stack>
-          <span className="v-above nu-ctl">
-            <IconButton icon={primary.icon} label={primary.label} variant="secondary" onClick={primary.href ? () => { window.location.href = primary.href; } : emailTask ? onSendEmail : onAct} className={emailTask ? 'nu-send' : undefined} />
-            <Menu label={`${lead.business} actions`} items={menu} />
-          </span>
-        </Row>
-      </Card>
-    </div>
+    <TaskRow as="div" variant="card" data-row-id={item.lead?._id} className="nu-row" title={v.title} biz={lead.business}
+      when={isTask(action) && action.dueAt ? fmtTaskDue(action.dueAt, now) : dueLabel(item, now)} whenTone={v.overdue ? 'late' : ''} overdue={v.overdue}
+      kind={v.kind} openLabel={`Open ${lead.business}, ${action.label}`} onOpen={() => onOpen()}
+      check={{ label: v.checkLabel, onClick: check }} actions={[primary]} menu={menu}
+      swipe={{ done: check, snooze: onSnooze, hold: onPick }} swipeEnabled={phone}
+      extra={counts ? <ProgressBar value={counts.pct} size="sm" tone={counts.done === counts.total ? 'booked' : 'progress'} className="nu-bar" aria-label={`${counts.done} of ${counts.total} tasks done`} /> : (isTaskItem && v.pinned ? <span className="nu-pin" title="Pinned as Next up"><Icon icon="Pin01" size={12} /><span className="v-sr-only">Pinned.</span></span> : null)} />
   );
 }
 
@@ -165,9 +135,10 @@ function ListReadyRow({ list, onStart, onOpen }) {
   );
 }
 
-/* The six sections, every one open, an empty one a single line. */
-function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
-  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={() => act('open', it)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} onPin={() => act('pin', it)} onAuto={() => act('auto', it)} onTasks={() => act('tasks', it)} onSendEmail={() => act('sendemail', it)} onEditEmail={() => act('editemail', it)} />);
+/* The sections (prompt 3 of 3): Overdue, Today and Coming up with the same rows as Home, then the Meetings and the full lists. The chips (Calls, Emails, Money,
+   Tasks) and the client search narrow the rows; a section with nothing is one line. */
+function NextUpList({ q, chip, query, meetings, lists, phone, now, act, onReschedule, onStartList, onOpenLists }) {
+  const rows = (items) => items.map(it => <NextRow key={it.id} item={it} phone={phone} now={now} onOpen={(why) => act('open', it, why)} onAct={() => act('act', it)} onDone={() => act('done', it)} onSnooze={() => act('snooze', it)} onPick={() => act('pick', it)} onEditTask={() => act('edittask', it)} onPin={() => act('pin', it)} onAuto={() => act('auto', it)} onTasks={() => act('tasks', it)} onSendEmail={() => act('sendemail', it)} onEditEmail={() => act('editemail', it)} />);
   const line = (text) => <p className="nu-clear" role="status">{text}</p>;
   const section = (id, label, tone, count, body) => (
     <section key={id} className="nu-sec" aria-label={label}>
@@ -175,21 +146,25 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
       {body}
     </section>
   );
+  const f = (items) => filterItems(items, chip, query);
+  const overdue = f(q.overdue); const today = f(q.today); const dated = f(q.later); const rest = f([...q.beyond, ...q.undated]);
   const days = [];
-  for (const it of q.later) { const k = dayKey(new Date(it.due)); let d = days.find(x => x.key === k); if (!d) { d = { key: k, label: DAY_LABEL(it.due), items: [] }; days.push(d); } d.items.push(it); }
-  const later = [...q.beyond, ...q.undated];
+  for (const it of dated) { const k = dayKey(new Date(it.due)); let d = days.find(x => x.key === k); if (!d) { d = { key: k, label: DAY_LABEL(it.due), items: [] }; days.push(d); } d.items.push(it); }
+  const comingN = dated.length + rest.length;
+  const filtered = chip !== 'all' || !!query.trim();
+  const total = q.all.length + q.beyond.length + q.undated.length;
   /* Nothing to do and nothing booked: one empty state instead of five clear lines; a full list still shows under it. */
-  const nothing = !q.all.length && !later.length && !meetings.length;
+  const nothing = !total && !meetings.length;
   const listsSec = section('lists', 'Lists ready', 'neutral', lists.length, lists.length ? <Stack gap={2}>{lists.map(l => <ListReadyRow key={l._id} list={l} onStart={() => onStartList(l)} onOpen={onOpenLists} />)}</Stack> : line('No list is full yet.'));
-  if (nothing) return <Stack gap={5} className="nu-list"><Card className="nu-empty"><EmptyState size="sm" icon="CheckCircle" title={COPY.empty['dashboard.next'].title} description={COPY.empty['dashboard.next'].description} action={{ label: COPY.empty['dashboard.next'].action, icon: 'PhoneCall01', onClick: () => act('calls') }} /></Card>{lists.length > 0 && listsSec}</Stack>;
+  if (nothing) return <Stack gap={5} className="nu-list"><Card className="nu-empty"><EmptyState size="sm" icon="CheckCircle" title={COPY.empty['dashboard.next'].title} description={COPY.empty['dashboard.next'].description} action={{ label: COPY.empty['dashboard.next'].action, onClick: () => act('calls') }} /></Card>{listsSec}</Stack>;
+  if (filtered && !overdue.length && !today.length && !comingN) return <Stack gap={5} className="nu-list"><Card><NoResults noun="tasks" query={query} filters={chip !== 'all' ? [TASK_CHIPS.find(c => c.id === chip)?.label] : []} onClear={() => act('clear')} /></Card></Stack>;
   return (
     <Stack gap={5} className="nu-list">
-      {section('overdue', 'Overdue', 'danger', q.overdue.length, q.overdue.length ? <Stack gap={2}>{rows(q.overdue)}</Stack> : line('Nothing overdue.'))}
-      {section('today', 'Today', 'today', q.today.length, q.today.length ? <Stack gap={2}>{rows(q.today)}</Stack> : line('Nothing due today.'))}
-      {section('week', 'This week', 'neutral', q.later.length, days.length ? <Stack gap={3}>{days.map(d => <Stack key={d.key} gap={2}><span className="nu-day">{d.label}</span>{rows(d.items)}</Stack>)}</Stack> : line('Nothing else this week.'))}
-      {section('later', 'Later', 'neutral', later.length, later.length ? <Stack gap={2}>{rows(later)}</Stack> : line('Nothing later.'))}
-      {section('meetings', 'Meetings', 'neutral', meetings.length, meetings.length ? <Stack gap={2}>{meetings.map(e => <MeetingRow key={e.id} e={e} onOpen={() => act('meeting', e)} onReschedule={() => onReschedule(e)} />)}</Stack> : line('No meetings booked.'))}
-      {listsSec}
+      {section('overdue', 'Overdue', 'danger', overdue.length, overdue.length ? <Stack gap={2}>{rows(overdue)}</Stack> : line('Nothing overdue.'))}
+      {section('today', 'Today', 'today', today.length, today.length ? <Stack gap={2}>{rows(today)}</Stack> : line('Nothing due today.'))}
+      {section('coming', 'Coming up', 'neutral', comingN, comingN ? <Stack gap={3}>{days.map(d => <Stack key={d.key} gap={2}><span className="nu-day">{d.label}</span>{rows(d.items)}</Stack>)}{rest.length > 0 && <Stack gap={2}><span className="nu-day">Later or no date</span>{rows(rest)}</Stack>}</Stack> : line('Nothing coming up.'))}
+      {!filtered && section('meetings', 'Meetings', 'neutral', meetings.length, meetings.length ? <Stack gap={2}>{meetings.map(e => <MeetingRow key={e.id} e={e} onOpen={() => act('meeting', e)} onReschedule={() => onReschedule(e)} />)}</Stack> : line('No meetings coming up.'))}
+      {!filtered && listsSec}
     </Stack>
   );
 }
@@ -197,16 +172,16 @@ function NextUpList({ q, meetings, lists, phone, now, act, onReschedule, onStart
 /* The six sections at fixed counts (5, 3, 1, 0, 2, 1): an action row at its real lines (the name 22, the action 21, then a pill 22 when overdue or the time 19,
    and the 8px progress bar on a client's or a project's row, here the fourth overdue row, the first of today and the week's one), an empty section's one line,
    a meeting row and a list row at theirs. */
-const SKEL_SECTIONS = [['Overdue', 5, 'act', [3]], ['Today', 3, 'act', [0]], ['This week', 1, 'act', [0]], ['Later', 0, 'act', []], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
+const SKEL_SECTIONS = [['Overdue', 5, 'act', [3]], ['Today', 3, 'act', [0]], ['Coming up', 1, 'act', [0]], ['Meetings', 2, 'meet'], ['Lists ready', 1, 'list']];
 function NextUpSkeleton() {
-  const actRow = (i, overdue, bar) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} />{bar && <SkeletonBlock width={220} height={4} radius="var(--v-radius-pill)" className="nu-bar" />}</Stack><Row gap={1}><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
+  const actRow = (i, overdue, bar) => <div key={i} className="tr-row tr-row--card"><div className="tr-inner"><SkeletonCircle size={26} /><div className="tr-body"><SkeletonBlock width="55%" height={24} /><SkeletonBlock width="40%" height={20} /><SkeletonBlock width="30%" height={overdue ? 22 : 19} />{bar && <SkeletonBlock width={220} height={4} radius="var(--v-radius-pill)" className="nu-bar" />}</div><SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></div></div>;
   const twoLine = (i, wide) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="45%" height={19} /></Stack><Row gap={1}>{wide ? <SkeletonBlock width={76} height={44} radius="var(--v-radius-md)" /> : <SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
   return (
     <Stack gap={5} aria-busy="true" aria-hidden="true">
       {SKEL_SECTIONS.map(([label, n, kind, bars = []], si) => (
         <Stack gap={2} key={label}>
           <Row gap={2} align="center" className="nu-sec-head"><SkeletonBlock width={label.length * 8} height={14} />{n > 0 && <SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" />}</Row>
-          {kind === 'act' && label === 'This week' && <SkeletonBlock width={80} height={16} />}
+          {kind === 'act' && label === 'Coming up' && <SkeletonBlock width={80} height={16} />}
           {n === 0 && <p className="nu-clear"><SkeletonBlock width={96} height={14} style={{ margin: '3px 0' }} /></p>}
           {Array.from({ length: n }, (_, i) => (kind === 'act' ? actRow(i, si === 0, bars.includes(i)) : twoLine(i, kind === 'list')))}
         </Stack>
@@ -230,6 +205,8 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
   const [pick, setPick] = useState(null); // the item a snooze picker is open for
   const [taskEdit, setTaskEdit] = useState(null); // the item an Edit task sheet is open for
   const [pickDate, setPickDate] = useState('');
+  const [chip, setChip] = useState('all'); // Calls, Emails, Money, Tasks (src/lib/taskRows.js)
+  const [query, setQuery] = useState(''); // a client's name
   const now = Date.now();
   const sel = selId ? (leads || []).find(l => String(l._id) === String(selId)) || null : null;
   useTopBar(null);
@@ -265,9 +242,10 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     if (desktop) openSel(item.lead._id, { intent: why ? { kind: why, n: Date.now() } : null });
     else onOpenLead(item.lead, why);
   };
-  const act = async (what, item) => {
+  const act = async (what, item, why) => {
     if (what === 'calls') { shell.go('calls'); return; }
-    if (what === 'open') { openRecord(item); return; }
+    if (what === 'clear') { setChip('all'); setQuery(''); return; }
+    if (what === 'open') { openRecord(item, why); return; }
     if (what === 'meeting') { openRecord({ lead: item.lead }, 'meeting'); return; }
     if (what === 'act') {
       const k = item.action.kind;
@@ -352,7 +330,13 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     ) : <div className="aa-main aa-main--wide lay-scroll db-page"><div className="lay-content lay-content--wide">{err}</div><style>{dbStyles}</style></div>;
   }
 
-  const list = <NextUpList q={q} meetings={meetings} lists={listsReady} phone={phone} now={now} act={act} onReschedule={setResched} onStartList={(l) => shell.go('calls', { listId: String(l._id) })} onOpenLists={() => shell.go('lists')} />;
+  const filters = (
+    <Stack gap={2} className="nu-filters">
+      <ListSearch value={query} onChange={setQuery} placeholder="Search clients" label="Search clients" />
+      <Row gap={2} wrap role="group" aria-label="Show">{TASK_CHIPS.map(c => <Chip key={c.id} label={c.label} selected={chip === c.id} onClick={() => setChip(c.id)} className={`nu-chip nu-chip--${c.id}`} />)}</Row>
+    </Stack>
+  );
+  const list = <NextUpList chip={chip} query={query} q={q} meetings={meetings} lists={listsReady} phone={phone} now={now} act={act} onReschedule={setResched} onStartList={(l) => shell.go('calls', { listId: String(l._id) })} onOpenLists={() => shell.go('lists')} />;
   const taskSheet = taskEdit && <TaskSheet business={taskEdit.lead.business} task={taskEdit.action} onClose={() => setTaskEdit(null)} onSave={(na) => writeAction(taskEdit, na)} onDone={() => writeAction(taskEdit, { ...taskEdit.action, doneAt: new Date().toISOString() })} />;
   const reschedSheet = resched && <RescheduleSheet lead={resched.lead} onClose={() => setResched(null)} onSave={async (m) => { const l = resched.lead; const ok = await onPatchLead(l._id, { meeting: { date: '', time: '', type: 'call', location: '', ...(l.meeting || {}), ...m } }); if (ok) { setResched(null); toast.success('Meeting updated.'); } else toast.error(COPY.error.save); }} />;
   const picker = pick && (
@@ -371,7 +355,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
       <>
         <CollapsiblePane id="tasks" label="Tasks" className="db-panel" rail={railItems}
           head={<div className="db-panel-head"><span className="pb-card-h" style={{ margin: 0 }}>Tasks</span><span className="nu-count">{q.overdue.length + q.today.length}</span></div>}>
-          <ScrollArea bare className="db-panel-scroll">{list}</ScrollArea>
+          <ScrollArea bare className="db-panel-scroll">{filters}{list}</ScrollArea>
         </CollapsiblePane>
         {sel ? (
           <PageShell className="aa-main db-main" label="the record">
@@ -392,7 +376,7 @@ export default function AdminTasksHome({ leads, projects = [], sets = [], loadin
     <div className="aa-main aa-main--wide lay-scroll db-page">
       <div className="lay-content lay-content--wide">
         <Stagger className="v-stack" style={{ gap: 'var(--v-space-5)' }}>
-          <div className="db-next">{list}</div>
+          <div className="db-next">{filters}{list}</div>
         </Stagger>
       </div>
       {picker}{confirmEl}
@@ -418,17 +402,11 @@ const dbStyles = `
   .nu-count { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-3); background: var(--v-surface-3); border-radius: var(--v-radius-pill); padding: 1px 8px; }
   .nu-clear { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .db-tile-skel { display: inline-flex; background: none; border: 0; box-shadow: none; }
-  .nu-swipe { position: relative; }
-  .nu-hint { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; gap: var(--v-space-1); padding: 0 var(--v-space-4); font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); border-radius: var(--v-radius-lg); opacity: 0; transition: opacity var(--v-dur-fast) var(--v-ease-out); }
-  .nu-swipe.is-moving .nu-hint { opacity: 0.6; }
-  .nu-hint.is-armed { opacity: 1; }
-  .nu-hint--done { left: 0; right: 40%; justify-content: flex-start; background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
   .nu-bar { margin-top: var(--v-space-1); max-width: 220px; }
   .nu-pin { display: inline-flex; color: var(--v-status-progress-text); }
-  .nu-hint--snooze { right: 0; left: 40%; justify-content: flex-end; background: var(--v-status-callback-soft); color: var(--v-status-callback-text); }
-  .nu-row { gap: 0; text-align: left; align-items: stretch; transition: transform var(--v-dur-base) var(--v-ease-out); touch-action: pan-y; }
+  .nu-row { text-align: left; }
   .nu-row.is-overdue { border-color: var(--v-status-danger-text); }
-  .nu-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .nu-filters { margin-bottom: var(--v-space-3); }
   .nu-biz { font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .nu-what { font-size: var(--v-text-sm); color: var(--v-text-2); }
   .nu-due { font-size: var(--v-text-xs); color: var(--v-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
