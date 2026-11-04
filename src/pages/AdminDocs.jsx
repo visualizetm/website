@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Row, Button, Chip, Icon, Select, Menu, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
+import { PageShell, ScrollArea, Row, Button, Chip, Select, Menu, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
 import RowSheet from '../components/RowSheet';
 import ListSearch from '../components/ListSearch';
 import DocRow from '../components/docs/DocRow';
@@ -74,15 +74,17 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
 
   let body;
   if (showSkel) {
-    /* The shape of the loaded list: the search, the three controls, then the rows (grouped by type for one client). Row heights follow the rows' own: one line titles are 64, a title that wraps is 86. */
+    /* The shape of the loaded list: the templates row, the search, the controls, the two chips, then the rows in groups (by type for one client, by client on All docs). Row heights follow the rows' own: one line titles are 64, a title that wraps is 86. */
     const perClient = !!lead || forClient;
     const rowH = phone ? [66, 88, 66, 66, 66, 66, 66] : [44, 62, 44, 44, 44, 44, 44];
     const rows = (hs) => hs.map((h, i) => <SkeletonBlock key={i} height={h} radius="var(--v-radius-md)" />);
     body = (
       <div className="ad-skel" aria-busy="true" aria-hidden="true">
+        <div className="ad-tpl">{START.map(t => <SkeletonBlock key={t.key} height={44} radius="var(--v-radius-md)" />)}</div>
         <SkeletonBlock height={44} radius="var(--v-radius-md)" className="lsr-skel" />
         <div className="ad-controls"><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" />{!perClient && <SkeletonBlock height={68} radius="var(--v-radius-md)" className="ad-client" />}</div>
-        {perClient ? <div className="ad-groups">{rowH.slice(0, 5).map((h, i) => <section key={i} className="ad-group"><p className="ad-group-h"><SkeletonBlock width={72} height={16} /></p><div className="ad-rows">{rows([h])}</div></section>)}</div> : <div className="ad-rows">{rows(rowH)}</div>}
+        <div className="ad-chips"><SkeletonBlock width={156} height={44} radius="var(--v-radius-pill)" /><SkeletonBlock width={108} height={44} radius="var(--v-radius-pill)" /></div>
+        <div className="ad-groups">{(perClient ? rowH.slice(0, 5).map(h => [h]) : [rowH.slice(0, phone ? 4 : 5)]).map((hs, i) => <section key={i} className="ad-group"><p className="ad-group-h"><SkeletonBlock width={72} height={16} /></p><div className="ad-rows">{rows(hs)}</div></section>)}</div>
       </div>
     );
   } else if (forClient && !lead) {
@@ -97,7 +99,7 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
     body = (
       <>
         <div className="ad-tpl" role="group" aria-label="Start a doc from a template">
-          {START.map(t => <button key={t.key} type="button" className="ad-tpl-b" data-template={t.key} onClick={() => start(t.key)}><Icon icon={t.icon} size={16} /><span>{t.label}</span></button>)}
+          {START.map(t => <Button key={t.key} variant="secondary" size="md" icon={t.icon} onClick={() => start(t.key)} data-template={t.key} className="ad-tpl-b">{t.label}</Button>)}
         </div>
         <ListSearch value={q} onChange={setQ} placeholder="Search titles and what is in them" label="Search docs" className="ad-search" />
         <div className="ad-controls">
@@ -164,9 +166,7 @@ const adStyles = `
   @media (min-width: 768px) { .ad-controls { grid-template-columns: repeat(3, minmax(0, 240px)); } .ad-controls > .ad-client { grid-column: auto; } }
   .ad-tpl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-2); }
   @media (min-width: 768px) { .ad-tpl { grid-template-columns: repeat(4, minmax(0, 200px)); } }
-  .ad-tpl-b { display: inline-flex; align-items: center; justify-content: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-3); border-radius: var(--v-radius-md); border: 1px solid var(--v-border); background: var(--v-surface-2); color: var(--v-text); font: inherit; font-size: var(--v-text-md); cursor: pointer; }
-  .ad-tpl-b:hover { border-color: var(--v-border-strong); }
-  .ad-tpl-b:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .ad-tpl-b { width: 100%; }
   .ad-chips { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
   .ad-phone-new { display: flex; padding-top: var(--v-space-1); }
   .ad-skel { display: flex; flex-direction: column; gap: var(--v-space-3); }

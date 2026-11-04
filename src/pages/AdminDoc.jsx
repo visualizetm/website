@@ -209,12 +209,27 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   if (waiting) {
     body = showSkel ? (
       <div aria-busy="true" aria-hidden="true">
-        <div className="dd-head">
-          <div className="dd-title dd-title--skel"><SkeletonBlock width="60%" height={28} /></div>
-          <div className="dd-meta"><SkeletonBlock width={120} height={16} /><SkeletonBlock width={48} height={14} /></div>
-          <div className="dd-selects"><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" /></div>
-        </div>
-        <div className="dd-skel">{[0, 1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={44} radius="var(--v-radius-md)" />)}</div>
+        {mode === 'read' ? (
+          <>
+            <div className="dd-head">
+              <SkeletonBlock width="60%" height={32} />
+              <SkeletonBlock width={120} height={20} />
+              <div className="dr-bar"><SkeletonBlock width={150} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={132} height={44} radius="var(--v-radius-md)" /><span className="dr-bar-grow" /><SkeletonBlock width={164} height={44} radius="var(--v-radius-md)" /><SkeletonBlock width={130} height={44} radius="var(--v-radius-md)" /></div>
+              <div className="dr-strip"><SkeletonBlock width={110} height={44} radius="var(--v-radius-pill)" /><SkeletonBlock width={130} height={44} radius="var(--v-radius-pill)" /></div>
+            </div>
+            <div className="dd-skel">{[0, 1, 2, 3].map(i => <SkeletonBlock key={i} height={28} radius="var(--v-radius-md)" />)}</div>
+          </>
+        ) : (
+          <>
+            <div className="dd-head">
+              <div className="dd-title dd-title--skel"><SkeletonBlock width="60%" height={28} /></div>
+              <div className="dd-meta"><SkeletonBlock width={120} height={16} /><SkeletonBlock width={48} height={14} /></div>
+              <div className="dd-selects"><SkeletonBlock height={68} radius="var(--v-radius-md)" /><SkeletonBlock height={68} radius="var(--v-radius-md)" /></div>
+              <div className="dr-bar"><SkeletonBlock width={150} height={44} radius="var(--v-radius-md)" /></div>
+            </div>
+            <div className="dd-skel">{[0, 1, 2, 3, 4].map(i => <SkeletonBlock key={i} height={44} radius="var(--v-radius-md)" />)}</div>
+          </>
+        )}
       </div>
     ) : null;
   } else if (load.state === 'missing') {

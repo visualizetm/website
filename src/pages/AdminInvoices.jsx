@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { PageShell, ScrollArea, Section, Stack, Row, Card, Button, Chip, Pill, ListRow, EmptyState, ErrorState, SwipeRow, Stagger, useToast, useMediaQuery } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, Row, Card, Button, Chip, Pill, EmptyState, SkeletonBlock, SkeletonText, ErrorState, SwipeRow, Stagger, useToast, useMediaQuery } from '../ui';
 import { COPY } from '../shared/copy';
 import { apiFetch } from '../shared/api';
 import { fmtDate } from '../shared/dates';
@@ -73,7 +73,17 @@ export default function AdminInvoices({ leads = [], projects = [], loading = fal
   };
   let body;
   if (error && !leads.length) body = <Card><ErrorState title="Invoices did not load" description="Nothing was lost. Try again." onRetry={onRetry} /></Card>;
-  else if (loading && !leads.length) body = <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <ListRow.Skeleton key={i} />)}</Stack>;
+  else if (loading && !leads.length) body = (
+    /* The loaded shape: a section header over cards that carry their action buttons (a past due row is about 196px on a phone, 144 on a computer). */
+    <Stack gap={5} aria-busy="true" aria-hidden="true">
+      {(phone ? [[196, 214, 144]] : [[144, 144, 144], [144]]).map((hs, si) => (
+        <Stack key={si} gap={2}>
+          <SkeletonBlock width={96} height={16} />
+          {hs.map((h, i) => <Card key={i} padding={3} style={{ minHeight: h }}><SkeletonText lines={3} /></Card>)}
+        </Stack>
+      ))}
+    </Stack>
+  );
   else if (!all.length) { const E = COPY.empty.invoices; body = <EmptyState icon="CurrencyDollarCircle" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go?.('deals') }} />; }
   else if (!sections.length) { const E = COPY.empty['invoices.none']; body = <EmptyState icon="CurrencyDollarCircle" title={E.title} description={E.description} action={{ label: E.action, onClick: () => setChip('unpaid') }} />; }
   else body = (

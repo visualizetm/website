@@ -178,6 +178,8 @@ function NextUpSkeleton() {
   const twoLine = (i, wide) => <Card key={i} as="div" padding={3}><Row gap={3} align="center"><SkeletonBlock width={32} height={32} radius="var(--v-radius-md)" /><Stack gap={0} style={{ flex: 1 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="45%" height={19} /></Stack><Row gap={1}>{wide ? <SkeletonBlock width={76} height={44} radius="var(--v-radius-md)" /> : <SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" />}<SkeletonBlock width={44} height={44} radius="var(--v-radius-md)" /></Row></Row></Card>;
   return (
     <Stack gap={5} aria-busy="true" aria-hidden="true">
+      {/* The search and the chips the loaded page opens with (prompt 3 of 3): same wrappers, same heights. */}
+      <Stack gap={2} className="nu-filters"><SkeletonBlock height={44} radius="var(--v-radius-md)" /><Row gap={2} wrap>{TASK_CHIPS.map(c => <SkeletonBlock key={c.id} width={c.label.length * 8 + 40} height={44} radius="var(--v-radius-pill)" />)}</Row></Stack>
       {SKEL_SECTIONS.map(([label, n, kind, bars = []], si) => (
         <Stack gap={2} key={label}>
           <Row gap={2} align="center" className="nu-sec-head"><SkeletonBlock width={label.length * 8} height={14} />{n > 0 && <SkeletonBlock width={24} height={21} radius="var(--v-radius-pill)" />}</Row>
