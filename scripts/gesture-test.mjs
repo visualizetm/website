@@ -26,10 +26,11 @@ const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbo
 const results = []; let failures = 0;
 const VERBOSE = process.env.AUDIT_VERBOSE === '1';
 const step = async (name, fn) => {
+  if (process.env.GESTURE_ONLY && !name.includes(process.env.GESTURE_ONLY)) return; /* one step while tuning */
   const page = await ctx.newPage();
   if (VERBOSE) console.log(`.. ${name}`);
   try { const note = await fn(page); results.push({ name, ok: true, note: note || '' }); if (VERBOSE) console.log(`ok ${name}`); }
-  catch (e) { failures++; results.push({ name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 200) }); if (VERBOSE) console.log(`FAIL ${name}: ${String(e.message || e).split('\n')[0].slice(0, 200)}`); }
+  catch (e) { if (process.env.GESTURE_SHOT) await page.screenshot({ path: process.env.GESTURE_SHOT }).catch(() => {}); failures++; results.push({ name, ok: false, note: String(e.message || e).split('\n')[0].slice(0, 200) }); if (VERBOSE) console.log(`FAIL ${name}: ${String(e.message || e).split('\n')[0].slice(0, 200)}`); }
   await page.close();
 };
 const ctx = await browser.newContext({ viewport: { width: W, height: H }, hasTouch: true, isMobile: true, serviceWorkers: 'block' });
@@ -199,6 +200,9 @@ await step('a doc row: a swipe right pins, a swipe left deletes with Undo, a lon
   await drag(g, 330, box.y + box.height / 2, 120, box.y + box.height / 2 + 1, 8); await g.t('touchEnd'); await g.wait(700);
   need(writes.some(w => /^DELETE/.test(w) && /DOC4/.test(w)), `no delete write: ${JSON.stringify(writes)}`);
   need(await page.locator('.v-toast-action', { hasText: 'Undo' }).count() === 1, 'no Undo');
+  /* The list is taller now (the templates row and the chips), so its last rows sit under the toasts: dismiss them before the long press. */
+  for (const x of await page.locator('.v-toast-x').all()) await x.click().catch(() => {});
+  await g.wait(500);
   box = await rowBox('DOC3');
   await g.t('touchStart', box.x + 60, box.y + 20); await g.wait(700); await g.t('touchEnd'); await g.wait(500);
   await page.waitForSelector('[role="dialog"]', { timeout: 3000 }); need(/Pin to card/.test(await page.locator('[role="dialog"]').innerText()), 'the long press sheet has no Pin');
@@ -207,6 +211,7 @@ await step('a doc row: a swipe right pins, a swipe left deletes with Undo, a lon
 });
 await step('a block: the grip drags it without scrolling the page, a swipe left deletes one that is not being typed in', async (page) => {
   const g = await open(page, '/admin/docs/DOC1'); await g.wait(800);
+  await page.getByRole('radio', { name: 'Edit', exact: true }).click(); /* a doc from a list opens in Read on a phone (prompt 3 of 3) */
   await page.waitForSelector('.dc-blocks');
   const order = () => page.$$eval('.dc-row', rs => rs.map(r => r.dataset.blockId));
   const top0 = await page.evaluate(() => document.querySelector('.lay-scroll').scrollTop);
@@ -266,7 +271,7 @@ await step('a sent email row opens its sheet; the sheet follows the finger and a
 await step('edge Back from a doc returns to the client\'s docs, and the doc was saved', async (page) => {
   const writes = []; page.on('request', r => { if (r.method() === 'PATCH' && /admin\/docs/.test(r.url())) writes.push(r.postData()); });
   const g = await open(page, '/admin/clients/L11/docs'); await g.wait(800);
-  await page.locator('.rc-docs-row[data-doc-id="DOC3"] .v-stretch').evaluate(el => el.click()); await page.waitForSelector('.dc-blocks'); await g.wait(500);
+  await page.locator('.rc-docs-row[data-doc-id="DOC3"] .v-stretch').evaluate(el => el.click()); await page.getByRole('radio', { name: 'Edit', exact: true }).click(); await page.waitForSelector('.dc-blocks'); await g.wait(500);
   need((await state(page)).chrome === 'focused', 'the doc is not a focused screen');
   await page.locator('.dc-row .dc-rt').first().click(); await page.keyboard.type(' edge');
   await drag(g, 6, 400, 260, 402); await g.t('touchEnd'); await g.wait(1200);

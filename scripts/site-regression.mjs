@@ -292,7 +292,7 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   if (patched.length !== 1) throw new Error(`expected exactly one PATCH, got ${patched.length}`);
   if (!patched[0].set?.showcase?.published) throw new Error('the saved showcase was not published');
   if (!patched[0].set?.reviews) throw new Error('the PATCH did not carry testimonials alongside the showcase');
-  if (await barOpen() !== false) throw new Error('the chip stayed open after a successful publish');
+  if (await page.locator('.sb-chip .sb-action').count() !== 0) throw new Error('the Publish button is still offered after a successful publish'); // the chip itself reads Saved for two seconds, then goes
 
   // And now the public site.
   await page.unroute('**/api/admin/call-leads**').catch(() => {});
