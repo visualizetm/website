@@ -369,6 +369,9 @@ function sanitize(b) {
       enabled: !!b.planner.enabled,
       postsPerMonth: Math.max(0, Math.min(60, Math.round(Number(b.planner.postsPerMonth)) || 0)) || 8,
       welcome: str(b.planner.welcome, 300),
+      /* Links in one tap (prompt 3 of 3): when the link was texted or shared, and how. Carried forward below when a save does not name them. */
+      sentAt: b.planner.sentAt !== undefined ? str(b.planner.sentAt, 40) : undefined,
+      sentVia: b.planner.sentVia !== undefined ? ['text', 'share'].includes(b.planner.sentVia) ? b.planner.sentVia : '' : undefined,
     } : undefined,
     retainer: b.retainer && typeof b.retainer === 'object' ? {
       projectId: str(b.retainer.projectId, 64), planId: str(b.retainer.planId, 40),
@@ -386,6 +389,7 @@ function sanitize(b) {
     portal: b.portal && typeof b.portal === 'object' ? {
       regenerate: b.portal.regenerate === true,
       sentAt: b.portal.sentAt !== undefined ? str(b.portal.sentAt, 40) : undefined,
+      sentVia: b.portal.sentVia !== undefined ? ['text', 'share'].includes(b.portal.sentVia) ? b.portal.sentVia : '' : undefined,
       pin: b.portal.pin !== undefined ? (/^\d{4}$/.test(String(b.portal.pin)) ? String(b.portal.pin) : '') : undefined,
       modules: b.portal.modules && typeof b.portal.modules === 'object' ? Object.fromEntries(Object.entries(b.portal.modules).filter(([k, v]) => PORTAL_MODULE_IDS.includes(k) && k !== 'home' && PORTAL_STATE_IDS.includes(v))) : undefined,
       template: b.portal.template !== undefined ? (PORTAL_TEMPLATE_IDS.includes(b.portal.template) ? b.portal.template : '') : undefined,
@@ -404,7 +408,7 @@ function sanitize(b) {
       // review submission, or entered by hand.
       testimonials: Array.isArray(b.reviews.testimonials) ? b.reviews.testimonials.slice(0, 100).map(sanitizeTestimonial) : [],
       // Review links: the Visualize review link. Only regenerate and sentAt are the caller's; the token, the counts and the stamps are resolved below.
-      visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40) } : undefined,
+      visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40), sentVia: ['text', 'share'].includes(b.reviews.visualize.sentVia) ? b.reviews.visualize.sentVia : '' } : undefined,
     } : undefined,
     // Manual "I talked to them" log (calls/meetings outside the console).
     contactLog: Array.isArray(b.contactLog)
@@ -616,6 +620,7 @@ export async function handler(req, res) {
         createdAt: had.createdAt || now,
         regeneratedAt: asked.regenerate && had.token ? now : (had.regeneratedAt || ''),
         sentAt: asked.sentAt !== undefined ? asked.sentAt : (had.sentAt || ''),
+        sentVia: asked.sentVia !== undefined ? asked.sentVia : (had.sentVia || ''),
         views: Number(had.views) || 0,
         lastViewedAt: had.lastViewedAt || '',
         lastPaidSeenAt: had.lastPaidSeenAt || '',
@@ -651,6 +656,7 @@ export async function handler(req, res) {
           views: Number(had?.views) || 0,
           lastViewedAt: had?.lastViewedAt || '',
           sentAt: asked?.sentAt || had?.sentAt || '',
+          sentVia: asked?.sentAt ? (asked.sentVia || '') : (had?.sentVia || ''),
         };
       } else delete allowed.reviews.visualize;
     }
@@ -664,6 +670,8 @@ export async function handler(req, res) {
         token: mint ? randomBytes(24).toString('base64url') : had.token,
         tokenCreatedAt: mint ? new Date().toISOString() : (had.tokenCreatedAt || ''),
         lastViewedAt: had.lastViewedAt || '',
+        sentAt: allowed.planner.sentAt !== undefined ? allowed.planner.sentAt : (had.sentAt || ''),
+        sentVia: allowed.planner.sentVia !== undefined ? allowed.planner.sentVia : (had.sentVia || ''),
       };
       // No early return: this only resolves the token, so a PATCH carrying
       // both planner and showcase still runs the slug logic below.

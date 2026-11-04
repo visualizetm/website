@@ -64,7 +64,7 @@ export const reviewUrl = (lead) => { const v = visualizeOf(lead); return v?.toke
 /** The patch that asks the server for a link (first time) or a fresh one (regenerate). */
 export const generateLinkPatch = (lead, regenerate = false) => ({ reviews: { ...reviewsOf(lead), visualize: { ...(visualizeOf(lead) || {}), regenerate } } });
 /** The patch that stamps the link as sent. */
-export const markSentPatch = (lead, now = Date.now()) => ({ reviews: { ...reviewsOf(lead), visualize: { ...(visualizeOf(lead) || {}), sentAt: new Date(now).toISOString() } } });
+export const markSentPatch = (lead, now = Date.now(), via = '') => ({ reviews: { ...reviewsOf(lead), visualize: { ...(visualizeOf(lead) || {}), sentAt: new Date(now).toISOString(), sentVia: via } } });
 /** The message in Rob's voice, the link included. */
 export function reviewMessage(lead) {
   const url = reviewUrl(lead);

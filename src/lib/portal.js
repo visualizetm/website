@@ -12,7 +12,7 @@ export const hasPortal = (lead) => !!portalOf(lead)?.token;
 /** The patch that asks the server for a link (first time) or a fresh one (regenerate). */
 export const generatePortalPatch = (lead, regenerate = false) => ({ portal: { regenerate: !!regenerate } });
 /** The patch that stamps the link as sent. */
-export const portalSentPatch = (lead, now = Date.now()) => ({ portal: { sentAt: new Date(now).toISOString() } });
+export const portalSentPatch = (lead, now = Date.now(), via = '') => ({ portal: { sentAt: new Date(now).toISOString(), sentVia: via } });
 /** One module's state; home has no control. */
 export const modulePatch = (id, state) => ({ portal: { modules: { [id]: state } } });
 /** A template sets every module to its defaults on the server. */

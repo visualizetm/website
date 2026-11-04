@@ -1,6 +1,6 @@
+import LinkSend from '../LinkSend';
 import { useEffect, useRef, useState } from 'react';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
-import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
 import { Sheet, Button, Row, Stack, Pill, QrCode, SegmentedControl, Toggle, Input, Select, InlineEdit, Menu, EmptyState, useConfirm, useMediaQuery } from '../../ui';
 import { COPY } from '../../shared/copy';
@@ -135,7 +135,6 @@ export default function PortalSheet({ rec, onClose }) {
   const url = portalUrl(lead);
   const message = portalMessage(lead, cardsNow);
   const rows = moduleRows(lead);
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const generate = async (regenerate = false) => {
     setBusy(true);
     const ok = await patch(generatePortalPatch(lead, regenerate));
@@ -147,8 +146,8 @@ export default function PortalSheet({ rec, onClose }) {
     if (!(await confirm({ title: 'Make a new link?', body: 'The old link, the old QR and every device that unlocked the PIN stop working the moment the new one exists. Anyone who still has them sees the expired page.', danger: true, confirmLabel: 'Regenerate' }))) return;
     await generate(true);
   };
-  const share = async () => { try { await navigator.share({ text: message }); } catch { /* cancelled */ } };
-  const markSent = async () => { setBusy(true); const ok = await patch(portalSentPatch(lead)); setBusy(false); if (ok) toast.success('Marked sent.'); };
+  /* Sent is stamped by Text it or Share (LinkSend), no manual sent tap. */
+  const markSent = async (via) => { const ok = await patch(portalSentPatch(lead, Date.now(), via)); if (ok) toast.success('Marked sent.'); };
   const setPin = async () => {
     if (!/^\d{4}$/.test(pinDraft)) { toast.error('Four digits.'); return; }
     setBusy(true); const ok = await patch(pinPatch(pinDraft)); setBusy(false);
@@ -182,11 +181,7 @@ export default function PortalSheet({ rec, onClose }) {
           <Stack gap={2} data-section="send">
             <p className="pb-card-h">Send it</p>
             <p className="ps-msg">{message}</p>
-            <Row gap={2} wrap>
-              <Button variant="secondary" size="md" icon={Copy01} onClick={() => copyText(toast, message, 'Message')} className="ps-copy-msg">Copy</Button>
-              {canShare && <Button variant="secondary" size="md" icon="Share01" onClick={share} className="ps-share">Share</Button>}
-              {!readOnly && <Button size="md" icon={Check} onClick={markSent} loading={busy} className="ps-sent">{p.sentAt ? 'Sent again' : 'Mark as sent'}</Button>}
-            </Row>
+            <LinkSend lead={lead} message={message} url={url} title="Your client portal" templateId="kickoff" sentAt={p.sentAt} sentVia={p.sentVia} onSent={markSent} readOnly={readOnly} />
           </Stack>
           <Stack gap={2} data-section="template">
             <p className="pb-card-h">Template</p>

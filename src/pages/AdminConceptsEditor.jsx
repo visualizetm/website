@@ -17,6 +17,7 @@ import { useTopBar } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
 import { SaveChip, saveBarStyles } from '../components/SaveBar';
 import { useAutoSave } from '../lib/useAutoSave';
+import { canShare, sharePayload, shareWasCancelled } from '../lib/linkSend';
 import { useRoundLog } from '../components/RoundLog';
 import { imageFieldStyles } from '../components/ImageField';
 
@@ -335,6 +336,12 @@ export default function AdminConceptsEditor({
     toast.success(COPY.concepts.editor.sent);
     setTell(true);
   }, [active, busy, saveFirst, onPatch, toast, confirm]);
+  const shareIt = async () => {
+    if (!lead || !active) return;
+    const first = String(lead.askFor || '').trim().split(/[\s,]+/)[0];
+    const text = `Hey${first ? ` ${first}` : ''}, your concepts are ready: ${publicUrl(active)}`;
+    try { await navigator.share(sharePayload('Your concepts', text, publicUrl(active))); setTell(false); } catch (e) { if (!shareWasCancelled(e)) toast.error('The share sheet would not open.'); }
+  };
   const emailIt = () => { setTell(false); if (lead) shell?.openCompose?.(lead, { templateId: 'concepts_ready' }); };
   const textIt = async () => {
     if (!lead || !active) return;
@@ -670,6 +677,7 @@ export default function AdminConceptsEditor({
           <Stack gap={2}>
             <ListRow leading={<Icon icon="Mail01" size="var(--v-icon-md)" />} title="Email it" subtitle="The concepts ready email, in Compose" onClick={emailIt} className="ce-tell-email" />
             <ListRow leading={<Icon icon="MessageCircle01" size="var(--v-icon-md)" />} title="Text it" subtitle={lead.phone ? 'The link in a text, from Messages' : 'No phone on the record'} onClick={lead.phone ? textIt : undefined} className="ce-tell-text" />
+            {canShare() && <ListRow leading={<Icon icon="Share01" size="var(--v-icon-md)" />} title="Share" subtitle="The link in the phone's share sheet" onClick={shareIt} className="ce-tell-share" />}
           </Stack>
         </Sheet>
       )}

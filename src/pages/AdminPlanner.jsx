@@ -6,7 +6,7 @@ import {
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
 import { isOnRetainer } from '../lib/projects';
-import { useTopBar } from '../shell/ShellContext';
+import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
 import { platformOf, postStatusOf, postFormatOf, postKindOf, SUGGESTION_KINDS, SUGGESTION_GOALS, suggestionStatusOf } from '../shared/semantics';
 import { relativeTime, fmtDateTime } from '../shared/dates';
@@ -15,6 +15,7 @@ import { safeHref } from '../lib/safeUrl';
 import { videoFieldStyles } from '../components/VideoField';
 import { SaveChip, saveBarStyles } from '../components/SaveBar';
 import { useAutoSave } from '../lib/useAutoSave';
+import LinkSend from '../components/LinkSend';
 import { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
 import ListSearch from '../components/ListSearch';
@@ -87,6 +88,8 @@ function planCountOf(lead) {
   const plan = lead && isOnRetainer(lead) ? RETAINERS.find(r => r.id === lead.retainer?.planId) : null;
   return Number(plan?.monthly?.count) || 0;
 }
+/** The text that goes with the planner link, in Rob's first person. */
+const plannerMessage = (lead, url) => { const first = String(lead?.askFor || '').trim().split(/[\s,]+/)[0]; return `Hey${first ? ` ${first}` : ''}, here is your content planner: ${url}`; };
 function plannerPatch(lead, draft) {
   const { token, tokenCreatedAt, lastViewedAt, regenerate, ...rest } = lead?.planner || {};  
   const fromPlan = planCountOf(lead);
@@ -105,7 +108,7 @@ const AD_FROM_IDEA = (s, date) => ({ name: s.subject || '', goal: IDEA_GOAL[s.go
 const samePost = (a, b) => POST_FIELDS.every(k => JSON.stringify(a?.[k] ?? '') === JSON.stringify(b?.[k] ?? ''));
 
 /* ── The invite card ──────────────────────────────────────────────── */
-function InviteCard({ planner, url, onRegenerate, readOnly }) {
+function InviteCard({ planner, url, lead, onSent, onRegenerate, readOnly }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const copy = async () => {
@@ -131,6 +134,7 @@ function InviteCard({ planner, url, onRegenerate, readOnly }) {
           <IconButton icon="Copy01" label="Copy planner link" variant="ghost" onClick={copy} />
         </Row>
         <p className="pl-note">Text this to them. It opens their planner, no password and no account.</p>
+        <LinkSend lead={lead} message={plannerMessage(lead, url)} url={url} title="Your content planner" templateId="retainer_month_ready" sentAt={planner.sentAt} sentVia={planner.sentVia} onSent={onSent} readOnly={readOnly} />
       </div>
       <span className="dt-muted">{planner.lastViewedAt ? `Last opened ${relativeTime(planner.lastViewedAt)}` : 'Not opened yet'}</span>
       {!readOnly && (
@@ -283,6 +287,7 @@ export default function AdminPlanner({
   suggestions = [], onPatchSuggestion, openIdeas = false,
 }) {
   const toast = useToast();
+  const shell = useShell();
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
   const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
@@ -322,6 +327,9 @@ export default function AdminPlanner({
     () => Object.entries(postDrafts).filter(([id, d]) => { const p = mine.find(x => String(x._id) === id); return p && !samePost({ ...postDraftOf(p), ...d }, postDraftOf(p)); }),
     [postDrafts, mine],
   );
+  /* Every post of the month is out of Making (prompt 3 of 3): the Month ready email is one tap, into Drafts, never sent from here. */
+  const monthReady = monthPosts.length > 0 && monthPosts.every(p => p.status !== 'making');
+  const draftReadyEmail = () => shell?.openCompose?.(lead, { templateId: 'retainer_month_ready' });
   const dirty = !samePlanner(draft, saved) || changedPosts.length > 0;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
@@ -551,7 +559,8 @@ export default function AdminPlanner({
                   hint={`Appears at the top of their planner. ${draft.welcome.length} of 300.`} />
               </Card>
   );
-  const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} readOnly={readOnly}
+  const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} lead={lead} readOnly={readOnly}
+                onSent={async (via) => { const ok = await onPatch(lead._id, { planner: { ...plannerPatch(lead, saved), sentAt: new Date().toISOString(), sentVia: via } }); if (ok) await onRefetchLead?.(); }}
                 onRegenerate={async () => {
                   const ok = await onPatch(lead._id, { planner: { ...plannerPatch(lead, draft), regenerate: true } });
                   if (ok) { await onRefetchLead?.(); toast.success('New link made. The old one stopped working.'); }
@@ -626,6 +635,7 @@ export default function AdminPlanner({
                         { id: 'add-ad', label: 'Add ad', icon: 'Zap', onSelect: () => addItem({ kind: 'ad' }) },
                         { id: 'add-video', label: 'Add video', icon: 'Play', onSelect: () => addItem({ format: 'video' }) },
                       ]} />
+                      {monthReady && <Button variant="secondary" size="md" icon="Mail01" onClick={draftReadyEmail} className="pl-ready-email">Draft the month ready email</Button>}
                       <Button size="md" icon="Plus" onClick={addPost} loading={busy} className="pl-add">Add post</Button>
                     </Row>
                   )}

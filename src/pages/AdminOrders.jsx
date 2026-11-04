@@ -174,7 +174,7 @@ function OrderDetail({ order: o, leads, projects, onPatch, onPatchRaw, onPatchLe
         </Row>
         <Row gap={1} wrap>
           <Button variant="secondary" size="md" icon="Phone" href={c.phone ? telHref(c.phone) : undefined} disabled={!c.phone}>{c.phone ? formatPhone(c.phone) : 'No phone'}</Button>
-          {c.lead && shell?.openCompose ? <Button variant="secondary" size="md" icon="Mail01" onClick={() => shell.openCompose(c.lead)} className="po-email">Draft payment link</Button>
+          {c.lead && shell?.openCompose ? <Button variant="secondary" size="md" icon="Mail01" onClick={() => shell.openCompose(c.lead)} className="po-email">{o.paid ? `Email ${c.lead.business}` : 'Draft payment link'}</Button>
             : <Button variant="secondary" size="md" icon="Mail01" href={c.email ? `mailto:${c.email}` : undefined} disabled={!c.email} className="po-email">{c.email || 'No email'}</Button>}
           <Button variant={c.lead ? 'ghost' : 'secondary'} size="md" icon="Briefcase01" onClick={() => setPick(true)} className="po-link-client">{c.lead ? 'Change client' : 'Link to client'}</Button>
         </Row>

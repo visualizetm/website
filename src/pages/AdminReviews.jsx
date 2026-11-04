@@ -6,6 +6,7 @@ import {
   QrCode, useConfirm,
 } from '../ui';
 import { COPY } from '../shared/copy';
+import LinkSend from '../components/LinkSend';
 import ListSearch, { matchLine } from '../components/ListSearch';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history';
@@ -59,7 +60,6 @@ function ReviewVisualizeCard({ lead, projects, onPatch, onPatchProject, preset }
   const url = reviewUrl(lead);
   const subs = submissionsOf(lead);
   const message = reviewMessage(lead);
-  const canShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
   const generate = async (regenerate = false) => {
     setBusy(true);
     const ok = await onPatch(lead._id, generateLinkPatch(lead, regenerate));
@@ -79,10 +79,10 @@ function ReviewVisualizeCard({ lead, projects, onPatch, onPatchProject, preset }
     if (!(await confirm({ title: 'Make a new link?', body: 'The old link and the old QR stop working the moment the new one exists. Anyone who still has them sees the expired page.', danger: true, confirmLabel: 'Regenerate' }))) return;
     await generate(true);
   };
-  const share = async () => { try { await navigator.share({ text: message }); } catch { /* cancelled */ } };
-  const markSent = async () => {
+  /* Sent is stamped by Text it or Share (LinkSend), no manual sent tap: the same write, and the project's Send review link step ticks with it. */
+  const markSent = async (via) => {
     setBusy(true);
-    const ok = await onPatch(lead._id, markSentPatch(lead));
+    const ok = await onPatch(lead._id, markSentPatch(lead, Date.now(), via));
     const latest = projectsOf(projects, lead._id)[0];
     if (ok && latest && onPatchProject) {
       const d = { driveShared: false, emailSent: false, pitchSent: false, reviewLinkSent: false, followUpLeadCallbackAt: '', ...(latest.delivery || {}) };
@@ -116,11 +116,7 @@ function ReviewVisualizeCard({ lead, projects, onPatch, onPatchProject, preset }
       </Row>
       <p className="pb-card-h">Send it</p>
       <div className="rv-text"><p className="rv-text-body">{message}</p>
-        <Row gap={2} wrap>
-          <Button variant="secondary" size="md" icon={Copy01} onClick={() => copyText(toast, message, 'Message')} className="rv-vz-copy-msg">Copy</Button>
-          {canShare && <Button variant="secondary" size="md" icon="Share01" onClick={share} className="rv-vz-share">Share</Button>}
-          <Button size="md" icon={Check} onClick={markSent} loading={busy} className="rv-vz-sent">{v.sentAt ? 'Sent again' : 'Mark as sent'}</Button>
-        </Row>
+        <LinkSend lead={lead} message={message} url={url} title="Leave a review" templateId="review_request" sentAt={v.sentAt} sentVia={v.sentVia} onSent={markSent} />
       </div>
       {confirmDialog}
     </Card>
