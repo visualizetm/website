@@ -257,7 +257,7 @@ Resume here: prompt 2 of 3 shipped. Next is prompt 3 of 3.
 - [x] Milestone 2 (58102ab): one TaskRow everywhere, email tasks never send, Tasks chips and search, New task quick add, Start calling.
 - [x] Milestone 3: doc reading view (Read and Edit, section strip, Copy for Claude, three text sizes, Share PDF, tickable checklists), the docs list (templates row, Needs signing and Pinned chips, groups by client with a count, contract pills), autosave on Planner, Showcase and Concepts (audit item 27), Concepts search (item 32). Tests: docs-read-test (23), docs-read-ui-test (browser, both widths), autosave-ui-test (browser).
 - [x] Milestone 4: links in one tap (Text it, Share, Draft an email on Reviews, Portal and the planner link; Share on the concepts Tell them sheet; sentVia stamped on the server; the month ready draft; the Orders label). Tests: links-test (24, three zones), links-ui-test (browser, both widths).
-- [ ] Milestone 5: calendar agenda and the leftovers.
+- [x] Milestone 5: the Calendar's Agenda (default on a phone, Month second), every admin word 12px or more, the Concepts search (milestone 3) and the lead edit sheet's blur save (prompt 2). Test: calendar-agenda-test (browser, both widths).
 - [ ] Milestone 6: the ship gate.
 
-Resume here: milestone 5.
+Resume here: milestone 6 (the ship gate).

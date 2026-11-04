@@ -46,8 +46,8 @@ export const chartStyles = `
   .v-chart-svg { display: block; width: 100%; overflow: visible; }
   .v-chart-axis { stroke: var(--v-border); stroke-width: 1; }
   .v-chart-grid { stroke: var(--v-border); stroke-width: 1; stroke-dasharray: 2 4; }
-  .v-chart-value { font-family: var(--v-font-body); font-size: 10px; font-weight: var(--v-weight-bold); fill: var(--v-text-2); font-variant-numeric: tabular-nums; }
-  .v-chart-label { font-family: var(--v-font-body); font-size: 10px; fill: var(--v-text-3); }
+  .v-chart-value { font-family: var(--v-font-body); font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); fill: var(--v-text-2); font-variant-numeric: tabular-nums; }
+  .v-chart-label { font-family: var(--v-font-body); font-size: var(--v-text-xs); fill: var(--v-text-3); }
   .v-chart-point { fill: var(--v-ground); stroke-width: 2; }
   /* The donut's legend rows: a swatch, the label, the value (the colour is never the only cue). */
   .v-donut { display: flex; align-items: center; gap: var(--v-space-4); min-width: 0; }

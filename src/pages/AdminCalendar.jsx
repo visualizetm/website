@@ -31,8 +31,10 @@ const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); r
 const startOfWeek = (d) => addDays(startOfDay(d), -((d.getDay() + 6) % 7));
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+/* One word for each kind, for the agenda's second line (prompt 3 of 3). */
+const KIND_ONE = { meeting: 'Meeting', callback: 'Callback', calendly: 'Calendly', scraper: 'New leads', bill: 'Bill', planfinal: 'Final payment', post: 'Post', ad: 'Ad' };
 
-function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
+function EventRow({ e, onOpen, onReschedule, onDone, onLink, agenda = false }) {
   const items = [
     e.leadId ? { id: 'open', label: 'Open lead', icon: 'ArrowRight', onSelect: () => onOpen(e) } : { id: 'link', label: 'Link to lead', icon: 'Users01', onSelect: () => onLink(e) },
     ...(e.kind === 'meeting' || e.kind === 'callback' ? [{ id: 're', label: 'Reschedule', icon: 'Calendar', onSelect: () => onReschedule(e) }] : []),
@@ -40,8 +42,8 @@ function EventRow({ e, onOpen, onReschedule, onDone, onLink }) {
     ...(e.link ? [{ id: 'join', label: 'Join link', icon: 'ArrowRight', onSelect: () => window.open(e.link, '_blank', 'noopener') }] : []),
   ];
   return (
-    <ListRow data-row-id={e.lead?._id} className={`cal-row cal-row--${e.tone}`} leading={<IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : e.kind === 'bill' ? 'CurrencyDollar' : e.kind === 'planfinal' ? 'CreditCard01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
-      title={e.title} subtitle={e.subtitle} meta={e.allDay ? 'All day' : fmtTime(e.at)} onClick={() => (e.leadId ? onOpen(e) : e.kind === 'calendly' ? onLink(e) : undefined)} chevron={false}
+    <ListRow data-row-id={e.lead?._id} className={`cal-row cal-row--${e.tone}${agenda ? ' cal-row--agenda' : ''}`} leading={agenda ? <span className="cal-ag-time">{e.allDay ? 'All day' : fmtTime(e.at)}</span> : <IconTile icon={e.kind === 'callback' ? 'PhoneIncoming01' : e.kind === 'scraper' ? 'Users01' : e.kind === 'bill' ? 'CurrencyDollar' : e.kind === 'planfinal' ? 'CreditCard01' : 'CalendarCheck01'} tone={e.tone} size="sm" glow={e.overdue} />}
+      title={e.title} subtitle={agenda ? [KIND_ONE[e.kind], e.subtitle].filter(Boolean).join(', ') : e.subtitle} meta={agenda ? undefined : e.allDay ? 'All day' : fmtTime(e.at)} onClick={() => (e.leadId ? onOpen(e) : e.kind === 'calendly' ? onLink(e) : undefined)} chevron={false}
       trailing={<Menu label="Event actions" items={items} />} />
   );
 }
@@ -53,7 +55,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const E = (k) => COPY.empty[k];
   const desktop = useMediaQuery('(min-width: 1024px)');
   const [view, setView] = useState(() => readLS(VIEW_KEY, null));
-  const mode = view || (desktop ? 'week' : 'day');
+  /* A phone opens on the agenda (prompt 3 of 3): the week as a list by day, readable without a timeline. */
+  const mode = view || (desktop ? 'week' : 'agenda');
   const setMode = (m) => { setView(m); try { localStorage.setItem(VIEW_KEY, JSON.stringify(m)); } catch { /* fine */ } };
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
   const [kinds, setKinds] = useState(() => new Set());
@@ -86,8 +89,8 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const overdueAll = useMemo(() => events.filter(e => e.kind === 'callback' && e.overdue && !sameDay(e.at, cursor)), [events, cursor]);
   const week = useMemo(() => { const s = startOfWeek(cursor); return Array.from({ length: 7 }, (_, i) => addDays(s, i)); }, [cursor]);
   const monthDays = useMemo(() => { const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1); const s = startOfWeek(first); return Array.from({ length: 42 }, (_, i) => addDays(s, i)); }, [cursor]);
-  const title = mode === 'day' ? cursor.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
-  const step = (d) => setCursor(c => addDays(c, mode === 'day' ? d : mode === 'week' ? 7 * d : 0));
+  const title = mode === 'day' ? cursor.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) : mode === 'agenda' ? `${addDays(startOfWeek(cursor), 0).toLocaleDateString([], { month: 'short', day: 'numeric' })} to ${addDays(startOfWeek(cursor), 6).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
+  const step = (d) => setCursor(c => addDays(c, mode === 'day' ? d : mode === 'week' || mode === 'agenda' ? 7 * d : 0));
   const stepMonth = (d) => setCursor(c => new Date(c.getFullYear(), c.getMonth() + d, 1));
   const prev = () => (mode === 'month' ? stepMonth(-1) : step(-1));
   const next = () => (mode === 'month' ? stepMonth(1) : step(1));
@@ -97,7 +100,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
       if (e.target.closest?.('input, textarea, select, [contenteditable="true"]') || pop || addSlot || linkEv || createEv) return;
       if (e.key === 'ArrowLeft') prev(); else if (e.key === 'ArrowRight') next();
       else if (e.key === 't' || e.key === 'T') setCursor(startOfDay(new Date()));
-      else if (e.key === 'd' || e.key === 'D') setMode('day'); else if (e.key === 'w' || e.key === 'W') setMode('week'); else if (e.key === 'm' || e.key === 'M') setMode('month');
+      else if (e.key === 'a' || e.key === 'A') setMode('agenda'); else if (e.key === 'd' || e.key === 'D') setMode('day'); else if (e.key === 'w' || e.key === 'W') setMode('week'); else if (e.key === 'm' || e.key === 'M') setMode('month');
     };
     window.addEventListener('keydown', onKey); return () => window.removeEventListener('keydown', onKey);
   });  
@@ -130,7 +133,7 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   const dayStrip = (
     <div className="cal-strip v-reveal" role="group" aria-label="Week" onTouchStart={(e) => { touch.current = e.touches[0].clientX; }} onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 60) step(dx < 0 ? 1 : -1); }}>
       {week.map(d => { const has = eventsFor(d); const on = sameDay(d, cursor); const isToday = sameDay(d, now); return (
-        <button key={+d} type="button" className={`cal-strip-day${on ? ' is-on' : ''}${isToday ? ' is-today' : ''}`} onClick={() => setCursor(d)} aria-pressed={on} aria-label={d.toDateString()}>
+        <button key={+d} type="button" className={`cal-strip-day${on ? ' is-on' : ''}${isToday ? ' is-today' : ''}`} onClick={() => (mode === 'agenda' ? jumpTo(d) : setCursor(d))} aria-pressed={on} aria-label={d.toDateString()}>
           <span className="cal-strip-dow">{DOW[(d.getDay() + 6) % 7]}</span><span className="cal-strip-n">{d.getDate()}</span>
           <span className="cal-strip-dots">{[...new Set(has.map(e => e.tone))].slice(0, 3).map(t => <span key={t} className="cal-dot" style={{ background: `var(--v-status-${t}-solid)` }} />)}</span>
         </button>); })}
@@ -142,6 +145,22 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
       {overdueAll.length > 0 && <Card level={2} padding={3} glow="danger"><p className="pb-card-h">Overdue callbacks</p><Stack gap={2}>{overdueAll.slice(0, 5).map(e => <EventRow key={e.id} e={e} onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stack></Card>}
       {dayEvents.length ? <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>{dayEvents.map(e => <EventRow key={e.id} e={e} onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stagger>
         : <Card><EmptyState icon="Calendar" title={E('calendar.day').title} description={E('calendar.day').description} action={{ label: E('calendar.day').action, icon: PhoneCall01, onClick: () => shell?.go('calls') }} secondary={{ label: E('calendar.day').secondary, onClick: () => { setAddSlot(new Date(cursor.getTime() + 9 * 3600e3)); setAddLead(null); } }} /></Card>}
+    </Stack>
+  );
+  /* The agenda: the cursor's week as a list by day (overdue callbacks first), the strip jumps to a day, nothing on a day it has none for. */
+  const agendaDays = week.map(d => ({ d, list: eventsFor(d) })).filter(x => x.list.length);
+  const dayLabel = (d) => `${sameDay(d, now) ? 'Today, ' : sameDay(d, addDays(startOfDay(now), 1)) ? 'Tomorrow, ' : ''}${d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}`;
+  const jumpTo = (d) => { setCursor(d); setTimeout(() => { const el = document.getElementById(`cal-ag-${dk(d)}`); if (el) el.scrollIntoView({ block: 'start' }); }, 0); };
+  const agendaView = (
+    <Stack gap={3} onTouchStart={(e) => { touch.current = e.touches[0].clientX; }} onTouchEnd={(e) => { const dx = e.changedTouches[0].clientX - (touch.current ?? e.changedTouches[0].clientX); touch.current = null; if (Math.abs(dx) > 80) step(dx < 0 ? 1 : -1); }}>
+      {dayStrip}
+      {overdueAll.length > 0 && <Card level={2} padding={3} glow="danger"><p className="pb-card-h">Overdue callbacks</p><Stack gap={2}>{overdueAll.slice(0, 5).map(e => <EventRow key={e.id} e={e} agenda onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stack></Card>}
+      {agendaDays.length ? agendaDays.map(({ d, list }) => (
+        <section key={+d} id={`cal-ag-${dk(d)}`} className={`cal-ag-day${sameDay(d, now) ? ' is-today' : ''}`} aria-label={dayLabel(d)}>
+          <h2 className="cal-ag-h">{dayLabel(d)}<span className="cal-ag-n">{list.length}</span></h2>
+          <Stack gap={2}>{[...list.filter(e => e.overdue), ...list.filter(e => !e.overdue)].map(e => <EventRow key={e.id} e={e} agenda onOpen={openLead} onReschedule={reschedule} onDone={markDone} onLink={setLinkEv} />)}</Stack>
+        </section>
+      )) : <Card><EmptyState icon="Calendar" title="Nothing this week" description="No meetings, callbacks or bills in these seven days." action={{ label: 'Next week', onClick: () => step(1) }} secondary={{ label: 'Add a callback', onClick: () => { setAddSlot(new Date(cursor.getTime() + 9 * 3600e3)); setAddLead(null); } }} /></Card>}
     </Stack>
   );
   const hours = Array.from({ length: END_H - START_H + 1 }, (_, i) => START_H + i);
@@ -218,15 +237,15 @@ export default function AdminCalendar({ leads, loading, error, onRetry, onPatch,
   return (
     <PageShell className="aa-main aa-main--wide cal-shell">
       <ScrollArea wide className="cal-page">
-        <Section title={title} loading={loading && mode === 'day'} description={loading ? undefined : mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : undefined}
+        <Section title={title} loading={loading && (mode === 'day' || mode === 'agenda')} description={loading ? undefined : mode === 'day' ? `${dayEvents.length} event${dayEvents.length === 1 ? '' : 's'}` : mode === 'agenda' ? `${agendaDays.reduce((n, x) => n + x.list.length, 0)} this week` : undefined}
           action={<Row gap={2} wrap>
             <Row gap={1}><IconButton icon={ChevronLeft} label="Previous" variant="secondary" onClick={prev} /><Button variant="secondary" onClick={() => setCursor(startOfDay(new Date()))}>Today</Button><IconButton icon={ChevronRight} label="Next" variant="secondary" onClick={next} /></Row>
-            <SegmentedControl size="sm" label="View" options={[{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }]} value={mode} onChange={setMode} />
+            <SegmentedControl size="sm" label="View" options={desktop ? [{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }, { id: 'agenda', label: 'Agenda' }] : [{ id: 'agenda', label: 'Agenda' }, { id: 'month', label: 'Month' }, { id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }]} value={mode} onChange={setMode} />
             <Button icon={Plus} onClick={() => { setAddSlot(new Date(cursor.getTime() + 9 * 3600e3)); setAddLead(null); }} className="cal-add">Callback</Button>
           </Row>}>
           <Row gap={2} wrap className="cal-filters">{KINDS.map(k => <Chip key={k} label={KIND_LABEL[k]} count={all.filter(e => e.kind === k).length} selected={kinds.has(k)} onClick={() => setKinds(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; })} disabled={k === 'calendly' && calendly.configured === false} />)}{calendly.configured === false && <span className="cal-hint">Calendly is not connected (Settings).</span>}</Row>
         </Section>
-        {pending ? null : showSkel ? (mode === 'day' ? daySkeleton : mode === 'week' ? weekSkeleton : monthSkeleton) : error && !leads.length ? <Card><ErrorState title={COPY.error.calendar.title} description={COPY.error.calendar.description} onRetry={retry} retrying={retrying} /></Card> : mode === 'day' ? dayView : <>{nothingAtAll}{mode === 'week' ? weekView : monthView}</>}
+        {pending ? null : showSkel ? (mode === 'day' || mode === 'agenda' ? daySkeleton : mode === 'week' ? weekSkeleton : monthSkeleton) : error && !leads.length ? <Card><ErrorState title={COPY.error.calendar.title} description={COPY.error.calendar.description} onRetry={retry} retrying={retrying} /></Card> : mode === 'agenda' ? agendaView : mode === 'day' ? dayView : <>{nothingAtAll}{mode === 'week' ? weekView : monthView}</>}
       </ScrollArea>
       <Popover open={!!pop} onClose={() => setPop(null)} anchorRef={popRef} width={300} trap label="Event">
         {pop && <div className="cal-pop"><Stack gap={2}><Row gap={2}><IconTile icon={pop.e.kind === 'callback' ? 'PhoneIncoming01' : 'CalendarCheck01'} tone={pop.e.tone} size="sm" /><Stack gap={0}><strong>{pop.e.title}</strong><span className="cal-hint">{fmtTime(pop.e.at)} to {fmtTime(pop.e.end)}{pop.e.subtitle ? `, ${pop.e.subtitle}` : ''}</span></Stack></Row>
@@ -266,6 +285,18 @@ const calStyles = `
   .cal-strip-n { font-size: var(--v-text-lg); font-weight: var(--v-weight-bold); }
   .cal-strip-dots { display: flex; gap: 3px; min-height: 6px; }
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .cal-ag-day { display: flex; flex-direction: column; gap: var(--v-space-2); scroll-margin-top: var(--v-space-3); }
+  .cal-ag-h { margin: 0; display: flex; align-items: center; gap: var(--v-space-2); font-family: var(--v-font-display); font-size: var(--v-text-lg); line-height: var(--v-lh-lg); text-transform: uppercase; letter-spacing: 0.02em; color: var(--v-text); }
+  .cal-ag-day.is-today .cal-ag-h { color: var(--v-red-hover); }
+  .cal-ag-n { font-family: var(--v-font-body); font-size: var(--v-text-sm); font-variant-numeric: tabular-nums; color: var(--v-text-3); }
+  .cal-ag-time { min-width: 64px; font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; color: var(--v-text-2); }
+  .cal-row.cal-row--agenda { border-left: 4px solid var(--v-border-strong); }
+  .cal-row--agenda .v-lrow-main .lay-truncate { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow: hidden; overflow-wrap: anywhere; }
+  .cal-row.cal-row--agenda.cal-row--booked { border-left-color: var(--v-status-booked-solid); }
+  .cal-row.cal-row--agenda.cal-row--new { border-left-color: var(--v-status-new-solid); }
+  .cal-row.cal-row--agenda.cal-row--warning { border-left-color: var(--v-status-warning-solid); }
+  .cal-row.cal-row--agenda.cal-row--danger { border-left-color: var(--v-status-danger-solid); }
+  .cal-row.cal-row--agenda.cal-row--neutral { border-left-color: var(--v-border-strong); }
   .cal-row--danger { border-color: color-mix(in srgb, var(--v-status-danger-text) 40%, transparent); }
   /* Week */
   .cal-week { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--v-border); border-radius: var(--v-radius-lg); background: var(--v-surface-1); overflow: hidden auto; overflow-x: auto; }

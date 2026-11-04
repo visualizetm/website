@@ -389,7 +389,7 @@ export const clientStyles = `
   .cw-stepper:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .cw-stepper::-webkit-scrollbar { display: none; }
   .cw-step { display: flex; align-items: center; gap: var(--v-space-1); flex: 1 0 auto; min-width: 0; padding: var(--v-space-1) var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text-3); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); letter-spacing: 0.02em; white-space: nowrap; }
-  .cw-step-dot { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: var(--v-surface-3); color: var(--v-text-2); font-size: 10px; flex-shrink: 0; }
+  .cw-step-dot { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; background: var(--v-surface-3); color: var(--v-text-2); font-size: var(--v-text-xs); flex-shrink: 0; }
   .cw-step.is-done { color: var(--v-status-booked-text); }
   .cw-step.is-done .cw-step-dot { background: var(--v-status-booked-solid); color: var(--v-text-inverse); }
   .cw-step.is-current { background: var(--v-red-soft); color: var(--v-red-highlight); }

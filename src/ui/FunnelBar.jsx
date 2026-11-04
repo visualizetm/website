@@ -48,7 +48,7 @@ export const funnelBarStyles = `
   .v-funnel-seg--1 { background: var(--v-surface-4, var(--v-surface-3)); }
   .v-funnel-n { font-family: var(--v-font-display); font-size: var(--v-text-lg); line-height: 1.1; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; }
   .v-funnel-label { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .v-funnel-pct { font-size: 10px; line-height: 12px; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
+  .v-funnel-pct { font-size: var(--v-text-xs); line-height: 12px; font-weight: var(--v-weight-bold); color: var(--v-text-3); }
   /* The step buttons: the readable row under the bar (the bar's segments are decorative, the links are the 44px targets). */
   .v-funnel-links { display: flex; flex-wrap: wrap; gap: var(--v-space-1); }
   .v-funnel-link { min-height: var(--v-tap); padding: 0 var(--v-space-3); border: 1px solid var(--v-border); border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text-2); cursor: pointer; font-family: var(--v-font-body); font-size: var(--v-text-sm); font-weight: var(--v-weight-semibold); }

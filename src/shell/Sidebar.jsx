@@ -131,7 +131,7 @@ export const sidebarStyles = `
   .sh-nav.is-soon { opacity: 0.5; cursor: not-allowed; }
   .sh-nav-icon { position: relative; display: inline-flex; flex-shrink: 0; }
   .sh-nav-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .sh-nav-soon { font-size: 10px; line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-sidebar-text-3); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-pill); padding: 3px 6px; }
+  .sh-nav-soon { font-size: var(--v-text-xs); line-height: 1; letter-spacing: 0.08em; text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-sidebar-text-3); border: 1px solid var(--v-sidebar-border); border-radius: var(--v-radius-pill); padding: 3px 6px; }
   .sh-side-bottom { display: flex; flex-direction: column; gap: 2px; padding-top: var(--v-space-2); border-top: 1px solid var(--v-sidebar-border); }
   .sh-side.is-collapsed .sh-side-bottom { align-items: center; }
   .sh-side-user { display: flex; align-items: center; gap: var(--v-space-3); width: 100%; min-height: var(--v-tap); padding: 0 var(--v-space-2); border: 0; border-radius: var(--v-radius-md); background: transparent; color: var(--v-sidebar-text); cursor: pointer; text-align: left; }

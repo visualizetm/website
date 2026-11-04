@@ -113,6 +113,8 @@ export const SCREENS = [
 
   // calendar-day is noFit: its Overdue callbacks card shows only when callbacks are overdue, which the skeleton cannot know.
   { id: 'calendar-day', screen: 'Calendar', label: 'day', path: '/admin/calendar', resource: 'leads', noFit: true, prep: (p) => setLS(p, 'vz_cal_view', 'day') },
+  // calendar-agenda is noFit like calendar-day: the overdue card and the number of days with events are not known to the skeleton.
+  { id: 'calendar-agenda', screen: 'Calendar', label: 'agenda', path: '/admin/calendar', resource: 'leads', noFit: true, prep: (p) => setLS(p, 'vz_cal_view', 'agenda') },
   { id: 'calendar-week', screen: 'Calendar', label: 'week', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'week') },
   { id: 'calendar-month', screen: 'Calendar', label: 'month', path: '/admin/calendar', resource: 'leads', prep: (p) => setLS(p, 'vz_cal_view', 'month') },
 

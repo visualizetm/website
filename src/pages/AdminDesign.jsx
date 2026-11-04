@@ -369,7 +369,7 @@ const dsStyles = `
   .ds-bars { display: flex; align-items: flex-end; gap: var(--v-space-2); height: 140px; }
   /* A bar may shrink under its label at 320 (min-width 0): the label clips instead of pushing the row past the viewport. */
   .ds-bar { flex: 1; min-width: 0; overflow: hidden; border-radius: var(--v-radius-sm) var(--v-radius-sm) 0 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: var(--v-space-1); }
-  .ds-bar span { font-size: 10px; color: var(--v-chart-text); font-weight: var(--v-weight-bold); max-width: 100%; overflow: hidden; white-space: nowrap; }
+  .ds-bar span { font-size: var(--v-text-xs); color: var(--v-chart-text); font-weight: var(--v-weight-bold); max-width: 100%; overflow: hidden; white-space: nowrap; }
   .ds-type { display: flex; flex-direction: column; gap: var(--v-space-4); }
   .ds-type-row { display: flex; flex-direction: column; gap: var(--v-space-1); min-width: 0; overflow-wrap: anywhere; }
   .ds-spaces { display: flex; flex-direction: column; gap: var(--v-space-1); }

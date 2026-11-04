@@ -35,7 +35,7 @@ export const badgeStyles = `
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 18px; height: 18px; padding: 0 5px; border-radius: var(--v-radius-pill);
     background: var(--v-badge-bg); color: var(--v-badge-fg);
-    font-size: 11px; line-height: 1; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums;
+    font-size: var(--v-text-xs); line-height: 1; font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums;
     box-shadow: 0 0 0 2px var(--v-bar);
   }
   .v-badge--inline { position: static; box-shadow: none; }

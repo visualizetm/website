@@ -40,7 +40,7 @@ export const avatarStyles = `
     color: var(--v-text); font-weight: var(--v-weight-bold); letter-spacing: 0.02em;
   }
   .v-avatar-img { width: 100%; height: 100%; border-radius: 50%; }
-  .v-avatar--xs .v-avatar-txt { font-size: 10px; }
+  .v-avatar--xs .v-avatar-txt { font-size: var(--v-text-xs); }
   .v-avatar--sm .v-avatar-txt { font-size: var(--v-text-xs); }
   .v-avatar--md .v-avatar-txt { font-size: var(--v-text-sm); }
   .v-avatar--lg .v-avatar-txt { font-size: var(--v-text-lg); }
