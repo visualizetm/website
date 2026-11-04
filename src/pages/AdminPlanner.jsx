@@ -13,7 +13,8 @@ import { relativeTime, fmtDateTime } from '../shared/dates';
 import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, kindOf, missingForReview, listPhrase, hashtagsOf, aspectNote } from '../lib/posts';
 import { safeHref } from '../lib/safeUrl';
 import { videoFieldStyles } from '../components/VideoField';
-import SaveBar, { saveBarStyles } from '../components/SaveBar';
+import { SaveChip, saveBarStyles } from '../components/SaveBar';
+import { useAutoSave } from '../lib/useAutoSave';
 import { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
 import ListSearch from '../components/ListSearch';
@@ -353,7 +354,7 @@ export default function AdminPlanner({
     return { ...m, [String(id)]: { ...m[String(id)], ...patch } };
   }), []);
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (opts) => {
     if (saving || !lead) return false;
     setSaving(true);
     /* planner is a full replacement object: spread what is stored, override
@@ -373,21 +374,20 @@ export default function AdminPlanner({
       if (!wrote) ok = false;
     }
     setSaving(false);
-    if (ok) { setPostDrafts({}); toast.success(changedPosts.length ? `Saved. ${changedPosts.length} post${changedPosts.length === 1 ? '' : 's'} updated.` : 'Saved.'); }
-    else toast.error(COPY.error.save);
+    if (ok) { setPostDrafts({}); if (!opts?.quiet) toast.success(changedPosts.length ? `Saved. ${changedPosts.length} post${changedPosts.length === 1 ? '' : 's'} updated.` : 'Saved.'); }
+    else if (!opts?.quiet) toast.error(COPY.error.save);
     return ok;
   }, [saving, lead, draft, saved, changedPosts, onPatch, onPatchPost, onRefetchLead, toast]);
 
-  const discard = useCallback(async () => {
-    const yes = await confirm({ title: 'Discard changes?', body: 'Everything you changed since the last save goes back to what is stored.', confirmLabel: 'Discard', danger: true });
-    if (yes) { setDraft(saved); setPostDrafts({}); }
-  }, [confirm, saved]);
-
+  /* Back saves first (autosave has usually done it already); only a save that fails asks before the changes are let go. */
   const leave = useCallback(async () => {
     if (!dirtyRef.current) { onBack(); return; }
-    const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this planner have not been saved yet.', confirmLabel: 'Leave', danger: true });
+    if (await save({ quiet: true })) { onBack(); return; }
+    const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this planner could not be saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
-  }, [confirm, onBack]);
+  }, [confirm, onBack, save]);
+  const watched = useMemo(() => ({ draft, postDrafts }), [draft, postDrafts]);
+  const saveStatus = useAutoSave({ dirty, saving, save, watch: watched });
   /* A phone (milestone 4): the month and its posts stay on the overview (that is the job); Setup and the client link are rows that open
      their own screen with a Done. The draft lives here, so it carries across; Save is on the overview. */
   const phone = useMediaQuery('(max-width: 767px)');
@@ -675,7 +675,7 @@ export default function AdminPlanner({
         />
       )}
 
-      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveChip status={saveStatus} />
       {confirmDialog}
       <style>{saveBarStyles + imageFieldStyles + videoFieldStyles + postSheetStyles + plStyles}</style>
     </PageShell>

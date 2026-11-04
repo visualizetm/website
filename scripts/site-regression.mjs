@@ -278,22 +278,21 @@ await step('10. Showcase editor: edit, save bar, discard, save, publish, live', 
   if (await barOpen() !== true) throw new Error('the save bar did not appear after an edit');
   if (patched.length) throw new Error('an edit wrote to the server before Save');
 
-  // Discard puts it back.
-  await page.locator('.sb-bar button', { hasText: 'Discard' }).click();
-  // The dialog's own button, not the save bar's behind the overlay.
-  await page.locator('.v-modal button', { hasText: /^Discard$/ }).first().click({ timeout: 5000 });
+  // Turning it back clears the unsaved state (autosave holds a Published change, so nothing was written).
+  await page.locator('.sc-publish .v-toggle').first().click({ timeout: 5000 });
   await page.waitForTimeout(500);
-  if (await barOpen() !== false) throw new Error('Discard did not clear the unsaved state');
+  if (await barOpen() !== false) throw new Error('turning Publish back did not clear the unsaved state');
+  if (patched.length) throw new Error('autosave wrote a Published change on its own');
 
-  // Edit again and Save.
+  // Edit again and press the chip's Publish: the one explicit write.
   await page.locator('.sc-publish .v-toggle').first().click({ timeout: 5000 });
   await page.waitForTimeout(300);
-  await page.locator('.sb-bar button', { hasText: 'Save changes' }).click();
+  await page.locator('.sb-chip button', { hasText: 'Publish' }).click();
   await page.waitForTimeout(1200);
   if (patched.length !== 1) throw new Error(`expected exactly one PATCH, got ${patched.length}`);
   if (!patched[0].set?.showcase?.published) throw new Error('the saved showcase was not published');
   if (!patched[0].set?.reviews) throw new Error('the PATCH did not carry testimonials alongside the showcase');
-  if (await barOpen() !== false) throw new Error('the save bar stayed open after a successful save');
+  if (await barOpen() !== false) throw new Error('the chip stayed open after a successful publish');
 
   // And now the public site.
   await page.unroute('**/api/admin/call-leads**').catch(() => {});

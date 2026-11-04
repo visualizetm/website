@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { PageShell, ScrollArea, Row, Button, Select, Menu, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
+import { PageShell, ScrollArea, Row, Button, Chip, Icon, Select, Menu, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, SwipeRow, useDelayedLoading, useMediaQuery, useToast } from '../ui';
 import RowSheet from '../components/RowSheet';
 import ListSearch from '../components/ListSearch';
 import DocRow from '../components/docs/DocRow';
 import { copyText } from '../components/ClientWorkspace';
 import { useTopBar } from '../shell/ShellContext';
 import { DOC_TYPES, docPlainText } from '../shared/docBlocks';
-import { docsOf, groupByType, sortDocs, matchDoc, typeLabel, fetchDoc } from '../lib/docs';
+import { docsOf, groupByType, groupByClient, matchDoc, typeLabel, fetchDoc, contractStatus, needsSigning } from '../lib/docs';
 import { COPY } from '../shared/copy';
 
 /* All docs (docs job, milestone 5), two doors into one screen:
@@ -15,6 +15,8 @@ import { COPY } from '../shared/copy';
  * Search looks at the title, the type and the block text; sort is by last edit or by creation, pinned first either way. Each row is the
  * Docs card's row. On a phone a swipe right pins, a swipe left deletes (with Undo), a long press opens the row's sheet (Open, Pin, Duplicate,
  * Copy as text, Delete); on a computer the row has a menu with the same items. Deleting moves a doc to Recently Deleted. */
+/* The templates row (prompt 3 of 3): four built in starts, each makes the doc at once with the client's fields filled. */
+const START = [{ key: 'brief', label: 'Brief', icon: 'File02' }, { key: 'call-notes', label: 'Call notes', icon: 'Phone' }, { key: 'contract', label: 'Contract', icon: 'File06' }, { key: 'delivery', label: 'Delivery', icon: 'Package' }];
 const SORTS = [{ id: 'edited', label: 'Last edited' }, { id: 'created', label: 'Created' }];
 
 export default function AdminDocs({ lead = null, forClient = false, leads = [], docsApi, loading = false, onBack }) {
@@ -24,6 +26,7 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
   const [sort, setSort] = useState('edited');
   const [typeId, setTypeId] = useState('');
   const [clientId, setClientId] = useState('');
+  const [chip, setChip] = useState(''); // '' | 'signing' | 'pinned'
   const [sheet, setSheet] = useState(null);       // a doc whose row sheet is open
   const ops = docsApi?.ops;
   const showSkel = useDelayedLoading(loading || !!docsApi?.loading);
@@ -31,11 +34,15 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
 
   const byLead = useMemo(() => new Map(leads.map(l => [String(l._id), l])), [leads]);
   const mine = useMemo(() => (lead ? docsOf(docsApi?.docs, lead._id) : (docsApi?.docs || [])), [docsApi?.docs, lead]);
-  const shown = useMemo(() => mine.filter(d => matchDoc(d, q) && (!typeId || (d.type || 'general') === typeId) && (!clientId || String(d.leadId) === clientId)), [mine, q, typeId, clientId]);
+  const chipPass = (d) => (chip === 'signing' ? needsSigning(d, byLead) : chip === 'pinned' ? !!d.pinned : true);
+  const shown = useMemo(() => mine.filter(d => matchDoc(d, q) && (!typeId || (d.type || 'general') === typeId) && (!clientId || String(d.leadId) === clientId) && chipPass(d)), [mine, q, typeId, clientId, chip, byLead]); // eslint-disable-line react-hooks/exhaustive-deps
+  const signingN = useMemo(() => mine.filter(d => needsSigning(d, byLead)).length, [mine, byLead]);
+  const pinnedN = useMemo(() => mine.filter(d => d.pinned).length, [mine]);
   const counts = useMemo(() => Object.fromEntries(DOC_TYPES.map(t => [t.id, mine.filter(d => (d.type || 'general') === t.id).length])), [mine]);
   const clientsWithDocs = useMemo(() => [...new Set(mine.map(d => String(d.leadId)))].map(id => ({ id, label: byLead.get(id)?.business || 'Client' })).sort((a, b) => a.label.localeCompare(b.label)), [mine, byLead]);
-  const filterNames = [typeId ? typeLabel(typeId) : '', clientId ? byLead.get(clientId)?.business : ''].filter(Boolean);
-  const clear = () => { setQ(''); setTypeId(''); setClientId(''); };
+  const filterNames = [typeId ? typeLabel(typeId) : '', clientId ? byLead.get(clientId)?.business : '', chip === 'signing' ? 'Needs signing' : chip === 'pinned' ? 'Pinned' : ''].filter(Boolean);
+  const clear = () => { setQ(''); setTypeId(''); setClientId(''); setChip(''); };
+  const start = (key) => { if (lead) docsApi.newDoc(lead, key); else docsApi.pickClient(key); };
 
   const newDoc = () => { if (lead) docsApi.newDoc(lead); else docsApi.pickClient(); };
   /* A per client page is a focused screen and declares New doc; the all clients page is a tabs screen (More), whose top bar is Search, Quick add (it has New doc) and Notifications. */
@@ -60,7 +67,7 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
     const clientName = lead ? '' : (byLead.get(String(d.leadId))?.business || 'Client');
     return (
       <SwipeRow key={d._id} enabled={phone} right={{ label: d.pinned ? 'Unpin' : 'Pin', icon: 'Pin01', tone: 'primary', onCommit: () => pin(d) }} left={{ label: 'Delete', icon: 'Trash01', tone: 'danger', onCommit: () => del(d) }} onHold={() => setSheet(d)}>
-        <ul className="ad-one"><DocRow doc={d} client={clientName} now={now} onOpen={docsApi.openDoc} controls={!phone ? <Menu label={`${d.title || 'Untitled'} actions`} items={itemsFor(d)} /> : undefined} /></ul>
+        <ul className="ad-one"><DocRow doc={d} client={clientName} status={contractStatus(d, lead || byLead.get(String(d.leadId)))} now={now} onOpen={docsApi.openDoc} controls={!phone ? <Menu label={`${d.title || 'Untitled'} actions`} items={itemsFor(d)} /> : undefined} /></ul>
       </SwipeRow>
     );
   };
@@ -89,11 +96,18 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
   } else {
     body = (
       <>
+        <div className="ad-tpl" role="group" aria-label="Start a doc from a template">
+          {START.map(t => <button key={t.key} type="button" className="ad-tpl-b" data-template={t.key} onClick={() => start(t.key)}><Icon icon={t.icon} size={16} /><span>{t.label}</span></button>)}
+        </div>
         <ListSearch value={q} onChange={setQ} placeholder="Search titles and what is in them" label="Search docs" className="ad-search" />
         <div className="ad-controls">
           <Select label="Type" value={typeId} onChange={(e) => setTypeId(e.target.value)} options={[{ id: '', label: 'All types' }, ...DOC_TYPES.filter(t => counts[t.id] > 0).map(t => ({ id: t.id, label: `${t.label}, ${counts[t.id]}` }))]} className="ad-type" />
           <Select label="Sort" value={sort} onChange={(e) => setSort(e.target.value)} options={SORTS} className="ad-sort" />
           {!lead && clientsWithDocs.length > 1 && <Select label="Client" value={clientId} onChange={(e) => setClientId(e.target.value)} options={[{ id: '', label: 'All clients' }, ...clientsWithDocs]} className="ad-client" />}
+        </div>
+        <div className="ad-chips" role="group" aria-label="Filter docs">
+          <Chip label="Needs signing" count={signingN} selected={chip === 'signing'} onClick={() => setChip(chip === 'signing' ? '' : 'signing')} className="ad-chip-signing" />
+          <Chip label="Pinned" count={pinnedN} selected={chip === 'pinned'} onClick={() => setChip(chip === 'pinned' ? '' : 'pinned')} className="ad-chip-pinned" />
         </div>
         {shown.length === 0 ? <NoResults noun="docs" query={q} filters={filterNames} onClear={clear} /> : lead ? (
           <Stagger className="ad-groups" cap={4}>
@@ -105,7 +119,14 @@ export default function AdminDocs({ lead = null, forClient = false, leads = [], 
             ))}
           </Stagger>
         ) : (
-          <Stagger className="ad-rows" cap={5}>{sortDocs(shown, sort).map(row)}</Stagger>
+          <Stagger className="ad-groups" cap={4}>
+            {groupByClient(shown, byLead, sort).map(g => (
+              <section key={g.id} className="ad-group ad-group--client" aria-label={g.label}>
+                <p className="ad-group-h">{g.label}<span className="ad-group-n">{g.docs.length}</span></p>
+                <div className="ad-rows">{g.docs.map(row)}</div>
+              </section>
+            ))}
+          </Stagger>
         )}
       </>
     );
@@ -141,6 +162,12 @@ const adStyles = `
   .ad-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-3); min-width: 0; }
   .ad-controls > .ad-client { grid-column: 1 / -1; }
   @media (min-width: 768px) { .ad-controls { grid-template-columns: repeat(3, minmax(0, 240px)); } .ad-controls > .ad-client { grid-column: auto; } }
+  .ad-tpl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--v-space-2); }
+  @media (min-width: 768px) { .ad-tpl { grid-template-columns: repeat(4, minmax(0, 200px)); } }
+  .ad-tpl-b { display: inline-flex; align-items: center; justify-content: center; gap: var(--v-space-2); min-height: var(--v-tap); padding: 0 var(--v-space-3); border-radius: var(--v-radius-md); border: 1px solid var(--v-border); background: var(--v-surface-2); color: var(--v-text); font: inherit; font-size: var(--v-text-md); cursor: pointer; }
+  .ad-tpl-b:hover { border-color: var(--v-border-strong); }
+  .ad-tpl-b:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .ad-chips { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
   .ad-phone-new { display: flex; padding-top: var(--v-space-1); }
   .ad-skel { display: flex; flex-direction: column; gap: var(--v-space-3); }
   .ad-groups, .ad-rows { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; }

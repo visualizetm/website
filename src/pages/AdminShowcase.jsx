@@ -10,7 +10,8 @@ import { industryKey, REVIEW_CHANNELS, TESTIMONIAL_SOURCES, TESTIMONIAL_SOURCE_I
 import { fmtDate } from '../shared/dates';
 import { cloudinaryEnabled, uploadToCloudinary, ACCEPT_ATTR } from '../lib/cloudinary';
 import { uid, today, isHex } from '../lib/projects';
-import SaveBar, { saveBarStyles } from '../components/SaveBar';
+import { SaveChip, saveBarStyles } from '../components/SaveBar';
+import { useAutoSave } from '../lib/useAutoSave';
 import ImageField, { imageFieldStyles } from '../components/ImageField';
 import { instagramHandle } from '../lib/socials';
 import { completeness } from '../lib/showcaseMeter';
@@ -713,8 +714,14 @@ export default function AdminShowcase({ lead, leads = [], loading = false, error
   const [saving, setSaving] = useState(false);
   const saved = useMemo(() => draftOf(lead), [lead]);
   const dirty = !same(draft, saved);
+  /* Autosave writes everything but a change to Published: that flips the public page, so it waits for its own button (the chip's Publish). */
+  const pubChange = !!draft.showcase.published !== !!saved.showcase.published;
+  const auto = useMemo(() => ({ ...draft, showcase: { ...draft.showcase, published: saved.showcase.published } }), [draft, saved]);
+  const autoDirty = !same(auto, saved);
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  const autoRef = useRef(autoDirty); autoRef.current = autoDirty;
+  const pubRef = useRef(pubChange); pubRef.current = pubChange;
 
   /* A save, or an edit made elsewhere while this page sat open, re-seeds the
    * draft; a change the person made here is never thrown away.
@@ -747,27 +754,30 @@ export default function AdminShowcase({ lead, leads = [], loading = false, error
   const write = useCallback((next) => { setDraft(d => ({ ...d, showcase: { ...d.showcase, ...next } })); return Promise.resolve(true); }, []);
   const writeTestimonials = useCallback((next) => { setDraft(d => ({ ...d, testimonials: next })); return Promise.resolve(true); }, []);
 
-  const save = useCallback(async () => {
+  /* save({ quiet: true }) is the autosave: the draft with Published held at what is live. save() is the explicit one (Cmd+S, the Publish button). */
+  const save = useCallback(async (opts) => {
     if (saving) return false;
     setSaving(true);
-    const reviews = { ...DEFAULT_REVIEWS, ...(lead.reviews || {}), testimonials: draft.testimonials };
-    const ok = await onPatch(lead._id, { showcase: draft.showcase, reviews });
+    const body = opts?.quiet ? auto : draft;
+    const reviews = { ...DEFAULT_REVIEWS, ...(lead.reviews || {}), testimonials: body.testimonials };
+    const ok = await onPatch(lead._id, { showcase: body.showcase, reviews });
     setSaving(false);
-    if (ok) toast.success(draft.showcase.published ? 'Showcase saved and published.' : 'Showcase saved.');
-    else toast.error(COPY.error.save);
+    if (ok) { if (!opts?.quiet) toast.success(body.showcase.published ? 'Showcase saved and published.' : 'Showcase saved.'); }
+    else if (!opts?.quiet) toast.error(COPY.error.save);
     return ok;
-  }, [saving, lead, draft, onPatch, toast]);
+  }, [saving, lead, draft, auto, onPatch, toast]);
+  const saveStatus = useAutoSave({ dirty: autoDirty, saving, save, watch: auto });
 
-  const discard = useCallback(async () => {
-    const yes = await confirm({ title: 'Discard changes?', body: 'Everything you changed since the last save goes back to what is live.', confirmLabel: 'Discard', danger: true });
-    if (yes) setDraft(saved);
-  }, [confirm, saved]);
-
+  /* Back saves first. A failed save asks; a Published change that was never applied asks too, because leaving drops it. */
   const leave = useCallback(async () => {
     if (!dirtyRef.current) { onBack(); return; }
-    const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to this showcase have not been saved yet.', confirmLabel: 'Leave', danger: true });
-    if (yes) onBack();
-  }, [confirm, onBack]);
+    if (autoRef.current && !(await save({ quiet: true }))) {
+      if (await confirm({ title: 'Leave without saving?', body: 'Your changes to this showcase could not be saved yet.', confirmLabel: 'Leave', danger: true })) onBack();
+      return;
+    }
+    if (pubRef.current && !(await confirm({ title: 'Leave without applying it?', body: 'The change to Published has not been made. The page stays as it is now.', confirmLabel: 'Leave', danger: true }))) return;
+    onBack();
+  }, [confirm, onBack, save]);
   /* A phone: an overview of rows, one block (a step) per screen. The draft lives up here, so it carries across the steps; Save is on the
      overview, a step has Done. Back from a step is a history Back to the overview; Back from the overview keeps the leave guard. */
   const phone = useMediaQuery('(max-width: 767px)');
@@ -889,7 +899,7 @@ export default function AdminShowcase({ lead, leads = [], loading = false, error
           the page, not scroll content, and leaving it inside the scroller
           meant the scroller reserved no room for it. The space it needs is
           reserved through the kit's own --v-scroll-extra hook above. */}
-      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveChip status={saveStatus} action={pubChange && !inStep ? { message: draft.showcase.published ? 'Ready to publish' : 'Ready to unpublish', label: draft.showcase.published ? 'Publish' : 'Unpublish', onClick: () => save(), busy: saving } : null} />
       {confirmDialog}
       <style>{saveBarStyles + imageFieldStyles + scStyles}</style>
     </PageShell>

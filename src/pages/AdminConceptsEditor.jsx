@@ -15,7 +15,8 @@ import {
 } from '../lib/concepts';
 import { useTopBar } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
-import SaveBar, { saveBarStyles } from '../components/SaveBar';
+import { SaveChip, saveBarStyles } from '../components/SaveBar';
+import { useAutoSave } from '../lib/useAutoSave';
 import { useRoundLog } from '../components/RoundLog';
 import { imageFieldStyles } from '../components/ImageField';
 
@@ -256,25 +257,24 @@ export default function AdminConceptsEditor({
   const write = useCallback((next) => setDraft(d => ({ ...d, ...next })), []);
   const writeDirections = useCallback((next) => setDraft(d => ({ ...d, directions: next.map((x, i) => ({ ...x, order: i })) })), []);
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (opts) => {
     if (saving || !active) return false;
     setSaving(true);
     const ok = await onPatch(active._id, draft);
     setSaving(false);
-    if (ok) toast.success('Saved.'); else toast.error(COPY.error.save);
+    if (ok) { if (!opts?.quiet) toast.success('Saved.'); } else if (!opts?.quiet) toast.error(COPY.error.save);
     return ok;
   }, [saving, active, draft, onPatch, toast]);
-  const saveFirst = useCallback(async () => (dirtyRef.current ? save() : true), [save]);
+  const saveFirst = useCallback(async () => (dirtyRef.current ? save({ quiet: true }) : true), [save]);
+  const saveStatus = useAutoSave({ dirty, saving, save, watch: draft });
 
-  const discard = useCallback(async () => {
-    const yes = await confirm({ title: 'Discard changes?', body: 'Everything you changed since the last save goes back to what is stored.', confirmLabel: 'Discard', danger: true });
-    if (yes) setDraft(saved);
-  }, [confirm, saved]);
+  /* Back saves first; only a save that fails asks before the changes are let go. */
   const leave = useCallback(async () => {
     if (!dirtyRef.current) { onBack(); return; }
-    const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to these concepts have not been saved yet.', confirmLabel: 'Leave', danger: true });
+    if (await save({ quiet: true })) { onBack(); return; }
+    const yes = await confirm({ title: 'Leave without saving?', body: 'Your changes to these concepts could not be saved yet.', confirmLabel: 'Leave', danger: true });
     if (yes) onBack();
-  }, [confirm, onBack]);
+  }, [confirm, onBack, save]);
   /* A phone (milestone 4): the sets and a row per part (Setup, each direction, Send, Feedback); a row opens that part on its own screen
      with a Done. One draft lives here and carries across; Save is on the overview. */
   const phone = useMediaQuery('(max-width: 767px)');
@@ -296,12 +296,12 @@ export default function AdminConceptsEditor({
   /* Immediate actions. */
   const switchTo = useCallback(async (id) => {
     if (String(id) === String(active?._id)) return;
-    if (dirtyRef.current) {
-      const yes = await confirm({ title: 'Switch sets without saving?', body: 'Your changes to this set have not been saved yet.', confirmLabel: 'Switch', danger: true });
+    if (dirtyRef.current && !(await save({ quiet: true }))) {
+      const yes = await confirm({ title: 'Switch sets without saving?', body: 'Your changes to this set could not be saved yet.', confirmLabel: 'Switch', danger: true });
       if (!yes) return;
     }
     setActiveId(String(id));
-  }, [active, confirm]);
+  }, [active, confirm, save]);
   const newSet = useCallback(async () => {
     if (!lead || busy) return;
     if (!(await saveFirst())) return;
@@ -663,7 +663,7 @@ export default function AdminConceptsEditor({
         </div>
       </ScrollArea>
 
-      <SaveBar open={dirty && !inStep} saving={saving} onSave={save} onDiscard={discard} />
+      <SaveChip status={saveStatus} />
       {tell && lead && (
         <Sheet open onClose={() => setTell(false)} title="Tell them" label="Tell them the concepts are ready" description="Their link works now. Pick how to send it; you read it before anything goes." width={440} className="ce-tell"
           footer={<Button variant="ghost" onClick={() => setTell(false)}>Later</Button>}>

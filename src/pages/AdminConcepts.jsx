@@ -5,6 +5,7 @@ import { CONCEPT_SET_STATUSES, conceptSetStatusOf } from '../shared/semantics';
 import { relativeTime } from '../shared/dates';
 import { safeHref } from '../lib/safeUrl';
 import { sortSets, statusOf, directionsOf, firstImage, viewedUnanswered, reviewLine } from '../lib/concepts';
+import ListSearch from '../components/ListSearch';
 import { useShell, useTopBar } from '../shell/ShellContext';
 import { useScreenOrigin, useRestore } from '../shell/nav-history';
 
@@ -20,12 +21,16 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
   const [retry, retrying] = useRetry(onRetry);
   const phone = useMediaQuery('(max-width: 767px)');
   const [filter, setFilter] = useState('all');
+  const [q, setQ] = useState('');
   useScreenOrigin(() => ({ filters: { filter } }));
   useRestore((o) => { if (o.filters?.filter) setFilter(o.filters.filter); });
   const leadOf = useMemo(() => new Map((leads || []).map(l => [String(l._id), l])), [leads]);
   const rows = useMemo(() => sortSets(sets).map(s => ({ set: s, lead: leadOf.get(String(s.leadId)) || null })), [sets, leadOf]);
   const counts = useMemo(() => rows.reduce((m, r) => { const k = statusOf(r.set); m[k] = (m[k] || 0) + 1; return m; }, {}), [rows]);
-  const shown = filter === 'all' ? rows.filter(r => statusOf(r.set) !== 'archived') : rows.filter(r => statusOf(r.set) === filter);
+  /* Search (prompt 3 of 3): every word of the query must be in the client's name or the set's title. */
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = (r) => { const hay = `${r.lead?.showcase?.displayName || ''} ${r.lead?.business || ''} ${r.set.title || 'Concepts'}`.toLowerCase(); return words.every(w => hay.includes(w)); };
+  const shown = (filter === 'all' ? rows.filter(r => statusOf(r.set) !== 'archived') : rows.filter(r => statusOf(r.set) === filter)).filter(hit);
   const E = COPY.empty['concepts.none'];
 
   return (
@@ -43,12 +48,13 @@ export default function AdminConcepts({ sets = [], leads = [], loading = false, 
             <Card><EmptyState icon="LayersThree01" title={E.title} description={E.description} action={{ label: E.action, onClick: () => shell?.go('leads') }} /></Card>
           ) : (
             <Stack gap={3}>
+              <ListSearch value={q} onChange={setQ} placeholder="Search client or title" label="Search concept sets" />
               <Row gap={2} wrap role="group" aria-label="Filter by status" className="cl-chips">
                 <Chip label="All" count={rows.filter(r => statusOf(r.set) !== 'archived').length} selected={filter === 'all'} onClick={() => setFilter('all')} />
                 {CONCEPT_SET_STATUSES.map(s => <Chip key={s.id} label={s.label} count={counts[s.id] || 0} selected={filter === s.id} onClick={() => setFilter(s.id)} />)}
               </Row>
               {!shown.length ? (
-                <Stagger className="v-stack"><Card><NoResults noun="concept sets" filters={[(CONCEPT_SET_STATUSES.find(x => x.id === filter) || {}).label]} onClear={() => setFilter('all')} /></Card></Stagger>
+                <Stagger className="v-stack"><Card><NoResults noun="concept sets" query={q} filters={filter === 'all' ? [] : [(CONCEPT_SET_STATUSES.find(x => x.id === filter) || {}).label]} onClear={() => { setFilter('all'); setQ(''); }} /></Card></Stagger>
               ) : (
                 <Stagger className="v-stack" style={{ gap: 'var(--v-space-2)' }}>
                   {shown.map(({ set, lead }) => {

@@ -249,3 +249,15 @@ Prompt 1b shipped (7b3f15d).
 
 Resume here: prompt 2 of 3 shipped. Next is prompt 3 of 3.
 
+
+## Money, tasks, docs, links, calendar, home (prompt 3 of 3)
+
+- [x] Milestone 0: docs-editor-audit, docs-flow-audit, send-sheet-test, push-ui-test and site-regression ran at 390 and 1280 and passed. The feel audit ran one nav entry at a time with a 10 minute cap per scope (results in the report).
+- [x] Milestone 1 (58102ab): Invoices screen, Home KPI taps, Overview and Projects chips.
+- [x] Milestone 2 (58102ab): one TaskRow everywhere, email tasks never send, Tasks chips and search, New task quick add, Start calling.
+- [x] Milestone 3: doc reading view (Read and Edit, section strip, Copy for Claude, three text sizes, Share PDF, tickable checklists), the docs list (templates row, Needs signing and Pinned chips, groups by client with a count, contract pills), autosave on Planner, Showcase and Concepts (audit item 27), Concepts search (item 32). Tests: docs-read-test (23), docs-read-ui-test (browser, both widths), autosave-ui-test (browser).
+- [ ] Milestone 4: links in one tap.
+- [ ] Milestone 5: calendar agenda and the leftovers.
+- [ ] Milestone 6: the ship gate.
+
+Resume here: milestone 4.

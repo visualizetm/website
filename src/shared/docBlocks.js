@@ -115,8 +115,11 @@ export function blockPlain(b, n = 0) {
   }
 }
 
-/** The whole doc as plain text: the title, then a line per block, numbered lists counted. */
-export function docPlainText(doc) {
+/** The whole doc as plain text: the title, then a line per block, numbered lists counted.
+ *  format 'markdown' is the reading view's Copy for Claude (prompt 3 of 3): the title as #, h1 as #, h2 as ##, lists as dashes and numbers, checklists as [ ] and [x],
+ *  quotes as >, bold and italic marks as ** and *, links as [text](url), a blank line between blocks and none doubled; never a block id. */
+export function docPlainText(doc, opts = {}) {
+  if (opts && opts.format === 'markdown') return docMarkdown(doc);
   const lines = [];
   if (doc?.title) lines.push(doc.title, '');
   let n = 0;
@@ -125,6 +128,47 @@ export function docPlainText(doc) {
     lines.push(blockPlain(b, n));
   }
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+const mdRuns = (runs) => (Array.isArray(runs) ? runs : []).map(r => {
+  let t = String(r?.t || '');
+  if (!t.trim()) return t;
+  const lead = t.match(/^\s*/)[0]; const tail = t.match(/\s*$/)[0]; let core = t.trim();
+  if (r.i) core = `*${core}*`;
+  if (r.b) core = `**${core}**`;
+  const a = linkUrl(r.a);
+  if (a) core = `[${core}](${a})`;
+  return lead + core + tail;
+}).join('');
+const LISTY = ['ul', 'ol', 'check'];
+function docMarkdown(doc) {
+  const out = [];
+  const title = String(doc?.title || '').trim();
+  if (title) out.push(`# ${title}`);
+  let n = 0; let prev = '';
+  for (const b of doc?.blocks || []) {
+    if (!b) continue;
+    n = b.type === 'ol' ? n + 1 : 0;
+    const t = mdRuns(b.runs).trim();
+    let line;
+    switch (b.type) {
+      case 'h1': line = `# ${t}`; break;
+      case 'h2': line = `## ${t}`; break;
+      case 'ul': line = `- ${t}`; break;
+      case 'ol': line = `${n}. ${t}`; break;
+      case 'check': line = `${b.checked ? '[x]' : '[ ]'} ${t}`; break;
+      case 'quote': line = `> ${t}`; break;
+      case 'divider': line = '---'; break;
+      case 'link': { const u = linkUrl(b.url); line = u ? `[${b.text || u}](${u})` : (b.text || ''); break; }
+      case 'image': { const u = imageUrl(b.url); line = u ? `![${b.alt || ''}](${u})` : (b.alt ? `[Image: ${b.alt}]` : '[Image]'); break; }
+      case 'ref': line = b.label ? `[${b.label}]` : ''; break;
+      default: line = t;
+    }
+    if (!line.trim()) continue;
+    out.push(LISTY.includes(b.type) && prev === b.type ? `\u0000${line}` : line);
+    prev = b.type;
+  }
+  return out.map((l, i) => (l.startsWith('\u0000') ? l.slice(1) : (i ? `\n${l}` : l))).join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** What global search matches a doc on: the block text, no markup, capped. */

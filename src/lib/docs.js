@@ -1,6 +1,7 @@
 import { apiFetch } from '../shared/api';
 import { DOC_TYPES } from '../shared/docBlocks';
 import { relativeTime, toMs } from '../shared/dates';
+import { dealOf, isTicked } from './deal';
 
 /* Client docs, the client side's pure logic and its API calls (docs job). The block schema and the plain text
  * export are in src/shared/docBlocks.js (mirrored on the server). What a list holds is the doc's meta: title,
@@ -36,6 +37,25 @@ export function snippetFor(d, q, span = 48) {
   if (at < 0) return '';
   const from = Math.max(0, at - span); const to = Math.min(text.length, at + needle.length + span);
   return `${from > 0 ? '...' : ''}${text.slice(from, to)}${to < text.length ? '...' : ''}`;
+}
+
+/** A contract's state from the client's deal (prompt 3 of 3): Signed once the Contract agreed checkpoint is ticked, Unsigned once the contract
+ * was sent, Draft before that. '' for any other kind of doc (a template row carries no client, so it has none either). */
+export function contractStatus(doc, lead) {
+  if (!doc || doc.type !== 'contract' || doc.template) return '';
+  const deal = dealOf(lead || {});
+  if (isTicked(deal, 'contractAgreed')) return 'signed';
+  return isTicked(deal, 'contractSent') ? 'unsigned' : 'draft';
+}
+export const CONTRACT_PILL = { signed: { label: 'Signed', tone: 'success' }, unsigned: { label: 'Unsigned', tone: 'warning' }, draft: { label: 'Draft', tone: 'neutral' } };
+/** Contracts with no agreed stamp: the Needs signing chip. */
+export const needsSigning = (doc, byLead) => { const s = contractStatus(doc, byLead.get(String(doc.leadId))); return s === 'unsigned' || s === 'draft'; };
+/** All docs grouped by client, most recently touched client first; each group sorted, with its count. */
+export function groupByClient(list, byLead, by = 'edited') {
+  const groups = new Map();
+  for (const d of list || []) { const k = String(d.leadId); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(d); }
+  return [...groups.entries()].map(([id, docs]) => ({ id, label: byLead.get(id)?.business || 'Client', docs: sortDocs(docs, by) }))
+    .sort((a, b) => Math.max(...b.docs.map(docTime)) - Math.max(...a.docs.map(docTime)) || a.label.localeCompare(b.label));
 }
 
 /* ── The API (every call is the admin session's, through /api/admin/docs) ── */

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PageShell, ScrollArea, Button, IconButton, Sheet, Reveal, useConfirm, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
+import { PageShell, ScrollArea, Button, IconButton, SegmentedControl, Sheet, Reveal, useConfirm, Input, Select, EmptyState, ErrorState, SkeletonBlock, useToast, useMediaQuery, useDelayedLoading } from '../ui';
 import RowSheet from '../components/RowSheet';
 import DocEditor from '../components/docs/DocEditor';
 import TitleField from '../components/docs/TitleField';
@@ -8,6 +8,8 @@ import MakeTaskSheet from '../components/docs/MakeTaskSheet';
 import { addTask } from '../shared/taskRules';
 import { checklistsPatch } from '../lib/taskWrite';
 import BlockView from '../components/docs/BlockView';
+import DocReader, { SectionStrip } from '../components/docs/DocReader';
+import { READ_SIZES, markFresh, readSize, saveReadSize, startMode, tickBlock } from '../lib/docRead';
 import { docEditorStyles } from '../components/docs/docs.styles';
 import { copyText } from '../components/ClientWorkspace';
 import { useTopBar, useShell } from '../shell/ShellContext';
@@ -43,6 +45,8 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const [blocks, setBlocks] = useState([]);
   const [saveState, setSaveState] = useState('saved');
   const [sheet, setSheet] = useState(null); // 'more' | 'template'
+  const [mode, setMode] = useState(() => startMode(docId, phone)); // 'read' | 'edit' (reading view, prompt 3 milestone 3)
+  const [size, setSize] = useState(readSize);
   const [taskText, setTaskText] = useState(null); // the line a task is being made from
   const [confirm, confirmDialog] = useConfirm();
   const saverRef = useRef(null);
@@ -121,9 +125,13 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
   const duplicate = async () => {
     await saverRef.current?.flush();
     const item = await ops.duplicate({ _id: docId });
-    if (item) { toast.success('Duplicated.'); docsApi.openDoc(item); } else toast.error(COPY.error.save);
+    if (item) { markFresh(item._id); toast.success('Duplicated.'); docsApi.openDoc(item); } else toast.error(COPY.error.save);
   };
   const copyAll = () => copyText(toast, docPlainText({ title: sanitizeTitle(title), blocks: tidy(blocks) }), 'Doc');
+  /* Copy for Claude: the doc as markdown (headings, lists, [ ] and [x], links), no ids, one paste. */
+  const copyMd = () => copyText(toast, docPlainText({ title: sanitizeTitle(title), blocks: tidy(blocks) }, { format: 'markdown' }), 'Doc for Claude');
+  const pickSize = (id) => { setSize(id); saveReadSize(id); };
+  const onTick = (id) => onBlocks(tickBlock(live.current.blocks, id));
   const printIt = () => { setTimeout(() => window.print(), 50); };
   const remove = async () => {
     if (isTemplate) {
@@ -172,6 +180,7 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
 
   const moreItems = [
     ...(isTemplate ? [] : [{ id: 'pin', label: pinned ? 'Unpin from card' : 'Pin to card', icon: 'Pin01', onSelect: pin }]),
+    { id: 'copymd', label: 'Copy for Claude', icon: 'Copy01', onSelect: copyMd },
     { id: 'copy', label: 'Copy as text', icon: 'Copy01', onSelect: copyAll },
     { id: 'print', label: 'Print or save as PDF', icon: 'Printer', onSelect: printIt },
     ...(isTemplate ? [] : [
@@ -181,6 +190,20 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
     'divider',
     { id: 'del', label: isTemplate ? 'Delete template' : 'Move to Recently Deleted', icon: 'Trash01', danger: true, onSelect: remove },
   ];
+
+  const modeBar = (
+    <div className="dr-bar">
+      <SegmentedControl label="View" size="sm" value={mode} onChange={setMode} options={[{ id: 'read', label: 'Read' }, { id: 'edit', label: 'Edit' }]} />
+      {mode === 'read' && (
+        <>
+          <SegmentedControl label="Text size" size="sm" value={size} onChange={pickSize} options={READ_SIZES.map(z => ({ id: z.id, label: z.id.toUpperCase() }))} className="dr-size" />
+          <span className="dr-bar-grow" />
+          <Button variant="secondary" size="md" icon="Copy01" onClick={copyMd} className="dr-copy">Copy for Claude</Button>
+          <Button variant="secondary" size="md" icon="Printer" onClick={printIt} className="dr-pdf">Share PDF</Button>
+        </>
+      )}
+    </div>
+  );
 
   let body;
   if (waiting) {
@@ -202,7 +225,15 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
     body = (
       <>
         {readOnly && <div className="dd-deleted" role="status"><span>In Recently Deleted. It is read only until you restore it.</span><Button variant="secondary" size="md" icon="ReverseLeft" onClick={restore} className="dd-restore">Restore</Button></div>}
-        <div className="dd-head">
+        {mode === 'read' ? (
+          <div className="dd-head">
+            <h1 className="dr-title">{sanitizeTitle(title) || 'Untitled'}</h1>
+            <p className="dd-client">{isTemplate ? 'Template, no client' : lead ? lead.business : (leadsLoading ? <SkeletonBlock width={120} height={16} /> : 'Client not found')}</p>
+            {modeBar}
+            <SectionStrip blocks={blocks} />
+          </div>
+        ) : null}
+        {mode === 'edit' && <div className="dd-head">
           <TitleField value={title} onChange={onTitle} readOnly={readOnly} onEnter={() => document.querySelector('.dc-rt')?.focus()} />
           <div className="dd-meta">
             <p className="dd-client">{isTemplate ? 'Template, no client' : lead ? <button type="button" className="dd-clientbtn" onClick={() => flushThen(() => shell.openRecord(lead))}>{lead.business}</button> : (leadsLoading ? <SkeletonBlock width={120} height={16} /> : 'Client not found')}</p>
@@ -218,8 +249,11 @@ export default function AdminDoc({ docId, leads, projects, sets, leadsLoading, d
                 options={[{ id: '', label: 'None' }, ...ctx.projects.map(p => ({ id: String(p._id), label: p.name || 'Project' }))]} className="dd-project" />
             )}
           </div>
-        </div>
-        <DocEditor blocks={blocks} onChange={onBlocks} readOnly={readOnly} ctx={ctx} openRef={openRef} canRef={!isTemplate} onMakeTask={lead && onPatchLead && !isTemplate ? setTaskText : undefined} />
+          {modeBar}
+        </div>}
+        {mode === 'read'
+          ? <DocReader blocks={tidy(blocks)} ctx={ctx} onTick={onTick} readOnly={readOnly} openRef={openRef} size={size} />
+          : <DocEditor blocks={blocks} onChange={onBlocks} readOnly={readOnly} ctx={ctx} openRef={openRef} canRef={!isTemplate} onMakeTask={lead && onPatchLead && !isTemplate ? setTaskText : undefined} />}
       </>
     );
   }

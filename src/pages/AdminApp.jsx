@@ -1,3 +1,5 @@
+import { markFresh } from '../lib/docRead';
+import { builtinOf, buildDoc } from '../lib/docTemplates';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { normalizeLeads, pipelineFunnel } from '../lib/leads';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -556,7 +558,7 @@ export default function AdminApp() {
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
   const [newDocLead, setNewDocLead] = useState(null);
-  const newDoc = useCallback((lead) => setNewDocLead(lead), []);
+
   /* New task (prompt 3 of 3): the quick add picks a client, then the task sheet (due chips, the reminder on) writes it into that record's checklists through taskWrite. */
   const [newTask, setNewTask] = useState(null); // null | 'pick' | the lead
   const saveNewTask = useCallback(async (lead, v) => {
@@ -564,8 +566,15 @@ export default function AdminApp() {
     return patchCallLead(lead._id, checklistsPatch(lead, lists, { projects: projectsRef.current, sets: setsRef.current }));
   }, [patchCallLead]);
   const [pickingDoc, setPickingDoc] = useState(false);
-  const pickClient = useCallback(() => setPickingDoc(true), []);
-  const createFromTemplate = useCallback(async (doc) => { const item = await docsState.ops.create(doc); if (item) openDoc(item); return !!item; }, [docsState.ops, openDoc]);
+  const [pickKey, setPickKey] = useState('');
+  const pickClient = useCallback((key) => { setPickKey(typeof key === 'string' ? key : ''); setPickingDoc(true); }, []);
+  const createFromTemplate = useCallback(async (doc) => { const item = await docsState.ops.create(doc); if (item) { markFresh(item._id); openDoc(item); } return !!item; }, [docsState.ops, openDoc]);
+  /* New doc: with a built in template's id (the templates row on All docs) the doc is made at once from it; without one, the template sheet. */
+  const newDoc = useCallback((lead, key) => {
+    const t = typeof key === 'string' ? builtinOf(key) : null;
+    if (!t) { setNewDocLead(lead); return; }
+    createFromTemplate({ leadId: String(lead._id), ...buildDoc(t, { lead, projects: projectsRef.current.filter(p => String(p.leadId) === String(lead._id)) }) });
+  }, [createFromTemplate]);
   const openProject = useCallback((id) => { push(rootOf('projects'), { open: { section: 'projects', id: String(id), n: Date.now() }, selectedId: id }); }, [push]);
   const docsApi = useMemo(() => ({ ...docsState, openDoc, openClientDocs, newDoc, pickClient, openProject }), [docsState, openDoc, openClientDocs, newDoc, pickClient, openProject]);
   const openProjectNew = useCallback((lead, mode) => { push(lead ? `${BASE}/clients/${lead._id}/projects/new${mode ? `?mode=${mode}` : ''}` : `${BASE}/projects/new`, { selectedId: lead?._id }); }, [push]);
@@ -955,7 +964,7 @@ export default function AdminApp() {
       {pickerLeads && <ListPicker leads={pickerLeads} lists={V.lists} ops={listOps} onClose={() => setPickerLeads(null)} />}
       {newTask === 'pick' && <ClientPickSheet leads={V.leads} title="Which client?" label="Pick a client for the new task" onPick={(l) => setNewTask(l)} onClose={() => setNewTask(null)} />}
       {newTask && newTask !== 'pick' && <TaskSheet isNew business={newTask.business} item={{ text: '', due: '', remindAt: '', note: '' }} lists={normalizeChecklists(newTask.checklists || [])} onSave={(v) => saveNewTask(newTask, v)} onClose={() => setNewTask(null)} />}
-      {pickingDoc && <ClientPickSheet leads={V.leads} onPick={newDoc} onClose={() => setPickingDoc(false)} />}
+      {pickingDoc && <ClientPickSheet leads={V.leads} onPick={(l) => newDoc(l, pickKey)} onClose={() => setPickingDoc(false)} />}
       {newDocLead && <NewDocSheet lead={newDocLead} projects={V.projects} onCreate={createFromTemplate} onClose={() => setNewDocLead(null)} />}
       {captureOpen && <CaptureSheet onClose={() => setCaptureOpen(false)} onCreate={createCallLead} />}
       {section === 'deals' && (

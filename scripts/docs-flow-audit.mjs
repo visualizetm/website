@@ -6,6 +6,7 @@
 import { chromium } from 'playwright-core';
 import { mockRoutes, DOCS } from './audit-fixtures.mjs';
 
+const toEdit = async (p) => { await p.waitForSelector('.dc-blocks, .dr-article', { timeout: 8000 }); if (await p.$('.dr-article')) await p.getByRole('radio', { name: 'Edit' }).click(); /* a phone opens an existing doc in Read (prompt 3 of 3) */ await p.waitForSelector('.dc-blocks', { timeout: 8000 }); };
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -213,7 +214,7 @@ for (const width of [390, 1280]) {
   const hit = await page.$eval('.sh-cmd-row', e => e.textContent);
   ok(/Project brief/.test(hit) && /Lead Business 11/.test(hit) && await page.$eval('.sh-cmd-group', e => e.textContent) === 'Docs', `search finds a doc by what is inside it and shows the client's name (${hit.slice(0, 60)})`);
   await page.locator('.sh-cmd-row').first().click();
-  await page.waitForSelector('.dc-blocks', { timeout: 8000 });
+  await toEdit(page);
   ok(await page.$eval('.dd-title', e => e.textContent) === 'Project brief', 'picking it opens the doc');
 
   /* History and Recently Deleted. */
@@ -224,7 +225,7 @@ for (const width of [390, 1280]) {
   await H.page.locator('.nd-opt[data-template="brief"]').click(); await H.page.waitForSelector('.dc-blocks');
   await H.page.locator('.sh-top-back').click();
   await H.page.waitForSelector('.rc-docs-row');
-  await H.page.locator('.rc-docs-row').first().locator('.v-stretch').click(); await H.page.waitForSelector('.dc-blocks');
+  await H.page.locator('.rc-docs-row').first().locator('.v-stretch').click(); await H.page.waitForSelector('.dc-blocks, .dr-article'); if (await H.page.$('.dr-article')) await H.page.getByRole('radio', { name: 'Edit' }).click(); await H.page.waitForSelector('.dc-blocks');
   await H.page.locator('.sh-top-action[aria-label="Doc actions"], .dd-more').first().click();
   await H.page.locator('.rs-act', { hasText: 'Move to Recently Deleted' }).click();
   await H.page.waitForSelector('.rc-docs-row', { timeout: 8000 });

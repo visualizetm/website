@@ -24,7 +24,8 @@ async function session(width, opts = {}) {
   const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
   return { ctx, page, o, patches, errors };
 }
-const open = async (page, id = 'DOC1') => { await page.goto(`${BASE}/admin/docs/${id}`, { waitUntil: 'networkidle' }); await page.waitForSelector('.dc-blocks', { timeout: 8000 }); await page.waitForTimeout(300); };
+const toEdit = async (p) => { await p.waitForSelector('.dc-blocks, .dr-article', { timeout: 8000 }); if (await p.$('.dr-article')) await p.getByRole('radio', { name: 'Edit' }).click(); /* a phone opens an existing doc in Read (prompt 3 of 3) */ await p.waitForSelector('.dc-blocks', { timeout: 8000 }); };
+const open = async (page, id = 'DOC1') => { await page.goto(`${BASE}/admin/docs/${id}`, { waitUntil: 'networkidle' }); await page.waitForSelector('.dc-blocks, .dr-article', { timeout: 8000 }); if (await page.$('.dr-article')) await page.getByRole('radio', { name: 'Edit' }).click(); /* a phone opens an existing doc in Read (prompt 3 of 3) */ await page.waitForSelector('.dc-blocks', { timeout: 8000 }); await page.waitForTimeout(300); };
 const blocksOf = (page) => page.$$eval('.dc-row', rs => rs.map(r => ({ type: r.dataset.type, text: (r.querySelector('.dc-rt')?.textContent || r.textContent || '').trim().slice(0, 60) })));
 const status = (page) => page.$eval('[data-save]', e => e.dataset.save);
 const lastPatch = (patches) => patches[patches.length - 1]?.set;
@@ -172,7 +173,7 @@ for (const width of [390, 1280]) {
   await K.page.goto(`${BASE}/admin/clients?open=L11`, { waitUntil: 'networkidle' });
   await K.page.waitForSelector('.rc-docs-row[data-doc-id="DOC1"]', { timeout: 8000 });
   await K.page.locator('.rc-docs-row[data-doc-id="DOC1"] .v-stretch').click();
-  await K.page.waitForSelector('.dc-blocks');
+  await toEdit(K.page);
   K.o.docsSaveFails = true;
   await K.page.locator('.dc-row[data-block-id="b2"] .dc-rt').click(); await K.page.keyboard.press('End'); await K.page.keyboard.type(' kept in memory');
   await K.page.locator('.sh-top-back').click();
@@ -180,7 +181,7 @@ for (const width of [390, 1280]) {
   ok(await K.page.$eval('.rc-docs-row[data-doc-id="DOC1"]', e => !!e), 'Back from the doc returns to the client\'s page');
   K.o.docsSaveFails = false;
   await K.page.locator('.rc-docs-row[data-doc-id="DOC1"] .v-stretch').click();
-  await K.page.waitForSelector('.dc-blocks');
+  await toEdit(K.page);
   await K.page.waitForTimeout(500);
   ok((await K.page.$eval('.dc-row[data-block-id="b2"] .dc-rt', e => e.textContent)).includes('kept in memory'), 'leaving while a save is failing keeps the text for the next open');
   await K.page.waitForFunction(() => document.querySelector('[data-save]')?.dataset.save === 'saved', null, { timeout: 9000 }).catch(() => {});

@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Row, Button } from '../ui';
+import { SAVE_CHIP_LABEL } from '../lib/useAutoSave';
 
 /* The floating "you have unsaved changes" bar, lifted out of AdminShowcase so
  * the Planner editor uses the same one rather than a second copy that would
@@ -32,6 +34,27 @@ export default function SaveBar({ open, onSave, onDiscard, saving, message = 'Yo
   );
 }
 
+/* The autosave chip (prompt 3 of 3): the Saving / Saved / Not saved, retrying state of an editor that saves itself. It sits where the bar sat,
+ * shows while anything is unsaved and for two seconds after a save lands, then goes. `action` is a second, explicit control (the Showcase's
+ * Publish: a change that makes the page public never goes out on a timer). */
+export function SaveChip({ status, action }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (status !== 'saved') { setShown(true); return undefined; }
+    const id = setTimeout(() => setShown(false), 2000);
+    return () => clearTimeout(id);
+  }, [status]);
+  const open = shown || !!action;
+  return (
+    <div className={`sb-bar sb-chip${open ? ' is-open' : ''} is-${status}`} role="status" aria-live="polite" data-save={status}>
+      <Row gap={2} align="center" wrap>
+        <span className="sb-msg">{action ? action.message : SAVE_CHIP_LABEL[status]}</span>
+        {action && <Button onClick={action.onClick} loading={action.busy} className="sb-action">{action.label}</Button>}
+      </Row>
+    </div>
+  );
+}
+
 export const saveBarStyles = `
   .sb-host { --sb-h: 72px; --sb-scroll-extra: calc(var(--sb-h) + var(--v-space-4)); }
   @media (max-width: 900px) { .sb-host { --sb-h: 104px; } }
@@ -46,6 +69,8 @@ export const saveBarStyles = `
     transition: transform var(--v-dur-enter) var(--v-ease-out), opacity var(--v-dur-enter) var(--v-ease-out);
     pointer-events: none;
   }
+  .sb-chip { padding: var(--v-space-2) var(--v-space-3); }
+  .sb-chip.is-failed .sb-msg { color: var(--v-status-danger-text); }
   .sb-bar.is-open { transform: none; opacity: 1; pointer-events: auto; }
   .sb-msg { font-size: var(--v-text-sm); font-weight: 600; color: var(--v-text-1); }
   @media (max-width: 900px) {
