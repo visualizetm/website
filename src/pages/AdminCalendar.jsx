@@ -287,7 +287,7 @@ const calStyles = `
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; }
   .cal-ag-day { display: flex; flex-direction: column; gap: var(--v-space-2); scroll-margin-top: var(--v-space-3); }
   .cal-ag-h { margin: 0; display: flex; align-items: center; gap: var(--v-space-2); font-family: var(--v-font-display); font-size: var(--v-text-lg); line-height: var(--v-lh-lg); text-transform: uppercase; letter-spacing: 0.02em; color: var(--v-text); }
-  .cal-ag-day.is-today .cal-ag-h { color: var(--v-red-hover); }
+  .cal-ag-day.is-today .cal-ag-h::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--v-red); flex: 0 0 auto; } /* the red is a mark, never the text colour: red-hover on the dark page is 3.9:1 */
   .cal-ag-n { font-family: var(--v-font-body); font-size: var(--v-text-sm); font-variant-numeric: tabular-nums; color: var(--v-text-3); }
   .cal-ag-time { min-width: 64px; font-size: var(--v-text-sm); font-weight: var(--v-weight-bold); font-variant-numeric: tabular-nums; color: var(--v-text-2); }
   .cal-row.cal-row--agenda { border-left: 4px solid var(--v-border-strong); }

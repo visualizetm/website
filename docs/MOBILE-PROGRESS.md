@@ -258,6 +258,6 @@ Resume here: prompt 2 of 3 shipped. Next is prompt 3 of 3.
 - [x] Milestone 3: doc reading view (Read and Edit, section strip, Copy for Claude, three text sizes, Share PDF, tickable checklists), the docs list (templates row, Needs signing and Pinned chips, groups by client with a count, contract pills), autosave on Planner, Showcase and Concepts (audit item 27), Concepts search (item 32). Tests: docs-read-test (23), docs-read-ui-test (browser, both widths), autosave-ui-test (browser).
 - [x] Milestone 4: links in one tap (Text it, Share, Draft an email on Reviews, Portal and the planner link; Share on the concepts Tell them sheet; sentVia stamped on the server; the month ready draft; the Orders label). Tests: links-test (24, three zones), links-ui-test (browser, both widths).
 - [x] Milestone 5: the Calendar's Agenda (default on a phone, Month second), every admin word 12px or more, the Concepts search (milestone 3) and the lead edit sheet's blur save (prompt 2). Test: calendar-agenda-test (browser, both widths).
-- [ ] Milestone 6: the ship gate.
+- [x] Milestone 6: the ship gate (lint, build, 43 handler and pure suites, p3-guard-proof 5 cuts, preship at 390 and 1280, a11y both themes, regression 118 steps, site-regression 18, gesture 16, chrome 140 states, empty 15 screens, stepper 192, the new browser tests), docs/screens re-captured (50 screenshots, every nav entry at 390 and 1280), docs/crm-screens deleted.
 
-Resume here: milestone 6 (the ship gate).
+Resume here: prompt 3 of 3 shipped. The remaining list is in the report and in docs/MOBILE-DECISIONS.md.
