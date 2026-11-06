@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useLocation, useParams } from 'react-router-dom';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import Edit02 from '@untitled-ui/icons-react/build/esm/Edit02';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
-import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
-import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import { ClientBar, ClientFoot, clientChromeStyles, portalBackHref } from '../components/ClientPageChrome';
 import { useMotionPreference } from '../marketing/motion/shared';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
-import { safeHref } from '../lib/safeUrl';
+import { NOTE_MAX, DRAFT_PREFIX, FS_KEY, letterOf, readSS, writeSS, overlay, R, useDialog, Pic, StateChip } from '../components/conceptsParts';
+import Maximize01 from '@untitled-ui/icons-react/build/esm/Maximize01';
+import ConceptsStage, { conceptsStageStyles } from '../components/ConceptsStage';
 
 /* The client facing concepts page, at /concepts/:token on the marketing
  * host, dark only, standing alone like the planner: its own slim bar, no
@@ -43,75 +42,6 @@ import { safeHref } from '../lib/safeUrl';
  * viewer with swipe and arrow keys. */
 
 const NAME_KEY = 'vz_concepts_name';
-const DRAFT_PREFIX = 'vz_concepts_note';
-const NOTE_MAX = 1000;
-const letterOf = (i) => String.fromCharCode(65 + i);
-const readSS = (k, d = '') => { try { return sessionStorage.getItem(k) ?? d; } catch { return d; } };
-const writeSS = (k, v) => { try { if (v) sessionStorage.setItem(k, v); else sessionStorage.removeItem(k); } catch { /* private mode */ } };
-const overlay = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
-const R = COPY.concepts.review;
-
-/* A dialog: labelled, focus trapped, Escape closes. Every layer that means
- * "the screen" is portaled to the body so a transform up the tree never
- * becomes its containing block (the planner's note). */
-function useDialog(onClose) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const first = ref.current?.querySelector('button, input, textarea, [tabindex="0"]');
-    first?.focus?.();
-    const onKey = (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); onClose(); return; }
-      if (e.key !== 'Tab') return;
-      const f = [...(ref.current?.querySelectorAll('button:not([disabled]), input, textarea, [tabindex="0"]') || [])];
-      if (!f.length) return;
-      const a = f[0]; const b = f[f.length - 1];
-      if (e.shiftKey && document.activeElement === a) { e.preventDefault(); b.focus(); }
-      else if (!e.shiftKey && document.activeElement === b) { e.preventDefault(); a.focus(); }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
-  return ref;
-}
-
-/* One image, contained, never cropped. */
-function Pic({ item, className = '', sizes }) {
-  const [broken, setBroken] = useState(false);
-  useEffect(() => { setBroken(false); }, [item.image]);
-  const src = safeHref(item.image);
-  if (!src || broken) return <span className={`cp-pic cp-pic--empty ${className}`.trim()} aria-hidden="true">{broken ? 'Image did not load' : ''}</span>;
-  return <img className={`cp-pic ${className}`.trim()} src={src} alt={item.caption || ''} loading="lazy" decoding="async" sizes={sizes} onError={() => setBroken(true)} />;
-}
-
-/* ── The full screen viewer: swipe on a phone, arrow keys on a desktop ── */
-function Viewer({ items, index, onIndex, onClose, label }) {
-  const V = COPY.concepts.viewer;
-  const ref = useDialog(onClose);
-  const touch = useRef(null);
-  const item = items[index];
-  const go = useCallback((by) => onIndex(Math.max(0, Math.min(items.length - 1, index + by))), [index, items.length, onIndex]);
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'ArrowLeft') go(-1); if (e.key === 'ArrowRight') go(1); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [go]);
-  return overlay(
-    <div className="cp-viewer" role="dialog" aria-modal="true" aria-label={`${label}, image ${index + 1} of ${items.length}`} ref={ref}
-      onTouchStart={(e) => { touch.current = e.touches[0].clientX; }}
-      onTouchEnd={(e) => { const x = touch.current; touch.current = null; if (x == null) return; const dx = e.changedTouches[0].clientX - x; if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1); }}>
-      <button type="button" className="cp-viewer-scrim" aria-label={V.close} onClick={onClose} />
-      <div className="cp-viewer-stage img-fit img-fit--contain">
-        <Pic item={item} className="cp-viewer-img" />
-      </div>
-      <div className="cp-viewer-bar">
-        <button type="button" className="cp-icon-btn" onClick={() => go(-1)} disabled={index === 0} aria-label={V.prev}><ChevronLeft width={20} height={20} aria-hidden="true" /></button>
-        <span className="cp-viewer-cap">{item.caption ? `${item.caption}. ` : ''}{index + 1} of {items.length}</span>
-        <button type="button" className="cp-icon-btn" onClick={() => go(1)} disabled={index === items.length - 1} aria-label={V.next}><ChevronRight width={20} height={20} aria-hidden="true" /></button>
-      </div>
-      <button type="button" className="cp-icon-btn cp-viewer-close" onClick={onClose} aria-label={V.close}><XClose width={20} height={20} aria-hidden="true" /></button>
-    </div>
-  );
-}
 
 /* ── Pick one: the approve confirm panel ──────────────────────────── */
 function ApprovePanel({ d, letter, name, onName, busy, onConfirm, onClose }) {
@@ -185,13 +115,6 @@ function useUnitReveal(reduced, instant) {
   return [ref, shown, !seen && instant && !reduced];
 }
 
-/* ── The chip that says where a section stands ────────────────────── */
-function StateChip({ kind }) {
-  if (!kind) return null;
-  const tone = kind === 'approved' || kind === 'picked' ? 'ok' : kind === 'changes' ? 'warn' : 'quiet';
-  return <span className={`cp-chip cp-chip--${tone}`} data-chip={kind}>{kind === 'approved' || kind === 'picked' ? <Check width={14} height={14} aria-hidden="true" /> : kind === 'changes' ? <Edit02 width={14} height={14} aria-hidden="true" /> : null}{kind === 'picked' ? COPY.concepts.direction.picked : R.chip[kind]}</span>;
-}
-
 /* ── Review each: the decision panel under one direction ──────────── */
 function ReviewPanel({ d, letter, token, allowPass, answer, busy, error, locked, onDecide }) {
   const key = `${DRAFT_PREFIX}:${token}:${d.id}`;
@@ -247,8 +170,9 @@ function ReviewPanel({ d, letter, token, allowPass, answer, busy, error, locked,
 }
 
 /* ── One direction: a section ─────────────────────────────────────── */
-function Direction({ d, index, count, mode, token, allowPass, submitted, present, answer, busy, error, instant, pick, onDecide, onApprove, onChange, onView }) {
+function Direction({ d, index, count, mode, token, allowPass, submitted, present, answer, busy, error, instant, pick, compactCue, onDecide, onApprove, onChange, onView }) {
   const D = COPY.concepts.direction;
+  const FS = COPY.concepts.fullscreen;
   const reduced = useMotionPreference();
   const [ref, shown, jumped] = useUnitReveal(reduced, instant);
   const [k, setK] = useState(0);
@@ -271,8 +195,20 @@ function Direction({ d, index, count, mode, token, allowPass, submitted, present
             <div className="cp-sec-visual">
               {items.length > 0 ? (
                 <>
-                  <button type="button" className="cp-main img-fit img-fit--contain" onClick={() => onView(Math.min(k, items.length - 1))} aria-label={`${cur.caption || `Image ${k + 1}`}, ${D.item(k + 1, items.length)}. Open it full screen.`}>
+                  <button type="button" className="cp-main img-fit img-fit--contain" onClick={(e) => onView(Math.min(k, items.length - 1), e.currentTarget)} aria-label={FS.enter(cur.caption || `Image ${k + 1}`, D.item(k + 1, items.length))}>
                     <Pic item={cur} className="cp-main-pic" sizes="(min-width: 1024px) 60vw, 100vw" />
+                    {/* The cue: one scrim over the picture, inside the one button (no second control). Static; it lives in the section's one reveal. */}
+                    {compactCue ? (
+                      <span className="cp-cue cp-cue--compact" aria-hidden="true"><Maximize01 width={16} height={16} />{FS.chip}</span>
+                    ) : (
+                      <span className="cp-cue" aria-hidden="true">
+                        <span className="cp-cue-col">
+                          <span className="cp-cue-ico"><Maximize01 width={28} height={28} /></span>
+                          <span className="cp-cue-title display">{FS.cue}</span>
+                          <span className="cp-cue-line">{FS.cueLine}</span>
+                        </span>
+                      </span>
+                    )}
                   </button>
                   {(cur.caption || items.length > 1) && <p className="cp-caption">{cur.caption || ''}{items.length > 1 ? <span className="cp-caption-n">{D.item(k + 1, items.length)}</span> : null}</p>}
                   {items.length > 1 && (
@@ -372,6 +308,7 @@ export default function Concepts() {
   const [changing, setChanging] = useState(null);
   const [formError, setFormError] = useState('');
   const [viewer, setViewer] = useState(null); // { dir, index }
+  const [fsSeen, setFsSeen] = useState(() => readSS(FS_KEY) === '1'); // after the first entry the big cue becomes a small chip
   const [summary, setSummary] = useState(false);
   const [sendError, setSendError] = useState('');
   const [instant, setInstant] = useState({}); // direction id -> jumped to, so it lands whole
@@ -444,7 +381,7 @@ export default function Concepts() {
   const approve = async (d, extra) => {
     const r = await act({ action: 'approve', directionId: d.id, note: extra, name });
     if (r.bad) { setFormError(C.changes.required); return; }
-    if (r.ok) { setApproving(null); setData(x => ({ ...x, set: { ...x.set, status: 'approved', approvedDirectionId: d.id } })); setToast(C.approve.done(letterOf(directions.indexOf(d)))); window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' }); }
+    if (r.ok) { setApproving(null); closeStage(); setData(x => ({ ...x, set: { ...x.set, status: 'approved', approvedDirectionId: d.id } })); setToast(C.approve.done(letterOf(directions.indexOf(d)))); window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' }); }
   };
   const change = async (d, text, clear) => {
     if (!text) { setFormError(C.changes.required); return; }
@@ -474,7 +411,7 @@ export default function Concepts() {
     const r = await act({ action: 'submit', name }, { silent: true });
     setBusy(false);
     if (r.ok) {
-      setSummary(false);
+      setSummary(false); closeStage();
       setData(x => ({ ...x, set: { ...x.set, submittedAt: new Date().toISOString(), status: r.data?.status || x.set.status } }));
       window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
     } else if (r.bad) { setSendError(R.sendBlocked(Math.max(1, left))); setSummary(false); await load({ quiet: true }); }
@@ -487,6 +424,30 @@ export default function Concepts() {
     requestAnimationFrame(() => document.getElementById(`cp-d-${id}`)?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' }));
   }, [reduced]);
   const nextOpen = need.find(d => !d.decision);
+  /* Entering the stage: remembered for the tab, so the big cue gives way to the small chip. */
+  const viewerRef = useRef(null); viewerRef.current = viewer;
+  const dirsRef = useRef([]); dirsRef.current = directions;
+  const stageFrom = useRef(null); // { el, dir }: what opened the stage, so Close puts focus back there
+  const openStage = useCallback((dir, index, el) => {
+    /* Real full screen is asked for here, on the document element, from the tap itself (never from the overlay: panels, the summary and
+       the toast are portaled to the body, and only the full screen element's subtree draws). A refusal, or no API (an iPhone), is fine:
+       the stage covers the page either way. */
+    try { document.documentElement.requestFullscreen?.()?.catch?.(() => {}); } catch { /* no Fullscreen API */ }
+    stageFrom.current = { el: el || null, dir };
+    setViewer({ dir, index });
+    writeSS(FS_KEY, '1'); setFsSeen(true);
+  }, []);
+  const closeStage = useCallback(() => {
+    const now = viewerRef.current?.dir;
+    const from = stageFrom.current;
+    setViewer(null);
+    /* Focus goes back to the cue that opened it, or to the cue of the direction the client ended on. */
+    requestAnimationFrame(() => {
+      const id = dirsRef.current[now]?.id;
+      const el = from && from.dir === now && from.el && document.contains(from.el) ? from.el : (id ? document.querySelector(`#cp-d-${id} .cp-main`) : null);
+      el?.focus?.();
+    });
+  }, []);
 
   if (state === 'dead') {
     return (
@@ -520,7 +481,6 @@ export default function Concepts() {
   }
 
   const approvedIndex = directions.findIndex(d => d.id === approvedId);
-  const viewItems = viewer ? directions[viewer.dir]?.items || [] : [];
   const sumRows = need.map((d) => ({ d, i: directions.indexOf(d), answer: d.decision })).filter(r => r.answer);
 
   return (
@@ -532,6 +492,9 @@ export default function Concepts() {
           {data.set.intro && <p className="cp-lead">{data.set.intro}</p>}
           <p className="cp-hint-p">{review ? C.intro.review : C.intro.hint}</p>
           {Number(data.set.round) > 1 && <span className="cp-round">{C.intro.round(data.set.round)}</span>}
+          {!present && directions.some(d => d.items.length > 0) && (
+            <button type="button" className="cp-btn cp-btn--ghost cp-intro-fs" onClick={() => openStage(Math.max(0, directions.findIndex(d => d.items.length > 0)), 0)}><Maximize01 width={16} height={16} aria-hidden="true" />{review ? C.fullscreen.introReview : C.fullscreen.introPick}</button>
+          )}
         </div>
       </header>
 
@@ -550,11 +513,11 @@ export default function Concepts() {
         <Direction key={d.id} d={d} index={i} count={directions.length} mode={mode} token={token} allowPass={allowPass} submitted={submitted} present={present}
           answer={d.decision || null} busy={!!saving[d.id]} error={errors[d.id] || ''} instant={!!instant[d.id]}
           pick={{ decided, approved: d.id === approvedId }}
-          onDecide={decide} onApprove={setApproving} onChange={setChanging} onView={(k) => setViewer({ dir: i, index: k })} />
+          onDecide={decide} onApprove={setApproving} onChange={setChanging} onView={(k, el) => openStage(i, k, el)} compactCue={present || fsSeen} />
       ))}
 
       {!review && directions.length > 1 && (
-        <CompareBlock directions={directions} approvedId={approvedId} present={present} decided={decided} onView={(i) => setViewer({ dir: i, index: 0 })} onApprove={setApproving} />
+        <CompareBlock directions={directions} approvedId={approvedId} present={present} decided={decided} onView={(i, el) => openStage(i, 0, el)} onApprove={setApproving} />
       )}
 
       {!review && !present && (
@@ -591,10 +554,15 @@ export default function Concepts() {
 
       {approving && <ApprovePanel d={approving} letter={letterOf(directions.indexOf(approving))} name={name} onName={setName} busy={busy} onConfirm={(extra) => approve(approving, extra)} onClose={() => setApproving(null)} />}
       {changing && <ChangePanel d={changing} letter={letterOf(directions.indexOf(changing))} token={token} name={name} onName={setName} busy={busy} error={formError} onSend={(text, clear) => change(changing, text, clear)} onClose={() => { setChanging(null); setFormError(''); }} />}
-      {summary && <SummarySheet rows={sumRows} name={name} onName={setName} busy={busy} error={sendError} onSend={submit} onClose={() => setSummary(false)} onJump={(id) => { setSummary(false); jumpTo(id); }} />}
-      {viewer && viewItems.length > 0 && <Viewer items={viewItems} index={Math.min(viewer.index, viewItems.length - 1)} onIndex={(k) => setViewer(v => ({ ...v, index: k }))} onClose={() => setViewer(null)} label={`Direction ${letterOf(viewer.dir)}`} />}
+      {summary && <SummarySheet rows={sumRows} name={name} onName={setName} busy={busy} error={sendError} onSend={submit} onClose={() => setSummary(false)} onJump={(id) => { setSummary(false); if (viewer) setViewer({ dir: Math.max(0, directions.findIndex(x => x.id === id)), index: 0 }); else jumpTo(id); }} />}
+      {viewer && directions[viewer.dir] && (
+        <ConceptsStage directions={directions} dir={viewer.dir} index={viewer.index} onNav={(dir, index) => setViewer({ dir, index })} onClose={closeStage}
+          review={review} present={present} submitted={submitted} allowPass={allowPass} approvedId={approvedId} decided={decided} token={token}
+          need={need} answered={answered} left={left} saving={saving} errors={errors}
+          onDecide={decide} onApprove={setApproving} onAsk={setChanging} onSend={() => { setSendError(''); setSummary(true); }} />
+      )}
       {toast && overlay(<p className="cp-toast" role="status">{toast}</p>)}
-      <style>{clientChromeStyles + conceptsStyles}</style>
+      <style>{clientChromeStyles + conceptsStyles + conceptsStageStyles}</style>
     </section>
   );
 }
@@ -612,7 +580,7 @@ function CompareBlock({ directions, approvedId, present, decided, onView, onAppr
         <div className="cp-cards">
           {directions.map((d, i) => (
             <div key={d.id} className={`cp-card${d.id === approvedId ? ' is-picked' : ''}`}>
-              <button type="button" className="cp-card-pic img-fit img-fit--contain" onClick={() => onView(i)} aria-label={`Direction ${letterOf(i)}${d.name ? `, ${d.name}` : ''}. Open its images.`}>
+              <button type="button" className="cp-card-pic img-fit img-fit--contain" onClick={(e) => onView(i, e.currentTarget)} aria-label={`Direction ${letterOf(i)}${d.name ? `, ${d.name}` : ''}. Open its images.`}>
                 {d.items[0] ? <Pic item={d.items[0]} sizes="(min-width: 768px) 30vw, 100vw" /> : <span className="cp-pic cp-pic--empty" />}
               </button>
               <p className="cp-eyebrow">Direction {letterOf(i)}</p>
@@ -677,6 +645,18 @@ export const conceptsStyles = `
   /* Every image sits in an .img-fit box (the site's image rule); these overrides keep the boards contained and uncropped. */
   .cp-main.img-fit { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 220px; max-height: min(62vh, 560px); padding: var(--space-2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: zoom-in; }
   .cp-main.img-fit > img.cp-main-pic { width: auto; height: auto; max-width: 100%; max-height: calc(min(62vh, 560px) - 2 * var(--space-2) - 2px); object-fit: contain; }
+  .cp-main.img-fit { position: relative; overflow: hidden; }
+  /* The cue: a black radial scrim, darkest behind the words (never under 0.6, so white text clears 4.5:1 even over a white picture), lighter toward the edges. Static: no transition, so nothing about it moves on its own. */
+  .cp-cue { --cue-a: 0.78; --cue-b: 0.66; --cue-c: 0.18; position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; padding: var(--space-3); border-radius: inherit; background: radial-gradient(ellipse closest-side at 50% 50%, rgba(0, 0, 0, var(--cue-a)) 0%, rgba(0, 0, 0, var(--cue-b)) 70%, rgba(0, 0, 0, var(--cue-c)) 100%); color: var(--text); text-align: center; pointer-events: none; }
+  .cp-main:hover .cp-cue, .cp-main:active .cp-cue { --cue-a: 0.88; --cue-b: 0.76; --cue-c: 0.28; }
+  .cp-cue-col { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); max-width: min(100%, 200px); }
+  .cp-cue-ico { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--border-light); background: rgba(0, 0, 0, 0.55); color: var(--text); }
+  @media (max-width: 479px) { .cp-cue-ico { width: 56px; height: 56px; } }
+  .cp-cue-title { font-size: 1.375rem; line-height: 1.1; color: var(--text); }
+  .cp-cue-line { font-size: 0.875rem; line-height: 1.35; color: var(--text); }
+  .cp-cue--compact { inset: auto var(--space-2) var(--space-2) auto; display: inline-flex; gap: 6px; align-items: center; padding: 8px 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.72); font-size: 0.8125rem; font-weight: 700; }
+  .cp-main:hover .cp-cue--compact, .cp-main:active .cp-cue--compact { background: rgba(0, 0, 0, 0.82); }
+  .cp-intro-fs { margin-top: var(--space-4); }
   .cp-main:focus-visible, .cp-thumb:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
   .cp-pic { display: block; width: 100%; height: 100%; object-fit: contain; }
   .cp-pic--empty { display: flex; align-items: center; justify-content: center; min-height: 120px; border: 1px dashed var(--border-light); border-radius: var(--radius); color: var(--text-muted); font-size: 0.8125rem; }
@@ -766,12 +746,6 @@ export const conceptsStyles = `
   .cp-panel-hero.img-fit { display: block; height: 160px; margin-bottom: var(--space-4); background: var(--bg-elevated); border-radius: var(--radius); }
   .cp-panel-h { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); color: var(--text); }
   .cp-panel-p { margin: var(--space-2) 0 0; color: var(--text-secondary); line-height: 1.5; }
-  .cp-viewer { flex-direction: column; gap: var(--space-3); }
-  .cp-viewer-stage.img-fit { position: relative; flex: 1 1 auto; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; background: none; }
-  .cp-viewer-stage.img-fit > img.cp-viewer-img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
-  .cp-viewer-bar { position: relative; display: flex; align-items: center; gap: var(--space-3); width: min(100%, 640px); }
-  .cp-viewer-cap { flex: 1 1 auto; text-align: center; font-size: 0.9375rem; color: var(--text-secondary); }
-  .cp-viewer-close { position: absolute; top: var(--space-4); right: var(--space-4); }
   .cp-toast { position: fixed; left: 50%; bottom: calc(var(--cp-bar-h, 0px) + var(--space-6)); transform: translateX(-50%); z-index: 90; margin: 0; max-width: min(92vw, 460px); padding: var(--space-3) var(--space-5); background: var(--chrome-solid); color: var(--text); border: 1px solid var(--border-light); border-radius: var(--radius); font-size: 0.9375rem; box-shadow: var(--shadow-chrome-strong); }
   .cp-skel { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); }
   .cp-skel-line { display: block; height: 20px; width: min(80%, 480px); border-radius: var(--radius); background: var(--glass-bg-strong); }
