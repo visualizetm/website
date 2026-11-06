@@ -291,6 +291,7 @@ export default function ConceptsStage({ directions, dir, index, onNav, onClose, 
                   {about && <p className="cp-rationale cp-st-about" id="cp-st-about" tabIndex={0}>{d.rationale}</p>}
                 </>
               )}
+              {!present && chipKind && !(review && submitted && !reference && answer) && <div className="cp-st-chip"><StateChip kind={chipKind} /></div>}
               {decisions}
               {!editing && dots}
             </div>
