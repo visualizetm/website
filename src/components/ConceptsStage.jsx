@@ -350,6 +350,8 @@ export const conceptsStageStyles = `
   .cp-st-foot { flex: 0 0 auto; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3) var(--space-5) var(--space-4); border-top: 1px solid var(--border-light); }
   .cp-st-h { margin: 0; font-size: clamp(1.6rem, 3vw, 2.2rem); color: var(--text); overflow-wrap: anywhere; }
   .cp-st-chip { min-height: 28px; }
+  .cp-st-main > * { flex-shrink: 0; }
+  .cp-st-about { box-sizing: border-box; min-height: 44px; max-height: calc(40 * var(--svh)); overflow-y: auto; margin: 0; overscroll-behavior: contain; }
   .cp-st-decisions { display: flex; flex-direction: column; gap: var(--space-2); }
   .cp-st-decide { display: flex; flex-direction: column; gap: var(--space-2); }
   .cp-st-btn { box-sizing: border-box; width: 100%; justify-content: center; }
@@ -377,7 +379,6 @@ export const conceptsStageStyles = `
   .cp-stage[data-layout='rail'] .cp-st-main { gap: var(--space-2); padding: var(--space-3); }
   .cp-stage[data-layout='rail'] .cp-st-foot { padding: var(--space-2) var(--space-3) var(--space-3); }
   .cp-st-about-btn { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; }
-  .cp-st-about { max-height: calc(40 * var(--svh)); overflow-y: auto; }
   .cp-stage[data-layout='phone'] .cp-st-dots, .cp-stage[data-layout='rail'] .cp-st-dots { justify-content: center; flex-wrap: wrap; }
   .cp-stage .cp-input { font-size: 1rem; }
 
