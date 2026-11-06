@@ -381,7 +381,7 @@ export default function Concepts() {
   const approve = async (d, extra) => {
     const r = await act({ action: 'approve', directionId: d.id, note: extra, name });
     if (r.bad) { setFormError(C.changes.required); return; }
-    if (r.ok) { setApproving(null); closeStage(); setData(x => ({ ...x, set: { ...x.set, status: 'approved', approvedDirectionId: d.id } })); setToast(C.approve.done(letterOf(directions.indexOf(d)))); window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' }); }
+    if (r.ok) { setApproving(null); closeStage({ toTop: true }); setData(x => ({ ...x, set: { ...x.set, status: 'approved', approvedDirectionId: d.id } })); setToast(C.approve.done(letterOf(directions.indexOf(d)))); window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' }); }
   };
   const change = async (d, text, clear) => {
     if (!text) { setFormError(C.changes.required); return; }
@@ -411,7 +411,7 @@ export default function Concepts() {
     const r = await act({ action: 'submit', name }, { silent: true });
     setBusy(false);
     if (r.ok) {
-      setSummary(false); closeStage();
+      setSummary(false); closeStage({ toTop: true });
       setData(x => ({ ...x, set: { ...x.set, submittedAt: new Date().toISOString(), status: r.data?.status || x.set.status } }));
       window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
     } else if (r.bad) { setSendError(R.sendBlocked(Math.max(1, left))); setSummary(false); await load({ quiet: true }); }
@@ -437,12 +437,13 @@ export default function Concepts() {
     setViewer({ dir, index });
     writeSS(FS_KEY, '1'); setFsSeen(true);
   }, []);
-  const closeStage = useCallback(() => {
+  const closeStage = useCallback((opts) => {
     const now = viewerRef.current?.dir;
     const from = stageFrom.current;
     setViewer(null);
     /* Focus goes back to the cue that opened it, or to the cue of the direction the client ended on. */
     requestAnimationFrame(() => {
+      if (opts && opts.toTop) { window.scrollTo({ top: 0, behavior: 'auto' }); return; }
       const id = dirsRef.current[now]?.id;
       const el = from && from.dir === now && from.el && document.contains(from.el) ? from.el : (id ? document.querySelector(`#cp-d-${id} .cp-main`) : null);
       el?.focus?.();
@@ -493,7 +494,7 @@ export default function Concepts() {
           <p className="cp-hint-p">{review ? C.intro.review : C.intro.hint}</p>
           {Number(data.set.round) > 1 && <span className="cp-round">{C.intro.round(data.set.round)}</span>}
           {!present && directions.some(d => d.items.length > 0) && (
-            <button type="button" className="cp-btn cp-btn--ghost cp-intro-fs" onClick={() => openStage(Math.max(0, directions.findIndex(d => d.items.length > 0)), 0)}><Maximize01 width={16} height={16} aria-hidden="true" />{review ? C.fullscreen.introReview : C.fullscreen.introPick}</button>
+            <button type="button" className="cp-btn cp-btn--ghost cp-intro-fs" onClick={(e) => openStage(Math.max(0, directions.findIndex(d => d.items.length > 0)), 0, e.currentTarget)}><Maximize01 width={16} height={16} aria-hidden="true" />{review ? C.fullscreen.introReview : C.fullscreen.introPick}</button>
           )}
         </div>
       </header>
@@ -556,9 +557,9 @@ export default function Concepts() {
       {changing && <ChangePanel d={changing} letter={letterOf(directions.indexOf(changing))} token={token} name={name} onName={setName} busy={busy} error={formError} onSend={(text, clear) => change(changing, text, clear)} onClose={() => { setChanging(null); setFormError(''); }} />}
       {summary && <SummarySheet rows={sumRows} name={name} onName={setName} busy={busy} error={sendError} onSend={submit} onClose={() => setSummary(false)} onJump={(id) => { setSummary(false); if (viewer) setViewer({ dir: Math.max(0, directions.findIndex(x => x.id === id)), index: 0 }); else jumpTo(id); }} />}
       {viewer && directions[viewer.dir] && (
-        <ConceptsStage directions={directions} dir={viewer.dir} index={viewer.index} onNav={(dir, index) => setViewer({ dir, index })} onClose={closeStage}
+        <ConceptsStage directions={directions} dir={viewer.dir} index={viewer.index} onNav={(dir, index) => setViewer({ dir, index })} onClose={() => closeStage()}
           review={review} present={present} submitted={submitted} allowPass={allowPass} approvedId={approvedId} decided={decided} token={token}
-          need={need} answered={answered} left={left} saving={saving} errors={errors}
+          need={need} answered={answered} left={left} saving={saving} errors={errors} sendError={sendError}
           onDecide={decide} onApprove={setApproving} onAsk={setChanging} onSend={() => { setSendError(''); setSummary(true); }} />
       )}
       {toast && overlay(<p className="cp-toast" role="status">{toast}</p>)}
@@ -649,7 +650,7 @@ export const conceptsStyles = `
   /* The cue: a black radial scrim, darkest behind the words (never under 0.6, so white text clears 4.5:1 even over a white picture), lighter toward the edges. Static: no transition, so nothing about it moves on its own. */
   .cp-cue { --cue-a: 0.78; --cue-b: 0.66; --cue-c: 0.18; position: absolute; inset: 0; z-index: 1; display: flex; align-items: center; justify-content: center; padding: var(--space-3); border-radius: inherit; background: radial-gradient(ellipse closest-side at 50% 50%, rgba(0, 0, 0, var(--cue-a)) 0%, rgba(0, 0, 0, var(--cue-b)) 70%, rgba(0, 0, 0, var(--cue-c)) 100%); color: var(--text); text-align: center; pointer-events: none; }
   .cp-main:hover .cp-cue, .cp-main:active .cp-cue { --cue-a: 0.88; --cue-b: 0.76; --cue-c: 0.28; }
-  .cp-cue-col { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); max-width: min(100%, 200px); }
+  .cp-cue-col { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); max-width: min(200px, 68%); }
   .cp-cue-ico { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--border-light); background: rgba(0, 0, 0, 0.55); color: var(--text); }
   @media (max-width: 479px) { .cp-cue-ico { width: 56px; height: 56px; } }
   .cp-cue-title { font-size: 1.375rem; line-height: 1.1; color: var(--text); }
@@ -746,6 +747,7 @@ export const conceptsStyles = `
   .cp-panel-hero.img-fit { display: block; height: 160px; margin-bottom: var(--space-4); background: var(--bg-elevated); border-radius: var(--radius); }
   .cp-panel-h { margin: 0; font-size: clamp(1.6rem, 4vw, 2.2rem); color: var(--text); }
   .cp-panel-p { margin: var(--space-2) 0 0; color: var(--text-secondary); line-height: 1.5; }
+  :root:has(.cp-stage) .cp-toast { bottom: auto; top: calc(56px + var(--space-3)); }
   .cp-toast { position: fixed; left: 50%; bottom: calc(var(--cp-bar-h, 0px) + var(--space-6)); transform: translateX(-50%); z-index: 90; margin: 0; max-width: min(92vw, 460px); padding: var(--space-3) var(--space-5); background: var(--chrome-solid); color: var(--text); border: 1px solid var(--border-light); border-radius: var(--radius); font-size: 0.9375rem; box-shadow: var(--shadow-chrome-strong); }
   .cp-skel { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); }
   .cp-skel-line { display: block; height: 20px; width: min(80%, 480px); border-radius: var(--radius); background: var(--glass-bg-strong); }

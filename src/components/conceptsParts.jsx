@@ -21,16 +21,20 @@ export const R = COPY.concepts.review;
  * transform up the tree never becomes its containing block (the planner's note). Focus goes to [data-autofocus], else
  * the first control, once when the dialog opens (a parent that re-renders and hands in a new onClose does not steal it
  * back), and returns to what held it when the dialog closes. */
+const openDialogs = []; // the stack of dialogs that are open: only the top one answers Escape and Tab (the stage under an approve panel stays put)
 export function useDialog(onClose) {
   const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
+    const me = {};
+    openDialogs.push(me);
     const before = typeof document !== 'undefined' ? document.activeElement : null;
     const root = ref.current;
     const first = root?.querySelector('[data-autofocus]') || root?.querySelector('button, input, textarea, [tabindex="0"]');
     first?.focus?.();
     const onKey = (e) => {
+      if (openDialogs[openDialogs.length - 1] !== me) return;
       if (e.key === 'Escape') { e.stopPropagation(); closeRef.current?.(); return; }
       if (e.key !== 'Tab') return;
       const f = [...(ref.current?.querySelectorAll('button:not([disabled]), input, textarea, [tabindex="0"]') || [])];
@@ -41,6 +45,7 @@ export function useDialog(onClose) {
     };
     window.addEventListener('keydown', onKey, true);
     return () => {
+      const at = openDialogs.indexOf(me); if (at >= 0) openDialogs.splice(at, 1);
       window.removeEventListener('keydown', onKey, true);
       if (before && before !== document.body && document.contains(before)) before.focus?.();
     };

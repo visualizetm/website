@@ -261,3 +261,11 @@ Resume here: prompt 2 of 3 shipped. Next is prompt 3 of 3.
 - [x] Milestone 6: the ship gate (lint, build, 43 handler and pure suites, p3-guard-proof 5 cuts, preship at 390 and 1280, a11y both themes, regression 118 steps, site-regression 18, gesture 16, chrome 140 states, empty 15 screens, stepper 192, the new browser tests), docs/screens re-captured (50 screenshots, every nav entry at 390 and 1280), docs/crm-screens deleted.
 
 Resume here: prompt 3 of 3 shipped. The remaining list is in the report and in docs/MOBILE-DECISIONS.md.
+
+
+## Concepts full screen
+
+- [x] Milestone 1 (985b774): the Enter full screen cue on every main image, the compact chip after the first entry, the intro button.
+- [x] Milestone 2 (985b774): the stage (Fullscreen API on the document element, wide, phone and rail layouts, images, dots, Next and Previous).
+- [x] Milestone 3 (985b774): decisions inside the stage (Review each, Pick one through the existing panels, locked and present sets, the summary and Send).
+- [ ] Milestone 4 (in progress): the audit entries (mkt-concepts-cue, -stage, -stage-phone, -stage-note, -stage-present; a11y clean on all 34 mkt-concepts rows), docs, concepts-fullscreen-test, concepts-fullscreen-guard-proof (6 cuts), the gate.
