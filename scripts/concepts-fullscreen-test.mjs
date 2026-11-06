@@ -44,7 +44,7 @@ const expected = (token) => publicConceptSet(sets.find(s => s.token === token));
 const dotStateOf = (pub, d) => (pub.set.approvalMode === 'review' ? (d.needsDecision === false ? 'reference' : d.decision?.status || 'open') : (d.id === pub.set.approvedDirectionId ? 'picked' : 'open'));
 
 /* ── A session: a context, a page, the recorder, and a public door of our own ── */
-async function session({ width = 390, height, token, touch, reduced = false, storage = true } = {}) {
+async function session({ width = 390, height, token, touch, reduced = false } = {}) {
   const h = height || (width < 768 ? 844 : 900);
   const ctx = await browser.newContext({ viewport: { width, height: h }, hasTouch: touch ?? width < 768, reducedMotion: reduced ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
   const page = await ctx.newPage();
@@ -612,7 +612,7 @@ async function section8Wide() {
   ok(g.label === 'Direction B of 3' && g.tops === 3, `wide label "${g.label}" and the dots in the top bar`);
   for (const [w, h] of [[900, 800], [1000, 800], [1920, 1000]]) {
     await p.setViewportSize({ width: w, height: h });
-    await p.waitForFunction((w) => document.querySelector('.cp-stage')?.dataset.layout === 'wide' && Math.round(document.querySelector('aside.cp-st-panel').getBoundingClientRect().width) > 0, w);
+    await p.waitForFunction((_w) => document.querySelector('.cp-stage')?.dataset.layout === 'wide' && Math.round(document.querySelector('aside.cp-st-panel').getBoundingClientRect().width) > 0, w);
     const pw = await p.evaluate(() => document.querySelector('aside.cp-st-panel').getBoundingClientRect().width);
     ok(pw >= 340 && pw <= 400, `the panel stays 340 to 400 at ${w}px (${Math.round(pw)}px)`);
   }
@@ -705,7 +705,7 @@ async function section10(width) {
     const S = await session({ width, token, reduced: true }); const p = S.page; await S.open();
     const hidden = await p.evaluate(() => [...document.querySelectorAll('.cp-sec')].filter(s => getComputedStyle(s).opacity !== '1').length);
     ok(hidden === 0, `${mode}: under reduced motion every section is visible from the first paint`);
-    const pagePass = async (where) => p.evaluate(() => [...document.querySelectorAll('.cp-cue, .cp-stage, .cp-stage *')].map(e => ({ t: getComputedStyle(e).transitionDuration, a: getComputedStyle(e).animationDuration, n: e.tagName.toLowerCase() + '.' + String(e.className?.baseVal ?? e.className).split(' ')[0] })).filter(x => window.__mv(x.t) || window.__mv(x.a)).map(x => `${x.n} ${x.t} ${x.a}`));
+    const pagePass = async (_where) => p.evaluate(() => [...document.querySelectorAll('.cp-cue, .cp-stage, .cp-stage *')].map(e => ({ t: getComputedStyle(e).transitionDuration, a: getComputedStyle(e).animationDuration, n: e.tagName.toLowerCase() + '.' + String(e.className?.baseVal ?? e.className).split(' ')[0] })).filter(x => window.__mv(x.t) || window.__mv(x.a)).map(x => `${x.n} ${x.t} ${x.a}`));
     ok((await pagePass()).length === 0, `${mode}: no cue has a transition or animation (stage closed)`);
     await openAt(p, 0);
     for (const step of ['open', 'next direction', 'an answer']) {

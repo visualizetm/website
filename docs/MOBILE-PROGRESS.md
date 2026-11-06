@@ -268,4 +268,4 @@ Resume here: prompt 3 of 3 shipped. The remaining list is in the report and in d
 - [x] Milestone 1 (985b774): the Enter full screen cue on every main image, the compact chip after the first entry, the intro button.
 - [x] Milestone 2 (985b774): the stage (Fullscreen API on the document element, wide, phone and rail layouts, images, dots, Next and Previous).
 - [x] Milestone 3 (985b774): decisions inside the stage (Review each, Pick one through the existing panels, locked and present sets, the summary and Send).
-- [ ] Milestone 4 (in progress): the audit entries (mkt-concepts-cue, -stage, -stage-phone, -stage-note, -stage-present; a11y clean on all 34 mkt-concepts rows), docs, concepts-fullscreen-test, concepts-fullscreen-guard-proof (6 cuts), the gate.
+- [x] Milestone 4 (tests and review fixes in 38b6cd4 and the commits after it): the audit entries (mkt-concepts-cue, -stage, -stage-phone, -stage-note, -stage-present; a11y clean on all 34 mkt-concepts rows), docs, concepts-fullscreen-test, concepts-fullscreen-guard-proof (6 cuts), the gate.
