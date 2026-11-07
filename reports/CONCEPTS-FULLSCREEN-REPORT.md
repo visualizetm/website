@@ -30,12 +30,13 @@ All on 2026-11-06. The three build milestones landed together because the cue, t
 | `layout-audit`, five widths | clean, zero offenders (3028 s) |
 | `a11y-audit`, both themes | 690 rows, 0 critical, 0 serious, 0 moderate, 0 minor |
 | `feel-audit`, dark, both motion modes | clean at 390 and 1280, no gaps logged |
-| `feel-audit`, light, both motion modes | see the final line of this report |
+| `feel-audit`, light, normal motion | clean at 390 and 1280, no gaps logged |
+| `feel-audit`, light, reduced motion | 288 rows, 65 gaps (fit 22, skeleton 28, entrance 4, cls 7, empty 2, error 2), identical to the commit before this work, see below |
 | concepts `scene-audit`, 320 390 430 768 1280 | clean |
 | concepts `scene-audit`, reduced motion | clean |
 | `regression` | 118 steps, 0 failures |
 | `site-regression` | 18 steps, 0 failures |
-| `npm run preship` | see the final line of this report |
+| `npm run preship` | PRE-SHIP PASSED (layout and scene detached at 390 and 1280, lint, hex, gesture, chrome, empty, docs-editor-audit, docs-flow-audit) |
 | review token `scene-audit` (extra, not in the gate) | 2 profiles fail, see below |
 
 ## Audit expectations changed
@@ -61,6 +62,8 @@ Each fault put into a copy of the repository and built; the test had to fail.
 - `useDialog` re-ran on every parent render and pulled focus off inputs in the existing panels; it now keeps `onClose` in a ref and answers Escape only on the top dialog (an approve panel over the stage closed both before).
 - A note draft leaked between directions and a slow save could close the editor of the direction the client had moved to; both fixed with a per direction draft and a direction guard.
 - The Review each page fails the scene audit's text overlap check at 390 and 1280 (the fixed "Send my answers" bar over the scrolling directions). The same two profiles fail on the milestone 1 build, so this is not from the stage. The gate in CLAUDE.md runs the Pick one token only, which passes. Left as is.
+
+- The light theme, reduced motion pass of the feel audit reports 65 gaps on admin screens (Analytics, Call Console, Settings, Projects, Triage, Deals, Clients, Drafts) and two Concepts editor rows at 1280 (cls 0.316), none of which this work touches. I built the commit before this work (6da1512) and ran the same pass: 288 rows, 65 gaps, the same counts and the same rows. So they were there before and are not changed by this work. Not fixed here because they are outside the job. The dark theme and the light normal motion passes log no gaps. (The container restarted during the first light run, so the reduced motion half was run again on its own.)
 
 ## Needs Rob's phone
 
