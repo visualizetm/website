@@ -68,6 +68,44 @@ both('a declined lead with a callback', { _id: 'e', business: 'E', stage: 'decli
 both('a nurture lead with a meeting', { _id: 'e', business: 'E', stage: 'nurture', meeting: { date: '2026-09-30', time: '10:00' } }, { sets: [] }, null);
 both('a won record', { _id: 'e', business: 'E', stage: 'won' }, {}, null);
 
+section("1b. whose callback: the caller's is not Rob's (Billy's Call Room 1b)");
+{
+  /* Every call Billy logs carries by: 'billy'; Rob's carry none. The callback is Billy's while the last call is his and the last outcome that asked for a callback is his. */
+  const cbAt = iso(NOW + 2 * 3600e3);
+  const billyCb = { at: iso(NOW - DAY), outcome: 'callback', note: 'After lunch', by: 'billy' };
+  const base = { _id: 'k', business: 'K', stage: 'lead', callStatus: 'callback', callbackAt: cbAt };
+  const billys = { ...base, callLog: [billyCb] };
+  both('a callback Billy set', billys, {}, null);
+  both('a callback Billy set on a triage lead', { ...billys, stage: 'triage' }, {}, null);
+  both('the same callback set by Rob', { ...base, callLog: [{ ...billyCb, by: undefined }] }, {}, { kind: 'callback', dueAt: cbAt });
+  both("Billy's callback, then his own no answer before the time", { ...base, callStatus: 'no-answer', callLog: [billyCb, { at: iso(NOW - 3600e3), outcome: 'no-answer', by: 'billy' }] }, {}, null);
+  both("Billy's callback after Rob logged his own callback", { ...base, callLog: [billyCb, { at: iso(NOW - 3600e3), outcome: 'callback', note: 'Rob rang' }] }, {}, { kind: 'callback', dueAt: cbAt });
+  both("Billy's callback after Rob rang with no answer", { ...base, callStatus: 'no-answer', callLog: [billyCb, { at: iso(NOW - 3600e3), outcome: 'no-answer' }] }, {}, { kind: 'callback', dueAt: cbAt });
+  both("Rob's callback that Billy then rang with no answer", { ...base, callStatus: 'no-answer', callLog: [{ at: iso(NOW - 2 * DAY), outcome: 'callback' }, { at: iso(NOW - 3600e3), outcome: 'no-answer', by: 'billy' }] }, {}, { kind: 'callback', dueAt: cbAt });
+  both("Rob's picker callback on a lead Billy last rang", { ...base, callStatus: 'no-answer', callLog: [{ at: iso(NOW - DAY), outcome: 'no-answer', by: 'billy' }] }, {}, { kind: 'callback', dueAt: cbAt });
+  both("Billy's callback on a lead Rob then booked", { ...billys, stage: 'booked', callStatus: 'booked', callLog: [billyCb, { at: iso(NOW - 3600e3), outcome: 'booked' }], meeting: { date: '2026-09-30', time: '16:30' } }, { sets: [] }, { kind: 'build-concepts' });
+  both("Billy's overdue callback", { ...billys, callbackAt: iso(NOW - 2 * DAY) }, {}, null);
+  rec([server.callbackAtOf(billys), server.callbackIsCallers(billys), server.callbackDue(billys)]);
+  for (const [name, mod] of (NY ? [['client', client], ['server', server]] : [['server', server]])) {
+    ok(mod.callbackIsCallers(billys) === true && mod.callbackAtOf(billys) === 0 && mod.callbackDue(billys) === null, `${name}: a callback Billy set is his: no callback for Rob and no push owed`);
+    ok(mod.callbackIsCallers({ ...base, callLog: [] }) === false && mod.callbackIsCallers({ ...base }) === false && mod.callbackIsCallers(null) === false && mod.callbackIsCallers({ callLog: 'junk' }) === false && mod.callbackIsCallers({ callLog: [null, 'x'] }) === false, `${name}: a lead with no log, or an odd one, is Rob's and nothing throws`);
+    const manual = { ...billys, nextAction: { kind: 'callback', label: 'Call back', dueAt: cbAt, auto: false, doneAt: '' } };
+    ok(mod.callbackDue(manual)?.at === new Date(cbAt).getTime() && mod.resolveNextAction(manual, mod.nextActionFor(manual, {}, NOW))?.kind === 'callback', `${name}: a callback Rob set by hand on that lead is still Rob's own`);
+  }
+  if (NY) {
+    /* The one queue the home's Today, Coming up and Overdue, the Tasks badge and the drawer all read. */
+    const robs = { ...base, _id: 'r', business: 'Rob Co', callLog: [{ at: iso(NOW - DAY), outcome: 'callback' }] };
+    const late = { ...billys, _id: 'l', business: 'Billy Late Co', callbackAt: iso(NOW - 2 * DAY) };
+    const soon = { ...billys, _id: 's', business: 'Billy Soon Co', callbackAt: iso(NOW + 3 * DAY) };
+    const q = client.nextUpItems([billys, late, soon, robs], [], [], NOW);
+    const every = [...q.overdue, ...q.today, ...q.later, ...q.beyond, ...q.undated, ...q.all];
+    ok(every.length > 0 && every.every(i => i.lead._id === 'r'), `nextUpItems holds Rob's callback and none of Billy's (today, later, overdue, beyond; got ${[...new Set(every.map(i => i.lead.business))].join(', ')})`);
+    ok(client.nextUpBadge([billys, late, soon], [], [], NOW) === 0 && client.nextUpBadge([billys, late, soon, robs], [], [], NOW) === 1, "the badge counts Rob's callback and none of Billy's");
+    const taken = { ...late, callLog: [billyCb, { at: iso(NOW - 3600e3), outcome: 'callback', note: 'Rob took it' }], callbackAt: iso(NOW + 3600e3) };
+    ok(client.nextUpItems([taken], [], [], NOW).today.length === 1, 'once Rob logs his own outcome the lead is back in his Today');
+  }
+}
+
 section('2. projects');
 both('a project with an unpaid line past its date', { _id: 'p2', leadId: 'd', stage: 'build', schedule: [{ id: 's1', amount: 300, dueAt: '2026-09-20', status: 'upcoming' }], delivery: { pitchSent: false } }, {}, { kind: 'chase-invoice', dueAt: iso(NOW) });
 both('a project with a line due today', { _id: 'p2', leadId: 'd', stage: 'build', schedule: [{ id: 's1', amount: 300, dueAt: '2026-09-28', status: 'upcoming' }] }, {}, null);

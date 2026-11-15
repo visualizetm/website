@@ -33,14 +33,28 @@ export function dayBeforeAt9(meetingIso) { const m = parseDate(meetingIso); if (
 /* The callback a lead is waiting on, in ms (0 for none). The Next up row (leadAction) and the reminders cron (callbackDue) read this
  * and nothing else. It is a callbackAt on an open record (triage or lead) that nothing has answered; callStatus is not required to
  * be 'callback', because the record's own picker wrote callbackAt alone while the Call Console, the calendar and the swipe write
- * both. A call outcome that closes the call (booked, no, wrong number) is not a callback, and a call logged at or after the time
- * has answered it. */
+ * both. A call outcome that closes the call (booked, no, wrong number) is not a callback, a call logged at or after the time
+ * has answered it, and a callback the caller holds (callbackIsCallers) is his, not Rob's. */
 const CALL_CLOSED = ['booked', 'no', 'wrong-number'];
+/* Whose callback it is (Billy's Call Room 1b). A callback the caller set is the caller's: it waits in his Call Room, it is in none of
+ * Rob's Next up lists, and Rob gets no reminder for it. The call log is the stamp, because every outcome the caller logs carries
+ * by: 'billy' and Rob's carry none. The callback is the caller's while the last call on the lead is his and the last outcome that
+ * asked for a callback is his too. Rob logging his own outcome puts Rob's call last, and a booking leaves the stages a callback
+ * lives in, so either one makes it Rob's again. */
+const CALLER_ID = 'billy';
+export function callbackIsCallers(lead) {
+  const log = (Array.isArray(lead?.callLog) ? lead.callLog : []).filter(e => e && typeof e === 'object');
+  const last = log[log.length - 1];
+  if (!last || last.by !== CALLER_ID) return false;
+  const asked = [...log].reverse().find(e => e.outcome === 'callback');
+  return !!asked && asked.by === CALLER_ID;
+}
 export function callbackAtOf(lead) {
   if (!lead || typeof lead !== 'object' || lead.deleted) return 0;
   const stage = normalizeStage(lead);
   if (stage !== 'lead' && stage !== 'triage') return 0;
   if (CALL_CLOSED.includes(lead.callStatus)) return 0;
+  if (callbackIsCallers(lead)) return 0;
   const at = parseDate(lead.callbackAt)?.getTime() || 0;
   if (!at) return 0;
   if (lead.callStatus === 'callback') return at;

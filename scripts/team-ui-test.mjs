@@ -25,7 +25,10 @@ async function session(width, opts = {}) {
   /* A booking Billy made an hour ago, with the meeting three days out: what the home looks like right after he books (the fixture's own
      booked leads meet today, and a booking becomes a deal an hour past its meeting, so they cannot stand in for one still ahead). */
   const fresh = { ...leads[8], _id: 'LB1', business: 'Billy Booked Bakery', listId: '', deal: undefined, nextAction: undefined, meeting: { date: daysFrom(3), time: '10:00', type: 'call', location: '' }, bookedBy: { who: 'billy', at: new Date(Date.now() - 3600e3).toISOString() } };
-  if (opts.leads !== false) await page.route('**/api/admin/call-leads**', (r) => (r.request().method() === 'GET' && !/deleted=1/.test(r.request().url()) ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [...leads, fresh] }) }) : r.fallback()));
+  /* Two callbacks due later today on plain leads: one Billy set (his call, by: 'billy') and one Rob set. Only Rob's is Rob's to see (1b). */
+  const soon = (id, business, mins, by) => ({ ...leads[3], _id: id, business, stage: 'lead', listId: '', nextAction: undefined, callStatus: 'callback', callbackAt: new Date(Date.now() + mins * 60e3).toISOString(), callLog: [{ at: new Date(Date.now() - 864e5).toISOString(), outcome: 'callback', note: 'Call after lunch', meeting: '', email: '', ...(by ? { by } : {}) }] });
+  const extra = [fresh, soon('LB2', 'Billy Callback Bakery', 5, 'billy'), soon('LB3', 'Rob Callback Bakery', 6, '')];
+  if (opts.leads !== false) await page.route('**/api/admin/call-leads**', (r) => (r.request().method() === 'GET' && !/deleted=1/.test(r.request().url()) ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [...leads, ...extra] }) }) : r.fallback()));
   const errors = []; page.on('pageerror', (e) => errors.push(String(e)));
   return { ctx, page, team, errors };
 }
@@ -52,6 +55,25 @@ for (const width of [390, 1280]) {
   const tagged = await p.locator('[data-booked-by="billy"]').evaluateAll(els => els.map(e => `${e.closest('[data-card]')?.getAttribute('data-card')}: ${e.innerText.replace(/\n+/g, ' | ')}`));
   ok(tagged.length >= 1 && tagged.every(t => /Billy Booked Bakery · Booked by Billy/.test(t)) && tagged.some(t => t.startsWith('next-coming')), `his booking shows under Coming up with "Booked by Billy" (${tagged.map(t => t.slice(0, 60)).join(' / ')})`);
   ok(await p.locator('[data-row-id="L9"][data-booked-by]').count() === 0 && await p.locator('[data-row-id="L10"][data-booked-by]').count() === 0, 'a lead that is a deal by now, and one he never booked, do not');
+
+  /* 2b. A callback Billy set is Billy's: none of Rob's Next up lists, the Tasks page or the drawer shows it (1b) */
+  const homeRows = await p.locator('[data-card="next-today"] .nh-row, [data-card="next-coming"] .nh-row, [data-card="next-overdue"] .nh-row').evaluateAll(els => els.map(e => e.innerText.replace(/\n+/g, ' | ')));
+  ok(homeRows.some(t => /Rob Callback Bakery/.test(t)) && !homeRows.some(t => /Billy Callback Bakery/.test(t)), `the home lists the callback Rob set and not the one Billy set (${homeRows.filter(t => /Callback Bakery/.test(t)).map(t => t.slice(0, 40)).join(' / ')})`);
+  await p.locator('.sh-bell').click();
+  await p.waitForSelector('.v-sheet', { timeout: 5000 });
+  const drawer = await p.locator('.v-sheet').innerText();
+  ok(/Rob Callback Bakery/.test(drawer) && !/Billy Callback Bakery/.test(drawer), 'the notifications drawer has Rob\'s callback and not Billy\'s');
+  await p.keyboard.press('Escape');
+  await p.waitForSelector('.v-sheet', { state: 'detached', timeout: 5000 }).catch(() => {});
+  await p.goto(`${ADMIN}/tasks`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.tr-row, .v-empty', { timeout: 8000 }).catch(() => {});
+  const tasksText = await p.locator('.sh-content').innerText();
+  ok(/Rob Callback Bakery/.test(tasksText) && !/Billy Callback Bakery/.test(tasksText), 'the Tasks page (the Next up queue) has Rob\'s callback and not Billy\'s');
+  await p.goto(`${ADMIN}/calls?section=leads`, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(600);
+  ok(/Billy Callback Bakery/.test(await p.locator('.sh-content').innerText()), 'the lead itself is still in Rob\'s Leads: only the callback is Billy\'s');
+  await p.goto(`${ADMIN}/`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('[data-card="billy"] .bt-in', { timeout: 8000 });
 
   /* 3. One height in every state: loading, failed, loaded */
   const F = await session(width, { routes: { fail: ['team'] } });

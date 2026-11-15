@@ -40,6 +40,8 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
   const { callOutcomeSet } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'callOutcome.js')).href);
   const roomLib = await import(pathToFileURL(path.join(repoRoot, 'src', 'room', 'roomLib.js')).href);
   const zone = await load('_lib/zone.js');
+  const srvNA = await load('_lib/nextAction.js');
+  const cliNA = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'nextAction.js')).href);
 
   const out = [];
   const check = (id, guard, desc, pass) => out.push({ id, guard, desc, pass: !!pass });
@@ -511,6 +513,21 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const twice = await admin('team', 'POST', { body: { action: 'undo-decline', rowId: drow?.id, leadId: L(2) } });
     const wrong = await admin('team', 'POST', { body: { action: 'undo-decline', rowId: drow?.id, leadId: L(12) } });
     check('undo-decline', null, 'Undo on a batch row puts that one lead back to the stage it had, once; a lead the row never held is 404', undo._status === 200 && undo._json?.stage === 'triage' && lead(2).stage === 'triage' && !lead(2).declined && twice._status === 409 && wrong._status === 404 && (_stores.team_activity.find(r => String(r._id) === String(drow?.id))?.undone || []).includes(L(2)));
+
+    /* 1b: a callback Billy sets is Billy's, through the real handlers, until Rob logs his own outcome on the lead. */
+    const when = new Date(Date.now() + 3 * 3600e3).toISOString();
+    const setCb = await billy('POST', 'outcome', { leadId: L(5), outcome: 'callback', callbackAt: when, note: 'After the lunch rush' });
+    const mine = JSON.parse(JSON.stringify(lead(5)));
+    const robQueue = cliNA.nextUpItems([mine], [], [], Date.now());
+    const billysHome = ((await billy('GET', 'home'))._json?.leads || []).find(l => l.id === L(5));
+    check('callback-owner', null, 'a callback Billy sets is his: no callback next action is stored for Rob, the cron rule owes Rob no push, Rob\'s Next up does not hold it, and Billy still has it',
+      setCb._status === 200 && mine.callbackAt === when && mine.callLog.slice(-1)[0]?.by === 'billy' && srvNA.callbackIsCallers(mine) && srvNA.callbackDue(mine) === null && cliNA.callbackDue(mine) === null && (!mine.nextAction || mine.nextAction.kind !== 'callback') && [...robQueue.all, ...robQueue.beyond].length === 0 && billysHome?.callbackAt === when && billysHome?.callStatus === 'callback');
+    /* Rob's write, built the way his app builds it: the shared helper adds the recomputed next action to the set. */
+    const robSet = cliNA.withNextAction(mine, { callStatus: 'callback', callbackAt: when, callLog: [...mine.callLog, { at: new Date().toISOString(), outcome: 'callback', note: 'Rob rang, same time', meeting: '', email: '' }] }, { projects: [], sets: [] }, Date.now());
+    const takeOver = await admin('call-leads', 'PATCH', { body: { id: L(5), set: robSet } });
+    const taken = lead(5);
+    check('callback-takeover', null, 'once Rob logs his own outcome on the lead the callback is Rob\'s again: his next action is the callback and the cron owes him the push; Billy\'s earlier call still says by billy',
+      takeOver._status === 200 && robSet.nextAction?.kind === 'callback' && !srvNA.callbackIsCallers(taken) && srvNA.callbackDue(taken)?.at === new Date(when).getTime() && taken.nextAction?.kind === 'callback' && taken.callLog.slice(-2)[0]?.by === 'billy' && !taken.callLog.slice(-1)[0]?.by);
   });
 
   /* ── 5. Static: nothing destructive, nothing that sends ─────────────── */

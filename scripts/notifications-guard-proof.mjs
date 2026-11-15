@@ -20,6 +20,8 @@ const COV = 'api/_lib/coveragePush.js';
 const GUARDS = [
   { name: 'callback-needs-callstatus', what: 'a callback counts only when callStatus says callback (the record picker writes callbackAt alone)', test: 'coverage-push-test.mjs',
     edits: [[NA, "  if (lead.callStatus === 'callback') return at;\n", "  if (lead.callStatus !== 'callback') return 0;\n"], [NA_SRC, "  if (lead.callStatus === 'callback') return at;\n", "  if (lead.callStatus !== 'callback') return 0;\n"]] },
+  { name: 'callers-callback-is-robs', what: "a callback Billy set is Rob's again: it shows in his Next up and pushes him (Billy's Call Room 1b, the old behaviour)", test: 'coverage-push-test.mjs',
+    edits: [[NA, "  if (callbackIsCallers(lead)) return 0;\n", ''], [NA_SRC, "  if (callbackIsCallers(lead)) return 0;\n", '']] },
   { name: 'backlog-guard', what: 'a reminder is pushed however late it is (the first live run after a dead cron floods)', test: 'minute-reminders-test.mjs',
     edits: [[CRON, 'const PUSH_WINDOW_MS = 10 * 60e3;', 'const PUSH_WINDOW_MS = 1e15;']] },
   { name: 'stamp-on-zero-delivered', what: 'a reminder no device took is stamped as sent', test: 'minute-reminders-test.mjs',

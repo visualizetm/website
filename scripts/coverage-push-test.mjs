@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Push coverage (finish notifications, milestone 3): every place a callback or a meeting lives pushes, and Next up agrees.
  *   1. a callback pushes whatever callStatus says (the record's picker writes callbackAt alone), unless the lead is closed,
- *      declined, parked, booked, answered by a later call, or its next action is done; a manual callback (a snoozed row) wins
+ *      declined, parked, booked, answered by a later call, or its next action is done; a manual callback (a snoozed row) wins;
+ *      a callback Billy set is Billy's (no push to Rob, no row in Next up) until Rob logs his own outcome on the lead
  *   2. the reminders cron and nextUpItems answer the same question for every one of those leads (one rule, two readers)
  *   3. a meeting pushes 15 minutes before it starts and when it starts, each once; booked, deal, won and client records, a
  *      record with no stage whose callStatus is booked, and the outcome sheet's afterCall text all count
@@ -82,17 +83,37 @@ const CALLBACKS = [
   ['a manual callback (snoozed row) with an old callbackAt', { stage: 'lead', callStatus: 'callback', callbackAt: iso(T - 2 * 864e5), callLog: [{ at: iso(T - 3 * 864e5), outcome: 'callback' }], nextAction: { kind: 'callback', label: 'Call back', dueAt: iso(T), auto: false, doneAt: '' } }, true],
   ['a manual callback already done', { stage: 'lead', callStatus: 'no-answer', callbackAt: '', callLog: [{ at: iso(T - 3 * 864e5), outcome: 'no-answer' }], nextAction: { kind: 'callback', label: 'Call back', dueAt: iso(T), auto: false, doneAt: iso(T - 5 * MIN) } }, false],
 ];
-const rows = CALLBACKS.map(([name, f, want], i) => {
-  const fields = f;
-  return { name, want, lead: { _id: id(), business: `Callback${i} Co`, phone: '555-0100', socials: {}, callbackAt: iso(T), ...fields } };
-});
+const CALLER_CALLBACKS = [
+  /* Billy's Call Room 1b: a callback the caller set is his, not Rob's, until Rob takes the lead over. Every call Billy logs carries by: 'billy'. */
+  ['a callback Billy set', { stage: 'lead', callStatus: 'callback', callLog: [{ at: iso(T - 864e5), outcome: 'callback', by: 'billy' }] }, false],
+  ['a callback Billy set on a triage lead', { stage: 'triage', callStatus: 'callback', callLog: [{ at: iso(T - 864e5), outcome: 'callback', by: 'billy' }] }, false],
+  ['Billy\'s callback, then his own no answer before the time', { stage: 'lead', callStatus: 'no-answer', callLog: [{ at: iso(T - 2 * 864e5), outcome: 'callback', by: 'billy' }, { at: iso(T - 864e5), outcome: 'no-answer', by: 'billy' }] }, false],
+  ['Billy\'s callback after Rob logged his own callback (Rob took it over)', { stage: 'lead', callStatus: 'callback', callLog: [{ at: iso(T - 2 * 864e5), outcome: 'callback', by: 'billy' }, { at: iso(T - 864e5), outcome: 'callback' }] }, true],
+  ['Billy\'s callback after Rob rang with no answer (Rob took it over)', { stage: 'lead', callStatus: 'no-answer', callLog: [{ at: iso(T - 2 * 864e5), outcome: 'callback', by: 'billy' }, { at: iso(T - 864e5), outcome: 'no-answer' }] }, true],
+  ['Rob\'s callback that Billy then rang with no answer', { stage: 'lead', callStatus: 'no-answer', callLog: [{ at: iso(T - 2 * 864e5), outcome: 'callback' }, { at: iso(T - 864e5), outcome: 'no-answer', by: 'billy' }] }, true],
+  ['Rob\'s picker callback on a lead Billy last rang', { stage: 'lead', callStatus: 'no-answer', callLog: [{ at: iso(T - 864e5), outcome: 'no-answer', by: 'billy' }] }, true],
+  ['Billy\'s callback on a lead Rob then booked', { stage: 'booked', callStatus: 'booked', callLog: [{ at: iso(T - 2 * 864e5), outcome: 'callback', by: 'billy' }, { at: iso(T - 864e5), outcome: 'booked' }] }, false],
+  ['Rob\'s own manual callback on a lead whose callback is Billy\'s', { stage: 'lead', callStatus: 'callback', callLog: [{ at: iso(T - 864e5), outcome: 'callback', by: 'billy' }], nextAction: { kind: 'callback', label: 'Call back', dueAt: iso(T), auto: false, doneAt: '' } }, true],
+];
+const mkRows = (list, word) => list.map(([name, f, want], i) => ({ name, want, lead: { _id: id(), business: `${word}${i} Co`, phone: '555-0100', socials: {}, callbackAt: iso(T), ...f } }));
+const robRows = mkRows(CALLBACKS, 'Callback');
+/* Their own run: a run with many things due sends one combined push, which names nobody in its title. */
+const callerRows = mkRows(CALLER_CALLBACKS, 'Caller');
+const rows = [...robRows, ...callerRows];
 seed();
-_stores.call_leads = rows.map(r => r.lead);
+_stores.call_leads = robRows.map(r => r.lead);
 await runReminders(db, T);
-for (const r of rows) ok(has(new RegExp(`Call back: ${r.lead.business}`)) === r.want, `${r.name}: ${r.want ? 'pushes' : 'does not push'}`);
+for (const r of robRows) ok(has(new RegExp(`Call back: ${r.lead.business}`)) === r.want, `${r.name}: ${r.want ? 'pushes' : 'does not push'}`);
 const before = _pushes.length;
 await runReminders(db, T + MIN); await runReminders(db, T + 2 * MIN);
 ok(_pushes.length === before, 'two more runs push nothing: each callback is on its key');
+
+section("1b. a callback Billy set is Billy's: no push to Rob until Rob takes the lead over");
+seed();
+_stores.call_leads = callerRows.map(r => r.lead);
+await runReminders(db, T);
+for (const r of callerRows) ok(has(new RegExp(`Call back: ${r.lead.business}`)) === r.want, `${r.name}: ${r.want ? 'pushes' : 'does not push'}`);
+ok(callerRows.filter(r => r.want).length === 5 && callerRows.filter(r => !r.want).length === 4, 'five of those are Rob\'s and four are not');
 
 section('2. the cron and nextUpItems answer the same question');
 for (const r of rows) {
@@ -185,10 +206,13 @@ section('6. the morning digest');
     { _id: id(), business: 'Deal Digest Co', stage: 'deal', callStatus: 'booked', meeting: { date: DAY, time: '14:00' }, socials: {} },
     { _id: id(), business: 'After Digest Co', stage: 'booked', callStatus: 'booked', afterCall: { meeting: `${DAY} 16:30` }, socials: {} },
     { _id: id(), business: 'Picker Digest Co', stage: 'lead', callStatus: 'no-answer', callLog: [{ at: iso(at(8, 0) - 864e5) }], callbackAt: iso(at(9, 0)), socials: {} },
+    /* A callback Billy set is his: the digest neither counts it nor names it. */
+    { _id: id(), business: 'Billy Digest Co', stage: 'lead', callStatus: 'callback', callLog: [{ at: iso(at(8, 0) - 864e5), outcome: 'callback', by: 'billy' }], callbackAt: iso(at(10, 0)), socials: {} },
   ];
   await runReminders(db, at(8, 31));
   const d = _pushes.find(p => /^Today:/.test(p.title));
   ok(!!d && /2 meetings/.test(d.title) && /1 callback/.test(d.title), `the digest counts both meetings and the picker callback (${d?.title})`);
+  ok(!!d && !/Billy Digest Co/.test(`${d.title} ${d.body || ''}`), 'and a callback Billy set is in neither its count nor its names');
   ok(/Deal Digest Co at 2:00 PM/.test(d?.body || '') && /After Digest Co at 4:30 PM/.test(d?.body || '') && /Picker Digest Co/.test(d?.body || ''), 'and names them');
 }
 
