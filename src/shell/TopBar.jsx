@@ -54,10 +54,13 @@ export const topBarStyles = `
   .sh-top-back { margin-left: calc(-1 * var(--v-space-2)); }
   .sh-top-title { margin: 0; font-family: var(--v-font-display); font-size: var(--v-text-2xl); line-height: var(--v-lh-2xl); letter-spacing: var(--v-ls-2xl); text-transform: uppercase; font-weight: var(--v-weight-bold); color: var(--v-text); min-width: 0; }
   .sh-top-center { display: none; min-width: 0; justify-content: center; }
-  @media (min-width: 768px) { .sh-top-center { display: flex; align-items: center; gap: var(--v-space-3); } .sh-top-searchbtn { display: none; } }
-  /* The overview strip (the nav revamp) sits left of the search; under 1100px it drops its labels. */
-  .sh-top-center .v-ov { flex-shrink: 0; }
-  @media (max-width: 1099px) { .sh-top-center .v-ov .v-ov-label, .sh-top-center .v-ov .v-ov-extra { display: none; } .sh-top-center .v-ov .v-ov-pill { padding: 0 var(--v-space-2); } }
+  @media (min-width: 768px) { .sh-top-center { display: flex; align-items: center; gap: var(--v-space-3); container-type: inline-size; container-name: topbar; } .sh-top-searchbtn { display: none; } }
+  /* The search always keeps a usable width (180px) and the overview strip (the nav revamp), left of it, gives way first, by the room the
+     centre really has (the sidebar takes its share, so the viewport is the wrong ruler): under 700px it drops its labels, and when even the
+     three bare pills do not fit beside the search it wraps onto a second line. Never the search, never the title. */
+  .sh-top-center .sh-cmd { flex: 1 1 180px; min-width: 180px; }
+  .sh-top-center .v-ov { flex: 0 1 auto; min-width: 0; flex-wrap: wrap; justify-content: flex-end; }
+  @container topbar (max-width: 699px) { .sh-top-center .v-ov .v-ov-label, .sh-top-center .v-ov .v-ov-extra { display: none; } .sh-top-center .v-ov .v-ov-pill { padding: 0 var(--v-space-2); } }
   .sh-top-right { display: flex; align-items: center; gap: var(--v-space-1); flex-shrink: 0; }
   .sh-top-bell { position: relative; display: inline-flex; }
   .sh-bell-badge { top: 4px; right: 4px; pointer-events: none; }
