@@ -6,7 +6,7 @@ import { apiFetch } from '../../shared/api';
 import { COPY } from '../../shared/copy';
 import { formatPhone, telHref } from '../../shared/phone';
 import { fmtDate } from '../../shared/dates';
-import { CALL_STEPS as STEPS, stepSet, startStepFor, objectionPatch, scriptLine, sayItBack, slotsFor, slotToMeeting, laterToday, conceptTaskDue, voicemailText, nightBeforeText, inviteOverride, fmtTime12 } from '../../shared/callScript';
+import { CALL_STEPS as STEPS, OWNER, stepSet, startStepFor, objectionPatch, scriptLine, sayItBack, slotsFor, slotToMeeting, laterToday, conceptTaskDue, voicemailText, nightBeforeText, inviteOverride, fmtTime12 } from '../../shared/callScript';
 import { callOutcomeSet } from '../../lib/callOutcome';
 import { checklistsPatch } from '../../lib/taskWrite';
 import { addTask } from '../../shared/taskRules';
@@ -25,7 +25,7 @@ import { ObjectionCards, objectionStyles } from './ObjectionSheet';
  *   Lock it in  the meeting (the record's own booking write), callStatus booked, the invite email and the night before
  *               text drafted into Drafts (never sent; Rob taps Send now in the send sheet), and "Build the concept" due
  *               the night before at 8 PM New York through src/lib/taskWrite.js. */
-export default function CallStepper({ open, lead, onClose, onPatch, onLog = null, startStep = null }) {
+export default function CallStepper({ open, lead, onClose, onPatch, onLog = null, startStep = null, caller = OWNER }) {
   const toast = useToast();
   const [step, setStep] = useState(() => startStep || startStepFor(lead));
   const ac = lead?.afterCall || {};
@@ -37,7 +37,7 @@ export default function CallStepper({ open, lead, onClose, onPatch, onLog = null
   const [busy, setBusy] = useState(false);
   const [slots, setSlots] = useState(null); // { slots: [{iso,label}], source }
   const set = (k, v) => setD(x => ({ ...x, [k]: v }));
-  const line = (k) => scriptLine(lead, k);
+  const line = (k) => scriptLine(lead, k, caller); // who is dialing names the lines (Billy's Call Room passes its caller)
   const cur = STEPS[step - 1];
 
   /* Calendly's next two open starts, asked for once the sheet opens so the Two times step has them; four seconds, then the defaults. */
@@ -64,7 +64,7 @@ export default function CallStepper({ open, lead, onClose, onPatch, onLog = null
       await onPatch(stepSet(lead, { answered: 'none' }, 1));
       const ok = await log('no-answer', { note: 'No answer, voicemail text drafted', callbackAt: laterToday() }, merged);
       if (ok === false) return;
-      const r = await apiFetch('/api/admin/email/drafts', { method: 'POST', body: { channel: 'text', recordId: String(lead._id), subject: 'Voicemail follow up', body: voicemailText(lead), reason: 'No answer on the script' } });
+      const r = await apiFetch('/api/admin/email/drafts', { method: 'POST', body: { channel: 'text', recordId: String(lead._id), subject: 'Voicemail follow up', body: voicemailText(lead, caller), reason: 'No answer on the script' } });
       if (!r.ok) toast.error(r.data?.error || COPY.error.save);
       else toast.success('No answer logged. The voicemail text is in Drafts and a callback is set for later today.');
       window.dispatchEvent(new CustomEvent('vz:drafts-changed'));

@@ -522,3 +522,20 @@ Milestone 1, the walls:
 - Billy renames only the lists he made and skips only on a list he calls. "N left of M": M is the list's `target`, which a list Billy made grows as leads are added; Rob's own target on a list Rob made is not touched.
 - The contact fix does not recompute the score; the nightly job does.
 - Pushes: a booking is `meetings` (it is one). A finished session fits none of the seven, so `team` was added to both mirrors and the exact id list in push-prefs-test is now eight (a changed expectation, reported under CHANGED RULES).
+
+Milestone 2, the call room:
+
+- All of Billy's client code is src/room/ (its own lazy chunk, mounted for /room on the admin host). Nothing of the admin mounts there and no file in it names an admin endpoint; email-safety-test scans the folder for both.
+- The frame is the admin shell's own classes: the frame rules moved to src/shell/frame.styles.js and AppShell reads them back, so the audits read one contract. Rejected: a second set of shell rules for the room.
+- The room's tree is in src/shell/backTree.js beside the admin's (`roomParentOf`, `roomChromeOf`, `roomTabOf`): Calls, Callbacks and Me are roots with tabs; the lead card and the summary are focused; the call room and booking back to the lead card, never to a root. back-test section 6 and two cuts in back-guard-proof.
+- TabBar takes `tabs` and `more` so the room passes its three tabs to the same glass pill. On a computer the admin shows a side rail; the room has no rail, so its pill shows centred at 768 and up.
+- The call room is a new screen over the shared step module, not the console's CallStepper sheet mounted again: that sheet's two outcomes post to admin only draft endpoints (wall beats convenience). What is shared is the pure half: `ROOM_STEPS`, `scriptLine(lead, key, caller)`, `voicemailText(lead, caller)`, and the console's ObjectionSheet, OutcomeSheet, CallbackPicker and DeclineSheet as they are. CallStepper gained a `caller` prop (default Rob) and nothing else.
+- No script line holds a name. Templates carry `{{caller}}` and `{{owner}}`; `OWNER` is the one constant; the console's lines are derived from the same templates, so Rob's wording is unchanged (close-test and stepper-test agree). A caller who is not the owner gets partner wording (he books Rob's time), and `sayAs` rewrites the speaker in a line saved on the lead itself.
+- An objection tapped in Billy's room is kept in memory for that call only. The console writes it to the lead; the caller route has no such write and one was not added.
+- What they said lives on the device per lead (sessionStorage, `rm_said_<id>`) and goes out with the outcome. Sign out clears every `rm_` key, the home data and the session.
+- A lead called outside a session starts a session of one, so the summary and the session row are the same code on both paths.
+- The Booked choice is behind `BOOKING_ON` (off) until milestone 4 lands the server's slot check; nothing else changes when it flips.
+- Callbacks: a row is one control that opens the lead card (the Call link is on the card, one real control per row). Callbacks past tomorrow get a fifth section, Later, rather than vanishing.
+- CallbackPicker takes `clearable` (default on); Billy's has no Clear, since a callback outcome without a time is not a callback.
+- /room skips the admin's warm up fetches in src/main.jsx: they would answer 401 for Billy and spend his first second.
+- Tests: scripts/room-test.mjs (the pure half, 43 checks) and scripts/room-ui-test.mjs (the walk at 390 and 1280 against the mocked caller door in audit-fixtures). In headless Chromium a tel: or sms: tap swallows the next tap, so the walk cancels the navigation of those two link kinds and nothing else; the handlers still run.

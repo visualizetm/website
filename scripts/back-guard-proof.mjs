@@ -4,7 +4,9 @@
  *   planner-to-root   a record's sub screen backs to the section root instead of the record (the old nav-history fallback)
  *   room-to-calls     the room backs to Calls instead of the queue
  *   summary-home      the summary backs to the home
- *   design-root       the design system is a root again (no Back, reachable from anywhere) */
+ *   design-root       the design system is a root again (no Back, reachable from anywhere)
+ *   callroom-to-calls Billy's call room backs to Calls instead of its lead card
+ *   room-lead-origin  a room lead opened from Callbacks backs to Calls instead of Callbacks */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +19,8 @@ const CUTS = [
   { name: 'planner-to-root', file: T, check: /planner|tasks backs to the client|docs back to the client|showcase/, from: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return recordPathOf('clients', m[1]);", to: "  if ((m = p.match(/^\\/clients\\/([^/]+)\\/(planner|tasks|docs|showcase)$/))) return '/clients';" },
   { name: 'room-to-calls', file: T, check: /room backs to the queue/, from: "  if (/^\\/calls\\/room\\/[^/]+$/.test(p)) return '/calls/queue';", to: "  if (/^\\/calls\\/room\\/[^/]+$/.test(p)) return '/calls';" },
   { name: 'summary-home', file: T, check: /summary backs to Calls/, from: "  if (p === '/calls/queue' || p === '/calls/summary') return '/calls';", to: "  if (p === '/calls/queue') return '/calls';\n  if (p === '/calls/summary') return '/';" },
+  { name: 'callroom-to-calls', file: T, check: /call room backs to its lead card/, from: "  if ((m = p.match(/^\\/(call|book)\\/([^/]+)$/))) return `/lead/${m[2]}`;", to: "  if ((m = p.match(/^\\/(call|book)\\/([^/]+)$/))) return '/';" },
+  { name: 'room-lead-origin', file: T, check: /opened from Callbacks backs to Callbacks/, from: "    if (from === 'callbacks') return '/callbacks';", to: "" },
   { name: 'design-root', file: T, check: /design/, from: "'settings', 'more', 'leads', 'lists', 'triage', 'booked'];", to: "'settings', 'more', 'leads', 'lists', 'triage', 'booked', 'design'];" },
 ];
 let bad = 0, proven = 0;

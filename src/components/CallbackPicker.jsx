@@ -4,8 +4,9 @@ import { quickCallbacks, toLocalInput } from '../lib/calls';
 /**
  * CallbackPicker: date and time with quick chips, shared by the lead detail
  * (and the console's callback sheet in spirit). onSave(isoOrNull).
+ * clearable={false} (the Call Room's outcome) offers no Clear: there the value is a default, not a callback to remove.
  */
-export default function CallbackPicker({ open, onClose, value, onSave, business }) {
+export default function CallbackPicker({ open, onClose, value, onSave, business, clearable = true }) {
   const init = value ? toLocalInput(new Date(value)) : toLocalInput(new Date(Date.now() + 3600e3));
   const [date, setDate] = useState(init.date);
   const [time, setTime] = useState(init.time);
@@ -14,7 +15,7 @@ export default function CallbackPicker({ open, onClose, value, onSave, business 
   const save = async (v) => { setBusy(true); try { await onSave(v); } finally { setBusy(false); } };
   return (
     <Sheet open={open} onClose={onClose} title="Callback due" description={business}
-      footer={<>{value && <Button variant="danger" onClick={() => save(null)} disabled={busy}>Clear</Button>}<Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button loading={busy} onClick={() => save(date ? new Date(`${date}T${time || '09:00'}`).toISOString() : null)}>Save</Button></>}>
+      footer={<>{value && clearable && <Button variant="danger" onClick={() => save(null)} disabled={busy}>Clear</Button>}<Button variant="ghost" onClick={onClose} disabled={busy}>Cancel</Button><Button loading={busy} onClick={() => save(date ? new Date(`${date}T${time || '09:00'}`).toISOString() : null)}>Save</Button></>}>
       <Row gap={2} wrap>{quick.map(q => { const v = toLocalInput(q.at); const on = v.date === date && v.time === time; return <Chip key={q.id} label={q.label} selected={on} onClick={() => { setDate(v.date); setTime(v.time); }} />; })}</Row>
       <Grid minColumnWidth={140} gap={2}>
         <Input label="Date" type="date" value={date} onChange={(e) => setDate(e.target.value)} data-autofocus />

@@ -103,3 +103,36 @@ export function callsModeOf(rel) {
 }
 /** The path of a console mode (the room needs the current lead's id). */
 export const callsPathOf = (mode, id = '') => (mode === 'queue' ? '/calls/queue' : mode === 'room' ? `/calls/room/${enc(id || 'current')}` : mode === 'summary' ? '/calls/summary' : '/calls');
+
+/* ── Billy's Call Room (/room on the admin host): its own small tree ────────────────────────────────────────────────
+ *
+ *   Calls (Today | Triage | Leads | Lists)   Callbacks   Me      three roots, each a tab; the hub's segment is ?section=
+ *   Calls > a lead > the call room                               the lead card backs to where it was opened from, the call room to its lead
+ *   Calls > a lead > booking                                     booking backs to the lead; once booked, the Booked screen backs to Calls
+ *   Calls > the session summary                                  backs to Calls
+ *
+ * Paths are relative to the room's base. A root has no Back (roomParentOf answers null); every other screen is focused
+ * (the tab bar hides). Tested by scripts/back-test.mjs. */
+export const ROOM_ROOTS = ['', 'callbacks', 'me'];
+export const ROOM_SECTIONS = ['today', 'triage', 'leads', 'lists'];
+export function isRoomRoot(rel) {
+  const segs = norm(rel).split('/').filter(Boolean);
+  return segs.length === 0 || (segs.length === 1 && ROOM_ROOTS.includes(segs[0]));
+}
+/** The parent of a Call Room path, one level up; null at a root. `search` carries ?from= (the place a lead card was opened from). */
+export function roomParentOf(rel, search = '') {
+  const p = norm(rel);
+  if (isRoomRoot(p)) return null;
+  let m;
+  if ((m = p.match(/^\/(call|book)\/([^/]+)$/))) return `/lead/${m[2]}`;
+  if (/^\/lead\/[^/]+$/.test(p)) {
+    const from = params(search).get('from');
+    if (from === 'callbacks') return '/callbacks';
+    return ROOM_SECTIONS.includes(from) && from !== 'today' ? `/?section=${from}` : '/';
+  }
+  return '/';
+}
+/** The chrome mode of a Call Room path: tabs on a root, focused everywhere else (the lead card, the call room, booking, the summary). */
+export const roomChromeOf = (rel) => (isRoomRoot(rel) ? 'tabs' : 'focused');
+/** The tab a Call Room path belongs to. */
+export const roomTabOf = (rel) => { const seg = norm(rel).split('/').filter(Boolean)[0] || ''; return seg === 'callbacks' ? 'callbacks' : seg === 'me' ? 'me' : 'calls'; };

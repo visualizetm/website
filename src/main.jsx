@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import CrashBoundary from './shell/CrashBoundary';
 import { warm } from './shared/api';
-import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
+import { IS_ADMIN_HOST, IS_DEV_HOST, isRoomPath } from './lib/adminPaths';
 import { useMotionPreference } from './marketing/motion/shared';
 import Logo from './ui/Logo';
 import './fonts.css';
@@ -97,7 +97,8 @@ function Maintenance() {
 
 // Admin data starts downloading with the entry, not after the shell chunk (Prompt 15): the session
 // check always, the five lists and settings when this device was signed in last time (vz_boot).
-if (IS_ADMIN_HOST || (IS_DEV_HOST && window.location.pathname.startsWith('/admin'))) {
+/* The Call Room (/room) is not the admin: its page never asks an admin endpoint for anything, so nothing is warmed for it. */
+if ((IS_ADMIN_HOST || (IS_DEV_HOST && window.location.pathname.startsWith('/admin'))) && !isRoomPath(window.location.pathname)) {
   let hinted = false; try { hinted = localStorage.getItem('vz_boot') === '1'; } catch { /* private mode */ }
   warm(['/api/admin/session', ...(hinted ? ['/api/admin/call-leads', '/api/admin/submissions', '/api/admin/projects', '/api/admin/orders', '/api/admin/concept-sets', '/api/admin/settings'] : [])]);
 }

@@ -11,3 +11,7 @@ export const IS_DEV_HOST = host === 'localhost' || host === '127.0.0.1';
 
 export const ADMIN_HOME   = IS_ADMIN_HOST ? '/'       : '/admin';
 export const ADMIN_CALLS  = IS_ADMIN_HOST ? '/calls'  : '/admin/calls';
+
+/* Billy's Call Room: /room on the admin host (/admin/room on localhost). Its own app and its own session; nothing under it is the admin. */
+export const ROOM_BASE = IS_ADMIN_HOST ? '/room' : '/admin/room';
+export const isRoomPath = (pathname) => { const p = String(pathname || ''); return p === ROOM_BASE || p.startsWith(`${ROOM_BASE}/`); };

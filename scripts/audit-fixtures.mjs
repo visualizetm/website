@@ -25,6 +25,8 @@ import { resolveVars, varRows } from '../api/_lib/email/vars.js';
 import { availabilityFor, lackingOf } from '../api/_lib/email/send.js';
 import { invoicesOf } from '../api/_lib/invoices.js';
 import { dealOf } from '../api/_lib/deal.js';
+/* Billy's Call Room: the mocked caller endpoints answer through the server's own whitelist, so the screens see the shapes production sends. */
+import { callerLead, callerList, callerBooked, callerMay } from '../api/_lib/callerView.js';
 // Hostile fixtures: very long unbroken + slash-joined names, long emails.
 export const LONG = 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists';
 export const UNBROKEN = 'Superlongunbrokenbusinessnamethatcouldforcewidth' + 'x'.repeat(40);
@@ -725,6 +727,109 @@ export const PORTAL_PIN_RESOLVE = { ...PORTAL_RESOLVE, cards: [...PORTAL_RESOLVE
 export const PORTAL_PIN = '1234';
 export const REVIEW_RESOLVE = { business: 'Lead Business 12', firstName: 'Damian', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8', googleReviewUrl: 'https://g.page/r/visualize-studio/review', back: '/c/prtlTESTtoken0123456789abcd' };
 
+/* ── Billy's Call Room (part 1): the caller endpoints over a small pile of leads of their own ─────────────────────────
+   Raw call_leads documents, shaped by api/_lib/callerView.js on the way out. callerHandler mirrors what
+   api/_routes/caller.js does to them closely enough for the screens (the walls themselves are scripts/caller-test.mjs). */
+export const CALLER_EMAIL = 'billy@example.com';
+export const CALLER_PASSCODE = 'ROOM-TEST';
+const cIso = (ms) => new Date(Date.now() + ms).toISOString();
+const cLead = (i, business, over = {}) => ({ _id: `C${i}`, business, industry: ['Barber', 'Cafe', 'Detailer', 'Bakery'][i % 4], area: ['Dover', 'Smyrna', 'Middletown'][i % 3], phone: `(302) 555-01${String(i).padStart(2, '0')}`, askFor: i % 2 ? 'Dana' : '', bestWindow: 'Tue to Sat, 9 to 5', stage: 'lead', callStatus: 'not-called', callLog: [], score: 40 + (i * 7) % 55, socials: i % 2 ? { website: 'https://example.com', instagram: 'https://instagram.com/example' } : {}, intel: { gaps: i % 2 ? ['The site does not load on a phone'] : ['No website'], accomplishments: ['4.7 stars on 88 reviews'], dropLines: [] }, reviews: { latest: { count: 88 + i, rating: 4.7 } }, angle: 'The reviews are strong and the brand online does not match them yet.', beforeYouDial: ['Ask for the owner by name'], script: { likelyAnswers: [{ say: 'My nephew does it', respond: 'Makes sense. Is it bringing anyone in?' }, { say: 'Nobody', respond: 'That is what I figured. Here is the thing.' }] }, objections: [], sourceId: i % 2 ? `gmaps:c${i}` : '', createdAt: new Date(Date.now() - (i + 1) * 864e5), listId: '', ...over });
+export const callerStore = () => ({
+  signedIn: true,
+  me: { name: 'Billy', moveOffRobLists: true },
+  leads: [
+    cLead(1, 'Kims Cafe', { listId: 'CL1' }), cLead(2, 'Sharp Line Barbers', { listId: 'CL1' }), cLead(3, LONG, { listId: 'CL1' }),
+    cLead(4, 'Dover Detail Co', { listId: 'CL2' }), cLead(5, 'Free Range Bakery'),
+    cLead(6, 'Callback Due Co', { callStatus: 'callback', callbackAt: cIso(-20 * 60e3), callLog: [{ at: cIso(-864e5), outcome: 'callback', note: 'Call after lunch', by: 'billy' }] }),
+    cLead(7, 'Callback Tomorrow Co', { callStatus: 'callback', callbackAt: cIso(26 * 3600e3), callLog: [{ at: cIso(-3600e3), outcome: 'callback', note: 'Tomorrow morning', by: 'billy' }] }),
+    cLead(8, 'Rang Out Co', { callStatus: 'no-answer', callLog: [{ at: cIso(-2 * 3600e3), outcome: 'no-answer', note: '', by: 'billy' }] }),
+    cLead(9, 'Triage Top', { stage: 'triage', score: 90 }), cLead(10, 'Triage Second', { stage: 'triage', score: 70 }), cLead(11, UNBROKEN, { stage: 'triage', score: 55 }),
+    cLead(12, 'Parked Co', { stage: 'nurture' }),
+    cLead(13, 'Booked By Billy', { stage: 'booked', bookedBy: { who: 'billy', at: cIso(-2 * 864e5) } }), cLead(14, 'Quoted By Billy', { stage: 'deal', bookedBy: { who: 'billy', at: cIso(-9 * 864e5) }, deal: { invoices: [{ id: 'i', status: 'sent' }] } }),
+  ],
+  lists: [
+    { _id: 'CL1', name: 'Dover shops', target: 5, leadIds: ['C1', 'C2', 'C3'], status: 'open', system: false, createdBy: 'billy', callerId: 'billy', createdAt: new Date(Date.now() - 864e5) },
+    { _id: 'CL2', name: 'Rob Tuesday', target: 25, leadIds: ['C4'], status: 'open', system: false, createdAt: new Date(Date.now() - 3 * 864e5) },
+    { _id: 'CL3', name: 'Callbacks due', target: 500, leadIds: ['C6'], status: 'open', system: true, createdAt: new Date(Date.now() - 30 * 864e5) },
+  ],
+  today: { calls: 14, talked: 6, booked: 1 },
+  posts: [],
+});
+const cOk = (body) => ({ status: 200, body });
+const c404 = () => ({ status: 404, body: { error: 'not found' } });
+export function callerHandler(store, method, action, b = {}, { empty = false } = {}) {
+  if (action === 'login') { if (String(b.email || '').toLowerCase() === CALLER_EMAIL && String(b.passcode || '').replace(/[\s-]/g, '').toUpperCase() === CALLER_PASSCODE.replace('-', '')) { store.signedIn = true; return cOk({ ok: true, name: store.me.name }); } return { status: 401, body: { error: 'That email or passcode is not right.' } }; }
+  if (action === 'logout') { store.signedIn = false; return cOk({ ok: true }); }
+  if (!store.signedIn) return { status: 401, body: { error: 'unauthorized' } };
+  store.posts.push({ method, action, body: b });
+  const mine = () => store.leads.filter(callerMay);
+  const view = (l) => callerList(l, new Set(mine().map(x => String(x._id))));
+  const leadOf = (id) => mine().find(l => String(l._id) === String(id)) || null;
+  const listOf = (id) => store.lists.find(l => String(l._id) === String(id) && !l.system && l.status === 'open') || null;
+  const put = (leads, list) => { const ids = leads.map(l => String(l._id)); for (const l of store.lists) if (!l.system && l !== list) l.leadIds = l.leadIds.filter(x => !ids.includes(x)); list.leadIds = [...new Set([...list.leadIds, ...ids])]; for (const l of leads) { l.listId = String(list._id); if (l.stage !== 'lead') l.stage = 'lead'; } if (list.createdBy === 'billy') list.target = Math.max(list.target, list.leadIds.length); };
+  const offRob = (leads, target) => leads.filter(l => l.listId && l.listId !== target && store.lists.some(x => String(x._id) === l.listId && !x.system && x.callerId !== 'billy' && x.createdBy !== 'billy'));
+  const robGate = (leads, target = '') => { const off = offRob(leads, target); if (!off.length) return null; if (!store.me.moveOffRobLists) return { status: 403, body: { error: 'Rob has locked his lists. Ask him to move it.' } }; if (b.confirm !== true) return { status: 409, body: { error: 'That one is on a list Rob calls.', confirm: true, onRobLists: off.map(l => ({ id: String(l._id), business: l.business, list: store.lists.find(x => String(x._id) === l.listId).name })) } }; return null; };
+  const newList = (name, callerId) => { const l = { _id: `CLN${store.lists.length + 1}`, name: String(name || '').trim().slice(0, 80), target: 25, leadIds: [], status: 'open', system: false, createdBy: 'billy', callerId: callerId === 'rob' ? 'rob' : 'billy', createdAt: new Date() }; store.lists.unshift(l); return l; };
+  const decline = (l, reason, note) => { l.stage = 'declined'; l.declined = { reason, note: note || '', at: new Date().toISOString(), by: 'billy' }; l.listId = ''; for (const x of store.lists) if (!x.system) x.leadIds = x.leadIds.filter(i => i !== String(l._id)); };
+  if (method === 'GET') {
+    if (action === 'session') return cOk({ ok: true, name: store.me.name });
+    if (action === 'home') return cOk(empty ? { me: store.me, leads: [], lists: [view(store.lists.find(l => l.system))].map(l => ({ ...l, leadIds: [] })), booked: [], today: { calls: 0, talked: 0, booked: 0 } } : { me: store.me, leads: mine().map(callerLead), lists: store.lists.filter(l => l.status === 'open').map(view), booked: store.leads.filter(l => l.bookedBy?.who === 'billy').map(callerBooked), today: store.today });
+    if (action === 'open-times') { const base = new Date(); base.setUTCMinutes(0, 0, 0); const slots = empty ? [] : [26, 27, 28, 50, 51, 74, 98, 99, 100].map(h => new Date(base.getTime() + h * 3600e3).toISOString()); return cOk({ source: 'hours', slots }); }
+    return c404();
+  }
+  if (action === 'triage') {
+    const l = leadOf(b.leadId); if (!l) return c404();
+    if (l.stage !== 'triage') return { status: 409, body: { error: 'That one is already sorted.' } };
+    if (b.decision === 'snooze') { l.triageSnoozedAt = new Date().toISOString(); return cOk({ ok: true, lead: callerLead(l) }); }
+    if (b.decision === 'decline') { decline(l, b.reason, b.note); return cOk({ ok: true, lead: null }); }
+    let list = b.listId ? listOf(b.listId) : b.newList !== undefined ? newList(b.newList, 'billy') : null;
+    l.stage = 'lead'; if (list) put([l], list);
+    return cOk({ ok: true, lead: callerLead(l), list: list ? view(list) : null });
+  }
+  if (action === 'batch') {
+    const leads = (b.leadIds || []).map(leadOf); if (!leads.length || leads.some(x => !x)) return c404();
+    const gate = robGate(leads, b.op === 'list' ? String(b.listId || '') : ''); if (gate) return gate;
+    if (b.op === 'decline') { leads.forEach(l => decline(l, b.reason, b.note)); return cOk({ ok: true, declined: leads.length }); }
+    const list = b.listId ? listOf(b.listId) : newList(b.newList, 'billy'); if (!list) return { status: 400, body: { error: 'That list is closed. Pick another.' } };
+    put(leads, list); return cOk({ ok: true, added: leads.length, list: view(list) });
+  }
+  if (action === 'list') {
+    if (b.op === 'create') {
+      if (!String(b.name || '').trim()) return { status: 400, body: { error: 'Give the list a name.' } };
+      const fill = b.fill || {}; let picked = [];
+      if (fill.mode === 'hand') { picked = (fill.leadIds || []).map(leadOf); if (picked.some(x => !x)) return c404(); const gate = robGate(picked); if (gate) return gate; }
+      if (fill.mode === 'filter') { const on = new Set(store.lists.filter(l => !l.system).flatMap(l => l.leadIds)); const t = (fill.types || []).map(x => String(x).toLowerCase()); const c = (fill.cities || []).map(x => String(x).toLowerCase()); picked = mine().filter(l => l.stage === 'lead' && (!t.length || t.includes(String(l.industry).toLowerCase())) && (!c.length || c.includes(String(l.area).toLowerCase())) && !on.has(String(l._id))); }
+      const list = newList(b.name, b.callerId); if (picked.length) { put(picked, list); list.target = picked.length; }
+      return cOk({ ok: true, added: picked.length, list: view(list) });
+    }
+    const list = listOf(b.id || b.listId); if (!list) return c404();
+    if (b.op === 'rename') { if (list.createdBy !== 'billy') return { status: 403, body: { error: 'Rob made that list. Ask him to rename it.' } }; list.name = String(b.name || '').trim() || list.name; return cOk({ ok: true, list: view(list) }); }
+    if (b.op === 'skip') { const id = String(b.leadId); if (list.leadIds.includes(id)) list.leadIds = [...list.leadIds.filter(x => x !== id), id]; return cOk({ ok: true, list: view(list) }); }
+    return { status: 400, body: { error: 'unknown op' } };
+  }
+  if (action === 'contact') { const l = leadOf(b.leadId); if (!l) return c404(); if (typeof b.phone === 'string') l.phone = b.phone; if (typeof b.owner === 'string') l.askFor = b.owner; return cOk({ ok: true, lead: callerLead(l) }); }
+  if (action === 'outcome') {
+    const l = leadOf(b.leadId); if (!l) return c404();
+    if (offRob([l], '').length) return { status: 403, body: { error: 'That one is on a list Rob calls. Move it to one of yours first.' } };
+    if (b.outcome === 'callback' && b.callbackAt && new Date(b.callbackAt).getTime() <= Date.now()) return { status: 400, body: { error: 'Pick a time that has not passed.' } };
+    l.callStatus = b.outcome; l.callLog = [...l.callLog, { at: new Date().toISOString(), outcome: b.outcome, note: b.voicemail ? `Left a voicemail.${b.note ? ` ${b.note}` : ''}` : (b.note || ''), by: 'billy' }];
+    if (b.outcome === 'callback') l.callbackAt = b.callbackAt || cIso(20 * 3600e3);
+    if (b.outcome === 'no') decline(l, b.reason, b.note);
+    else { const list = store.lists.find(x => String(x._id) === l.listId && !x.system); if (list) { list.leadIds = list.leadIds.filter(x => x !== String(l._id)); if (b.outcome === 'no-answer') list.leadIds.push(String(l._id)); else l.listId = ''; } }
+    store.today.calls += 1; if (!['no-answer', 'wrong-number'].includes(b.outcome)) store.today.talked += 1;
+    return cOk({ ok: true, lead: callerMay(l) ? callerLead(l) : null });
+  }
+  if (action === 'book') {
+    const l = leadOf(b.leadId); if (!l) return c404();
+    if (store.taken === b.slot) return { status: 409, body: { error: 'That time was just taken. Pick another.' } };
+    l.stage = 'booked'; l.callStatus = 'booked'; l.bookedBy = { who: 'billy', at: new Date().toISOString() }; l.listId = ''; for (const x of store.lists) if (!x.system) x.leadIds = x.leadIds.filter(i => i !== String(l._id));
+    store.today.calls += 1; store.today.talked += 1; store.today.booked += 1;
+    return cOk({ ok: true, booked: { business: l.business, slot: b.slot, phone: l.phone, owner: l.askFor }, done: { push: true, notes: true, draft: true } });
+  }
+  if (action === 'session') return cOk({ ok: true });
+  return c404();
+}
+
 export async function mockRoutes(page, opts = {}) {
   const empty = new Set(opts.empty || []);
   const failing = new Set(opts.fail || []);
@@ -853,6 +958,18 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/suggestions**', r => (r.request().method() === 'GET' ? respond(r, 'suggestions', PAYLOADS.suggestions()) : r.fulfill(json({ ok: true }))));
   await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
+  /* Billy's Call Room: every caller endpoint over its own small store. `fail: ['caller']` breaks the home read, `empty: ['caller']` empties it,
+     opts.callerSignedOut starts at the sign in page, opts.caller is the store itself when a test wants to read what was posted. */
+  const cs = opts.caller || callerStore();
+  if (opts.callerSignedOut) cs.signedIn = false;
+  await page.route('**/api/caller/**', async (r) => {
+    const u = new URL(r.request().url()); const action = u.pathname.split('/').pop(); const method = r.request().method();
+    if (failing.has('caller') && method === 'GET' && action !== 'session') return r.fulfill(fail());
+    if (delay && method === 'GET' && action !== 'session') await wait(delay);
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    const out = callerHandler(cs, method, action, b, { empty: empty.has('caller') });
+    return r.fulfill({ status: out.status, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(out.body) });
+  });
   // Site Prompt 3: the public showcase endpoint the marketing Clients page reads.
   /* The client facing planner (planner prompt 3): api/planner.js answers one
      client's month for a token, and answers 404 for anything it does not

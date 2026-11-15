@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-do
 import { captureRef } from './lib/referral';
 import LogoSpinner from './ui/LogoSpinner';
 import BootFrame from './shell/BootFrame';
-import { IS_ADMIN_HOST, IS_DEV_HOST } from './lib/adminPaths';
+import { IS_ADMIN_HOST, IS_DEV_HOST, isRoomPath } from './lib/adminPaths';
 
 /* Code split by host (Prompt 15): the admin host never downloads the
  * marketing pages and the marketing site never downloads the admin. Each
@@ -32,6 +32,7 @@ const Planner = lazy(() => import('./pages/Planner'));
  * loader or the gsap/lenis chunk URLs behind it. */
 const ScrollRoot = lazy(() => import('./marketing/ScrollRoot'));
 const AdminApp = lazy(() => import('./pages/AdminApp'));
+const RoomApp = lazy(() => import('./room/RoomApp'));    // Billy's Call Room: /room on the admin host, its own chunk and its own sign in
 
 /* /work/:slug moved to /clients/:slug (Site Prompt 3) and on to /projects/:slug (the Projects prompt); these keep the old
  * deep links' slugs alive as a client-side fallback, vercel.json does the real 301 for anyone hitting the server directly. */
@@ -61,6 +62,8 @@ export default function App() {
   if (IS_ADMIN_HOST) {
     // The old print dashboard lived at /prints; Print Orders replaced it (Prompt 13).
     if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <Navigate to="/orders" replace />;
+    // Billy's Call Room has its own app, its own cookie and its own chunk; the admin never mounts under /room.
+    if (isRoomPath(location.pathname)) return <Suspense fallback={<BootFrame />}><RoomApp /></Suspense>;
     // The same boot frame the parser painted (index.html) stays up while the admin chunk loads, then AdminApp renders it again until the session answers.
     return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
@@ -70,6 +73,7 @@ export default function App() {
   if (location.pathname.startsWith('/admin')) {
     if (!IS_DEV_HOST) return <Navigate to="/" replace />;
     if (location.pathname === '/admin/prints') return <Navigate to="/admin/orders" replace />;
+    if (isRoomPath(location.pathname)) return <Suspense fallback={<BootFrame />}><RoomApp /></Suspense>;
     return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
 

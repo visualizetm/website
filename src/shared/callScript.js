@@ -8,10 +8,13 @@
 
 export const SCRIPT_VERSION = 'hormozi-v2-2026-10-22';
 
-/* The shared v2 lines, one per step the stepper can show. A lead's own line (script.<key> or close.<key>) wins. */
-export const V2 = {
+/* Who is on the phone (Billy's Call Room): the lines carry no name of their own. {{caller}} is whoever is dialing and
+   {{owner}} is the studio's owner; a caller who is not the owner reads the partner's wording where the owner's line
+   claims the owner's own work. The console passes nothing and gets the owner's lines, word for word as before. */
+export const OWNER = { name: 'Rob', owner: true };
+const LINES = {
   confirm: 'Hey, is this the owner? ... Perfect, I will keep this quick.',
-  intro: "I'm Rob, I run Visualize, a small design studio here. I build brands and sites for local shops.",
+  intro: "I'm {{caller}}, I run Visualize, a small design studio here. I build brands and sites for local shops.",
   homework: "I looked you up before I called. The reviews are strong and the work's good, and the brand online doesn't match it yet.",
   question: 'Who handles the website and the socials for you right now?',
   goalQuestion: 'Where do you want the shop to be a year from now?',
@@ -19,16 +22,35 @@ export const V2 = {
   ask: 'I have two times. Which works better for you?',
   lockIt: "Perfect. What's the best cell for the reminder, and the email for the invite? I'll send both now.",
   ifNo: "No problem. Can I text you the concepts anyway? If they land, you know where I am.",
-  noAnswer: "Hey, it's Rob from Visualize. I made a couple of concepts for your shop, no charge. I'll text them over. Call me back when you have a minute.",
-  voicemail: "Hey, it's Rob from Visualize. I put together a couple of concepts for your shop, no charge. Reply here and I'll send them over, or call me back when you get a minute.",
-  dm: "Hey {{first}}, Rob from Visualize here. I made a couple of concepts for {{business}}, no charge, just to show you what I mean. Want me to send them over?",
-  nightBefore: "Hey, it's Rob. Looking forward to tomorrow. I'll have your concepts ready to walk through. If anyone else wants in on the call, bring them along.",
+  noAnswer: "Hey, it's {{caller}} from Visualize. I made a couple of concepts for your shop, no charge. I'll text them over. Call me back when you have a minute.",
+  voicemail: "Hey, it's {{caller}} from Visualize. I put together a couple of concepts for your shop, no charge. Reply here and I'll send them over, or call me back when you get a minute.",
+  dm: "Hey {{first}}, {{caller}} from Visualize here. I made a couple of concepts for {{business}}, no charge, just to show you what I mean. Want me to send them over?",
+  nightBefore: "Hey, it's {{caller}}. Looking forward to tomorrow. I'll have your concepts ready to walk through. If anyone else wants in on the call, bring them along.",
 };
+const PARTNER_LINES = {
+  intro: "I'm {{caller}} with Visualize, a small design studio here. {{owner}} builds brands and sites for local shops.",
+  hook: "Here's the thing. {{owner}} already made a couple of concepts for you, no charge, so you can see it instead of taking my word for it. Fifteen minutes on a call with {{owner}} and you have them.",
+  ask: '{{owner}} has a few times open this week. Which works better for you?',
+  lockIt: "Perfect, you're on with {{owner}}. What's the best cell for a reminder?",
+  ifNo: "No problem. Can I text you so you have my number? If it ever makes sense, you know where I am.",
+  noAnswer: "Hey, it's {{caller}} from Visualize. {{owner}} made a couple of concepts for your shop, no charge. I'll text you. Call me back when you have a minute.",
+  voicemail: "Hey, it's {{caller}} from Visualize. {{owner}} put together a couple of concepts for your shop, no charge. Reply here and I'll set up a quick call, or call me back when you get a minute.",
+};
+const callerOf = (c) => (c && typeof c === 'object' && String(c.name || '').trim() ? { name: String(c.name).trim(), owner: c.owner === true } : OWNER);
+const fillNames = (line, caller) => String(line).split('{{caller}}').join(caller.name).split('{{owner}}').join(OWNER.name);
+/* A lead's own line was written for the owner to say. Read by someone else, the phrases that name the speaker take the caller's name. */
+const speakerRe = () => new RegExp(`\\b(I'm|I am|it's|it is|this is)\\s+${OWNER.name}\\b`, 'gi');
+const sayAs = (line, caller) => (caller.owner ? line : String(line).replace(speakerRe(), `$1 ${caller.name}`));
 
-/** The line a step shows: the lead's own, else the shared v2 line, never blank. */
-export function scriptLine(lead, key) {
+/* The shared v2 lines as the owner says them, one per step the stepper can show. A lead's own line (script.<key> or close.<key>) wins. */
+export const V2 = Object.fromEntries(Object.entries(LINES).map(([k, v]) => [k, fillNames(v, OWNER)]));
+
+/** The line a step shows: the lead's own, else the shared v2 line, never blank. `caller` is who is dialing ({ name, owner }); the owner by default. */
+export function scriptLine(lead, key, caller = OWNER) {
+  const who = callerOf(caller);
   const own = String(lead?.script?.[key] || lead?.close?.[key] || '').trim();
-  return own || V2[key] || '';
+  if (own) return sayAs(own, who);
+  return fillNames((!who.owner && PARTNER_LINES[key]) || LINES[key] || '', who);
 }
 
 /* ── Objections (docs/HORMOZI-CLOSE.md section 4, Rob's voice) ─────────────────────────────────────────────────────
@@ -91,6 +113,17 @@ export const CALL_STEPS = [
   { id: 'lock', title: 'Lock it in' },
 ];
 export const startStepFor = (lead) => (lead?.phone ? 1 : 2);
+/* The Call Room's eight steps (Billy's Call Room): one line per step, read through scriptLine with the caller's name. */
+export const ROOM_STEPS = [
+  { id: 'answer', label: 'Answer', key: 'confirm' },
+  { id: 'owner', label: "Owner's name", key: '' },
+  { id: 'open', label: 'Open', key: 'intro' },
+  { id: 'homework', label: 'Homework', key: 'homework' },
+  { id: 'question', label: 'Question', key: 'question' },
+  { id: 'hook', label: 'Hook', key: 'hook' },
+  { id: 'ask', label: 'Ask', key: 'ask' },
+  { id: 'close', label: 'Close', key: 'lockIt' },
+];
 
 /** The $set a step's Next writes: the saved answers under afterCall plus the step reached; askFor is the lead's own field. */
 export function stepSet(lead, fields, step) {
@@ -227,7 +260,7 @@ export function conceptTaskDue(meeting) {
   return new Date(nyMs(y, m, d - 1, 20, 0)).toISOString();
 }
 /** The texts the stepper drafts (never sends): the voicemail follow up and the night before reminder. */
-export function voicemailText(lead) { return scriptLine(lead, 'voicemail'); }
+export function voicemailText(lead, caller = OWNER) { return scriptLine(lead, 'voicemail', caller); }
 export function nightBeforeText(lead, meeting) {
   const base = scriptLine(lead, 'nightBefore');
   const t = meeting?.time ? ` ${fmtTime12(meeting.time)}` : '';

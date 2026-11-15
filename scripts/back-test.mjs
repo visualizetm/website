@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 /* BACK_ROOT names a copy of the repository with one guard cut out (scripts/back-guard-proof.mjs); the tree and the nav come from there. */
 const ROOT = process.env.BACK_ROOT ? path.resolve(process.env.BACK_ROOT) : path.resolve(new URL('..', import.meta.url).pathname);
-const { parentOf, backTarget, isRoot, callsModeOf, callsPathOf, rootPathOf } = await import(pathToFileURL(path.join(ROOT, 'src/shell/backTree.js')).href);
+const { parentOf, backTarget, isRoot, callsModeOf, callsPathOf, rootPathOf, roomParentOf, isRoomRoot, roomChromeOf, roomTabOf } = await import(pathToFileURL(path.join(ROOT, 'src/shell/backTree.js')).href);
 const { NAV } = await import(pathToFileURL(path.join(ROOT, 'src/shell/nav.js')).href);
 
 let fails = 0, passes = 0;
@@ -98,6 +98,23 @@ console.log('5. Unknown paths go one segment up, never nowhere.');
 eq(parentOf('/something/deep/here'), '/something/deep', 'one segment up');
 eq(parentOf('/something'), '/', 'one unknown segment backs to the home');
 eq(parentOf('/clients/'), '/', 'a trailing slash is the root');
+
+console.log("6. Billy's Call Room (/room): its own small tree. Calls, Callbacks and Me are roots; a lead backs to where it was opened; the call room and booking back to the lead.");
+for (const r of ['/', '/callbacks', '/me']) { ok(isRoomRoot(r), `${r} is a room root`); eq(roomParentOf(r), null, `${r} has no Back`); eq(roomChromeOf(r), 'tabs', `${r} shows the tab bar`); }
+eq(roomParentOf('/', '?section=lists'), null, 'a hub section is still the Calls root');
+eq(roomParentOf('/lead/C1'), '/', 'the room lead card backs to Calls');
+eq(roomParentOf('/lead/C1', '?from=today'), '/', 'a lead opened from Today backs to Calls');
+eq(roomParentOf('/lead/C1', '?from=leads'), '/?section=leads', 'a lead opened from Leads backs to the Leads segment');
+eq(roomParentOf('/lead/C1', '?from=triage'), '/?section=triage', 'a lead opened from Triage backs to the Triage segment');
+eq(roomParentOf('/lead/C1', '?from=callbacks'), '/callbacks', 'a lead opened from Callbacks backs to Callbacks');
+eq(roomParentOf('/lead/C1', '?from=settings'), '/', 'an unknown origin backs to Calls');
+eq(roomParentOf('/call/C1'), '/lead/C1', 'the call room backs to its lead card');
+eq(roomParentOf('/book/C1'), '/lead/C1', 'the room booking backs to its lead card');
+eq(roomParentOf('/summary'), '/', 'the session summary backs to Calls (the room)');
+eq(roomParentOf('/booked'), '/', 'the Booked screen backs to Calls (the lead is Rob\'s now)');
+eq(roomParentOf('/nowhere/at/all'), '/', 'an unknown room path backs to Calls, never nowhere');
+for (const r of ['/lead/C1', '/call/C1', '/book/C1', '/summary', '/booked']) { ok(!isRoomRoot(r), `${r} is not a room root`); eq(roomChromeOf(r), 'focused', `${r} is focused (the tab bar hides)`); }
+eq(roomTabOf('/'), 'calls', 'the hub is the Calls tab'); eq(roomTabOf('/lead/C1'), 'calls', 'a lead sits under the Calls tab'); eq(roomTabOf('/callbacks'), 'callbacks', 'Callbacks is its own tab'); eq(roomTabOf('/me'), 'me', 'Me is its own tab');
 
 const BASE = process.env.AUDIT_BASE || '';
 if (!BASE) { console.log(`\n${passes} passed, ${fails} failed (pure half; set AUDIT_BASE for the browser walk).`); process.exit(fails ? 1 : 0); }

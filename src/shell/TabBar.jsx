@@ -8,8 +8,10 @@ import { TAB_NAV, MORE_NAV } from './nav';
  * and visibly passes behind the pill as it scrolls; every scrolling
  * container (ScrollArea, StickyFooterBar, SaveBar) reserves its own
  * clearance for it through --v-tabbar-now (src/shell/AppShell.jsx).
+ * The Call Room (src/room) renders the same pill with its own `tabs` and
+ * no More (`more={false}`).
  */
-export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, hidden = false }) {
+export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, hidden = false, tabs = TAB_NAV, more = true }) {
   const moreActive = activeId === 'more' || MORE_NAV.some(n => n.id === activeId);
   const moreCount = MORE_NAV.reduce((n, e) => n + (e.badge ? counts?.[e.badge] || 0 : 0), 0);
   /* A small dot under ten, the number at ten and up (the prompt's rule for the glass bar specifically; everywhere
@@ -18,7 +20,7 @@ export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, 
   return (
     <nav className={`sh-tabs${hidden ? ' is-hidden' : ''}`} aria-label="Sections" inert={hidden ? '' : undefined} aria-hidden={hidden || undefined}>
       <div className="sh-tabs-glass">
-        {TAB_NAV.map(n => {
+        {tabs.map(n => {
           const active = n.id === activeId;
           const count = n.badge ? counts?.[n.badge] || 0 : 0;
           const label = n.tabLabel || n.label;
@@ -31,9 +33,11 @@ export default function TabBar({ activeId, counts, countsLoading, onGo, onMore, 
             </button>
           );
         })}
-        <button type="button" className={`sh-tab sh-tab--more${moreActive ? ' is-active' : ''}`} onClick={onMore} aria-current={activeId === 'more' ? 'page' : undefined} aria-label="More">
-          <span className="sh-tab-icon"><DotsGrid width={18} height={18} />{badgeFor(moreCount)}</span>
-        </button>
+        {more && (
+          <button type="button" className={`sh-tab sh-tab--more${moreActive ? ' is-active' : ''}`} onClick={onMore} aria-current={activeId === 'more' ? 'page' : undefined} aria-label="More">
+            <span className="sh-tab-icon"><DotsGrid width={18} height={18} />{badgeFor(moreCount)}</span>
+          </button>
+        )}
       </div>
     </nav>
   );
