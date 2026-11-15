@@ -12,6 +12,7 @@ import { useShell, useTopBar } from '../shell/ShellContext';
 import NextUpHome, { nextUpHomeStyles } from '../components/NextUpHome';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
 import DraftsCard from '../components/DraftsCard';
+import BillyToday from '../components/BillyToday';
 import { kpiPath, lastSession, askRatePath } from '../lib/homeKpis';
 import { Dash, DashSkeleton, dashStyles } from './AdminPipeline';
 
@@ -148,6 +149,7 @@ export default function AdminAnalytics({ leads = [], projects = [], sets = [], l
         <CronAlarm actionLabel="Open Notifications" onOpen={() => pushRel('/settings/notifications')} />
         {nextUp}
         <DraftsCard />
+        <BillyToday />
         {rangeBar}
         {body}
       </ScrollArea>

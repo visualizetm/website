@@ -117,6 +117,9 @@ export const leadDetailStyles = `
   .rc-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
   .rc-line--danger { color: var(--v-status-danger-text); font-weight: var(--v-weight-semibold); }
   .rc-muted { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .rc-bookedby { min-width: 0; }
+  .rc-bookedby-notes { margin: 0; font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text); overflow-wrap: anywhere; white-space: pre-wrap; }
+  .rc-bookedby-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--v-space-1); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .rc-empty { display: flex; align-items: center; justify-content: space-between; gap: var(--v-space-3); flex-wrap: wrap; min-height: var(--v-tap); font-size: var(--v-text-sm); color: var(--v-text-2); }
   .rc-empty-text { min-width: 0; }
   .rc-picker { align-self: flex-start; max-width: 100%; }

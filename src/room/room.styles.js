@@ -75,6 +75,14 @@ export const roomStyles = `
   .rm-choice-sub { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .rm-choice-tick { display: inline-flex; width: var(--v-icon-sm); height: var(--v-icon-sm); flex-shrink: 0; }
   .rm-fill-line { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-semibold); color: var(--v-text); }
+  .rm-days { display: flex; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
+  .rm-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--v-space-2); min-width: 0; animation: lay-view-in var(--v-dur-base) var(--v-ease-out) both; }
+  .rm-slots .v-chip { justify-content: center; padding: 0 var(--v-space-2); }
+  .rm-ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--v-space-2); }
+  .rm-tick { display: flex; align-items: center; gap: var(--v-space-2); font-size: var(--v-text-md); line-height: var(--v-lh-md); color: var(--v-text-3); }
+  .rm-tick.is-on { color: var(--v-text); }
+  .rm-tick-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text-3); flex-shrink: 0; }
+  .rm-tick.is-on .rm-tick-mark { background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
   /* The room is phone first, but a computer still needs its three tabs: the same pill, centred, at every width. */
   @media (min-width: 768px) {
     .rm-root { --v-tabbar-now: calc(var(--v-tabbar-h) + var(--v-space-3)); }
@@ -83,6 +91,6 @@ export const roomStyles = `
     .rm-root .sh-tabs-glass { left: 50%; right: auto; width: min(360px, calc(100% - 2 * var(--v-space-4))); transform: translateX(-50%); }
     .rm-root .sh-tabs.is-hidden .sh-tabs-glass { transform: translate(-50%, calc(100% + var(--v-inset-bottom) + var(--v-space-4))); }
   }
-  @media (prefers-reduced-motion: reduce) { .rm-line { animation: none; } }
-  [data-v-motion='reduce'] .rm-line { animation: none; }
+  @media (prefers-reduced-motion: reduce) { .rm-line, .rm-slots { animation: none; } }
+  [data-v-motion='reduce'] .rm-line, [data-v-motion='reduce'] .rm-slots { animation: none; }
 `;

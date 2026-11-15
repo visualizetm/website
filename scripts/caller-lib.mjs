@@ -21,8 +21,15 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
   const apiDst = path.join(tmp, 'api');
   fs.cpSync(api, apiDst, { recursive: true });
   fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
+  /* The nearest node_modules wins, so this stub stands in for web-push (as in notify-test): a booking's push is read back from it. */
+  const stubDir = path.join(tmp, 'node_modules', 'web-push'); fs.mkdirSync(stubDir, { recursive: true });
+  fs.writeFileSync(path.join(stubDir, 'package.json'), JSON.stringify({ name: 'web-push', type: 'module', main: 'index.js', version: '0.0.0-test' }));
+  fs.writeFileSync(path.join(stubDir, 'index.js'), 'export const calls = []; export default { setVapidDetails() {}, async sendNotification(sub, payload, opts) { calls.push({ sub, payload, opts }); return { statusCode: 201 }; } };\n');
+  const pushStub = await import(pathToFileURL(path.join(stubDir, 'index.js')).href);
   process.env.SESSION_SECRET = 'test-not-real';
-  delete process.env.VERCEL; delete process.env.VAPID_PUBLIC_KEY; delete process.env.VAPID_PRIVATE_KEY; delete process.env.CALENDLY_TOKEN; delete process.env.CALENDLY_PAT;
+  delete process.env.VERCEL; delete process.env.CALENDLY_TOKEN; delete process.env.CALENDLY_PAT;
+  const envBefore = { pub: process.env.VAPID_PUBLIC_KEY, priv: process.env.VAPID_PRIVATE_KEY };
+  process.env.VAPID_PUBLIC_KEY = 'test-public'; process.env.VAPID_PRIVATE_KEY = 'test-private';
   const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
   const { _stores, _reset } = await load('_lib/mongo.js');
   const adminIndex = (await load('admin/index.js')).default;
@@ -32,9 +39,13 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
   const cliLists = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'lists.js')).href);
   const { callOutcomeSet } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'callOutcome.js')).href);
   const roomLib = await import(pathToFileURL(path.join(repoRoot, 'src', 'room', 'roomLib.js')).href);
+  const zone = await load('_lib/zone.js');
 
   const out = [];
   const check = (id, guard, desc, pass) => out.push({ id, guard, desc, pass: !!pass });
+  /* A section that throws is a failed check of its own, never a thrown run: the guard proof stands on each wall's own check failing. */
+  let sectionNo = 0;
+  const section = async (fn) => { sectionNo++; const no = sectionNo; try { await fn(); } catch (e) { check(`section-${no}-ran`, null, `section ${no} of the checks ran to its end (${String(e?.message || e).slice(0, 80)})`, false); } };
 
   const L = (i) => `507f1f77bcf86cd7994391${String(i).padStart(2, '0')}`;
   const LIST = (i) => `507f1f77bcf86cd7994392${String(i).padStart(2, '0')}`;
@@ -121,7 +132,7 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
   }
 
   /* ── 1. Sign in, the cookie, the passcode ───────────────────────────── */
-  {
+  await section(async () => {
     const { passcode, login } = await setUp();
     const stored = _stores.team[0] || {};
     check('login-ok', null, 'the right email and passcode sign Billy in and set vz_caller (HttpOnly, Secure, scoped to /api/caller)', login._status === 200 && /^vz_caller=\d+\.\d+\.[\w-]+$/.test(billyCookie) && /HttpOnly/.test(login._headers['Set-Cookie']) && /Secure/.test(login._headers['Set-Cookie']) && /Path=\/api\/caller/.test(login._headers['Set-Cookie']));
@@ -203,10 +214,10 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const dump = String(backup._body || JSON.stringify(backup._json || {}));
     const parsed = (() => { try { return JSON.parse(dump); } catch { return {}; } })();
     check('backup-out', 'backup-out', 'the backup holds neither team nor team_activity, and no passcode hash', backup._status === 200 && !!parsed.collections && !('team' in parsed.collections) && !('team_activity' in parsed.collections) && !dump.includes(storedNow.passHash) && !dump.includes('passSalt'));
-  }
+  });
 
   /* ── 2. Reads: the line and the whitelist ───────────────────────────── */
-  {
+  await section(async () => {
     await setUp();
     const home = await billy('GET', 'home');
     const names = (home._json?.leads || []).map(l => l.business).sort();
@@ -223,14 +234,14 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const booked = home._json?.booked || [];
     check('booked-word', 'booked-word', 'Me > Booked is the business, one status word and the day, nothing else', booked.length === 2 && booked.every(x => Object.keys(x).sort().join() === [...view.CALLER_BOOKED_KEYS].sort().join()) && booked.find(x => x.business === 'Booked Co')?.word === 'Booked' && booked.find(x => x.business === 'Deal Co')?.word === 'Quoted');
     check('booked-words', null, 'the five words: Booked, Met, Quoted, Client, Closed', view.bookedWord({ stage: 'booked' }) === 'Booked' && view.bookedWord({ stage: 'deal', deal: { invoices: [] } }) === 'Met' && view.bookedWord({ stage: 'deal', deal: { invoices: [{ status: 'draft' }] } }) === 'Met' && view.bookedWord({ stage: 'deal', deal: { invoices: [{ status: 'sent' }] } }) === 'Quoted' && view.bookedWord({ stage: 'client' }) === 'Client' && view.bookedWord({ stage: 'declined' }) === 'Closed' && view.bookedWord({ stage: 'lost' }) === 'Closed');
-  }
+  });
 
   /* ── 3. Writes: the line, the whitelist, the stamp ──────────────────── */
-  {
+  await section(async () => {
     await setUp();
     const missing = await billy('POST', 'outcome', { leadId: '507f1f77bcf86cd799439999', outcome: 'no-answer' });
     const writes = [
-      ['outcome', { outcome: 'no-answer' }], ['outcome', { outcome: 'callback' }], ['outcome', { outcome: 'no', reason: 'budget' }], ['contact', { phone: '555' }], ['triage', { decision: 'accept' }], ['triage', { decision: 'decline', reason: 'budget' }],
+      ['outcome', { outcome: 'no-answer' }], ['outcome', { outcome: 'callback' }], ['outcome', { outcome: 'no', reason: 'budget' }], ['contact', { phone: '555' }], ['triage', { decision: 'accept' }], ['triage', { decision: 'decline', reason: 'budget' }], ['book', { at: new Date(Date.now() + 2 * DAY).toISOString(), notes: 'x' }],
     ];
     const beyond = [6, 7, 8, 9, 10, 13];
     const snap = JSON.stringify(beyond.map(lead));
@@ -265,14 +276,14 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const cb = await billy('POST', 'outcome', { leadId: L(11), outcome: 'callback', note: 'after lunch', callbackAt: future });
     same.push(cb._status === 200 && lead(11).callbackAt === callOutcomeSet(b4cb, 'callback', { note: 'after lunch', callbackAt: future }).set.callbackAt && lead(11).callStatus === 'callback');
     check('outcome-parity', 'outcome-parity', 'no answer, wrong number and call back write what src/lib/callOutcome.js writes', same.length === 3 && same.every(Boolean));
-    check('outcome-by', 'stamp-log', 'the call log entry carries by: billy', lead(12).callLog.slice(-1)[0].by === 'billy' && lead(5).callLog.slice(-1)[0].by === 'billy');
+    check('outcome-by', 'stamp-log', 'the call log entry carries by: billy', lead(12).callLog.slice(-1)[0]?.by === 'billy' && lead(5).callLog.slice(-1)[0]?.by === 'billy');
     check('outcome-list', null, 'the list rule rides the same write: a wrong number leaves the list and its listId clears', !list(2).leadIds.includes(L(5)) && lead(5).listId === '');
     check('activity-call', 'activity', 'each outcome appends one team_activity row of kind call', rows('call').length === 3 && rows('call').every(r => r.who === 'billy' && r.leadIds.length === 1 && r.detail?.outcome));
     const past = await billy('POST', 'outcome', { leadId: L(1), outcome: 'callback', callbackAt: new Date(Date.now() - 60e3).toISOString() });
     check('callback-past', 'callback-past', 'a callback in the past is refused and nothing is written', past._status === 400 && lead(1).callStatus === 'not-called' && !lead(1).callbackAt);
     const dflt = await billy('POST', 'outcome', { leadId: L(1), outcome: 'callback' });
     const at = new Date(lead(1).callbackAt);
-    const ny = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(at);
+    const ny = Number.isFinite(at.getTime()) ? new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(at) : '';
     check('callback-default', null, 'with no time picked a callback is tomorrow at 9:00 AM New York', dflt._status === 200 && ny === '09:00' && at.getTime() > Date.now() && at.getTime() - Date.now() < 49 * 3600e3);
     check('callbacks-due-sync', null, 'the system list is refreshed by the sync, never written by hand', list(3).system === true && list(3).name === 'Callbacks due');
     const vm1 = await billy('POST', 'outcome', { leadId: L(12), outcome: 'no-answer', voicemail: true, note: 'second try' });
@@ -285,10 +296,10 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     check('outcome-enum', null, 'the outcome route takes its four outcomes only (a booking has its own action)', booked._status === 400 && (await billy('POST', 'outcome', { leadId: L(1), outcome: { $gt: '' } }))._status === 400);
     const onRob = await billy('POST', 'outcome', { leadId: L(4), outcome: 'no-answer' });
     check('outcome-rob-list', 'outcome-rob-list', 'a lead on a list Rob calls cannot be logged until Billy moves it to one of his own', onRob._status === 403 && lead(4).callLog.length === 0);
-  }
+  });
 
   /* ── 4. Triage and lists ────────────────────────────────────────────── */
-  {
+  await section(async () => {
     await setUp();
     const acc = await billy('POST', 'triage', { leadId: L(2), decision: 'accept', listId: LIST(2) });
     check('triage-accept', null, 'Accept and add: stage lead, on the list, the list and the listId together', acc._status === 200 && lead(2).stage === 'lead' && lead(2).listId === LIST(2) && list(2).leadIds.includes(L(2)) && acc._json?.lead?.listId === LIST(2));
@@ -346,26 +357,143 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const sess = await billy('POST', 'session', { list: 'Billys best', startedAt: new Date(Date.now() - 3600e3).toISOString(), endedAt: new Date().toISOString(), stats: { calls: 12, talked: 5, booked: 1, callbacks: 2, noAnswer: 6, notInterested: 1, extra: 99 }, who: 'rob' });
     const row = rows('session')[0];
     check('session-record', 'activity', 'a session is one team_activity row, stamped Billy, with its six numbers', sess._status === 200 && rows('session').length === 1 && row.who === 'billy' && row.detail.calls === 12 && row.detail.booked === 1 && !('extra' in row.detail));
-  }
+  });
+
+  /* ── 4b. Booking: Rob's open times, the slot check, the write, the push, the draft ── */
+  await section(async () => {
+    await setUp();
+    const t0 = Date.now();
+    const nyOf = (iso) => { const t = new Date(iso).getTime(); const p = zone.zoneParts(t); const key = `${p.y}-${String(p.m).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`; return { t, h: p.h, min: p.min, dow: new Date(`${key}T12:00:00Z`).getUTCDay(), date: key, time: `${String(p.h).padStart(2, '0')}:${String(p.min).padStart(2, '0')}` }; };
+
+    /* The weekly hours (the default source: no Calendly event type picked). */
+    const ot = await billy('GET', 'open-times');
+    const slots = ot._json?.slots || [];
+    check('open-hours', null, 'with no event type picked the open times are Rob\'s weekly hours: 30 minute slots, Monday to Friday, 10:00 to 16:00 New York, an hour from now to 14 days out, soonest first',
+      ot._status === 200 && ot._json?.source === 'hours' && slots.length > 40 && slots.every((x, i) => { const p = nyOf(x); return [1, 2, 3, 4, 5].includes(p.dow) && (p.min === 0 || p.min === 30) && p.h >= 10 && p.h < 16 && p.t >= t0 + 3600e3 - 5000 && p.t <= t0 + 14 * DAY + 5000 && (i === 0 || p.t > new Date(slots[i - 1]).getTime()); }));
+    check('open-whitelist', null, 'the open times answer is the source and the instants, and nothing about who Rob is meeting', Object.keys(ot._json || {}).sort().join() === 'slots,source' && slots.every(x => typeof x === 'string') && !bytes(ot).includes(FORBID));
+
+    /* Minus the meetings the CRM holds. */
+    const taken = slots[3]; const pick = slots[5]; const second = slots[9];
+    _stores.call_leads.push(plain(50, 'Has A Meeting', { stage: 'booked', meeting: { date: nyOf(taken).date, time: nyOf(taken).time, type: 'call' } }));
+    const ot2 = await billy('GET', 'open-times');
+    check('open-minus-crm', 'open-minus-crm', 'a time the CRM already holds a meeting at is not offered', ot2._status === 200 && !(ot2._json?.slots || []).includes(taken) && (ot2._json?.slots || []).includes(pick) && (ot2._json?.slots || []).length === slots.length - 1);
+
+    /* The slot is checked at the write. */
+    const bookTaken = await billy('POST', 'book', { leadId: L(12), at: taken, notes: 'x' });
+    check('slot-check', 'slot-check', 'the slot is checked at the write: a time that was taken since answers 409 and nothing is written', bookTaken._status === 409 && bookTaken._json?.taken === true && lead(12).stage === 'lead' && !lead(12).bookedBy && rows('booked').length === 0);
+    const offGrid = await billy('POST', 'book', { leadId: L(12), at: new Date(new Date(pick).getTime() + 7 * 60e3).toISOString() });
+    const past = await billy('POST', 'book', { leadId: L(12), at: new Date(Date.now() - 3600e3).toISOString() });
+    const junk = await billy('POST', 'book', { leadId: L(12), at: 'tomorrow' });
+    check('slot-open-only', 'slot-check', 'a time that is not one of Rob\'s open times is 409; one in the past or unreadable is 400', offGrid._status === 409 && past._status === 400 && junk._status === 400 && lead(12).stage === 'lead' && rows('booked').length === 0);
+    const onRob = await billy('POST', 'book', { leadId: L(4), at: slots[7] });
+    check('book-rob-list', 'outcome-rob-list', 'a lead on a list Rob calls cannot be booked by Billy until he moves it', onRob._status === 403 && lead(4).stage === 'lead');
+
+    /* The write: the console's booked outcome, stamped Billy. */
+    _stores.push_subscriptions = [{ _id: 'o1', subscription: { endpoint: 'https://push.example/1', keys: { p256dh: 'k', auth: 'a' } }, updatedAt: new Date() }];
+    pushStub.calls.length = 0;
+    const before = JSON.parse(JSON.stringify(lead(1)));
+    const model = callOutcomeSet(before, 'booked', { note: 'Wants a new sign and a site', meeting: { date: nyOf(pick).date, time: nyOf(pick).time, type: 'call', location: '' } }).set;
+    const booked = await billy('POST', 'book', { leadId: L(1), at: pick, notes: 'Wants a new sign and a site', who: 'rob', bookedBy: { who: 'rob', at: '2020-01-01' }, stage: 'client', deal: { invoices: [{ amount: 1 }] } });
+    const after = lead(1);
+    const lastLog = (after.callLog || [])[(after.callLog || []).length - 1] || {};
+    check('book-write', 'book-write', 'a booking sets stage booked, the meeting in New York, the booked call entry with his note, and bookedBy { who: billy, at } from the server',
+      booked._status === 200 && after.stage === 'booked' && after.callStatus === 'booked' && after.meeting?.date === nyOf(pick).date && after.meeting?.time === nyOf(pick).time && after.meeting?.type === 'call' && lastLog.outcome === 'booked' && lastLog.by === 'billy' && lastLog.note === 'Wants a new sign and a site' && after.bookedBy?.who === 'billy' && Math.abs(new Date(after.bookedBy?.at || 0).getTime() - Date.now()) < 60e3 && after.callerStamp?.by === 'billy');
+    check('book-parity', null, 'it writes what the console\'s booked outcome writes (src/lib/callOutcome.js): the stage, the meeting, the call status, the after call line and the deal it starts',
+      after.stage === model.stage && after.callStatus === model.callStatus && JSON.stringify(after.meeting) === JSON.stringify(model.meeting) && after.afterCall?.meeting === model.afterCall?.meeting && JSON.stringify(after.deal) === JSON.stringify(before.deal || model.deal) && lastLog.meeting === model.callLog[model.callLog.length - 1].meeting);
+    check('book-whitelist', null, 'the request cannot name who booked it, the stage or the deal: only the lead, the time and the notes are read', after.bookedBy?.who === 'billy' && after.bookedBy?.at !== '2020-01-01' && after.stage === 'booked' && JSON.stringify(after.deal) === JSON.stringify(before.deal));
+    check('book-answer', null, 'the answer is the business, the word Booked, the time and Rob\'s three ticks, and none of the record', booked._status === 200 && Object.keys(booked._json || {}).sort().join() === 'booked,ok,rob' && Object.keys(booked._json?.booked || {}).sort().join() === 'at,business,word' && Object.keys(booked._json?.rob || {}).sort().join() === 'draft,notes,push' && !bytes(booked).includes(FORBID));
+    const row = rows('booked')[0] || {};
+    check('book-activity', 'activity', 'a booking is one team_activity row of kind booked with the lead, the time and his note', rows('booked').length === 1 && row.who === 'billy' && String((row.leadIds || [])[0]) === L(1) && row.detail?.at === pick && row.detail?.note === 'Wants a new sign and a site');
+
+    /* It crossed the line: gone from Billy's side, a status word on Me. */
+    const homeAfter = (await billy('GET', 'home'))._json || {};
+    const again = await billy('POST', 'book', { leadId: L(1), at: second });
+    const logAfter = await billy('POST', 'outcome', { leadId: L(1), outcome: 'no-answer' });
+    check('book-crosses', 'write-line', 'once booked the lead is Rob\'s: it leaves the home read, every write on it is 404, and Me shows it as the word Booked',
+      !(homeAfter.leads || []).some(l => l.id === L(1)) && (homeAfter.booked || []).some(x => x.business === 'Kims Cafe' && x.word === 'Booked') && again._status === 404 && logAfter._status === 404 && lead(1).meeting?.time === nyOf(pick).time);
+    const ot3 = await billy('GET', 'open-times');
+    check('book-takes-slot', 'open-minus-crm', 'the time he booked is gone from the open times on the next read', ot3._status === 200 && !(ot3._json?.slots || []).includes(pick) && (ot3._json?.slots || []).includes(second));
+
+    /* Rob's push: a booking is a meeting, and it tells him to add it (nothing writes to Calendly). */
+    const sent = pushStub.calls.map(c => { try { return JSON.parse(c.payload); } catch { return {}; } });
+    const routeSrc = fs.readFileSync(path.join(api, '_routes', 'caller.js'), 'utf8');
+    const bookSrc = routeSrc.slice(routeSrc.indexOf("if (a === 'book')"), routeSrc.indexOf("if (a === 'session')", routeSrc.indexOf("if (a === 'book')")));
+    check('book-push', 'book-push', 'Rob gets one push for the booking: who, the business, the time in New York and "Add it to your calendar", under the meetings category',
+      sent.length === 1 && /Billy booked Kims Cafe/.test(sent[0].title || '') && /Add it to your calendar\./.test(sent[0].body || '') && (sent[0].body || '').includes(String(((nyOf(pick).h + 11) % 12) + 1) + ':' + String(nyOf(pick).min).padStart(2, '0')) && booked._json?.rob?.push === true && /category: 'meetings'/.test(bookSrc));
+    pushStub.calls.length = 0;
+    await admin('team', 'PATCH', { body: { set: { prefs: { booked: false, session: false } } } });
+    const quiet = await billy('POST', 'book', { leadId: L(12), at: second, notes: '' });
+    check('book-push-pref', 'book-push-pref', 'with "Books a lead" switched off the booking still lands and no push goes', quiet._status === 200 && lead(12).stage === 'booked' && pushStub.calls.length === 0 && quiet._json?.rob?.push === false && quiet._json?.rob?.notes === false);
+
+    /* The confirmation: a draft through the drafts path, never a send. */
+    const drafts = (_stores.email_log || []).filter(e => String(e.recordId) === L(1));
+    const d = drafts[0] || {};
+    const task = (after.checklists || []).flatMap(c => c.items || []).find(i => String(i.emailId || '') === String(d._id));
+    check('book-draft', 'book-draft', 'the confirmation email is one draft on the record (the custom template with Rob\'s words kept on it), with its task, and nothing was sent',
+      booked._json?.rob?.draft === true && drafts.length === 1 && d.status === 'draft' && d.templateId === 'custom' && !d.approvedAt && !d.sentAt && !d.providerId && /You're set for/.test(d.subject || '') && Array.isArray(d.override?.blocks) && d.override.blocks.length >= 3 && !!task && (_stores.email_log || []).every(e => e.status === 'draft'));
+    check('book-draft-words', null, 'the confirmation speaks as Rob in the first person, names Billy and the time, and its own words never say we', /Billy told me you two talked/.test(d.text || '') && /I'll call you then/.test(d.text || '') && !/\bwe\b|\bwe'|\bour\b|\bus\b/i.test([d.subject, ...(d.override?.blocks || []).map(b => b.text || '')].join(' ')) && !/undefined|null|\u2014/.test(d.text || ''));
+
+    /* bookedBy is stamped once and never changed. */
+    const old = '2026-01-05T15:00:00.000Z';
+    _stores.call_leads.push(plain(51, 'Booked Before', { bookedBy: { who: 'billy', at: old } }));
+    const third = (ot3._json?.slots || []).find(x => x !== second && x !== pick && new Date(x).getTime() > new Date(second).getTime() + 3600e3);
+    const rebook = await billy('POST', 'book', { leadId: L(51), at: third });
+    check('booked-by-once', 'booked-by-once', 'bookedBy is stamped once: a lead that already carries it keeps the first stamp when it is booked again', rebook._status === 200 && lead(51).stage === 'booked' && lead(51).bookedBy?.at === old);
+    const adminPatch = await admin('call-leads', 'PATCH', { query: { id: L(51) }, body: { id: L(51), _id: L(51), bookedBy: { who: 'rob', at: '2020-01-01' }, notes: 'ok' } });
+    check('booked-by-admin', null, 'and the admin\'s own lead route does not know the field, so no edit there changes it', lead(51).bookedBy?.who === 'billy' && lead(51).bookedBy?.at === old && adminPatch._status !== 599);
+
+    /* Calendly as the source: the event type's available times, cached five minutes, read only; the weekly hours when it cannot answer. */
+    const realFetch = globalThis.fetch;
+    const fetched = [];
+    const cal = [2, 3, 5, 9].map(d => new Date(Math.floor((Date.now() + d * DAY) / 1800e3) * 1800e3 + 1800e3).toISOString());
+    let calFails = false;
+    globalThis.fetch = async (url, opts = {}) => {
+      fetched.push({ url: String(url), method: opts.method || 'GET', auth: opts.headers?.Authorization || '' });
+      if (calFails) return { ok: false, status: 500, json: async () => ({}) };
+      const q = new URL(String(url)).searchParams; const a = new Date(q.get('start_time')).getTime(); const z = new Date(q.get('end_time')).getTime();
+      return { ok: true, status: 200, json: async () => ({ collection: [...cal.filter(x => new Date(x).getTime() >= a && new Date(x).getTime() <= z).map(x => ({ status: 'available', start_time: x })), { status: 'unavailable', start_time: new Date(a + 3600e3).toISOString() }] }) };
+    };
+    try {
+      process.env.CALENDLY_TOKEN = 'test-calendly-token';
+      const ET = 'https://api.calendly.com/event_types/ABC123';
+      await admin('team', 'PATCH', { body: { set: { openTimes: { source: 'calendly', eventType: ET, eventTypeName: 'Intro call' } } } });
+      const c1 = await billy('GET', 'open-times');
+      const n1 = fetched.length;
+      check('open-calendly', null, 'with an event type picked the open times are that event type\'s available times for 14 days (two weekly reads), unavailable ones left out',
+        c1._status === 200 && c1._json?.source === 'calendly' && (c1._json?.slots || []).join() === cal.join() && n1 === 2 && fetched.every(f => f.url.startsWith('https://api.calendly.com/event_type_available_times?') && decodeURIComponent(f.url).includes(ET) && f.auth === 'Bearer test-calendly-token') && fetched.every(f => (new Date(new URL(f.url).searchParams.get('end_time')) - new Date(new URL(f.url).searchParams.get('start_time'))) <= 7 * DAY));
+      const c2 = await billy('GET', 'open-times');
+      const cacheDoc = _stores.settings.find(x => String(x._id).startsWith('rate:open:'));
+      check('open-cache', 'open-cache', 'Calendly\'s answer is cached five minutes in settings under the rate: key pattern: a second read asks nothing', c2._status === 200 && (c2._json?.slots || []).join() === cal.join() && fetched.length === n1 && !!cacheDoc && !String(cacheDoc._id).includes('ABC123'));
+      const viaCal = await billy('POST', 'book', { leadId: L(5), at: cal[1], notes: 'Calendly slot' });
+      check('open-read-only', 'open-read-only', 'booking from a Calendly slot writes the CRM and never writes to Calendly: every request there is a GET', viaCal._status === 200 && lead(5).stage === 'booked' && fetched.length >= 2 && fetched.every(f => f.method === 'GET'));
+      const c3 = await billy('GET', 'open-times');
+      check('open-calendly-minus', 'open-minus-crm', 'and the time just booked is taken out of Calendly\'s list too', c3._status === 200 && !(c3._json?.slots || []).includes(cal[1]) && (c3._json?.slots || []).includes(cal[0]));
+      /* Past the cache, with Calendly refusing: the weekly hours. */
+      if (cacheDoc) cacheDoc.at = Date.now() - 6 * 60e3;
+      calFails = true;
+      const c4 = await billy('GET', 'open-times');
+      check('open-fallback', 'open-fallback', 'when Calendly cannot answer, the open times fall back to the weekly hours instead of an empty screen', c4._status === 200 && c4._json?.source === 'hours' && (c4._json?.slots || []).length > 40 && fetched.length > n1);
+    } finally { globalThis.fetch = realFetch; delete process.env.CALENDLY_TOKEN; }
+  });
 
   /* ── 5. Static: nothing destructive, nothing that sends ─────────────── */
-  {
+  await section(async () => {
     const read = (rel) => fs.readFileSync(path.join(api, rel), 'utf8');
     const routeSrc = read('_routes/caller.js');
-    const files = ['_routes/caller.js', '_lib/callerView.js', '_lib/team.js'].filter(f => fs.existsSync(path.join(api, f)));
+    const files = ['_routes/caller.js', '_lib/callerView.js', '_lib/team.js', '_lib/openTimes.js', '_lib/booking.js'].filter(f => fs.existsSync(path.join(api, f)));
     check('no-destructive', 'no-destructive', 'the caller route has no hard delete, no merge and no import', !/deleteOne\(|deleteMany\(|findOneAndDelete|dropCollection|\.drop\(|insertMany\(|mergedInto|leads-import|deleted:\s*true/.test(routeSrc));
     const SEND = /sendComposed|sendDraft|sendEmail\b|approvalStamp|resend\.com|web3forms|email\/send|email\/approve|twilio|\bnodemailer\b/i;
-    check('no-send', 'no-send', `nothing in the caller files sends an email or a text (${files.length} files)`, files.length >= 3 && files.every(f => !SEND.test(read(f))));
+    check('no-send', 'no-send', `nothing in the caller files sends an email or a text (${files.length} files)`, files.length === 5 && files.every(f => !SEND.test(read(f))));
     const idx = read('admin/index.js');
     check('one-route', null, 'every caller endpoint is the one route file behind route({ role: caller }) plus its door', /'caller': route\(caller, \{ role: 'caller'/.test(idx) && /'caller-door': route\(callerDoor, \{ role: 'public'/.test(idx) && /from '\.\.\/_routes\/caller\.js'/.test(idx) && (idx.match(/_routes\/caller\.js/g) || []).length === 1);
     const funcs = (function walk(dir, rel = '') { return fs.readdirSync(dir, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(dir, e.name), `${rel}${e.name}/`) : [rel + e.name])); })(api).filter(n => n.endsWith('.js') && !n.split('/').some(seg => seg.startsWith('_')));
     check('no-new-function', null, `the Call Room adds no Vercel function (${funcs.length})`, funcs.length === 10);
     const bk = read('_routes/backup.js');
     check('backup-whitelist', null, 'team and team_activity are not in the backup\'s collection list', !/'team'|'team_activity'/.test(bk.slice(bk.indexOf('const COLLECTIONS'), bk.indexOf('];', bk.indexOf('const COLLECTIONS')))));
-  }
+  });
 
   /* ── 6. The service worker: /api/caller/ is network only ────────────── */
-  {
+  await section(async () => {
     const src = fs.readFileSync(sw, 'utf8');
     /* The proof has to hold whatever the cache lists say, so the copy under test has a caller URL put on the cached list. */
     const rigged = src.replace("const API_CACHED = [", "const API_CACHED = ['/api/caller/home', ");
@@ -380,8 +508,9 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     const callerHit = run(rigged, 'https://admin.visualizeclients.com/api/caller/home');
     const adminHit = run(rigged, 'https://admin.visualizeclients.com/api/admin/call-leads');
     check('sw-no-cache', 'sw-no-cache', 'the service worker never answers or stores a /api/caller/ request, even with one on its cached list', rigged !== src && callerHit.responded === 0 && callerHit.puts === 0 && adminHit.responded === 1);
-  }
+  });
 
+  for (const [k, v] of [['VAPID_PUBLIC_KEY', envBefore.pub], ['VAPID_PRIVATE_KEY', envBefore.priv]]) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   fs.rmSync(tmp, { recursive: true, force: true });
   return out;
 }

@@ -553,3 +553,21 @@ Milestone 3, sorting:
 - The lead card of a lead on a list Rob calls offers Move it to my list in place of Call (the same sheet and the same confirm); the list it is on is not offered as a target.
 - Not now on the only lead waiting keeps it on screen and says so.
 - Two Untitled UI icons joined the kit's registry: Lock01 and ClockSnooze.
+
+Milestone 4, booking:
+
+- Open times are api/_lib/openTimes.js. The source is the Calendly event type Rob picks (its available times, two weekly reads for the 14 days, through the read only token the Calendar already uses) or his weekly hours in 30 minute slots; Calendly with no token, no event type, a refusal or a thrown fetch falls back to the hours instead of an empty screen. Only Calendly's answer is cached (five minutes, `rate:open:<hash of the event type>` in settings); the hours are computed.
+- The CRM's meetings are taken out on every read, never from the cache, so a time Billy just booked is gone on the next read and at the next write. A slot is taken when a meeting starts within 30 minutes of it. Nothing sooner than an hour from now is offered.
+- The booking write (`book`) reads the lead, the time and the notes and nothing else from the request. The slot must still be one of the open times at the write: 409 `{ taken: true }` when it is not, 400 for a time in the past or unreadable. It is the console's booked outcome (callOutcomeSet), stamped Billy; caller-test's book-parity holds the two together. api/_lib/booking.js carries the server's copy of dealFromOptions, since the console's lives in src and the api never imports src.
+- `bookedBy { who, at }` is set only when the lead carries none, so it is stamped once. The admin's lead route does not know the field, so no edit there can change it either (checked).
+- His notes are the note on his booked call entry (the same place the console's note goes); `bookedBy` stays exactly who and when. The record's card reads the notes from that entry.
+- Rob's push is category `meetings` (a booking is one), names Billy, the business and the time in New York, and ends "Add it to your calendar." because nothing writes to Calendly. It links to the record. The "Books a lead" toggle gates it; the booking lands either way.
+- The confirmation is a draft through the drafts path: `draftEmail` gained an optional `override` (kept on the log entry, so the send renders the same words), used on the custom template. The wording is Rob's, first person, names Billy, and never says we (the console's own invite says "We're on for"; that line was left alone and not reused). A lead with no email still gets the draft; Rob adds the address in the send sheet.
+- After the draft the next action is worked out once more, so the draft's task is the record's next step.
+- The Booked screen is its own path (/booked) holding only what it needs (the business, the owner, the phone, the time, the three ticks), because the lead itself has left Billy's side. Its Back goes to Calls. Next lead moves on in the session, or to the summary.
+- The day strip is chips that wrap, not a sideways scroller, so it cannot fight the edge Back gesture.
+- The guard proof now counts a cut copy that makes the checks throw as a failed proof. Two milestone 1 proofs had been passing that way (passcode-hash, write-whitelist); each section of the checks now catches its own throw as a failed check, and both walls are proven by their own check (41 of 41).
+- Rob's side. The Booked by Billy card is text only and sits inside a section: Meeting on a deal, History on a lead or a client (those records have no Meeting section). No header pill, no control.
+- The home's Billy today card sits under the Drafts card and keeps one height in every state at a given width, so it never moves what is under it. Whether the studio has a caller is remembered on the device: not known yet holds the card's place, known to have none draws nothing.
+- "Booked by Billy" on the home is words on the row's business line, on Today and Coming up alike, while the lead is still at stage booked. Rejected: a second pill beside the kind pill, which does not fit at 320.
+- The audit fixtures' booked leads meet today, and a booking turns into a deal an hour past its meeting, so team-ui-test adds its own booking three days out for the Coming up check instead of leaning on the clock.

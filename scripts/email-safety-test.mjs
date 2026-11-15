@@ -211,11 +211,11 @@ section('7. the stamp has one writer, and no screen reaches the old door');
   const sheet = approvers[0] ? fs.readFileSync(approvers[0], 'utf8') : '';
   ok(/EmailPreview/.test(sheet) && /Subject/.test(sheet) && /\bTo\b/.test(sheet), 'and that sheet shows the recipient, the subject and the body before the tap');
   /* Billy's Call Room: nothing in the caller files sends an email or a text (a booking only ever drafts, a text is an sms: link he taps himself), and no Call Room screen reaches an admin endpoint. */
-  const callerApi = ['_routes/caller.js', '_lib/callerView.js', '_lib/team.js', '_lib/openTimes.js'].map(f => path.join(ROOT, 'api', f)).filter(f => fs.existsSync(f));
+  const callerApi = ['_routes/caller.js', '_lib/callerView.js', '_lib/team.js', '_lib/openTimes.js', '_lib/booking.js'].map(f => path.join(ROOT, 'api', f)).filter(f => fs.existsSync(f));
   const callerSrc = srcFiles.filter(f => f.split(path.sep).includes('room'));
   const SENDS = /sendComposed|sendDraft|sendEmail\b|approvalStamp|resend\.com|web3forms|email\/send|email\/approve|send:\s*true|twilio/i;
   const sending = [...callerApi, ...callerSrc].filter(f => SENDS.test(fs.readFileSync(f, 'utf8')));
-  ok(callerApi.length >= 3 && sending.length === 0, `nothing in the caller files sends an email or a text (${callerApi.length} api files, ${callerSrc.length} Call Room files; ${sending.map(f => path.relative(ROOT, f)).join(', ') || 'none'})`);
+  ok(callerApi.length === 5 && sending.length === 0, `nothing in the caller files sends an email or a text (${callerApi.length} api files, ${callerSrc.length} Call Room files; ${sending.map(f => path.relative(ROOT, f)).join(', ') || 'none'})`);
   const reaching = callerSrc.filter(f => /\/api\/admin\//.test(fs.readFileSync(f, 'utf8')));
   ok(reaching.length === 0, `no Call Room file calls an admin endpoint (${reaching.map(f => path.relative(ROOT, f)).join(', ') || 'none'})`);
 }

@@ -11,6 +11,7 @@ import { fmtDateTime } from '../shared/dates';
 import { useShell } from '../shell/ShellContext';
 import { nextUpItems, homeRowAction, NEXT_TONE } from '../lib/nextAction';
 import { rowView, kindLabelOf as kindLabel } from '../lib/taskRows';
+import { bookedTag } from '../lib/team';
 import { homeLists, rowKey, checkWrite, tomorrowWrite, OVERDUE_CAP } from '../lib/homeRows';
 import { callOutcomeSet, outcomeUndoSet } from '../lib/callOutcome';
 import { applyOutcome, outcomeRemoves, restoreLead } from '../lib/lists';
@@ -46,6 +47,8 @@ function NuRow({ r, overdue, now, compact, phone, onCheck, onTomorrow, onOpen, o
   const plan = homeRowAction(item, now);
   const v = rowView(item, now);
   const biz = v.biz;
+  /* A booking Billy made wears its tag while the meeting is still ahead (the rules are untouched; a booking is a meeting). */
+  const tag = bookedTag(item.lead);
   const actions = [];
   if (plan.call) actions.push({ icon: 'Phone', label: `Call ${biz}`, onClick: onCall });
   if (overdue) actions.push(plan.tomorrow
@@ -54,7 +57,7 @@ function NuRow({ r, overdue, now, compact, phone, onCheck, onTomorrow, onOpen, o
     : { icon: 'ArrowRight', label: `Open the record: ${plan.title}, ${biz}`, text: 'Open', compact, onClick: onOpenBtn, className: 'nh-openbtn' });
   return (
     <TaskRow as="li" className="nh-row" data-row-id={item.lead._id}
-      title={plan.title} biz={biz} done={done} leaving={leaving} overdue={overdue}
+      title={plan.title} biz={tag ? `${biz} · ${tag}` : biz} data-booked-by={tag ? 'billy' : undefined} done={done} leaving={leaving} overdue={overdue}
       when={overdue ? (plan.late || 'Overdue') : plan.time} whenTone={overdue || plan.late ? 'late' : ''}
       kind={v.kind} openLabel={`Open ${biz}, ${plan.title}`} onOpen={onOpen}
       check={{ label: v.checkLabel, onClick: onCheck }}
@@ -230,10 +233,10 @@ export default function NextUpHome({ leads = [], projects = [], sets = [], loadi
                     const biz = it.lead.business;
                     const plan = homeRowAction(it, now);
                     return (
-                      <li key={rowKey(it)} className="nh-row nh-row--later" data-row-id={it.lead._id}>
+                      <li key={rowKey(it)} className="nh-row nh-row--later" data-row-id={it.lead._id} data-booked-by={bookedTag(it.lead) ? 'billy' : undefined}>
                         <button type="button" className="v-stretch" onClick={() => openRecord(it)} aria-label={`Open ${biz}, ${plan.title}, ${fmtDateTime(it.due)}`}>{`Open ${biz}`}</button>
                         <span className="nh-stamp" aria-hidden="true"><span className="nh-stamp-d">{DAYS[d.getDay()]}</span><span className="nh-stamp-n">{d.getDate()}</span></span>
-                        <div className="nh-body"><span className="nh-title lay-truncate">{plan.title}</span><span className="nh-biz lay-truncate">{biz}</span></div>
+                        <div className="nh-body"><span className="nh-title lay-truncate">{plan.title}</span><span className="nh-biz lay-truncate">{biz}{bookedTag(it.lead) ? ` · ${bookedTag(it.lead)}` : ''}</span></div>
                         <Pill tone={NEXT_TONE[it.action.kind] || 'neutral'} label={kindLabel(it.action)} size="sm" icon={false} variant="soft" className="nh-later-pill" />
                       </li>
                     );

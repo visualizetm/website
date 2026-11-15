@@ -17,8 +17,6 @@ import { newSession, sessionLogged, sessionNext, sessionTexted, tomorrowNine } f
  *   Not interested       DeclineSheet: the lead is declined with his reason and note, never deleted
  *   Wrong number or do not call   the console's Log outcome sheet for a wrong number
  * After the write the room moves to the next lead in the session, or to the summary when the queue is done. */
-export const BOOKING_ON = false;
-
 export default function OutcomeFlow({ lead, said, onClose }) {
   const room = useRoom();
   const toast = useToast();
@@ -75,7 +73,7 @@ export default function OutcomeFlow({ lead, said, onClose }) {
       <Stack gap={2} role="group" aria-label="Outcome">
         <Button size="lg" full variant="secondary" icon="PhoneHangUp" onClick={() => setMode('voicemail')} className="rm-o-noanswer">No answer</Button>
         <Button size="lg" full variant="secondary" icon="ClockRewind" onClick={() => setMode('callback')} className="rm-o-callback">Call back</Button>
-        {BOOKING_ON && <Button size="lg" full icon="CalendarCheck01" onClick={() => room.go(`/book/${encodeURIComponent(lead.id)}`)} className="rm-o-booked">Booked</Button>}
+        <Button size="lg" full icon="CalendarCheck01" onClick={() => room.go(`/book/${encodeURIComponent(lead.id)}`)} className="rm-o-booked">Booked</Button>
         <Button size="lg" full variant="secondary" icon="SlashCircle01" onClick={() => setMode('no')} className="rm-o-no">Not interested</Button>
         <Button size="lg" full variant="secondary" icon="UserX01" onClick={() => setMode('wrong')} className="rm-o-wrong">Wrong number or do not call</Button>
       </Stack>

@@ -3,8 +3,9 @@ import LinkedSubmissions from '../LinkedSubmissions';
 import { CALL_STATUSES, CONTACT_TYPES } from '../../shared/semantics';
 import { fmtDate, toMs } from '../../shared/dates';
 import { COPY } from '../../shared/copy';
+import BookedByCard from './BookedByCard';
 
-/* History: the merged call and contact log, then their site submissions. */
+/* History: the merged call and contact log, then their site submissions. A lead Billy booked says so on top (outside a deal). */
 export const historySummary = (rec) => {
   const { lead } = rec;
   const rows = [...(lead.callLog || []).map(e => ({ at: e.at, label: CALL_STATUSES.find(s => s.id === e.outcome)?.label || 'Call' })), ...(lead.contactLog || []).map(e => ({ at: e.at, label: `${CONTACT_TYPES.find(t => t.id === e.type)?.label || 'Contact'} logged` })), ...(Array.isArray(lead.docLog) ? lead.docLog : []).map(e => ({ at: e.at, label: e.action === 'deleted' ? 'Deleted doc' : 'Created doc' }))].sort((a, b) => toMs(b.at) - toMs(a.at));
@@ -13,9 +14,11 @@ export const historySummary = (rec) => {
 };
 
 export default function HistorySection({ rec }) {
-  const { lead, submissions, onLinkSubmission, toast } = rec;
+  const { lead, submissions, onLinkSubmission, toast, dealMode } = rec;
   return (
     <div className="rc-history">
+      {/* On a deal the card sits in Meeting; everywhere else the record has no Meeting section, so it sits here. */}
+      {!dealMode && <BookedByCard lead={lead} />}
       <LeadHistory lead={lead} />
       <div className="rc-group"><p className="rc-label">Their site submissions</p><LinkedSubmissions lead={lead} submissions={submissions} onLinkSubmission={onLinkSubmission ? async (...a) => { const ok = await onLinkSubmission(...a); if (ok === false) toast.error(COPY.error.save); return ok; } : undefined} /></div>
     </div>

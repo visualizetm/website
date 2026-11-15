@@ -10,6 +10,9 @@ import { nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
 import { DECLINE_REASON_IDS, normalizeStage } from '../_semantics.js';
 import { zoneStartOfDay, zoneTomorrowAt } from '../_lib/zone.js';
 import { sendPush } from '../_lib/notify.js';
+import { openTimes } from '../_lib/openTimes.js';
+import { meetingOf, bookingDeal, whenLine, confirmationOverride } from '../_lib/booking.js';
+import { draftEmail } from '../_lib/email/drafts.js';
 
 /* Billy's Call Room (part 1): every caller endpoint, one route. The action
  * arrives as ?a= from the rewrite (/api/caller/<action>). `handler` sits
@@ -166,6 +169,8 @@ export async function handler(req, res) {
         today,
       });
     }
+    /* Rob's open times for the next 14 days: instants only, never who the other meetings are with. */
+    if (a === 'open-times') return res.status(200).json(await openTimes(db, await teamDoc(db), now));
     return notFound(res);
   }
 
@@ -325,6 +330,44 @@ export async function handler(req, res) {
     if (outcome === 'callback') await syncCallbacksDue(db, now);
     await logActivity(db, { kind: 'call', leadIds: [lead._id], business: lead.business, detail: { outcome, note: entry.note, ...(set.callbackAt ? { callbackAt: set.callbackAt } : {}), ...(voicemail ? { voicemail: true } : {}), ...(outcome === 'no' ? { reason: b.reason, before } : {}) } }, now);
     return res.status(200).json({ ok: true, lead: callerMay(after) ? callerLead(after) : null });
+  }
+
+  /* The booking: the lead crosses the line. The slot is checked at the write (409 when it is no longer open), the write is the
+   * console's booked outcome stamped Billy, with bookedBy set once and never again. Rob gets a push (a booking is a meeting;
+   * nothing writes to Calendly, so it tells him to add it) and a confirmation drafted through the drafts path. Nothing is sent. */
+  if (a === 'book') {
+    const lead = await leadFor(db, b.leadId);
+    if (!lead) return notFound(res);
+    if (lead.listId) { const on = await openHandList(db, lead.listId); if (on && callerIdOf(on) === 'rob') return res.status(403).json({ error: 'That one is on a list Rob calls. Move it to one of yours first.' }); }
+    const atMs = typeof b.at === 'string' ? new Date(b.at).getTime() : NaN;
+    if (!Number.isFinite(atMs) || atMs <= now) return res.status(400).json({ error: 'Pick a time that has not passed.' });
+    const team = await teamDoc(db);
+    const slot = new Date(atMs).toISOString();
+    const open = await openTimes(db, team, now);
+    if (!open.slots.includes(slot)) return res.status(409).json({ error: 'That time was just taken. Pick another.', taken: true });
+    const at = new Date(now).toISOString();
+    const meeting = meetingOf(atMs);
+    const note = str(b.notes, 1000);
+    const entry = { at, outcome: 'booked', note, meeting: `${meeting.date} ${meeting.time}`, email: '', by: BILLY };
+    const set = { callStatus: 'booked', callLog: [...(Array.isArray(lead.callLog) ? lead.callLog : []), entry].slice(-200), stage: 'booked', meeting, afterCall: { ...(lead.afterCall || {}), meeting: entry.meeting, email: lead.afterCall?.email || '' } };
+    if (!lead.deal) set.deal = bookingDeal(lead);
+    if (!lead.bookedBy?.who) set.bookedBy = { who: BILLY, at };
+    if (await listAfterOutcome(db, lead, 'booked')) set.listId = '';
+    const ctx = await ctxFor(db);
+    await writeLead(db, lead, set, ctx, now);
+    await logActivity(db, { kind: 'booked', leadIds: [lead._id], business: lead.business, detail: { outcome: 'booked', at: slot, meeting: entry.meeting, note } }, now);
+    let push = false;
+    if (sanitizePrefs(team?.prefs).booked) {
+      try { const r = await sendPush(db, { title: `${req.caller.name} booked ${str(lead.business, 80) || 'a lead'}`, body: `${whenLine(atMs)}. Add it to your calendar.`, url: `${adminBase()}/leads/${lead._id}`, tag: `booked-${lead._id}`, kind: 'event', category: 'meetings' }, { now }); push = (r?.delivered || 0) > 0; } catch { /* the booking stands; the push is a courtesy */ }
+    }
+    let draft = false;
+    try {
+      const d = await draftEmail(db, { recordId: String(lead._id), templateId: 'custom', override: confirmationOverride(lead, atMs, req.caller.name), auto: false, reason: `Booked by ${req.caller.name}` }, now);
+      draft = d?.ok === true;
+      /* The draft's task is the record's next step until Rob sends it, so the next action is worked out once more. */
+      if (draft) { const fresh = await db.collection('call_leads').findOne({ _id: lead._id }); if (fresh) await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { nextAction: resolveNextAction(fresh, nextActionFor(fresh, ctx, now)) } }); }
+    } catch { /* the booking stands; Rob can write the email from the record */ }
+    return res.status(200).json({ ok: true, booked: { business: str(lead.business, 200), word: 'Booked', at: slot }, rob: { push, notes: !!note, draft } });
   }
 
   /* The session record: what one run of a list came to, and Rob's push when he asked for one. */

@@ -416,7 +416,11 @@ export const leads = Array.from({ length: 19 }, (_, i) => ({
   script: { confirm: 'Hey', intro: 'Hi', homework: 'Saw you', question: 'Who handles it?', likelyAnswers: [], hook: 'Free concepts', ask: '15 min?' },
   close: { lockIt: 'Lock', ifNo: 'Ok', noAnswer: 'Retry' },
   afterCall: {}, intel: { accomplishments: [], gaps: [], dropLines: [] },
-  callLog: [{ at: '2026-08-05T14:22:00Z', outcome: 'no-answer', note: 'Rang out ' + UNBROKEN.slice(0, 60), meeting: '', email: '' }],
+  callLog: i === 9 || i === 8
+    /* L8 (booked, the meeting ahead) and L9 (a deal by now) are the leads Billy booked (Billy's Call Room): his calls carry by: 'billy', the booking carries his notes. */
+    ? [{ at: '2026-08-05T14:22:00Z', outcome: 'no-answer', note: 'Rang out ' + UNBROKEN.slice(0, 60), meeting: '', email: '' }, { at: new Date(Date.now() - 3 * 864e5).toISOString(), outcome: 'no-answer', note: 'Left a voicemail.', meeting: '', email: '', by: 'billy' }, { at: new Date(Date.now() - 864e5).toISOString(), outcome: 'booked', note: 'Wants a new sign before spring. Her brother decides with her. ' + UNBROKEN.slice(0, 40), meeting: '', email: '', by: 'billy' }]
+    : [{ at: '2026-08-05T14:22:00Z', outcome: 'no-answer', note: 'Rang out ' + UNBROKEN.slice(0, 60), meeting: '', email: '' }],
+  ...(i === 9 || i === 8 ? { bookedBy: { who: 'billy', at: new Date(Date.now() - 864e5).toISOString() } } : {}),
   createdAt: new Date(Date.now() - i * 864e5).toISOString(),
   ...(PIPE_EXTRA[i] || {}),
 }));
@@ -569,6 +573,25 @@ export function docsHandler(store, method, query, body) {
   return { status: 405, body: { error: 'method not allowed' } };
 }
 /** Every mocked admin GET payload by resource name (the mock HTTP server serves these too). */
+/* Billy on Rob's side (Settings > Team > Billy, his day, the home card): what GET /api/admin/team answers, never a hash, a salt or a version. */
+export const TEAM_BILLY = () => ({ id: 'billy', exists: true, name: 'Billy', email: 'billy@example.com', hasPasscode: true, canSignIn: true, moveOffRobLists: true, openTimes: { source: 'hours', eventType: '', eventTypeName: '', hours: { days: [1, 2, 3, 4, 5], start: '10:00', end: '16:00' } }, prefs: { booked: true, session: false }, lastSeenAt: new Date(Date.now() - 7 * 60e3).toISOString(), passcodeSetAt: new Date(Date.now() - 5 * 864e5).toISOString(), pausedAt: '' });
+const tRow = (i, minsAgo, kind, business, detail = {}, leadIds = ['L3']) => ({ id: `TA${i}`, at: new Date(Date.now() - minsAgo * 60e3).toISOString(), who: 'billy', kind, leadIds, business, detail, undone: [] });
+export const TEAM_DAY = () => ({
+  range: 'today',
+  rows: [
+    tRow(1, 12, 'booked', 'Lead Business 9', { outcome: 'booked', at: new Date(Date.now() + 2 * 864e5).toISOString(), note: 'Wants a new sign before spring.' }, ['L9']),
+    tRow(2, 25, 'call', 'Lead Business 4', { outcome: 'callback', note: 'Call after lunch', callbackAt: new Date(Date.now() + 864e5).toISOString() }, ['L4']),
+    tRow(3, 40, 'call', LONG, { outcome: 'no-answer', note: 'Left a voicemail.', voicemail: true }, ['L0']),
+    tRow(4, 55, 'sort', '3 leads', { op: 'decline', reason: 'has-site', note: 'All three have new sites', before: [{ id: 'L11', business: 'Lead Business 11', stage: 'lead' }, { id: 'L12', business: UNBROKEN, stage: 'triage' }, { id: 'L14', business: 'Lead Business 14', stage: 'lead' }] }, ['L11', 'L12', 'L14']),
+    tRow(5, 70, 'sort', 'Lead Business 13', { op: 'accept', list: 'Dover shops' }, ['L13']),
+    tRow(6, 90, 'sort', 'Dover shops', { op: 'new-list', list: 'Dover shops', added: 12, calls: 'billy' }, []),
+    tRow(7, 110, 'contact', 'Lead Business 7', { fields: ['phone'] }, ['L7']),
+    tRow(8, 130, 'session', 'Dover shops', { list: 'Dover shops', calls: 14, talked: 6, booked: 1, callbacks: 2, noAnswer: 7, notInterested: 1 }, []),
+  ],
+  stats: { calls: 14, talked: 6, booked: 1, callbacks: 2 },
+  billy: { exists: true, name: 'Billy' },
+});
+
 export const PAYLOADS = {
   submissions: () => ({ items, unread: 3, total: items.length, counts: {}, typeCounts: {}, series: [{ total: 2, landed: 1 }, { total: 5, landed: 0 }] }),
   /* A healthy install on every request: the reminders job ran seconds ago (so the red cron alarm stays away), one device is subscribed. */
@@ -774,7 +797,7 @@ export function callerHandler(store, method, action, b = {}, { empty = false } =
   if (method === 'GET') {
     if (action === 'session') return cOk({ ok: true, name: store.me.name });
     if (action === 'home') return cOk(empty ? { me: store.me, leads: [], lists: [view(store.lists.find(l => l.system))].map(l => ({ ...l, leadIds: [] })), booked: [], today: { calls: 0, talked: 0, booked: 0 } } : { me: store.me, leads: mine().map(callerLead), lists: store.lists.filter(l => l.status === 'open').map(view), booked: store.leads.filter(l => l.bookedBy?.who === 'billy').map(callerBooked), today: store.today });
-    if (action === 'open-times') { const base = new Date(); base.setUTCMinutes(0, 0, 0); const slots = empty ? [] : [26, 27, 28, 50, 51, 74, 98, 99, 100].map(h => new Date(base.getTime() + h * 3600e3).toISOString()); return cOk({ source: 'hours', slots }); }
+    if (action === 'open-times') { if (store.failSlots) return { status: 500, body: { error: 'server error' } }; const base = new Date(); base.setUTCMinutes(0, 0, 0); const slots = empty || store.noSlots ? [] : [26, 27, 28, 50, 51, 74, 98, 99, 100].map(h => new Date(base.getTime() + h * 3600e3).toISOString()).filter(x => x !== store.taken && !(store.bookedSlots || []).includes(x)); return cOk({ source: 'hours', slots }); }
     return c404();
   }
   if (action === 'triage') {
@@ -821,10 +844,14 @@ export function callerHandler(store, method, action, b = {}, { empty = false } =
   }
   if (action === 'book') {
     const l = leadOf(b.leadId); if (!l) return c404();
-    if (store.taken === b.slot) return { status: 409, body: { error: 'That time was just taken. Pick another.' } };
-    l.stage = 'booked'; l.callStatus = 'booked'; l.bookedBy = { who: 'billy', at: new Date().toISOString() }; l.listId = ''; for (const x of store.lists) if (!x.system) x.leadIds = x.leadIds.filter(i => i !== String(l._id));
+    if (offRob([l], '').length) return { status: 403, body: { error: 'That one is on a list Rob calls. Move it to one of yours first.' } };
+    if (!b.at || new Date(b.at).getTime() <= Date.now()) return { status: 400, body: { error: 'Pick a time that has not passed.' } };
+    if (store.taken === b.at || (store.bookedSlots || []).includes(b.at)) return { status: 409, body: { error: 'That time was just taken. Pick another.', taken: true } };
+    store.bookedSlots = [...(store.bookedSlots || []), b.at];
+    l.stage = 'booked'; l.callStatus = 'booked'; l.bookedBy = l.bookedBy || { who: 'billy', at: new Date().toISOString() }; l.listId = ''; for (const x of store.lists) if (!x.system) x.leadIds = x.leadIds.filter(i => i !== String(l._id));
+    l.callLog = [...l.callLog, { at: new Date().toISOString(), outcome: 'booked', note: b.notes || '', by: 'billy' }];
     store.today.calls += 1; store.today.talked += 1; store.today.booked += 1;
-    return cOk({ ok: true, booked: { business: l.business, slot: b.slot, phone: l.phone, owner: l.askFor }, done: { push: true, notes: true, draft: true } });
+    return cOk({ ok: true, booked: { business: l.business, word: 'Booked', at: b.at }, rob: { push: true, notes: !!b.notes, draft: true } });
   }
   if (action === 'session') return cOk({ ok: true });
   return c404();
@@ -846,6 +873,27 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/admin/settings**', r => (r.request().method() === 'GET' ? respond(r, 'settings', PAYLOADS.settings()) : r.fulfill(json({ ok: true }))));
   await page.route('**/api/admin/stripe/**', r => respond(r, 'stripe', PAYLOADS.stripe()));
   await page.route('**/api/admin/calendly/events**', r => respond(r, 'calendly', PAYLOADS.calendly()));
+  /* Team (Billy on Rob's side). opts.team: { billy, day, posts } lets a test read what was written and change what is answered. */
+  const tm = opts.team || {};
+  if (!tm.billy) tm.billy = TEAM_BILLY();
+  if (!tm.day) tm.day = TEAM_DAY();
+  if (!tm.posts) tm.posts = [];
+  await page.route('**/api/admin/team**', (r) => {
+    if (failing.has('team')) return r.fulfill(fail());
+    const u = new URL(r.request().url()); const method = r.request().method();
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { b = {}; }
+    if (method === 'GET') {
+      if (u.searchParams.get('view') === 'day') { const range = u.searchParams.get('range') || 'today'; const none = empty.has('team') || range === 'yesterday'; return r.fulfill(json({ ...tm.day, range, rows: none ? [] : tm.day.rows, stats: none ? { calls: 0, talked: 0, booked: 0, callbacks: 0 } : tm.day.stats, billy: { exists: tm.billy.exists, name: tm.billy.name } })); }
+      if (u.searchParams.get('view') === 'event-types') return r.fulfill(json({ configured: true, items: [{ uri: 'https://api.calendly.com/event_types/INTRO30', name: 'Intro call', duration: 30 }, { uri: 'https://api.calendly.com/event_types/BRAND60', name: 'Brand session ' + UNBROKEN.slice(0, 20), duration: 60 }] }));
+      return r.fulfill(json({ billy: tm.billy }));
+    }
+    tm.posts.push({ method, body: b });
+    if (method === 'PATCH') { Object.assign(tm.billy, b.set || {}, { exists: true }); if (b.set && b.set.canSignIn === true) tm.billy.pausedAt = ''; return r.fulfill(json({ ok: true, billy: tm.billy })); }
+    if (b.action === 'reset-passcode') { tm.billy.hasPasscode = true; tm.billy.passcodeSetAt = new Date().toISOString(); return r.fulfill(json({ ok: true, passcode: 'KXMT-7R4Q', billy: tm.billy })); }
+    if (b.action === 'pause') { tm.billy.canSignIn = false; tm.billy.pausedAt = new Date().toISOString(); return r.fulfill(json({ ok: true, billy: tm.billy })); }
+    if (b.action === 'undo-decline') { const row = tm.day.rows.find(x => x.id === b.rowId); if (!row) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); row.undone = [...new Set([...(row.undone || []), b.leadId])]; return r.fulfill(json({ ok: true, stage: 'lead' })); }
+    return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'unknown action' }) });
+  });
   await page.route('**/api/admin/log', r => r.fulfill(json({ ok: true, items: [] })));
   // CRM revamp, step 6: every send answers ok; the record's stamps come from the server in production.
   await page.route('**/api/admin/send-email', r => r.fulfill(json({ ok: true, sentAt: NOW_ISO })));

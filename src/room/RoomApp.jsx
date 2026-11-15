@@ -20,6 +20,7 @@ import SignIn from './SignIn';
 import Hub from './Hub';
 import LeadCard from './LeadCard';
 import CallRoom from './CallRoom';
+import Booking, { Booked } from './Booking';
 import Callbacks from './Callbacks';
 import Summary from './Summary';
 import Me from './Me';
@@ -127,6 +128,8 @@ function Room({ onSignedOut }) {
     let m;
     if ((m = rel.match(/^\/lead\/([^/]+)$/))) return <LeadCard key={m[1]} id={decodeURIComponent(m[1])} />;
     if ((m = rel.match(/^\/call\/([^/]+)$/))) return <CallRoom key={m[1]} id={decodeURIComponent(m[1])} />;
+    if ((m = rel.match(/^\/book\/([^/]+)$/))) return <Booking key={m[1]} id={decodeURIComponent(m[1])} />;
+    if (rel === '/booked') return <Booked />;
     if (rel === '/summary') return <Summary />;
     if (rel === '/callbacks') return <Callbacks />;
     if (rel === '/me') return <Me />;

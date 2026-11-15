@@ -8,6 +8,7 @@ import { PACKAGES, RETAINERS, money } from '../../shared/pricing';
 import { fmtWeekdayDateTime, countdownLabel } from '../../shared/dates';
 import { meetingDate } from '../../lib/booked';
 import { downloadIcs } from '../../lib/ics';
+import BookedByCard from './BookedByCard';
 
 /* Meeting: When (with Reschedule and the .ics button), Where, the game
  * plan checklist and the prep notes. No sub cards, no call mode. */
@@ -36,6 +37,7 @@ export default function MeetingSection({ rec }) {
   const setGp = (id, next) => patch({ gamePlan: gamePlan.some(g => g.serviceId === id) ? gamePlan.map(g => (g.serviceId === id ? { ...g, ...next } : g)) : [...gamePlan, { ...gp(id), ...next }] });
   return (
     <div className="rc-meeting">
+      <BookedByCard lead={lead} />
       <div className="rc-fact rc-fact--wide rc-fact--stack">
         <span className="rc-fact-label">When</span>
         <span className="rc-fact-val">{mDate ? <><span className="dt-when">{fmtWeekdayDateTime(mDate)}</span><span className="rc-muted"> · {countdownLabel(mDate)}{typeLabel(lead) ? ` · ${typeLabel(lead).toLowerCase()}` : ''}</span></> : <span className="rc-fact-ro">{legacy ? `Logged as "${lead.afterCall.meeting}". Set the date to get a countdown and a calendar file.` : 'No date yet'}</span>}</span>

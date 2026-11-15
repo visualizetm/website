@@ -14,6 +14,7 @@ const AUTH = '_lib/auth.js';
 const TEAM = '_lib/team.js';
 const VIEW = '_lib/callerView.js';
 const LISTS = '_lib/lists.js';
+const OPEN = '_lib/openTimes.js';
 const SW = 'sw.js';
 /* wall id (the check's `guard`) -> what to cut: [file, exact source, replacement] */
 const CUTS = {
@@ -45,7 +46,11 @@ const CUTS = {
   activity: [[TEAM, "  await col.insertOne(row);", ""]],
   'outcome-parity': [[RT, "if (outcome === 'wrong-number') set.phoneNote = `Wrong number (${fmtDate(at)})`;", ""]],
   'callback-past': [[RT, "if (!Number.isFinite(picked) || picked <= now) return res.status(400)", "if (!Number.isFinite(picked)) return res.status(400)"]],
-  'outcome-rob-list': [[RT, "if (lead.listId) { const on = await openHandList(db, lead.listId); if (on && callerIdOf(on) === 'rob') return res.status(403).json({ error: 'That one is on a list Rob calls. Move it to one of yours first.' }); }", ""]],
+  /* The same line guards the outcome and the booking: the first cut takes the outcome's, the second the booking's. */
+  'outcome-rob-list': [
+    [RT, "if (lead.listId) { const on = await openHandList(db, lead.listId); if (on && callerIdOf(on) === 'rob') return res.status(403).json({ error: 'That one is on a list Rob calls. Move it to one of yours first.' }); }", ""],
+    [RT, "if (lead.listId) { const on = await openHandList(db, lead.listId); if (on && callerIdOf(on) === 'rob') return res.status(403).json({ error: 'That one is on a list Rob calls. Move it to one of yours first.' }); }", ""],
+  ],
   'rob-list-confirm': [[RT, "if (req.body?.confirm !== true) return {", "if (false) return {"]],
   'rob-list-switch': [[RT, "if (req.caller.moveOffRobLists === false) return {", "if (false) return {"]],
   'lists-together': [[LISTS, "  await takeOffLists(db, landed, list._id);", ""]],
@@ -54,6 +59,17 @@ const CUTS = {
   'no-destructive': [[RT, "return res.status(200).json({ ok: true, declined: ids.length });", "await db.collection('call_leads').deleteMany({ _id: { $in: leads.map(l => l._id) } }); return res.status(200).json({ ok: true, declined: ids.length });"]],
   'no-send': [[RT, "import { sendPush } from '../_lib/notify.js';", "import { sendPush, sendEmail } from '../_lib/notify.js';"]],
   'sw-no-cache': [[SW, "  if (url.pathname.startsWith('/api/caller/')) return;\n", ""]],
+  /* Booking (milestone 4) */
+  'slot-check': [[RT, "if (!open.slots.includes(slot)) return res.status(409).json({ error: 'That time was just taken. Pick another.', taken: true });", ""]],
+  'book-write': [[RT, "if (!lead.bookedBy?.who) set.bookedBy = { who: BILLY, at };", ""]],
+  'booked-by-once': [[RT, "if (!lead.bookedBy?.who) set.bookedBy = { who: BILLY, at };", "set.bookedBy = { who: BILLY, at };"]],
+  'book-push': [[RT, "body: `${whenLine(atMs)}. Add it to your calendar.`", "body: whenLine(atMs)"]],
+  'book-push-pref': [[RT, "if (sanitizePrefs(team?.prefs).booked) {", "if (team) {"]],
+  'book-draft': [[RT, "draft = d?.ok === true;", "draft = d?.ok === true; if (d?.log?._id) await db.collection('email_log').updateOne({ _id: d.log._id }, { $set: { status: 'sent', sentAt: at } });"]],
+  'open-minus-crm': [[OPEN, " && slotFree(t, meetings))", ")"]],
+  'open-cache': [[OPEN, "if (doc && Number.isFinite(Number(doc.at)) && now - Number(doc.at) < OPEN_CACHE_MS && Array.isArray(doc.slots)) return { source: 'calendly', slots: doc.slots.map(Number).filter(Number.isFinite) };", ""]],
+  'open-read-only': [[RT, "await logActivity(db, { kind: 'booked',", "if (process.env.CALENDLY_TOKEN) { try { await fetch('https://api.calendly.com/scheduled_events', { method: 'POST', body: '{}' }); } catch { /* the cut's own write */ } }\n    await logActivity(db, { kind: 'booked',"]],
+  'open-fallback': [[OPEN, "return { source: 'hours', slots: hoursSlots(ot.hours, now) };", "return { source: ot.source, slots: ot.source === 'calendly' ? [] : hoursSlots(ot.hours, now) };"]],
 };
 
 /* A cut copy is expected to throw in places; its stack traces are noise here. */
@@ -79,12 +95,14 @@ for (const [g, cuts] of Object.entries(CUTS)) {
     fs.writeFileSync(f, src.replace(from, to));
   }
   if (!cutOk) { fs.rmSync(tmp, { recursive: true, force: true }); continue; }
-  let res = [];
-  try { res = await runCaller({ api: apiCopy, sw: swCopy }); } catch (e) { res = base.map(r => ({ ...r, pass: false, desc: `${r.desc} (the cut copy threw: ${String(e?.message || e).slice(0, 80)})` })); }
+  let res = []; let threw = '';
+  /* A cut copy that makes the harness itself throw proves nothing about the wall's own check, so it counts as a failed proof. */
+  try { res = await runCaller({ api: apiCopy, sw: swCopy }); } catch (e) { threw = String(e?.message || e).slice(0, 80); res = base.map(r => ({ ...r, pass: true })); }
   const mine = res.filter(r => r.guard === g);
   const failed = mine.filter(r => !r.pass);
   const collateral = res.filter(r => !r.pass && r.guard !== g);
-  const good = failed.length === mine.length && mine.length > 0;
+  const good = !threw && failed.length === mine.length && mine.length > 0;
+  if (threw) console.log(`FAIL ${g}: the checks threw on the cut copy (${threw}), so nothing was proven`);
   console.log(`${good ? 'ok   ' : 'FAIL '}${g.padEnd(22)} ${mine.length} check${mine.length > 1 ? 's' : ''}, "${mine[0]?.desc.slice(0, 64)}" ${good ? 'fails with the wall cut' : `STILL PASSES without the wall (${mine.length - failed.length} of ${mine.length})`}${collateral.length ? ` (also failing: ${collateral.length})` : ''}`);
   if (good) proven++; else bad++;
   fs.rmSync(tmp, { recursive: true, force: true });

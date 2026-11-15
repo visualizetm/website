@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { BILLY, teamDoc, publicTeam, newPasscode, hashPasscode, emailKey, sanitizeOpenTimes, sanitizePrefs } from '../_lib/team.js';
 import { zoneStartOfDay } from '../_lib/zone.js';
+import { eventTypes } from '../_lib/openTimes.js';
 import { normalizeStage } from '../_semantics.js';
 
 /* Rob's side of Billy (Billy's Call Room, part 1): Settings > Team > Billy
@@ -37,11 +38,14 @@ export async function handler(req, res) {
       const range = ['today', 'yesterday', 'week'].includes(req.query?.range) ? req.query.range : 'today';
       const from = range === 'today' ? today : range === 'yesterday' ? zoneStartOfDay(today - DAY / 2) : zoneStartOfDay(today - 6 * DAY - DAY / 2);
       const to = range === 'yesterday' ? today : now + 1000;
+      const team = await teamDoc(db);
       const rows = await db.collection('team_activity').find({ at: { $gte: new Date(from).toISOString(), $lt: new Date(to).toISOString() } }).sort({ at: -1 }).limit(1000).toArray();
       const calls = rows.filter(r => r.kind === 'call' || r.kind === 'booked');
       const stats = { calls: calls.length, talked: calls.filter(r => r.kind === 'booked' || !['no-answer', 'wrong-number'].includes(r.detail?.outcome)).length, booked: rows.filter(r => r.kind === 'booked').length, callbacks: rows.filter(r => r.kind === 'call' && r.detail?.outcome === 'callback').length };
-      return res.status(200).json({ range, rows: rows.map(r => ({ id: String(r._id), at: str(r.at, 40), who: str(r.who, 20), kind: str(r.kind, 20), leadIds: (r.leadIds || []).map(String), business: str(r.business, 200), detail: r.detail && typeof r.detail === 'object' ? r.detail : {}, undone: Array.isArray(r.undone) ? r.undone.map(String) : [] })), stats });
+      return res.status(200).json({ range, rows: rows.map(r => ({ id: String(r._id), at: str(r.at, 40), who: str(r.who, 20), kind: str(r.kind, 20), leadIds: (r.leadIds || []).map(String), business: str(r.business, 200), detail: r.detail && typeof r.detail === 'object' ? r.detail : {}, undone: Array.isArray(r.undone) ? r.undone.map(String) : [] })), stats, billy: { exists: !!team, name: publicTeam(team).name } });
     }
+    /* The Calendly event types Rob can pick as the open times source: names and addresses only, through the read only token. */
+    if (req.query?.view === 'event-types') return res.status(200).json(await eventTypes());
     return res.status(200).json({ billy: publicTeam(await teamDoc(db)) });
   }
 

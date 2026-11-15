@@ -7,7 +7,9 @@
  * York, not interested through the decline sheet, wrong number), the session summary and its record, the Callbacks tab,
  * Me > Booked, sign out. Then sorting: Triage (Not now, Accept through Put it on a list, Decline), Leads (search, chips, the
  * batch bar, locked rows, the confirm before a lead leaves a list Rob calls), Lists, the New list sheet (a filter counted first,
- * by hand, who calls it), rename, and the three first time states. Nothing in the walk may call an admin endpoint.
+ * by hand, who calls it), rename, and the three first time states. Then booking: the open times, a slot taken since the
+ * screen loaded, the one write, the Booked screen (the sms: link, Rob has it), the next lead, no open times, the load error.
+ * Nothing in the walk may call an admin endpoint.
  *   npx vite preview --port 4330 &   AUDIT_BASE=http://127.0.0.1:4330 PW_CHROME=/opt/pw-browsers/chromium node scripts/room-ui-test.mjs */
 import { chromium } from 'playwright-core';
 import { mockRoutes, callerStore, CALLER_EMAIL, CALLER_PASSCODE } from './audit-fixtures.mjs';
@@ -109,7 +111,7 @@ for (const width of [390, 1280]) {
   /* 6. No answer, a voicemail, the text */
   await endCall(p);
   const choices = await p.locator('.rm-outcome .v-btn-label').allInnerTexts();
-  ok(['No answer', 'Call back', 'Not interested', 'Wrong number or do not call'].every(c => choices.includes(c)), `the outcome choices: ${choices.join(', ')}`);
+  ok(choices.join(' | ') === 'No answer | Call back | Booked | Not interested | Wrong number or do not call', `the outcome choices: ${choices.join(', ')}`);
   await p.locator('.rm-o-noanswer').click();
   ok(await p.getByRole('heading', { name: 'Did you leave a voicemail?' }).count() === 1 || await p.getByText('Did you leave a voicemail?').count() >= 1, 'No answer asks whether he left a voicemail');
   await p.locator('.rm-vm-yes').click();
@@ -185,6 +187,7 @@ for (const width of [390, 1280]) {
   ok(S.errors.length === 0, `no page errors (${S.errors.slice(0, 2).join(' | ') || 'none'})`);
   await S.ctx.close();
   await sorting(width);
+  await booking(width);
 }
 
 /* Sorting (milestone 3): Triage, Leads with the batch bar, Lists, the New list sheet and the confirm before a lead leaves a list Rob calls. */
@@ -417,6 +420,93 @@ async function sorting(width) {
   ok(await e.getByText('No lists yet').count() === 1 && await e.locator('.rm-lists .v-empty').getByRole('button', { name: 'New list' }).count() === 1, 'first time, Lists: No lists yet with New list');
   await E.ctx.close();
 }
+/* Booking (milestone 4): Rob's open times, the slot taken since the screen loaded, the one write, the Booked screen, the next lead. */
+async function booking(width) {
+  console.log(`\n── ${width}px, booking ──`);
+  const S = await session(width); const p = S.page; const store = S.store;
+  await p.goto(`${ROOM}/lead/C5`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.rm-lead', { timeout: 8000 });
+  await dial(p);
+  await p.getByLabel('What they said').fill('Wants a new sign before spring');
+  await endCall(p);
+  await p.locator('.rm-o-booked').click();
+  await p.waitForSelector('.rm-booking', { timeout: 5000 });
+  ok(rel(p) === '/book/C5' && await chrome(p) === 'focused' && await tabsHidden(p) && /book free range bakery/i.test(await p.locator('.sh-top-title').innerText()), `Booked opens the booking screen, focused (${rel(p)})`);
+  await p.waitForSelector('.rm-slots .rm-slot', { timeout: 5000 });
+  const days = await p.locator('.rm-days .v-chip').count();
+  ok(days >= 2 && await p.locator('.rm-slots .rm-slot').count() >= 1 && /Rob's open times/.test(await p.locator('.rm-booking').innerText()), `Rob's open times: a day strip (${days} days) and a grid of times`);
+  ok(await p.getByLabel('What should Rob know?').inputValue() === 'Wants a new sign before spring', '"What should Rob know?" starts with what he typed on the call');
+  ok(await p.locator('.rm-book').isDisabled() && (await p.locator('.rm-book').innerText()).trim() === 'Pick a time', 'nothing can be booked until a time is picked');
+  const first = p.locator('.rm-slots .rm-slot').first();
+  const firstIso = await first.getAttribute('data-slot');
+  await first.click();
+  const label = (await p.locator('.rm-book').innerText()).trim();
+  ok(/^Book (Today|Tomorrow|[A-Z][a-z]{2}, [A-Z][a-z]{2} \d{1,2}) \d{1,2}:\d{2} (AM|PM)$/.test(label) && !(await p.locator('.rm-book').isDisabled()), `the button reads Book <day time> ("${label}")`);
+
+  /* The slot was taken while he looked: 409, said out loud, the open times read again. */
+  store.taken = firstIso;
+  await p.locator('.rm-book').click();
+  await p.waitForSelector('text=That time was just taken. Pick another.', { timeout: 5000 }).catch(() => {});
+  await p.waitForFunction((iso) => !document.querySelector(`.rm-slot[data-slot="${iso}"]`) && !!document.querySelector('.rm-slot'), firstIso, { timeout: 5000 }).catch(() => {});
+  ok(await p.getByText('That time was just taken. Pick another.').count() >= 1 && await p.locator(`.rm-slot[data-slot="${firstIso}"]`).count() === 0 && rel(p) === '/book/C5' && store.leads.find(l => l._id === 'C5').stage === 'lead' && (await p.locator('.rm-book').innerText()).trim() === 'Pick a time', 'a time taken since the screen loaded is refused, said, and gone from the grid; nothing was booked');
+
+  /* The booking. */
+  await p.locator('.rm-days .v-chip').nth(1).click();
+  const slot = p.locator('.rm-slots .rm-slot').first();
+  const iso = await slot.getAttribute('data-slot');
+  await slot.click();
+  await p.locator('.rm-book').click();
+  await p.waitForSelector('.rm-bookedscreen', { timeout: 8000 });
+  const sent = posted(store, 'book').slice(-1)[0] || {};
+  ok(Object.keys(sent).sort().join() === 'at,leadId,notes' && sent.leadId === 'C5' && sent.at === iso && sent.notes === 'Wants a new sign before spring' && store.leads.find(l => l._id === 'C5').stage === 'booked', 'Book is one write: the lead, the time and his notes');
+  const scr = await p.locator('.rm-bookedscreen').innerText();
+  ok(rel(p) === '/booked' && await chrome(p) === 'focused' && /^Booked\.$/m.test(scr) && /Call with Rob/i.test(scr) && /\d{1,2}:\d{2} (AM|PM)/.test(await p.locator('[data-card="time"]').innerText()), 'the Booked screen: "Booked." and the time card');
+  const sms = await p.locator('a.rm-booked-text').getAttribute('href');
+  const body = decodeURIComponent((sms || '').split('body=')[1] || '');
+  ok(/^sms:/.test(sms || '') && /it's Billy from Visualize/.test(body) && /set with Rob/.test(body) && /\bI'll\b/.test(body) && !/\bwe\b|\bour\b/i.test(body), `Text it is an sms: link with the line filled in, in the first person ("${body.slice(0, 44)}...")`);
+  ok(posted(store, 'book').length === 2 && S.adminCalls.length === 0, 'and tapping nothing sends anything: the text is his to send');
+  const ticks = await p.locator('[data-card="rob-has-it"] .rm-tick').evaluateAll(els => els.map(e => `${e.getAttribute('data-on')}:${e.innerText.trim()}`));
+  ok(ticks.length === 3 && ticks.every(t => t.startsWith('1:')) && /Push sent to Rob/.test(ticks[0]) && /notes are on the lead/.test(ticks[1]) && /Confirmation email drafted for Rob/.test(ticks[2]), `Rob has it: ${ticks.map(t => t.slice(2)).join(', ')}`);
+  ok(await p.evaluate(() => !sessionStorage.getItem('rm_said_C5')), 'what he typed is cleared from the phone once it is on the lead');
+
+  /* Next lead: this was a session of one, so the summary. */
+  await p.locator('.rm-booked-next').click();
+  await p.waitForSelector('.rm-summary', { timeout: 8000 });
+  await p.waitForTimeout(300);
+  const rec = posted(store, 'session').slice(-1)[0] || {};
+  ok(rel(p) === '/summary' && rec.stats?.booked === 1 && rec.stats?.calls === 1 && rec.stats?.talked === 1, `Next lead moves on (here to the summary) and the session counts the booking (${JSON.stringify(rec.stats)})`);
+  await p.locator('.rm-done').click();
+  await p.waitForSelector('.rm-today', { timeout: 5000 });
+  await p.locator('.sh-tabs .sh-tab[aria-label="Me"]').click();
+  await p.waitForSelector('.rm-booked', { timeout: 5000 });
+  ok(/Free Range Bakery/.test(await p.locator('.rm-booked').innerText()), 'Me > Booked lists it');
+  await p.goto(`${ROOM}/lead/C5`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.v-empty', { timeout: 8000 }).catch(() => {});
+  ok(/That lead is not here/i.test(await p.locator('.v-empty').innerText()), 'and the lead itself is gone from his side of the line');
+
+  /* No open times, and the open times failing to load. */
+  store.noSlots = true;
+  await p.goto(`${ROOM}/book/C1`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.rm-booking .v-empty', { timeout: 8000 }).catch(() => {});
+  ok(/No open times/i.test(await p.locator('.rm-booking .v-empty').innerText()) && await p.locator('.rm-book').isDisabled(), 'with nothing open the screen says No open times and Book stays off');
+  ok(await p.locator('.sh-top .sh-top-back').count() === 1, 'the booking screen has Back in the top bar');
+  await p.locator('.sh-top .sh-top-back').click();
+  await p.waitForSelector('.rm-lead', { timeout: 5000 });
+  ok(rel(p) === '/lead/C1', `Back from booking returns to the lead card (${rel(p)})`);
+  store.noSlots = false; store.failSlots = true;
+  await p.goto(`${ROOM}/book/C1`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.rm-booking .v-error, .rm-booking [data-state="error"]', { timeout: 8000 }).catch(() => {});
+  ok(/The open times did not load/i.test(await p.locator('.rm-booking').innerText()) && await p.locator('.rm-booking').getByRole('button', { name: /Retry|Try again/ }).count() === 1, 'when the open times do not load the screen says so with Retry');
+  store.failSlots = false;
+  await p.locator('.rm-booking').getByRole('button', { name: /Retry|Try again/ }).click();
+  await p.waitForSelector('.rm-slots .rm-slot', { timeout: 5000 }).catch(() => {});
+  ok(await p.locator('.rm-slots .rm-slot').count() >= 1, 'Retry reads them again');
+
+  ok(S.adminCalls.length === 0, `nothing in the booking walk called an admin endpoint (${S.adminCalls.slice(0, 2).join(', ') || 'none'})`);
+  ok(S.errors.length === 0, `no page errors (${S.errors.slice(0, 2).join(' | ') || 'none'})`);
+  await S.ctx.close();
+}
+
 await browser.close();
 console.log(fails ? `\n${fails} failed.` : '\nAll Call Room browser checks pass.');
 process.exit(fails ? 1 : 0);

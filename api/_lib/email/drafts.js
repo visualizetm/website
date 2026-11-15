@@ -8,7 +8,7 @@
  * The task carries the entry (emailId), and sendDraft() is the one door that
  * sends a draft, called by approve.js alone (the Drafts rule): a draft goes
  * only with Rob's stamp, after the preview sheet. */
-import { loadContext, composeEmail, sendComposed } from './send.js';
+import { loadContext, composeEmail, sendComposed, sanitizeOverride } from './send.js';
 import { writeLog } from './log.js';
 import { mirrorToGmail } from './gmail.js';
 import { templateOf } from './templates.js';
@@ -24,23 +24,26 @@ export async function existingDraft(db, { recordId, templateId, invoiceId = '' }
 }
 
 /**
- * draftEmail(db, { recordId, projectId, invoiceId, templateId, auto, reason }) -> { ok, log, already, missing }
+ * draftEmail(db, { recordId, projectId, invoiceId, templateId, auto, reason, override }) -> { ok, log, already, missing }
  * Renders the template on the record as it stands, logs it as a draft and writes the task; answers the standing draft when one exists.
+ * `override` (subject, preheader, blocks, sanitized) is kept on the entry, so the send renders the same words again.
  */
-export async function draftEmail(db, { recordId, projectId = '', invoiceId = '', templateId, auto = true, reason = '' }, now = Date.now()) {
+export async function draftEmail(db, { recordId, projectId = '', invoiceId = '', templateId, auto = true, reason = '', override = null }, now = Date.now()) {
   const base = templateOf(templateId);
   if (!base) return { ok: false, error: 'unknown template' };
-  const had = await existingDraft(db, { recordId, templateId, invoiceId });
+  /* An override is its own email (a booking's confirmation on the custom template), so a standing draft of the same template does not stand in for it. */
+  const edits = sanitizeOverride(override);
+  const had = edits ? null : await existingDraft(db, { recordId, templateId, invoiceId });
   if (had) return { ok: true, log: had, already: true, missing: [] };
   const ctx = await loadContext(db, { recordId, projectId, invoiceId });
   if (ctx.error) return { ok: false, error: ctx.error };
-  const composed = composeEmail(ctx, { templateId });
+  const composed = composeEmail(ctx, { templateId, override: edits });
   if (composed.error) return { ok: false, error: composed.error };
   const { rendered, lacking, to } = composed;
   const missing = [...new Set([...rendered.missing, ...lacking])];
   const log = await writeLog(db, {
     recordId: String(ctx.lead._id), projectId: ctx.project ? String(ctx.project._id) : '', invoiceId: ctx.invoice ? String(ctx.invoice.id) : '', templateId: base.id, class: base.class,
-    to, cc: [], subject: rendered.subject, text: rendered.text, html: rendered.html, status: 'draft', auto: auto === true, reason, error: missing.length ? `Missing: ${missing.join(', ')}` : '',
+    to, cc: [], subject: rendered.subject, text: rendered.text, html: rendered.html, status: 'draft', auto: auto === true, reason, error: missing.length ? `Missing: ${missing.join(', ')}` : '', ...(edits ? { override: edits } : {}),
   });
   if (!missing.length) await mirrorToGmail(db, log, ctx.settings);
   const business = String(ctx.lead.showcase?.displayName || ctx.lead.business || 'a lead').slice(0, 120);
