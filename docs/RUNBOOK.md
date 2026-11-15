@@ -323,6 +323,26 @@ the client's Needs you card once Needs the client is on (the task row's
 menu or the task sheet, a link optional); files unlock on their own when
 every invoice is paid, or when the project is delivered with nothing open.
 
+## Set Billy up
+
+Settings, Team. Nothing needs a new environment variable.
+
+1. Email. Tap the email line and type the address Billy signs in with.
+2. Passcode. Tap Set a passcode (Reset passcode after the first time). The passcode is shown once, on that sheet. Copy it and hand it to Billy; it is stored as a hash, so it cannot be read again. If it is lost, reset it.
+3. Open times. Pick Calendly and the event type Billy should book from (it needs CALENDLY_TOKEN, the same one the Calendar uses), or Weekly hours with the days, the start and the end. Calendly's times are read only and cached for five minutes; when Calendly cannot answer, Billy sees the weekly hours, so set those either way. A booking never writes to Calendly: your push says "Add it to your calendar".
+4. Hand him the link on that card (Copy the link): the Call Room is `/room` on the admin host. On his phone he opens it, signs in, and adds it to his home screen.
+
+Day to day:
+
+- Pause now signs him out at once; switch Can sign in back on to let him in again. Reset passcode signs him out too.
+- Move leads off your lists, off, locks your lists to him: he sees those leads with a lock.
+- Who calls it is in a list's menu (Calls, Lists). A list he makes is his unless he says Rob calls it.
+- Tell me when Billy: Books a lead pushes under Meetings; Finishes a session pushes under Team (the eighth category in Notifications).
+- His day is Settings, Team, Billy's day, or Open Billy's day on the home. A decline he made opens as a batch; Undo puts a lead back where it stood.
+- A lead he booked carries a Booked by Billy card (in Meeting) and a confirmation email waiting in Drafts. Nothing is ever sent for you.
+
+If Billy says he cannot sign in: check Can sign in, then reset the passcode. Ten wrong tries lock that address for fifteen minutes.
+
 ## Scripts
 
 ```

@@ -5,7 +5,7 @@ import DeclineSheet from '../components/DeclineSheet';
 import { COPY } from '../shared/copy';
 import { useRoom } from './RoomApp';
 import { roomApi } from './roomApi';
-import { RoomError, RowsSkeleton } from './parts';
+import { RoomError, LeadsSkeleton } from './parts';
 import { PutOnListSheet, useListMove } from './sheets';
 import { LEAD_CHIPS, filterLeads, chipCounts, subLine, listOf, isRobList, onRobList, plural } from './roomLib';
 
@@ -25,9 +25,9 @@ export default function Leads({ footEl, draft, setDraft }) {
   const [busy, setBusy] = useState(false);
   const show = useDelayedLoading(loading);
   if (error) return <RoomError />;
-  if (loading) return show ? <RowsSkeleton rows={6} /> : <div className="rm-wait" />;
+  if (loading) return show ? <LeadsSkeleton /> : <div className="rm-wait" />;
   const c = COPY.room.empty.leads;
-  if (!leads.length) return <EmptyState icon="Users01" title={c.title} description={c.description} />;
+  if (!leads.length) return <EmptyState icon="Users01" title={c.title} description={c.description} action={{ label: c.action, onClick: () => go('/?section=triage', { replace: true }) }} />;
 
   const locked = (l) => me.moveOffRobLists === false && !!onRobList(l, lists);
   const rows = filterLeads(leads, lists, { q, chip });

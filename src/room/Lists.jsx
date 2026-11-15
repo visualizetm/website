@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Stack, Row, Card, Button, Pill, ProgressBar, EmptyState, Stagger, useDelayedLoading } from '../ui';
+import { Stack, Row, Card, Button, Pill, ProgressBar, EmptyState, useDelayedLoading } from '../ui';
 import { COPY } from '../shared/copy';
 import { useRoom } from './RoomApp';
-import { RoomError, RowsSkeleton } from './parts';
+import { RoomError, ListsSkeleton } from './parts';
 import { NewListSheet, RenameListSheet } from './sheets';
 import { listsInOrder, isMyList, isRobList, listLeft, listProgress, leftLine, callerPill, plural } from './roomLib';
 
@@ -15,7 +15,7 @@ export default function Lists({ setDraft }) {
   const [renaming, setRenaming] = useState(null);
   const show = useDelayedLoading(loading);
   if (error) return <RoomError />;
-  if (loading) return show ? <RowsSkeleton rows={4} /> : <div className="rm-wait" />;
+  if (loading) return show ? <ListsSkeleton /> : <div className="rm-wait" />;
   const ordered = listsInOrder(lists);
   const hand = ordered.filter(l => !l.system);
   const c = COPY.room.empty.lists;
@@ -26,13 +26,13 @@ export default function Lists({ setDraft }) {
         <Button icon="Plus" onClick={() => setNewOpen(true)} className="rm-new-list">New list</Button>
       </Row>
       {!hand.length && <Card padding={2}><EmptyState size="sm" icon="List" title={c.title} description={c.description} action={{ label: c.action, onClick: () => setNewOpen(true) }} /></Card>}
-      <Stagger as="ul" className="rm-ul" cap={6} aria-label="Lists">
+      <ul className="rm-ul rm-enter" aria-label="Lists">
         {ordered.map(l => (
           <li key={l.id}>
             <Card padding={4} className="rm-listcard" data-list-id={l.id}>
               <Stack gap={3}>
                 <Row gap={2} align="start" justify="between">
-                  <h3 className="rm-list-name lay-title">{l.name}</h3>
+                  <h2 className="rm-list-name lay-title">{l.name}</h2>
                   <Pill label={callerPill(l)} tone={l.system ? 'neutral' : isRobList(l) ? 'neutral' : 'progress'} icon={false} size="sm" className="rm-caller-pill" />
                 </Row>
                 {!l.system && <ProgressBar value={listProgress(l)} size="sm" />}
@@ -49,7 +49,7 @@ export default function Lists({ setDraft }) {
             </Card>
           </li>
         ))}
-      </Stagger>
+      </ul>
       {newOpen && <NewListSheet onClose={() => setNewOpen(false)} onMade={() => setNewOpen(false)} onByHand={(d) => { setNewOpen(false); setDraft(d); go('/?section=leads', { replace: true }); }} />}
       {renaming && <RenameListSheet list={renaming} onClose={() => setRenaming(null)} />}
     </Stack>

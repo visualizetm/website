@@ -4,7 +4,7 @@ import { formatPhone, telHref } from '../shared/phone';
 import { scriptLine } from '../shared/callScript';
 import { useRoom, useRoomBar } from './RoomApp';
 import { roomApi } from './roomApi';
-import { RoomError, CardSkeleton, Missing, LeadChips } from './parts';
+import { RoomError, LeadCardSkeleton, FootSkeleton, Missing, LeadChips } from './parts';
 import { PutOnListSheet, useListMove } from './sheets';
 import { onRobList, intelBullets, websiteLine, ratingLine, newSession, sessionNext, sessionSkipped } from './roomLib';
 
@@ -24,7 +24,7 @@ export default function LeadCard({ id }) {
   useRoomBar(lead?.business || 'Lead', lead ? [{ id: 'fix', label: 'Fix the number or the name', icon: 'Edit02', onClick: () => setFixOpen(true) }] : null);
   const show = useDelayedLoading(loading);
   if (error) return <PageShell label="Lead"><ScrollArea><RoomError /></ScrollArea></PageShell>;
-  if (loading) return <PageShell label="Lead"><ScrollArea>{show ? <CardSkeleton lines={6} /> : <div className="rm-wait" />}</ScrollArea></PageShell>;
+  if (loading) return <PageShell label="Lead"><ScrollArea>{show ? <LeadCardSkeleton /> : <div className="rm-wait" />}</ScrollArea>{show && <FootSkeleton />}</PageShell>;
   if (!lead) return <PageShell label="Lead"><ScrollArea><Missing /></ScrollArea></PageShell>;
 
   const rob = onRobList(lead, lists);

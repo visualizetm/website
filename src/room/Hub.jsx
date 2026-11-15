@@ -28,7 +28,7 @@ export default function Hub({ section }) {
       <ScrollArea>
         <Stack gap={4}>
           {options.length > 1 && <SegmentedControl full size="sm" label="Calls sections" options={options} value={active} onChange={(id) => go(id === 'today' ? '/' : `/?section=${id}`, { replace: true })} className="rm-strip" />}
-          <div className="lay-tabbody" key={active}><Body footEl={footEl} draft={draft} setDraft={setDraft} /></div>
+          <div className="lay-tabbody" data-v-enter="" key={active}><Body footEl={footEl} draft={draft} setDraft={setDraft} /></div>
         </Stack>
       </ScrollArea>
       <div ref={setFootEl} className="rm-hub-foot" />
@@ -39,10 +39,10 @@ export default function Hub({ section }) {
 function TodaySkeleton() {
   return (
     <Stack gap={4} className="rm-skel" aria-hidden="true">
-      <Stack gap={2}><SkeletonBlock width="60%" height={28} /><SkeletonBlock width="40%" height={14} /></Stack>
-      <Grid minColumnWidth={140} gap={2}>{[0, 1, 2, 3].map(i => <StatCard.Skeleton key={i} />)}</Grid>
-      <Card padding={4}><Stack gap={3}><SkeletonBlock width="30%" height={12} /><SkeletonBlock width="60%" height={22} /><SkeletonBlock height={6} /><SkeletonBlock height={52} radius="var(--v-radius-md)" /></Stack></Card>
-      <RowsSkeleton rows={2} />
+      <Stack gap={1}><SkeletonBlock width="60%" height={28} /><SkeletonBlock width="40%" height={18} /></Stack>
+      <Grid minColumnWidth={140} gap={2}>{[0, 1, 2, 3].map(i => <div key={i} className="rm-skel-stat"><StatCard.Skeleton /></div>)}</Grid>
+      <Card padding={4} className="rm-skel-yourlist"><Stack gap={3}><SkeletonBlock width="30%" height={12} /><SkeletonBlock width="60%" height={22} /><SkeletonBlock height={6} /><SkeletonBlock height={52} radius="var(--v-radius-md)" /></Stack></Card>
+      <div><span className="rm-skel-h"><SkeletonBlock width={150} height={18} /></span><RowsSkeleton rows={1} /></div>
     </Stack>
   );
 }

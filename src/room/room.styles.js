@@ -83,6 +83,35 @@ export const roomStyles = `
   .rm-tick.is-on { color: var(--v-text); }
   .rm-tick-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: var(--v-radius-pill); background: var(--v-surface-2); color: var(--v-text-3); flex-shrink: 0; }
   .rm-tick.is-on .rm-tick-mark { background: var(--v-status-booked-soft); color: var(--v-status-booked-text); }
+  /* A real list keeps ul > li, so its entrance is on the items themselves (the kit's Stagger wraps each child in a div). */
+  .rm-enter > li { animation: v-enter var(--v-dur-enter) var(--v-ease-out) both; }
+  .rm-enter > li:nth-child(2) { animation-delay: calc(1 * var(--v-stagger)); }
+  .rm-enter > li:nth-child(3) { animation-delay: calc(2 * var(--v-stagger)); }
+  .rm-enter > li:nth-child(4) { animation-delay: calc(3 * var(--v-stagger)); }
+  .rm-enter > li:nth-child(n+5) { animation-delay: calc(4 * var(--v-stagger)); }
+  /* Skeleton sizes, drawn to the loaded screens (the feel audit's fit) at a phone and at a computer. */
+  .rm-skel-h { display: block; height: 18px; margin-bottom: var(--v-space-2); }
+  .rm-skel-row { min-height: 70px; box-sizing: border-box; }
+  .rm-skel-grow { flex: 1 1 auto; }
+  .rm-skel-stat { min-height: 144px; display: grid; }
+  .rm-skel-yourlist { min-height: 194px; box-sizing: border-box; }
+  .rm-skel-triage { min-height: 324px; box-sizing: border-box; }
+  .rm-skel-list--a { min-height: 158px; box-sizing: border-box; }
+  .rm-skel-list--b { min-height: 106px; box-sizing: border-box; }
+  .rm-skel-list--c { min-height: 90px; box-sizing: border-box; }
+  .rm-skel-facts { min-height: 160px; box-sizing: border-box; }
+  .rm-skel-bullets { height: 100px; display: grid; gap: var(--v-space-2); align-content: start; overflow: hidden; }
+  .rm-skel-opener { min-height: 106px; box-sizing: border-box; }
+  .rm-skel-line { min-height: 82px; box-sizing: border-box; }
+  .rm-skel-said { height: 160px !important; }
+  @media (min-width: 768px) {
+    .rm-skel-triage { min-height: 302px; }
+    .rm-skel-list--a { min-height: 132px; }
+    .rm-skel-facts { min-height: 138px; }
+    .rm-skel-opener { min-height: 82px; }
+    .rm-skel-line { min-height: 58px; }
+    .rm-skel-said { height: 142px !important; }
+  }
   /* The room is phone first, but a computer still needs its three tabs: the same pill, centred, at every width. */
   @media (min-width: 768px) {
     .rm-root { --v-tabbar-now: calc(var(--v-tabbar-h) + var(--v-space-3)); }
@@ -91,6 +120,6 @@ export const roomStyles = `
     .rm-root .sh-tabs-glass { left: 50%; right: auto; width: min(360px, calc(100% - 2 * var(--v-space-4))); transform: translateX(-50%); }
     .rm-root .sh-tabs.is-hidden .sh-tabs-glass { transform: translate(-50%, calc(100% + var(--v-inset-bottom) + var(--v-space-4))); }
   }
-  @media (prefers-reduced-motion: reduce) { .rm-line, .rm-slots { animation: none; } }
-  [data-v-motion='reduce'] .rm-line, [data-v-motion='reduce'] .rm-slots { animation: none; }
+  @media (prefers-reduced-motion: reduce) { .rm-line, .rm-slots, .rm-enter > li { animation: none; } }
+  [data-v-motion='reduce'] .rm-line, [data-v-motion='reduce'] .rm-slots, [data-v-motion='reduce'] .rm-enter > li { animation: none; }
 `;

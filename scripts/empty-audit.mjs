@@ -18,6 +18,13 @@ const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linu
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const JUNK = 'zzqqxx';
 const SCREENS = [
+  /* Billy's Call Room (part 1): his lists, each with its first time state; Leads names the search that found nothing. */
+  { id: 'Call Room, Leads', path: '/admin/room?section=leads', resource: 'caller', search: true },
+  { id: 'Call Room, Lists', path: '/admin/room?section=lists', resource: 'caller', search: false, why: 'Lists has no search; with no list yet it is the first time state' },
+  { id: 'Call Room, Triage', path: '/admin/room?section=triage', resource: 'caller', search: false, why: 'Triage shows one lead at a time; an empty pile is its first time state' },
+  { id: 'Call Room, Callbacks', path: '/admin/room/callbacks', resource: 'caller', search: false, why: 'Callbacks has no search' },
+  { id: 'Call Room, Me', path: '/admin/room/me', resource: 'caller', search: false, why: 'Me, Booked has no search' },
+  { id: "Billy's day", path: '/admin/settings/team/day', resource: 'team', search: false, why: 'chips narrow it; a chip with nothing in it is the No results state (team-ui-test)' },
   { id: 'Leads', path: '/admin/leads', resource: 'leads', search: true },
   { id: 'Triage', path: '/admin/triage', resource: 'leads', search: true },
   { id: 'Deals', path: '/admin/deals', resource: 'leads', search: true, named: true },

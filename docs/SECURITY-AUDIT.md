@@ -492,3 +492,26 @@ Docs are Rob's private notes per client, so the door is the admin session and no
 Rendering: no stored string is ever read as markup. Text goes into the page as text nodes inside strong, em and a built with createElement, read back by `domToRuns` which keeps text, bold, italic and an http or https link and nothing else; paste is plain text; the print sheet draws React text and links through `safeHref`. The security test scans every file that draws or edits a doc (`src/components/docs`, the doc pages, `src/lib/docs.js`, `docTemplates.js`, `src/shared/docBlocks.js`) for `dangerouslySetInnerHTML`, `innerHTML =`, `outerHTML =`, `insertAdjacentHTML` and `document.write(`, and first shows the detector catches each. The browser audit types `<img src=x onerror=...>` and a script tag into a block and checks nothing ran and nothing was created.
 
 Not done: the doc images are uploaded to Cloudinary through the existing unsigned preset (the same flow as the showcase), so a deleted doc leaves its images on Cloudinary, as clearing any other image field does.
+
+## The caller (Billy's Call Room, part 1)
+
+Billy is a second person with a login, so every wall here is on the server and each one is proven: `scripts/caller-test.mjs` runs the checks in `scripts/caller-lib.mjs` against the real handlers (106 checks, also run as section 4e of `scripts/security-test.mjs`), and `scripts/caller-guard-proof.mjs` cuts each wall out of a copy in turn and requires that wall's own checks to fail (41 walls). A cut copy that makes the checks throw counts as a failed proof.
+
+| Wall | What it stops |
+|---|---|
+| cookie-payload, role, admin-refuses-caller | `vz_caller` is signed with SESSION_SECRET over `caller:<version>:<expiry>` and scoped to Path=/api/caller; neither cookie verifies as the other. An admin cookie is 401 on the caller route and a caller cookie is 401 on every admin route. `route()` takes a role; nothing skips the guard. |
+| version-kill, can-sign-in | Pause now, Reset passcode and Can sign in off bump the version, so the cookie Billy holds stops verifying on his next request. |
+| passcode-hash, login-body, login-limiter | the passcode is a scrypt hash and a salt, never plain text and never logged; sign in is a POST body, never query values; ten wrong tries in fifteen minutes per address is 429; a wrong email, a wrong passcode, a paused account and a missing account answer the same bytes. |
+| team-secrets, backup-out | `passHash`, `passSalt` and `version` are in no response, Rob's own included (his access, his day, the event types); `team` and `team_activity` are not in the backup. |
+| read-line, write-line | a lead that is booked, a deal, a client, declined or deleted is 404 on every caller read and write, the same bytes as a lead that does not exist, and nothing is written. |
+| whitelist, log-notes, booked-word | every response goes through api/_lib/callerView.js; a forbidden value planted in every field of a lead never appears; a call note is there only when Billy made the call; a lead he booked is one word. |
+| write-whitelist, stamp, stamp-log, activity | a write reads only the fields its action names; who and when are stamped on the server whatever the request says; each write is one `team_activity` row. |
+| outcome-parity, callback-past, outcome-rob-list | an outcome writes what the console writes; a callback in the past is refused; a lead on a list Rob calls cannot be logged or booked until Billy moves it. |
+| rob-list-confirm, rob-list-switch, lists-together, system-list, rename-own | a move off Rob's list needs `confirm: true` and is 403 when Rob switched it off; a move writes the list and the lead together; Callbacks due is never filled, renamed or reordered by the caller; Billy renames only the lists he made. |
+| slot-check, book-write, booked-by-once | the slot is checked at the write (409 when taken or not one of the open times); the booking is the console's booked outcome with `bookedBy` from the server, set once and never changed. |
+| book-push, book-push-pref, book-draft | Rob's push says to add it to his calendar and obeys his toggle; the confirmation is a draft through the drafts path and nothing is sent. |
+| open-minus-crm, open-cache, open-read-only, open-fallback | a time the CRM already holds is not offered; Calendly's answer is cached five minutes under a `rate:` key; every request to Calendly is a GET; when Calendly cannot answer the weekly hours stand in. |
+| no-destructive, no-send | the caller route has no hard delete, no merge and no import; none of the caller files can send an email or a text (email-safety-test scans them too, and every file under a `room` folder in src). |
+| no-store, sw-no-cache | caller responses are `Cache-Control: no-store`, and public/sw.js never answers or stores a `/api/caller/` request (sw-test). |
+
+What is deliberately not here: a rate limit on the caller's own writes (he is one trusted person behind a cookie, like Rob), and CSRF tokens (the cookie is SameSite=Strict and scoped to /api/caller).

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PageShell, ScrollArea, Section, Stack, Row, Card, Button, Chip, SegmentedControl, Sheet, EmptyState, NoResults, ErrorState, Stagger, SkeletonBlock, Icon, useRetry, useToast, useDelayedLoading } from '../ui';
+import { PageShell, ScrollArea, Section, Stack, Row, Card, Button, Chip, SegmentedControl, Sheet, EmptyState, NoResults, ErrorState, SkeletonBlock, Icon, useRetry, useToast, useDelayedLoading } from '../ui';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useBillyDay, teamApi } from '../lib/useTeam';
 import { DAY_RANGES, DAY_CHIPS, dayRows, chipCounts, rowWords, rowTime, rowChip, isBatch, batchLeads, rowLeadId, CALLER_NAME } from '../lib/team';
@@ -21,7 +21,9 @@ export default function AdminTeamDay({ leads = [], onBack, onLeadsChanged, loadi
   const [batch, setBatch] = useState(null);
   const [undoing, setUndoing] = useState('');
   const [undone, setUndone] = useState({}); // rowId -> lead ids put back in this visit
-  const { data, loading, error, reload } = useBillyDay(range);
+  const day = useBillyDay(range);
+  /* The audits' forced loading state: nothing has loaded yet. */
+  const data = forced ? null : day.data; const { loading, error, reload } = day;
   const [retry, retrying] = useRetry(reload);
   const name = data?.billy?.name || CALLER_NAME;
   useTopBar({ title: `${name}'s day`, back: onBack });
@@ -61,12 +63,12 @@ export default function AdminTeamDay({ leads = [], onBack, onLeadsChanged, loadi
           <div className="lay-tabbody" key={`${range}-${showSkel ? 'skel' : 'rows'}`}>
             {error && !data ? <Card><ErrorState title={`${name}'s day did not load`} description="Nothing was changed. Try again." onRetry={retry} retrying={retrying} /></Card>
               : !data || (busy && data.range !== range) ? (showSkel || data ? (
-                <Stack gap={2} aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <Card key={i} padding={3}><Row gap={3} align="center"><SkeletonBlock width={36} height={36} radius="var(--v-radius-md)" /><Stack gap={2} style={{ flex: 1, minWidth: 0 }}><SkeletonBlock width="55%" height={16} /><SkeletonBlock width="35%" height={12} /></Stack></Row></Card>)}</Stack>
+                <Stack gap={2} aria-hidden="true">{[0, 1, 2].map(i => <Card key={i} padding={3} className="td-skel-row"><Row gap={3} align="center"><SkeletonBlock width={36} height={36} radius="var(--v-radius-md)" /><Stack gap={1} style={{ flex: 1, minWidth: 0 }}><SkeletonBlock width="55%" height={22} /><SkeletonBlock width="70%" height={18} /><SkeletonBlock width="35%" height={18} /></Stack></Row></Card>)}</Stack>
               ) : <div className="td-wait" />)
-                : !all.length ? <EmptyState icon="ClockRewind" title={EMPTY[range]} description="His calls, bookings and sorting land here as he works, each with the time." />
+                : !all.length ? <EmptyState icon="ClockRewind" title={EMPTY[range]} description="His calls, bookings and sorting land here as he works, each with the time." action={range === 'week' ? (onBack ? { label: `Open ${name}'s access`, onClick: onBack } : undefined) : { label: 'See the week', onClick: () => { setRange('week'); setChip('all'); } }} />
                   : !rows.length ? <NoResults noun="entries" filters={[chipLabel]} onClear={() => setChip('all')} />
                     : (
-                      <Stagger as="ul" className="td-list" cap={8} aria-label={`${name}'s day, newest first`}>
+                      <ul className="td-list td-enter" data-v-enter="" aria-label={`${name}'s day, newest first`}>
                         {rows.map(r => {
                           const w = rowWords(r);
                           const opens = isBatch(r) || !!rowLeadId(r);
@@ -88,7 +90,7 @@ export default function AdminTeamDay({ leads = [], onBack, onLeadsChanged, loadi
                             </li>
                           );
                         })}
-                      </Stagger>
+                      </ul>
                     )}
           </div>
         </Stack>
@@ -115,9 +117,20 @@ export default function AdminTeamDay({ leads = [], onBack, onLeadsChanged, loadi
 
 export const teamDayStyles = `
   .td-chips { display: flex; flex-wrap: wrap; gap: var(--v-space-2); min-width: 0; }
+  /* One width with or without its count, so the chips wrap the same way before and after the day loads. */
+  .td-chips .v-chip { min-width: 112px; justify-content: center; padding: 0 var(--v-space-2); }
+  .td-skel-row { min-height: 92px; box-sizing: border-box; }
   .td-wait { min-height: var(--v-space-9); }
   .td-list, .td-batch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--v-space-2); min-width: 0; }
   .td-list > li { min-width: 0; }
+  /* A real list keeps ul > li, so its entrance is on the items themselves. */
+  .td-enter > li { animation: v-enter var(--v-dur-enter) var(--v-ease-out) both; }
+  .td-enter > li:nth-child(2) { animation-delay: calc(1 * var(--v-stagger)); }
+  .td-enter > li:nth-child(3) { animation-delay: calc(2 * var(--v-stagger)); }
+  .td-enter > li:nth-child(4) { animation-delay: calc(3 * var(--v-stagger)); }
+  .td-enter > li:nth-child(n+5) { animation-delay: calc(4 * var(--v-stagger)); }
+  @media (prefers-reduced-motion: reduce) { .td-enter > li { animation: none; } }
+  [data-v-motion='reduce'] .td-enter > li { animation: none; }
   .td-row { position: relative; min-width: 0; }
   .td-row:has(> .v-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .td-row .v-stretch:focus-visible { outline: 0; }

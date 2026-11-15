@@ -4,6 +4,7 @@ import { uiStyles, ToastProvider, PageHeader, IconButton, Icon, useToast, useOnl
 import TabBar, { tabBarStyles } from '../shell/TabBar';
 import { topBarStyles } from '../shell/TopBar';
 import { shellFrameStyles } from '../shell/frame.styles';
+import { useEdgeBack, edgeBackStyles } from '../shell/useEdgeBack';
 import BootFrame from '../shell/BootFrame';
 import { useAppearance, applyAppearance } from '../shell/appearance';
 import { roomParentOf, roomChromeOf, roomTabOf, ROOM_SECTIONS } from '../shell/backTree';
@@ -95,6 +96,9 @@ function Room({ onSignedOut }) {
   const parent = roomParentOf(rel, location.search);
   const back = useCallback(() => { if (location.state?.rm && window.history.length > 1) navigate(-1); else navigate(`${ROOM_BASE}${parent === '/' || !parent ? '' : parent}`, { replace: true }); }, [location.state, navigate, parent]);
 
+  /* The phone's edge swipe is the same Back, on a focused screen only (a root has none). The room keeps no copy of the screen beneath, so the ground shows. */
+  useEdgeBack({ enabled: focused, onBack: back, idx: 0, locKey: location.key });
+
   /* What a write hands back is patched in place, then home is read again without a skeleton. */
   const applyLead = useCallback((id, lead) => setData(d => (d ? { ...d, leads: lead ? (d.leads.some(l => l.id === id) ? d.leads.map(l => (l.id === id ? lead : l)) : [lead, ...d.leads]) : d.leads.filter(l => l.id !== id) } : d)), []);
   const applyList = useCallback((list) => { if (list) setData(d => (d ? { ...d, lists: d.lists.some(l => l.id === list.id) ? d.lists.map(l => (l.id === list.id ? { ...l, ...list, leadIds: list.leadIds } : l)) : [list, ...d.lists] } : d)); }, []);
@@ -117,11 +121,13 @@ function Room({ onSignedOut }) {
     go(`/lead/${encodeURIComponent(sessionNext(s))}`);
   }, [data, go, setSession, toast]);
 
+  /* The audits' forced loading state (?loading=1), as in the admin: nothing has loaded yet. */
+  const forced = new URLSearchParams(location.search).get('loading') === '1';
   const caller = useMemo(() => ({ name: data?.me?.name || 'Billy', owner: false }), [data]);
   const ctx = useMemo(() => ({
     me: data?.me || { name: 'Billy', moveOffRobLists: true }, caller, leads: data?.leads || [], lists: data?.lists || [], booked: data?.booked || [], today: data?.today || { calls: 0, talked: 0, booked: 0 },
-    loading, error, reload: load, go, back, rel, search: location.search, session, setSession, applyLead, applyList, write, signOut, startCalling, setBar,
-  }), [data, caller, loading, error, load, go, back, rel, location.search, session, setSession, applyLead, applyList, write, signOut, startCalling]);
+    loading: loading || forced, error, reload: load, go, back, rel, search: location.search, session, setSession, applyLead, applyList, write, signOut, startCalling, setBar,
+  }), [data, caller, loading, forced, error, load, go, back, rel, location.search, session, setSession, applyLead, applyList, write, signOut, startCalling]);
 
   const counts = { callbacks: callbacksCount(ctx.leads), triage: triagePile(ctx.leads).length };
   const screen = (() => {
@@ -150,9 +156,9 @@ function Room({ onSignedOut }) {
           </header>
           <div className={`sh-offline${online ? ' is-hidden' : ''}`} role="status" aria-live="polite">{!online && <><Icon icon="WifiOff" size="var(--v-icon-sm)" /><span>{COPY.offline.banner}</span></>}</div>
           <main key={rel} className="sh-content lay-view rm-content" aria-label={bar.title || fallbackTitle}>{screen}</main>
-          <TabBar tabs={ROOM_TABS} more={false} activeId={tab} counts={counts} countsLoading={loading && !data} onGo={(id) => go(TAB_PATH[id] || '/')} hidden={focused} />
+          <TabBar tabs={ROOM_TABS} more={false} activeId={tab} counts={counts} countsLoading={(loading && !data) || forced} onGo={(id) => go(TAB_PATH[id] || '/')} hidden={focused} />
         </div>
-        <style>{uiStyles + shellFrameStyles + topBarStyles + tabBarStyles + callStepperStyles + objectionStyles + outcomeSheetStyles + declineStyles + roomStyles}</style>
+        <style>{uiStyles + shellFrameStyles + edgeBackStyles + topBarStyles + tabBarStyles + callStepperStyles + objectionStyles + outcomeSheetStyles + declineStyles + roomStyles}</style>
       </div>
     </RoomCtx.Provider>
   );

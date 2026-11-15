@@ -291,8 +291,52 @@ Every admin endpoint follows GET, POST, PATCH { id, set } with a sanitize() whit
 | /api/stripe/webhook | POST (Stripe signature) | Stripe |
 | /api/cron/reminders (every minute: reminders, meetings, sweeps and the gated morning digest), /api/cron/daily (06:00 UTC) | GET (CRON_SECRET) | Vercel cron |
 
+## Billy's Call Room (part 1 of 2)
+
+Billy is Rob's commission sales partner. He cold calls and books intro calls from his own app, the Call Room, at `/room` on the admin host (`/admin/room` on localhost). Quotes and the commission are part 2; the Me tab leaves room for an Earned segment and the tab bar for a Quotes tab.
+
+**The line.** Billy owns everything before a booking: Triage, every lead at stage triage, lead or nurture, the lists, calls, callbacks and the booking itself. From the moment a lead is booked it is Rob's: every caller endpoint answers the same 404 for it as for a lead that does not exist. The one exception is Me, Booked, which shows a lead Billy booked as its business, when he booked it, and one word: Booked, Met, Quoted, Client or Closed (`bookedWord` in api/_lib/callerView.js).
+
+**The client** is `src/room/` and nothing else, its own lazy chunk, mounted by src/App.jsx for room paths. It shares no screen with the admin and never names an admin endpoint (email-safety-test scans the folder).
+
+| File | What it is |
+|---|---|
+| RoomApp.jsx | the session check, the frame (the admin's own `.sh-*` classes from src/shell/frame.styles.js), the top bar, the three tab pill, the routes, `useRoom()` and `useRoomBar()` |
+| SignIn.jsx | "Call Room.", Email, Passcode, Sign in |
+| Hub.jsx | Calls: the strip Today, Triage N, Leads, Lists (`?section=`), Today's body, the foot Leads portals its selection bar into, the list in the making |
+| Triage.jsx, Leads.jsx, Lists.jsx, sheets.jsx | sorting: one lead at a time; search, chips and the batch bar; the list cards; Put it on a list, New list, Rename, and the confirm before a lead leaves a list Rob calls (`useListMove`) |
+| LeadCard.jsx, CallRoom.jsx, OutcomeFlow.jsx | the lead card, the eight step call room, the outcome |
+| Booking.jsx | Rob's open times and the booking (`/book/:id`), then Booked (`/booked`) |
+| Callbacks.jsx, Summary.jsx, Me.jsx | the Callbacks tab, the session summary, Me (Booked) |
+| roomApi.js, roomLib.js | the one place the room talks to the server (`/api/caller/...`) and keeps things on the device (sessionStorage, `rm_` keys, cleared at sign out); the pure half (room-test) |
+
+The script is shared with the console, never forked: `ROOM_STEPS`, `scriptLine(lead, key, caller)` and `voicemailText(lead, caller)` in src/shared/callScript.js take the caller, and no line holds a name (`{{caller}}`, `{{owner}}`). The console's ObjectionSheet, OutcomeSheet, CallbackPicker and DeclineSheet are used as they are.
+
+**The room's tree** is in src/shell/backTree.js beside the admin's: `roomParentOf`, `roomChromeOf`, `roomTabOf`. Calls, Callbacks and Me are roots with the tab pill; the lead card, booking, Booked and the summary are focused; the call room hides the tab bar; the call room and booking back to the lead card; a lead card backs to where it was opened (`?from=`). The phone's edge swipe is the same Back (src/shell/useEdgeBack.js).
+
+**The server** is one route file, api/_routes/caller.js, behind `route(handler, { role: 'caller' })`, reached by the rewrites `/api/caller/login` and `/api/caller/logout` (the door, role public) and `/api/caller/:action`. No new Vercel function (10).
+
+| Action | Method | What it does |
+|---|---|---|
+| session, home | GET | whether the cookie stands; the one read every screen uses: `{ me, leads, lists, booked, today }`, leads through the whitelist |
+| open-times | GET | Rob's open times for 14 days: `{ source, slots }` |
+| triage | POST | accept (onto a list, a new list, or straight to Leads), decline with a reason, snooze (`triageSnoozedAt`) |
+| batch | POST | a selection onto a list or declined, one write; refused whole (404) if any lead is beyond the line |
+| list | POST | create (a filter, by hand, or empty; who calls it), rename (lists Billy made), skip (lists he calls) |
+| contact | POST | the phone and the owner's name, nothing else |
+| outcome | POST | no answer, callback (tomorrow 9:00 AM New York by default, never in the past), not interested (declined, never deleted), wrong number: the console's write, stamped Billy |
+| book | POST | the lead, the time and the notes: the slot checked at the write (409), stage booked, the meeting, `bookedBy` once, Rob's push, the confirmation drafted |
+| session | POST | the session record, and Rob's push when he asked for one |
+
+- Whitelist: api/_lib/callerView.js is the one module every caller response goes through (`callerLead`, `callerList`, `callerBooked`). Money, quotes, the deal, invoices, Rob's notes, concepts, docs, drafts and settings are never in a response; a call log entry's note is there only when Billy made the call.
+- Stamps: every write is stamped on the server (`callerStamp { by: 'billy', at }`, `by` on a call log entry, `declined.by`, `createdBy` on a list) and appends one row to `team_activity`.
+- Lists: a list carries `callerId` (rob or billy), defaulting to whoever made it. Moving a lead off a list Rob calls needs `confirm: true` and is 403 when `team.billy.moveOffRobLists` is false. Callbacks due is never assigned, renamed or filled by hand.
+- Open times: api/_lib/openTimes.js. The Calendly event type Rob picked (its available times, read only, cached five minutes under `rate:open:<hash>` in settings) or his weekly hours in 30 minute slots, minus the meetings the CRM holds, read fresh every time. Nothing writes to Calendly.
+- Rob's side: api/_routes/team.js (`/api/admin/team`, admin only): GET (his access, never the hash, the salt or the version), `view=day` (Billy's day), `view=event-types`, PATCH `{ set }`, POST reset-passcode (answered once), pause, undo-decline. The screens are the Team tab of Settings (src/components/team/TeamPanel.jsx), Billy's day (src/pages/AdminTeamDay.jsx, /settings/team/day), Who calls it on a list (AdminLists), the Booked by Billy card on a record (src/components/record/BookedByCard.jsx, in Meeting on a deal and in History elsewhere), the Billy today card on the home (src/components/BillyToday.jsx) and the Booked by Billy tag on the home's rows. Pure logic: src/lib/team.js (team-test).
+
 ## Collections and sanitize shapes
 
+- Billy's Call Room: `team` holds one document `{ _id: 'billy', name, email, passHash, passSalt, version, canSignIn, moveOffRobLists, openTimes { source, eventType, eventTypeName, hours { days, start, end } }, prefs { booked, session }, lastSeenAt, passcodeSetAt, pausedAt }`. `team_activity` holds one row per thing Billy did: `{ at, who, kind (call, booked, sort, contact, session), leadIds, business, detail, undone }`, indexed on `at`. Neither is in the backup. On a lead: `bookedBy { who, at }` (set once by the caller route, unknown to the admin's sanitize), `callerStamp { by, at }`, `triageSnoozedAt`, and `by` on a call log entry. On a list: `callerId` and `createdBy`.
 - Derived fields (docs/UX-AUDIT.md): the fields below are still stored and still accepted by sanitize(), but each has one place it is typed and is read only everywhere else. `showcase.displayName` is an override of `business` (the editor shows the business name until asked for a different one). `showcase.website.url` and `links.website` derive from `socials.website`; `showcase.instagram.url`, `showcase.instagram.handle` and `links.instagram` derive from `socials.instagram` (the handle is parsed from the URL by src/lib/socials.js instagramHandle and the same regex in api/showcase.js, which falls back showcase, then socials, then links). `brand.logoLink` is superseded by `showcase.logoUrl` (the Brand card shows the showcase logo). `planner.postsPerMonth` is written from the retainer plan's monthly count whenever the client is on a retainer. A record that already holds its own value in the secondary place keeps serving it; the editor shows it as an override with one Clear button.
 - A client always carries clientSince: the call-leads PATCH stamps it the moment a record moves to client or won without one, the POST stamps it on a record created as a client (Add client), and the Won dialog sends its own. Older records are backfilled by the daily cron.
 - Tasks (the planner dashboard and task system): `checklists[] { id, name (80), templateId, items[] { id, text (300), done, doneAt, due (ISO), note (300), order, pinned, remindAt, notifiedAt, source manual | template | suggestion, suggestionId } }` on call_leads and on projects, at most 10 lists of 50, normalized by api/_lib/checklists.js on every write (a legacy item with no id reads a stable one from its position until the next write stores it). The rule is one function, `taskNextUp` in src/shared/taskRules.js mirrored byte for byte in api/_lib/taskRules.js (tasks-test asserts it): the pinned task wins, else the earliest due open task with overdue first, ties by checklist order then task order, undated only when nothing is dated. For a client and for a project that task is the computed next action (kind custom, taskId); a pin writes it as the manual action (auto false, src/lib/taskWrite.js), and finishing, deleting or unpinning the pinned task carries the recomputed one. Templates live in CHECKLIST_TEMPLATES (onboarding, brand, website, content month, Meta ads launch) with day offsets from a start date. The reminders cron reads checklist tasks (remindAt, notifiedAt on the item) beside the legacy next action tasks.

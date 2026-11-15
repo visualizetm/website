@@ -5,7 +5,7 @@ import ObjectionSheet from '../components/calls/ObjectionSheet';
 import { formatPhone } from '../shared/phone';
 import { useRoom, useRoomBar } from './RoomApp';
 import { roomApi, roomStore } from './roomApi';
-import { RoomError, CardSkeleton, Missing } from './parts';
+import { RoomError, Missing, CallRoomSkeleton, FootSkeleton } from './parts';
 import OutcomeFlow from './OutcomeFlow';
 
 /* The call room (Billy's Call Room): one step at a time, "Step N of 8" (answer, owner's name, open, homework, question,
@@ -29,7 +29,7 @@ export default function CallRoom({ id }) {
   useEffect(() => { if (lead) setOwner(o => o || lead.owner || ''); }, [lead?.owner]); // eslint-disable-line react-hooks/exhaustive-deps
   const show = useDelayedLoading(loading);
   if (error) return <PageShell label="Call"><ScrollArea><RoomError /></ScrollArea></PageShell>;
-  if (loading) return <PageShell label="Call"><ScrollArea>{show ? <CardSkeleton lines={5} /> : <div className="rm-wait" />}</ScrollArea></PageShell>;
+  if (loading) return <PageShell label="Call"><ScrollArea>{show ? <CallRoomSkeleton /> : <div className="rm-wait" />}</ScrollArea>{show && <FootSkeleton call />}</PageShell>;
   if (!lead) return <PageShell label="Call"><ScrollArea><Missing /></ScrollArea></PageShell>;
 
   const cur = ROOM_STEPS[step - 1];
@@ -55,7 +55,7 @@ export default function CallRoom({ id }) {
               {ROOM_STEPS.map((s, i) => <span key={s.id} className={`cs-seg${i + 1 < step ? ' is-done' : i + 1 === step ? ' is-cur' : ''}`} />)}
             </div>
           </Stack>
-          <Card padding={4} className="rm-line" key={cur.id} data-step={cur.id}>
+          <Card padding={4} className="rm-line" key={cur.id} data-step={cur.id} data-v-enter="">
             {cur.id === 'owner' ? (
               <Stack gap={3}>
                 <p className="cs-hint">Get the owner's name. It goes on the lead and in every text.</p>

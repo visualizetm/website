@@ -427,9 +427,9 @@ export const COPY = {
     saveFailed: 'That did not save. Try again in a moment.',
     empty: {
       list: { title: 'No list to call yet', description: 'Make a list from your leads and it shows up here, ready to start.', action: 'Make a list' },
-      callbacks: { title: 'No callbacks yet', description: 'When someone says call me back, pick a time after the call and it waits here.' },
-      booked: { title: 'Nothing booked yet', description: 'Every lead you book shows up here with where it stands.' },
-      triage: { title: 'Triage is clear', description: 'New leads land here on their own. Nothing is waiting to be sorted.' },
+      callbacks: { title: 'No callbacks yet', description: 'When someone says call me back, pick a time after the call and it waits here.', action: 'Open Calls' },
+      booked: { title: 'Nothing booked yet', description: 'Every lead you book shows up here with where it stands.', action: 'Open Calls' },
+      triage: { title: 'Triage is clear', description: 'New leads land here on their own. Nothing is waiting to be sorted.', action: 'Open Leads' },
       leads: { title: 'No leads yet', description: 'Accept a lead in Triage and it shows up here.', action: 'Open Triage' },
       lists: { title: 'No lists yet', description: 'A list is a set of leads to call in order. Make the first one.', action: 'New list' },
       slots: { title: 'No open times', description: 'Rob has nothing open in the next 14 days. Set a callback and text Rob.' },

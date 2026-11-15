@@ -49,7 +49,7 @@ console.log("\n2. Billy's day: chips and rows");
   ok(w(3).title === 'Call back set: Sharp Line' && w(3).detail === 'After lunch' && /^Not interested: Ten Co$/.test(w(7).title) && /Too pricey/.test(w(7).detail), 'a call names its outcome and the business');
   ok(w(1).title === 'Accepted Kims Cafe' && w(1).detail === 'Onto Dover shops' && w(4).title === 'Declined 2 leads' && /New sites/.test(w(4).detail), 'sorting: an accept names the list, a batch decline counts its leads');
   ok(w(5).title === 'Fixed the phone and owner: Nine Co' && /12 calls, 5 talked, 1 booked/.test(w(6).detail) && w(8).title === 'New list: Dover shops' && /12 leads, Rob calls it/.test(w(8).detail), 'the contact fix, a session and a new list read plainly');
-  ok(rows.every(r => { const x = T.rowWords(r); return x.title && !/undefined|null/.test(x.title + x.detail) && !/—/.test(x.title + x.detail); }) && T.rowWords({}).title === 'A lead', 'no row ever reads undefined, and an empty one still has words');
+  ok(rows.every(r => { const x = T.rowWords(r); return x.title && !/undefined|null/.test(x.title + x.detail) && !/\u2014/.test(x.title + x.detail); }) && T.rowWords({}).title === 'A lead', 'no row ever reads undefined, and an empty one still has words');
   ok(T.isBatch(rows[3]) && T.isBatch(rows[6]) && !T.isBatch(rows[0]) && !T.isBatch(rows[1]), 'a decline (sorted or said on a call) is a batch; nothing else is');
   const bl = T.batchLeads({ ...rows[3], undone: ['L8'] });
   ok(bl.length === 2 && bl[0].id === 'L7' && bl[0].undone === false && bl[1].undone === true && bl[1].stage === 'triage', 'a batch lists its leads with where each stood, and marks the ones already put back');

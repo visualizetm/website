@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
-import { PageShell, ScrollArea, StickyFooterBar, Stack, Row, Card, Button, Chip, Textarea, EmptyState, ErrorState, Stagger, SkeletonBlock, Icon, useDelayedLoading, useRetry, useToast } from '../ui';
+import { PageShell, ScrollArea, StickyFooterBar, Stack, Row, Card, Button, Chip, Textarea, EmptyState, ErrorState, Stagger, Icon, useDelayedLoading, useRetry, useToast } from '../ui';
 import { COPY } from '../shared/copy';
 import { smsHref } from '../lib/linkSend';
 import { useRoom, useRoomBar } from './RoomApp';
 import { roomApi, roomStore } from './roomApi';
-import { RoomError, CardSkeleton, Missing } from './parts';
+import { RoomError, BookingSkeleton, SlotsSkeleton, FootSkeleton, Missing } from './parts';
 import { slotDays, slotLine, bookedText, newSession, sessionLogged, sessionNext } from './roomLib';
 
 /* Booking (Billy's Call Room): Rob's open times for the next 14 days (a day strip and a grid of times, New York), then
  * "What should Rob know?", prefilled with what Billy typed on the call. The button reads Book <day time>. The server
  * checks the slot again at the write: a time taken since the screen loaded answers 409, the screen says so and reads the
  * open times again. A booked lead is Rob's, so the room keeps only what the Booked screen needs and lets the lead go. */
-function SlotsSkeleton() {
-  return (
-    <Stack gap={3} className="rm-skel" aria-hidden="true">
-      <Row gap={2} wrap>{[0, 1, 2, 3].map(i => <SkeletonBlock key={i} width={92} height={44} radius="var(--v-radius-md)" />)}</Row>
-      <div className="rm-slots">{Array.from({ length: 9 }, (_, i) => <SkeletonBlock key={i} height={44} radius="var(--v-radius-md)" />)}</div>
-    </Stack>
-  );
-}
-
 export default function Booking({ id }) {
   const room = useRoom();
   const { leads, loading, error, go, write, applyLead } = room;
@@ -45,7 +36,7 @@ export default function Booking({ id }) {
   const showSlots = useDelayedLoading(open.state === 'loading');
 
   if (error) return <PageShell label="Book"><ScrollArea><RoomError /></ScrollArea></PageShell>;
-  if (loading) return <PageShell label="Book"><ScrollArea>{showLead ? <CardSkeleton lines={5} /> : <div className="rm-wait" />}</ScrollArea></PageShell>;
+  if (loading) return <PageShell label="Book"><ScrollArea>{showLead ? <BookingSkeleton /> : <div className="rm-wait" />}</ScrollArea>{showLead && <FootSkeleton />}</PageShell>;
   if (!lead) return <PageShell label="Book"><ScrollArea><Missing /></ScrollArea></PageShell>;
 
   const now = Date.now();

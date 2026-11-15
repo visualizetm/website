@@ -49,6 +49,27 @@ const drag = async (g, x0, y0, x1, y1, steps = 10, pause = 16) => { await g.t('t
 const openRecord = async (page) => { await page.locator('.sh-content [data-row-id] .v-stretch').nth(2).evaluate(el => el.click()); await page.waitForTimeout(900); };
 const state = (page) => page.evaluate(() => ({ chrome: document.querySelector('.sh-root')?.dataset.chrome, edge: document.querySelector('.sh-col')?.dataset.edgeBack || '', tx: document.querySelector('.sh-col > .sh-content')?.style.transform || '', peek: !!document.querySelector('.sh-peek'), peekRows: !!document.querySelector('.sh-peek [data-row-id]'), path: location.pathname }));
 
+/* Billy's Call Room: the same edge Back on its focused screens (the lead card back to Calls), and none on a root. */
+await step("the Call Room's edge Back follows the finger and returns to Calls", async (page) => {
+  const g = await open(page, '/admin/room/lead/C1');
+  need((await state(page)).chrome === 'focused', 'the lead card is not a focused screen');
+  await drag(g, 6, 400, 200, 402);
+  const mid = await state(page);
+  need(mid.edge === 'dragging', `state ${mid.edge}`); need(/translate3d\(1[5-9]\d|2\d\d/.test(mid.tx), `the screen did not follow (${mid.tx})`);
+  await g.t('touchMove', 260, 402); await g.t('touchEnd'); await g.wait(900);
+  const done = await state(page); need(done.chrome === 'tabs', `chrome ${done.chrome} after the release`); need(!done.tx, 'the swipe left debris behind');
+  need(/\/admin\/room\/?$/.test(new URL(page.url()).pathname), `landed on ${new URL(page.url()).pathname}`);
+  return `followed to ${mid.tx}, completed to Calls`;
+});
+await step("the Call Room's roots have no edge Back", async (page) => {
+  const g = await open(page, '/admin/room');
+  await drag(g, 6, 400, 200, 402);
+  const mid = await state(page);
+  await g.t('touchEnd'); await g.wait(300);
+  need(!mid.edge && !mid.tx, `a root moved (${mid.edge} ${mid.tx})`); need((await state(page)).chrome === 'tabs', 'the root left tabs mode');
+  return 'a root does not move';
+});
+
 await step('edge Back follows the finger and the previous screen shows beneath', async (page) => {
   const g = await open(page, '/admin/leads'); await openRecord(page);
   need((await state(page)).chrome === 'focused', 'the record is not a focused screen');

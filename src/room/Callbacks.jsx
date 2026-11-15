@@ -2,7 +2,7 @@ import { PageShell, ScrollArea, Stack, EmptyState, Stagger, Icon, useDelayedLoad
 import { COPY } from '../shared/copy';
 import { formatPhone } from '../shared/phone';
 import { useRoom, useRoomBar } from './RoomApp';
-import { RoomError, RowsSkeleton, LeadRow, callbackDetail } from './parts';
+import { RoomError, CallbacksSkeleton, LeadRow, callbackDetail } from './parts';
 import { callbackSections } from './roomLib';
 
 /* Callbacks (Billy's Call Room): only the callbacks Billy set and the retries on leads he called, in the order he will
@@ -20,8 +20,8 @@ export default function Callbacks() {
   return (
     <PageShell label="Callbacks">
       <ScrollArea>
-        {error ? <RoomError /> : loading ? (show ? <RowsSkeleton rows={5} /> : <div className="rm-wait" />) : !total ? (
-          <EmptyState icon="ClockRewind" title={c.title} description={c.description} />
+        {error ? <RoomError /> : loading ? (show ? <CallbacksSkeleton /> : <div className="rm-wait" />) : !total ? (
+          <EmptyState icon="ClockRewind" title={c.title} description={c.description} action={{ label: c.action, onClick: () => go('/') }} />
         ) : (
           <Stagger className="rm-sections" cap={5}>
             {SECTIONS.filter(([k]) => s[k].length).map(([k, title]) => (

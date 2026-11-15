@@ -265,6 +265,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     danger: { n: [162, 216, 180], d: [144, 162, 162] },
     templates: { n: [88, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
     emails: { n: [150, 442, 760, 560, 320], d: [96, 442, 742, 560, 320] },
+    team: { n: [322, 416, 420, 170], d: [286, 366, 380, 150] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]

@@ -5,7 +5,7 @@ import { COPY } from '../shared/copy';
 import { formatPhone } from '../shared/phone';
 import { useRoom } from './RoomApp';
 import { roomApi } from './roomApi';
-import { RoomError, CardSkeleton, LeadChips } from './parts';
+import { RoomError, TriageSkeleton, LeadChips } from './parts';
 import { PutOnListSheet } from './sheets';
 import { triagePile, foundLine, ratingLine, websiteLine, plural } from './roomLib';
 
@@ -16,17 +16,17 @@ import { triagePile, foundLine, ratingLine, websiteLine, plural } from './roomLi
 const handle = (v) => { const s = String(v || '').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/[/?#].*$/, '').replace(/^@/, ''); return s ? `@${s}` : ''; };
 
 export default function Triage() {
-  const { leads, loading, error, write, applyLead, applyList } = useRoom();
+  const { leads, loading, error, go, write, applyLead, applyList } = useRoom();
   const toast = useToast();
   const [sheet, setSheet] = useState(null);
   const [busy, setBusy] = useState('');
   const show = useDelayedLoading(loading);
   if (error) return <RoomError />;
-  if (loading) return show ? <CardSkeleton lines={5} /> : <div className="rm-wait" />;
+  if (loading) return show ? <TriageSkeleton /> : <div className="rm-wait" />;
   const pile = triagePile(leads);
   const lead = pile[0];
   const c = COPY.room.empty.triage;
-  if (!lead) return <EmptyState icon="Inbox01" title={c.title} description={c.description} />;
+  if (!lead) return <EmptyState icon="Inbox01" title={c.title} description={c.description} action={{ label: c.action, onClick: () => go('/?section=leads', { replace: true }) }} />;
 
   const gone = (r) => { if (r.status === 404 || r.status === 409) { applyLead(lead.id, null); toast.info('That one was already sorted.'); return true; } return false; };
   const decide = async (body, done) => {

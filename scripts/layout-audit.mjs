@@ -398,7 +398,7 @@ for (const width of WIDTHS) {
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone that opens once. */
   const section = async (t) => { if (width >= 768) { await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); return; } await phoneSection(page, t); };
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', or 'a11y' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', 'room', or 'a11y' reruns just that block
   if (only === 'a11y') {
     /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the
      * Dashboard, Leads, and the call room. Browser zoom at 200 percent is a
@@ -680,6 +680,90 @@ for (const width of WIDTHS) {
     await goto('/planner/notarealtokenatall000000000');
     await check('marketing: Planner (a link that is not active)');
     if (only === 'marketing') { await ctx.close(); continue; }
+  }
+
+  /* Billy's Call Room (part 1) and Rob's side of it: every new screen and sheet, at every width. */
+  if (!only || only === 'room') {
+    const tap = (sel) => page.locator(sel).first().click({ timeout: 3000 }).catch(() => {});
+    const closeSheet = async () => { await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(350); };
+    await goto('/admin/room'); await page.waitForSelector('.rm-today', { timeout: 8000 }).catch(() => {});
+    await check('room: Calls, Today');
+    await goto('/admin/room?section=triage'); await page.waitForSelector('.rm-triage-card', { timeout: 8000 }).catch(() => {});
+    await check('room: Triage');
+    await tap('.rm-t-accept'); await page.waitForSelector('.rm-put', { timeout: 4000 }).catch(() => {});
+    await check('room: Triage, Put it on a list');
+    await closeSheet(); await tap('.rm-t-decline'); await page.waitForSelector('.dc-reasons', { timeout: 4000 }).catch(() => {});
+    await check('room: Triage, the decline sheet');
+    await closeSheet();
+    await goto('/admin/room?section=leads'); await page.waitForSelector('.rm-pick', { timeout: 8000 }).catch(() => {});
+    await check('room: Leads');
+    await tap('[data-row-id="C5"] .rm-pick-box'); await tap('[data-row-id="C4"] .rm-pick-box'); await page.waitForSelector('.rm-selbar', { timeout: 4000 }).catch(() => {});
+    await check('room: Leads, a selection and its bar');
+    await tap('.rm-sel-add'); await page.waitForSelector('.rm-put', { timeout: 4000 }).catch(() => {}); await tap('.rm-put-go'); await page.waitForSelector('.rm-move', { timeout: 4000 }).catch(() => {});
+    await check('room: the confirm before a lead leaves a list Rob calls');
+    await closeSheet();
+    await page.getByLabel('Search leads').fill('zzzz').catch(() => {});
+    await check('room: Leads, no results');
+    await goto('/admin/room?section=lists'); await page.waitForSelector('.rm-listcard', { timeout: 8000 }).catch(() => {});
+    await check('room: Lists');
+    await tap('.rm-new-list'); await page.waitForSelector('.rm-newlist', { timeout: 4000 }).catch(() => {});
+    await check('room: New list, a filter');
+    await closeSheet();
+    await goto('/admin/room/lead/C3'); await page.waitForSelector('.rm-lead', { timeout: 8000 }).catch(() => {});
+    await check('room: the lead card, a long name');
+    await goto('/admin/room/lead/C4'); await page.waitForSelector('.rm-lead', { timeout: 8000 }).catch(() => {});
+    await check('room: the lead card on a list Rob calls');
+    await goto('/admin/room/call/C1'); await page.waitForSelector('.rm-call-body', { timeout: 8000 }).catch(() => {});
+    await check('room: the call room, Step 1 of 8');
+    await tap('.rm-next'); await tap('.rm-next');
+    await check('room: the call room, the opening line');
+    await tap('.rm-end'); await page.waitForSelector('.rm-outcome', { timeout: 4000 }).catch(() => {});
+    await check('room: How did it go');
+    await tap('.rm-o-noanswer'); await page.waitForTimeout(300);
+    await check('room: Did you leave a voicemail');
+    await closeSheet(); await closeSheet();
+    await goto('/admin/room/book/C1'); await page.waitForSelector('.rm-slots .rm-slot', { timeout: 8000 }).catch(() => {});
+    await tap('.rm-slots .rm-slot');
+    await check('room: booking, a time picked');
+    await page.evaluate(() => { sessionStorage.setItem('rm_booked', JSON.stringify({ leadId: 'C1', business: 'Philly Mobile Detailing / KG Mobile Auto Detailing & Ceramic Coating Specialists', owner: 'Dana', phone: '(302) 555-0101', at: new Date(Date.now() + 2 * 864e5).toISOString(), rob: { push: true, notes: false, draft: true } })); sessionStorage.setItem('rm_session', JSON.stringify({ listId: 'CL1', list: 'Dover shops', ids: ['C1', 'C2', 'C3'], startedAt: new Date(Date.now() - 65 * 60e3).toISOString(), logged: { C1: 'no-answer', C2: 'callback', C3: 'booked' }, texts: { C1: 'owed' }, recorded: true, endedAt: new Date().toISOString() })); }).catch(() => {});
+    await goto('/admin/room/booked'); await page.waitForSelector('.rm-bookedscreen', { timeout: 8000 }).catch(() => {});
+    await check('room: Booked');
+    await goto('/admin/room/summary'); await page.waitForSelector('.rm-summary', { timeout: 8000 }).catch(() => {});
+    await check('room: the session summary');
+    await goto('/admin/room/callbacks'); await page.waitForSelector('.rm-sections, .v-empty', { timeout: 8000 }).catch(() => {});
+    await check('room: Callbacks');
+    await goto('/admin/room/me'); await page.waitForSelector('.rm-booked, .v-empty', { timeout: 8000 }).catch(() => {});
+    await check('room: Me, Booked');
+    {
+      const octx = await browser.newContext({ viewport: { width, height: 844 }, hasTouch: width < 500, reducedMotion: MOTION === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
+      const opage = await octx.newPage();
+      await opage.addInitScript(([theme]) => { try { localStorage.setItem('vz_theme', theme); } catch {} }, [THEME]);
+      await mockRoutes(opage, { callerSignedOut: true });
+      await opage.goto(BASE + '/admin/room', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await opage.waitForSelector('.rm-signin', { timeout: 8000 }).catch(() => {});
+      await check('room: the sign in page', opage);
+      await octx.close();
+    }
+    /* Rob's side. */
+    await goto('/admin/settings/team'); await page.waitForSelector('[data-card="team-billy"]', { timeout: 8000 }).catch(() => {});
+    await check('team: Settings, Team');
+    await tap('.tm-source [role="radio"]'); await page.waitForSelector('.tm-event, .tm-nocal', { timeout: 4000 }).catch(() => {});
+    await check('team: the open times source on Calendly');
+    await tap('.tm-reset'); await page.locator('.v-modal').getByRole('button', { name: 'Reset passcode' }).click({ timeout: 3000 }).catch(() => {}); await page.waitForSelector('.tm-pass-sheet', { timeout: 4000 }).catch(() => {});
+    await check('team: the new passcode, shown once');
+    await closeSheet();
+    await goto('/admin/settings/team/day'); await page.waitForSelector('.td-list', { timeout: 8000 }).catch(() => {});
+    await check("team: Billy's day");
+    await tap('[data-row-id="TA4"] .v-stretch'); await page.waitForSelector('.td-batch', { timeout: 4000 }).catch(() => {});
+    await check("team: Billy's day, a batch with Undo");
+    await closeSheet();
+    await goto('/admin/deals/L9'); await page.waitForTimeout(700); await section('Meeting'); await page.waitForSelector('[data-card="booked-by"]', { timeout: 4000 }).catch(() => {});
+    await check('team: the Booked by Billy card on a record');
+    await goto('/admin/calls?section=lists'); await page.waitForSelector('.ls-card', { timeout: 8000 }).catch(() => {});
+    await page.locator('.ls-card[data-row-id="LS2"]').first().getByRole('button', { name: /actions/ }).click({ timeout: 3000 }).catch(() => {});
+    await page.getByRole('menuitem', { name: 'Who calls it' }).click({ timeout: 3000 }).catch(() => {}); await page.waitForSelector('.ls-who', { timeout: 4000 }).catch(() => {});
+    await check('team: a list, Who calls it');
+    if (only === 'room') { await ctx.close(); continue; }
   }
 
   if (!only || only === 'settings') {

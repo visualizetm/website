@@ -25,8 +25,13 @@ const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
 const ONLY = process.env.AUDIT_ONLY || '';
 
 const MUST_TABS = /^(analytics|analytics-year|analytics-empty|tasks-home|pipeline|overview|docs-all|drafts|drafts-sent|leads-list|leads-declined|leads-nurture|triage-pile|triage-search|lists-grid|deals-list|deals-board|calendar-(day|week|month)|clients-list|projects-list|projects-archived|orders-list|concepts-list|reviews-list|submissions-list|calls-lists|calls-builder|landing|more|settings-profile|back-[a-z]+)$/;
-const MUST_FOCUSED = /^(leads-detail|triage-record|deals-detail|clients-detail|clients-money|clients-profile.*|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|compose.*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|doc-templates|data|danger-zone|emails.*)|docs-client|clients-docs-empty|doc-(empty|blocks|keyboard|save-failed)|design)$/;
+const MUST_FOCUSED = /^(team-day|team-booked-by|leads-detail|triage-record|deals-detail|clients-detail|clients-money|clients-profile.*|lists-detail|lists-fill|calls-(queue|room|summary)|project-new.*|clients-showcase.*|planner-(on|off|empty|ideas.*)|clients-tasks.*|concepts-editor(?!-menu).*|compose.*|orders-detail|submissions-detail|reviews-sheet|settings-(notifications|integrations|team|doc-templates|data|danger-zone|emails.*)|docs-client|clients-docs-empty|doc-(empty|blocks|keyboard|save-failed)|design)$/;
 const GLOBAL = ['Search', 'Quick add', 'Notifications'];
+/* Billy's Call Room (its own shell, the same frame): Calls, Callbacks and Me are roots with the three tab pill and none of the admin's
+   global controls; the lead card, the call room, booking, Booked and the summary are focused. */
+const ROOM_TABS = /^room-(today|triage|leads|leads-selected|lists|callbacks|me)$/;
+const ROOM_FOCUSED = /^room-(lead|lead-rob|call|book|booked|summary)$/;
+const ROOM_TAB_LABELS = 'Calls,Callbacks,Me';
 
 const url = (s) => `${BASE}${s.path}${s.open ? `${s.path.includes('?') ? '&' : '?'}open=${s.open}` : ''}`;
 const read = () => {
@@ -42,7 +47,8 @@ const read = () => {
   const everyTabLabelled = tabButtons.length > 0 && tabButtons.every(e => !!e.getAttribute('aria-label'));
   /* The More page carries no account card and no Sign out (the shell, milestone 3): a thumb cannot land on it there. */
   const accountCard = !!document.querySelector('.sh-content .mo-user') || [...document.querySelectorAll('.sh-content button, .sh-content a')].some(e => /^sign out$/i.test(e.textContent.trim()));
-  return { chrome: root?.dataset.chrome || '', pillH, pillOnscreen, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, everyTabLabelled, accountCard, current: document.querySelector('.sh-tab.is-active')?.getAttribute('aria-label') || null };
+  const tabLabels = tabButtons.map(e => e.getAttribute('aria-label') || '').join();
+  return { tabLabels, tabText: tabButtons.map(e => e.innerText.trim()).join(''), chrome: root?.dataset.chrome || '', pillH, pillOnscreen, hidden: !!tabs?.classList.contains('is-hidden'), inert: tabs?.hasAttribute('inert'), top, everyTabLabelled, accountCard, current: document.querySelector('.sh-tab.is-active')?.getAttribute('aria-label') || null };
 };
 
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
@@ -70,7 +76,12 @@ for (const s of SCREENS) {
     if (mode === 'tabs') {
       if (r.pillH < 40 || !r.pillOnscreen || r.hidden) bad.push(`tabs mode but the glass pill is ${r.pillH}px${r.pillOnscreen ? '' : ', offscreen'}${r.hidden ? ', hidden' : ''}`);
       if (r.top.includes('Back')) bad.push('tabs mode with a Back');
-      if (!GLOBAL.every(g => r.top.includes(g))) bad.push(`tabs mode lacks ${GLOBAL.filter(g => !r.top.includes(g)).join(', ')}`);
+      /* The admin's roots carry the three global controls. The room's roots carry none of them and exactly its three icon tabs. */
+      if (s.room) {
+        if (r.top.some(t => GLOBAL.includes(t))) bad.push(`the room shows ${r.top.filter(t => GLOBAL.includes(t)).join(', ')}`);
+        if (r.tabLabels !== ROOM_TAB_LABELS) bad.push(`the room's tabs are "${r.tabLabels}"`);
+        if (r.tabText) bad.push(`a room tab shows a visible label ("${r.tabText}")`);
+      } else if (!GLOBAL.every(g => r.top.includes(g))) bad.push(`tabs mode lacks ${GLOBAL.filter(g => !r.top.includes(g)).join(', ')}`);
       if (r.top.length > 3) bad.push(`${r.top.length} top bar controls`);
       if (!r.everyTabLabelled) bad.push('a tab is missing its aria-label');
     }
@@ -84,6 +95,9 @@ for (const s of SCREENS) {
     if (s.id === 'more' && r.accountCard) bad.push('More shows an account card or a Sign out');
     if (MUST_TABS.test(s.id) && mode !== 'tabs') bad.push(`must be tabs, is ${mode}`);
     if (MUST_FOCUSED.test(s.id) && mode !== 'focused') bad.push(`must be focused, is ${mode}`);
+    if (ROOM_TABS.test(s.id) && mode !== 'tabs') bad.push(`must be tabs, is ${mode}`);
+    if (ROOM_FOCUSED.test(s.id) && mode !== 'focused') bad.push(`must be focused, is ${mode}`);
+    if (s.room && !ROOM_TABS.test(s.id) && !ROOM_FOCUSED.test(s.id) && !s.region) bad.push('a room state with no chrome rule');
   } catch (e) { bad.push(String(e.message || e).split('\n')[0].slice(0, 100)); }
   if (bad.length) failures++;
   rows.push({ id: s.id, state: `${s.screen}: ${s.label}`, r, bad });
