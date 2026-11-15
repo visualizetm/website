@@ -13,6 +13,9 @@ export const openLists = (lists) => (lists || []).filter(isOpen);
 export const handLists = (lists) => openLists(lists).filter(l => !l.system);
 export const systemList = (lists) => openLists(lists).find(l => l.system) || null;
 export const listCount = (l) => (Array.isArray(l?.leadIds) ? l.leadIds.length : 0);
+/** Who calls a list (Billy's Call Room): its callerId, else whoever made it; a list from before the field is Rob's. The server's rule is api/_lib/callerView.js callerIdOf. */
+export const listCallerId = (l) => (l?.callerId === 'billy' || l?.callerId === 'rob' ? l.callerId : l?.createdBy === 'billy' ? 'billy' : 'rob');
+export const LIST_CALLERS = [{ id: 'rob', label: 'Rob' }, { id: 'billy', label: 'Billy' }];
 export const isFull = (l) => !!l && !l.system && listCount(l) >= (Number(l.target) || 0);
 /** The Lists badge: open lists at or above their target. */
 export const listsBadge = (lists) => handLists(lists).filter(isFull).length;

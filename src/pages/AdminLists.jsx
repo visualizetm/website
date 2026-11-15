@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, ProgressBar, Menu, Modal, Input, Select, EmptyState, ErrorState, Stagger,
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, ProgressBar, Menu, Modal, Input, Select, SegmentedControl, Pill, EmptyState, ErrorState, Stagger,
   SkeletonBlock, useDelayedLoading, useMediaQuery, useRetry, useToast, useConfirm, Icon,
 } from '../ui';
 import { COPY } from '../shared/copy';
@@ -9,7 +9,7 @@ import { useSelection, useScreenOrigin, useRestore } from '../shell/nav-history'
 import LeadCard from '../components/LeadCard';
 import ListSearch, { matchesList, matchLine } from '../components/ListSearch';
 import ListCard, { listCardStyles } from '../components/ListCard';
-import { openLists, listCount, isFull, windowLabel, WINDOWS } from '../lib/lists';
+import { openLists, listCount, isFull, windowLabel, WINDOWS, listCallerId, LIST_CALLERS } from '../lib/lists';
 
 /* Lists (CRM revamp, step 3): the dial lists Rob builds for the week. A
  * card per open list with its count against the target and a Start that
@@ -74,7 +74,8 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
   const hover = useMediaQuery('(hover: hover) and (pointer: fine)');
   /* Back (done once): the open list rides on the history entry. */
   const { selId, open: openSel, close } = useSelection('lists');
-  const [modal, setModal] = useState(null); // { kind: 'new' | 'rename' | 'target', list }
+  const [modal, setModal] = useState(null); // { kind: 'new' | 'rename' | 'target' | 'caller', list }
+  const [who, setWho] = useState('rob');
   const [name, setName] = useState('');
   const [target, setTarget] = useState('25');
   const [win, setWin] = useState('any');
@@ -94,6 +95,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
     setModal(null); openSel(item._id); toast.success(`${item.name} made. Add leads or fill it from the filters.`);
   };
   const rename = async () => { const n = name.trim(); if (!n || !modal?.list) return; const ok = await ops.patchList(modal.list._id, { name: n }); if (ok) { setModal(null); toast.success('Renamed.'); } else toast.error(COPY.error.save); };
+  const recall = async () => { if (!modal?.list) return; const l = modal.list; const ok = await ops.patchList(l._id, { callerId: who }); if (ok) { setModal(null); toast.success(who === 'billy' ? `Billy calls ${l.name} now.` : `You call ${l.name} now.`); } else toast.error(COPY.error.save); };
   const retarget = async () => { const n = Math.max(1, Math.min(500, Math.round(Number(target)) || 0)); if (!n || !modal?.list) return; const ok = await ops.patchList(modal.list._id, { target: n }); if (ok) { setModal(null); toast.success(`Target is ${n}.`); } else toast.error(COPY.error.save); };
   const markDone = async (l) => { const yes = await confirm({ title: `Mark ${l.name} done?`, body: 'It leaves the open lists and its leads are free to join another.', confirmLabel: 'Mark done' }); if (!yes) return; const ok = await ops.finishList(l._id); if (ok) { if (String(selId) === String(l._id)) close(); toast.success(`${l.name} done.`); } else toast.error(COPY.error.save); };
   const remove = async (l) => { const yes = await confirm({ title: `Delete ${l.name}?`, body: 'The list goes; the leads stay where they are.', confirmLabel: 'Delete', danger: true }); if (!yes) return; const ok = await ops.finishList(l._id, true); if (ok) { if (String(selId) === String(l._id)) close(); toast.success(`${l.name} deleted.`); } else toast.error(COPY.error.del); };
@@ -102,6 +104,8 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
     { id: 'rename', label: 'Rename', icon: 'Edit02', onSelect: () => { setName(l.name); setModal({ kind: 'rename', list: l }); } },
     { id: 'target', label: 'Set target', icon: 'Users01', onSelect: () => { setTarget(String(l.target || 25)); setModal({ kind: 'target', list: l }); } },
     { id: 'fill', label: 'Fill from filters', icon: 'SearchMd', onSelect: () => openFill(l) },
+    /* Billy's Call Room: who dials this list. Callbacks due fills itself and is never assigned, so the system list's menu has no such item. */
+    { id: 'caller', label: 'Who calls it', icon: 'PhoneCall01', onSelect: () => { setWho(listCallerId(l)); setModal({ kind: 'caller', list: l }); } },
     'divider',
     { id: 'done', label: 'Mark done', icon: 'Check', onSelect: () => markDone(l) },
     { id: 'del', label: 'Delete', icon: 'Trash01', danger: true, onSelect: () => remove(l) },
@@ -126,6 +130,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
       <Card padding={3}>
         <Row gap={3} align="center" justify="between" wrap>
           <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
+            {!sel.system && listCallerId(sel) === 'billy' && <span><Pill tone="progress" label="Billy calls it" size="sm" icon={false} variant="outline" className="ls-caller" /></span>}
             <span className="ls-count">{q.trim() ? matchLine(listCount(sel), 'on the list', ordered(sel).length) : `${sel.system ? `${listCount(sel)} due` : `${listCount(sel)} of ${sel.target}`}${sel.window && sel.window !== 'any' ? `, ${windowLabel(sel.window).toLowerCase()}` : ''}`}</span>
             <ProgressBar value={sel.system ? (listCount(sel) ? 100 : 0) : sel.target ? Math.min(100, (listCount(sel) / sel.target) * 100) : 0} tone="booked" size="sm" label={`${listCount(sel)} of ${sel.target}`} />
           </Stack>
@@ -157,11 +162,12 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
         {body}
       </ScrollArea>
       {modal && (
-        <Modal open onClose={() => setModal(null)} title={modal.kind === 'new' ? 'New list' : modal.kind === 'rename' ? `Rename ${modal.list.name}` : `Target for ${modal.list.name}`}
-          footer={<><Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button><Button onClick={modal.kind === 'new' ? create : modal.kind === 'rename' ? rename : retarget} disabled={modal.kind === 'target' ? !Number(target) : !name.trim()}>{modal.kind === 'new' ? 'Create' : 'Save'}</Button></>}>
+        <Modal open onClose={() => setModal(null)} title={modal.kind === 'new' ? 'New list' : modal.kind === 'rename' ? `Rename ${modal.list.name}` : modal.kind === 'caller' ? `Who calls ${modal.list.name}` : `Target for ${modal.list.name}`}
+          footer={<><Button variant="ghost" onClick={() => setModal(null)}>Cancel</Button><Button onClick={modal.kind === 'new' ? create : modal.kind === 'rename' ? rename : modal.kind === 'caller' ? recall : retarget} disabled={modal.kind === 'caller' ? who === listCallerId(modal.list) : modal.kind === 'target' ? !Number(target) : !name.trim()}>{modal.kind === 'new' ? 'Create' : 'Save'}</Button></>}>
           <Stack gap={3}>
-            {modal.kind !== 'target' && <Input label="Name" value={name} onChange={(e) => setName(e.target.value.slice(0, 80))} placeholder="Tuesday morning" data-autofocus onKeyDown={(e) => { if (e.key === 'Enter') (modal.kind === 'new' ? create : rename)(); }} />}
-            {modal.kind !== 'rename' && <Input label="Target" type="number" inputMode="numeric" min={1} max={500} value={target} onChange={(e) => setTarget(e.target.value)} hint="How many leads make it a full session." />}
+            {modal.kind === 'caller' && <><SegmentedControl full label="Who calls it" options={LIST_CALLERS} value={who} onChange={setWho} className="ls-who" /><p className="ls-who-hint">{who === 'billy' ? 'It shows in Billy\'s Call Room as his to dial. You can still open it here.' : 'It stays yours. Billy sees it marked as yours and asks before he moves a lead off it.'}</p></>}
+            {modal.kind !== 'target' && modal.kind !== 'caller' && <Input label="Name" value={name} onChange={(e) => setName(e.target.value.slice(0, 80))} placeholder="Tuesday morning" data-autofocus onKeyDown={(e) => { if (e.key === 'Enter') (modal.kind === 'new' ? create : rename)(); }} />}
+            {modal.kind !== 'rename' && modal.kind !== 'caller' && <Input label="Target" type="number" inputMode="numeric" min={1} max={500} value={target} onChange={(e) => setTarget(e.target.value)} hint="How many leads make it a full session." />}
             {modal.kind === 'new' && <Select label="Window" value={win} onChange={(e) => setWin(e.target.value)} options={WINDOWS.map(w => ({ id: w.id, label: w.label }))} hint="When these leads pick up." />}
           </Stack>
         </Modal>
@@ -173,6 +179,7 @@ export default function AdminLists({ lists = [], leads = [], loading = false, er
 }
 
 const lsStyles = `
+  .ls-who-hint { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
   .ls-stack { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .ls-nomatch { margin: 0; font-size: var(--v-text-sm); color: var(--v-text-2); }
   .ls-skel-pill { display: none; }

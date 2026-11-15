@@ -571,3 +571,15 @@ Milestone 4, booking:
 - The home's Billy today card sits under the Drafts card and keeps one height in every state at a given width, so it never moves what is under it. Whether the studio has a caller is remembered on the device: not known yet holds the card's place, known to have none draws nothing.
 - "Booked by Billy" on the home is words on the row's business line, on Today and Coming up alike, while the lead is still at stage booked. Rejected: a second pill beside the kind pill, which does not fit at 320.
 - The audit fixtures' booked leads meet today, and a booking turns into a deal an hour past its meeting, so team-ui-test adds its own booking three days out for the Coming up check instead of leaning on the clock.
+
+Milestone 5, Rob's controls:
+
+- Settings > Team is a tab of Settings (a row on a phone), so its Back, its top bar and its chrome are Settings' own. Billy's day is its own page (/settings/team/day) that backs to Team: one rule in backTree.js, a check in back-test and a cut in back-guard-proof.
+- The new passcode lives in the Team panel's memory only while its sheet is open. The browser walk checks that after Done it is nowhere on the page, in localStorage or in sessionStorage.
+- Every control on the Team panel is one PATCH of the one field it changes; a refusal puts the old value back and says why. Pause now and Reset passcode ask first.
+- The weekly hours stay on screen when the source is Calendly, marked as the fallback, since that is what Billy books from when Calendly cannot answer. An end at or before the start, or no day at all, is refused on the page.
+- The Calendly event types come from a read on the team route (`view=event-types`) through the read only token; with no token the panel says Calendly is not connected and Billy books from the weekly hours. An event type picked earlier that Calendly no longer lists stays selected under the name it was saved with.
+- Billy's day is read only except Undo. A row that names one lead opens it; a decline (sorted, or said on a call) opens its batch; a new list, a rename and a finished session are text, not controls. Undo puts the lead back to the stage it had and reloads the leads; a lead that is no longer declined answers 409 and the page says so.
+- A finished session shows under All only. The chips' counts are of the range on screen.
+- Who calls it is an item in a list's menu that opens Rob | Billy with Save, and a "Billy calls it" pill on the card and the open list. Rejected: a segmented control on every card, which would put a second and third control in a card whose one tap opens the list. Callbacks due has no such item, and the route refuses it anyway (the system list takes nothing by hand).
+- The Notifications list in Settings shows the eighth category, Team, with no extra work: it reads the mirror.

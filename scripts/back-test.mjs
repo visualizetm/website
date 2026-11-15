@@ -53,6 +53,8 @@ eq(parentOf('/docs/D1'), '/docs', 'a doc backs to All docs');
 eq(parentOf('/lists/LS1/fill'), '/calls?section=lists&open=LS1', 'fill from filters backs to the list');
 eq(parentOf('/settings/deleted'), '/settings', 'Recently Deleted backs to Settings');
 eq(parentOf('/settings/emails'), '/settings', 'a settings tab backs to Settings');
+eq(parentOf('/settings/team'), '/settings', 'Team backs to Settings');
+eq(parentOf('/settings/team/day'), '/settings/team', "Billy's day backs to Team, one level up");
 eq(parentOf('/design'), '/settings', 'the design system backs to Settings');
 eq(backTarget('/clients', '', { open: { section: 'clients', id: 'L11' } }), '/clients', 'an open client backs to Clients');
 eq(backTarget('/clients', '?open=L11', { open: { section: 'clients', id: 'L11' }, idx: 0 }), '/clients', 'a deep linked client backs to Clients, the query dropped');

@@ -72,6 +72,8 @@ export function parentOf(rel, search = '') {
   if (/^\/docs\/[^/]+$/.test(p)) return '/docs';
   // Settings holds the design system, Recently Deleted and its tabs.
   if (p === '/design') return '/settings';
+  // Billy's day is a page under Settings > Team > Billy, so it backs to the Team group, not to the Settings list.
+  if (p === '/settings/team/day') return '/settings/team';
   if (p.startsWith('/settings/')) return '/settings';
   if (p.startsWith('/booked/')) return '/deals';
   // Anything else: one segment up.

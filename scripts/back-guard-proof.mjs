@@ -6,7 +6,8 @@
  *   summary-home      the summary backs to the home
  *   design-root       the design system is a root again (no Back, reachable from anywhere)
  *   callroom-to-calls Billy's call room backs to Calls instead of its lead card
- *   room-lead-origin  a room lead opened from Callbacks backs to Calls instead of Callbacks */
+ *   room-lead-origin  a room lead opened from Callbacks backs to Calls instead of Callbacks
+ *   teamday-to-settings  Billy's day backs to the Settings list instead of Team */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,6 +22,7 @@ const CUTS = [
   { name: 'summary-home', file: T, check: /summary backs to Calls/, from: "  if (p === '/calls/queue' || p === '/calls/summary') return '/calls';", to: "  if (p === '/calls/queue') return '/calls';\n  if (p === '/calls/summary') return '/';" },
   { name: 'callroom-to-calls', file: T, check: /call room backs to its lead card/, from: "  if ((m = p.match(/^\\/(call|book)\\/([^/]+)$/))) return `/lead/${m[2]}`;", to: "  if ((m = p.match(/^\\/(call|book)\\/([^/]+)$/))) return '/';" },
   { name: 'room-lead-origin', file: T, check: /opened from Callbacks backs to Callbacks/, from: "    if (from === 'callbacks') return '/callbacks';", to: "" },
+  { name: 'teamday-to-settings', file: T, check: /Billy's day backs to Team/, from: "  if (p === '/settings/team/day') return '/settings/team';\n", to: "" },
   { name: 'design-root', file: T, check: /design/, from: "'settings', 'more', 'leads', 'lists', 'triage', 'booked'];", to: "'settings', 'more', 'leads', 'lists', 'triage', 'booked', 'design'];" },
 ];
 let bad = 0, proven = 0;

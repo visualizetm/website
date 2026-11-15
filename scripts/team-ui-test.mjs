@@ -2,7 +2,9 @@
 /* Billy on Rob's side, in a browser at 390 and 1280 (Billy's Call Room, part 1), against the mocked admin (audit-fixtures.mjs):
  * the home's Billy today card (Calls, Talked, Callbacks, the "N booked" pill, Open Billy's day, one height in every state),
  * the Booked by Billy tag on the home's rows, the Booked by Billy card on the record (inside a section, no new header pill
- * or control).
+ * or control), Billy's day (Today, Yesterday, Week; All, Calls, Booked, Sorting; a row opens its lead; a batch with Undo per
+ * lead), Settings > Team > Billy (the switches, Reset passcode shown once, the open times source, Tell me when Billy, Pause
+ * now) and Who calls it on a list.
  *   npx vite preview --port 4330 &   AUDIT_BASE=http://127.0.0.1:4330 PW_CHROME=/opt/pw-browsers/chromium node scripts/team-ui-test.mjs */
 import { chromium } from 'playwright-core';
 import { mockRoutes, TEAM_BILLY, TEAM_DAY, leads, daysFrom } from './audit-fixtures.mjs';
@@ -12,6 +14,7 @@ const ADMIN = `${BASE}/admin`;
 const browser = await chromium.launch({ executablePath: EXE, args: ['--no-sandbox'] });
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++; };
+const rel = (page) => { const u = new URL(page.url()); return (u.pathname.replace(/^\/admin/, '') || '/') + u.search; };
 
 async function session(width, opts = {}) {
   const ctx = await browser.newContext({ viewport: { width, height: width < 768 ? 844 : 900 }, hasTouch: width < 768, serviceWorkers: 'block' });
@@ -87,6 +90,138 @@ for (const width of [390, 1280]) {
   ok(await bb.locator('button, a, input').count() === 0 && await bb.locator('.v-pill').count() === 0, 'the card is text only: no control and no pill');
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'a long note wraps: no sideways scroll');
   ok(h9.pills <= 2 && h9.controls <= 3, `the header keeps its laws: at most two pills and three controls (${h9.pills} pills, ${h9.controls} controls)`);
+
+  /* 5. Open Billy's day from the home */
+  await p.goto(`${ADMIN}/`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('[data-card="billy"] .bt-open', { timeout: 8000 });
+  await p.locator('[data-card="billy"] .bt-open').click();
+  await p.waitForSelector('.td-list', { timeout: 8000 });
+  ok(rel(p) === '/settings/team/day', `Open Billy's day goes to his day (${rel(p)})`);
+
+  /* 6. Billy's day: ranges, chips, rows */
+  const ranges = await p.locator('.td-range [role="radio"]').allInnerTexts();
+  const chips = await p.locator('.td-chips .v-chip').evaluateAll(els => els.map(e => e.innerText.replace(/\n+/g, ' ').trim()));
+  ok(ranges.map(x => x.trim()).join(' | ') === 'Today | Yesterday | Week' && chips.join(' | ') === 'All 8 | Calls 2 | Booked 1 | Sorting 4', `segments ${ranges.map(x => x.trim()).join(', ')} and chips ${chips.join(', ')}`);
+  ok(/14 calls, 6 talked, 1 booked, 2 callbacks/.test(await p.locator('.td-page').innerText()), 'the count line: the day\'s numbers');
+  const rows = await p.locator('.td-row').evaluateAll(els => els.map(e => ({ id: e.getAttribute('data-row-id'), meta: e.querySelector('.td-meta')?.innerText || '', opens: !!e.querySelector('.v-stretch') })));
+  ok(rows.length === 8 && rows.map(r => r.id).join() === 'TA1,TA2,TA3,TA4,TA5,TA6,TA7,TA8' && rows.every(r => /^\d{1,2}:\d{2} (AM|PM) · by Billy$/.test(r.meta)), 'rows newest first, each with the time and "by Billy"');
+  ok(rows.find(r => r.id === 'TA6').opens === false && rows.find(r => r.id === 'TA8').opens === false && rows.find(r => r.id === 'TA1').opens && rows.find(r => r.id === 'TA4').opens, 'a new list and a finished session are not controls; a call, a booking and a batch are');
+  const small = await p.evaluate(() => [...document.querySelectorAll('.td-row .v-stretch, .td-chips .v-chip, .td-range [role="radio"]')].filter(e => { const r = e.getBoundingClientRect(); return r.height < 44 || r.width < 44; }).length);
+  ok(small === 0, 'every control on the page is 44px or more');
+  await p.locator('[data-chip="calls"]').click();
+  ok(await p.locator('.td-row').count() === 2 && (await p.locator('.td-row').evaluateAll(els => els.every(e => e.getAttribute('data-kind') === 'call'))), 'Calls shows the calls only');
+  await p.locator('[data-chip="booked"]').click();
+  ok(await p.locator('.td-row').count() === 1 && /Booked Lead Business 9/.test(await p.locator('.td-row').innerText()), 'Booked shows the booking');
+  await p.locator('.td-range').getByRole('radio', { name: 'Yesterday' }).click();
+  await p.waitForSelector('.td-page .v-empty', { timeout: 5000 }).catch(() => {});
+  ok(/Nothing from Billy yesterday/i.test(await p.locator('.td-page .v-empty').innerText()) && await p.locator('[data-state="no-results"]').count() === 0, 'a day with nothing says so (the first time state, not No results)');
+  await p.locator('.td-range').getByRole('radio', { name: 'Week' }).click();
+  await p.waitForSelector('.td-row', { timeout: 5000 });
+  ok(/^[A-Z][a-z]{2} \d{1,2}:\d{2} (AM|PM) · by Billy$/.test(await p.locator('.td-row .td-meta').first().innerText()), 'the week view puts the day in front of the time');
+  await p.locator('.td-range').getByRole('radio', { name: 'Today' }).click();
+  await p.waitForSelector('.td-row', { timeout: 5000 });
+
+  /* 7. A row opens its lead; Back returns to his day */
+  await p.locator('[data-row-id="TA2"] .v-stretch').click();
+  await p.waitForFunction(() => /\/(leads|deals|clients)\/L4/.test(location.pathname) || /open=L4/.test(location.search), null, { timeout: 5000 }).catch(() => {});
+  ok(/L4/.test(rel(p)), `tapping a row opens the lead (${rel(p)})`);
+  await p.goBack();
+  await p.waitForSelector('.td-list', { timeout: 8000 });
+
+  /* 8. A batch opens with Undo per lead */
+  const before = S.team.posts.length;
+  await p.locator('[data-row-id="TA4"] .v-stretch').click();
+  await p.waitForSelector('.td-batch', { timeout: 5000 });
+  const batch = await p.locator('.td-batch-row').evaluateAll(els => els.map(e => ({ id: e.getAttribute('data-lead-id'), text: e.innerText.replace(/\n+/g, ' | '), undo: !!e.querySelector('.td-undo') })));
+  ok(batch.length === 3 && batch.every(b => b.undo) && /It was in Triage/.test(batch[1].text) && /It was in Leads/.test(batch[0].text), 'a batch row opens the batch: each lead, where it stood, and Undo');
+  await p.locator('.td-batch-row[data-lead-id="L11"] .td-undo').click();
+  await p.waitForFunction(() => !document.querySelector('.td-batch-row[data-lead-id="L11"] .td-undo'), null, { timeout: 5000 }).catch(() => {});
+  const undo = S.team.posts.slice(before).map(x => x.body);
+  ok(undo.length === 1 && undo[0].action === 'undo-decline' && undo[0].rowId === 'TA4' && undo[0].leadId === 'L11' && /Back in Leads/.test(await p.locator('.td-batch-row[data-lead-id="L11"]').innerText()) && await p.locator('.td-batch-row .td-undo').count() === 2, 'Undo reverses that one decline (one write) and the row says where the lead is now');
+  await p.locator('.td-batch').getByRole('button', { name: 'Close' }).first().click();
+  await p.waitForSelector('.td-batch', { state: 'detached', timeout: 5000 }).catch(() => {});
+  ok(S.team.posts.slice(before).length === 1 && S.team.posts.every(x => x.body.action === 'undo-decline' || x.method === 'PATCH' || x.body.action), 'the page is read only: the one write it made is the Undo');
+
+  /* 9. Back from his day goes to Team, then to Settings */
+  await p.goto(`${ADMIN}/settings/team/day`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.td-list', { timeout: 8000 });
+  await p.locator('.sh-top .sh-top-back, .lay-back, [aria-label="Back"]').first().click();
+  await p.waitForSelector('[data-card="team-billy"]', { timeout: 8000 });
+  ok(rel(p) === '/settings/team', `Back from a cold open of his day lands on Team (${rel(p)})`);
+
+  /* 10. Settings > Team > Billy */
+  const tb = (await p.locator('[data-card="team-billy"]').innerText()).replace(/\n+/g, ' | ');
+  ok(/Billy/.test(tb) && /Seen 7 minutes ago/.test(tb) && (await p.locator('.tm-status').innerText()).trim() === 'Active', `his name, last seen and the Active pill (${tb.slice(0, 60)})`);
+  ok(await p.getByRole('switch', { name: /Can sign in/ }).count() === 1 && await p.getByRole('switch', { name: /Move leads off your lists/ }).isChecked(), 'the switches: Can sign in, and Move leads off your lists (on)');
+  ok(/billy@example\.com/.test(await p.locator('[data-card="team-signin"]').innerText()) && await p.locator('.tm-reset').count() === 1 && await p.locator('.tm-pause').count() === 1, 'his email, Reset passcode and Pause now');
+  ok(/\/room$/.test((await p.locator('.tm-url').innerText()).trim()), 'and where he signs in');
+  const n0 = S.team.posts.length;
+  await p.getByRole('switch', { name: /Move leads off your lists/ }).click();
+  await p.waitForTimeout(250);
+  ok(JSON.stringify(S.team.posts[n0]?.body) === JSON.stringify({ set: { moveOffRobLists: false } }) && !(await p.getByRole('switch', { name: /Move leads off your lists/ }).isChecked()), 'a switch is one PATCH of that one field');
+
+  /* Reset passcode: shown once */
+  await p.locator('.tm-reset').click();
+  await p.locator('.v-modal').getByRole('button', { name: 'Reset passcode' }).click();
+  await p.waitForSelector('.tm-pass-sheet', { timeout: 5000 });
+  const code = (await p.locator('[data-passcode]').innerText()).trim();
+  ok(/^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(code) && /Shown once/i.test(await p.locator('.tm-pass-sheet').innerText()), `Reset passcode shows the new passcode once (${code.replace(/[A-Z0-9]/g, 'X')})`);
+  await p.locator('.tm-pass-done').click();
+  await p.waitForSelector('.tm-pass-sheet', { state: 'detached', timeout: 5000 }).catch(() => {});
+  const leaked = await p.evaluate((c) => document.body.innerText.includes(c) || Object.keys(localStorage).some(k => String(localStorage.getItem(k)).includes(c)) || Object.keys(sessionStorage).some(k => String(sessionStorage.getItem(k)).includes(c)), code);
+  ok(!leaked, 'once the sheet closes the passcode is nowhere on the page or on the device');
+
+  /* Open times */
+  const srcs = await p.locator('.tm-source [role="radio"]').allInnerTexts();
+  ok(srcs.map(x => x.trim()).join(' | ') === 'Calendly | Weekly hours' && await p.locator('.tm-days .v-chip').count() === 7 && await p.getByLabel('Start').count() === 1 && await p.getByLabel('End').count() === 1 && /30 minute slots/.test(await p.locator('[data-card="team-open"]').innerText()), 'the open times source: Calendly or weekly hours (days, start, end, 30 minute slots)');
+  const n1 = S.team.posts.length;
+  await p.locator('.tm-days [data-day="6"]').click();
+  await p.waitForTimeout(250);
+  ok(S.team.posts[n1]?.body?.set?.openTimes?.hours?.days?.join() === '1,2,3,4,5,6', 'a day chip saves the weekly hours');
+  await p.locator('.tm-source').getByRole('radio', { name: 'Calendly' }).click();
+  await p.waitForSelector('.tm-event select, .tm-event .v-field-control', { timeout: 5000 });
+  const opts = await p.locator('.tm-event option').allInnerTexts();
+  ok(opts.some(o => /Intro call \(30 min\)/.test(o)) && opts.length >= 3, `Calendly offers the event type picker (${opts.slice(1, 3).map(o => o.slice(0, 24)).join(', ')})`);
+  const n2 = S.team.posts.length;
+  await p.locator('.tm-event select').selectOption('https://api.calendly.com/event_types/INTRO30');
+  await p.waitForTimeout(250);
+  const picked = S.team.posts[n2]?.body?.set?.openTimes || {};
+  ok(picked.source === 'calendly' && picked.eventType === 'https://api.calendly.com/event_types/INTRO30' && picked.eventTypeName === 'Intro call', 'picking one saves its address and its name');
+
+  /* Tell me when Billy */
+  const tell = p.locator('[data-card="team-tell"]');
+  ok(/Tell me when Billy/i.test(await tell.innerText()) && await tell.getByRole('switch', { name: /Books a lead/ }).isChecked() && !(await tell.getByRole('switch', { name: /Finishes a session/ }).isChecked()), '"Tell me when Billy": Books a lead (on), Finishes a session (off)');
+  const n3 = S.team.posts.length;
+  await tell.getByRole('switch', { name: /Finishes a session/ }).click();
+  await p.waitForTimeout(250);
+  ok(JSON.stringify(S.team.posts[n3]?.body?.set?.prefs) === JSON.stringify({ booked: true, session: true }), 'the toggle saves on his prefs');
+
+  /* Pause now */
+  await p.locator('.tm-pause').click();
+  await p.locator('.v-modal').getByRole('button', { name: 'Pause now' }).click();
+  await p.waitForFunction(() => document.querySelector('.tm-status')?.innerText.trim() === 'Paused', null, { timeout: 5000 }).catch(() => {});
+  ok(S.team.posts.slice(-1)[0]?.body?.action === 'pause' && (await p.locator('.tm-status').innerText()).trim() === 'Paused' && !(await p.getByRole('switch', { name: /Can sign in/ }).isChecked()) && await p.locator('.tm-pause').count() === 0, 'Pause now signs him out: Paused, Can sign in off');
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'the page fits the width');
+
+  /* 11. Who calls it, on a list */
+  await p.goto(`${ADMIN}/calls?section=lists`, { waitUntil: 'networkidle' });
+  await p.waitForSelector('.ls-card', { timeout: 8000 });
+  const listCard = p.locator('.ls-card[data-row-id="LS2"]').first();
+  await listCard.getByRole('button', { name: /actions/ }).click();
+  await p.getByRole('menuitem', { name: 'Who calls it' }).click();
+  await p.waitForSelector('.ls-who', { timeout: 5000 });
+  const who = await p.locator('.ls-who [role="radio"]').allInnerTexts();
+  ok(who.map(x => x.trim()).join(' | ') === 'Rob | Billy' && await p.locator('.ls-who').getByRole('radio', { name: 'Rob' }).getAttribute('aria-checked') === 'true', 'a list has Who calls it (Rob | Billy), defaulting to who made it');
+  const listReq = p.waitForRequest(r => /\/api\/admin\/lists/.test(r.url()) && r.method() === 'PATCH');
+  await p.locator('.ls-who').getByRole('radio', { name: 'Billy' }).click();
+  await p.locator('.v-modal').getByRole('button', { name: 'Save' }).click();
+  const lr = JSON.parse((await listReq).postData() || '{}');
+  ok(lr.id === 'LS2' && JSON.stringify(lr.set) === JSON.stringify({ callerId: 'billy' }), 'saving it is one PATCH of callerId');
+  await p.waitForSelector('.ls-card[data-row-id="LS2"] .ls-caller', { timeout: 5000 }).catch(() => {});
+  ok(/Billy calls it/.test(await listCard.innerText()), 'and the card says Billy calls it');
+  await p.locator('.ls-card[data-row-id="LS0"]').first().getByRole('button', { name: /actions/ }).click();
+  ok(await p.getByRole('menuitem', { name: 'Who calls it' }).count() === 0, 'Callbacks due cannot be assigned: its menu has no such item');
+  await p.keyboard.press('Escape');
 
   ok(S.errors.length === 0, `no page errors (${S.errors.slice(0, 2).join(' | ') || 'none'})`);
   await S.ctx.close();

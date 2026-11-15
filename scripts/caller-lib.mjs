@@ -476,6 +476,43 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     } finally { globalThis.fetch = realFetch; delete process.env.CALENDLY_TOKEN; }
   });
 
+  /* ── 4c. Rob's controls: Who calls it, Billy's day, the event types ─── */
+  await section(async () => {
+    await setUp();
+    const toBilly = await admin('lists', 'PATCH', { body: { id: LIST(1), set: { callerId: 'billy' } } });
+    const homeNow = (await billy('GET', 'home'))._json || {};
+    check('who-calls-set', null, 'Rob sets who calls a list (callerId) and Billy sees it as his to dial', toBilly._status === 200 && list(1).callerId === 'billy' && (homeNow.lists || []).find(l => l.id === LIST(1))?.callerId === 'billy');
+    const odd = await admin('lists', 'PATCH', { body: { id: LIST(1), set: { callerId: 'someone' } } });
+    check('who-calls-two', null, 'a list is called by Rob or by Billy and nobody else', odd._status === 200 && list(1).callerId === 'rob');
+    const sys = await admin('lists', 'PATCH', { body: { id: LIST(3), set: { callerId: 'billy' } } });
+    check('who-calls-system', null, 'Callbacks due cannot be assigned', sys._status === 400 && list(3).callerId === undefined);
+    const madeByRob = await admin('lists', 'POST', { body: { name: 'Made by Rob' } });
+    const fresh = _stores.lists.find(l => l.name === 'Made by Rob');
+    check('who-calls-default', null, 'a list defaults to whoever made it: one Rob makes is Rob\'s, one Billy makes is Billy\'s', madeByRob._status < 300 && !!fresh && view.callerIdOf(fresh) === 'rob' && view.callerIdOf(list(2)) === 'billy' && view.callerIdOf({ createdBy: 'billy' }) === 'billy' && view.callerIdOf({}) === 'rob');
+
+    /* Billy's day, from Rob's side. */
+    await billy('POST', 'outcome', { leadId: L(12), outcome: 'no-answer' });
+    await billy('POST', 'triage', { leadId: L(2), decision: 'decline', reason: 'budget', note: 'Not for them' });
+    const day = await admin('team', 'GET', { query: { view: 'day', range: 'today' } });
+    const drows = day._json?.rows || [];
+    check('day-view', null, 'Billy\'s day answers today\'s rows newest first with the day\'s numbers and whether Billy is set up',
+      day._status === 200 && drows.length >= 2 && drows.every(r => r.who === 'billy' && typeof r.id === 'string' && !!r.at) && drows.every((r, i) => i === 0 || r.at <= drows[i - 1].at) && day._json.stats?.calls === 1 && day._json.billy?.exists === true && day._json.billy?.name === 'Billy');
+    const secretKeys = ['passHash', 'passSalt', 'version'];
+    const types = await admin('team', 'GET', { query: { view: 'event-types' } });
+    const allKeys = [...keysDeep(day._json), ...keysDeep(types._json), ...keysDeep((await admin('team', 'GET'))._json)];
+    check('day-secrets', 'team-secrets', 'none of Rob\'s team reads (his access, his day, the event types) carries the hash, the salt or the version', secretKeys.every(k => !allKeys.includes(k)) && allKeys.includes('lastSeenAt'));
+    check('event-types-off', null, 'with no Calendly token the event type list says so and is empty', types._status === 200 && types._json?.configured === false && Array.isArray(types._json?.items) && types._json.items.length === 0);
+    const dayAsBilly = await raw('team', 'GET', { cookie: billyCookie, query: { view: 'day' } });
+    check('day-admin-only', 'admin-refuses-caller', 'Billy\'s cookie cannot read his own day from the admin route', dayAsBilly._status === 401);
+
+    /* Undo puts a declined lead back to the stage it had. */
+    const drow = drows.find(r => r.kind === 'sort' && r.detail?.op === 'decline');
+    const undo = await admin('team', 'POST', { body: { action: 'undo-decline', rowId: drow?.id, leadId: L(2) } });
+    const twice = await admin('team', 'POST', { body: { action: 'undo-decline', rowId: drow?.id, leadId: L(2) } });
+    const wrong = await admin('team', 'POST', { body: { action: 'undo-decline', rowId: drow?.id, leadId: L(12) } });
+    check('undo-decline', null, 'Undo on a batch row puts that one lead back to the stage it had, once; a lead the row never held is 404', undo._status === 200 && undo._json?.stage === 'triage' && lead(2).stage === 'triage' && !lead(2).declined && twice._status === 409 && wrong._status === 404 && (_stores.team_activity.find(r => String(r._id) === String(drow?.id))?.undone || []).includes(L(2)));
+  });
+
   /* ── 5. Static: nothing destructive, nothing that sends ─────────────── */
   await section(async () => {
     const read = (rel) => fs.readFileSync(path.join(api, rel), 'utf8');

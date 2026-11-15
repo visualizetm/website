@@ -44,7 +44,7 @@ import { checklistsPatch } from '../lib/taskWrite';
 const loaders = {
   leads: () => import('./AdminLeads'), calls: () => import('./AdminCallsHub'), deals: () => import('./AdminDeals'), clients: () => import('./AdminClients'),
   calendar: () => import('./AdminCalendar'), orders: () => import('./AdminOrders'), concepts: () => import('./AdminConcepts'), reviews: () => import('./AdminReviews'),
-  submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), landing: () => import('./AdminLanding'),
+  submissions: () => import('./AdminSubmissions'), settings: () => import('./AdminSettings'), design: () => import('./AdminDesign'), teamDay: () => import('./AdminTeamDay'), landing: () => import('./AdminLanding'),
   showcase: () => import('./AdminShowcase'),
   planner: () => import('./AdminPlanner'),
   tasks: () => import('./AdminTasks'),
@@ -72,6 +72,7 @@ const AdminReviews = lazy(loaders.reviews);
 const AdminSubmissions = lazy(loaders.submissions);
 const AdminSettings = lazy(loaders.settings);
 const AdminDesign = lazy(loaders.design);
+const AdminTeamDay = lazy(loaders.teamDay);
 const AdminLanding = lazy(loaders.landing);
 const AdminShowcase = lazy(loaders.showcase);
 const AdminPlanner = lazy(loaders.planner);
@@ -476,6 +477,7 @@ export default function AdminApp() {
     if (p.startsWith('/concepts')) return 'concepts';
     if (p.startsWith('/reviews')) return 'reviews';
     if (p.startsWith('/landing')) return 'landing';
+    if (p === '/settings/team/day') return 'teamDay';
     if (p.startsWith('/settings')) return 'settings';
     if (p.startsWith('/design')) return 'design';
     return 'dashboard';
@@ -985,6 +987,7 @@ export default function AdminApp() {
       {section === 'design' && (
         <AdminDesign onBack={navBack ? navBack.back : null} backLabel={navBack && (navBack.deep || /\/settings/.test(navBack.origin?.path || '')) ? 'Back to settings' : 'Back'} loading={forceLoading} />
       )}
+      {section === 'teamDay' && <AdminTeamDay leads={callLeads} onBack={navBack ? navBack.back : null} onLeadsChanged={loadCallLeads} loading={forceLoading} />}
       {section === 'settings' && (
         <AdminSettings leads={callLeads} projects={projects} orders={orders} submissions={items} initialTab={relPath.startsWith('/settings/deleted') ? 'data' : (relPath.match(/^\/settings\/([a-z]+)$/) || [])[1] || undefined} onCreateOrder={createOrder} onLeadsImported={loadCallLeads} onDataChanged={load} onRestoreLeads={loadCallLeads} onLogout={logout} loading={forceLoading} />
       )}

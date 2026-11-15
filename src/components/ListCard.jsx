@@ -1,5 +1,5 @@
 import { Stack, Row, Card, Button, Pill, ProgressBar, Menu } from '../ui';
-import { listCount, isFull, windowLabel } from '../lib/lists';
+import { listCount, isFull, windowLabel, listCallerId } from '../lib/lists';
 import { fmtDate } from '../shared/dates';
 
 /* One dial list as a card (CRM revamp, step 3): its count against the
@@ -17,6 +17,7 @@ export default function ListCard({ list, onOpen, onStart, onMenu }) {
           <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
             <span className="ls-name lay-truncate">{list.name}</span>
             {list.system && <Pill tone="callback" label="Fills itself" size="sm" icon={false} variant="outline" />}
+            {!list.system && listCallerId(list) === 'billy' && <Pill tone="progress" label="Billy calls it" size="sm" icon={false} variant="outline" className="ls-caller" />}
             {list.window && list.window !== 'any' && <Pill tone="neutral" label={windowLabel(list.window)} size="sm" icon={false} variant="outline" />}
             {list.scheduledFor && <Pill tone="progress" label={fmtDate(list.scheduledFor)} size="sm" icon="Calendar" variant="soft" />}
           </Row>
