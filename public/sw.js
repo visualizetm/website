@@ -10,6 +10,7 @@
  *              concept-packs, and settings: network first, cache when the
  *              network fails, so the admin opens and reads offline
  * Writes are never cached or replayed (the app refuses them offline).
+ * /api/caller/ (Billy's Call Room) is network only: never cached, never served from a cache.
  */
 const VERSION = 'v3.1.0'; // bumped for Brand v3: installs fetch the new icons
 const SHELL = `shell-${VERSION}`;
@@ -32,6 +33,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // The Call Room (Billy's side): network only. A caller response is never read from a cache and never written to one, whatever the lists above say.
+  if (url.pathname.startsWith('/api/caller/')) return;
   // A fresh fetch (the refetch after a send, x-vz-fresh) goes straight to the network and is never stored.
   if (req.headers.get('x-vz-fresh') === '1' || req.cache === 'no-store') return;
   if (req.mode === 'navigate') {

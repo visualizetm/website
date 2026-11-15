@@ -269,3 +269,17 @@ Resume here: prompt 3 of 3 shipped. The remaining list is in the report and in d
 - [x] Milestone 2 (985b774): the stage (Fullscreen API on the document element, wide, phone and rail layouts, images, dots, Next and Previous).
 - [x] Milestone 3 (985b774): decisions inside the stage (Review each, Pick one through the existing panels, locked and present sets, the summary and Send).
 - [x] Milestone 4 (tests and review fixes in 38b6cd4 and the commits after it): the audit entries (mkt-concepts-cue, -stage, -stage-phone, -stage-note, -stage-present; a11y clean on all 34 mkt-concepts rows), docs, concepts-fullscreen-test, concepts-fullscreen-guard-proof (6 cuts), the gate.
+
+
+## Billy's Call Room (part 1 of 2)
+
+Decisions are in docs/MOBILE-DECISIONS.md under the same heading. The prompt is the job description; read WHERE WE ARE, THE LINE and SERVER WALLS there first.
+
+- [x] Milestone 1, the walls: `npm ci` ok. api/_lib/auth.js (vz_caller, requireCaller), api/_lib/handler.js (role), api/_lib/team.js (the team document, the passcode, team_activity), api/_lib/callerView.js (the whitelist), api/_lib/lists.js (server list helpers), api/_routes/caller.js (home, session, triage, batch, list, contact, outcome, session; the door), api/_routes/team.js (Rob's side: GET, PATCH, reset-passcode, pause, the day view, undo-decline), four rewrites, public/sw.js (network only), the `team` push category. Tests: scripts/caller-lib.mjs, caller-test.mjs (72 checks), caller-guard-proof.mjs (31 walls, each cut fails), a section in security-test (4e), sw-test (4), email-safety-test (7), caller-test in preship.
+- [ ] Milestone 2, the call room: sign in, /room shell and tab bar, Today, lead card, call room, outcome, callbacks, summary, Me > Booked. All of Billy's client code goes under src/room/ (email-safety-test scans that folder).
+- [ ] Milestone 3, sorting: Triage, Leads with batch select, Lists, New list sheet, move confirm.
+- [ ] Milestone 4, booking: open times (Calendly or weekly hours, cached 5 minutes under a rate: key), the slot check (409), the booking write (stage booked explicit, meeting, bookedBy), Rob's push (meetings), the email draft (drafts path), the Booked by Billy card, Home's Billy today card. Server still to write: `book` and `open-times` actions in caller.js, api/_lib/openTimes.js; add their checks and cuts to caller-lib and caller-guard-proof.
+- [ ] Milestone 5, Rob's controls: Settings > Team > Billy, Who calls it on lists (`callerId` is already accepted by the lists route), Billy's day with Undo (the route's `view=day` and `undo-decline` exist).
+- [ ] Milestone 6, gate and docs.
+
+Resume here: milestone 2.

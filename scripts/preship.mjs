@@ -70,6 +70,7 @@ const run = (name, cmd, args, env = {}) => {
 run('lint', 'npm', ['run', 'lint', '--silent']);
 run('hex count', 'node', ['-e', "const s=require('child_process').spawnSync('node',['scripts/hex-count.js'],{encoding:'utf8'}).stdout;const n=Number(/: *(\\d+)/.exec(s)[1]);console.log('hex '+n+' of 90');process.exit(n<=90?0:1)"]);
 run('routing-test', 'node', ['scripts/routing-test.mjs']);
+run('caller-test', 'node', ['scripts/caller-test.mjs']); // Billy's Call Room: the caller walls against the real handlers
 run('gesture-test', 'node', ['scripts/gesture-test.mjs'], { AUDIT_BASE: base });
 run('chrome-audit', 'node', ['scripts/chrome-audit.mjs'], { AUDIT_BASE: base });
 run('empty-audit', 'node', ['scripts/empty-audit.mjs'], { AUDIT_BASE: base });

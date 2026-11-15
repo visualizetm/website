@@ -13,17 +13,24 @@
  * routes that verify their own secret (the Stripe webhook, both crons). The
  * three auth endpoints (api/admin/login.js, logout.js, session.js) are plain
  * handlers with their own method check and do not use this wrapper.
+ *
+ * role (Billy's Call Room): 'admin' (the default), 'caller' (requireCaller:
+ * the vz_caller cookie at the stored version) or 'public' (what admin: false
+ * means). The guard is chosen here, never skipped: a caller route never
+ * accepts the admin cookie and an admin route never accepts the caller's,
+ * and a role this wrapper does not know is treated as admin.
  */
-import { requireAdmin } from './auth.js';
+import { requireAdmin, requireCaller } from './auth.js';
 
-export function route(handler, { methods = ['GET'], admin = true, maxBody = 512 * 1024 } = {}) {
+export function route(handler, { methods = ['GET'], admin = true, role = admin ? 'admin' : 'public', maxBody = 512 * 1024 } = {}) {
   const allow = methods.join(', ');
   return async function wrapped(req, res) {
     try {
       if (!methods.includes(req.method)) { res.setHeader('Allow', allow); return res.status(405).json({ error: 'method not allowed' }); }
       const len = Number(req.headers['content-length'] || 0);
       if (len > maxBody) return res.status(413).json({ error: 'request too large' });
-      if (admin && !requireAdmin(req, res)) return undefined;
+      if (role === 'caller') { if (!(await requireCaller(req, res))) return undefined; }
+      else if (role !== 'public' && !requireAdmin(req, res)) return undefined;
       return await handler(req, res);
     } catch (err) {
       console.error(`[api] ${req.method} ${req.url}`, err?.stack || err);

@@ -122,6 +122,22 @@
       "destination": "/api/showcase?r=unsubscribe"
     },
     {
+      "source": "/api/caller/login",
+      "destination": "/api/admin/index?r=caller-door&a=login"
+    },
+    {
+      "source": "/api/caller/logout",
+      "destination": "/api/admin/index?r=caller-door&a=logout"
+    },
+    {
+      "source": "/api/caller/:action",
+      "destination": "/api/admin/index?r=caller&a=:action"
+    },
+    {
+      "source": "/api/admin/team",
+      "destination": "/api/admin/index?r=team"
+    },
+    {
       "source": "/api/admin/settings",
       "destination": "/api/admin/index?r=settings"
     },

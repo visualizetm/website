@@ -31,7 +31,7 @@ section('1. the mirror');
 {
   const body = (f) => { const t = fs.readFileSync(path.join(repoRoot, f), 'utf8'); return t.slice(t.indexOf('export const PUSH_CATEGORIES')); };
   ok(body('src/shared/pushCategories.js') === body('api/_lib/pushCategories.js'), 'src/shared/pushCategories.js and api/_lib/pushCategories.js are identical below their headers');
-  ok(C.PUSH_CATEGORY_IDS.join() === 'reminders,meetings,payments,leads,client,email,digest', `the seven categories, in order (${C.PUSH_CATEGORY_IDS.join()})`);
+  ok(C.PUSH_CATEGORY_IDS.join() === 'reminders,meetings,payments,leads,client,email,digest,team', `the eight categories, in order (${C.PUSH_CATEGORY_IDS.join()})`);
 }
 
 section('2. the rules');
@@ -176,7 +176,7 @@ section('5. the settings route');
   res = fakeRes();
   await settings.handler({ method: 'PATCH', query: {}, headers: {}, body: { set: { notifications: { categories: { payments: false, bogus: false, leads: 'no' }, quiet: { on: true, from: '21:30', to: 'later', reminders: true } } } } }, res);
   const saved = _stores.settings.find(s => s._id === 'notifications');
-  ok(res._status === 200 && saved.categories.payments === false && saved.categories.leads === true && !('bogus' in saved.categories), 'a save keeps only the seven categories, and only an explicit false is off');
+  ok(res._status === 200 && saved.categories.payments === false && saved.categories.leads === true && !('bogus' in saved.categories), 'a save keeps only the eight categories, and only an explicit false is off');
   ok(saved.quiet.on === true && saved.quiet.from === '21:30' && saved.quiet.to === '07:00' && saved.quiet.reminders === true, 'quiet hours are validated: a bad time falls back');
   ok(saved.reminders?.meetings === true, 'saving categories leaves the reminder switches alone');
 }

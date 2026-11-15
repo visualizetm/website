@@ -498,3 +498,27 @@ One line each: what, why, the alternative rejected.
 - A pinch zoom on the page is left to the browser: the keyboard lift ignores a visualViewport scale above 1.01, and the swipe between images ignores a multi touch gesture. Known limit: when the window crosses 900px or turns, the layout flips and focus can drop to the stage itself (state and a typed note are kept).
 - A note draft is kept per direction and cleared on Cancel, so a note typed for B never appears on C; a save that finishes after the client has moved on does not close the editor of the direction they are now on.
 - Needs Rob phone (cannot be proved in headless Chromium): real Fullscreen behaviour on Android and desktop Safari, the keyboard over the dock (the visualViewport lift, --st-kb), and the notch and home indicator in landscape (the rail's safe area padding).
+
+## Billy's Call Room (part 1 of 2)
+
+Milestone 1, the walls:
+
+- The caller's endpoints are two keys of the existing admin dispatcher, both served from api/_routes/caller.js: `caller` (role caller, every action) and `caller-door` (role public, sign in and sign out). Rejected: one key with the guard skipped for login, which is the skip the prompt forbids. No new Vercel function (10).
+- `route()` takes `role` (admin, caller, public); `admin: false` still means public and a role it does not know is treated as admin, so a typo fails closed.
+- The caller cookie is `vz_caller=<version>.<expiry>.<hmac of caller:<version>:<expiry>>`, HttpOnly, Secure, SameSite=Strict, scoped to Path=/api/caller (the browser never sends it to an admin route at all), 14 days. Rejected: Path=/ and SameSite=Lax like the admin cookie; nothing outside /api/caller needs it.
+- requireCaller reads the one team document on every request (the version and Can sign in). That is one read per call; the admin guard stays database free.
+- Pause now is Can sign in off plus a version bump; switching Can sign in off from the page bumps the version too. Reset passcode bumps it and answers the passcode once.
+- The passcode is eight characters from an alphabet with no 0, O, 1, I or L, shown as two groups of four; spaces, dashes and case are ignored at sign in. Stored as scrypt (64 bytes) and a random salt. Rejected: six digits, which the limiter alone would have had to defend.
+- Sign in is limited per address under `rate:caller:<sha256 prefix>` (ten wrong in fifteen minutes, the admin login's numbers). A wrong email, a wrong passcode, a paused account and a missing account answer the same bytes.
+- Billy's record is the `team` collection and his log is `team_activity`. Neither is in the backup's collection whitelist and neither was added: the hash stays out of the file, and the activity log is rebuildable noise next to the leads it describes. The price: a restore from a backup loses Billy's day history and Rob resets the passcode.
+- Every caller write also sets `callerStamp { by, at }` on the lead; the call log entry carries `by: 'billy'` (the admin's sanitize keeps it), a decline carries `declined.by`, a list Billy makes carries `createdBy`.
+- "Hours" in the whitelist is the lead's `bestWindow` (there is no opening hours field). The website comes through as a flag only (none, dead, up); the address of the site does not.
+- What Billy types in What they said is not a server write per keystroke: it is kept on the device for that lead and travels with the outcome (one write, one activity row). Rejected: a `note` endpoint, which would have put a row in Billy's day for every pause in his typing or broken the one row per write rule.
+- Not interested declines the lead (stage declined, his reason and note), as the prompt says; the console's own "no" still parks a lead in nurture. No answer keeps the console's cadence: the log, the lead to the back of its list, no callback written.
+- A callback Billy sets is the lead's `callbackAt`, so by the unchanged Next up rules it also shows in Rob's Next up and reminder push. Left as is; part 2 can decide whether Rob wants those.
+- A lead on a list Rob calls is Rob's to dial: an outcome on it is 403 until Billy moves it to a list of his own (with the confirm). A decline of such a lead counts as moving it off Rob's list (the confirm, and 403 when Rob switched the moves off). Without `confirm: true` the answer is 409 naming the list.
+- A batch that names one lead beyond the line is refused whole (404) and nothing is written.
+- Adding a triage or nurture lead to a list accepts it (stage lead), the same as Accept and add. A filter fill takes leads only (sorted, not parked) that sit on no open list; a lead on a list already stays where it is.
+- Billy renames only the lists he made and skips only on a list he calls. "N left of M": M is the list's `target`, which a list Billy made grows as leads are added; Rob's own target on a list Rob made is not touched.
+- The contact fix does not recompute the score; the nightly job does.
+- Pushes: a booking is `meetings` (it is one). A finished session fits none of the seven, so `team` was added to both mirrors and the exact id list in push-prefs-test is now eight (a changed expectation, reported under CHANGED RULES).

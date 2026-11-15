@@ -2,7 +2,7 @@
  * Notifications switches each on or off and sets quiet hours. Mirrored byte for byte in api/_lib/pushCategories.js (a serverless function
  * cannot import src/); scripts/push-prefs-test.mjs asserts the two match. No imports, no clock: the caller says what time it is.
  *
- *   PUSH_CATEGORIES        the seven switches Settings shows, in order
+ *   PUSH_CATEGORIES        the eight switches Settings shows, in order
  *   categoriesShape(d)     { reminders: true, ... }: a missing or non-false value is on, so nothing that pushes today goes silent
  *   quietShape(d)          { on, from, to, reminders }: quiet hours, off by default
  *   pushVerdict(prefs, category, hour, min)   '' (send it), 'off' (that category is switched off) or 'quiet' (inside quiet hours)
@@ -18,6 +18,7 @@ export const PUSH_CATEGORIES = [
   { id: 'client', label: 'Client activity', hint: 'A client approving, asking for changes, reviewing, answering concepts or sending an idea.' },
   { id: 'email', label: 'Email failures', hint: 'An email that did not send, and emails written for you to send.' },
   { id: 'digest', label: 'Daily digest', hint: 'The summary of the day at 8:30 AM.' },
+  { id: 'team', label: 'Team', hint: 'Billy finishing a call session. His bookings come under Meetings.' },
 ];
 export const PUSH_CATEGORY_IDS = PUSH_CATEGORIES.map(c => c.id);
 export const ALWAYS_SENT = ['system', 'test'];

@@ -35,6 +35,8 @@ function sanitize(b) {
     leadIds: Array.isArray(b.leadIds) ? [...new Set(b.leadIds.filter(x => typeof x === 'string' || typeof x === 'number').map(x => str(x, 64)).filter(Boolean))].slice(0, MAX_LEADS) : undefined,
     status: b.status !== undefined ? (LIST_STATUS_IDS.includes(b.status) ? b.status : 'open') : undefined,
     scheduledFor: b.scheduledFor !== undefined ? (/^\d{4}-\d{2}-\d{2}$/.test(String(b.scheduledFor)) ? String(b.scheduledFor) : '') : undefined,
+    // Billy's Call Room: who calls the list, Rob or Billy. Missing reads as whoever made it (api/_lib/callerView.js callerIdOf).
+    callerId: b.callerId !== undefined ? (b.callerId === 'billy' ? 'billy' : 'rob') : undefined,
   };
 }
 const compact = (o) => { for (const k of Object.keys(o)) if (o[k] === undefined) delete o[k]; return o; };

@@ -189,6 +189,8 @@ const logArr = (v, max = 200) => Array.isArray(v)
       note: str(x?.note, 1000),
       meeting: str(x?.meeting, 300),
       email: str(x?.email, 200),
+      // Billy's Call Room: who made the call. Stamped by the caller route only; carried here so a later save of the log keeps it.
+      ...(x?.by === 'billy' ? { by: 'billy' } : {}),
     }))
   : [];
 

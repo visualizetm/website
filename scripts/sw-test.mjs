@@ -107,5 +107,23 @@ section('3. a replaced subscription is made again and sent to the server');
   ok(n === 1, 'a failure is swallowed: the app subscribes again on its next open');
 }
 
+section('4. the Call Room is network only');
+{
+  /* Billy's Call Room: a /api/caller/ response is never answered from a cache and never stored in one. The copy under test has a caller URL
+   * put on the cached list, so the rule holds whatever that list says (scripts/caller-guard-proof.mjs cuts the rule and this must fail). */
+  const rigged = src.replace("const API_CACHED = [", "const API_CACHED = ['/api/caller/home', ");
+  const run = (url) => {
+    const listeners = {}; const log = { responded: 0, puts: 0 };
+    const self = { addEventListener: (t, f) => { listeners[t] = f; }, location: { origin: 'https://admin.visualizeclients.com' }, skipWaiting: () => Promise.resolve(), clients: { claim: () => Promise.resolve() }, registration: {} };
+    const ctx = vm.createContext({ self, caches: { open: async () => ({ addAll: async () => {}, put: async () => { log.puts++; } }), keys: async () => [], match: async () => undefined, delete: async () => true }, fetch: async () => ({ ok: true, clone() { return this; } }), URL, Response, Promise, JSON, console, setTimeout });
+    vm.runInContext(rigged, ctx);
+    listeners.fetch({ request: { method: 'GET', url, mode: 'cors', cache: 'default', headers: { get: () => null } }, respondWith: () => { log.responded++; }, waitUntil: () => {} });
+    return log;
+  };
+  ok(rigged !== src, 'the cached list is where the test expects it');
+  for (const a of ['home', 'session', 'open-times']) { const hit = run(`https://admin.visualizeclients.com/api/caller/${a}`); ok(hit.responded === 0 && hit.puts === 0, `/api/caller/${a} goes straight to the network: no cached answer, nothing stored`); }
+  ok(run('https://admin.visualizeclients.com/api/admin/call-leads').responded === 1, 'the admin list it does cache is still handled (the test can see a handled request)');
+}
+
 console.log(`\n${passes} passed, ${fails} failed.`);
 process.exit(fails ? 1 : 0);

@@ -416,6 +416,16 @@ section('4d. client docs: admin only, the block schema, references on the client
 }
 
 /* ── 5. The admin guard and the login limiter ───────────────────────── */
+section('4e. the caller (Billy\'s Call Room): the cookie, the role guard, the line, the whitelist');
+{
+  /* The checks live in scripts/caller-lib.mjs and run against a copy of api/ and public/sw.js. scripts/caller-guard-proof.mjs cuts each wall
+   * in turn and requires its check to fail. Among them: an admin cookie is 401 on the caller route and a caller cookie is 401 on every admin route. */
+  const { runCaller } = await import(pathToFileURL(path.join(repoRoot, 'scripts', 'caller-lib.mjs')).href);
+  const results = await runCaller();
+  for (const r of results) ok(r.pass, `${r.guard ? `[wall ${r.guard}] ` : ''}${r.desc}`);
+  ok(results.some(r => r.id === 'role-admin-cookie' && r.pass) && results.some(r => r.id === 'admin-refuses-caller' && r.pass), 'both cross cases ran: the admin cookie on the caller route, the caller cookie on every admin route');
+}
+
 section('5. the admin guard and the login limiter');
 {
   seed();
