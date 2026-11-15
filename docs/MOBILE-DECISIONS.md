@@ -539,3 +539,17 @@ Milestone 2, the call room:
 - CallbackPicker takes `clearable` (default on); Billy's has no Clear, since a callback outcome without a time is not a callback.
 - /room skips the admin's warm up fetches in src/main.jsx: they would answer 401 for Billy and spend his first second.
 - Tests: scripts/room-test.mjs (the pure half, 43 checks) and scripts/room-ui-test.mjs (the walk at 390 and 1280 against the mocked caller door in audit-fixtures). In headless Chromium a tel: or sms: tap swallows the next tap, so the walk cancels the navigation of those two link kinds and nothing else; the handlers still run.
+
+Milestone 3, sorting:
+
+- Triage, Leads and Lists are segments of the Calls hub (`?section=`), so Back, a reload and the tab bar behave as on Today. The hub holds the two things its segments share: a foot under the scroll area, where Leads portals its selection bar (a StickyFooterBar, so it sits above the tab pill), and a list in the making.
+- A Leads row carries two controls the way the admin's own lead card does in select mode: the stretched Open button and the checkbox above it (`v-above`). Rejected: the checkbox alone, which would leave Billy no way to open a lead that is on no list (someone who rings back, a search by name).
+- Rob's switch off: a lead on a list Rob calls shows a lock where the checkbox was and cannot be ticked; its lead card reads Locked on Rob's list. The server's 403 is the wall; the lock is the courtesy.
+- The confirm before a lead leaves a list Rob calls is asked before any write when the room already knows where the lead is, and again from the server's 409 when what the room held was stale. Leave it, on a selection, leaves those leads where they are and carries on with the rest in the same one batch write; with nobody left, nothing is written.
+- Declining a selection that holds a lead on Rob's list uses the same sheet with "Take it off and decline it?" (the prompt words only the move). The server already treats that decline as a move off Rob's list.
+- New list, A filter: the count line is worked out on the phone from the home response by `fillPreview` and the server applies the same rule. caller-test's `fill-promise` holds the two together: the number shown is the number added. The No list yet chip changes what is counted as a match, not what is added, since a filter never moves a lead that is on a list.
+- New list, By hand: nothing is written until Make list of N. The name and who calls it wait in the hub's memory while Leads shows its checkboxes; Cancel drops them. Rejected: making the empty list first and filling it after, which is two writes and a stray empty list when he backs out.
+- Lists: a list Billy calls has Start (a session on that list), a list he made has Rename. A list Rob calls and Callbacks due carry no control at all.
+- The lead card of a lead on a list Rob calls offers Move it to my list in place of Call (the same sheet and the same confirm); the list it is on is not offered as a target.
+- Not now on the only lead waiting keeps it on screen and says so.
+- Two Untitled UI icons joined the kit's registry: Lock01 and ClockSnooze.

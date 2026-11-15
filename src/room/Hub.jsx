@@ -1,16 +1,23 @@
+import { useState } from 'react';
 import { PageShell, ScrollArea, Stack, Grid, Card, Button, StatCard, ProgressBar, SegmentedControl, EmptyState, Stagger, SkeletonBlock, Icon, useDelayedLoading } from '../ui';
 import { COPY } from '../shared/copy';
 import { useRoom, useRoomBar } from './RoomApp';
 import { RoomError, RowsSkeleton, LeadRow, callbackDetail } from './parts';
+import Triage from './Triage';
+import Leads from './Leads';
+import Lists from './Lists';
 import { greeting, dateLine, callbacksDueNow, yourList, listProgress, leftLine, triagePile, plural } from './roomLib';
 
-/* The Calls hub (Billy's Call Room): a strip of segments at the top (Today, then Triage N, Leads and Lists once sorting is
- * on), the segment's body under it. The segment is ?section= so Back and a reload land on it. */
-export const SEGMENTS = [{ id: 'today', label: 'Today' }];
-const BODIES = { today: Today };
+/* The Calls hub (Billy's Call Room): a strip of four segments at the top (Today, Triage N, Leads, Lists), the segment's
+ * body under it. The segment is ?section= so Back and a reload land on it. The hub holds two things its segments share:
+ * the foot (where Leads puts its selection bar, under the scroll area) and a list in the making (New list, By hand). */
+export const SEGMENTS = [{ id: 'today', label: 'Today' }, { id: 'triage', label: 'Triage' }, { id: 'leads', label: 'Leads' }, { id: 'lists', label: 'Lists' }];
+const BODIES = { today: Today, triage: Triage, leads: Leads, lists: Lists };
 
 export default function Hub({ section }) {
   const { go, leads } = useRoom();
+  const [footEl, setFootEl] = useState(null);
+  const [draft, setDraft] = useState(null);
   useRoomBar('Calls');
   const active = BODIES[section] ? section : 'today';
   const Body = BODIES[active];
@@ -21,9 +28,10 @@ export default function Hub({ section }) {
       <ScrollArea>
         <Stack gap={4}>
           {options.length > 1 && <SegmentedControl full size="sm" label="Calls sections" options={options} value={active} onChange={(id) => go(id === 'today' ? '/' : `/?section=${id}`, { replace: true })} className="rm-strip" />}
-          <div className="lay-tabbody" key={active}><Body /></div>
+          <div className="lay-tabbody" key={active}><Body footEl={footEl} draft={draft} setDraft={setDraft} /></div>
         </Stack>
       </ScrollArea>
+      <div ref={setFootEl} className="rm-hub-foot" />
     </PageShell>
   );
 }

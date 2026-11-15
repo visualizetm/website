@@ -88,6 +88,8 @@ import WifiOff from '@untitled-ui/icons-react/build/esm/WifiOff';
 /* landing (Site Prompt 2, Part 3) */
 import Browser from '@untitled-ui/icons-react/build/esm/Browser';
 import Pin01 from '@untitled-ui/icons-react/build/esm/Pin01';
+import Lock01 from '@untitled-ui/icons-react/build/esm/Lock01';
+import ClockSnooze from '@untitled-ui/icons-react/build/esm/ClockSnooze';
 import BarChartSquare01 from '@untitled-ui/icons-react/build/esm/BarChartSquare01';
 import BarChart01 from '@untitled-ui/icons-react/build/esm/BarChart01';
 import LineChartUp01 from '@untitled-ui/icons-react/build/esm/LineChartUp01';
@@ -121,6 +123,8 @@ import Square from '@untitled-ui/icons-react/build/esm/Square';
 export const ICONS = {
   /* tasks (planner dashboard and task system) */
   Pin01, File02, CheckDone01, DotsHorizontal, Grid01, ChevronUp,
+  /* Billy's Call Room: a lead locked on Rob's list, Not now in Triage */
+  Lock01, ClockSnooze,
   /* the nav revamp: the dashboards and the analytics charts */
   BarChartSquare01, BarChart01, LineChartUp01, PieChart01, TrendUp01,
   /* client docs */

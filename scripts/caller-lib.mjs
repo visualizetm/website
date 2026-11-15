@@ -31,6 +31,7 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
   const srvLists = await load('_lib/lists.js');
   const cliLists = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'lists.js')).href);
   const { callOutcomeSet } = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'callOutcome.js')).href);
+  const roomLib = await import(pathToFileURL(path.join(repoRoot, 'src', 'room', 'roomLib.js')).href);
 
   const out = [];
   const check = (id, guard, desc, pass) => out.push({ id, guard, desc, pass: !!pass });
@@ -325,8 +326,12 @@ export async function runCaller({ api = path.join(repoRoot, 'api'), sw = path.jo
     check('closed-list', null, 'a finished list is not a target', (await billy('POST', 'batch', { leadIds: [L(1)], op: 'list', listId: LIST(4) }))._status === 400);
 
     /* Create: a filter leaves leads already on a list where they are; by hand moves them. */
+    _stores.call_leads.push(plain(40, 'Fresh Barber One'), plain(41, 'Fresh Barber Two'));
+    const homeBefore = (await billy('GET', 'home'))._json || {};
+    const promised = roomLib.fillPreview(homeBefore.leads, homeBefore.lists, { types: ['Barber'], cities: ['Dover'] });
     const made = await billy('POST', 'list', { op: 'create', name: 'Dover barbers', callerId: 'billy', fill: { mode: 'filter', types: ['Barber'], cities: ['Dover'] } });
     const newList = _stores.lists.find(l => l.name === 'Dover barbers');
+    check('fill-promise', null, 'the count the New list sheet shows before writing (fillPreview on the home response) is the count the server adds', made._status === 200 && promised.add === 2 && promised.onList > 0 && promised.add === made._json?.added && promised.match - promised.onList === promised.add && newList.leadIds.includes(L(40)) && newList.leadIds.includes(L(41)));
     check('list-create-filter', null, 'a list filled by a filter takes the leads that match and are on no list; one on a list already stays where it is', made._status === 200 && !!newList && newList.createdBy === 'billy' && newList.callerId === 'billy' && made._json?.added === newList.leadIds.length && !newList.leadIds.includes(L(4)) && !newList.leadIds.includes(L(2)) && lead(4).listId === LIST(2));
     const forRob = await billy('POST', 'list', { op: 'create', name: 'For Rob', callerId: 'rob', fill: { mode: 'empty' } });
     check('list-create-rob', null, 'a list Billy makes for Rob says Rob calls it and Billy made it', forRob._status === 200 && forRob._json?.list?.callerId === 'rob' && forRob._json?.list?.madeBy === 'billy');
