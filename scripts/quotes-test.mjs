@@ -8,22 +8,23 @@
  *   4  deal.quote through the real call-leads handler: every field the summary carries lands, nothing it kept is lost
  *   5  the pure half (src/lib/quote.js): totals with cents, the package check, the line edits, the picker, what a
  *      client reads (no cost, no supplier, nothing off list, no private note), the old path's redirect
- * Run: node scripts/quotes-test.mjs */
+ * Run: node scripts/quotes-test.mjs   (QUOTES_ROOT=<dir> reads api/ and src/ from a copy; scripts/quotes-guard-proof.mjs cuts a guard there) */
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const repoRoot = path.resolve(here, '..');
+const codeRoot = process.env.QUOTES_ROOT ? path.resolve(process.env.QUOTES_ROOT) : repoRoot;
 const tmpBase = path.join(repoRoot, '.tmp-verify');
 fs.mkdirSync(tmpBase, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(tmpBase, 'quotes-'));
 const apiDst = path.join(tmp, 'api');
-fs.cpSync(path.join(repoRoot, 'api'), apiDst, { recursive: true });
+fs.cpSync(path.join(codeRoot, 'api'), apiDst, { recursive: true });
 fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
 process.env.SESSION_SECRET = 'test-not-real';
 const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
-const src = async (rel) => import(pathToFileURL(path.join(repoRoot, 'src', rel)).href);
+const src = async (rel) => import(pathToFileURL(path.join(codeRoot, 'src', rel)).href);
 const { _stores, _reset } = await load('_lib/mongo.js');
 const adminIndex = (await load('admin/index.js')).default;
 const { signSession } = await load('_lib/auth.js');
@@ -51,7 +52,7 @@ const logo = { kind: 'item', id: 'logo', label: 'x', qty: 1, unit: 250, listUnit
 const yard = { kind: 'custom', id: 'c1', label: 'Yard signs', qty: 10, unit: 12.5, free: false, cost: 4.25, supplierUrl: 'https://signs.example/order', note: 'Two sided' };
 
 /* ── 1. The mirror ─────────────────────────────────────────────────────────────────────────────────────────── */
-ok(fs.readFileSync(path.join(repoRoot, 'src/shared/quoteLines.js'), 'utf8') === fs.readFileSync(path.join(repoRoot, 'api/_lib/quoteLines.js'), 'utf8'), 'api/_lib/quoteLines.js mirrors src/shared/quoteLines.js byte for byte');
+ok(fs.readFileSync(path.join(codeRoot, 'src/shared/quoteLines.js'), 'utf8') === fs.readFileSync(path.join(codeRoot, 'api/_lib/quoteLines.js'), 'utf8'), 'api/_lib/quoteLines.js mirrors src/shared/quoteLines.js byte for byte');
 
 /* ── 2. The route ──────────────────────────────────────────────────────────────────────────────────────────── */
 seed();
@@ -157,7 +158,7 @@ ok(g2.status === 'sent' && g2.sentAt === '2026-11-10T15:00:00.000Z' && stored(q2
 _stores.email_log[1].status = 'test';
 ok((await Q('GET', undefined, { id: String(q3._id) }))._json.item.status === 'draft', 'a test send (no key, nothing left) does not make a quote sent');
 ok((await Q('PATCH', { id: q3._id, set: { emailLogId: 'javascript:1' } }))._status === 200 && stored(q3._id).emailLogId === '', 'the email reference is a 24 character id or nothing');
-const routeText = fs.readFileSync(path.join(repoRoot, 'api/_routes/quotes.js'), 'utf8');
+const routeText = fs.readFileSync(path.join(codeRoot, 'api/_routes/quotes.js'), 'utf8');
 ok(!/import[^\n]*(email\/|notify|transport|send)/.test(routeText) && !/sendComposed|sendDraft|sendPush|fetch\(/.test(routeText), 'the quotes route imports nothing that sends and calls no network');
 
 /* ── 3. Saved items ────────────────────────────────────────────────────────────────────────────────────────── */

@@ -347,6 +347,7 @@ If Billy says he cannot sign in: check Can sign in, then reset the passcode. Ten
 
 ```
 node scripts/quotes-test.mjs                    # the Quotes page: the mirror, the route against the real handlers (the number, the line guard, custom lines, $set only, statuses, sent off the email log, no send), saved items, deal.quote through the lead PATCH, the pure half (totals with cents, the package check, what a client reads, the redirect)
+node scripts/quotes-guard-proof.mjs             # each Quotes guard cut in a copy of api/ and src/ in turn, quotes-test must fail (15 cuts)
 AUDIT_BASE=http://127.0.0.1:4330 PW_CHROME=/opt/pw-browsers/chromium node scripts/quotes-ui-test.mjs   # the Quotes page in a browser at 390 and 1280: the list, New quote, someone new, lines, a price edit, Free, a custom item, a saved item, the package check, autosave, Copy as text, the draft email into the send sheet with nothing sent, the invoice
 AUDIT_ONLY=quotes node scripts/layout-audit.mjs  # only the Quotes screens (the list, the editor's steps, the sheets, Settings, Quotes), five widths
 npm run build                                  # Vite build to dist/ (also pins the CSP hash in vercel.json, prerenders published clients, writes the sitemap)
