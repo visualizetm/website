@@ -33,6 +33,7 @@ import { apiFetch } from '../shared/api';
 import useDocs from '../lib/useDocs';
 import useQuotes from '../lib/useQuotes';
 import { defaultLead } from '../lib/defaultLead';
+import { quoteRedirect } from '../shell/backTree';
 import NewDocSheet from '../components/docs/NewDocSheet';
 import ClientPickSheet from '../components/docs/ClientPickSheet';
 import TaskSheet from '../components/TaskSheet';
@@ -564,7 +565,7 @@ export default function AdminApp() {
   /* The quote builder (prompt 2 of 3): a push from the record, the price presenter or the room; ?pkg= seeds the lines with a package. */
   /* A path with its query (the Home numbers open Invoices on a chip and Clients on a filter). */
   const goPath = useCallback((rel) => navigate(`${BASE}${rel}`), [navigate]);
-  const openQuote = useCallback((lead, pkgId) => { push(`${BASE}/leads/${lead._id}/quote${pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : ''}`, { selectedId: lead._id }); }, [push]);
+  const openQuote = useCallback((lead, pkgId) => { push(`${BASE}/leads/${lead._id}/quote${pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : ''}`, { selectedId: lead._id }); }, [push]); // the record's Quote row and the price presenter: the old path, which lands on the lead's quote
   /* The Quotes page. A quote is /quotes/:id; New quote finds or makes one first (quotesState.ops.start), so the editor always has a
      stored quote under it. The old builder's path and /quotes/new are resolved by the effect below, by a replace that keeps the origin. */
   const openQuoteItem = useCallback((quote) => { push(`${BASE}/quotes/${quote._id}`, { selectedId: quote._id }); }, [push]);
@@ -582,7 +583,8 @@ export default function AdminApp() {
     const lead = leadId ? callLeadsRef.current.find(l => String(l._id) === String(leadId)) || null : null;
     (async () => {
       const item = await quotesState.ops.start({ lead, pkgId: q.get('pkg') || '' });
-      if (item) push(`${BASE}/quotes/${item._id}${lead ? `?lead=${encodeURIComponent(lead._id)}` : ''}`, { replace: true });
+      /* The old builder's path lands where the back tree says (quoteRedirect); /quotes/new carries its lead the same way. */
+      if (item) push(`${BASE}${(section === 'quote' && quoteRedirect(relPath, location.search, String(item._id))) || `/quotes/${item._id}${lead ? `?lead=${encodeURIComponent(lead._id)}` : ''}`}`, { replace: true });
       else navigate(`${BASE}/quotes`, { replace: true });
     })();
   }, [section, quoteId, quoteLeadId, quotesState.loading, callLeadsLoading, forceLoading, location.key]); // eslint-disable-line react-hooks/exhaustive-deps

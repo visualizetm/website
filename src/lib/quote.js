@@ -2,7 +2,6 @@ import { PACKAGES, CATALOG, PACKAGE_ITEMS, PRINT_PRODUCTS, catalogOf, packageOf,
 import { money2 } from '../shared/format.js';
 import { validLine, validLines, listEntry, listLine, lineKey, qtyOf, cents, lineTotal, lineList, chargedUnit, listUnitFor, quoteSums, dealQuoteOf, QUOTE_CAPS, QUOTE_STATUS_IDS, VALID_DAYS, CLIENT_LINE_KEYS } from '../shared/quoteLines.js';
 import { newInvoice } from './invoices.js';
-import { quoteRedirect } from '../shell/backTree.js';
 
 /* The quote and the price presenter's pure logic (prompt 2 of 3, milestone 4). Every price here is read from
  * src/shared/pricing.js (a package, a catalog item, the deposit percent, a retainer); nothing is typed. A quote is
@@ -236,17 +235,24 @@ export function quoteSummary(q) {
   return { ...s, count: lines.length, packageId, plan: planFor(s.total, packageId), check: packageCheck(lines), validDays: validDaysOf(q) };
 }
 export const validDaysOf = (q) => { const n = Math.round(Number(q?.validDays)); return Number.isFinite(n) && n >= 1 ? Math.min(QUOTE_CAPS.validDays, n) : VALID_DAYS; };
-/** A new quote as the editor first holds it (nothing is stored until the first change). */
+/** The lines of a quote that lives only on a deal (deal.quote from the old builder or the price presenter, before quotes were documents),
+ *  as lines of this page at today's list prices. A summary that came from a quote document (it carries quoteId) is not a source. */
+export function linesFromDeal(dealQuote) {
+  if (!dealQuote || dealQuote.quoteId || !Array.isArray(dealQuote.lines)) return [];
+  const seen = new Set();
+  return relistLines(dealQuote.lines.filter(l => l && l.id).map(l => ({ kind: l.kind === 'package' || packageOf(l.id) ? 'package' : 'item', id: l.id, label: l.label, qty: 1, unit: Number(l.price) || 0, listUnit: Number(l.listPrice) || 0, free: l.free === true })))
+    .filter(l => (seen.has(lineKey(l)) ? false : seen.add(lineKey(l))));
+}
+/** A new quote for a lead (or for no one yet): what the old builder saved on the deal moves over; else the package from the link; else nothing. */
 export function blankQuote(lead, pkgId = '') {
+  const moved = linesFromDeal(lead?.deal?.quote);
   const seed = pkgId ? listLine('package', pkgId) : null;
-  return { leadId: lead ? String(lead._id) : '', business: lead?.business || '', person: lead?.askFor || '', status: 'draft', lines: seed ? [seed] : [], retainerPitch: true, note: '', privateNote: '', validDays: VALID_DAYS };
+  return { leadId: lead ? String(lead._id) : '', business: lead?.business || '', person: lead?.askFor || '', status: 'draft', lines: moved.length ? moved : seed ? [seed] : [], retainerPitch: moved.length ? lead.deal.quote.retainerPitch !== false : true, note: '', privateNote: '', validDays: VALID_DAYS };
 }
 /** What the store is sent: the fields the editor owns and nothing else. */
 export const quoteBody = (q) => ({ leadId: q.leadId || '', lines: q.lines || [], retainerPitch: q.retainerPitch !== false, note: q.note || '', privateNote: q.privateNote || '', validDays: validDaysOf(q) });
 /** The newest quote of a lead that is still alive, or null. */
 export const newestQuoteFor = (quotes, leadId) => (quotes || []).filter(q => !q.deleted && String(q.leadId || '') === String(leadId)).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))[0] || null;
-/** Where the old builder's path lands now (quoteRedirect in src/shell/backTree.js is the rule): the lead's newest quote, or a new one for that lead. */
-export const quotePathFor = (leadId, quotes, pkgId = '') => quoteRedirect(`/leads/${encodeURIComponent(leadId)}/quote`, pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : '', newestQuoteFor(quotes, leadId)?._id || '');
 /** A draft nobody has touched: no lead, no lines, no notes. New quote opens it again instead of making another. */
 export const isBlankQuote = (q) => !!q && !q.deleted && quoteStatusOf(q) === 'draft' && !q.leadId && !(q.lines || []).length && !q.note && !q.privateNote;
 /** A stored quote's lines against today's price list: the list price is pricing.js's as it stands, a free line stays at 0, and a line

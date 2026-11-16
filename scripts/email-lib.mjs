@@ -335,6 +335,24 @@ export async function runEmail(apiSrc = path.join(repoRoot, 'api'), srcSrc = pat
       ok(r._status === 404, 'an unknown record is 404');
       r = await admin('preview', 'POST', { templateId: 'intro_call', recordId: LEAD, override: { subject: 'My own line {{firstName}}', blocks: [{ type: 'text', text: 'Short and sweet, {{conceptCount}} ideas.' }] } });
       ok(r._status === 200 && r._json.subject === 'My own line Mike' && r._json.html.includes('Short and sweet, 3 ideas.') && !r._json.html.includes('Book the call'), 'an override renders this one email with its own subject and blocks');
+      /* The Quotes page: the quote email is the custom template over what a client may read of each line (src/lib/quote.js quoteEmail). A quote
+         carrying a cost, a supplier link, a line note, a price under list and a private note goes through the real send door with no stamp, so
+         it is written as a draft; what was rendered for it holds none of them. */
+      {
+        const Q = await loadSrc('lib/quote.js');
+        const quote = { number: 'Q-0042', business: 'Mikes Detailing', note: 'Signs ship in a week.', privateNote: 'PRIVATE-MARGIN-NOTE', validDays: 30, retainerPitch: false, lines: [
+          { kind: 'item', id: 'logo', label: 'Logo (primary and mark)', qty: 1, unit: 199.5, listUnit: 250, free: false },
+          { kind: 'print', id: 'cards-250', label: 'Business cards, 250', qty: 2, unit: 0, listUnit: 35, free: true },
+          { kind: 'custom', id: 'c1', label: 'Yard signs', qty: 10, unit: 12.5, free: false, cost: 4.25, supplierUrl: 'https://signs-supplier.example/order', note: 'SUPPLIER-LINE-NOTE' }] };
+        const n0 = _stores.email_log.length;
+        r = await admin('send', 'POST', { templateId: 'custom', recordId: LEAD, override: Q.quoteEmail({ askFor: 'Mike', business: 'Mikes Detailing' }, quote, {}), reason: 'Quote Q-0042' });
+        const row = _stores.email_log[_stores.email_log.length - 1] || {};
+        const out = `${row.subject}\n${row.html}\n${row.text}`;
+        ok(r._status === 200 && r._json.draft === true && _stores.email_log.length === n0 + 1 && row.status === 'draft' && !row.approvedAt && !row.sentAt, 'the quote email from the Quotes page is written as a draft, never sent');
+        ok(/Yard signs x 10: \$125\.00/.test(out) && /Business cards, 250 x 2: on me/.test(out) && /Logo \(primary and mark\): \$199\.50/.test(out) && /Total \$324\.50\./.test(out) && /Signs ship in a week\./.test(out), 'what was rendered reads each line as its name, its quantity and its price, a free line as on me, then the total and the client note');
+        ok(!/4\.25/.test(out) && !/signs-supplier\.example/.test(out) && !/SUPPLIER-LINE-NOTE/.test(out) && !/PRIVATE-MARGIN-NOTE/.test(out) && !/off list/i.test(out) && !/120\.50/.test(out) && !/\$250\b/.test(out) && !/\$35\b/.test(out), 'and holds no cost, no supplier link, no line note, no list price, nothing off list and no private note');
+        _stores.email_log.splice(n0);
+      }
       r = await admin('preview', 'POST', { templateId: 'custom', recordId: LEAD, override: { blocks: [{ type: 'text', text: 'Your portal: {{portalLink}}' }, { type: 'button', label: 'Open', url: '{{portalLink}}' }] } });
       ok(r._status === 200 && r._json.available === false && r._json.missing.includes('portalLink') && r._json.lacking.includes('portalLink'), `a template reading a value the record lacks is unavailable, the field named (${dump(r._json.missing)})`);
       r = await sendNow({ templateId: 'custom', recordId: LEAD, override: { blocks: [{ type: 'button', label: 'Open', url: '{{portalLink}}' }] } });
