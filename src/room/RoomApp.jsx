@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { uiStyles, ToastProvider, PageHeader, IconButton, Icon, useToast, useOnline } from '../ui';
 import TabBar, { tabBarStyles } from '../shell/TabBar';
@@ -47,12 +47,13 @@ const TAB_PATH = { calls: '/', callbacks: '/callbacks', me: '/me' };
 
 const RoomCtx = createContext(null);
 export const useRoom = () => useContext(RoomCtx);
-/** A screen names its title and the actions its top bar shows: useRoomBar('Kims Cafe', [{ id, label, icon, onClick }]). */
+/** A screen names its title and the actions its top bar shows: useRoomBar('Kims Cafe', [{ id, label, icon, onClick }]).
+ *  A layout effect, so the bar changes in the same paint as the screen: with a plain effect the last screen's title stayed for a frame. */
 export function useRoomBar(title, actions = null) {
   const room = useRoom();
   const key = `${title || ''}|${(actions || []).map(a => `${a.id}:${a.disabled ? 0 : 1}`).join(',')}`;
   const ref = useRef(actions); ref.current = actions;
-  useEffect(() => { room?.setBar({ title: title || '', actions: ref.current }); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { room?.setBar({ title: title || '', actions: ref.current }); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 export default function RoomApp() {
