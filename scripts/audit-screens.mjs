@@ -304,7 +304,7 @@ export const SCREENS = [
   { id: 'submissions-list', screen: 'Submissions', label: 'list', path: '/admin/submissions', resource: 'submissions' },
   { id: 'submissions-detail', screen: 'Submissions', label: 'submission detail (panel or sheet)', path: '/admin/submissions', open: 'id5', region: (w) => (w >= 1024 ? '.po-panel' : '.v-sheet'), resource: 'submissions', detail: true, act: (p, w) => openRow(p, w, 'Business 5', /^Open submission from Business 5/) },
 
-  ...['Profile', 'Notifications', 'Integrations', 'Emails', 'Team', 'Doc templates', 'Data', 'Danger zone'].map(t => ({
+  ...['Profile', 'Notifications', 'Integrations', 'Emails', 'Team', 'Doc templates', 'Quotes', 'Data', 'Danger zone'].map(t => ({
     id: `settings-${t.toLowerCase().replace(/ /g, '-')}`, screen: 'Settings', label: `${t} tab`, path: '/admin/settings', resource: 'settings', noEmpty: true,
     act: t === 'Profile' ? undefined : (p) => tab(p, t),
   })),
@@ -328,9 +328,16 @@ export const SCREENS = [
   /* Invoices (prompt 3 of 3): every invoice across projects, deals, plans and retainers, the chips, a past due list. */
   { id: 'invoices', screen: 'Invoices', label: 'every invoice by section', path: '/admin/invoices', resource: 'leads', act: (p) => p.waitForSelector('.iv-row, .v-empty', { timeout: 8000 }).catch(() => {}) },
   { id: 'invoices-pastdue', screen: 'Invoices', label: 'the Past due chip', path: '/admin/invoices?chip=past-due', resource: 'leads', static: true, act: (p) => p.waitForSelector('.iv-row, .v-empty', { timeout: 8000 }).catch(() => {}) },
-  /* Quotes (the Quotes page): the list and a chip. */
+  /* Quotes (the Quotes page): the list and a chip; a quote in the editor (on a phone an overview of four rows, each step its own screen; on a
+     computer the steps side by side with Check and Send pinned); the custom item sheet. Settings, Quotes rides with the Settings tabs above. */
   { id: 'quotes-list', screen: 'Quotes', label: 'every quote, the search and the chips', path: '/admin/quotes', resource: 'quotes', act: (p) => p.waitForSelector('.qs-row, .v-empty, .v-error', { timeout: 8000 }).catch(() => {}) },
   { id: 'quotes-draft', screen: 'Quotes', label: 'the Draft chip', path: '/admin/quotes', resource: 'quotes', static: true, act: async (p) => { await p.waitForSelector('.qs-chip--draft', { timeout: 8000 }).catch(() => {}); await click(p.locator('.qs-chip--draft')); await p.waitForTimeout(300); } },
+  { id: 'quote-editor', screen: 'Quote editor', label: 'a quote: four rows on a phone, the steps side by side on a computer', path: '/admin/quotes/QT1', resource: 'quotes', detail: true, act: (p) => p.waitForSelector('.qb-over, .qb-cols, .v-empty, .v-error', { timeout: 8000 }).catch(() => {}) },
+  ...[['who', 'Who'], ['need', 'What they need: the picker and the lines'], ['check', 'Check: the totals and what only Rob sees'], ['send', 'Send: the draft, the invoice, the statuses']].map(([st, label]) => ({
+    id: `quote-step-${st}`, screen: 'Quote editor', label, path: '/admin/quotes/QT1', resource: 'quotes', detail: true, static: true,
+    act: async (p, w) => { await p.waitForSelector('.qb-over, .qb-cols', { timeout: 8000 }).catch(() => {}); if (w < 768) { await click(p.locator(`.qb-step-row[data-step="${st}"]`)); await p.waitForSelector(`.qb-step[data-step="${st}"]`, { timeout: 5000 }).catch(() => {}); } await p.waitForTimeout(300); },
+  })),
+  { id: 'quote-custom', screen: 'Quote editor', label: 'the Add a custom item sheet, the fields only Rob sees open', path: '/admin/quotes/QT1', region: '.v-sheet', resource: 'quotes', detail: true, static: true, act: async (p, w) => { await p.waitForSelector('.qb-over, .qb-cols', { timeout: 8000 }).catch(() => {}); if (w < 768) await click(p.locator('.qb-step-row[data-step="need"]')); await click(p.locator('.qb-add-custom')); await p.waitForSelector('.qb-custom-name', { timeout: 5000 }).catch(() => {}); await click(p.locator('.qb-custom-more')); await p.waitForTimeout(400); } },
   { id: 'drafts-sent', screen: 'Drafts', label: 'the Sent chip', path: '/admin/drafts', resource: 'email', static: true, act: async (p) => { await p.waitForSelector('.dr-chip--sent', { timeout: 8000 }); await p.locator('.dr-chip--sent').click(); await p.waitForTimeout(400); } },
   { id: 'drafts-sheet', screen: 'Drafts', label: 'the send sheet: To, Subject, the body, Later, Open in Mail, Send now', path: '/admin/drafts', resource: 'email', region: '.v-sheet', detail: true, static: true, act: async (p) => { await p.waitForSelector('.dr-row .dr-send', { timeout: 8000 }); await p.locator('.dr-row .dr-send').first().click(); await p.waitForSelector('.ss-send, .ss-text-it', { timeout: 8000 }); await p.waitForTimeout(400); } },
   { id: 'drafts-sheet-later', screen: 'Drafts', label: 'the send sheet on its Later times', path: '/admin/drafts', resource: 'email', region: '.v-sheet', detail: true, static: true, act: async (p) => { await p.waitForSelector('.dr-row:not(.is-text) .dr-send', { timeout: 8000 }); await p.locator('.dr-row:not(.is-text) .dr-send').first().click(); await p.waitForSelector('.ss-later', { timeout: 8000 }); await p.locator('.ss-later').click(); await p.waitForSelector('.ss-when', { timeout: 8000 }); await p.waitForTimeout(400); } },

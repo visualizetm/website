@@ -175,20 +175,33 @@ for (const w of WIDTHS) {
     ok(qw && qw.lines.length === 1 && qw.total > 0 && qw.deposit === Math.ceil(qw.total / 2), `the quote is saved on the deal (${qw?.total}, deposit ${qw?.deposit})`);
     await ctx.close();
   }
-  /* The quote builder (milestone 4): /leads/:id/quote. */
+  /* The quote builder (milestone 4): /leads/:id/quote, which is the Quotes page's editor now (the path lands on the lead's quote, a new one
+     here, seeded from the link). On a phone the editor is an overview of rows with a step per row, so the walk opens the step that holds
+     what it reads next (stepTo; nothing to do on a computer, where the steps sit side by side); the picker is a searched list, not chips. */
   {
     const { ctx, page, writes, posts } = await open(w, '/admin/leads/L8/quote?pkg=brand-starter');
+    const stepTo = async (id) => {
+      if (w >= 768) return;
+      if (await page.locator('.qb-step').count()) { await page.locator('.sh-top-back').click(); }
+      await page.waitForSelector('.qb-over', { timeout: 10000 });
+      await page.locator(`.qb-step-row[data-step="${id}"]`).click();
+      await page.waitForSelector(`.qb-step[data-step="${id}"]`, { timeout: 5000 });
+    };
+    await stepTo('need');
     await page.waitForSelector('.qb-lines', { timeout: 10000 });
     ok((await page.locator('.qb-line').count()) === 1 && (await page.locator('.qb-line[data-line="brand-starter"]').count()) === 1, 'the package from the link seeds the first line');
-    await page.locator('.v-chip', { hasText: 'Business card design' }).click();
+    await page.locator('.qb-group--print').click();
+    await page.locator('.qb-row[data-row="print:card-design"]').click();
     ok((await page.locator('.qb-line').count()) === 2, 'a print item adds a line');
     await page.locator('.qb-line[data-line="card-design"] .qb-free input').check();
+    await stepTo('check');
     ok((await page.locator('.qb-free-total').textContent()) === '$30' && (await page.locator('.qb-totals').textContent()).includes('The cards are on me'), 'Free counts the list price as given free and shows the script line');
     ok((await page.locator('.qb-big').first().textContent()) === '$350', 'the total leaves the free line out');
     await page.waitForTimeout(900);
     const q = [...writes].reverse().find(x => x.body?.set?.deal?.quote)?.body.set.deal.quote;
     ok(q && q.lines.length === 2 && q.givenFree === 30 && q.total === 350 && q.deposit === 175 && q.retainerPitch === true && q.lines.every(l => typeof l.listPrice === 'number'), `autosave writes deal.quote with its lines and totals (${JSON.stringify(q && { total: q.total, free: q.givenFree, deposit: q.deposit })})`);
     const before = writes.length;
+    await stepTo('send');
     await page.locator('.qb-invoice').click(); await page.waitForTimeout(700);
     const dw = writes.slice(before).find(x => x.body?.set?.deal?.invoices)?.body.set.deal;
     ok(dw && dw.invoices.at(-1).amount === 175 && dw.invoices.at(-1).kind === 'deposit' && dw.invoices.at(-1).status === 'draft', 'Make the Stripe invoice adds the deposit line to the deal (the link is made on send)');

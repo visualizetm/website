@@ -18,6 +18,7 @@ import LeadPicker from '../components/LeadPicker';
 import { SUBMISSION_TYPES } from '../shared/semantics';
 import DocTemplatesPanel from '../components/docs/DocTemplatesPanel';
 import TeamPanel from '../components/team/TeamPanel';
+import QuoteItemsPanel from '../components/quotes/QuoteItemsPanel';
 import EmailSettingsPanel from '../components/email/EmailSettingsPanel';
 import CronAlarm, { cronAlarmStyles } from '../components/CronAlarm';
 import { reminderHealth, armedState, nextRunText, testMessage, ago } from '../lib/pushStatus';
@@ -35,9 +36,9 @@ import { EXPORTS, downloadText } from '../lib/exports';
 
 export const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile', icon: 'User01' }, { id: 'notifications', label: 'Notifications', icon: 'Bell01' }, { id: 'integrations', label: 'Integrations', icon: 'Link01' }, { id: 'emails', label: 'Emails', icon: 'Mail01' }, { id: 'team', label: 'Team', icon: 'Users01' },
-  { id: 'templates', label: 'Doc templates', icon: 'File02' }, { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
+  { id: 'templates', label: 'Doc templates', icon: 'File02' }, { id: 'quotes', label: 'Quotes', icon: 'Receipt' }, { id: 'data', label: 'Data', icon: 'Database01' }, { id: 'danger', label: 'Danger zone', icon: 'AlertTriangle' },
 ];
-const SETTINGS_BLURB = { team: 'Billy: his sign in, your open times, his day', profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', emails: 'The sender, the templates, what goes out on its own', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'The things you cannot undo' };
+const SETTINGS_BLURB = { quotes: 'The items you quote again', team: 'Billy: his sign in, your open times, his day', profile: 'Your name, the call target, the theme, your hours', notifications: 'Push, email and which reminders you get', integrations: 'Stripe, Calendly, email, the daily jobs', emails: 'The sender, the templates, what goes out on its own', templates: 'What the New doc sheet offers', data: 'Import, export, recently deleted', danger: 'The things you cannot undo' };
 const post = (body) => apiFetch('/api/admin/settings', { method: 'POST', body });
 const patch = (set) => apiFetch('/api/admin/settings', { method: 'PATCH', body: { set } });
 const nextRun = (lastRunAt, minutes) => { const base = lastRunAt ? new Date(lastRunAt).getTime() : Date.now(); return new Date(base + minutes * 60e3); };
@@ -266,6 +267,7 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     templates: { n: [88, 104, 104, 104, 104, 104, 104], d: [88, 104, 104, 104, 104, 104, 104] },
     emails: { n: [150, 442, 760, 560, 320], d: [96, 442, 742, 560, 320] },
     team: { n: [322, 416, 420, 170], d: [286, 366, 380, 150] },
+    quotes: { n: [263], d: [162] },
   };
   const heightFor = (i) => TAB_HEIGHTS[tab]?.[narrow ? 'n' : 'd']?.[i];
   const skeletonCard = (i) => (tab === 'profile' && PROFILE_CARDS[i] ? PROFILE_CARDS[i]
@@ -444,6 +446,8 @@ export default function AdminSettings({ leads = [], projects = [], orders = [], 
     <TeamPanel />
   ) : tab === 'templates' ? (
     <DocTemplatesPanel docsApi={shell?.docsApi} />
+  ) : tab === 'quotes' ? (
+    <QuoteItemsPanel quotesApi={shell?.quotesApi} />
   ) : tab === 'data' ? (
     <Stagger className="v-stack st-stack">
       <Card className="st-card">

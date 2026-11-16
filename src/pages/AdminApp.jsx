@@ -32,6 +32,7 @@ import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
 import useDocs from '../lib/useDocs';
 import useQuotes from '../lib/useQuotes';
+import { defaultLead } from '../lib/defaultLead';
 import NewDocSheet from '../components/docs/NewDocSheet';
 import ClientPickSheet from '../components/docs/ClientPickSheet';
 import TaskSheet from '../components/TaskSheet';
@@ -531,6 +532,7 @@ export default function AdminApp() {
   // /leads/:id/concepts (Concepts rebuild), any stage; ?set= picks the round.
   const conceptsLeadId = (relPath.match(/^\/leads\/([^/]+)\/concepts$/) || [])[1] || '';
   const quoteLeadId = (relPath.match(/^\/leads\/([^/]+)\/quote$/) || [])[1] || '';
+  const quoteId = decodeURIComponent((relPath.match(/^\/quotes\/([^/]+)$/) || [])[1] || '');
   // /email/compose (the email system): ?record= names the lead, ?template=, ?project= and ?invoice= what Compose opens on. A bare /email lands on Leads.
   const composeQ = new URLSearchParams(location.search);
   useEffect(() => { if (relPath === '/email' || relPath === '/email/') navigate(`${BASE}/calls?section=leads`, { replace: true }); }, [relPath]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -568,6 +570,34 @@ export default function AdminApp() {
   const openQuoteItem = useCallback((quote) => { push(`${BASE}/quotes/${quote._id}`, { selectedId: quote._id }); }, [push]);
   const newQuote = useCallback(async () => { const item = await quotesState.ops.start({}); if (item) push(`${BASE}/quotes/${item._id}`, { selectedId: item._id }); return !!item; }, [quotesState.ops, push]);
   const quotesApi = useMemo(() => ({ ...quotesState, openQuote: openQuoteItem, newQuote }), [quotesState, openQuoteItem, newQuote]);
+  const quoteResolving = useRef('');
+  useEffect(() => {
+    const fresh = section === 'quoteEditor' && quoteId === 'new';
+    if (section !== 'quote' && !fresh) return;
+    if (quotesState.loading || callLeadsLoading || forceLoading) return;
+    if (quoteResolving.current === location.key) return;
+    quoteResolving.current = location.key;
+    const q = new URLSearchParams(location.search);
+    const leadId = section === 'quote' ? quoteLeadId : q.get('lead') || '';
+    const lead = leadId ? callLeadsRef.current.find(l => String(l._id) === String(leadId)) || null : null;
+    (async () => {
+      const item = await quotesState.ops.start({ lead, pkgId: q.get('pkg') || '' });
+      if (item) push(`${BASE}/quotes/${item._id}${lead ? `?lead=${encodeURIComponent(lead._id)}` : ''}`, { replace: true });
+      else navigate(`${BASE}/quotes`, { replace: true });
+    })();
+  }, [section, quoteId, quoteLeadId, quotesState.loading, callLeadsLoading, forceLoading, location.key]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* Someone new on a quote: a lead (stage lead, source quote) through the normal lead POST; the list is read again through
+     normalizeLeads and the lead it made (or the one that already had that name) is handed back to attach. */
+  const createQuoteLead = useCallback(async (values) => {
+    const r = await apiFetch('/api/admin/call-leads', { method: 'POST', body: defaultLead({ ...values, stage: 'lead', source: 'quote' }) });
+    if (!r.ok) return null;
+    const list = await apiFetch('/api/admin/call-leads', { fresh: true });
+    if (!list.ok) return null;
+    const all = normalizeLeads(list.data?.items);
+    setCallLeads(all);
+    const name = String(values.business || '').trim().toLowerCase();
+    return all.find(l => String(l.business || '').trim().toLowerCase() === name) || null;
+  }, []);
   const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
@@ -916,9 +946,9 @@ export default function AdminApp() {
           onBack={navBack ? navBack.back : null} />
       )}
       {section === 'quotes' && <AdminQuotes quotesApi={quotesApi} loading={forceLoading} />}
-      {section === 'quote' && (
-        <AdminQuote lead={V.leads.find(l => String(l._id) === quoteLeadId) || null} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
-          onPatch={patchCallLead} pkgId={new URLSearchParams(location.search).get('pkg') || ''} onBack={navBack ? navBack.back : null} />
+      {(section === 'quoteEditor' || section === 'quote') && (
+        <AdminQuote key={section === 'quote' ? 'new' : quoteId} quoteId={section === 'quote' ? 'new' : quoteId} quotesApi={quotesApi} leads={V.leads} projects={V.projects} loading={callLeadsLoading || forceLoading}
+          onPatchLead={patchCallLead} onPatchProject={patchProject} onCreateLead={createQuoteLead} onBack={navBack ? navBack.back : null} />
       )}
       {section === 'conceptsEditor' && (
         <AdminConceptsEditor

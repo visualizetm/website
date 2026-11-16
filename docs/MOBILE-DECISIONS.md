@@ -670,3 +670,16 @@ Milestone 2, the list
 - The summary on `deal.quote` is written by the app through the lead's own patch helper, not by the quotes route. That keeps the deal object whole (the lead PATCH replaces `deal`), keeps the next action and the score recompute on the write, and keeps the screen's copy of the lead in step with no second fetch. Only the lead's newest quote is mirrored, since that is the one `/leads/:id/quote` opens, and a quote with no lines leaves nothing on the deal.
 - A quote always has a stored document under it: New quote finds or makes one first, then opens `/quotes/:id`. A blank draft nobody touched (no lead, no lines, no notes) is opened again instead of making another, so numbers are not burned and the list does not fill with blanks; nothing is deleted on the way out.
 - The icon is Receipt (Untitled UI), since Invoices already has the dollar circle.
+
+Milestone 3, the editor
+- The editor took the old builder's file (src/pages/AdminQuote.jsx) rather than a new one, so there is one builder and close-test's no send scan still reads it by the same name.
+- Steps on a phone are history entries (useSelection, the Showcase editor's pattern), so Back, Escape and the edge swipe leave a step the way they leave any screen. Done in the top bar is the visible equivalent.
+- On a computer Check is two cards: the totals are pinned with Send, the terms and notes sit in the flow under the lines. Pinning all of Check made the side column taller than the window, and a pinned column you cannot reach the bottom of is worse than none. It is pinned only when the window is 860px tall or more; under that it scrolls with the page.
+- The picker is a search with one group shown at a time (Brand, Web, Print, Packages, Saved items) and rows, not chips; a search looks across every group. Tapping a row that is already in the quote adds one more (a package stays at one).
+- The autosave wait is 600 ms through `useAutoSave` (its default is a second and a half). That is the wait the old builder had, a quote is a small document, and it keeps stepper-test's timing as it was.
+- A stored quote is opened against today's price list: the list price is refreshed, Rob's price is kept, and a line whose id has left the list is kept as a custom line at his price. Otherwise a price change in pricing.js would make an old quote unsaveable.
+- Someone new posts the lead, reads the list again and attaches the lead with that business name. The lead POST skips a name that is already there, so a business already in the CRM is attached rather than made twice.
+- The package check has one action, Use Brand Starter, which swaps the covered lines for the package. Saying it without a way to act on it would leave Rob to do the swap by hand.
+- "The cards are on me since we'll keep working together." stays as a line for Rob to say, under Given free in the block marked Only you see this. It is never in what a client receives.
+- Delete is a soft delete behind a confirm, from the Send step. It is not in Recently Deleted; nothing asked for a restore and the document stays in the collection.
+- Saved items are edited in a sheet from Settings, Quotes (name, price, cost, supplier link). A quote copies the price when the item is added, so an edit there changes no quote.

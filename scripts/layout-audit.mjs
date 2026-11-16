@@ -398,7 +398,7 @@ for (const width of WIDTHS) {
   const goto = (path) => page.goto(BASE + path, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone that opens once. */
   const section = async (t) => { if (width >= 768) { await page.getByRole('tab', { name: new RegExp('^' + t) }).first().click({ timeout: 3000 }).catch(() => {}); return; } await phoneSection(page, t); };
-  const only = process.env.AUDIT_ONLY; // 'settings', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', 'room', or 'a11y' reruns just that block
+  const only = process.env.AUDIT_ONLY; // 'settings', 'quotes', 'clients', 'studio', 'design', 'dashboard', 'landing', 'marketing', 'room', or 'a11y' reruns just that block
   if (only === 'a11y') {
     /* Prompt 15: 200 percent zoom and the WCAG text spacing overrides on the
      * Dashboard, Leads, and the call room. Browser zoom at 200 percent is a
@@ -765,6 +765,61 @@ for (const width of WIDTHS) {
     await check('team: a list, Who calls it');
     if (only === 'room') { await ctx.close(); continue; }
   }
+
+  if (!only || only === 'quotes') {
+  /* Quotes (the Quotes page): the list, its chips and its skeleton, a quote in the editor (each step on a phone, side by side on a computer),
+     a line being edited, the custom item sheet, the New who sheet, and Settings, Quotes. */
+  const qStep = async (id) => { if (width < 768) { if (await page.locator('.qb-step').count()) { await page.locator('.sh-top-back').first().click({ timeout: 3000 }).catch(() => {}); await page.locator('.qb-over').first().waitFor({ timeout: 4000 }).catch(() => {}); } await page.locator(`.qb-step-row[data-step="${id}"]`).first().click({ timeout: 4000 }).catch(() => {}); await page.locator(`.qb-step[data-step="${id}"]`).first().waitFor({ timeout: 4000 }).catch(() => {}); } await page.waitForTimeout(300); };
+  await goto('/admin/quotes');
+  await page.locator('.qs-row').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('quotes list');
+  for (const c of ['draft', 'sent', 'accepted', 'declined']) { await page.locator(`.qs-chip--${c}`).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(200); await check(`quotes list: ${c}`); }
+  await page.locator('.qs-chip--all').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.qs-search input').first().fill('zzzz no such quote').catch(() => {}); await page.waitForTimeout(300);
+  await check('quotes list (no results)');
+  await goto('/admin/quotes?loading=1');
+  await check('quotes skeleton');
+  await goto('/admin/quotes/QT1');
+  await page.locator('.qb-over, .qb-cols').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check(width < 768 ? 'quote (the four rows)' : 'quote (the steps side by side)');
+  await qStep('who');
+  await page.locator('.qb-who-search input').first().fill('Lead').catch(() => {}); await page.waitForTimeout(300);
+  await check('quote: who, a search with results');
+  await page.locator('.qb-who-new').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.qb-newwho-add').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await check('quote: someone new sheet');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await qStep('need');
+  await check('quote: what they need (the picker and three lines)');
+  for (const g of ['web', 'print', 'packages', 'saved']) { await page.locator(`.qb-group--${g}`).first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(200); await check(`quote: the picker on ${g}`); }
+  await page.locator('.qb-pick-search input').first().fill('cards').catch(() => {}); await page.waitForTimeout(300);
+  await check('quote: the picker searched');
+  await page.locator('.qb-line-menu').first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(300);
+  await check('quote: a line menu open');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  await page.locator('.qb-add-custom').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.qb-custom-name').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await page.locator('.qb-custom-more').first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(300);
+  await check('quote: add a custom item sheet (cost, supplier and note open)');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
+  await qStep('check');
+  await check('quote: check (totals, the terms, what only Rob sees)');
+  await qStep('send');
+  await check('quote: send');
+  await goto('/admin/quotes/QT1?loading=1');
+  await check('quote skeleton');
+  await goto('/admin/quotes/NOPE');
+  await page.locator('.v-empty').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('quote (not there)');
+  await goto('/admin/settings/quotes');
+  await page.locator('.qi-row, .qi-panel .v-empty').first().waitFor({ timeout: 6000 }).catch(() => {});
+  await check('settings: quotes (saved items)');
+  await page.locator('.qi-row').first().click({ timeout: 3000 }).catch(() => {});
+  await page.locator('.qi-name').first().waitFor({ timeout: 3000 }).catch(() => {});
+  await check('settings: quotes, an item being edited');
+  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  }
+  if (only === 'quotes') { await ctx.close(); continue; }
 
   if (!only || only === 'settings') {
   // Settings and Submissions (Prompt 12).
