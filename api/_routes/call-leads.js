@@ -8,6 +8,7 @@ import { PORTAL_MODULE_IDS, PORTAL_STATE_IDS, PORTAL_TEMPLATE_IDS, PORTAL_TEMPLA
 import { sessionSecret } from '../_lib/config.js';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
+import { QUOTE_STATUS_IDS } from '../_lib/quoteLines.js';
 import { sanitizeNextAction, nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
 import { sanitizeChecklists } from '../_lib/checklists.js';
 import { sanitizeInvoices } from '../_lib/invoices.js';
@@ -67,6 +68,9 @@ function slugify(v) {
 // Every image and link field goes through safeUrl (api/_lib/url.js): http, https, or a root relative path, else ''.
 const imgLink = (v) => safeUrl(v, 500);
 const link = (v, max = 400) => safeUrl(v, max);
+/* A quote's money: 0 to 100000, to the cent (a quote line may carry cents; a whole dollar stays a whole dollar). */
+const quoteMoney = (v) => Math.max(0, Math.min(100000, Math.round((Number(v) || 0) * 100) / 100));
+const QUOTE_LINE_KINDS = ['package', 'item', 'print', 'custom'];
 /* Client portal: the PIN's hash, salted with the session secret so a dumped record never shows four digits. Mirrored in api/_routes/portal-public.js. */
 const hashPin = (pin) => createHash('sha256').update(`${sessionSecret()}:${pin}`).digest('base64url');
 function showcaseImageList(v, max) {
@@ -213,8 +217,8 @@ function sanitize(b) {
     area: str(b.area, 160),
     serviceInterest: str(b.serviceInterest, 200),
     sourceId: b.sourceId ? str(b.sourceId, 120) : undefined,
-    // CRM revamp, step 4: how the record arrived ('import', 'capture'; the scraper has sourceId, a brief has a linked submission).
-    source: b.source !== undefined ? (['import', 'capture', 'hand'].includes(b.source) ? b.source : 'hand') : undefined,
+    // CRM revamp, step 4: how the record arrived ('import', 'capture'; the scraper has sourceId, a brief has a linked submission). 'quote': Someone new on the Quotes page.
+    source: b.source !== undefined ? (['import', 'capture', 'hand', 'quote'].includes(b.source) ? b.source : 'hand') : undefined,
     notes: str(b.notes, 3000),
     askFor: str(b.askFor, 200),
     bestWindow: str(b.bestWindow, 300),
@@ -439,13 +443,25 @@ function sanitize(b) {
       stalledSince: str(b.deal.stalledSince, 40),
       /* The quote (prompt 2 of 3): the lines Rob picked, each price his (editable) or free, the given free total, the deposit. */
       quote: b.deal.quote && typeof b.deal.quote === 'object' ? {
-        lines: Array.isArray(b.deal.quote.lines) ? b.deal.quote.lines.slice(0, 40).map(l => ({ id: str(l?.id, 40), label: str(l?.label, 120), price: Math.max(0, Math.min(100000, Math.round(Number(l?.price)) || 0)), listPrice: Math.max(0, Math.min(100000, Math.round(Number(l?.listPrice)) || 0)), free: l?.free === true })) : [],
+        /* The Quotes page adds to a line, never takes away: its kind, its quantity (price and listPrice are for one), and on a custom line Rob's own cost, supplier link and note. Prices keep their cents. */
+        lines: Array.isArray(b.deal.quote.lines) ? b.deal.quote.lines.slice(0, 40).map(l => ({
+          id: str(l?.id, 40), label: str(l?.label, 120), price: quoteMoney(l?.price), listPrice: quoteMoney(l?.listPrice), free: l?.free === true,
+          ...(QUOTE_LINE_KINDS.includes(l?.kind) ? { kind: l.kind } : {}),
+          ...(l?.qty !== undefined && Number.isFinite(Number(l.qty)) ? { qty: Math.max(1, Math.min(10000, Math.round(Number(l.qty)))) } : {}),
+          ...(l?.kind === 'custom' && l.cost !== undefined && l.cost !== null && Number.isFinite(Number(l.cost)) ? { cost: quoteMoney(l.cost) } : {}),
+          ...(l?.kind === 'custom' && link(l.supplierUrl) ? { supplierUrl: link(l.supplierUrl) } : {}),
+          ...(l?.kind === 'custom' && str(l.note, 200).trim() ? { note: str(l.note, 200).trim() } : {}),
+        })) : [],
         packageId: str(b.deal.quote.packageId, 40),
         retainerPitch: b.deal.quote.retainerPitch !== false,
-        givenFree: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.givenFree)) || 0)),
-        total: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.total)) || 0)),
+        givenFree: quoteMoney(b.deal.quote.givenFree),
+        total: quoteMoney(b.deal.quote.total),
         deposit: Math.max(0, Math.min(100000, Math.round(Number(b.deal.quote.deposit)) || 0)),
         at: str(b.deal.quote.at, 40),
+        /* Which quote this is the summary of (the quotes collection), its number and where it stands. */
+        ...(/^[0-9a-f]{24}$/i.test(String(b.deal.quote.quoteId || '')) ? { quoteId: String(b.deal.quote.quoteId) } : {}),
+        ...(/^Q-\d{4,8}$/.test(String(b.deal.quote.number || '')) ? { number: String(b.deal.quote.number) } : {}),
+        ...(QUOTE_STATUS_IDS.includes(b.deal.quote.status) ? { status: b.deal.quote.status } : {}),
       } : b.deal.quote === null ? null : undefined,
     } : undefined,
     // CRM revamp, step 4: parked until a day, with why; null clears it. And the score the rules computed.

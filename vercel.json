@@ -90,6 +90,10 @@
       "destination": "/api/admin/index?r=lists"
     },
     {
+      "source": "/api/admin/quotes",
+      "destination": "/api/admin/index?r=quotes"
+    },
+    {
       "source": "/api/admin/suggestions",
       "destination": "/api/admin/index?r=suggestions"
     },

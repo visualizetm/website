@@ -3,6 +3,7 @@
  * Back goes up exactly one level in a fixed tree, whatever brought the screen up:
  *
  *   Home > section root > record > sub screen (planner, tasks, docs, concepts, quote, compose, showcase, a new project) > sheet
+ *   Home > Quotes > a quote (/quotes/:id; the old /leads/:id/quote redirects there, quoteRedirect)
  *   Calls > Queue > Room; Summary backs to Calls
  *   Settings > Design system, Recently Deleted, an emails or notifications tab
  *
@@ -21,7 +22,7 @@
 
 /* Section roots: a tab bar, no Back. The home is ''. Leads, lists and triage redirect into the Calls hub; booked
    became deals; design sits under Settings (one level in). */
-export const ROOTS = ['', 'pipeline', 'calls', 'deals', 'calendar', 'overview', 'clients', 'projects', 'docs', 'drafts', 'invoices', 'tasks', 'orders', 'concepts', 'reviews', 'submissions', 'landing', 'settings', 'more', 'leads', 'lists', 'triage', 'booked'];
+export const ROOTS = ['', 'pipeline', 'calls', 'deals', 'calendar', 'overview', 'clients', 'projects', 'docs', 'drafts', 'invoices', 'quotes', 'tasks', 'orders', 'concepts', 'reviews', 'submissions', 'landing', 'settings', 'more', 'leads', 'lists', 'triage', 'booked'];
 /* The hub's sections: a root of one of these is /calls?section=<it>. */
 export const HUB_SECTIONS = ['triage', 'lists', 'leads'];
 
@@ -70,6 +71,8 @@ export function parentOf(rel, search = '') {
   if (/^\/(clients|deals)\/[^/]+$/.test(p)) return `/${p.split('/')[1]}`;
   if (p === '/projects/new') return '/projects';
   if (/^\/docs\/[^/]+$/.test(p)) return '/docs';
+  // A quote backs to Quotes, or to the record it was opened for (?lead=, which the old builder's path carries over).
+  if (/^\/quotes\/[^/]+$/.test(p)) { const l = q.get('lead'); return l ? recordPathOf('leads', l) : '/quotes'; }
   // Settings holds the design system, Recently Deleted and its tabs.
   if (p === '/design') return '/settings';
   // Billy's day is a page under Settings > Team > Billy, so it backs to the Team group, not to the Settings list.
@@ -79,6 +82,18 @@ export function parentOf(rel, search = '') {
   // Anything else: one segment up.
   const segs = p.split('/').filter(Boolean);
   return segs.length <= 1 ? '/' : `/${segs.slice(0, -1).join('/')}`;
+}
+
+/** The old quote builder's path, /leads/:id/quote, is the Quotes page now: that lead's newest quote when it has one (its id is passed
+ *  in), else a new quote for that lead with the package from the link. Both carry ?lead= so Back still lands on the record. null for
+ *  any other path. */
+export function quoteRedirect(rel, search = '', newestQuoteId = '') {
+  const m = norm(rel).match(/^\/leads\/([^/]+)\/quote$/);
+  if (!m) return null;
+  const lead = decodeURIComponent(m[1]);
+  if (newestQuoteId) return `/quotes/${enc(newestQuoteId)}?lead=${enc(lead)}`;
+  const pkg = params(search).get('pkg');
+  return `/quotes/new?lead=${enc(lead)}${pkg ? `&pkg=${enc(pkg)}` : ''}`;
 }
 
 /** Where Back lands for an entry with no origin: { rel, search, state } (rel relative to the base) to a relative path, or null at a root with nothing open. */

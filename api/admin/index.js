@@ -27,6 +27,7 @@ import { handler as orders } from '../_routes/orders.js';
 import { handler as posts } from '../_routes/posts.js';
 import { handler as projects } from '../_routes/projects.js';
 import { handler as pushSubscribe } from '../_routes/push-subscribe.js';
+import { handler as quotes } from '../_routes/quotes.js';
 import { handler as sendEmail } from '../_routes/send-email.js';
 import { handler as settings } from '../_routes/settings.js';
 import { handler as stripeEvents } from '../_routes/stripe-events.js';
@@ -58,6 +59,8 @@ const ROUTES = {
   'posts': route(posts, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'projects': route(projects, { methods: ['GET', 'POST', 'PATCH'] }),
   'push-subscribe': route(pushSubscribe, { methods: ['POST'], maxBody: 8 * 1024 }),
+  /* The Quotes page: one document per quote (api/_routes/quotes.js). */
+  'quotes': route(quotes, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 256 * 1024 }),
   'settings': route(settings, { methods: ['GET', 'POST', 'PATCH'], maxBody: 64 * 1024 }),
   'stripe-events': route(stripeEvents, { methods: ['GET'] }),
   'stripe-reconcile': route(stripeReconcile, { methods: ['POST'], maxBody: 4 * 1024 }),

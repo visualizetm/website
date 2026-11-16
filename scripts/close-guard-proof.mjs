@@ -14,7 +14,8 @@ let fails = 0; let passes = 0;
 const ok = (c, m) => { if (c) passes++; else { fails++; console.log('FAIL ' + m); } };
 const CUTS = [
   { name: 'Lock it in sends the invite directly', file: 'components/calls/CallStepper.jsx', from: "override: inviteOverride(after, meeting), reason: 'Booked on the script' }", to: "override: inviteOverride(after, meeting), reason: 'Booked on the script', send: true, approvedAt: new Date().toISOString(), approvedBy: 'rob' }" },
-  { name: 'a quote line off the price list is accepted', file: 'lib/quote.js', from: "  if (list === null || Number(l.listPrice) !== list) return false;", to: "  if (list === null) return false;" },
+  /* The guard moved with the Quotes page: validLine is src/shared/quoteLines.js (the rules the page and its store share) and reads a line's list price as listUnit or, on a line saved before, listPrice. The fault is the same one. */
+  { name: 'a quote line off the price list is accepted', file: 'shared/quoteLines.js', from: "  if (list === null || Number(listIn(l)) !== list) return false;", to: "  if (list === null) return false;" },
   { name: 'the ask unlocks on two beliefs', file: 'shared/callScript.js', from: "export const askUnlocked = (closer) => beliefsDone(closer?.beliefs);", to: "export const askUnlocked = (closer) => BELIEFS.filter(b => closer?.beliefs?.[b.id] === true).length >= 2;" },
   { name: 'a no answer from the Room drops its callback', file: 'lib/callOutcome.js', from: "  if (outcome === 'no-answer' && extra.callbackAt) set.callbackAt = extra.callbackAt;", to: "" },
 ];

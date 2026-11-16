@@ -6,6 +6,8 @@ import { sendPush, ownerSubs } from '../_lib/notify.js';
 import { stripeHealth } from '../_lib/stripe.js';
 import { RETAINERS } from '../_lib/pricing.js';
 import { categoriesShape, quietShape } from '../_lib/pushCategories.js';
+import { cleanSavedItems } from '../_lib/quoteLines.js';
+import { QUOTE_SETTINGS_ID } from './quotes.js';
 
 const DASHBOARD_DEFAULTS = { dailyCallTarget: 25, dashboardLayout: null };
 // Prompt 9: the notifications document. readIds capped at 500 (oldest dropped).
@@ -86,6 +88,7 @@ export async function handler(req, res) {
     );
     const dashDoc = dash?.value || dash || {};
     const [notif, profile, health] = await Promise.all([settings.findOne({ _id: 'notifications' }), settings.findOne({ _id: 'profile' }), settings.findOne({ _id: 'health' })]);
+    const quotesDoc = await settings.findOne({ _id: QUOTE_SETTINGS_ID });
     // Landing document, created lazily on first read (Site Prompt 2, Part 3), same as dashboard.
     const landingRes = await settings.findOneAndUpdate(
       { _id: 'landing' },
@@ -117,6 +120,8 @@ export async function handler(req, res) {
         dashboardLayout: dashDoc.dashboardLayout && typeof dashDoc.dashboardLayout === 'object' ? dashDoc.dashboardLayout : null,
       },
       landing: landingShape(landingDoc),
+      /* The Quotes page's saved items: what Rob keeps for the things he quotes again (never pricing.js). Each carries his own cost and supplier, so this stays an admin read. */
+      quoteItems: cleanSavedItems(quotesDoc?.quoteItems, safeUrl),
     });
   }
 
@@ -127,6 +132,12 @@ export async function handler(req, res) {
     const allowed = {};
     if (set.dailyCallTarget !== undefined) allowed.dailyCallTarget = clampTarget(set.dailyCallTarget);
     if (set.dashboardLayout !== undefined) allowed.dashboardLayout = set.dashboardLayout && typeof set.dashboardLayout === 'object' ? set.dashboardLayout : null;
+    /* The Quotes page: PATCH { set: { quoteItems: [{ id, label, unit, cost?, supplierUrl? }] } } replaces the saved items, at most 100, each through cleanSavedItem. */
+    if (set.quoteItems !== undefined) {
+      const quoteItems = cleanSavedItems(set.quoteItems, safeUrl);
+      await settings.updateOne({ _id: QUOTE_SETTINGS_ID }, { $set: { quoteItems, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
+      return res.status(200).json({ ok: true, quoteItems });
+    }
     // Prompt 12: PATCH { set: { profile: { name?, businessHours? } } }
     if (set.profile && typeof set.profile === 'object') {
       const cur = (await settings.findOne({ _id: 'profile' })) || {};

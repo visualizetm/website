@@ -637,3 +637,28 @@ The gate, and the one thing stuck:
 - STUCK, by Rob's rule at the status check (one command past 20 minutes): the final `npm run preship` on the final tree was not waited for. When it was left it had run 20 minutes: build passed and its layout audit stood at 522 of 578 views clean with none failing; scene, lint, hex, routing, caller, gesture, chrome, empty, docs-editor and docs-flow had not reported yet in that pass. So "12 of 12" is not proven in one pass on the final tree. A full pass takes about 40 minutes here.
 - What stands in for it, each run on its own: docs-flow-audit five passes in a row, layout-audit at all five widths (1,435 views, no offender), chrome-audit 162 states and gesture-test 18 steps on the item 1 build; lint, hex 78, routing-test 131 and caller-test 108 on the final tree. Items 2 to 4 changed no layout (a rule in the next action module, the moment the room sets its title, and docs).
 - The first attempt at that final preship was spoiled by me, not by the code: I ran the pure suites beside it, and scripts/showcase-endpoint-test.mjs (lines 21 and 309, older than this job) deletes the whole `.tmp-verify` folder, preship's own build included, so every browser step then failed at once. Found, not fixed: that test should remove only its own folder. Until it does, run nothing beside preship.
+
+## Quotes page
+
+One job, five milestones. Each call below was made by the prompt's decision rules (1 less code and easier to test; 2 pricing.js wins for Visualize's own services, Rob's typed price wins on the line, a saved item wins for its own default; 3 nothing sends; 4 the plainer option; 5 additive schema and `$set` only).
+
+Baseline and how the work was run
+- The baseline preship ran alone in the main checkout (12 of 12). While it ran, milestone 1 was written in a scratch worktree outside the repository and nothing was built or tested until it ended, so the baseline is of 8ca7378 and nothing else.
+
+Milestone 1, the store
+- The line rules live in one pure module, `src/shared/quoteLines.js`, mirrored byte for byte in `api/_lib/quoteLines.js` (quotes-test asserts it), because the editor and the route must agree on what a line is and the api never imports from src. `src/lib/quote.js` keeps every export it had and gains the page's own logic.
+- The guard moved with it: `validLine` is in the shared module and `src/lib/quote.js` re-exports it. close-guard-proof's cut for "a quote line off the price list is accepted" now names `shared/quoteLines.js` and the new guard line; the fault is the same one and close-test still fails on it (its original check and the new one).
+- A line saved before this page reads `price` and `listPrice`; a line saved by it reads `unit` and `listUnit`. The guard reads either, so an old `deal.quote` still passes and nothing is migrated.
+- Kinds: `package` (PACKAGES), `item` (CATALOG), `print` (PRINT_PRODUCTS, a sized product carrying its size in the id, `vinyl:small`), `custom`. The id alone is not enough: `vinyl` is $60 in the catalog and $15 to $40 in the print products.
+- In the picker a catalog print item with a twin in the print products (the same thing at the same id or addon id) is listed once, as the print product; the catalog's "Vinyl decals" has no twin (the print product is sized) and stays.
+- Free: on a price list line it stores `unit: 0` and keeps `listUnit`, as the prompt says. A custom line has no list price, so it keeps its `unit` while free and is charged 0; that is what lets Given free count it.
+- Off list is the list total minus the charged total, never under 0 (a price over list does not make a negative). Given free is the list value of the free lines alone. On `deal.quote` the field `givenFree` keeps the meaning it always had (free lines and price cuts together), so it is the off list figure.
+- The deposit is computed in cents, then rounded up to the dollar, so a float never adds a dollar.
+- The route refuses the whole save (400) when one line is off the price list, a second copy of a line, or over the 40 line cap. A quote is never stored half.
+- A price list line's label is pricing.js's, not the request's. A custom line with no id is given one.
+- `business` and `person` are copied from the lead when one is attached and cannot be typed into the route, so a quote can never name a business the CRM does not have.
+- Saved items sit in the settings document `quotes` beside the counter (`quoteItems`, `quoteCounter`). Each write names only its own key, and quotes-test shows neither touches the other.
+- `quotes` is added to the backup (it is business data; `team` and `team_activity` stay out as before).
+- The `deal.quote` sanitize now keeps cents on a line's price and on the totals (it rounded to the dollar). A whole dollar stays a whole dollar, and quotes-test shows a quote saved before this page lands exactly as it did.
+- The lead's `source` whitelist gains `quote` (Someone new on a quote), additive.
+- Sent is read off the email log, not stamped by the client. The editor writes the id of the email it drafted onto the quote (`emailLogId`); the quotes read sees that log row turn `sent` and stamps `sentAt` (the email's own time) and status `sent`. That covers Send now from any screen and a queued send by the cron with no change inside the email system, and a test send (no key, nothing left) does not count. Mark sent by hand covers a quote that went by text.
