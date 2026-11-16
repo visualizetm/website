@@ -35,6 +35,8 @@ export const NAV = [
   // Drafts (email safety, prompt 1 of 3): every email and text waiting for Rob's tap; nothing sends until he opens one there.
   // Invoices (prompt 3 of 3): every invoice across projects, deals, plans and retainers; the Home money numbers open it on a chip.
   { id: 'invoices',    label: 'Invoices',         icon: 'CurrencyDollarCircle', path: '/invoices', workspace: 'clients', group: 'Clients', badge: null, more: 3.55 },
+  // Quotes (the Quotes page): every quote in one list; a quote itself is /quotes/:id.
+  { id: 'quotes',      label: 'Quotes',           icon: 'Receipt',         path: '/quotes',     workspace: 'clients',  group: 'Clients',  badge: null,        more: 3.57 },
   { id: 'drafts',      label: 'Drafts',           icon: 'Mail01',          path: '/drafts',     workspace: 'clients',  group: 'Clients',  badge: 'drafts',    more: 3.6 },
   { id: 'planner',     label: 'Planner',          icon: 'Send01',          path: '/clients',    href: '/clients?filter=planner', search: 'filter=planner', workspace: 'clients', group: 'Clients', badge: 'planner' },
   { id: 'tasks',       label: 'Tasks',            icon: 'CheckDone01',     path: '/tasks',      workspace: 'clients',  group: 'Clients',  badge: 'tasks' },

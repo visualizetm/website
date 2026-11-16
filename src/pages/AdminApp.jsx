@@ -31,6 +31,7 @@ import { postsInReview } from '../lib/posts';
 import { IS_ADMIN_HOST } from '../lib/adminPaths';
 import { apiFetch } from '../shared/api';
 import useDocs from '../lib/useDocs';
+import useQuotes from '../lib/useQuotes';
 import NewDocSheet from '../components/docs/NewDocSheet';
 import ClientPickSheet from '../components/docs/ClientPickSheet';
 import TaskSheet from '../components/TaskSheet';
@@ -55,6 +56,7 @@ const loaders = {
   overview: () => import('./AdminOverview'),
   conceptsEditor: () => import('./AdminConceptsEditor'),
   quote: () => import('./AdminQuote'),
+  quotes: () => import('./AdminQuotes'),
   projects: () => import('./AdminProjects'),
   projectNew: () => import('./AdminProjectNew'), listFill: () => import('./AdminListFill'),
   compose: () => import('./AdminCompose'),
@@ -84,6 +86,7 @@ const AdminTasksHome = lazy(loaders.tasksAll);
 const AdminOverview = lazy(loaders.overview);
 const AdminConceptsEditor = lazy(loaders.conceptsEditor);
 const AdminQuote = lazy(loaders.quote);
+const AdminQuotes = lazy(loaders.quotes);
 const AdminCompose = lazy(loaders.compose);
 const AdminDrafts = lazy(loaders.drafts);
 const AdminInvoices = lazy(loaders.invoices);
@@ -408,6 +411,8 @@ export default function AdminApp() {
   const openListPicker = useCallback((leads) => { const ls = (Array.isArray(leads) ? leads : [leads]).filter(Boolean); if (ls.length) setPickerLeads(ls); }, []);
   // The latest lists for the write helpers above, which are memoised once.
   const callLeadsRef = useRef([]); callLeadsRef.current = callLeads;
+  /* Quotes (the Quotes page): one list at the shell, like the docs; a save leaves its summary on the lead's deal through patchCallLead. */
+  const quotesState = useQuotes({ authed, leadOf: (id) => callLeadsRef.current.find(l => String(l._id) === String(id)) || null, onPatchLead: patchCallLead });
   const itemsRef = useRef([]); itemsRef.current = items;
   const projectsRef = useRef([]); projectsRef.current = projects;
   const setsRef = useRef([]); setsRef.current = sets;
@@ -456,6 +461,8 @@ export default function AdminApp() {
     if (p.startsWith('/email/compose')) return 'compose';
     if (p === '/drafts' || p.startsWith('/drafts/')) return 'drafts';
     if (p === '/invoices') return 'invoices';
+    if (p === '/quotes') return 'quotes';
+    if (/^\/quotes\/[^/]+$/.test(p)) return 'quoteEditor'; // a quote (the Quotes page); /quotes/new makes or finds one and moves to its own path
     if (p.startsWith('/leads')) return 'leads';
     if (p.startsWith('/deals') || p.startsWith('/booked')) return 'deals';
     /* Lists and Triage are now sections of the Calls hub (AdminCallsHub.jsx); a bookmark or a command bar row for
@@ -556,6 +563,11 @@ export default function AdminApp() {
   /* A path with its query (the Home numbers open Invoices on a chip and Clients on a filter). */
   const goPath = useCallback((rel) => navigate(`${BASE}${rel}`), [navigate]);
   const openQuote = useCallback((lead, pkgId) => { push(`${BASE}/leads/${lead._id}/quote${pkgId ? `?pkg=${encodeURIComponent(pkgId)}` : ''}`, { selectedId: lead._id }); }, [push]);
+  /* The Quotes page. A quote is /quotes/:id; New quote finds or makes one first (quotesState.ops.start), so the editor always has a
+     stored quote under it. The old builder's path and /quotes/new are resolved by the effect below, by a replace that keeps the origin. */
+  const openQuoteItem = useCallback((quote) => { push(`${BASE}/quotes/${quote._id}`, { selectedId: quote._id }); }, [push]);
+  const newQuote = useCallback(async () => { const item = await quotesState.ops.start({}); if (item) push(`${BASE}/quotes/${item._id}`, { selectedId: item._id }); return !!item; }, [quotesState.ops, push]);
+  const quotesApi = useMemo(() => ({ ...quotesState, openQuote: openQuoteItem, newQuote }), [quotesState, openQuoteItem, newQuote]);
   const openDoc = useCallback((doc) => { push(`${BASE}/docs/${doc._id}`, { selectedId: doc.leadId }); }, [push]);
   const openClientDocs = useCallback((lead) => { push(`${BASE}/clients/${lead._id}/docs`, { selectedId: lead._id }); }, [push]);
   /* New doc: the template sheet (src/components/docs/NewDocSheet.jsx), from the client's Docs card, All docs and the editor. */
@@ -819,7 +831,7 @@ export default function AdminApp() {
   return (
     <ToastProvider>
     <AppShell activeNavId={activeNav.id} counts={counts} funnel={funnel} countsLoading={callLeadsLoading || forceLoading} leads={V.leads} leadsLoading={callLeadsLoading || forceLoading} onRefetchLeads={loadCallLeads}
-      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenQuote={openQuote} onGoPath={goPath} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewTask={() => setNewTask('pick')} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
+      leadsError={errors.leads} onRetryLeads={loadCallLeads} posts={V.posts} hasDetail={!!hasDetail} onGo={goNav} onOpenSendSheet={openSendSheet} drafts={drafts} draftsLoading={draftsLoading} onOpenLead={openLead} onOpenShowcase={openShowcase} onOpenPlanner={openPlanner} onOpenTasks={openTasks} onOpenConcepts={openConcepts} onOpenQuote={openQuote} quotesApi={quotesApi} onGoPath={goPath} onOpenCompose={openCompose} docsApi={docsApi} onOpenProjectNew={openProjectNew} onOpenListFill={openListFill} sets={V.sets} lists={V.lists} onOpenListPicker={openListPicker} listOps={listOps} onNewLead={newLead} onNewTask={() => setNewTask('pick')} onNewClient={newClient} onNewOrder={newOrder} onCapture={openCapture} onLogout={logout} projectOps={projectOps} leadOps={leadOps} onPatchLead={patchCallLead} projects={projects} styles={uiStyles + shellStyles + aaStyles}>
       {/* Section content: one boundary and one Suspense per screen, keyed so a new screen starts clean. */}
       <ErrorBoundary key={section} label={`the ${activeNav.label} screen`} reload>
       <Suspense fallback={<LogoSpinner tone="auto" layout="panel" />}>
@@ -903,6 +915,7 @@ export default function AdminApp() {
         <AdminDoc key={docId} docId={docId} leads={V.leads} projects={V.projects} sets={V.sets} leadsLoading={callLeadsLoading || forceLoading} docsApi={docsApi} onPatchLead={patchCallLead}
           onBack={navBack ? navBack.back : null} />
       )}
+      {section === 'quotes' && <AdminQuotes quotesApi={quotesApi} loading={forceLoading} />}
       {section === 'quote' && (
         <AdminQuote lead={V.leads.find(l => String(l._id) === quoteLeadId) || null} loading={callLeadsLoading || forceLoading} error={errors.leads} onRetry={loadCallLeads}
           onPatch={patchCallLead} pkgId={new URLSearchParams(location.search).get('pkg') || ''} onBack={navBack ? navBack.back : null} />

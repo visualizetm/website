@@ -509,7 +509,16 @@ export const SHOWCASE_PAYLOAD = {
 
 // Site Prompt 2 (Part 3): the landing settings document, same shape api/_routes/settings.js's landingShape() returns.
 export const LANDING_DOC = { stats: { toggles: { clientsServed: true, projectsDelivered: true, averageRating: true, years: true }, overrides: { years: 3 } } };
-export const SETTINGS_DOC = { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, emails: { intro: true, onboarding: true, invoice: true, delivery: false }, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
+/* Quotes (the Quotes page): four quotes across the statuses (none for L8 or L3, whose old builder path must open a new one), and one saved item. */
+const qLine = (kind, id, label, listUnit, extra = {}) => ({ kind, id, label, qty: 1, unit: listUnit, listUnit, free: false, ...extra });
+export const QUOTES = [
+  { _id: 'QT1', number: 'Q-0004', leadId: 'L11', business: 'Lead Business 11', person: 'Sam', status: 'sent', lines: [qLine('item', 'logo', 'Logo (primary and mark)', 250, { unit: 200 }), qLine('print', 'cards-250', 'Business cards, 250', 35, { qty: 2, unit: 0, free: true }), { kind: 'custom', id: 'c1', label: 'Yard signs', qty: 10, unit: 12.5, free: false, cost: 4.25, supplierUrl: 'https://signs.example/order', note: 'Two sided' }], retainerPitch: true, note: 'Signs ship in a week.', privateNote: 'Margin is fine at ten.', validDays: 30, emailLogId: '', by: { who: 'rob', at: NOW_ISO }, sentAt: NOW_ISO, decidedAt: '', deleted: false, createdAt: daysFrom(-2), updatedAt: daysFrom(-1) },
+  { _id: 'QT2', number: 'Q-0003', leadId: 'L5', business: 'Lead Business 5', person: 'Sam', status: 'draft', lines: [qLine('package', 'brand-starter', 'Brand Starter', 350)], retainerPitch: true, note: '', privateNote: '', validDays: 30, emailLogId: '', by: { who: 'rob', at: NOW_ISO }, sentAt: '', decidedAt: '', deleted: false, createdAt: daysFrom(-4), updatedAt: daysFrom(-4) },
+  { _id: 'QT3', number: 'Q-0002', leadId: 'L12', business: 'Lead Business 12', person: 'Sam', status: 'accepted', lines: [qLine('item', 'one-page-site', 'One page site', 400), qLine('item', 'google-business', 'Google Business setup', 75)], retainerPitch: false, note: '', privateNote: '', validDays: 14, emailLogId: '', by: { who: 'rob', at: NOW_ISO }, sentAt: daysFrom(-9), decidedAt: daysFrom(-7), deleted: false, createdAt: daysFrom(-10), updatedAt: daysFrom(-7) },
+  { _id: 'QT4', number: 'Q-0001', leadId: 'L2', business: 'Lead Business 2', person: 'Sam', status: 'declined', lines: [qLine('item', 'logo', 'Logo (primary and mark)', 250)], retainerPitch: true, note: '', privateNote: '', validDays: 30, emailLogId: '', by: { who: 'rob', at: NOW_ISO }, sentAt: daysFrom(-20), decidedAt: daysFrom(-15), deleted: false, createdAt: daysFrom(-21), updatedAt: daysFrom(-15) },
+];
+export const QUOTE_ITEMS = [{ id: 's1', label: 'Yard signs, 18 x 24', unit: 12.5, cost: 4.25, supplierUrl: 'https://signs.example/order' }];
+export const SETTINGS_DOC = { quoteItems: QUOTE_ITEMS, prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: { meetings: true, callbacks: true, bills: true, reviews: true } }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' } }, health, emails: { intro: true, onboarding: true, invoice: true, delivery: false }, stripe: { configured: true, webhookConfigured: false, lastWebhookAt: NOW_ISO, unmatched: 1 }, cron: { configured: true }, calendly: { configured: true }, reminders: { configured: true, push: true }, landing: LANDING_DOC };
 
 /* Client docs (docs job): a few docs on L11 (one pinned, one with a long title that wraps to two lines, one holding every block type), one on L12,
  * none on the others (L13 is the empty state), a saved template, and the same handler the real route has in miniature (list without blocks,
@@ -608,7 +617,7 @@ export const PAYLOADS = {
   suggestions: () => ({ items: suggestions }),
   docs: () => ({ items: docsStore().filter(d => !d.deleted && !d.template).map(metaOfDoc) }),
 };
-export const EMPTY = { docs: { items: [] }, settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
+export const EMPTY = { docs: { items: [] }, quotes: { items: [] }, settings: { prefs: { pushEnabled: true, emailEnabled: true }, dashboard: { dailyCallTarget: 25 }, notifications: { readIds: [], lastSeenAt: null, snoozedUntil: {}, reminders: {} }, profile: { name: 'Rob', businessHours: { start: '09:00', end: '17:00' }, theme: 'dark', reduceMotion: false }, health: null, stripe: { configured: false }, cron: { configured: false }, calendly: { configured: false }, reminders: { configured: false }, passwordOverridden: false }, leads: { items: [] }, submissions: { items: [], unread: 0, total: 0, counts: {}, typeCounts: {}, series: [] }, orders: { items: [], unimported: 0 }, packs: { items: [] }, sets: { items: [] }, lists: { items: [] }, projects: { items: [] }, posts: { items: [] }, calendly: { configured: true, events: [] }, stripe: { configured: true, items: [], events: [], ok: true } };
 EMPTY.settings.emails = { intro: false, onboarding: false, invoice: false, delivery: false };
 /* The email system's admin endpoints (/api/admin/email/<action>), one handler the Playwright mocks and the mock server share. Not
    connected (no key): every send is a test send that answers ok, nothing leaves. */
@@ -870,7 +879,7 @@ export async function mockRoutes(page, opts = {}) {
   };
   await page.route('**/api/admin/session', r => (session === 'hang' ? new Promise(() => {}) : r.fulfill(json({ authed: !!session }))));
   await page.route('**/api/admin/submissions**', r => respond(r, 'submissions', PAYLOADS.submissions()));
-  await page.route('**/api/admin/settings**', r => (r.request().method() === 'GET' ? respond(r, 'settings', PAYLOADS.settings()) : r.fulfill(json({ ok: true }))));
+  await page.route('**/api/admin/settings**', r => { if (r.request().method() === 'GET') return respond(r, 'settings', PAYLOADS.settings()); let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ } return r.fulfill(json({ ok: true, ...(Array.isArray(b?.set?.quoteItems) ? { quoteItems: b.set.quoteItems } : {}) })); });
   await page.route('**/api/admin/stripe/**', r => respond(r, 'stripe', PAYLOADS.stripe()));
   await page.route('**/api/admin/calendly/events**', r => respond(r, 'calendly', PAYLOADS.calendly()));
   /* Team (Billy on Rob's side). opts.team: { billy, day, posts } lets a test read what was written and change what is answered. */
@@ -989,6 +998,40 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill(json({ ok: true, item: { ...cur, ...(body.set || {}), updatedAt: NOW_ISO } }));
   });
   await page.route('**/api/admin/projects**', r => (r.request().method() === 'GET' ? respond(r, 'projects', PAYLOADS.projects()) : r.fulfill(json({ ok: true, item: { ...projects[0], _id: 'PNEW' } }))));
+  /* Quotes: a small store over the fixture quotes. A POST makes one (or copies one, { from }), a PATCH merges its set and stamps a status the
+     way the route does, a DELETE hides it. opts.quotes swaps the store, `fail: ['quotes']` breaks it, `empty: ['quotes']` empties the list. */
+  const qs = (opts.quotes || QUOTES).map(x => ({ ...x }));
+  const whoOf = (leadId) => { const l = leads.find(x => String(x._id) === String(leadId)); return { business: l?.business || '', person: l?.askFor || '' }; };
+  await page.route('**/api/admin/quotes**', (r) => {
+    if (failing.has('quotes')) return r.fulfill(fail());
+    const m = r.request().method(); const u = new URL(r.request().url());
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    const now = new Date().toISOString();
+    if (m === 'GET') {
+      const id = u.searchParams.get('id');
+      if (!id) return respond(r, 'quotes', { items: qs.filter(x => !x.deleted) });
+      const it = empty.has('quotes') ? null : qs.find(x => String(x._id) === id && !x.deleted);
+      return it ? r.fulfill(json({ item: it })) : r.fulfill({ ...json({ error: 'not found' }), status: 404 });
+    }
+    if (m === 'POST') {
+      const from = body.from ? qs.find(x => String(x._id) === String(body.from)) : null;
+      const src = from ? { leadId: from.leadId, lines: from.lines, retainerPitch: from.retainerPitch, note: from.note, privateNote: from.privateNote, validDays: from.validDays } : { leadId: body.leadId || '', lines: body.lines || [], retainerPitch: body.retainerPitch !== false, note: body.note || '', privateNote: body.privateNote || '', validDays: body.validDays || 30 };
+      const item = { _id: `QN${qs.length + 1}`, number: `Q-${String(qs.length + 1).padStart(4, '0')}`, ...src, ...whoOf(src.leadId), status: 'draft', emailLogId: '', by: { who: 'rob', at: now }, sentAt: '', decidedAt: '', deleted: false, createdAt: now, updatedAt: now };
+      qs.unshift(item);
+      return r.fulfill(json({ ok: true, item }));
+    }
+    if (m === 'DELETE') { const it = qs.find(x => String(x._id) === u.searchParams.get('id')); if (it) it.deleted = true; return r.fulfill(json({ ok: true })); }
+    const it = qs.find(x => String(x._id) === String(body.id) && !x.deleted);
+    if (!it) return r.fulfill({ ...json({ error: 'not found' }), status: 404 });
+    const set = body.set || {};
+    if (set.status && set.status !== it.status) {
+      if (set.status === 'sent' && !it.sentAt) set.sentAt = now;
+      set.decidedAt = set.status === 'accepted' || set.status === 'declined' ? now : '';
+      if (set.status === 'draft') set.sentAt = '';
+    }
+    Object.assign(it, set, set.leadId !== undefined ? whoOf(set.leadId) : {}, { updatedAt: now });
+    return r.fulfill(json({ ok: true, item: it }));
+  });
   const docStore = docsStore(opts.docs || DOCS);
   await page.route('**/api/admin/docs**', async (r) => {
     const method = r.request().method();

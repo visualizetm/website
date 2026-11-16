@@ -662,3 +662,11 @@ Milestone 1, the store
 - The `deal.quote` sanitize now keeps cents on a line's price and on the totals (it rounded to the dollar). A whole dollar stays a whole dollar, and quotes-test shows a quote saved before this page lands exactly as it did.
 - The lead's `source` whitelist gains `quote` (Someone new on a quote), additive.
 - Sent is read off the email log, not stamped by the client. The editor writes the id of the email it drafted onto the quote (`emailLogId`); the quotes read sees that log row turn `sent` and stamps `sentAt` (the email's own time) and status `sent`. That covers Send now from any screen and a queued send by the cron with no change inside the email system, and a test send (no key, nothing left) does not count. Mark sent by hand covers a quote that went by text.
+
+Milestone 2, the list
+- Quotes is a row in the Clients workspace beside Invoices, so it is in the sidebar on a computer and on the More page on a phone from the one nav definition. "Reached from More" alone would have left a computer with no way in.
+- "A New quote quick action on Home" is the shell's quick add menu (the plus in the top bar, where New lead, New task and New doc already are). Home has no quick action row of its own, and a second place for the same action would be a second thing to keep in step.
+- The quotes list is loaded once at the shell (src/lib/useQuotes.js), like the docs, so the list, the editor, the record's Quote row and the old path read one list and one write door.
+- The summary on `deal.quote` is written by the app through the lead's own patch helper, not by the quotes route. That keeps the deal object whole (the lead PATCH replaces `deal`), keeps the next action and the score recompute on the write, and keeps the screen's copy of the lead in step with no second fetch. Only the lead's newest quote is mirrored, since that is the one `/leads/:id/quote` opens, and a quote with no lines leaves nothing on the deal.
+- A quote always has a stored document under it: New quote finds or makes one first, then opens `/quotes/:id`. A blank draft nobody touched (no lead, no lines, no notes) is opened again instead of making another, so numbers are not burned and the list does not fill with blanks; nothing is deleted on the way out.
+- The icon is Receipt (Untitled UI), since Invoices already has the dollar circle.

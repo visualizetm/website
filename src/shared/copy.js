@@ -57,6 +57,7 @@ export const COPY = {
     /* The email system: the record's Emails section and Settings, Emails. */
     'record.emails': { title: 'No emails yet', description: 'Every email you send from here lands in this list.', action: 'Email' },
     'invoices': { title: 'No invoices yet', description: 'Every invoice on a project or a deal lands here once it is sent. Send the first one from a deal or a project.', action: 'Open Deals' },
+    'quotes': { title: 'No quotes yet', description: 'Build a quote line by line: anything on the price list at your price, a free line, a custom item. It saves itself.', action: 'New quote' },
     'invoices.none': { title: 'Nothing in this view', description: 'No invoice matches. Try another chip.', action: 'Show unpaid' },
     'drafts': { title: 'Nothing waiting for your tap', description: 'Emails and texts written for you land here. Nothing sends until you open one and tap Send.', action: 'Open Leads' },
     'settings.emails.recent': { title: 'Nothing sent yet', description: 'The last fifty emails land here, failures first.', action: 'Open Leads' },

@@ -9,7 +9,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 /* BACK_ROOT names a copy of the repository with one guard cut out (scripts/back-guard-proof.mjs); the tree and the nav come from there. */
 const ROOT = process.env.BACK_ROOT ? path.resolve(process.env.BACK_ROOT) : path.resolve(new URL('..', import.meta.url).pathname);
-const { parentOf, backTarget, isRoot, callsModeOf, callsPathOf, rootPathOf, roomParentOf, isRoomRoot, roomChromeOf, roomTabOf } = await import(pathToFileURL(path.join(ROOT, 'src/shell/backTree.js')).href);
+const { parentOf, backTarget, isRoot, quoteRedirect, callsModeOf, callsPathOf, rootPathOf, roomParentOf, isRoomRoot, roomChromeOf, roomTabOf } = await import(pathToFileURL(path.join(ROOT, 'src/shell/backTree.js')).href);
 const { NAV } = await import(pathToFileURL(path.join(ROOT, 'src/shell/nav.js')).href);
 
 let fails = 0, passes = 0;
@@ -47,6 +47,17 @@ eq(parentOf('/leads/L8/concepts'), '/leads/L8', 'concepts backs to the record (A
 eq(parentOf('/leads/L8/concepts', '?set=S1'), '/leads/L8', 'concepts on a round backs to the record');
 eq(parentOf('/invoices'), '/', 'Invoices is a root under Home (prompt 3 of 3)');
 eq(parentOf('/leads/L8/quote'), '/leads/L8', 'the quote builder backs to the record (prompt 2 of 3)');
+/* The Quotes page: /quotes is a root, a quote backs to it, and the old builder's path redirects to the lead's newest quote or a new one. */
+eq(isRoot('/quotes'), true, 'Quotes is a section root');
+eq(parentOf('/quotes'), '/', 'Quotes is a root under Home');
+eq(parentOf('/quotes/Q1'), '/quotes', 'a quote backs to Quotes');
+eq(parentOf('/quotes/Q1', '?lead=L8'), '/leads/L8', 'a quote opened for a record backs to that record');
+eq(parentOf('/quotes/new', '?lead=L8&pkg=brand-starter'), '/leads/L8', 'a new quote for a record backs to that record');
+eq(quoteRedirect('/leads/L8/quote', '', 'Q1'), '/quotes/Q1?lead=L8', 'the old builder path opens the lead\'s newest quote');
+eq(quoteRedirect('/leads/L8/quote', '?pkg=brand-starter', ''), '/quotes/new?lead=L8&pkg=brand-starter', 'with no quote yet it is a new one for that lead, the package carried');
+eq(quoteRedirect('/leads/L8/quote/', '', ''), '/quotes/new?lead=L8', 'a trailing slash is the same path');
+eq(quoteRedirect('/leads/L8', '', 'Q1'), null, 'no other path redirects');
+eq(quoteRedirect('/quotes/Q1', '', 'Q1'), null, 'a quote path does not redirect again');
 eq(parentOf('/email/compose', '?record=L8&template=intro_call'), '/leads/L8', 'compose backs to its record');
 eq(parentOf('/email/compose'), '/', 'compose with no record backs to the home');
 eq(parentOf('/docs/D1'), '/docs', 'a doc backs to All docs');
