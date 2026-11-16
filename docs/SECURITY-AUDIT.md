@@ -495,7 +495,7 @@ Not done: the doc images are uploaded to Cloudinary through the existing unsigne
 
 ## The caller (Billy's Call Room, part 1)
 
-Billy is a second person with a login, so every wall here is on the server and each one is proven: `scripts/caller-test.mjs` runs the checks in `scripts/caller-lib.mjs` against the real handlers (106 checks, also run as section 4e of `scripts/security-test.mjs`), and `scripts/caller-guard-proof.mjs` cuts each wall out of a copy in turn and requires that wall's own checks to fail (41 walls). A cut copy that makes the checks throw counts as a failed proof.
+Billy is a second person with a login, so every wall here is on the server and each one is proven: `scripts/caller-test.mjs` runs the checks in `scripts/caller-lib.mjs` against the real handlers (108 checks, also run as section 4e of `scripts/security-test.mjs`), and `scripts/caller-guard-proof.mjs` cuts each wall out of a copy in turn and requires that wall's own checks to fail (41 walls). A cut copy that makes the checks throw counts as a failed proof.
 
 | Wall | What it stops |
 |---|---|

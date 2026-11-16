@@ -625,3 +625,15 @@ Item 3, the stale suites on the final code:
   - home-nextup-test fails from 22:00 to midnight: the fixture's "callback in two hours" lands on tomorrow, so Today has no callback row to log.
   - feel-audit shows fit gaps at 390 on the home (12px at row 4, three states) and on the Deals grouped list (40px at row 4) at some hours and not others: clean on the home at about 21:20 UTC, gaps at 22:50 and at 00:10, on 2f35f5c as well.
   The fix is to give the fixtures a fixed clock (or meetings and callbacks placed relative to it so no row changes bucket during a day); it touches every admin audit, so it is its own job.
+
+Item 4, docs:
+
+- The open item at the bottom of docs/MOBILE-PROGRESS.md is cleared and replaced by this job's own section, with the one thing found and left (the fixtures' clock).
+- docs/ARCHITECTURE.md says whose callback it is in both places the next action is described and in the Call Room section. CLAUDE.md's next action line now carries the rule (its old wording did not lie, it was silent), the Call Room line names it, and the shell line says how the top bar's search and strip share the room.
+- One more of the same family, found after midnight UTC and reproduced on 2f35f5c: email-test's `cron-rules` check fails while the UTC date is ahead of New York's (00:00 to about 05:00 UTC). The test builds its invoices from the New York day of the real clock, then pins the cron to 15:30 UTC on the UTC date, which in those hours is a day later, so the counts it expects are off by a day. The process zone does not change it (TZ=America/New_York fails the same way). The other 368 checks pass on the final code; this one was left as found.
+
+The gate, and the one thing stuck:
+
+- STUCK, by Rob's rule at the status check (one command past 20 minutes): the final `npm run preship` on the final tree was not waited for. When it was left it had run 20 minutes: build passed and its layout audit stood at 522 of 578 views clean with none failing; scene, lint, hex, routing, caller, gesture, chrome, empty, docs-editor and docs-flow had not reported yet in that pass. So "12 of 12" is not proven in one pass on the final tree. A full pass takes about 40 minutes here.
+- What stands in for it, each run on its own: docs-flow-audit five passes in a row, layout-audit at all five widths (1,435 views, no offender), chrome-audit 162 states and gesture-test 18 steps on the item 1 build; lint, hex 78, routing-test 131 and caller-test 108 on the final tree. Items 2 to 4 changed no layout (a rule in the next action module, the moment the room sets its title, and docs).
+- The first attempt at that final preship was spoiled by me, not by the code: I ran the pure suites beside it, and scripts/showcase-endpoint-test.mjs (lines 21 and 309, older than this job) deletes the whole `.tmp-verify` folder, preship's own build included, so every browser step then failed at once. Found, not fixed: that test should remove only its own folder. Until it does, run nothing beside preship.

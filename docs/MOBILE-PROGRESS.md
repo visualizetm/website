@@ -282,6 +282,19 @@ Decisions are in docs/MOBILE-DECISIONS.md under the same heading. The prompt is 
 - [x] Milestone 5, Rob's controls: src/components/team/TeamPanel.jsx (the Team tab of Settings), src/pages/AdminTeamDay.jsx (/settings/team/day), Who calls it in src/pages/AdminLists.jsx and src/components/ListCard.jsx (`listCallerId` in src/lib/lists.js), the back tree rule. Tests: caller-lib section 4c (106 checks), team-ui-test sections 5 to 11, back-test (153) and its proof (7 cuts).
 - [x] Milestone 6, gate and docs: the new screens in scripts/audit-screens.mjs (`room: true` for the Call Room), the `room` block in layout-audit, the room and Billy's day in empty-audit, two room steps in gesture-test, the room's contract in chrome-audit; skeletons redrawn to the feel audit's fit; docs/ARCHITECTURE.md ("Billy's Call Room"), docs/SECURITY-AUDIT.md ("The caller"), docs/RUNBOOK.md ("Set Billy up"), CLAUDE.md (the rule and the scripts).
 
-Open, not part of this job: `docs-flow-audit` fails most runs at 1280 on its global search step, because the top bar's search field is 0px wide when the overview strip shows three pills (src/shell/TopBar.jsx `.sh-top-center`, src/shell/CommandBar.jsx `.sh-cmd`). Commit 2f35f5c fails the same way. Fix: give the search a minimum width and let the strip give way, then rerun layout-audit on every screen and preship.
-
 Part 1 is done. Part 2 (quotes and the 25% commission) starts from: `ROOM_TABS` in src/room/RoomApp.jsx (a Quotes tab between Callbacks and Me), `ME_SEGMENTS` in src/room/Me.jsx (Earned), `bookedBy` on the lead and `team_activity` rows of kind booked (what a commission is counted from), and api/_lib/callerView.js (the whitelist a quote's fields would join).
+
+## Billy's Call Room 1b
+
+Decisions are in docs/MOBILE-DECISIONS.md under the same heading.
+
+- [x] Item 1, the top bar search: src/shell/TopBar.jsx (the search keeps 180px; the overview strip drops its labels under 700px of real room, a container query, then wraps). scripts/topbar-test.mjs. docs-flow-audit passed five runs in a row; layout-audit clean at all five widths (1,435 views). The open item from part 1 is closed.
+- [x] Item 2, Billy's callbacks belong to Billy: `callbackIsCallers` in src/lib/nextAction.js and api/_lib/nextAction.js, read by `callbackAtOf`. Checks in next-action-test (1b, both zones), coverage-push-test (1b and the digest), caller-lib (two through the real handlers) and team-ui-test; the cut `callers-callback-is-robs` in notifications-guard-proof.
+- [x] Item 3, the stale suites on the final code: stepper-test, close-test, home-nextup-test, back-test and room-ui-test all pass. The room's top bar title is set before paint (src/room/RoomApp.jsx).
+- [x] Item 4, docs: this file, docs/ARCHITECTURE.md (the next action, whose callback), CLAUDE.md (the next action line, the Call Room line, the shell line, topbar-test).
+
+Open, not part of this job (older, reproduced on 2f35f5c): the admin audit fixtures are built from the clock, so stepper-test fails after about 17:30 UTC, home-nextup-test from 22:00 UTC to midnight, and feel-audit shows fit gaps at 390 on the home and on the Deals grouped list at some hours. email-test's `cron-rules` check fails from 00:00 to about 05:00 UTC (it pins the cron to the UTC date while its data follows the New York date). Give the fixtures and that check a fixed clock. Until then run the browser suites between 05:00 and 17:30 UTC, when all of them agree.
+
+Open, the gate: the final `npm run preship` was left after 20 minutes by Rob's rule (build passed, layout 522 of 578 views clean, the rest not reported). Run it alone and confirm 12 of 12. Run nothing beside it: scripts/showcase-endpoint-test.mjs deletes all of `.tmp-verify`, preship's build included.
+
+Left for Rob to rule on: the Callbacks due dial list, the Pipeline overview's follow ups and the Calendar still show every callback, Billy's included.
