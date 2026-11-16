@@ -47,6 +47,13 @@ export default function useQuotes({ authed, leadOf, onPatchLead }) {
     return patchRef.current(lead._id, { deal: { ...dealOf(lead), quote: dealQuoteOf(item) } });
   }, []);
   const quotesRef = useRef(quotes); quotesRef.current = quotes;
+  /* A lead a quote has left (moved to someone else, or deleted): its deal follows to its next newest quote, or to none. */
+  const unmirror = useCallback(async (leadId, quoteId, rest) => {
+    const lead = leadId ? leadRef.current?.(leadId) : null;
+    if (!lead || !patchRef.current || String(lead.deal?.quote?.quoteId || '') !== String(quoteId)) return;
+    const next = newestQuoteFor(rest, leadId);
+    await patchRef.current(lead._id, { deal: { ...dealOf(lead), quote: next && (next.lines || []).length ? dealQuoteOf(next) : null } });
+  }, []);
   const withItem = (item) => (quotesRef.current.some(q => String(q._id) === String(item._id)) ? quotesRef.current.map(q => (String(q._id) === String(item._id) ? item : q)) : [item, ...quotesRef.current]);
 
   const save = useCallback(async (quote) => {
@@ -55,10 +62,12 @@ export default function useQuotes({ authed, leadOf, onPatchLead }) {
       : await apiFetch(QUOTES, { method: 'POST', body: quoteBody(quote) });
     if (!r.ok || !r.data?.item) return null;
     const item = r.data.item;
+    const before = quote._id ? quotesRef.current.find(q => String(q._id) === String(quote._id)) : null;
     const all = withItem(item);
     put(item);
+    if (before && before.leadId && String(before.leadId) !== String(item.leadId || '')) await unmirror(before.leadId, item._id, all);
     return (await mirror(item, all)) ? item : null;
-  }, [put, mirror]);
+  }, [put, mirror, unmirror]);
   const patch = useCallback(async (id, set) => {
     const r = await apiFetch(QUOTES, { method: 'PATCH', body: { id: String(id), set } });
     if (!r.ok || !r.data?.item) return null;
@@ -96,14 +105,9 @@ export default function useQuotes({ authed, leadOf, onPatchLead }) {
     if (!r.ok) return false;
     const rest = quotesRef.current.filter(q => String(q._id) !== String(quote._id));
     setQuotes(rest);
-    /* The deal's summary follows: the lead's next newest quote, or none. */
-    const lead = quote.leadId ? leadRef.current?.(quote.leadId) : null;
-    if (lead && patchRef.current && String(lead.deal?.quote?.quoteId || '') === String(quote._id)) {
-      const next = newestQuoteFor(rest, quote.leadId);
-      await patchRef.current(lead._id, { deal: { ...dealOf(lead), quote: next && (next.lines || []).length ? dealQuoteOf(next) : null } });
-    }
+    await unmirror(quote.leadId, quote._id, rest);
     return true;
-  }, []);
+  }, [unmirror]);
   const saveItems = useCallback(async (next) => {
     const prev = items;
     setItems(next);

@@ -515,3 +515,14 @@ Billy is a second person with a login, so every wall here is on the server and e
 | no-store, sw-no-cache | caller responses are `Cache-Control: no-store`, and public/sw.js never answers or stores a `/api/caller/` request (sw-test). |
 
 What is deliberately not here: a rate limit on the caller's own writes (he is one trusted person behind a cookie, like Rob), and CSRF tokens (the cookie is SameSite=Strict and scoped to /api/caller).
+
+## Quotes (the Quotes page)
+
+`api/_routes/quotes.js` is one more admin route behind `route()` (the admin cookie, the method list, the body cap, one try/catch); there is no public door and nothing in it sends.
+
+- **Filters are cast.** `id` goes through `ObjectId`, `leadId` must be 24 hex characters or it matches nothing (quotes-test sends an operator object and gets no rows).
+- **The whitelist.** `sanitize()` names `leadId`, `lines`, `retainerPitch`, `note`, `privateNote`, `validDays`, `status` and `emailLogId`. The number, the author (`by`), the times, `deleted`, `business` and `person` are not writable: the names are copied from the lead at the write, and a lead id that names no lead is refused.
+- **Lines.** A price list line is kept only when its id and list price are pricing.js's for its kind; one that is not refuses the whole save. A custom line's supplier link is the one URL on a quote and goes through `safeUrl()` (a `javascript:` link is dropped; quotes-test and the deal.quote check both plant one) and through `safeHref()` at the render. Text is stored as text and drawn as text; no quote field is ever written as HTML.
+- **What a client can receive.** The quote email, the copied text and the deposit invoice are built from a line's label, quantity and charged price alone. Cost, supplier link, line note, list price, what is off list and the private note are not inputs to them (quotes-test, email-test over the server's rendered HTML, quotes-ui-test).
+- **Saved items** ride on the admin settings read. They carry Rob's cost and supplier, so they must stay off any public response; `/api/showcase`, the portal and the caller view do not read the settings document `quotes`.
+- **The caller.** Billy's view never carries the deal, so `deal.quote` (which may carry a custom line's cost) does not reach the Call Room. When part 2 lets Billy draft a quote, the caller route must answer through a view that leaves `cost`, `supplierUrl`, the line `note` and `privateNote` out.

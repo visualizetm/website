@@ -302,6 +302,9 @@ export default function AdminQuote({ quoteId = '', quotesApi, leads = [], projec
   const status = useAutoSave({ dirty, saving, save, watch: body, delay: 600 });
   const dirtyRef = useRef(dirty); dirtyRef.current = dirty;
   const flush = async () => (dirtyRef.current ? save() : true);
+  /* Leaving by anything but Back (the sidebar, a tab, a link) inside the autosave wait: the last change still goes. */
+  const opsRef = useRef(ops); opsRef.current = ops;
+  useEffect(() => () => { if (dirtyRef.current && draftRef.current) opsRef.current?.save({ ...draftRef.current, _id: quoteId }); }, [quoteId]);
   const set = (patch) => setDraft(d => ({ ...d, ...patch }));
 
   const lead = draft?.leadId ? leads.find(l => String(l._id) === String(draft.leadId)) || null : null;
