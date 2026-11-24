@@ -2,6 +2,13 @@
  * (scripts/security-test.mjs, scripts/pipeline-test.mjs). Plain ESM source,
  * copied into the temp api/ tree, never imported from here directly. */
 import crypto from 'node:crypto';
+/* Real MongoDB refuses a projection that names a path and a path inside it ("Path collision at portal.code.version"):
+ * the whole read fails. The fake refuses it the same way, so a test catches it before production does. */
+function projectionGuard(p) {
+  if (!p || typeof p !== 'object') return;
+  const keys = Object.keys(p);
+  for (const k of keys) for (const o of keys) if (o !== k && o.startsWith(k + '.')) throw new Error(`Path collision at ${o} remaining portion ${o.slice(k.length + 1)}`);
+}
 export const _stores = {};
 export const _log = [];
 export const _reset = () => { for (const k of Object.keys(_stores)) delete _stores[k]; _log.length = 0; };
@@ -102,8 +109,8 @@ function collection(name) {
     return api;
   };
   return {
-    async findOne(filter) { rec('findOne', filter); return list.find(d => matches(d, filter)) || null; },
-    find(filter, opts) { rec('find', filter); const c = cursor(list.filter(d => matches(d, filter))); if (opts?.projection) c.project(opts.projection); return c; },
+    async findOne(filter, opts) { rec('findOne', filter); projectionGuard(opts?.projection); return list.find(d => matches(d, filter)) || null; },
+    find(filter, opts) { rec('find', filter); projectionGuard(opts?.projection); const c = cursor(list.filter(d => matches(d, filter))); if (opts?.projection) c.project(opts.projection); return c; },
     async countDocuments(filter) { rec('count', filter); return list.filter(d => matches(d, filter || {})).length; },
     aggregate() { return { async toArray() { return []; } }; },
     async createIndex() { return 'ok'; },

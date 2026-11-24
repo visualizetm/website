@@ -63,8 +63,11 @@ export function verifyClient(req) {
 export async function sessionLead(db, req, projection = null) {
   const s = verifyClient(req);
   if (!s) return null;
-  const proj = projection ? { ...projection, deleted: 1, 'portal.code.version': 1, 'portal.code.hash': 1 } : null;
-  if (proj && proj.portal) { delete proj['portal.code.version']; delete proj['portal.code.hash']; }
+  /* MongoDB refuses a projection that names a path and one inside it (portal.code with portal.code.version is a path
+   * collision, and the whole read fails), so the two keys this check needs are added only when no parent is asked for. */
+  const proj = projection ? { ...projection, deleted: 1 } : null;
+  const covered = (p) => p.split('.').some((_, i, parts) => proj[parts.slice(0, i + 1).join('.')]);
+  if (proj) for (const k of ['portal.code.version', 'portal.code.hash']) if (!covered(k)) proj[k] = 1;
   const lead = await db.collection('call_leads').findOne({ _id: leadKey(s.leadId) }, proj ? { projection: proj } : undefined);
   const code = lead?.portal?.code;
   if (!lead || !code?.hash || versionOf(code.version) !== s.version) return null;
