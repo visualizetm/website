@@ -21,12 +21,9 @@ const Start = lazy(() => import('./pages/Start'));
  * delivery, so it is noindex and out of the sitemap. */
 const Review = lazy(() => import('./pages/Review'));
 const ReviewLink = lazy(() => import('./pages/ReviewLink'));   // review links: /r/<token>, a client reviewing me
-const Portal = lazy(() => import('./pages/Portal'));           // client portal: /c/<token>, a client's home screen of cards
 const Unsubscribe = lazy(() => import('./pages/Unsubscribe')); // the email system: /u/<token>, the opt out page
-/* The client facing Content Planner, opened with a token Rob sends. Also
- * unlinked and noindex: it is somebody's own month, not a page to browse. */
+/* The client's portal and Content Planner live in the client app now (src/clientapp, app.visualizeclients.com). */
 const Concepts = lazy(() => import('./pages/Concepts'));
-const Planner = lazy(() => import('./pages/Planner'));
 /* The scroll engine's mount point (Site Prompt 6). Lazy, and rendered only
  * in the marketing branch below, so the admin's entry never carries the
  * loader or the gsap/lenis chunk URLs behind it. */
@@ -109,7 +106,15 @@ export default function App() {
       </Suspense>
     );
   }
-  if (location.pathname.startsWith('/planner/') || location.pathname === '/review' || location.pathname.startsWith('/review/') || location.pathname.startsWith('/r/') || location.pathname.startsWith('/c/') || location.pathname.startsWith('/u/')) {
+  /* The client app (client app job): a client's portal and planner live on app.visualizeclients.com now. vercel.json sends an
+   * old /c/ or /planner/ link there at the edge; this is the fallback for a link followed inside a page already loaded (and,
+   * on localhost, the way to the app under /app). */
+  if (/^\/(c|planner)\/[^/]+\/?$/.test(location.pathname)) {
+    if (IS_DEV_HOST) return <Navigate to={`/app${location.pathname}${location.search}`} replace />;
+    window.location.replace(`https://app.visualizeclients.com${location.pathname}${location.search}`);
+    return <ClientBoot />;
+  }
+  if (location.pathname === '/review' || location.pathname.startsWith('/review/') || location.pathname.startsWith('/r/') || location.pathname.startsWith('/u/')) {
     /* No splash here. The marketing splash is a fixed, opaque, z-index 9999
      * layer on a 1300ms timer that has nothing to do with whether the page
      * is ready, and its Suspense fallback is hard coded to done={false},
@@ -124,9 +129,7 @@ export default function App() {
             <Route path="/review" element={<Review />} />
             <Route path="/review/:slug" element={<Review />} />
             <Route path="/r/:token" element={<ReviewLink />} />
-            <Route path="/c/:token" element={<Portal />} />
             <Route path="/u/:token" element={<Unsubscribe />} />
-            <Route path="/planner/:token" element={<Planner />} />
           </Routes>
         </main>
       </Suspense>

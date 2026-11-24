@@ -8,9 +8,10 @@ import { signClient, clientCookie, verifyClient, sessionLead, hashCode, codeMatc
 /* The client app's code door (client app job), served by route from the public function: vercel.json rewrites
  * /api/app/:action to /api/showcase?r=app&a=:action, the ride the portal and the concepts take.
  *
- *   GET  /api/app/me                 { signedIn, portal, planner, firstName } for this device's vz_client cookie, else { signedIn: false }
- *   GET  /api/app/token?token=x      { step: 'set' | 'signin', lock: { hard, minutes } | null } for a portal or planner setup link; an unknown,
- *                                    malformed or switched off token is the same 404. Nothing about the client is in it.
+ *   GET  /api/app/me                 { signedIn, portal, planner, home, firstName } for this device's vz_client cookie, else { signedIn: false }
+ *   GET  /api/app/token?token=x      { step: 'set' | 'signin' | 'in', lock: { hard, minutes } | null } for a portal or planner setup link; an unknown,
+ *                                    malformed or switched off token is the same 404. Nothing about the client is in it;
+ *                                    'in' only when this device is already signed in as that same client.
  *   POST /api/app/set     { token, code, again }   the first code for that client: four digits twice, never a weak one
  *                                    (api/_lib/clientCode.js); a client who has one is 409. Signs this device in.
  *   POST /api/app/signin  { token, code } or { identifier, code }   a phone (last ten digits) or an email among the leads
@@ -80,13 +81,16 @@ export async function handler(req, res) {
   if (req.method === 'GET') {
     if (a === 'me') {
       const lead = verifyClient(req) ? await sessionLead(db, req, PROJECTION) : null;
-      if (!lead) return res.status(200).json({ signedIn: false });
+      if (!lead || lead.deleted === true) return res.status(200).json({ signedIn: false });
       return res.status(200).json({ signedIn: true, portal: hasPortal(lead), planner: hasPlanner(lead), home: homeOf(lead), firstName: firstNameOf(lead) });
     }
     if (a === 'token') {
       const lead = await tokenLead(db, tokenStr(req.query?.token));
       if (!lead) return notFound(res);
       const code = lead.portal?.code;
+      /* This device is already signed in as the client the link belongs to: straight in, no code asked again. */
+      const me = code?.hash && verifyClient(req) ? await sessionLead(db, req, PROJECTION) : null;
+      if (me && me.deleted !== true && String(me._id) === String(lead._id)) return res.status(200).json({ step: 'in', lock: null });
       const lock = code?.hash ? lockOf(code, Date.now()) : null;
       return res.status(200).json({ step: code?.hash ? 'signin' : 'set', lock: lock ? { hard: lock.hard, minutes: lock.minutes } : null });
     }

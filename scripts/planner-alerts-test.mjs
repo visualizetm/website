@@ -8,6 +8,7 @@
  *
  *   node scripts/planner-alerts-test.mjs
  */
+import { clientSignIn } from './client-signin.mjs';
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -39,9 +40,13 @@ const portal = (await load('_routes/portal-public.js'));
 const callLeads = (await load('_routes/call-leads.js')).handler;
 
 const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, headersSent: false, status(c) { this._status = c; return this; }, json(p) { this._json = p; this.headersSent = true; return this; }, send(b) { this._body = b; return this; }, setHeader(k, v) { this._headers[k] = v; }, end() { return this; } });
-async function call(fn, method, { query = {}, body } = {}) {
+/* The client app (client app job): the planner's and the portal's doors read the client from the vz_client cookie, so a call
+ * with a token signs that client in first (scripts/client-signin.mjs, through the real code door) and sends the cookie. */
+const signIn = clientSignIn({ load, stores: _stores });
+async function call(fn, method, { query = {}, body, bare = false } = {}) {
   const res = fakeRes();
-  try { await fn({ method, query, body, headers: { 'x-forwarded-for': '203.0.113.9' }, url: '/api/x', socket: {} }, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.stack || e) }; }
+  const cookie = !bare && (fn === planner || fn === portal.handler || fn === portal.default) && typeof query.token === 'string' ? await signIn(query.token) : '';
+  try { await fn({ method, query, body, headers: { 'x-forwarded-for': '203.0.113.9', ...(cookie ? { cookie } : {}) }, url: '/api/x', socket: {} }, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.stack || e) }; }
   return res;
 }
 const TOKEN = 'plnr_alerts_token_abcdefghijk';
@@ -92,7 +97,10 @@ seed();
   const cut = await P({ action: 'push_on', subscription: sub(4) });
   ok(cut._status === 429 && !!cut._headers['Retry-After'], 'the eleventh toggle in a day is a 429');
   const dead = await call(planner, 'POST', { query: { token: 'plnr_nobody_token_abcdefghijk' }, body: { action: 'push_on', subscription: sub(5) } });
-  ok(dead._status === 404 && !_stores.push_subscriptions.some(r => r.subscription.endpoint === sub(5).endpoint), 'an unknown token is the same 404 and saves nothing');
+  ok(dead._status === 401 && dead._json?.error === 'sign in' && !_stores.push_subscriptions.some(r => r.subscription.endpoint === sub(5).endpoint), 'an unknown token signs no one in: the 401 sign in, and nothing is saved');
+  const bare = await call(planner, 'POST', { query: { token: TOKEN }, body: { action: 'push_on', subscription: sub(6) }, bare: true });
+  const bareAlerts = await call(planner, 'POST', { query: { token: TOKEN }, body: { action: 'alerts', alerts: { review: false } }, bare: true });
+  ok(bare._status === 401 && bareAlerts._status === 401 && !_stores.push_subscriptions.some(r => r.subscription.endpoint === sub(6).endpoint) && lead().planner.alerts?.review !== false, 'a live token alone, no session: the push and alerts doors are 401 and write nothing');
 }
 
 /* ── 3.1: the alerts action ── */

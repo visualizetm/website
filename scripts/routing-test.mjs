@@ -175,6 +175,14 @@ console.log('\n7. the three hosts');
   const appPaths = ['/', '/c/abcdefghijklmnopqrst', '/planner/abcdefghijklmnopqrst', '/planner', '/app.webmanifest', '/api/portal', '/api/planner', '/sw.js'];
   const caught = appPaths.filter(p => redirects.some(r => onHost(r, 'app.visualizeclients.com') && (r.source === p || reFor(r.source.replace(/:path\*$/, ':path')).test(p))));
   ok(caught.length === 0, `no redirect catches a client app path on app.visualizeclients.com (${caught.join(', ') || 'none'})`);
+  /* The old links (client app job): a portal or planner link on the public site lands on the same path on the app host. */
+  for (const host of ['visualizestudio.org', 'www.visualizestudio.org']) {
+    for (const p of ['/c/abcdefghijklmnopqrst', '/planner/abcdefghijklmnopqrst']) {
+      const r = redirects.find(x => onHost(x, host) && reFor(x.source).test(p));
+      const dest = r ? r.destination.replace(/:token/, p.split('/').pop()) : '';
+      ok(dest === `https://app.visualizeclients.com${p}` && r.permanent === false, `${host}${p} redirects to the same path on the app host, not permanent (${dest || 'no redirect'})`);
+    }
+  }
   let mf = {}; try { mf = JSON.parse(read('public/app.webmanifest') || '{}'); } catch { mf = {}; }
   ok(mf.display === 'standalone' && mf.start_url === '/' && mf.scope === '/' && Array.isArray(mf.icons) && mf.icons.length > 0, `public/app.webmanifest is a standalone app that opens / (display ${mf.display || 'missing'}, start_url ${mf.start_url || 'missing'})`);
   const html = read('index.html');

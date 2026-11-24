@@ -40,6 +40,8 @@ const showcase = (await load('showcase.js')).default;
 const reset = (await load('_routes/client-app.js')).handler;
 const callLeads = (await load('_routes/call-leads.js')).handler;
 const backup = (await load('_routes/backup.js')).handler;
+const plannerDoor = (await load('planner.js')).default;
+const portalDoor = (await load('_routes/portal-public.js')).handler;
 const session = await load('_lib/clientSession.js');
 const codeLib = await load('_lib/clientCode.js');
 
@@ -295,7 +297,37 @@ console.log('\n9. the CRM and the backup');
   ok(b._status === 200 && body.includes('Kims Cafe') && !body.includes(hash) && !body.includes(lead(LEAD).portal.code.salt), 'the backup holds the status of a code, never its hash or salt', 'backup');
 }
 
-console.log('\n10. nothing leaves with the code');
+console.log('\n10. the data doors read the cookie (milestone 3)');
+{
+  seed();
+  const set = await setCode(PORTAL, '4831');
+  const ck = cookieOf(set);
+  const inStep = keep(await app('GET', 'token', { query: { token: PLANNER }, cookie: ck }));
+  ok(inStep._status === 200 && inStep._json?.step === 'in' && inStep._json.lock === null, "a setup link opened on a device already signed in as that client goes straight in ('in')");
+  const otherStep = keep(await app('GET', 'token', { query: { token: PLANNER_ONLY }, cookie: ck }));
+  ok(otherStep._json?.step === 'set', "another client's link on that device still asks for that client's code");
+  const alonePlanner = keep(await call(plannerDoor, 'GET', { query: { token: PLANNER } }));
+  const alonePortal = keep(await call(portalDoor, 'GET', { query: { token: PORTAL } }));
+  const aloneWrite = keep(await call(plannerDoor, 'POST', { query: { token: PLANNER }, body: { action: 'alerts', alerts: { review: false } } }));
+  ok([alonePlanner, alonePortal, aloneWrite].every(r => r._status === 401 && JSON.stringify(r._json) === '{"error":"sign in"}') && lead(LEAD).planner.alerts?.review !== false, 'a token alone reads and writes nothing on the planner or the portal: 401 { error: sign in }', 'token-alone');
+  const withPlanner = keep(await call(plannerDoor, 'GET', { cookie: ck }));
+  const withPortal = keep(await call(portalDoor, 'GET', { cookie: ck }));
+  ok(withPlanner._status === 200 && withPlanner._json?.client?.firstName === 'Kim' && withPortal._status === 200 && withPortal._json?.client && withPortal._json.unlocked === true, 'the cookie alone reads the planner and the portal, unlocked');
+  const otherSet = await setCode(PLANNER_ONLY, '0247');
+  const ck2 = cookieOf(otherSet);
+  const mixed = keep(await call(plannerDoor, 'GET', { query: { token: PLANNER }, cookie: ck2 }));
+  ok(mixed._status === 200 && mixed._json?.client?.firstName === 'Pat', "the lead is the cookie's, never the token's: Pat's cookie with Kim's token reads Pat", 'cookie-wins');
+  const noPortal = keep(await call(portalDoor, 'GET', { cookie: ck2 }));
+  ok(noPortal._status === 404 && JSON.stringify(noPortal._json) === '{"error":"not found"}', "a signed in client with no portal is the portal's 404");
+  lead(LEAD).deleted = true;
+  const [gp, gq, gm] = [keep(await call(plannerDoor, 'GET', { cookie: ck })), keep(await call(portalDoor, 'GET', { cookie: ck })), keep(await app('GET', 'me', { cookie: ck }))];
+  ok(gp._status === 404 && gq._status === 404 && gm._json?.signedIn === false, 'a deleted record is the same 404 on both doors, and the device reads as signed out');
+  delete lead(LEAD).deleted;
+  lead(LEAD).planner.enabled = false;
+  ok(keep(await call(plannerDoor, 'GET', { cookie: ck }))._status === 404, 'a signed in client whose planner is switched off is the 404');
+}
+
+console.log('\n11. nothing leaves with the code');
 {
   const secret = ['hash', 'salt', 'version', 'fails', 'lockedUntil', 'locked'];
   ok(JSON.stringify(session.CODE_SECRET_KEYS) === JSON.stringify(secret), `the never-send list is ${secret.join(', ')}`);

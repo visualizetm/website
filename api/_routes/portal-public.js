@@ -11,26 +11,32 @@ import { nextMeetingFor } from '../_lib/calendly.js';
 import { PORTAL_MODULE_IDS, portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY, SITE_CHANGE_MAX, SITE_CHANGE_PLANS, SITE_CHANGES_KEPT, activeRetainer, clientProjects, isWebProject, siteChangesOf } from '../_lib/portalModules.js';
 import { safeUrl } from '../_lib/url.js';
 import { toggleClientPush } from '../_lib/clientDevices.js';
+import { sessionLead, signInFirst } from '../_lib/clientSession.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
  * route from the existing public function: vercel.json rewrites /api/portal
  * to /api/showcase?r=portal and api/showcase.js hands the request here, the
  * ride the planner, the concepts and the review link take.
  *
- *   GET  /api/portal?token=xxx[&unlock=yyy]
+ * The client app (client app job): the lead comes from the vz_client cookie (api/_lib/clientSession.js), never from a
+ * token in the request. No valid session is 401 { error: 'sign in' }; a token on its own reads nothing. A signed in session
+ * counts as unlocked for the sensitive cards (the code is stronger than the old PIN). The portal token only opens the code
+ * door (api/_routes/app-public.js) and still keys this door's per client limiters.
+ *
+ *   GET  /api/portal
  *        Exactly { client: { firstName, business, logoUrl, brandHex },
  *        cards: [...] }: the cards the registry resolves for this client
  *        (api/_lib/portalModules.js), each stripped to its module's fields.
  *        A sensitive card comes locked unless `unlock` verifies. Counts a
  *        view at most once an hour per token (rate:pview).
- *   POST /api/portal?token=xxx   { action: 'pin', pin }
+ *   POST /api/portal   { action: 'pin', pin }
  *        Checks the four digits against the stored hash, five tries per
  *        fifteen minutes per token (rate:ppin), and answers { unlock }, a
  *        signed token the device keeps for thirty days and sends back as
  *        ?unlock= on GET. A client without a PIN answers { unlock: '' }.
  *
- * The token is the whole credential: no token, a malformed one, an unknown
- * one, a regenerated one and a deleted record are the same 404 body. The
+ * No session, a forged or expired cookie and one from before a Reset code are the same 401; a signed in client with no
+ * portal (or a deleted record) is the same 404 body as before. The
  * page never receives a raw record: only what portalCards and portalClient
  * hand over leaves this file. */
 
@@ -58,19 +64,21 @@ const hashPin = (pin) => createHash('sha256').update(`${sessionSecret()}:${pin}`
 const hmac = (v) => createHmac('sha256', sessionSecret()).update(String(v)).digest('base64url');
 /** An unlock token: the portal token and an expiry, signed; worthless after a regenerate because the token changes. */
 const mintUnlock = (token) => { const exp = String(Date.now() + UNLOCK_DAYS * 86400000); return `${exp}.${hmac(`${token}:${exp}`)}`; };
-const unlockOk = (token, v) => { const [exp, sig] = String(v || '').split('.'); if (!exp || !sig || !(Number(exp) > Date.now())) return false; const a = Buffer.from(sig); const b = Buffer.from(hmac(`${token}:${exp}`)); return a.length === b.length && timingSafeEqual(a, b); };
 
-async function clientFor(db, token) {
-  if (!token) return null;
-  return db.collection('call_leads').findOne({ 'portal.token': token, deleted: { $ne: true } }, { projection: PROJECTION });
+/** The signed in client's lead, { signIn: true } without a session, or null when they have no portal (the 404). */
+async function clientFor(db, req) {
+  const lead = await sessionLead(db, req, PROJECTION);
+  if (!lead) return { signIn: true };
+  return tokenStr(lead.portal?.token) && lead.deleted !== true ? lead : null;
 }
 
 export async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const db = await getDb();
-  const token = tokenStr(req.query?.token);
-  const lead = await clientFor(db, token);
+  const lead = await clientFor(db, req);
+  if (lead?.signIn) return signInFirst(res);
   if (!lead) return notFound(res);
+  const token = lead.portal.token; // the per client limiter keys and the unlock token, unchanged
 
   if (req.method === 'GET') {
     const [profile, projects, posts, sets, orders] = await Promise.all([
@@ -91,7 +99,7 @@ export async function handler(req, res) {
       await rateHit(db, key, st.hits);
       await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.views': (Number(lead.portal?.views) || 0) + 1, 'portal.lastViewedAt': new Date().toISOString() }, $push: { 'portal.activity': { $each: [{ t: 'view', at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });
     }
-    const unlocked = !lead.portal?.pin || unlockOk(token, req.query?.unlock);
+    const unlocked = true; // a signed in session counts as unlocked (the client's own code is stronger than the old PIN)
     const settings = { profile: profile || {}, meetingLink: meetingLink() };
     /* Prompt 2: a payment landed since the last read (the webhook or Rob marking it): the page thanks them once, and the stamp moves so it never repeats. Server owned. */
     const paidAt = unseenPayment(lead, projects);

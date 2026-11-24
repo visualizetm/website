@@ -29,6 +29,7 @@
  *
  *   node scripts/security-test.mjs
  */
+import { clientSignIn } from './client-signin.mjs';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -58,6 +59,10 @@ const load = async (rel) => import(pathToFileURL(path.join(apiDst, rel)).href);
 const { _stores, _log, _reset } = await load('_lib/mongo.js');
 const showcase = (await load('showcase.js')).default;
 const planner = (await load('planner.js')).default;
+const appDoor = (await load('_routes/app-public.js')).handler;
+const clientAppRoute = (await load('_routes/client-app.js')).handler;
+const portalDoor = (await load('_routes/portal-public.js')).handler;
+const clientSession = await load('_lib/clientSession.js');
 const submissions = (await load('submissions.js')).default;
 const login = (await load('admin/login.js')).default;
 const adminIndex = (await load('admin/index.js')).default;
@@ -71,8 +76,15 @@ const sent = [];
 globalThis.fetch = async (url, init) => { sent.push({ url: String(url), body: JSON.parse(init?.body || '{}') }); return { ok: true, status: 200, json: async () => ({}) }; };
 
 const fakeRes = () => ({ _status: 200, _json: null, _body: null, _headers: {}, headersSent: false, status(c) { this._status = c; return this; }, json(p) { this._json = p; this.headersSent = true; return this; }, send(b) { this._body = b; this.headersSent = true; return this; }, setHeader(k, v) { this._headers[k] = v; } });
-async function call(fn, method, { query = {}, body, headers = {}, url = '/api/x' } = {}) {
-  const req = { method, query, body, headers: { 'x-forwarded-for': headers.ip || '203.0.113.9', ...headers }, url, socket: {} };
+/* The client app (client app job): the planner reads the client from the vz_client cookie, so a planner call with a token
+ * signs that client in first (scripts/client-signin.mjs, through the real code door) and sends the cookie; { bare: true }
+ * sends the token alone. The helper's own reads and writes are taken back out of the log, so every check below still sees
+ * only what the planner itself did. */
+const signIn = clientSignIn({ load, stores: _stores });
+async function call(fn, method, { query = {}, body, headers = {}, url = '/api/x', bare = false } = {}) {
+  let cookie = '';
+  if (!bare && fn === planner && typeof query?.token === 'string') { const mark = _log.length; cookie = await signIn(query.token); _log.length = mark; }
+  const req = { method, query, body, headers: { 'x-forwarded-for': headers.ip || '203.0.113.9', ...(cookie ? { cookie } : {}), ...headers }, url, socket: {} };
   const res = fakeRes();
   try { await fn(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; }
   return res;
@@ -153,7 +165,7 @@ async function injection(name, fn, method, opts, allowed) {
 }
 await injection('showcase ?slug', showcase, 'GET', { query: { slug: '__OP__' } }, [200, 404]);
 { seed(); const res = await call(showcase, 'GET', { query: { slug: OP } }); ok(!(res._json && res._json.slug), 'showcase ?slug operator does not return a client'); }
-await injection('planner ?token', planner, 'GET', { query: { token: '__OP__' } }, [404]);
+await injection('planner ?token', planner, 'GET', { query: { token: '__OP__' } }, [401]);
 await injection('planner ?month', planner, 'GET', { query: { token: ON, month: '__OP__' } }, [200]);
 await injection('planner POST postId', planner, 'POST', { query: { token: ON }, body: { postId: '__OP__', action: 'approve' } }, [404]);
 await injection('planner POST action', planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: '__OP__' } }, [400]);
@@ -282,24 +294,30 @@ section('4. the planner token');
   const unknown = await call(planner, 'GET', { query: { token: 'plnr_unknown_abcdefghijklmnop' } });
   const disabled = await call(planner, 'GET', { query: { token: OFF } });
   const arr = await call(planner, 'GET', { query: { token: [ON, ON] } });
-  const all = [noToken, malformed, malformed2, unknown, disabled, arr].map(bytes);
-  ok(all.every(b => b === all[0]) && all[0].startsWith('404'), `no token, malformed, unknown, disabled and an array all answer the same bytes (${[...new Set(all)].join(' | ')})`);
-  ok(_log.filter(e => e.op === 'findOne' && e.collection === 'call_leads').length === 2, `only the two well formed tokens reach the database, the empty, short, spaced and array ones never do (${_log.filter(e => e.collection === 'call_leads').length} lookups for 6 requests)`);
+  /* The client app: with no session the token is nothing (401 sign in, before any lookup); a signed in client whose planner is off is the 404. */
+  const all = [noToken, malformed, malformed2, unknown, arr].map(bytes);
+  ok(all.every(b => b === all[0]) && all[0] === '401 {"error":"sign in"}' && bytes(disabled) === '404 {"error":"not found"}', `no token, malformed, unknown and an array all answer the same 401 bytes, a signed in client with the planner off the 404 (${[...new Set(all)].join(' | ')} | ${bytes(disabled)})`);
+  const nf = bytes(disabled);
+  ok(_log.filter(e => e.op === 'findOne' && e.collection === 'call_leads').length === 1, `only the one request with a session reaches the database, the empty, short, spaced, unknown and array ones never do (${_log.filter(e => e.collection === 'call_leads').length} lookups for 6 requests)`);
   ok(!_log.some(e => e.op === 'updateOne'), 'a miss writes nothing (no limiter, no lastViewedAt)');
   const cross = await call(planner, 'POST', { query: { token: ON }, body: { postId: POST_THEIRS, action: 'approve' } });
-  ok(bytes(cross) === all[0], `another client's post is the same 404 (${bytes(cross)})`);
+  ok(bytes(cross) === nf, `another client's post is the same 404 (${bytes(cross)})`);
   ok(_stores.posts[1].status === 'review', 'and it was not changed');
   const filter = _log.find(e => e.op === 'findOne' && e.collection === 'posts')?.filter;
   ok(filter && String(filter.leadId) === LEAD_ON, `the ownership check is inside the query (${JSON.stringify(filter)})`);
   const mine = await call(planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'approve' } });
   ok(mine._status === 200 && _stores.posts[0].status === 'approved', 'their own post approves');
-  // revoke: the admin regenerates, the old link stops on the next call
+  // revoke: the admin regenerates the link, which then opens no code door; Reset code ends the session on the very next call
+  const session = await call(planner, 'GET', { query: { token: ON } });
+  const kept = session._status === 200 ? await signIn(ON) : '';
   lead().planner.token = 'plnr_new_token_abcdefghijklmnop';
-  const revoked = await call(planner, 'GET', { query: { token: ON } });
-  ok(bytes(revoked) === all[0], 'a revoked token is the same 404 on the very next call');
+  const oldLink = await call(appDoor, 'GET', { query: { a: 'token', token: ON } });
+  await call(clientAppRoute, 'POST', { body: { action: 'reset-code', id: LEAD_ON } });
+  const revoked = await call(planner, 'GET', { headers: { cookie: kept } });
+  ok(oldLink._status === 404 && bytes(revoked) === all[0], 'a regenerated link opens nothing, and after Reset code the old session is the same 401 on the very next call');
   const off = await call(routes['call-leads'], 'PATCH', patchLead({ planner: { enabled: false, postsPerMonth: 8, welcome: '' } }));
   const afterOff = await call(planner, 'GET', { query: { token: 'plnr_new_token_abcdefghijklmnop' } });
-  ok(off._status === 200 && bytes(afterOff) === all[0], 'switching the planner off is the same 404 on the next call');
+  ok(off._status === 200 && bytes(afterOff) === nf, 'switching the planner off is the same 404 on the next call');
   // the action limiter: 30 in an hour, the 31st is 429, and the key is a hash
   seed();
   for (let i = 0; i < 30; i++) await call(planner, 'POST', { query: { token: ON }, body: { postId: 'nope', action: 'approve' } });
@@ -424,6 +442,63 @@ section('4e. the caller (Billy\'s Call Room): the cookie, the role guard, the li
   const results = await runCaller();
   for (const r of results) ok(r.pass, `${r.guard ? `[wall ${r.guard}] ` : ''}${r.desc}`);
   ok(results.some(r => r.id === 'role-admin-cookie' && r.pass) && results.some(r => r.id === 'admin-refuses-caller' && r.pass), 'both cross cases ran: the admin cookie on the caller route, the caller cookie on every admin route');
+}
+
+/* ── 4f. The client app: the code, the cookie, the token alone ───────── */
+section('4f. the client app: portal.code never leaves, and a token alone reads and writes nothing');
+{
+  seed();
+  const PT = 'prtl_sec_token_abcdefghijklmnop';
+  lead().portal = { token: PT };
+  const keysDeep = (v, out = new Set()) => { if (Array.isArray(v)) v.forEach(x => keysDeep(x, out)); else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) { out.add(k); keysDeep(x, out); } return out; };
+  ok(JSON.stringify(clientSession.CODE_SECRET_KEYS) === JSON.stringify(['hash', 'salt', 'version', 'fails', 'lockedUntil', 'locked']), 'the never-send list is hash, salt, version, fails, lockedUntil and locked');
+  const set = await call(appDoor, 'POST', { query: { a: 'set' }, body: { token: PT, code: '4831', again: '4831' }, headers: { ip: '198.18.0.1' } });
+  const cookie = String(set._headers['Set-Cookie'] || '').split(';')[0];
+  ok(set._status === 200 && /^vz_client=/.test(cookie) && lead().portal.code?.hash && !JSON.stringify(lead().portal.code).includes('4831'), 'the code door sets a code as a hash and signs this device in');
+  const out = [set,
+    await call(appDoor, 'GET', { query: { a: 'me' }, headers: { cookie } }),
+    await call(appDoor, 'GET', { query: { a: 'token', token: PT } }),
+    await call(appDoor, 'POST', { query: { a: 'signin' }, body: { token: PT, code: '4831' }, headers: { ip: '198.18.0.2' } }),
+    await call(appDoor, 'POST', { query: { a: 'signin' }, body: { identifier: '555-0100', code: '7359' }, headers: { ip: '198.18.0.3' } }),
+    await call(planner, 'GET', { headers: { cookie } }),
+    await call(portalDoor, 'GET', { headers: { cookie } }),
+    await call(portalDoor, 'POST', { body: { action: 'tap', card: 'home' }, headers: { cookie } }),
+    await call(planner, 'POST', { body: { action: 'alerts', alerts: { review: true } }, headers: { cookie } }),
+  ];
+  ok(out.slice(5).every(r => r._status === 200), `with the cookie the planner and the portal read and write (${out.map(r => r._status).join(' ')})`);
+  for (const k of clientSession.CODE_SECRET_KEYS) ok(!out.some(r => keysDeep(r._json).has(k)), `no client response carries portal.code's ${k}`);
+  ok(!out.some(r => JSON.stringify(r._json || '').includes(lead().portal.code.hash) || JSON.stringify(r._json || '').includes(lead().portal.code.salt)), 'no client response carries the hash or the salt as a value either');
+  const admin = await call(routes['call-leads'], 'GET', {});
+  const row = (admin._json?.items || []).find(l => String(l._id) === LEAD_ON);
+  ok(row?.portal?.code?.set === true && !('hash' in row.portal.code) && !('salt' in row.portal.code) && !('version' in row.portal.code), "the CRM's list read carries the code's status, never its hash, salt or version");
+  /* Every data door with the token alone: the same 401, and nothing written. */
+  const before = JSON.stringify(_stores.call_leads) + JSON.stringify(_stores.posts) + JSON.stringify(_stores.push_subscriptions || []) + JSON.stringify(_stores.suggestions || []);
+  const sub = { endpoint: 'https://push.example/sec-device-abcdefghij', keys: { p256dh: 'p', auth: 'a' } };
+  const doors = [
+    ['planner GET', planner, 'GET', { query: { token: ON } }],
+    ['planner approve', planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'approve' } }],
+    ['planner posted', planner, 'POST', { query: { token: ON }, body: { postId: POST_MINE, action: 'posted' } }],
+    ['planner suggest', planner, 'POST', { query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'x' } }],
+    ['planner push_on', planner, 'POST', { query: { token: ON }, body: { action: 'push_on', subscription: sub } }],
+    ['planner alerts', planner, 'POST', { query: { token: ON }, body: { action: 'alerts', alerts: { review: false } } }],
+    ['portal GET', portalDoor, 'GET', { query: { token: PT } }],
+    ['portal approve', portalDoor, 'POST', { query: { token: PT }, body: { action: 'approve', id: 'a1', decision: 'approved' } }],
+    ['portal push_on', portalDoor, 'POST', { query: { token: PT }, body: { action: 'push_on', subscription: sub } }],
+    ['portal tap', portalDoor, 'POST', { query: { token: PT }, body: { action: 'tap', card: 'home' } }],
+    ['portal pin', portalDoor, 'POST', { query: { token: PT }, body: { action: 'pin', pin: '1234' } }],
+    ['portal site_change', portalDoor, 'POST', { query: { token: PT }, body: { action: 'site_change', text: 'x' } }],
+    ['portal reorder', portalDoor, 'POST', { query: { token: PT }, body: { action: 'reorder', items: [] } }],
+  ];
+  for (const [name, fn, method, opts] of doors) {
+    const r = await call(fn, method, { ...opts, bare: true });
+    ok(bytes(r) === '401 {"error":"sign in"}', `${name} with the token alone is 401 { error: 'sign in' } (${bytes(r).slice(0, 80)})`);
+  }
+  const after = JSON.stringify(_stores.call_leads) + JSON.stringify(_stores.posts) + JSON.stringify(_stores.push_subscriptions || []) + JSON.stringify(_stores.suggestions || []);
+  ok(after === before, 'and none of them wrote anything');
+  const forged = `vz_client=${LEAD_ON}.1.${Date.now() + 86400000}.forgedsignature`;
+  ok(bytes(await call(planner, 'GET', { headers: { cookie: forged } })) === '401 {"error":"sign in"}' && bytes(await call(portalDoor, 'GET', { headers: { cookie: forged } })) === '401 {"error":"sign in"}', 'a forged cookie is the same 401 on both doors');
+  const adminCookie = `vz_admin=${signSession()}`;
+  ok(bytes(await call(portalDoor, 'GET', { headers: { cookie: adminCookie } })) === '401 {"error":"sign in"}', "the admin's cookie is not a client session");
 }
 
 section('5. the admin guard and the login limiter');

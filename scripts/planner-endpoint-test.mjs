@@ -12,6 +12,7 @@
  * fake, then imports the real handlers unmodified.
  *   node scripts/planner-endpoint-test.mjs
  */
+import { clientSignIn } from './client-signin.mjs';
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
@@ -158,8 +159,13 @@ async function callPosts(method, body) {
   await postsHandler({ method, query: {}, body, headers: {}, url: '/api/admin/posts', socket: {} }, res);
   return res;
 }
-async function call(method, query = {}, body = undefined) {
-  const req = { method, query, body, headers: {}, url: '/api/planner', socket: {} };
+/* The client app (client app job): the door reads the client from the vz_client cookie, so a call with a token signs that
+ * client in first (scripts/client-signin.mjs, through the real code door) and sends the cookie; { bare: true } sends the
+ * token alone, the way a link with no session would. */
+const signIn = clientSignIn({ load: (rel) => import(pathToFileURL(path.join(apiDst, rel)).href), stores: { get call_leads() { return _stores.leadsStore; } } });
+async function call(method, query = {}, body = undefined, { bare = false } = {}) {
+  const cookie = !bare && typeof query.token === 'string' ? await signIn(query.token) : '';
+  const req = { method, query, body, headers: cookie ? { cookie } : {}, url: '/api/planner', socket: {} };
   const res = fakeRes();
   await plannerHandler(req, res);
   return res;
@@ -231,12 +237,13 @@ async function call(method, query = {}, body = undefined) {
   ok(junk._status === 200 && junk._json.month === THIS_MONTH, 'a malformed month falls back to the current one');
 }
 
-/* ── The 404s: every wrong door looks identical ──────────────────────── */
+/* ── The 401s and the 404: every wrong door looks identical ──────────── */
+/* The client app: a request with no session is 401 { error: 'sign in' } whatever token it carries (none, unknown, shaped
+ * wrong, empty, or a live one alone); a signed in client whose planner is switched off is the 404 it always was. */
 {
   const cases = [
     ['no token at all', {}],
     ['an unknown token', { token: 'plnr_nope_nope_nope_nope_nope' }],
-    ['a token belonging to a disabled planner', { token: OFF_TOKEN }],
     ['a token shaped wrong', { token: '../../etc/passwd' }],
     ['an empty token', { token: '' }],
   ];
@@ -244,9 +251,15 @@ async function call(method, query = {}, body = undefined) {
   for (const [label, query] of cases) {
     const res = await call('GET', query);
     bodies.push(JSON.stringify(res._json));
-    ok(res._status === 404 && res._json?.error === 'not found', `${label} answers 404 { error: 'not found' }`);
+    ok(res._status === 401 && res._json?.error === 'sign in', `${label} answers 401 { error: 'sign in' }`);
   }
-  ok(new Set(bodies).size === 1, 'every 404 body is byte for byte identical, so a wrong token cannot detect a right one');
+  const disabled = await call('GET', { token: OFF_TOKEN });
+  ok(disabled._status === 404 && disabled._json?.error === 'not found', "a signed in client whose planner is disabled answers 404 { error: 'not found' }");
+  ok(new Set(bodies).size === 1, 'every 401 body is byte for byte identical, so a wrong token cannot detect a right one');
+  const alone = await call('GET', { token: ON_TOKEN }, undefined, { bare: true });
+  ok(alone._status === 401 && JSON.stringify(alone._json) === bodies[0], 'a live token with no session is the same 401 and reads nothing');
+  const aloneWrite = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439001', action: 'approve' }, { bare: true });
+  ok(aloneWrite._status === 401 && _stores.postsStore.find(p => p._id === '607f1f77bcf86cd799439001').status === 'review', 'a live token with no session cannot write either');
 }
 
 /* ── POST: approve ───────────────────────────────────────────────────── */

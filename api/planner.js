@@ -10,16 +10,21 @@ import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
 import { toggleClientPush } from './_lib/clientDevices.js';
 import { monthApprovedPush } from './_lib/plannerPush.js';
 import { addTask, allTasks, setTaskDone } from './_lib/taskRules.js';
+import { sessionLead, signInFirst } from './_lib/clientSession.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
  *
- *   GET  /api/planner?token=xxx&month=YYYY-MM
+ * The client app (client app job): the lead comes from the vz_client cookie (api/_lib/clientSession.js), never from a
+ * token in the request. No valid session is 401 { error: 'sign in' }; a token on its own reads nothing. The planner token
+ * only opens the code door (api/_routes/app-public.js) and still keys this door's per client limiters.
+ *
+ *   GET  /api/planner?month=YYYY-MM
  *        The client's own month: who they are, and every live post in it.
  *        Month defaults to the current one. A month with nothing in it is an
  *        empty posts array, not a 404.
  *
- *   POST /api/planner?token=xxx   { postId, action, note }
+ *   POST /api/planner   { postId, action, note }
  *        action 'approve'        review -> approved (a post or an ad)
  *        action 'request-change' review -> making, with their note and an optional reason
  *                                (photo, words, date, other; anything else is dropped)
@@ -36,13 +41,13 @@ import { addTask, allTasks, setTaskDone } from './_lib/taskRules.js';
  *                                notification when the Client ideas toggle is on and adds a
  *                                "New idea" task to the client's Ideas checklist
  *
- * The token is the whole credential, so the rules around it are the security
+ * The session is the credential, so the rules around it are the security
  * model:
  *
- *   - No token, an unknown token, and a client whose planner is switched off
- *     all answer the same 404 { error: 'not found' }. A wrong token must not
- *     be able to tell that a right one exists, and a client who was switched
- *     off must not be distinguishable from one who never existed.
+ *   - No session, a forged or expired cookie, and a cookie from before the
+ *     code was reset all answer the same 401 { error: 'sign in' }. A signed in
+ *     client whose planner is switched off (or never had one) is the same
+ *     404 { error: 'not found' } as before.
  *   - A postId that belongs to somebody else is the same 404. That is the
  *     check that stops a client with a perfectly valid token from touching
  *     another client's posts.
@@ -81,13 +86,12 @@ const thisMonth = (now = new Date()) => `${now.getUTCFullYear()}-${String(now.ge
 /* The lead behind a token, or null. The projection is the second half of the
  * whitelist: the fields this file is allowed to see are the only ones it
  * ever loads, so a future edit cannot leak something by accident. */
-async function clientFor(db, token) {
-  if (!token) return null;
-  const lead = await db.collection('call_leads').findOne(
-    { 'planner.token': token, deleted: { $ne: true } },
-    { projection: { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.brand.logo': 1, 'showcase.logoUrl': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, 'planner.alerts': 1, 'planner.approvedMonths': 1, checklists: 1, 'portal.token': 1 } },
-  );
-  if (!lead || !lead.planner?.enabled) return null;
+const PROJECTION = { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.brand.logo': 1, 'showcase.logoUrl': 1, 'planner.enabled': 1, 'planner.token': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, 'planner.alerts': 1, 'planner.approvedMonths': 1, checklists: 1, 'portal.token': 1 };
+/** The signed in client's lead, { signIn: true } without a session, or null when their planner is off (the 404). */
+async function clientFor(db, req) {
+  const lead = await sessionLead(db, req, PROJECTION);
+  if (!lead) return { signIn: true };
+  if (lead.deleted === true || !lead.planner?.enabled || !tokenStr(lead.planner?.token)) return null;
   return lead;
 }
 
@@ -167,10 +171,11 @@ export function suggestionDue(preferredDate, nowMs) {
 async function handler(req, res) {
   // A client's month is theirs: never a shared cache, never the back-forward cache with the token in the URL.
   res.setHeader('Cache-Control', 'no-store');
-  const token = tokenStr(req.query?.token);
   const db = await getDb();
-  const lead = await clientFor(db, token);
+  const lead = await clientFor(db, req);
+  if (lead?.signIn) return signInFirst(res);
   if (!lead) return notFound(res);
+  const token = lead.planner.token; // the per client limiter keys, unchanged
 
   if (req.method === 'GET') {
     const month = monthStr(req.query?.month) || thisMonth();

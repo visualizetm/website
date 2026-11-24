@@ -1,4 +1,3 @@
-import { useParams } from 'react-router-dom';
 import MessageTextSquare02 from '@untitled-ui/icons-react/build/esm/MessageTextSquare02';
 import Mail01 from '@untitled-ui/icons-react/build/esm/Mail01';
 import AtSign from '@untitled-ui/icons-react/build/esm/AtSign';
@@ -451,7 +450,7 @@ function MeetingsCard({ card }) {
 }
 
 /* Approvals (prompt 3): a row per item; Approve, or Request changes with a short note. The answer goes to the approve door and the page reads again. */
-function ApprovalsCard({ card, token, onChanged }) {
+function ApprovalsCard({ card, api, onChanged }) {
   const items = Array.isArray(card.items) ? card.items : [];
   const [open, setOpen] = useState('');      // the item whose changes box is open
   const [note, setNote] = useState('');
@@ -464,7 +463,7 @@ function ApprovalsCard({ card, token, onChanged }) {
     setConfirm(null);
     setBusy(id); setSaid('');
     try {
-      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve', id, decision, note: decision === 'changes' ? note.trim().slice(0, 400) : '' }) });
+      const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'approve', id, decision, note: decision === 'changes' ? note.trim().slice(0, 400) : '' }) });
       if (res.status === 429) { setSaid('That is a lot of answers. Give it an hour.'); return; }
       if (!res.ok) { setSaid('That did not go through. Try again.'); return; }
       setOpen(''); setNote(''); setSaid(decision === 'approved' ? 'Approved. Rob gets a heads up.' : 'Sent. Rob gets a heads up.');
@@ -513,21 +512,21 @@ function ApprovalsCard({ card, token, onChanged }) {
 /* A costly action (prompt 4): one confirm step, then thirty seconds of Undo before the request goes; the request is flushed with
  * sendBeacon if the page closes first, so a closed tab never loses an order. Approvals stay immediate: they are final. */
 const UNDO_MS = 30000;
-function usePending(token) {
+function usePending(api) {
   const [pending, setPending] = useState(null); // { label, body, onDone, onFail, timer, left }
   const ref = useRef(null);
   const fire = useCallback(async (p) => {
     try {
-      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body) });
+      const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p.body) });
       const d = await res.json().catch(() => ({}));
       if (res.ok) p.onDone?.(d); else p.onFail?.(res.status, d);
     } catch { p.onFail?.(0, {}); }
-  }, [token]);
+  }, [api]);
   useEffect(() => {
-    const flush = () => { const p = ref.current; if (!p) return; ref.current = null; clearTimeout(p.timer); try { navigator.sendBeacon(`/api/portal?token=${encodeURIComponent(token)}`, new Blob([JSON.stringify(p.body)], { type: 'application/json' })); } catch { /* nothing more to do */ } };
+    const flush = () => { const p = ref.current; if (!p) return; ref.current = null; clearTimeout(p.timer); try { navigator.sendBeacon(api, new Blob([JSON.stringify(p.body)], { type: 'application/json' })); } catch { /* nothing more to do */ } };
     window.addEventListener('pagehide', flush);
     return () => window.removeEventListener('pagehide', flush);
-  }, [token]);
+  }, [api]);
   const start = (p) => {
     const timer = setTimeout(() => { ref.current = null; setPending(null); fire(p); }, UNDO_MS);
     const entry = { ...p, timer, at: Date.now() };
@@ -601,7 +600,7 @@ const money = (n) => `$${Number(n || 0).toLocaleString()}`;
  * for the client are batched on the server, one ping at most every six hours. */
 const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const keyBytes = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(raw, c => c.charCodeAt(0)); };
-function NotificationsCard({ card, token }) {
+function NotificationsCard({ card, api }) {
   const [on, setOn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [said, setSaid] = useState('');
@@ -613,7 +612,7 @@ function NotificationsCard({ card, token }) {
     return () => { alive = false; };
   }, [supported]);
   if (!supported) return null;
-  const post = (body) => fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const post = (body) => fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const turnOn = async () => {
     const perm = await Notification.requestPermission();
     if (perm !== 'granted') { setSaid(perm === 'denied' ? 'Notifications are blocked for this site in your browser settings.' : 'No permission given, so nothing changes.'); return; }
@@ -769,7 +768,7 @@ function PortalSkeleton() {
 const LAST = new Map();
 const useOnline = () => { const [on, setOn] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false)); useEffect(() => { const up = () => setOn(true); const down = () => setOn(false); window.addEventListener('online', up); window.addEventListener('offline', down); return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); }; }, []); return on; };
 /* A tap on a card's control is one event in the record's activity ring (no PII, the card id only); best effort, never awaited. */
-const track = (token, card) => { try { const url = `/api/portal?token=${encodeURIComponent(token)}`; const body = JSON.stringify({ action: 'tap', card }); if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' })); else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {}); } catch { /* nothing to do */ } };
+const track = (api, card) => { try { const url = api; const body = JSON.stringify({ action: 'tap', card }); if (navigator.sendBeacon) navigator.sendBeacon(url, new Blob([body], { type: 'application/json' })); else fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {}); } catch { /* nothing to do */ } };
 
 /* A sensitive card before the device unlocked it: the title and one button into the PIN sheet. */
 function LockedCard({ card, onUnlock }) {
@@ -784,7 +783,7 @@ function LockedCard({ card, onUnlock }) {
 
 const overlay = (node) => (typeof document === 'undefined' ? node : createPortal(node, document.body));
 /* The PIN sheet: four digits, one input, the answer from /api/portal's pin door; a right PIN's unlock is kept on the device for thirty days and the page reads again. */
-function PinSheet({ token, onClose, onUnlocked }) {
+function PinSheet({ api, onClose, onUnlocked }) {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -801,12 +800,12 @@ function PinSheet({ token, onClose, onUnlocked }) {
     if (!/^\d{4}$/.test(pin)) { setError('Four digits.'); return; }
     setBusy(true); setError('');
     try {
-      const res = await fetch(`/api/portal?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', pin }) });
+      const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pin', pin }) });
       if (res.status === 401) { setError('That PIN is not it.'); setPin(''); inputRef.current?.focus(); return; }
       if (res.status === 429) { setError('That is a few tries. Give it fifteen minutes.'); return; }
       if (!res.ok) throw new Error(`status ${res.status}`);
       const d = await res.json();
-      writeLS(unlockKey(token), String(d.unlock || ''));
+      writeLS(unlockKey(api), String(d.unlock || ''));
       onUnlocked();
     } catch { setError('That did not go through. Try again.'); }
     finally { setBusy(false); }
@@ -834,8 +833,11 @@ function PinSheet({ token, onClose, onUnlocked }) {
 /* The module id to its card. Prompts 2 to 4 add a line here and an entry in the registry, nothing else. */
 const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: DocumentsCard, showcase: ShowcaseCard, pay: PayCard, plan: PlanCard, retainer: RetainerCard, progress: ProgressCard, revisions: RevisionsCard, needs_you: NeedsYouCard, files: FilesCard, brand_kit: BrandKitCard, planner: PlannerCard, concepts: ConceptsCard, review: ReviewCard, their_reviews: TheirReviewsCard, meetings: MeetingsCard, approvals: ApprovalsCard, reorder: ReorderCard, site_changes: SiteChangesCard, referral: ReferralCard, notifications: NotificationsCard };
 
-export default function Portal() {
-  const { token = '' } = useParams();
+/* The client app (client app job): the page reads and writes its own client's door, /api/portal, which finds the client by
+ * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
+ * onSignIn takes the client to the sign in. */
+export default function Portal({ api = '/api/portal', onSignIn }) {
+  const token = api;
   const [data, setData] = useState(null);     // { client, cards, pinned, unlocked }
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
   const [hint, setHint] = useState(() => readLS(A2HS_KEY, '') !== 'seen');
@@ -851,18 +853,17 @@ export default function Portal() {
     if (!token) { setState('expired'); return undefined; }
     const had = LAST.get(token);
     if (had) { setData(had); setState('ready'); }
-    const unlock = readLS(unlockKey(token), '');
-    fetch(`/api/portal?token=${encodeURIComponent(token)}${unlock ? `&unlock=${encodeURIComponent(unlock)}` : ''}`, { cache: 'no-store' })
-      .then(async (r) => { if (!live) return; if (r.status === 404) { LAST.delete(token); setState('expired'); return; } if (!r.ok) { if (!had) setState('failed'); return; } const d = await r.json(); LAST.set(token, d); setData(d); setState('ready'); })
+    fetch(api, { cache: 'no-store' })
+      .then(async (r) => { if (!live) return; if (r.status === 401) { LAST.delete(token); if (onSignIn) onSignIn(); else setState('expired'); return; } if (r.status === 404) { LAST.delete(token); setState('expired'); return; } if (!r.ok) { if (!had) setState('failed'); return; } const d = await r.json(); LAST.set(token, d); setData(d); setState('ready'); })
       .catch(() => { if (live && !had) setState('failed'); });
     return () => { live = false; };
-  }, [token, gen]);
+  }, [token, gen, api, onSignIn]);
 
   const dismissHint = () => { setHint(false); writeLS(A2HS_KEY, 'seen'); };
   const [thanks, setThanks] = useState(false);
   useEffect(() => { if (data?.paid) { setThanks(true); const t = setTimeout(() => setThanks(false), 6000); return () => clearTimeout(t); } return undefined; }, [data]);
   const closePin = useCallback(() => setPinOpen(false), []);
-  const pending = usePending(token);
+  const pending = usePending(api);
   const unlocked = useCallback(() => { setPinOpen(false); setGen(g => g + 1); }, []);
 
   let body;
@@ -894,9 +895,9 @@ export default function Portal() {
           {(data?.cards || []).filter(c => c.id === 'home').map(card => <HomeCard key="home" card={card} client={data.client} />)}
           <EmptyHomeCard contact={(data?.cards || []).find(c => c.id === 'contact')} />
         </>
-      ) : (data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; if (!Draw) return null; if (card.id === 'home') return <Draw key={card.id} card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} />; return <div key={card.id} className="pt-slot" data-card={card.id} onClickCapture={(e) => { if (e.target.closest('a, button')) track(token, card.id); }}><Draw card={card} client={data.client} token={token} pending={pending} onChanged={() => setGen(g => g + 1)} /></div>; })}
+      ) : (data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; if (!Draw) return null; if (card.id === 'home') return <Draw key={card.id} card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} />; return <div key={card.id} className="pt-slot" data-card={card.id} onClickCapture={(e) => { if (e.target.closest('a, button')) track(api, card.id); }}><Draw card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} /></div>; })}
       <UndoBar pending={pending.pending} onUndo={pending.undo} />
-      {pinOpen && <PinSheet token={token} onClose={closePin} onUnlocked={unlocked} />}
+      {pinOpen && <PinSheet api={api} onClose={closePin} onUnlocked={unlocked} />}
       {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}
     </div>
   );

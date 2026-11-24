@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
+import { clientSignIn } from './client-signin.mjs';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 export const repoRoot = path.resolve(here, '..');
@@ -33,7 +34,12 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   const ok = (c, m, guard = null) => { results.push({ ok: !!c, msg: m, guard }); };
   const cookie = `vz_admin=${signSession()}`;
   const admin = async (body, r = 'call-leads', method = 'PATCH') => { const req = { method, query: { r }, body, headers: { cookie, 'x-forwarded-for': '203.0.113.9' }, url: '/api/admin/index', socket: {} }; const res = fakeRes(); try { await adminIndex(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; } return res; };
-  const pub = async (method, query = {}, body, headers = {}) => { const req = { method, query: { r: 'portal', ...query }, body, headers: { 'x-forwarded-for': '203.0.113.9', ...headers }, url: '/api/portal', socket: {} }; const res = fakeRes(); try { await showcase(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; } return res; };
+  /* The client app (client app job): the portal's door reads the client from the vz_client cookie, so a call with a token signs
+   * that client in first (scripts/client-signin.mjs, through the real code door) and sends the cookie; { bare: true } in the
+   * headers sends the token alone, the way a link with no session would. */
+  const signIn = clientSignIn({ load, stores: _stores });
+  const appDoor = async (method, a, query = {}, body) => { const req = { method, query: { r: 'app', a, ...query }, body, headers: { 'x-forwarded-for': '203.0.113.10' }, url: '/api/app', socket: {} }; const res = fakeRes(); try { await showcase(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; } return res; };
+  const pub = async (method, query = {}, body, headers = {}) => { const { bare, ...hdrs } = headers || {}; const sess = !bare && !hdrs.cookie && typeof query?.token === 'string' ? await signIn(query.token) : ''; const req = { method, query: { r: 'portal', ...query }, body, headers: { 'x-forwarded-for': '203.0.113.9', ...(sess ? { cookie: sess } : {}), ...hdrs }, url: '/api/portal', socket: {} }; const res = fakeRes(); try { await showcase(req, res); } catch (e) { res._status = 599; res._json = { thrown: String(e?.message || e) }; } return res; };
   const lead = () => _stores.call_leads.find(l => String(l._id) === LEAD);
   const profile = () => _stores.settings.find(s => s._id === 'profile');
   const seed = () => {
@@ -76,9 +82,11 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(t2 && t2 !== t1 && t2.length === 24 && lead().portal.regeneratedAt, 'Regenerate mints a new token and stamps regeneratedAt', 'regenerate');
   let dead = await pub('GET', { token: t1 });
   let live = await pub('GET', { token: t2 });
-  ok(dead._status === 404 && live._status === 200, `the old token is dead (${dead._status}) and the new one resolves (${live._status})`, 'token-dead');
-  const none = await pub('GET', {}); const mal = await pub('GET', { token: 'short' }); const unknown = await pub('GET', { token: 'unknown_token_abcdefghijklmnop' });
-  ok([none, mal, unknown, dead].every(x => `${x._status} ${JSON.stringify(x._json)}` === '404 {"error":"not found"}'), 'no token, a malformed one, an unknown one and a dead one are the same 404 bytes', 'token-required');
+  /* The client app: the old link opens no code door any more (404 there) and signs no one in (the portal's 401), the new one resolves. */
+  const deadDoor = await appDoor('GET', 'token', { token: t1 });
+  ok(dead._status === 401 && deadDoor._status === 404 && live._status === 200, `the old token is dead (${dead._status}, the code door ${deadDoor._status}) and the new one resolves (${live._status})`, 'token-dead');
+  const none = await pub('GET', {}); const mal = await pub('GET', { token: 'short' }); const unknown = await pub('GET', { token: 'unknown_token_abcdefghijklmnop' }); const alone = await pub('GET', { token: t2 }, undefined, { bare: true });
+  ok([none, mal, unknown, dead, alone].every(x => `${x._status} ${JSON.stringify(x._json)}` === '401 {"error":"sign in"}'), 'no token, a malformed one, an unknown one, a dead one and a live one with no session are the same 401 bytes', 'token-required');
   _stores.call_leads.find(l => String(l._id) === LEAD).deleted = true;
   const gone = await pub('GET', { token: t2 });
   ok(gone._status === 404, 'a deleted record is the same 404', 'deleted-404');
@@ -182,8 +190,11 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   /* sensitive: behind a PIN the money cards come locked, with nothing in them */
   await admin({ id: LEAD, set: { portal: { pin: '4321' } } });
   rm = await pub('GET', { token: tT });
-  const lockedRet = card(rm, 'retainer');
-  ok(lockedRet && lockedRet.locked === true && lockedRet.name === undefined && lockedRet.url === undefined, `with a PIN the retainer card is locked and empty (${JSON.stringify(lockedRet)})`, 'pin-gate');
+  /* The client app: a signed in session counts as unlocked, so the door serves the card open; the registry still locks it for anyone not unlocked. */
+  const openRet = card(rm, 'retainer');
+  ok(openRet && openRet.locked === undefined && openRet.name === 'Content Kit' && rm._json?.unlocked === true, `with a PIN and a signed in session the retainer card is open (${JSON.stringify(openRet)})`, 'session-unlocks');
+  const lockedRet = reg.portalCards(lead(), _stores.projects, { profile: profile(), meetingLink: '' }, { unlocked: false }).find(c => c.id === 'retainer');
+  ok(lockedRet && lockedRet.locked === true && lockedRet.name === undefined && lockedRet.url === undefined, `with a PIN and no unlock the retainer card is locked and empty (${JSON.stringify(lockedRet)})`, 'pin-gate');
   await admin({ id: LEAD, set: { portal: { pin: '' } } });
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
@@ -612,7 +623,8 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   const owner = await notify.ownerSubs(dbN); const mine = await notify.clientSubs(dbN, LEAD); const theirs = await notify.clientSubs(dbN, OTHER);
   ok(owner.length === 1 && owner[0]._id === 'rob1' && mine.length === 2 && theirs.length === 0, `Rob's sender sees only his devices, the client's only that client's (${owner.length},${mine.length},${theirs.length})`, 'push-filter');
   /* push_off is scoped to this client */
-  seed(); _stores.call_leads.push({ _id: OTHER, business: 'Other Co', stage: 'client', callStatus: 'booked', portal: { token: 'otherTOKENtoken0123456789ab', createdAt: '2026-01-01T00:00:00.000Z' } });
+  /* The client app: the seed already holds a record with OTHER's id; it is replaced, not doubled, now that the door finds the client by id. */
+  seed(); _stores.call_leads = _stores.call_leads.filter(l => String(l._id) !== OTHER); _stores.call_leads.push({ _id: OTHER, business: 'Other Co', stage: 'client', callStatus: 'booked', portal: { token: 'otherTOKENtoken0123456789ab', createdAt: '2026-01-01T00:00:00.000Z' } });
   await admin({ id: LEAD, set: { portal: {} } }); const tN2 = lead().portal.token;
   _stores.push_subscriptions = [];
   await pub('POST', { token: tN2 }, { action: 'push_on', subscription: subBody(1) });
@@ -758,7 +770,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(lead().portal.pin === stored, 'the same PIN hashes the same');
   await admin({ id: LEAD, set: { portal: { modules: { contact: 'on' } } } });
   r2 = await pub('GET', { token: t3 });
-  ok(r2._json?.pinned === true && r2._json?.unlocked === false, 'GET says the portal is pinned and not unlocked');
+  ok(r2._json?.pinned === true && r2._json?.unlocked === true, 'GET says the portal is pinned, and a signed in session is unlocked (the code is stronger than the PIN)', 'session-unlocks');
   let wrong = await pub('POST', { token: t3 }, { action: 'pin', pin: '0000' });
   ok(wrong._status === 401 && !wrong._json?.unlock, `a wrong PIN is 401 with no unlock (${wrong._status})`, 'pin-check');
   for (let i = 0; i < 4; i++) wrong = await pub('POST', { token: t3 }, { action: 'pin', pin: '0000' });
@@ -784,15 +796,17 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   const so = openCards.find(c => c.id === 'secret');
   ok(so && so.amount === 'owed 1,200' && so.notes === undefined && so.phone === undefined && so.locked === undefined, `unlocked: the sensitive card carries only its fields (${JSON.stringify(so)})`, 'card-fields');
   ok(lockedCards.filter(c => !c.sensitive).length === openCards.filter(c => !c.sensitive).length, 'the lock touches only sensitive cards');
-  r2 = await pub('GET', { token: t3, unlock: right._json.unlock });
-  ok(r2._status === 200 && r2._json?.unlocked === true, 'GET with the unlock token says unlocked', 'unlock-verify');
-  r2 = await pub('GET', { token: t3, unlock: right._json.unlock.replace(/.$/, c => (c === 'a' ? 'b' : 'a')) });
-  ok(r2._json?.unlocked === false, 'a tampered unlock token is not unlocked', 'unlock-verify');
+  /* The client app: what unlocks now is the session, so the session is what is verified: the signed cookie, its signature and its version. */
+  const sess = await signIn(t3);
+  r2 = await pub('GET', {}, undefined, { cookie: sess });
+  ok(r2._status === 200 && r2._json?.unlocked === true, 'GET with the session says unlocked', 'unlock-verify');
+  r2 = await pub('GET', {}, undefined, { cookie: sess.replace(/.$/, c => (c === 'a' ? 'b' : 'a')) });
+  ok(r2._status === 401 && r2._json?.unlocked === undefined, 'a tampered session is not unlocked (401, nothing read)', 'unlock-verify');
   const [exp] = right._json.unlock.split('.');
   ok(Number(exp) > Date.now() + 29 * 86400000 && Number(exp) < Date.now() + 31 * 86400000, 'the unlock lasts thirty days', 'unlock-days');
-  await admin({ id: LEAD, set: { portal: { regenerate: true } } });
-  r2 = await pub('GET', { token: lead().portal.token, unlock: right._json.unlock });
-  ok(r2._status === 200 && r2._json?.unlocked === false, 'a regenerate kills the old unlock too', 'unlock-verify');
+  await admin({ id: LEAD, action: 'reset-code' }, 'client-app', 'POST');
+  r2 = await pub('GET', {}, undefined, { cookie: sess });
+  ok(r2._status === 401 && r2._json?.unlocked === undefined, 'a Reset code kills the old session too', 'unlock-verify');
   await admin({ id: LEAD, set: { portal: { pin: '' } } });
   r2 = await pub('GET', { token: lead().portal.token });
   ok(lead().portal.pin === '' && r2._json?.pinned === false && r2._json?.unlocked === true, 'an empty PIN clears it; the portal is open again');

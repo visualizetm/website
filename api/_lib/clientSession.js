@@ -57,13 +57,15 @@ export function verifyClient(req) {
   const b = Buffer.from(hmac(payload(leadId, version, expiresAt)));
   return a.length === b.length && crypto.timingSafeEqual(a, b) ? { leadId, version: versionOf(version) } : null;
 }
-/** The signed in client's lead (with the projection asked for), or null: the cookie's version must be the stored one and a code set. */
+/** The signed in client's lead (with the projection asked for), or null: the cookie's version must be the stored one and a code set.
+ *  A deleted record still comes back, with deleted: true, so each door answers it the way it always has (the portal's and
+ *  the planner's 404). */
 export async function sessionLead(db, req, projection = null) {
   const s = verifyClient(req);
   if (!s) return null;
-  const proj = projection ? { ...projection, 'portal.code.version': 1, 'portal.code.hash': 1 } : null;
+  const proj = projection ? { ...projection, deleted: 1, 'portal.code.version': 1, 'portal.code.hash': 1 } : null;
   if (proj && proj.portal) { delete proj['portal.code.version']; delete proj['portal.code.hash']; }
-  const lead = await db.collection('call_leads').findOne({ _id: leadKey(s.leadId), deleted: { $ne: true } }, proj ? { projection: proj } : undefined);
+  const lead = await db.collection('call_leads').findOne({ _id: leadKey(s.leadId) }, proj ? { projection: proj } : undefined);
   const code = lead?.portal?.code;
   if (!lead || !code?.hash || versionOf(code.version) !== s.version) return null;
   return lead;

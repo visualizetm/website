@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
 import { tokenStyles } from '../ui/tokens';
-import { portalBackHref } from '../components/ClientPageChrome';
 import { TopBar, TabBar, TABS, Toast, Skeleton, ErrorBox } from '../components/planner/parts';
 import { plannerStyles } from '../components/planner/styles';
 import { thisMonth, shiftMonth, monthName, reviewQueue, todayKey } from '../lib/plannerView';
@@ -39,8 +38,11 @@ import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
  * ever good. Everything here is a read plus four writes: approve, ask for a
  * change, I posted it, and an idea. The copy speaks as Rob. */
 
-export default function Planner() {
-  const { token = '' } = useParams();
+/* The client app (client app job): the page reads and writes its own client's door, /api/planner, which finds the client by
+ * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
+ * onSignIn takes the client to the sign in. `back` is the panel's home when the client has a portal too. */
+const withQuery = (url, q) => `${url}${url.includes('?') ? '&' : '?'}${q}`;
+export default function Planner({ api = '/api/planner', onSignIn, back: panelHome = '' }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -61,14 +63,15 @@ export default function Planner() {
   const [toast, setToast] = useState('');
   const [pos, setPos] = useState(null); // Review mode's "2 of 3", reported by the screen
   const [alertsOpen, setAlertsOpen] = useState(false);
-  const portal = portalBackHref(params.toString(), data?.back);
+  const portal = panelHome;
 
   useHead({ title: 'Your planner | Visualize.', description: 'Your posts, ads and ideas for the month.', noindex: true });
 
   const load = useCallback(async (m) => {
     setState(s => (s === 'ready' ? s : 'loading'));
     try {
-      const res = await fetch(`/api/planner?token=${encodeURIComponent(token)}&month=${encodeURIComponent(m)}`);
+      const res = await fetch(withQuery(api, `month=${encodeURIComponent(m)}`), { cache: 'no-store' });
+      if (res.status === 401) { if (onSignIn) onSignIn(); else setState('dead'); return; }
       if (res.status === 404) { setState('dead'); return; }
       if (!res.ok) { setState(s => (s === 'ready' ? s : 'error')); return; }
       setData(await res.json());
@@ -76,7 +79,7 @@ export default function Planner() {
     } catch {
       setState(s => (s === 'ready' ? s : 'error'));
     }
-  }, [token]);
+  }, [api, onSignIn]);
   useEffect(() => { load(month); }, [month, load]);
 
   useEffect(() => {
@@ -125,13 +128,13 @@ export default function Planner() {
   /* The one door for writes. A 404 means the link was revoked while they read, so the page becomes the dead end. */
   const send = useCallback(async (body) => {
     try {
-      const res = await fetch(`/api/planner?token=${encodeURIComponent(token)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       let json = null; try { json = await res.json(); } catch { json = null; }
       return { status: res.status, ok: res.ok, json };
     } catch {
       return { status: 0, ok: false };
     }
-  }, [token]);
+  }, [api]);
   const patchItem = useCallback((id, set) => setData(d => (d ? { ...d, posts: d.posts.map(p => (p.id === id ? { ...p, ...set } : p)) } : d)), []);
   /** Runs one decision on a post. Resolves 'ok', or the reason it did not land: 'stale' (not waiting any more), 'limit', 'invalid', 'failed'. */
   const decide = useCallback(async (item, action, extra = {}) => {

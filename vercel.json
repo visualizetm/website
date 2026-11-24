@@ -3,6 +3,50 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/c/:token",
+      "has": [
+        {
+          "type": "host",
+          "value": "visualizestudio.org"
+        }
+      ],
+      "destination": "https://app.visualizeclients.com/c/:token",
+      "permanent": false
+    },
+    {
+      "source": "/planner/:token",
+      "has": [
+        {
+          "type": "host",
+          "value": "visualizestudio.org"
+        }
+      ],
+      "destination": "https://app.visualizeclients.com/planner/:token",
+      "permanent": false
+    },
+    {
+      "source": "/c/:token",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.visualizestudio.org"
+        }
+      ],
+      "destination": "https://app.visualizeclients.com/c/:token",
+      "permanent": false
+    },
+    {
+      "source": "/planner/:token",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.visualizestudio.org"
+        }
+      ],
+      "destination": "https://app.visualizeclients.com/planner/:token",
+      "permanent": false
+    },
+    {
       "source": "/admin/:path*",
       "missing": [
         {
