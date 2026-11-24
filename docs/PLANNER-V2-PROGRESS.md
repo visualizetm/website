@@ -22,7 +22,7 @@ Part 2, Rob
 
 Part 3, alerts
 
-* [x] 3.1 Shared push toggle helper, the planner's `push_on`, `push_off` and `alerts` actions, tests (needs 1.1)
+* [x] 3.1 Shared push toggle helper, the planner's `push_on`, `push_off` and `alerts` actions, tests (needs 1.1) (094df6f)
 * [ ] 3.2 The three client pushes and Rob's two, with stubbed tests including the 9:00 New York run across a time change (needs 3.1 and 2.1)
 * [ ] 3.3 The Alerts sheet and bell, Rob's Setup line, the Next up loop (needs 3.1 and 1.2)
 * [ ] 3.4 Part 3 audits, guard proofs, docs (`docs/ARCHITECTURE.md` rows, the CLAUDE.md planner rule), `reports/PLANNER-V2-3-REPORT.md` (needs 3.2 and 3.3)
@@ -36,3 +36,4 @@ Part 3, alerts
 - 1.6 done at ea97ad5, 2026-11-24T03:48Z: lint, build, view, endpoint and security tests checked on the commit alone. Part 1 is complete. Next: 2.1, the route work.
 - 2.1 done at d9b520d, 2026-11-24T03:49Z: board, security, endpoint and pipeline tests checked on the commit alone. Next: 2.2 to 2.4, the board, the composer and the batch send.
 - 2.2 to 2.4 done at 7387276, 2026-11-24T05:18Z, one commit (they share AdminPlanner.jsx): lint, build, board, back, endpoint and security tests on the commit alone; the board in a browser, gesture, autosave, a11y, feel and chrome on the planner states. Next: 2.5, the part 2 gate and report.
+- 3.1 done at 094df6f, 2026-11-24T05:19Z: lint and the alerts, endpoint, portal, board, security and pipeline tests on the commit alone. 2.5 (the part 2 gate) is running. Next: 3.2, the pushes.
