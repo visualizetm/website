@@ -132,6 +132,10 @@ node scripts/qr-test.mjs                        # the QR encoder decoded by jsqr
 node scripts/analytics-test.mjs                 # the Analytics rules (src/lib/analytics.js and api/_lib/analytics.js byte for byte below ANALYTICS_RANGES) in both zones, and the route
 node scripts/deals-test.mjs                     # the deal: every transition, every next action rule, stalledSince, the mark paid conversion and its undo, invoiceStatus across month ends, the mirrors, the handlers
 node scripts/planner-endpoint-test.mjs; node scripts/showcase-endpoint-test.mjs; node scripts/concepts-endpoint-test.mjs   # the three public doors: exact whitelists, identical 404s, the limiters
+node scripts/planner-view-test.mjs              # Planner v2: the client planner's pure logic (src/lib/plannerView.js): week dots, the review queue, the feed order, the idea steps, Post it in 4 taps, the timeline
+node scripts/planner-board-test.mjs             # Planner v2: send-review, hashtagSets and seenAt against the real handlers, and the board's pure logic (src/lib/plannerBoard.js)
+AUDIT_BASE=http://127.0.0.1:4330 PW_CHROME=/opt/pw-browsers/chromium node scripts/planner-board-ui-test.mjs   # Planner v2: the month board in a browser at 390 and 1280 (the strip, the columns and chips, Send n with Undo, a drag, the menu, the calendar, Ideas seen, the editor both ways)
+node scripts/planner-alerts-test.mjs; node scripts/planner-alerts-guard-proof.mjs   # Planner v2: the client's devices and alerts, every planner push (9:00 New York across both clock changes), Rob's two, the Next up loop; then each of 6 guards put back as its fault, its check must fail
 SCENE_PATH=/concepts/cncpTESTtoken0123456789abcdEF SCENE_WIDTHS=320,390,430,768,1280 node scripts/scene-audit.mjs   # the concepts page: every section on screen is revealed whole, no piece animates alone, reduced motion shows all, the bar clears the last button (and SCENE_MOTION=reduce)
 ```
 
