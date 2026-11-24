@@ -18,7 +18,7 @@ Part 2, Rob
 * [x] 2.2 Activity strip and the three views at every width (needs 2.1) (7387276, with 2.3 and 2.4)
 * [x] 2.3 The composer panel and pushed screen, hashtag chips, change card, Preview as, back tree (needs 2.1) (7387276, with 2.2 and 2.4)
 * [x] 2.4 Batch send with Undo, toolbar and phone chrome (needs 2.1) (7387276, with 2.2 and 2.3)
-* [x] 2.5 Part 2 audits, docs, `reports/PLANNER-V2-2-REPORT.md` (needs 2.2 to 2.4)
+* [x] 2.5 Part 2 audits, docs, `reports/PLANNER-V2-2-REPORT.md` (needs 2.2 to 2.4) (bbcac65)
 
 Part 3, alerts
 
@@ -39,3 +39,4 @@ Part 3, alerts
 - 3.1 done at 094df6f, 2026-11-24T05:19Z: lint and the alerts, endpoint, portal, board, security and pipeline tests on the commit alone. 2.5 (the part 2 gate) is running. Next: 3.2, the pushes.
 - 3.2 done at 5598114, 2026-11-24T05:20Z: lint and the alerts (64), endpoint, board, portal, push-prefs, notify, dst, tasks and coverage-push tests on the commit alone. Next: 3.3, the Alerts sheet, Rob's Setup line and the Next up loop.
 - 3.3 done at 28f3190, 2026-11-24T05:28Z: lint, build, alerts (67), endpoint and security on the commit alone; the client planner a11y (both themes) and layout (five widths) on the working tree. Next: 2.5 (preship running) and 3.4, the final gate.
+- 2.5 done at bbcac65, 2026-11-24T05:52Z: preship at the part 2 commit, one layout fault (fixed here), all else passed. Part 2 is complete. Next: 3.4, the final gate.
