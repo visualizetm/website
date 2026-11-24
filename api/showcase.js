@@ -11,6 +11,7 @@
  * /api/concepts?token=x   -> api/_routes/concepts-public.js, by the rewrite (r=concepts)
  * /api/review?token=x     -> api/_routes/review-public.js, by the rewrite (r=review)
  * /api/portal?token=x     -> api/_routes/portal-public.js, by the rewrite (r=portal)
+ * /api/app/:action        -> api/_routes/app-public.js, the client app's code door, by the rewrite (r=app)
  *
  * brand.palette and brand.typography are never stored on showcase.brand;
  * they are read from the lead's own top-level brand block at serve time
@@ -21,6 +22,7 @@ import conceptsPublic from './_routes/concepts-public.js';
 import reviewPublic from './_routes/review-public.js';
 import portalPublic from './_routes/portal-public.js';
 import unsubscribePublic from './_routes/unsubscribe-public.js';
+import appPublic from './_routes/app-public.js';
 import { isPublicTestimonial, isFeaturedTestimonial, publicCard, newestFirst, averageRatingStat } from './_lib/reviewPublic.js';
 
 const strOrNull = (v) => (v ? String(v) : null);
@@ -215,6 +217,7 @@ export default async function handler(req, res) {
   if (req.query?.r === 'review') return reviewPublic(req, res);
   if (req.query?.r === 'portal') return portalPublic(req, res);
   if (req.query?.r === 'unsubscribe') return unsubscribePublic(req, res); // the email system's opt out door (api/_routes/unsubscribe-public.js)
+  if (req.query?.r === 'app') return appPublic(req, res); // the client app's code door (api/_routes/app-public.js)
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'method not allowed' });

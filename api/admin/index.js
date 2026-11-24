@@ -15,6 +15,7 @@ import { handler as backup } from '../_routes/backup.js';
 import { handler as calendlyEvents } from '../_routes/calendly-events.js';
 import { handler as caller, door as callerDoor } from '../_routes/caller.js';
 import { handler as callLeads } from '../_routes/call-leads.js';
+import { handler as clientApp } from '../_routes/client-app.js';
 import { handler as conceptPacks } from '../_routes/concept-packs.js';
 import { handler as conceptSets } from '../_routes/concept-sets.js';
 import { handler as docs } from '../_routes/docs.js';
@@ -43,6 +44,7 @@ const ROUTES = {
   /* Billy's Call Room: every caller endpoint is this one route behind the caller guard (role: 'caller', never the admin cookie); the door is its sign in and sign out, public and rate limited. The action is ?a= from the rewrite (/api/caller/<action>). */
   'caller': route(caller, { role: 'caller', methods: ['GET', 'POST'], maxBody: 64 * 1024 }),
   'caller-door': route(callerDoor, { role: 'public', methods: ['POST'], maxBody: 4 * 1024 }),
+  'client-app': route(clientApp, { methods: ['GET', 'POST'], maxBody: 4 * 1024 }),
   'call-leads': route(callLeads, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 1024 * 1024 }),
   'concept-packs': route(conceptPacks, { methods: ['GET', 'POST', 'PATCH'] }),
   'concept-sets': route(conceptSets, { methods: ['GET', 'POST', 'PATCH', 'DELETE'], maxBody: 512 * 1024 }),

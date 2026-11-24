@@ -45,7 +45,7 @@
       var chunk = admin && document.querySelector('meta[name="vz-admin-chunk"]');
       if (chunk && chunk.content) { var m = document.createElement('link'); m.rel = 'modulepreload'; m.href = chunk.content; document.head.appendChild(m); }
       // The front page's own chunk downloads beside the entry too, so the headline is one round trip sooner.
-      var home = !admin && location.pathname === '/' && document.querySelector('meta[name="vz-home-chunk"]');
+      var home = !admin && !app && location.pathname === '/' && document.querySelector('meta[name="vz-home-chunk"]');
       if (home && home.content) { var h = document.createElement('link'); h.rel = 'modulepreload'; h.href = home.content; document.head.appendChild(h); }
     })();
   </script>

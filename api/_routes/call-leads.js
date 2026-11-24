@@ -1,3 +1,4 @@
+import { withoutCode } from '../_lib/clientSession.js';
 import { ObjectId } from 'mongodb';
 import { draftEmail } from '../_lib/email/drafts.js';
 import { invoicesOf } from '../_lib/invoices.js';
@@ -513,10 +514,11 @@ export async function handler(req, res) {
       const cutoff = new Date(Date.now() - 30 * 864e5);
       await col.deleteMany({ deleted: true, deletedAt: { $lt: cutoff } });
       const items = await col.find({ deleted: true }).sort({ deletedAt: -1 }).limit(200).toArray();
-      return res.status(200).json({ items });
+      return res.status(200).json({ items: items.map(withoutCode) });
     }
+    /* The client app: a client's code leaves only as its status (set, when, the lock), never the hash or the salt. */
     const items = await col.find({ deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(500).toArray();
-    return res.status(200).json({ items });
+    return res.status(200).json({ items: items.map(withoutCode) });
   }
 
   if (req.method === 'POST') {
@@ -672,6 +674,7 @@ export async function handler(req, res) {
         siteChanges: Array.isArray(had.siteChanges) ? had.siteChanges : [], // written only by the public door
         activity: Array.isArray(had.activity) ? had.activity : [], // the ring of views and taps, written only by the public door
         pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '', pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], lastClientPushAt: had.lastClientPushAt || '', // the client's devices and what they were pushed: the public door and clientPush.js write these
+        ...(had.code && typeof had.code === 'object' ? { code: had.code } : {}), // the client's own code (client app job): written only by the code door and Reset code, never by a request
       };
       if (asked.template && PORTAL_TEMPLATES[asked.template]) allowed.portal.modules = { ...PORTAL_TEMPLATES[asked.template], ...(asked.modules || {}) };
     }
