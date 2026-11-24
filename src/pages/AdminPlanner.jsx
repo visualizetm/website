@@ -135,8 +135,8 @@ function plannerPatch(lead, draft) {
 /* One post as the draft holds it: only the fields this editor writes, so a
  * save never sends a stamp the server owns (approvedAt, postedAt) unless the
  * status change is what set it. */
-const POST_FIELDS = ['date', 'time', 'platform', 'platforms', 'format', 'imageUrl', 'caption', 'hashtags', 'status', 'note', 'order', 'kind', 'ad', 'video', 'concept', 'allowDownload'];
-const POST_DEFAULT = { order: 0, platforms: [], kind: 'post', ad: null, video: null, allowDownload: true };
+const POST_FIELDS = ['date', 'time', 'platform', 'platforms', 'format', 'imageUrl', 'slides', 'caption', 'hashtags', 'status', 'note', 'order', 'kind', 'ad', 'video', 'concept', 'allowDownload'];
+const POST_DEFAULT = { order: 0, platforms: [], slides: [], kind: 'post', ad: null, video: null, allowDownload: true }; // slides: a carousel's pictures (carousel job)
 const postDraftOf = (p) => Object.fromEntries(POST_FIELDS.map(k => [k, p?.[k] ?? (k in POST_DEFAULT ? POST_DEFAULT[k] : '')]));
 /* An idea's goal, in the ad's terms, when Rob makes an ad from it. */
 const IDEA_GOAL = { calls: 'calls', offer: 'offer', work: 'awareness', slow: 'visits', other: 'awareness' };
@@ -483,7 +483,7 @@ export default function AdminPlanner({
       const item = await onCreatePost({
         leadId: String(lead._id), month, date: shiftDate(p.date, 1), time: p.time,
         platforms: platformsOf(p), platform: platformsOf(p)[0], format: formatOf(p),
-        imageUrl: p.imageUrl, caption: p.caption, hashtags: p.hashtags || '',
+        imageUrl: p.imageUrl, ...(p.slides?.length ? { slides: p.slides } : {}), caption: p.caption, hashtags: p.hashtags || '', // a carousel copies with its slides
         status: 'making', note: p.note, order: p.order || 0,
       });
       if (item) made += 1;

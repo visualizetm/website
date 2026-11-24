@@ -1267,6 +1267,12 @@ for (const width of WIDTHS) {
     await openEditor('PO12', 'Waiting on the photo');
     await check('planner editor (post editor, approval blocked)');
     await closeEditor();
+    /* Carousel posts (carousel job): the slide strip of a seven slide carousel, scrolled into view, its 44px Move and Remove buttons. */
+    await openEditor('PO30', 'Before and after');
+    await page.locator('.ss').first().scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(300);
+    await check('planner editor (post editor, a carousel of seven)');
+    await closeEditor();
   }
   await page.locator('.pl-setup textarea').first().fill('An edit, so the save bar is up.').catch(() => {});
   await page.waitForTimeout(500);

@@ -4,6 +4,10 @@ import { PLATFORMS, POST_FORMATS, POST_KINDS, AD_GOALS, AD_PLACEMENTS, postStatu
 import { fmtDateTime } from '../shared/dates';
 import { postLabel, platformsOf, formatOf, kindOf, hashtagsOf, missingForReview, listPhrase, aspectNote } from '../lib/posts';
 import ImageField from './ImageField';
+import SlideStrip, { useSlideUploads, slideStripStyles } from './SlideStrip';
+import { slidesOf, carouselAllowed, SLIDES_MAX } from '../shared/slides';
+import { COPY } from '../shared/copy';
+import { cloudinaryEnabled, ACCEPT_ATTR } from '../lib/cloudinary';
 import VideoField from './VideoField';
 
 /* The post editor (planner prompt 2, part 3; planner dashboard, milestone
@@ -248,6 +252,13 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
    * while the post is being redone. */
   const noteIsNew = post.clientNote && post.status === 'making';
   const noun = kind === 'ad' ? 'ad' : 'post';
+  /* Carousels (carousel job): a portrait post with more than one picture shows the slide strip; the cover stays imageUrl. */
+  const pics = slidesOf(p);
+  const canCarousel = carouselAllowed(p);
+  const carousel = canCarousel && pics.length > 1;
+  const writeSlides = (next) => onWrite({ slides: next.slice(0, SLIDES_MAX), imageUrl: next[0]?.url || '' });
+  const slideFileRef = useRef(null);
+  const slideUpload = useSlideUploads({ slides: pics, onChange: writeSlides });
 
   const foot = readOnly ? null : (
     <Row gap={2} justify="between" align="center" wrap>
@@ -310,6 +321,12 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
             <span className="v-field-label">Video</span>
             <VideoField value={p.video} concept={p.concept || ''} readOnly={readOnly} onWrite={onWrite} />
           </div>
+        ) : carousel ? (
+          /* A carousel (carousel job): the slide strip in place of the single picture. */
+          <div className="v-field ps-slides">
+            <span className="v-field-label">Image</span>
+            <SlideStrip slides={pics} readOnly={readOnly} onChange={writeSlides} />
+          </div>
         ) : (
           <div className="v-field">
             <span className="v-field-label">{kind === 'ad' ? 'Creative' : 'Image'}</span>
@@ -318,6 +335,15 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
               onNatural={(w, h) => setNatural({ w, h })}
               onSave={(v) => onWrite({ imageUrl: v })} />
             {mismatch && <p className="ps-mismatch">{mismatch}</p>}
+            {/* A single picture post stays exactly as it was; Add slides (several files at once) is the way into a carousel. */}
+            {!readOnly && canCarousel && cloudinaryEnabled && pics.length === 1 && (
+              <Row gap={2} align="center" wrap className="ps-add-slides">
+                <Button variant="ghost" size="md" icon="LayersThree01" loading={!!slideUpload.busy} disabled={!!slideUpload.busy} onClick={() => slideFileRef.current?.click()}>{COPY.carousel.addSlides}</Button>
+                <span className="ps-hint">{slideUpload.busy ? COPY.carousel.uploading(slideUpload.busy.done, slideUpload.busy.of) : COPY.carousel.single}</span>
+                <input ref={slideFileRef} type="file" multiple accept={ACCEPT_ATTR} style={{ display: 'none' }} aria-hidden="true" tabIndex={-1}
+                  onChange={(e) => { slideUpload.upload(e.target.files).finally(() => { e.target.value = ''; }); }} />
+              </Row>
+            )}
           </div>
         )}
 
@@ -398,7 +424,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
   );
 }
 
-export const postSheetStyles = `
+export const postSheetStyles = slideStripStyles + `
   .ps-thumb { width: 200px; }
   .ps-hint { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .ps-mismatch { margin: var(--v-space-2) 0 0; font-size: var(--v-text-xs); color: var(--v-status-new-text); }

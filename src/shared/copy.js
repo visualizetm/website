@@ -455,6 +455,22 @@ export const COPY = {
       feedbackNone: 'Nothing yet. They have not answered.',
     },
   },
+  /* Carousel posts (carousel job). The editor's lines speak to Rob; the planner's (viewer, save, change) speak to the client as Rob. */
+  carousel: {
+    one: '1 slide', many: (n) => `${n} slides. Slide 1 is the cover.`, limit: (max) => `${max} of ${max}, Instagram's limit.`,
+    ratio: (n, label) => `Slide ${n} is ${label}. Instagram crops a carousel to the first slide's shape.`,
+    cover: 'Cover', number: (n) => `Slide ${n}`, strip: 'Slides, in order',
+    moveLeft: (n) => `Move slide ${n} left`, moveRight: (n) => `Move slide ${n} right`, remove: (n) => `Remove slide ${n}`, removed: (n) => `Slide ${n} removed.`,
+    addSlides: 'Add slides', upload: 'Upload', uploadMore: 'Upload slides', uploading: (d, o) => `Uploading ${d} of ${o}`, uploaded: (n) => (n === 1 ? 'Slide added.' : `${n} slides added.`),
+    uploadFailed: (n, why) => `Picture ${n} did not upload. ${why || ''}`.trim(), tooMany: (room) => (room ? `Only ${room} more fit. Instagram takes 20.` : 'The carousel is full. Instagram takes 20.'),
+    linkLabel: 'Add a slide by link', linkPlaceholder: 'Picture link', add: 'Add', badLink: 'That is not a picture link.',
+    single: 'Add slides to make this a carousel.',
+    /* the client's carousel */
+    counter: (i, n) => `${i} / ${n}`, slideAlt: (i, n) => `Slide ${i} of ${n}`, prev: 'Previous picture', next: 'Next picture', label: (n) => `Carousel, ${n} pictures`,
+    listLine: (n) => `Carousel, ${n} slides`, stack: (n) => `${n} pictures`,
+    saveN: (n) => `Save ${n} to photos`, savingN: (i, n) => `Saving ${i} of ${n}`, savedN: (n) => `Saved ${n} to photos`,
+    saveFailed: (i) => `Slide ${i} did not save.`, retry: (i) => `Try slide ${i} again`, changePrefix: (i) => `Slide ${i}: `,
+  },
   /* The client app (src/clientapp): this copy speaks to the client, in Rob's own voice ("I", never "we"). */
   clientApp: {
     /* Rob's read only preview on the admin host (this line speaks to Rob). */

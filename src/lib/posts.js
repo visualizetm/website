@@ -3,6 +3,7 @@
  * here fetches, exactly like lib/projects.js and lib/reviews.js.
  */
 import { POST_STATUS_IDS } from '../shared/semantics.js';
+import { slidesOf } from '../shared/slides.js';
 
 const H = 3600e3;
 /** Words that read as dangling when a caption is cut short. */
@@ -42,7 +43,7 @@ export function missingForReview(post) {
     if (isAd(post) && !String(post?.ad?.name || '').trim()) missing.push('an ad name');
     return missing;
   }
-  if (!post?.imageUrl) missing.push('an image');
+  if (!slidesOf(post).length) missing.push('an image'); // a carousel's cover or a single picture (carousel job)
   if (isAd(post)) { if (!String(post?.ad?.name || '').trim()) missing.push('an ad name'); return missing; }
   if (formatOf(post) === 'portrait') {
     if (!String(post?.caption || '').trim()) missing.push('a caption');

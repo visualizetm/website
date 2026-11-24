@@ -186,6 +186,20 @@ console.log('\n6. the client reads slides');
   ok(by(car.id)?.imageUrl === img(1), 'imageUrl is still the cover for anything that reads it');
 }
 
+console.log('\n7. the editor\'s pure half (src/lib/carousel.js)');
+{
+  const L = await import(pathToFileURL(path.join(repoRoot, 'src/lib/carousel.js')).href);
+  const u = seven.map(x => x.url);
+  ok(L.moveSlide(seven, 1, 0).map(x => x.url).join(' ') === [u[1], u[0], ...u.slice(2)].join(' ') && L.moveSlide(seven, 0, -1).length === 7 && L.moveSlide(seven, 6, 7).map(x => x.url).join(' ') === u.join(' '), 'moveSlide moves one slide and refuses a move off either end');
+  ok(L.removeSlide(seven, 2).map(x => x.url).join(' ') === [...u.slice(0, 2), ...u.slice(3)].join(' '), 'removeSlide takes out one slide, the rest in order');
+  const a19 = L.addSlides(seven.concat(seven).concat(seven.slice(0, 5)), ['x1', 'x2', 'x3']);
+  ok(a19.slides.length === 20 && a19.added === 1 && a19.skipped === 2 && a19.slides[19].url === 'x1', 'addSlides adds to the end until twenty and says how many did not fit');
+  ok(L.ratioLabel(1080, 1080) === '1:1' && L.ratioLabel(1080, 1350) === '4:5' && L.ratioLabel(1920, 1080) === '16:9' && L.ratioLabel(1000, 700) === '1.43:1', 'ratioLabel names the common shapes and writes any other as n:1');
+  ok(JSON.stringify(L.ratioWarning([{ w: 4, h: 5 }, { w: 8, h: 10 }, { w: 1, h: 1 }])) === '{"n":3,"label":"1:1"}' && L.ratioWarning([{ w: 4, h: 5 }, null, { w: 40, h: 50 }]) === null && L.ratioWarning([]) === null, 'ratioWarning names the first slide whose shape differs from slide 1, skipping unmeasured ones');
+  ok(L.counterLine(1) === '1 slide' && L.counterLine(7) === '7 slides. Slide 1 is the cover.' && L.counterLine(20) === "20 of 20, Instagram's limit.", 'the counter says 1 slide, n slides with the cover, and the limit at twenty');
+  ok(L.viewing(0, 300, 7) === 0 && L.viewing(610, 300, 7) === 2 && L.viewing(5000, 300, 7) === 6, 'viewing reads which slide a scroller rests on');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passes} passed, ${fails} failed.${failed.length ? ` Failed: ${[...new Set(failed)].join(', ')}` : ''}`);
 process.exit(fails ? 1 : 0);

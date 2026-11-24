@@ -7,6 +7,7 @@
  * moves a post between Making and Waiting, which is sending it for approval
  * or taking it back; every other move is an explicit menu choice, so a drag
  * never posts or approves anything for the client. */
+import { slidesOf } from '../shared/slides.js';
 
 const HOUR = 3600e3;
 const DAY = 24 * HOUR;
@@ -74,7 +75,7 @@ export function flagOf(p, { lastViewedAt = '', now = Date.now(), today = '' } = 
 }
 
 /** Ready for the batch send: a post (not an ad) being made, with a picture or a video file and a caption. The route asks the same. */
-export const sendable = (p) => (p?.status || 'making') === 'making' && kindOf(p) === 'post' && !!(String(p?.imageUrl || '').trim() || String(p?.video?.url || '').trim()) && !!String(p?.caption || '').trim();
+export const sendable = (p) => (p?.status || 'making') === 'making' && kindOf(p) === 'post' && !!(slidesOf(p).length || String(p?.video?.url || '').trim()) && !!String(p?.caption || '').trim();
 
 /** The activity strip for one month. */
 export function activityOf(monthPosts, { postsPerMonth = 8, ideas = [] } = {}) {

@@ -25,6 +25,7 @@ import { resolveVars, varRows } from '../api/_lib/email/vars.js';
 import { availabilityFor, lackingOf } from '../api/_lib/email/send.js';
 import { invoicesOf } from '../api/_lib/invoices.js';
 import { isWeakCode, codeShape } from '../src/shared/clientCode.js';
+import { slidesOf } from '../src/shared/slides.js';
 import { dealOf } from '../api/_lib/deal.js';
 /* Billy's Call Room: the mocked caller endpoints answer through the server's own whitelist, so the screens see the shapes production sends. */
 import { callerLead, callerList, callerBooked, callerMay } from '../api/_lib/callerView.js';
@@ -217,6 +218,9 @@ export const posts = [
     changeReason: 'words', reviewAt: new Date(Date.now() - 20 * 3600e3).toISOString(), versions: [{ imageUrl: '/showcase/fixtures/square.svg', caption: 'The new window vinyl goes up Friday', note: 'Can the caption say Tuesday instead of Friday? We are shut Friday.', at: new Date(Date.now() - 22 * 3600e3).toISOString() }] },
   /* Planner v2: Post today, an approved post dated today, so Home shows the block and the post page offers Post it in 4 taps. */
   { _id: 'PO25', leadId: 'L11', month: THIS_MONTH, date: daysFrom(0), time: '12:00', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/feed.svg', caption: 'Lunch rush special, today only', hashtags: '#lunch #today', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  /* Carousel posts (carousel job): seven slides in order (the cover is imageUrl, as the server keeps it), one of them square so the editor's ratio line shows; PO31 waits on the client so their planner shows a carousel in Review. */
+  { _id: 'PO30', leadId: 'L11', month: THIS_MONTH, date: daysFrom(5), time: '10:00', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/portrait.svg?s=1', slides: [1, 2, 3, 4, 5, 6, 7].map(n => ({ url: n === 3 ? '/showcase/fixtures/square.svg?s=3' : `/showcase/fixtures/portrait.svg?s=${n}`, alt: n === 1 ? 'The deck before the job' : '' })), caption: 'Before and after, the whole deck', hashtags: '#deck #handyman', status: 'making', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO31', leadId: 'L11', month: THIS_MONTH, date: daysFrom(8), time: '09:30', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/feed.svg?c=1', slides: [1, 2, 3, 4].map(n => ({ url: `/showcase/fixtures/feed.svg?c=${n}`, alt: '' })), caption: 'Four kitchens this month', hashtags: '#kitchens', status: 'review', note: 'Swipe through all four.', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO7', leadId: 'L11', month: THIS_MONTH, date: daysFrom(12), time: '19:00', platform: 'facebook', imageUrl: '', caption: 'Weekend hours', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 9 * 864e5).toISOString(), postedAt: new Date(Date.now() - 8 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO8', leadId: 'L11', month: THIS_MONTH, date: daysFrom(14), time: '', platform: 'other', imageUrl: '/showcase/fixtures/portrait.svg', caption: UNBROKEN, status: 'making', note: UNBROKEN.slice(0, 60), clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   /* The two cases the client page has to survive: a post put up for approval
@@ -276,14 +280,14 @@ export const plannerPublic = (p) => ({
   id: String(p._id), kind: p.kind === 'ad' ? 'ad' : 'post', date: p.date || '', time: p.time || '',
   platforms: (Array.isArray(p.platforms) && p.platforms.length) ? p.platforms : [p.platform || 'instagram'],
   format: p.format === 'story' ? 'story' : p.format === 'video' ? 'video' : 'portrait',
-  hashtags: p.hashtags || '', imageUrl: p.imageUrl || '', caption: p.caption || '', status: p.status || 'making',
+  hashtags: p.hashtags || '', imageUrl: p.imageUrl || '', slides: slidesOf(p).map(x => ({ url: x.url, alt: x.alt || '' })), caption: p.caption || '', status: p.status || 'making',
   note: p.note || '', clientNote: p.clientNote || '', allowDownload: p.allowDownload !== false,
   video: p.format === 'video' ? { url: p.video?.url || '', durationSec: Number(p.video?.durationSec) || 0, poster: p.video?.poster || '', concept: p.concept || '' } : null,
   ad: p.kind === 'ad' ? plannerAd(p.ad) : null,
   /* Planner v2: exactly the four new fields the real door adds. */
   postedAt: p.postedAt || '', postedBy: p.postedBy === 'client' || p.postedBy === 'rob' ? p.postedBy : '',
   changeReason: ['photo', 'words', 'date', 'other'].includes(p.changeReason) ? p.changeReason : '',
-  previous: Array.isArray(p.versions) && p.versions.length ? { imageUrl: p.versions.at(-1).imageUrl || '', caption: p.versions.at(-1).caption || '', note: p.versions.at(-1).note || '' } : null,
+  previous: Array.isArray(p.versions) && p.versions.length ? { imageUrl: p.versions.at(-1).imageUrl || '', slides: slidesOf(p.versions.at(-1)).map(x => ({ url: x.url, alt: x.alt || '' })), caption: p.versions.at(-1).caption || '', note: p.versions.at(-1).note || '' } : null,
 });
 const MADE = ['approved', 'posted', 'live', 'finished'];
 export const plannerPublicSuggestion = (s, allPosts = posts) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt || '',

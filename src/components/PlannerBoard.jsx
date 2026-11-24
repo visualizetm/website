@@ -6,6 +6,8 @@ import { BOARD_COLUMNS, columnOf, dragAllowed, menuMoves, flagOf, chipTone } fro
 import Lightbulb02 from '@untitled-ui/icons-react/build/esm/Lightbulb02';
 import Announcement01 from '@untitled-ui/icons-react/build/esm/Announcement01';
 import HoldRow from './HoldRow';
+import { slidesOf } from '../shared/slides';
+import { COPY } from '../shared/copy';
 
 /* Rob's month board for a client's planner (Planner v2, part 2), built from
  * the kit and the Deals board pattern: the activity strip, the four columns
@@ -34,7 +36,8 @@ export function ActivityStrip({ act, client, onPick, columns }) {
 function BoardCard({ post, client, ctx, onOpen, onMove, readOnly, phone, drag }) {
   const flag = flagOf(post, ctx);
   const st = postStatusOf(post.status);
-  const thumb = post.imageUrl || post.video?.poster || '';
+  const pics = slidesOf(post);
+  const thumb = pics[0]?.url || post.video?.poster || ''; // the cover (carousel job)
   const moves = readOnly ? [] : menuMoves(post, client).map(m => ({ id: `${m.column}-${m.status}`, label: m.label, icon: m.column === 'review' ? 'Send01' : m.column === 'making' ? 'Edit02' : 'Check', onSelect: () => onMove(post, m.status) }));
   const title = titleOf(post);
   const card = (
@@ -43,6 +46,7 @@ function BoardCard({ post, client, ctx, onOpen, onMove, readOnly, phone, drag })
       <Row gap={3} align="center" wrap={false} style={{ minWidth: 0 }}>
         <span className="img-fit img-fit--1x1 pb-thumb">
           {thumb ? <img src={thumb} alt="" width={96} height={96} loading="lazy" decoding="async" /> : <span className="pb-thumb-empty" aria-hidden="true"><Icon icon={formatOf(post) === 'video' ? 'Play' : 'Image01'} size="var(--v-icon-md)" /></span>}
+          {pics.length > 1 && <span className="pb-slides" role="img" aria-label={COPY.carousel.stack(pics.length)}><Icon icon="LayersThree01" size="var(--v-icon-sm)" /><span aria-hidden="true">{pics.length}</span></span>}
         </span>
         <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
           <span className="pb-title lay-truncate">{title}</span>
@@ -171,6 +175,9 @@ export const plannerBoardStyles = `
   .pb-card .v-stretch:focus-visible { outline: 0; }
   .pb-card .v-menu, .pb-card .v-menu-trigger { position: relative; z-index: 1; }
   .pb-thumb { width: 48px; flex: 0 0 48px; border-radius: var(--v-radius-sm); border: 1px solid var(--v-border); background: var(--v-surface-3); }
+  /* A carousel's cover carries a stack icon and its count (carousel job). */
+  .pb-slides { position: absolute; right: 2px; bottom: 2px; display: inline-flex; align-items: center; gap: 2px; padding: 1px 3px; border-radius: var(--v-radius-sm); background: var(--v-surface-1); color: var(--v-text); font-size: var(--v-text-xs); font-weight: var(--v-weight-semibold); line-height: 1.2; white-space: nowrap; }
+  .pb-slides svg { width: var(--v-icon-sm); height: var(--v-icon-sm); flex: none; }
   .pb-thumb-empty { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: var(--v-text-3); }
   .pb-title { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-bold); color: var(--v-text); }
   .pb-line { font-size: var(--v-text-xs); line-height: var(--v-lh-xs); color: var(--v-text-3); }
