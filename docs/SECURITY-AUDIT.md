@@ -526,3 +526,48 @@ What is deliberately not here: a rate limit on the caller's own writes (he is on
 - **What a client can receive.** The quote email, the copied text and the deposit invoice are built from a line's label, quantity and charged price alone. Cost, supplier link, line note, list price, what is off list and the private note are not inputs to them (quotes-test, email-test over the server's rendered HTML, quotes-ui-test).
 - **Saved items** ride on the admin settings read. They carry Rob's cost and supplier, so they must stay off any public response; `/api/showcase`, the portal and the caller view do not read the settings document `quotes`.
 - **The caller.** Billy's view never carries the deal, so `deal.quote` (which may carry a custom line's cost) does not reach the Call Room. When part 2 lets Billy draft a quote, the caller route must answer through a view that leaves `cost`, `supplierUrl`, the line `note` and `privateNote` out.
+
+## The client app (the client app job)
+
+A client's portal and planner moved behind their own four digit code on
+app.visualizeclients.com. Four digits are short, so these carry it:
+
+- The code is a scrypt hash and a salt on the lead (`portal.code`), never
+  the digits, and no response to a client carries any part of it: the
+  never-send list is `CODE_SECRET_KEYS` (hash, salt, version, fails,
+  lockedUntil, locked) in api/_lib/clientSession.js, and client-app-test and
+  security-test 4f scan every client response for them. The CRM's list read
+  and the backup carry its status only (codeStatus: set, setAt, locked,
+  lockedUntil, fails); a CRM portal save carries the stored code forward and
+  never takes one from a request.
+- Weak codes are refused on the server: four of one digit, straight runs
+  up or down, and the ten most picked codes (src/shared/clientCode.js and its
+  byte for byte mirror).
+- Lockout per lead: the fifth wrong code in a row locks fifteen minutes (a
+  try during it is refused unread and not counted), the tenth locks until Rob
+  resets it and pushes him once. A right code clears the count. The lock is
+  told only to the holder of the setup link or of the right code; by phone or
+  email a wrong code is the same 401 as any miss.
+- Per IP: twenty tries an hour on set and on sign in, through the shared
+  limiter, so codes cannot be sprayed across many phones.
+- The door never says which phones are clients: no match, two matches and a
+  wrong code are one `401 { error: 'did not match' }` after the same scrypt
+  (a dummy salt when there is no lead).
+- The session is `vz_client`, HttpOnly, Secure, SameSite=Lax, Path=/, host
+  only, 365 days, HMAC SHA-256 with SESSION_SECRET over
+  `client:leadId:version:expiry`, so it never verifies as the admin's or the
+  caller's cookie. The signature is checked with no database; the doors then
+  load the lead and refuse a cookie whose version is not the stored one.
+  Setting a code and Reset code both bump the version, which signs out every
+  device. A hard lock leaves devices already signed in alone, so a stranger
+  locking the code cannot lock the real client out.
+- A token only opens the code door. Every data read and write takes the lead
+  from the cookie; a token with no session is `401 { error: 'sign in' }` on
+  every door (security-test 4f walks thirteen). Every whitelist, cap, per
+  client limiter and 404 rule is unchanged.
+- Rob's previews are behind route() and the admin cookie, stamp nothing and
+  make no client cookie. No push and no email carries a token once the client
+  has a code; the setup link Rob sends is the one token in a URL.
+- scripts/client-app-guard-proof.mjs puts each of these back as its fault in
+  a copy of api/ (18 cuts) and client-app-test must fail.
+

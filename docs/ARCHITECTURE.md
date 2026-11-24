@@ -188,6 +188,56 @@ approve door on /api/portal with its task and push). The route hands
 resolve a fourth argument, ctx, with the client's posts, concept sets,
 today's key and the cached meeting; the home order is each module's order.
 
+## Client app (client app job)
+
+Every client has one app at `https://app.visualizeclients.com`: one
+manifest (public/app.webmanifest, standalone, start_url /), one Home Screen
+icon, one sign in. "Panel" is the portal and the planner behind it. The
+app host serves only src/clientapp/ (its own lazy chunk; `IS_APP_HOST` in
+src/lib/adminPaths.js, /app on localhost): `/` is the panel when signed in
+(the portal's cards, or the planner for a planner only client) else Sign
+in; `/c/:token` and `/planner/:token` are setup links that only open the
+code door; `/planner` is the signed in client's planner; `/settings` holds
+the pings line, the code line and Sign out. Old visualizestudio.org /c/ and
+/planner/ links redirect there (vercel.json, not permanent).
+
+The client sets their own four digit code from the setup link Rob sends.
+It is stored on the lead as `portal.code { hash, salt, setAt, version,
+fails, lockedUntil, locked }`, a scrypt hash the team.js way
+(api/_lib/clientSession.js); a weak code (one digit four times, a straight
+run either way, the common list) is refused on the server by
+src/shared/clientCode.js, mirrored byte for byte in api/_lib/clientCode.js.
+The code door is api/_routes/app-public.js on api/showcase.js by the
+/api/app/:action rewrite: GET me, GET token (set, signin or in, and the
+lock), POST set, signin and signout. Signing in by phone (last ten digits)
+or email (lowercased) looks only among leads with a link and a code, and no
+match, two matches and a wrong code are one 401 after the same scrypt.
+Five wrong in a row lock the code fifteen minutes, ten until Rob resets it
+(one push, category client); twenty tries an hour per IP on set and sign
+in. A right code earns `vz_client`, HttpOnly, Secure, SameSite=Lax, Path=/,
+host only, 365 days, signed with SESSION_SECRET over
+`client:leadId:version:expiry`.
+
+The data doors (/api/portal, /api/planner, every push and alert action)
+take the lead from that cookie through `sessionLead`, which checks the
+signature with no database and then the stored version; with no session
+they answer 401 `{ error: 'sign in' }`, and a token on its own reads
+nothing. A signed in session counts as unlocked for the sensitive cards
+(portal.pin stays on the record, unasked). Reset code (the portal sheet's
+Their code, POST /api/admin/client-app) clears the code, unlocks it and
+bumps the version, which signs out every device. Rob's read only previews
+are /preview/portal/:id and /preview/planner/:id on the admin host
+(src/clientapp/Preview.jsx), drawing GET /api/admin/client-app?view=&id=,
+which calls the doors' own reads (portalRead, plannerRead) with preview on,
+so nothing is stamped and no client cookie is made. Every client URL is
+built from CLIENT_APP_BASE and PUBLIC_SITE in portalModules (and its
+mirror): the setup link carries the token; pushes, emails once a code is
+set, and every way back carry none. The tests are scripts/client-app-test.mjs
+(the door, the doors, the links and the previews against the real
+handlers), client-app-guard-proof.mjs (18 cuts) and client-app-ui-test.mjs
+(the screens in a browser); scripts/client-signin.mjs signs a test client in
+through the real door.
+
 ## Client docs (docs job)
 
 Rob keeps a client's briefs, call notes, contracts, delivery notes and brand notes as docs. Admin only: there is no public link and no public endpoint reads the collection.
