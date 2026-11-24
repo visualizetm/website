@@ -356,6 +356,8 @@ export default function AdminPlanner({
   /* A phone (milestone 4): the month and its posts stay on the overview (that is the job); Setup and the client link are rows that open
      their own screen with a Done. The draft lives here, so it carries across; Save is on the overview. */
   const phone = useMediaQuery('(max-width: 767px)');
+  /* The four columns need a computer's room, as the Deals board does: under 1024 the board is the chip row and one column. */
+  const wideBoard = useMediaQuery('(min-width: 1024px)');
   const { selId: step, open: openStep, close: closeStep } = useSelection('planner-step');
   const inStep = phone && !!step;
   /* The editor (Planner v2, part 2): a side panel on a computer; on a phone a pushed screen of its own, /clients/:id/planner/:postId
@@ -705,7 +707,7 @@ export default function AdminPlanner({
                   action={readOnly ? undefined : { label: COPY.empty['planner.month'].action, onClick: addPost }} /></Card>
               )}
               {!inStep && view === 'board' && monthPosts.length > 0 && (
-                <Board posts={monthItems} client={name} ctx={ctx} readOnly={readOnly} phone={phone} pick={boardPick} onPick={setBoardPick}
+                <Board posts={monthItems} client={name} ctx={ctx} readOnly={readOnly} phone={!wideBoard} pick={boardPick} onPick={setBoardPick}
                   onOpen={(p) => openPost(p)} onMove={movePostTo} />
               )}
               {!inStep && view === 'calendar' && monthPosts.length > 0 && <MonthCalendar posts={monthItems} month={month} phone={phone} onOpen={(p) => openPost(p)} />}

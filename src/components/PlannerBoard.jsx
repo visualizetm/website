@@ -151,7 +151,7 @@ export function MonthCalendar({ posts, month, onOpen, phone }) {
 
 export const plannerBoardStyles = `
   .pb-strip .v-stat { height: 100%; }
-  .pb-board { display: grid; grid-template-columns: repeat(4, minmax(200px, 1fr)); gap: var(--v-space-2); align-items: start; overflow-x: auto; padding: 2px; margin: -2px; scrollbar-width: thin; }
+  .pb-board { display: grid; grid-template-columns: repeat(4, minmax(200px, 1fr)); gap: var(--v-space-2); align-items: start; overflow-x: auto; padding: 2px; margin: -2px; scrollbar-width: thin; min-width: 0; max-width: calc(100% + 4px); }
   .pb-col { display: flex; flex-direction: column; gap: var(--v-space-2); min-width: 0; min-height: 120px; padding: var(--v-space-1); border-radius: var(--v-radius-md); border: 1px dashed transparent; transition: background var(--v-dur-fast) var(--v-ease-out), border-color var(--v-dur-fast) var(--v-ease-out); }
   .pb-col.can-drop { border-color: var(--v-border-strong); }
   .pb-col.is-over { background: var(--v-red-soft); border-color: var(--v-red); }
