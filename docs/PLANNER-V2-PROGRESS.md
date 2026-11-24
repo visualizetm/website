@@ -24,7 +24,7 @@ Part 3, alerts
 
 * [x] 3.1 Shared push toggle helper, the planner's `push_on`, `push_off` and `alerts` actions, tests (needs 1.1) (094df6f)
 * [x] 3.2 The three client pushes and Rob's two, with stubbed tests including the 9:00 New York run across a time change (needs 3.1 and 2.1) (5598114)
-* [x] 3.3 The Alerts sheet and bell, Rob's Setup line, the Next up loop (needs 3.1 and 1.2)
+* [x] 3.3 The Alerts sheet and bell, Rob's Setup line, the Next up loop (needs 3.1 and 1.2) (28f3190)
 * [ ] 3.4 Part 3 audits, guard proofs, docs (`docs/ARCHITECTURE.md` rows, the CLAUDE.md planner rule), `reports/PLANNER-V2-3-REPORT.md` (needs 3.2 and 3.3)
 
 ## Log
@@ -38,3 +38,4 @@ Part 3, alerts
 - 2.2 to 2.4 done at 7387276, 2026-11-24T05:18Z, one commit (they share AdminPlanner.jsx): lint, build, board, back, endpoint and security tests on the commit alone; the board in a browser, gesture, autosave, a11y, feel and chrome on the planner states. Next: 2.5, the part 2 gate and report.
 - 3.1 done at 094df6f, 2026-11-24T05:19Z: lint and the alerts, endpoint, portal, board, security and pipeline tests on the commit alone. 2.5 (the part 2 gate) is running. Next: 3.2, the pushes.
 - 3.2 done at 5598114, 2026-11-24T05:20Z: lint and the alerts (64), endpoint, board, portal, push-prefs, notify, dst, tasks and coverage-push tests on the commit alone. Next: 3.3, the Alerts sheet, Rob's Setup line and the Next up loop.
+- 3.3 done at 28f3190, 2026-11-24T05:28Z: lint, build, alerts (67), endpoint and security on the commit alone; the client planner a11y (both themes) and layout (five widths) on the working tree. Next: 2.5 (preship running) and 3.4, the final gate.
