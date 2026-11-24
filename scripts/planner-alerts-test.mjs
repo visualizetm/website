@@ -127,6 +127,141 @@ seed();
   ok(pl.alerts.review === false && pl.pushDevices === 2 && pl.pushAt === '2026-11-01T10:00:00Z' && pl.pushSeen.join() === 'rev:a' && pl.todayPushedOn === '2026-11-20' && pl.approvedMonths.join() === '2026-11', `alerts, the device count, the pushes seen and the stamps are carried, never taken from the save (got ${JSON.stringify(pl)})`);
 }
 
+/* ── 3.2: the pushes ── */
+const push = await load('_lib/plannerPush.js');
+const { _sent } = await load('_lib/notify.js');
+const posts = (await load('_routes/posts.js')).handler;
+const suggestions = (await load('_routes/suggestions.js')).handler;
+const clear = () => { _sent.rob.length = 0; _sent.client.length = 0; };
+const PID = (n) => `607f1f77bcf86cd7994391${String(n).padStart(2, '0')}`;
+const CAPTION = 'Secret caption words that must never ride in a push';
+const mk = (n, over = {}) => ({ _id: PID(n), leadId: LEAD, month: '2026-12', date: `2026-12-${String(n).padStart(2, '0')}`, kind: 'post', status: 'making', imageUrl: 'https://img.example/a.jpg', caption: CAPTION, ...over });
+function seedPush() {
+  seed();
+  _stores.push_subscriptions = [{ _id: 'dev1', role: 'client', leadId: LEAD, subscription: { endpoint: sub(1).endpoint, keys: sub(1).keys } }];
+  lead().planner.pushDevices = 1;
+}
+const noCaption = () => !JSON.stringify([_sent.client, _sent.rob]).includes('Secret caption');
+const DAY_NY = Date.parse('2026-12-16T17:00:00Z'); // noon in New York, outside quiet hours
+push.clock.now = () => DAY_NY; // the route hooks read this clock
+
+seedPush();
+{
+  _stores.posts = [mk(1), mk(2), mk(3, { caption: '' })];
+  clear();
+  const r = await call(posts, 'POST', { body: { action: 'send-review', leadId: LEAD, ids: [PID(1), PID(2), PID(3)] } });
+  ok(r._json.ids.length === 2 && _sent.client.length === 1, `a batch send of two is one push (got ${_sent.client.length})`);
+  const m = _sent.client[0] || {};
+  ok(m.title === 'Rob sent you 2 posts to review' && m.leadId === LEAD, `it says how many (got ${JSON.stringify(m.title)})`);
+  ok(m.url === `https://visualizestudio.org/planner/${TOKEN}?review=1`, `it opens the planner on Review mode (got ${m.url})`);
+  ok(noCaption(), 'the push never carries a caption');
+  ok((lead().planner.pushSeen || []).join() === `rev:${PID(1)},rev:${PID(2)}`, 'a key per post lands in planner.pushSeen');
+  /* A resend of the same post never pushes twice. */
+  clear();
+  await call(posts, 'PATCH', { body: { id: PID(1), set: { status: 'making' } } });
+  await call(posts, 'PATCH', { body: { id: PID(1), set: { status: 'review' } } });
+  ok(_sent.client.length === 0, 'a post sent back and sent again does not push again');
+  /* A single send pushes one. */
+  _stores.posts.push(mk(4));
+  await call(posts, 'PATCH', { body: { id: PID(4), set: { status: 'review' } } });
+  ok(_sent.client.length === 1 && _sent.client[0].title === 'Rob sent you 1 post to review', `a single send is one push, said in the singular (got ${JSON.stringify(_sent.client.map(x => x.title))})`);
+  /* The switch, the devices, quiet hours. */
+  clear(); _stores.posts.push(mk(5)); lead().planner.alerts = { review: false };
+  await call(posts, 'PATCH', { body: { id: PID(5), set: { status: 'review' } } });
+  ok(_sent.client.length === 0 && !(lead().planner.pushSeen || []).includes(`rev:${PID(5)}`), 'with New posts to review off: no push, nothing stamped');
+  lead().planner.alerts = {}; _stores.push_subscriptions = [];
+  const none = await push.reviewPushTick(await (await load('_lib/mongo.js')).getDb(), LEAD, { now: DAY_NY });
+  ok(none.sent === false && none.reason === 'no devices', `no device: nothing sent (got ${JSON.stringify(none)})`);
+  _stores.push_subscriptions = [{ _id: 'dev1', role: 'client', leadId: LEAD, subscription: { endpoint: sub(1).endpoint, keys: sub(1).keys } }];
+  const db = await (await load('_lib/mongo.js')).getDb();
+  const night = await push.reviewPushTick(db, LEAD, { now: Date.parse('2026-12-17T03:30:00Z') }); // 10:30 PM New York
+  ok(night.sent === false && night.reason === 'quiet' && !(lead().planner.pushSeen || []).includes(`rev:${PID(5)}`), 'at 10:30 PM New York it is quiet: not sent and not stamped');
+  clear();
+  const day = await push.reviewPushTick(db, LEAD, { now: DAY_NY });
+  ok(day.sent === true && _sent.client[0]?.title === 'Rob sent you 1 post to review', 'the next send in the day carries what quiet hours held');
+  const off = await push.reviewPushTick(db, '507f1f77bcf86cd799439099', { now: DAY_NY });
+  ok(off.sent === false, 'a lead with no planner gets nothing');
+}
+
+/* Post today: 9:00 AM New York, once a day, through api/_lib/zone.js, across both clock changes. */
+seedPush();
+{
+  const db = await (await load('_lib/mongo.js')).getDb();
+  const at = (iso, dates) => { _stores.posts = dates.map((d, i) => mk(10 + i, { status: 'approved', date: d })); lead().planner.todayPushedOn = ''; clear(); return push.todayPushSweep(db, Date.parse(iso)); };
+  /* Winter: 9:00 AM EST is 14:00Z. The day after the November change. */
+  let r = await at('2026-11-02T13:59:00Z', ['2026-11-02']);
+  ok(r.sent === 0 && _sent.client.length === 0 && lead().planner.todayPushedOn === '', '8:59 AM New York in November (13:59Z): nothing yet, nothing stamped');
+  r = await push.todayPushSweep(db, Date.parse('2026-11-02T14:00:00Z'));
+  ok(r.sent === 1 && _sent.client[0]?.title === 'Your post goes up today' && _sent.client[0]?.url.endsWith(`?post=${PID(10)}`), `9:00 AM New York in November is 14:00Z: one push, opening that post (got ${JSON.stringify(_sent.client[0])})`);
+  ok(lead().planner.todayPushedOn === '2026-11-02', 'the New York day is stamped');
+  r = await push.todayPushSweep(db, Date.parse('2026-11-02T15:00:00Z'));
+  ok(r.sent === 0 && _sent.client.length === 1, 'the minute cron later the same day sends nothing more');
+  ok(noCaption(), 'Post today never carries a caption');
+  /* Summer: 9:00 AM EDT is 13:00Z. The day after the March change. */
+  r = await at('2027-03-15T12:59:00Z', ['2027-03-15']);
+  ok(r.sent === 0, '8:59 AM New York after the March change (12:59Z): nothing');
+  r = await push.todayPushSweep(db, Date.parse('2027-03-15T13:00:00Z'));
+  ok(r.sent === 1, '9:00 AM New York after the March change is 13:00Z: the push');
+  /* Two posts today: one push. */
+  r = await at('2026-12-16T14:05:00Z', ['2026-12-16', '2026-12-16']);
+  ok(r.sent === 1 && _sent.client.length === 1 && _sent.client[0].title === '2 posts go up today' && !_sent.client[0].url.includes('?post='), `two posts today: one push, "2 posts go up today", opening the planner (got ${JSON.stringify(_sent.client.map(x => x.title))})`);
+  /* An evening post in New York that is already tomorrow in UTC is not today. */
+  r = await at('2026-12-16T14:05:00Z', ['2026-12-17']);
+  ok(r.sent === 0 && lead().planner.todayPushedOn === '2026-12-16', 'a post dated tomorrow is not Post today; the day is still stamped');
+  /* Posted, in review, an ad: never Post today. */
+  _stores.posts = [mk(20, { status: 'posted', date: '2026-12-16' }), mk(21, { status: 'review', date: '2026-12-16' }), mk(22, { status: 'approved', kind: 'ad', date: '2026-12-16' })];
+  lead().planner.todayPushedOn = ''; clear();
+  r = await push.todayPushSweep(db, Date.parse('2026-12-16T14:05:00Z'));
+  ok(r.sent === 0 && _sent.client.length === 0, 'a posted post, one in review and an ad are never Post today');
+  /* The switch off, and a cron that missed the morning. */
+  r = await at('2026-12-16T14:05:00Z', ['2026-12-16']); clear(); lead().planner.todayPushedOn = ''; lead().planner.alerts = { today: false };
+  r = await push.todayPushSweep(db, Date.parse('2026-12-16T14:10:00Z'));
+  ok(r.sent === 0 && _sent.client.length === 0 && lead().planner.todayPushedOn === '2026-12-16', 'with Post today off: no push, and the day is stamped');
+  lead().planner.alerts = {}; lead().planner.todayPushedOn = ''; clear();
+  r = await push.todayPushSweep(db, Date.parse('2026-12-16T18:00:00Z')); // 1 PM New York
+  ok(r.sent === 0 && _sent.client.length === 0 && lead().planner.todayPushedOn === '2026-12-16', 'past noon New York the day is stamped and nothing is sent');
+  ok(/todayPushSweep\(db, nowMs\)/.test(fs.readFileSync(path.join(repoRoot, 'api', '_routes', 'cron-reminders.js'), 'utf8')), 'the reminders cron runs the sweep on its own clock');
+}
+
+/* Rob answered my idea. */
+seedPush();
+{
+  _stores.suggestions = [{ _id: '707f1f77bcf86cd799439051', leadId: LEAD, kind: 'post', subject: 'The Friday special, with the window', status: 'new', note: '', seenAt: '' }];
+  clear();
+  await call(suggestions, 'PATCH', { body: { id: '707f1f77bcf86cd799439051', set: { status: 'planned', postId: PID(1) } } });
+  ok(_sent.client.length === 1 && _sent.client[0].title === 'Rob answered your idea: The Friday special, with the window' && _sent.client[0].url.endsWith('?tab=ideas'), `planned: one push naming their idea, opening Ideas (got ${JSON.stringify(_sent.client[0])})`);
+  await call(suggestions, 'PATCH', { body: { id: '707f1f77bcf86cd799439051', set: { status: 'declined', note: 'Not this month' } } });
+  ok(_sent.client.length === 1, 'an idea answered twice pushes once');
+  ok(!JSON.stringify(_sent.client).includes('Not this month'), "Rob's note is not in the push");
+  _stores.suggestions.push({ _id: '707f1f77bcf86cd799439052', leadId: LEAD, subject: 'Another', status: 'new' });
+  lead().planner.alerts = { ideas: false };
+  await call(suggestions, 'PATCH', { body: { id: '707f1f77bcf86cd799439052', set: { status: 'declined' } } });
+  ok(_sent.client.length === 1, 'with Rob answered my idea off: no push');
+  lead().planner.alerts = {};
+  _stores.suggestions.push({ _id: '707f1f77bcf86cd799439053', leadId: LEAD, subject: 'Seen only', status: 'new' });
+  await call(suggestions, 'PATCH', { body: { id: '707f1f77bcf86cd799439053', set: { seenAt: true } } });
+  ok(_sent.client.length === 1, 'seeing an idea is not answering it');
+}
+
+/* Rob's: the whole month approved, once. And the posted push carries its category. */
+seedPush();
+{
+  _stores.posts = [mk(1, { status: 'approved' }), mk(2, { status: 'posted' }), mk(3, { status: 'review' }), mk(4, { status: 'review', month: '2027-01' })];
+  clear();
+  const a1 = await P({ postId: PID(3), action: 'approve' });
+  ok(a1._status === 200 && _sent.rob.length === 1 && _sent.rob[0].title === 'Kims Cafe approved the whole month' && _sent.rob[0].category === 'client', `the last approval of December: Rob's push, category client (got ${JSON.stringify(_sent.rob)})`);
+  ok((lead().planner.approvedMonths || []).join() === '2026-12', 'the month is kept on the planner record');
+  _stores.posts.find(p => p._id === PID(3)).status = 'review';
+  await P({ postId: PID(3), action: 'approve' });
+  ok(_sent.rob.length === 1, 'the same month never says it twice');
+  _stores.posts.push(mk(5, { status: 'review', month: '2027-01' }));
+  await P({ postId: PID(4), action: 'approve' });
+  ok(_sent.rob.length === 1, 'a month with one still waiting says nothing');
+  const posted = await P({ postId: PID(1), action: 'posted' });
+  ok(posted._status === 200 && _sent.rob.at(-1).category === 'client' && /posted the Dec 1 post$/.test(_sent.rob.at(-1).title), 'the posted push carries the client category (his switch decides)');
+  ok(noCaption(), "none of Rob's pushes carries a caption");
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(fails ? `\n${fails} failing, ${passes} passing.` : `\nAll ${passes} planner alerts checks pass.`);
 process.exit(fails ? 1 : 0);

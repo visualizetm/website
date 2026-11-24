@@ -8,6 +8,7 @@ import { sendPush } from './_lib/notify.js';
 import { SUGGESTION_KIND_IDS, SUGGESTION_GOAL_IDS } from './_semantics.js';
 import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
 import { toggleClientPush } from './_lib/clientDevices.js';
+import { monthApprovedPush } from './_lib/plannerPush.js';
 import { addTask } from './_lib/taskRules.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
@@ -287,6 +288,8 @@ async function handler(req, res) {
       if (post.status !== 'review') return res.status(409).json({ error: 'That post is not waiting for approval any more.' });
       const at = new Date().toISOString();
       await db.collection('posts').updateOne({ _id }, { $set: { status: 'approved', approvedAt: at, decidedAt: at, updatedAt: new Date() } });
+      /* The whole month approved (Planner v2, part 3): Rob's one push, once per month, best effort. */
+      try { await monthApprovedPush(db, lead, post.month); } catch { /* the approval is saved */ }
       return res.status(200).json({ ok: true, status: 'approved' });
     }
 

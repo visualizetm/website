@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
+import { reviewPushTick } from '../_lib/plannerPush.js';
 import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS, POST_KIND_IDS, AD_GOAL_IDS, AD_PLACEMENT_IDS, AD_ONLY_STATUS_IDS } from '../_semantics.js';
 
 /* Posts (Content Planner, prompt 1): one document per scheduled social post.
@@ -172,6 +173,8 @@ export async function handler(req, res) {
       if (moved.length) {
         const at = new Date();
         await col.updateMany({ _id: { $in: moved }, leadId, status: 'making' }, { $set: { status: 'review', reviewAt: at.toISOString(), updatedAt: at } });
+        /* One push to the client for the whole send (Planner v2, part 3), best effort. */
+        try { await reviewPushTick(db, leadId); } catch { /* the posts are sent; the push is a convenience */ }
       }
       return res.status(200).json({ ok: true, ids: moved.map(String) });
     }
@@ -188,6 +191,7 @@ export async function handler(req, res) {
     };
     if (item.status === 'review' && !item.reviewAt) item.reviewAt = now.toISOString();
     const r = await col.insertOne(item);
+    if (item.status === 'review') { try { await reviewPushTick(db, item.leadId); } catch { /* best effort */ } }
     return res.status(200).json({ ok: true, item: { ...item, _id: r.insertedId } });
   }
 
@@ -201,7 +205,7 @@ export async function handler(req, res) {
     delete allowed.leadId; // a post never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
     const needsCur = AD_ONLY_STATUS_IDS.includes(allowed.status) || allowed.status === 'review' || 'imageUrl' in allowed || 'caption' in allowed;
-    const cur = needsCur ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { kind: 1, status: 1, imageUrl: 1, caption: 1, clientNote: 1, clientNoteAt: 1, versions: 1 } }) : null;
+    const cur = needsCur ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { leadId: 1, kind: 1, status: 1, imageUrl: 1, caption: 1, clientNote: 1, clientNoteAt: 1, versions: 1 } }) : null;
     if (AD_ONLY_STATUS_IDS.includes(allowed.status)) {
       if ((allowed.kind || cur?.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
     }
@@ -221,7 +225,10 @@ export async function handler(req, res) {
       }
     }
     allowed.updatedAt = new Date();
+    const movedToReview = allowed.status === 'review' && !!cur && cur.status !== 'review'; // read before the write: the stored status is about to change
     await col.updateOne({ _id, deleted: { $ne: true } }, update);
+    /* A single send for approval pushes the client too (Planner v2, part 3), best effort. */
+    if (movedToReview) { try { await reviewPushTick(db, cur.leadId); } catch { /* best effort */ } }
     return res.status(200).json({ ok: true });
   }
 

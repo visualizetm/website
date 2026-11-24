@@ -39,3 +39,8 @@ One line each: the milestone, the choice, why.
 - 2.3: the board's moves are drafted like any edit and autosave writes them; Mark posted from Rob writes postedBy rob.
 - 2.4: on a phone the top bar carries one declared action (the chrome rule): Send n for approval when something is ready, else New post; New post, Copy across, Add ad and Add reel are in the month's menu.
 - 2.4: the Ideas rows of the audit screens use the page as their region at every width: Ideas is a view of the planner page now, not a card beside the month.
+- 3.2: client quiet hours are 9 PM to 8 AM New York: the client has no setting of their own. A push that falls there is not sent and not queued (Rob's own quiet rule); its keys stay unseen, so the next send carries them. No sweep sends review pushes later: on the first deploy a sweep would ping every client about everything already waiting.
+- 3.2: Post today never names the post: "Your post goes up today" (or "2 posts go up today"), because a post's title is its caption's first line and a push never carries a caption. It runs from 9:00 to noon New York and stamps the day either way, so a cron that missed the morning never sends at teatime.
+- 3.2: "Rob answered your idea: <subject>" carries the client's own subject (their words, not a caption), never Rob's note.
+- 3.2: the whole month approved means every live item of the month is past review (approved, posted, live or finished), stamped in planner.approvedMonths (24 kept) before Rob's push goes.
+- 3.2: the route hooks read a swappable clock in plannerPush.js so a test can pin the hour; quiet hours depend on it.

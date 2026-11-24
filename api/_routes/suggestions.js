@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { SUGGESTION_STATUS_IDS } from '../_semantics.js';
+import { ideaAnsweredPush } from '../_lib/plannerPush.js';
 
 /* Suggestions (the planner dashboard, Ideas): what a client asked for from
  * their planner page. The client writes one through api/planner.js (the
@@ -45,8 +46,13 @@ export async function handler(req, res) {
     const allowed = {};
     for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
+    const cur = 'status' in allowed ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { leadId: 1, subject: 1, status: 1 } }) : null;
+    const answered = !!cur && cur.status !== allowed.status && ['planned', 'declined'].includes(allowed.status); // read before the write
+    const before = cur ? { _id: cur._id, leadId: cur.leadId, subject: cur.subject } : null;
     allowed.updatedAt = new Date();
     await col.updateOne({ _id, deleted: { $ne: true } }, { $set: allowed });
+    /* Rob answered their idea (Planner v2, part 3): one push when it moves to planned or declined, best effort. */
+    if (answered) { try { await ideaAnsweredPush(db, { ...before, status: allowed.status }); } catch { /* best effort */ } }
     return res.status(200).json({ ok: true });
   }
 

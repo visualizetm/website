@@ -1,5 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { clientPushSweep } from '../_lib/clientPush.js';
+import { todayPushSweep } from '../_lib/plannerPush.js';
 import { getDb } from '../_lib/mongo.js';
 import { sendPush } from '../_lib/notify.js';
 import { zoneDayKey, zoneParts, zoneMeetingMs, ZONE } from '../_lib/zone.js';
@@ -334,6 +335,9 @@ export async function runReminders(db, nowMs = Date.now()) {
      per client, inside the sweep, so this is cheap to call every minute. */
   let clientPushes = { checked: 0, sent: 0 };
   try { clientPushes = await clientPushSweep(db, nowMs); } catch { /* next run */ }
+  /* Planner v2: Post today, once a day at 9:00 AM New York for each client with an approved post dated today (api/_lib/plannerPush.js). */
+  let plannerToday = null;
+  try { plannerToday = await todayPushSweep(db, nowMs); } catch { /* next run */ }
 
   /* Health: lastRunAt plus the last twelve run times, now a minute apart. */
   const healthSet = { 'crons.reminders.lastRunAt': nowIso, 'crons.reminders.checked': allDue.length + staleKeys.length, 'crons.reminders.sent': sentCount + digestSent, 'crons.reminders.tasks': taskDue.length, 'crons.reminders.skippedStale': staleKeys.length + taskStale.length, 'crons.reminders.failed': failedNow.length + digestFailed, 'crons.reminders.retrying': retrying, 'crons.reminders.emails': emails, 'crons.reminders.rules': rules };
@@ -342,7 +346,7 @@ export async function runReminders(db, nowMs = Date.now()) {
   if (lastError) healthSet['crons.reminders.lastPushError'] = lastError;
   await settings.updateOne({ _id: 'health' }, { $set: healthSet, $push: { 'crons.reminders.runs': { $each: [nowIso], $slice: -12 } }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
 
-  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, failed: failedNow.length + digestFailed, retrying, clientPushes: clientPushes.sent, emails, rules, sweeps };
+  return { ok: true, checked: allDue.length, sent: sentCount, digest: digestSent, tasks: taskDue.length, failed: failedNow.length + digestFailed, retrying, clientPushes: clientPushes.sent, plannerToday: plannerToday ? plannerToday.sent : 0, emails, rules, sweeps };
 }
 
 export async function handler(req, res) {
