@@ -19,7 +19,7 @@ const SHOTS = process.env.AUDIT_SHOTS || ''; // directory: save a screenshot per
 const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): the admin theme under test
 const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
-import { LONG, mockRoutes, appSignIn, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN, PORTAL_TOKEN } from './audit-fixtures.mjs';
+import { LONG, mockRoutes, appSignIn, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN, APP_CAROUSEL_TOKEN, PORTAL_TOKEN } from './audit-fixtures.mjs';
 import { phoneSection, SCREENS } from './audit-screens.mjs';
 
 
@@ -637,6 +637,10 @@ for (const width of WIDTHS) {
     await appSignIn(page, APP_CLEAR_TOKEN);
     await goto(`${PT}?review=1`);
     await check('marketing: Planner (Review mode, done)');
+    await appSignIn(page, APP_CAROUSEL_TOKEN);
+    await goto(`${PT}?review=1`);
+    await page.locator('.pl-car').first().waitFor({ timeout: 5000 }).catch(() => {});
+    await check('marketing: Planner (Review mode, a carousel)');
     await appSignIn(page, APP_PLANNER_TOKEN);
     await goto(`${PT}?tab=plan`);
     for (const v of ['Calendar', 'Feed', 'List']) {
@@ -647,7 +651,7 @@ for (const width of WIDTHS) {
     await page.locator('.pl-monthbar button').last().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(700);
     await check('marketing: Planner (Plan, a month with nothing in it)');
-    for (const [id, what] of [['PO1', 'waiting'], ['PO6', 'a first draft and a new version'], ['PO25', 'Post it in 4 taps'], ['PO23', 'a video with a file'], ['PO20', 'a live ad'], ['PO21', 'a planned video ad, waiting']]) {
+    for (const [id, what] of [['PO1', 'waiting'], ['PO6', 'a first draft and a new version'], ['PO25', 'Post it in 4 taps'], ['PO23', 'a video with a file'], ['PO20', 'a live ad'], ['PO21', 'a planned video ad, waiting'], ['PO31', 'a carousel, waiting'], ['PO32', 'a carousel, Save 5 to photos']]) {
       await goto(`${PT}?post=${id}`);
       await check(`marketing: Planner (post page, ${what})`);
     }

@@ -70,6 +70,23 @@ export const plannerStyles = `
   .pl-media-empty { display: flex; flex-direction: column; align-items: center; gap: var(--v-space-2); padding: var(--v-space-3); color: var(--v-text-2); text-align: center; }
   .pl-media-text { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); }
   .pl-media-play { position: absolute; right: var(--v-space-1); top: var(--v-space-1); display: inline-flex; padding: var(--v-space-1); border-radius: var(--v-radius-pill); background: var(--v-overlay); color: var(--v-text); }
+  /* Carousel posts (carousel job): the cover's stack and count on a thumbnail, and the carousel itself on native scroll snap. */
+  .pl-media-stack { position: absolute; right: var(--v-space-1); top: var(--v-space-1); display: inline-flex; align-items: center; gap: 2px; padding: 2px var(--v-space-1); border-radius: var(--v-radius-pill); background: var(--v-overlay); color: var(--v-text); font-size: var(--v-text-xs); font-weight: var(--v-weight-semibold); line-height: 1.2; }
+  .pl-car { position: relative; display: flex; flex-direction: column; min-width: 0; }
+  .pl-car-track { display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; overscroll-behavior-x: contain; scrollbar-width: none; border-radius: var(--v-radius-md); outline-offset: 2px; }
+  .pl-car-track::-webkit-scrollbar { display: none; }
+  .pl-car-track:focus-visible { outline: 2px solid var(--v-border-focus); }
+  .pl-car-slide { flex: 0 0 100%; scroll-snap-align: start; scroll-snap-stop: always; border-radius: 0; }
+  .pl-car-btn { display: none; position: absolute; top: calc(50% - 22px - var(--v-space-4)); width: 44px; height: 44px; align-items: center; justify-content: center; border: 0; border-radius: var(--v-radius-pill); background: var(--v-overlay); color: var(--v-text); cursor: pointer; }
+  .pl-car-btn:disabled { opacity: 0.35; cursor: default; }
+  .pl-car-prev { left: var(--v-space-2); }
+  .pl-car-next { right: var(--v-space-2); }
+  @media (min-width: 768px) { .pl-car-btn { display: inline-flex; } }
+  .pl-car-foot { display: flex; align-items: center; justify-content: center; gap: var(--v-space-3); padding: var(--v-space-2) var(--v-space-3) 0; min-height: 28px; }
+  .pl-car-count { font-size: var(--v-text-xs); font-weight: var(--v-weight-semibold); color: var(--v-text-2); font-variant-numeric: tabular-nums; }
+  .pl-car-dots { display: inline-flex; gap: 4px; }
+  .pl-car-dot { width: 6px; height: 6px; border-radius: var(--v-radius-pill); background: var(--v-border-strong); }
+  .pl-car-dot.is-on { background: var(--v-text); }
 
   /* The post as on Instagram. */
   .pl-ig { background: var(--v-surface-1); border: 1px solid var(--v-border); border-radius: var(--v-radius-lg); overflow: hidden; display: flex; flex-direction: column; }
@@ -115,6 +132,9 @@ export const plannerStyles = `
   .pl-row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .pl-row-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pl-row-line { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pl-row-sub { color: var(--v-text-2); }
+  .pl-save-line { margin: var(--v-space-2) 0 0; min-height: var(--v-lh-sm); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); }
+  .pl-save-line:empty { margin: 0; min-height: 0; }
   /* The one real control on a row or card (the kit's .v-stretch): a transparent button over the whole of it, labelled; the visible title is text. */
   .pl-cover { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; color: transparent; font-size: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
   .pl-cover:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }

@@ -4,7 +4,7 @@
  *
  *   node scripts/share-test.mjs
  */
-import { saveMedia, saveLabel, attachmentUrl, filenameFor, canShareFiles, MAX_SHARE_BYTES } from '../src/lib/share.js';
+import { saveMedia, saveLabel, attachmentUrl, filenameFor, canShareFiles, MAX_SHARE_BYTES, saveMany, carouselNames } from '../src/lib/share.js';
 
 let pass = 0, fail = 0;
 const ok = (c, msg) => { if (c) pass++; else { fail++; console.log('  FAIL ' + msg); } };
@@ -139,6 +139,71 @@ console.log('share-test: when the bytes cannot be had');
 {
   const r = await saveMedia({ url: '' }, env().e);
   eq([r.outcome, r.reason], ['fallback', 'no-url'], 'no URL: nothing to save');
+}
+
+/* Carousel posts (carousel job): Save 7 to photos. A browser whose share sheet takes several files at once, fetch answering per url. */
+function envMany({ bytes = 1024, hasShare = true, multi = true, failOn = [], share = 'ok' } = {}) {
+  const log = { shares: [], clicks: [], fetched: [] };
+  const e = {
+    File,
+    fetch: async (url) => { log.fetched.push(url); if (failOn.includes(url)) throw new TypeError('blocked'); return { ok: true, status: 200, blob: async () => new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' }) }; },
+    navigator: hasShare ? {
+      canShare: ({ files }) => (multi ? files.length >= 1 : files.length === 1),
+      share: async ({ files }) => { if (share === 'abort') { const err = new Error('cancelled'); err.name = 'AbortError'; throw err; } log.shares.push(files.map(f => f.name)); },
+    } : undefined,
+    URL: { createObjectURL: () => 'blob:probe', revokeObjectURL: () => {} },
+    document: { body: { appendChild: () => {} }, createElement: () => { const a = { click() { log.clicks.push(a.download); }, remove() {} }; return a; } },
+    setTimeout: (fn) => fn(),
+  };
+  return { e, log };
+}
+const SEVEN = [1, 2, 3, 4, 5, 6, 7].map(n => `https://res.cloudinary.com/vz/image/upload/v1/handy/deck-${n}.jpg`);
+const NAMES = [1, 2, 3, 4, 5, 6, 7].map(n => `5-handy-bros-2026-12-07-0${n}.jpg`);
+
+console.log('share-test: a carousel saved in one go (saveMany)');
+eq(carouselNames(SEVEN, { business: '5 Handy Bros', date: '2026-12-07' }), NAMES, 'the files are named <business>-<date>-01.jpg onward, in slide order');
+eq(carouselNames(['https://x/a.PNG', 'https://x/b'], { business: '', date: 'bad' }), ['post-01.png', 'post-02.jpg'], 'the extension comes from the file (else .jpg); no business is post, a bad date is left out');
+{
+  const { e, log } = envMany();
+  const prog = [];
+  const r = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07', onProgress: (i, n) => prog.push(`${i}/${n}`) }, e);
+  eq(r.outcome, 'shared', 'a phone that can share files: shared');
+  eq(log.shares, [NAMES], 'all seven go to one share sheet, in order and named');
+  eq(prog, ['1/7', '2/7', '3/7', '4/7', '5/7', '6/7', '7/7'], 'progress counts each picture: Saving 3 of 7 can be drawn');
+  eq([r.saved, r.failed], [7, []], 'seven saved, none failed');
+}
+{
+  const { e, log } = envMany({ bytes: 8 * 1024 * 1024, multi: false });
+  const r = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07' }, e);
+  eq([r.outcome, log.shares.length, log.shares.map(x => x[0])], ['shared', 7, NAMES], 'over 50 MB together: one after another, each through the share sheet, named in order');
+  ok(8 * 1024 * 1024 * 7 > MAX_SHARE_BYTES, 'the set really is over the limit');
+}
+{
+  const { e, log } = envMany({ hasShare: false });
+  const r = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07' }, e);
+  eq([r.outcome, log.clicks], ['downloaded', NAMES], 'a computer: seven downloads, named in order');
+}
+{
+  const { e, log } = envMany({ failOn: [SEVEN[3]] });
+  const prog = [];
+  const r = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07', onProgress: (i, n) => prog.push(`${i}/${n}`) }, e);
+  eq([r.outcome, r.failed, r.saved], ['partial', [4], 6], 'slide 4 failing: the other six are saved one by one and slide 4 is named');
+  eq(log.shares.length, 6, 'no all at once share is attempted with a picture missing');
+  eq(r.hrefs[3], attachmentUrl(SEVEN[3]), 'the failed slide keeps its attachment link for the press and hold');
+  const again = envMany();
+  const prog2 = [];
+  const r2 = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07', only: [3], onProgress: (i, n) => prog2.push(`${i}/${n}`) }, again.e);
+  eq([r2.outcome, r2.saved, again.log.shares, prog2], ['shared', 1, [[NAMES[3]]], ['1/1']], 'Try slide 4 again saves just that one, under its own name');
+}
+{
+  const { e, log } = envMany({ share: 'abort' });
+  const r = await saveMany({ urls: SEVEN, business: '5 Handy Bros', date: '2026-12-07' }, e);
+  eq([r.outcome, log.shares.length, log.clicks.length], ['cancelled', 0, 0], 'the sheet closed: cancelled, nothing else tried');
+}
+{
+  const { e } = envMany();
+  const r = await saveMany({ urls: [] }, e);
+  eq(r.outcome, 'fallback', 'no pictures: the fallback, nothing fetched');
 }
 
 console.log(`\nshare-test: ${pass} passed, ${fail} failed`);

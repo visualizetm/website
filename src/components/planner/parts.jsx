@@ -8,6 +8,11 @@ import ChevronLeft from '@untitled-ui/icons-react/build/esm/ChevronLeft';
 import XClose from '@untitled-ui/icons-react/build/esm/XClose';
 import Play from '@untitled-ui/icons-react/build/esm/Play';
 import AlertCircle from '@untitled-ui/icons-react/build/esm/AlertCircle';
+import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
+import LayersThree01 from '@untitled-ui/icons-react/build/esm/LayersThree01';
+import { slidesOf, carouselAllowed, isCarousel } from '../../shared/slides';
+import { viewing } from '../../lib/carousel';
+import { motionReduced } from '../../ui/motion';
 import { COPY } from '../../shared/copy';
 import { statusKey, STATUS_TONE, kindOf, shortDate } from '../../lib/plannerView';
 import { formatOf } from '../../lib/posts';
@@ -56,7 +61,8 @@ export function titleOf(item) {
   return d ? `${C().kinds.post}, ${d}` : C().kinds.post;
 }
 
-export const pictureOf = (item) => item?.imageUrl || item?.video?.poster || '';
+/* The cover (carousel job): a carousel's first slide, a single picture, else a video's poster. */
+export const pictureOf = (item) => slidesOf(item)[0]?.url || item?.video?.poster || '';
 const isVideo = (item) => formatOf(item) === 'video';
 
 /** The creative at its own format (4:5 for a feed post, 9:16 for a story or a video). A video with a file plays inline; a missing or
@@ -75,6 +81,7 @@ export function Media({ item, crop = '', src: srcOverride }) {
       <span className={`pl-media pl-media--${ratio} img-fit`}>
         <img className="pl-media-el" src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />
         {crop && isVideo(item) && <span className="pl-media-play" aria-hidden="true"><Play width={12} height={12} /></span>}
+        {crop && srcOverride === undefined && isCarousel(item) && <span className="pl-media-stack" role="img" aria-label={COPY.carousel.stack(slidesOf(item).length)}><LayersThree01 width={12} height={12} aria-hidden="true" /><span aria-hidden="true">{slidesOf(item).length}</span></span>}
       </span>
     );
   }
@@ -101,11 +108,58 @@ export function Avatar({ client, size = 36 }) {
 /** A handle for the preview: the business name, lowercase, letters and digits only. A picture of their profile, not their real handle. */
 export const handleOf = (client) => (String(client?.displayName || 'yourbusiness').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 30) || 'yourbusiness');
 
+/** A carousel (carousel job): the pictures side by side on native scroll snap, no library and no autoplay. A finger swipes; the 44px
+ *  Previous and Next show on wider screens; the arrow keys move it once it has focus. "3 / 7" sits in a live region beside the
+ *  dots. Every slide's box is reserved at 4:5 and the ones after the first load lazily, so nothing shifts. The track keeps its
+ *  sideways drag to itself (overscroll contained), so a swipe at its edge is never taken for Back. onIndex hears the slide on
+ *  view (a change note names it). */
+export function Carousel({ slides, onIndex }) {
+  const K = COPY.carousel;
+  const ref = useRef(null);
+  const raf = useRef(0);
+  const [at, setAt] = useState(0);
+  const n = slides.length;
+  useEffect(() => { onIndex?.(at); }, [at, onIndex]);
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+  const onScroll = () => { cancelAnimationFrame(raf.current); raf.current = requestAnimationFrame(() => { const el = ref.current; if (el) setAt(viewing(el.scrollLeft, el.clientWidth, n)); }); };
+  const go = (k) => {
+    const el = ref.current; if (!el) return;
+    const t = Math.max(0, Math.min(n - 1, k));
+    el.scrollTo({ left: t * el.clientWidth, behavior: motionReduced() ? 'auto' : 'smooth' });
+    setAt(t);
+  };
+  const onKey = (e) => {
+    const k = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: n - 1 }[e.key];
+    if (k === undefined) return;
+    e.preventDefault();
+    go(k);
+  };
+  return (
+    <div className="pl-car" role="group" aria-roledescription="carousel" aria-label={K.label(n)}>
+      <div className="pl-car-track" ref={ref} onScroll={onScroll} onKeyDown={onKey} tabIndex={0} aria-label={K.label(n)}>
+        {slides.map((s, k) => (
+          <div key={`${s.url}#${k}`} className="pl-car-slide pl-media pl-media--4x5 img-fit" role="group" aria-roledescription="slide" aria-label={K.slideAlt(k + 1, n)}>
+            <img className="pl-media-el" src={s.url} alt={s.alt || K.slideAlt(k + 1, n)} width={1080} height={1350} loading={k === 0 ? 'eager' : 'lazy'} decoding="async" draggable={false} />
+          </div>
+        ))}
+      </div>
+      <button type="button" className="pl-car-btn pl-car-prev" onClick={() => go(at - 1)} disabled={at === 0} aria-label={K.prev}><ChevronLeft width={20} height={20} aria-hidden="true" /></button>
+      <button type="button" className="pl-car-btn pl-car-next" onClick={() => go(at + 1)} disabled={at === n - 1} aria-label={K.next}><ChevronRight width={20} height={20} aria-hidden="true" /></button>
+      <div className="pl-car-foot">
+        <span className="pl-car-count" aria-live="polite">{K.counter(at + 1, n)}</span>
+        <span className="pl-car-dots" aria-hidden="true">{slides.map((s, k) => <span key={k} className={`pl-car-dot${k === at ? ' is-on' : ''}`} />)}</span>
+      </div>
+    </div>
+  );
+}
+
 /** The post drawn as it will look on Instagram: the avatar and handle, the date and kind, the creative at its format, the caption and
- *  the hashtags. `draft` swaps in an earlier version's picture and words. */
-export function IgPost({ item, client, draft = null }) {
+ *  the hashtags. `draft` swaps in an earlier version's picture and words. A carousel draws as one (carousel job). */
+export function IgPost({ item, client, draft = null, onSlide }) {
   const caption = draft ? draft.caption : item.caption;
   const tags = draft ? '' : item.hashtags;
+  const pics = draft ? slidesOf(draft) : slidesOf(item);
+  const carousel = carouselAllowed(item) && pics.length > 1;
   return (
     <article className="pl-ig" aria-label="How the post will look">
       <header className="pl-ig-head">
@@ -116,7 +170,7 @@ export function IgPost({ item, client, draft = null }) {
         </span>
         <KindPill item={item} />
       </header>
-      {draft ? <Media item={item} src={draft.imageUrl || ''} /> : <Media item={item} />}
+      {carousel ? <Carousel key={draft ? 'first' : 'new'} slides={pics} onIndex={onSlide} /> : draft ? <Media item={item} src={draft.imageUrl || ''} /> : <Media item={item} />}
       {isVideo(item) && !item.video?.url && item.video?.concept && !draft && (
         <p className="pl-ig-concept"><span className="pl-label">{C().post.concept}</span>{item.video.concept}</p>
       )}
@@ -278,17 +332,20 @@ export function ErrorBox({ onRetry, title, body }) {
   );
 }
 
-/** A row: one real control (the stretched button) over a thumbnail, a title, a line and the status. */
-export function ItemRow({ item, title, line, onOpen }) {
+/** A row: one real control (the stretched button) over a thumbnail, a title, a line and the status. `sub` is a line under the title
+ *  (the List's "Carousel, 7 slides"). */
+export function ItemRow({ item, title, line, sub = '', onOpen }) {
+  const label = [title, sub, line].filter(Boolean).join(', ');
   return (
     <div className="pl-row">
       <span className="pl-row-thumb"><Media item={item} crop="1x1" /></span>
       <span className="pl-row-main">
         <span className="pl-row-title">{title}</span>
+        {sub && <span className="pl-row-line pl-row-sub">{sub}</span>}
         {line && <span className="pl-row-line">{line}</span>}
       </span>
       <StatusPill item={item} />
-      <button type="button" className="pl-cover v-stretch" onClick={() => onOpen(item)} aria-label={line ? `${title}, ${line}` : title}>{title}</button>
+      <button type="button" className="pl-cover v-stretch" onClick={() => onOpen(item)} aria-label={label}>{title}</button>
     </div>
   );
 }

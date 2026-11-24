@@ -108,3 +108,68 @@ export async function saveMedia({ url, name = '', kind = 'image' } = {}, env = g
     return { outcome: 'fallback', reason: 'download', href };
   }
 }
+
+/** A carousel's file names (carousel job): <business>-<date>-01.jpg, -02, ... in slide order, the extension from filenameFor. */
+export function carouselNames(urls, { business = '', date = '' } = {}) {
+  const slug = String(business || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'post';
+  const base = [slug, /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? date : ''].filter(Boolean).join('-');
+  return (Array.isArray(urls) ? urls : []).map((u, i) => {
+    const ext = ((filenameFor(u).match(/\.[a-z0-9]{2,5}$/i) || ['.jpg'])[0]).toLowerCase();
+    return `${base}-${String(i + 1).padStart(2, '0')}${ext}`;
+  });
+}
+
+/**
+ * Saves a carousel's pictures in one go (carousel job), beside saveMedia and through it: no second share path.
+ *  - Every picture as a file in one navigator.share({ files }) call when canShareFiles allows it and the whole set is under
+ *    MAX_SHARE_BYTES (the one tap that reaches Photos with all of them).
+ *  - Otherwise one after another through saveMedia, named in order (carouselNames).
+ * onProgress(i, n) is called as each picture is fetched or saved (for "Saving 3 of 7"). `only` is the slide indexes to save
+ * (a retry of the one that failed). A share sheet closed is cancelled, and nothing more is tried.
+ * @returns {Promise<{ outcome: 'shared'|'downloaded'|'partial'|'cancelled'|'fallback', saved: number, failed: number[], hrefs: string[] }>}
+ *   failed holds 1 based slide numbers; hrefs the attachment link of each picture, for the press and hold fallback.
+ */
+export async function saveMany({ urls = [], business = '', date = '', onProgress, only } = {}, env = globalThis) {
+  const list = (Array.isArray(urls) ? urls : []).map(u => String(u || ''));
+  const names = carouselNames(list, { business, date });
+  const pick = (Array.isArray(only) && only.length ? only : list.map((_, i) => i)).filter(i => list[i]);
+  const hrefs = list.map(attachmentUrl);
+  const tell = (i) => { try { onProgress?.(i, pick.length); } catch { /* progress is a nicety */ } };
+  if (!pick.length) return { outcome: 'fallback', saved: 0, failed: [], hrefs };
+
+  /* One share sheet with every file: fetch them all first, and only if every one arrives and the set fits. */
+  if (pick.length > 1 && canShareFiles(env)) {
+    const files = []; let total = 0; let whole = true;
+    for (let k = 0; k < pick.length; k++) {
+      const i = pick[k];
+      tell(k + 1);
+      try {
+        const res = await env.fetch(list[i], { mode: 'cors' });
+        if (!res || !res.ok) throw new Error('status');
+        const blob = await res.blob();
+        total += blob.size;
+        files.push(new env.File([blob], names[i], { type: blob.type || 'image/jpeg' }));
+      } catch { whole = false; break; }
+      if (total > MAX_SHARE_BYTES) { whole = false; break; }
+    }
+    let can = false;
+    try { can = whole && !!env.navigator.canShare({ files }); } catch { can = false; }
+    if (can) {
+      try { await env.navigator.share({ files }); return { outcome: 'shared', saved: files.length, failed: [], hrefs }; }
+      catch (e) { if (e && e.name === 'AbortError') return { outcome: 'cancelled', saved: 0, failed: [], hrefs }; }
+    }
+  }
+
+  /* One after another, through saveMedia. */
+  const failed = []; let saved = 0; let shared = false;
+  for (let k = 0; k < pick.length; k++) {
+    const i = pick[k];
+    tell(k + 1);
+    const r = await saveMedia({ url: list[i], name: names[i], kind: 'image' }, env);
+    if (r.outcome === 'cancelled') return { outcome: 'cancelled', saved, failed, hrefs };
+    if (r.outcome === 'fallback') failed.push(i + 1);
+    else { saved++; if (r.outcome === 'shared') shared = true; }
+  }
+  const outcome = !failed.length ? (shared ? 'shared' : 'downloaded') : saved ? 'partial' : 'fallback';
+  return { outcome, saved, failed, hrefs };
+}

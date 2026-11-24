@@ -238,6 +238,7 @@ export const SCREENS = [
   /* Rob's read only previews (client app job): the admin host's /preview/portal/:id and /preview/planner/:id, the same screens with no write control. */
   { id: 'mkt-app-preview-portal', screen: 'Client app (marketing)', label: "Rob's read only preview of the portal", path: '/admin/preview/portal/L12', session: false, static: true, marketing: true, app: true },
   { id: 'mkt-app-preview-planner', screen: 'Client app (marketing)', label: "Rob's read only preview of the planner", path: '/admin/preview/planner/L11', session: false, static: true, marketing: true, app: true },
+  { id: 'mkt-app-preview-planner-carousel', screen: 'Client app (marketing)', label: "Rob's read only preview of a carousel post (carousel job)", path: '/admin/preview/planner/L11?post=PO31', session: false, static: true, marketing: true, app: true },
   { id: 'mkt-portal', screen: 'Client portal (marketing)', label: 'every prompt 1 card with data, signed in', path: '/app', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd' },
   { id: 'mkt-portal-nohint', screen: 'Client portal (marketing)', label: 'the hint dismissed', path: '/app', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd', act: (p) => click(p.getByRole('button', { name: 'Dismiss' })) },
   { id: 'mkt-portal-paid', screen: 'Client portal (marketing)', label: 'paid in full: every file link, the Drive folder first, the paid thanks', path: '/app?paid=1', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd' },
@@ -276,6 +277,16 @@ export const SCREENS = [
       { ...base, id: 'mkt-planner-ideas', label: 'Ideas, the composer and the tracker', path: `${T}?tab=ideas` },
       { ...base, id: 'mkt-planner-alerts', label: 'the Alerts sheet from the bell', path: T, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.getByRole('button', { name: 'Alerts' })); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
       { ...base, client: 'prtlTESTtoken0123456789abcd', id: 'mkt-planner-dead', label: 'a signed in client whose planner is not active', path: '/app/planner' },
+      /* Carousel job: a carousel's post page waiting on them, moved to slide 3 by the arrow keys, ready to post (Save 5 to photos),
+         one slide that did not save (its fetch refused), Review opening on a carousel (plnrCARO: only the carousel waits) with
+         its change sheet, and Rob's read only preview of the same post. The feed, calendar and list entries above carry the stack
+         icon and the List's "Carousel, 4 slides" line. */
+      { ...base, id: 'mkt-planner-post-carousel', label: 'a carousel post page, waiting on them', path: `${T}?post=PO31` },
+      { ...base, id: 'mkt-planner-post-carousel-3', label: 'a carousel post page on slide 3, by the arrow keys', path: `${T}?post=PO31`, act: async (p) => { await p.locator('.pl-car-track').first().focus().catch(() => {}); await p.keyboard.press('ArrowRight'); await p.keyboard.press('ArrowRight'); await p.waitForTimeout(600); } },
+      { ...base, id: 'mkt-planner-post-carousel-save', label: 'a carousel ready to post, Save 5 to photos', path: `${T}?post=PO32` },
+      { ...base, id: 'mkt-planner-post-carousel-failed', label: 'a carousel save where slide 2 did not save, Try slide 2 again', path: `${T}?post=PO32`, act: async (p) => { await p.route('**/showcase/fixtures/portrait.svg?d=2', (r) => (r.request().resourceType() === 'fetch' ? r.abort() : r.continue())); await click(p.locator('.pl-step-btn').first()); await p.waitForSelector('.pl-save-line:not(:empty)', { timeout: 6000 }).catch(() => {}); await p.mouse.move(0, 0); } },
+      { ...base, client: 'plnrCAROtoken0123456789abcdef', id: 'mkt-planner-review-carousel', label: 'Review mode on a carousel', path: `${T}?review=1` },
+      { ...base, client: 'plnrCAROtoken0123456789abcdef', id: 'mkt-planner-review-carousel-change', label: 'Review mode on a carousel, the change sheet', path: `${T}?review=1`, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.locator('.pl-ask')); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
     ];
   })(),
   // Concepts (Concepts rebuild, Part 7): the client presentation and its states.

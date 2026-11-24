@@ -221,6 +221,8 @@ export const posts = [
   /* Carousel posts (carousel job): seven slides in order (the cover is imageUrl, as the server keeps it), one of them square so the editor's ratio line shows; PO31 waits on the client so their planner shows a carousel in Review. */
   { _id: 'PO30', leadId: 'L11', month: THIS_MONTH, date: daysFrom(5), time: '10:00', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/portrait.svg?s=1', slides: [1, 2, 3, 4, 5, 6, 7].map(n => ({ url: n === 3 ? '/showcase/fixtures/square.svg?s=3' : `/showcase/fixtures/portrait.svg?s=${n}`, alt: n === 1 ? 'The deck before the job' : '' })), caption: 'Before and after, the whole deck', hashtags: '#deck #handyman', status: 'making', note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO31', leadId: 'L11', month: THIS_MONTH, date: daysFrom(8), time: '09:30', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/feed.svg?c=1', slides: [1, 2, 3, 4].map(n => ({ url: `/showcase/fixtures/feed.svg?c=${n}`, alt: '' })), caption: 'Four kitchens this month', hashtags: '#kitchens', status: 'review', note: 'Swipe through all four.', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  /* PO32: an approved carousel dated today, so Post it reads Save 5 to photos. */
+  { _id: 'PO32', leadId: 'L11', month: THIS_MONTH, date: daysFrom(0), time: '17:00', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/portrait.svg?d=1', slides: [1, 2, 3, 4, 5].map(n => ({ url: `/showcase/fixtures/portrait.svg?d=${n}`, alt: '' })), caption: 'Five porches, one week', hashtags: '#porch', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO7', leadId: 'L11', month: THIS_MONTH, date: daysFrom(12), time: '19:00', platform: 'facebook', imageUrl: '', caption: 'Weekend hours', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 9 * 864e5).toISOString(), postedAt: new Date(Date.now() - 8 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO8', leadId: 'L11', month: THIS_MONTH, date: daysFrom(14), time: '', platform: 'other', imageUrl: '/showcase/fixtures/portrait.svg', caption: UNBROKEN, status: 'making', note: UNBROKEN.slice(0, 60), clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   /* The two cases the client page has to survive: a post put up for approval
@@ -738,9 +740,11 @@ export const PORTAL_TOKEN = 'prtlTESTtoken0123456789abcd';
 /* The client app (client app job): the fixture's setup links, the right code and the identifier the audits sign in with. */
 export const APP_PLANNER_TOKEN = 'plnrTESTtoken0123456789abcdEF';
 export const APP_CLEAR_TOKEN = 'plnrCLEARtoken0123456789abcd';
+/* Carousel job: L11's month with only the carousel waiting (every other post in review read as approved), so Review opens on it. */
+export const APP_CAROUSEL_TOKEN = 'plnrCAROtoken0123456789abcdef';
 export const APP_SET_TOKEN = 'appSETtoken0123456789abcdef';
 export const APP_LOCK_TOKEN = 'appLOCKtoken0123456789abcde';
-export const APP_TOKENS = [PORTAL_TOKEN, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN];
+export const APP_TOKENS = [PORTAL_TOKEN, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN, APP_CAROUSEL_TOKEN];
 export const APP_CODE = '4831';
 export const APP_IDENTIFIER = 'damian@leadbusiness12.example';
 /** What /api/app/me says for a signed in fixture client (leadId is the audit's own, never sent by the real door). */
@@ -1172,12 +1176,13 @@ export async function mockRoutes(page, opts = {}) {
     /* Planner v2: Home with nothing waiting. The clear token reads L11's month with every post in review shown as approved, so the
        audits see the caught up state without a second planner client (and without changing L11's posts for the screens after it). */
     const CLEAR = 'plnrCLEARtoken0123456789abcd';
-    const lead = leads.find(l => l.planner?.enabled && (l.planner?.token === token || (token === CLEAR && l._id === 'L11')));
+    const lead = leads.find(l => l.planner?.enabled && (l.planner?.token === token || ((token === CLEAR || token === APP_CAROUSEL_TOKEN) && l._id === 'L11')));
     if (!lead) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
-    if (token === CLEAR) {
+    if (token === CLEAR || token === APP_CAROUSEL_TOKEN) {
       if (r.request().method() !== 'GET') return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
       const body = plannerPayload(lead, url.searchParams.get('month') || THIS_MONTH);
-      body.posts = body.posts.map(p => (p.status === 'review' ? { ...p, status: 'approved' } : p));
+      const keep = (p) => token === APP_CAROUSEL_TOKEN && (p.slides || []).length > 1;
+      body.posts = body.posts.map(p => (p.status === 'review' && !keep(p) ? { ...p, status: 'approved' } : p));
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
     }
     if (r.request().method() === 'POST') {

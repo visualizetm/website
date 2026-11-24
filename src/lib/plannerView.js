@@ -5,6 +5,8 @@
  * steps and the timeline. No React, no fetch, no clock: the caller passes
  * today as a "YYYY-MM-DD" key in the browser's own zone. */
 
+import { slidesOf } from '../shared/slides.js';
+
 const pad = (n) => String(n).padStart(2, '0');
 
 /* ── Month and day keys (the browser's zone: this is what the client sees on their own calendar) ── */
@@ -181,7 +183,7 @@ export const canPostIt = (item, today) => kindOf(item) === 'post' && item?.statu
 /** The four Post it steps, each with whether it can be done here: Save the picture (a picture or video they may download), Copy the
  *  caption (words to copy), Open Instagram, I posted it. */
 export function postItSteps(item) {
-  const media = !!(item?.video?.url || item?.imageUrl || item?.video?.poster);
+  const media = !!(item?.video?.url || slidesOf(item).length || item?.video?.poster);
   return [
     { id: 'save', available: media && item?.allowDownload !== false },
     { id: 'copy', available: !!captionText(item) },
@@ -206,4 +208,4 @@ export function timelineOf(item) {
 }
 
 /** Which earlier draft to show (the post page's First draft / New version): the newest version only, as the read carries it. */
-export const hasPrevious = (item) => !!(item?.previous && (item.previous.imageUrl || item.previous.caption));
+export const hasPrevious = (item) => !!(item?.previous && (slidesOf(item.previous).length || item.previous.caption));

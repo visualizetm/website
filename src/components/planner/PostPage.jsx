@@ -6,7 +6,9 @@ import { IgPost, StatusPill, Segmented, Layer, Sheet, Media, platformNames } fro
 import { ChangeSheet } from './Review';
 import { AdBody } from './Ads';
 import { canPostIt, postItSteps, captionText, timelineOf, hasPrevious, shortDate, statusKey, kindOf } from '../../lib/plannerView';
-import { saveMedia } from '../../lib/share';
+import { saveMedia, saveMany } from '../../lib/share';
+import { slidesOf, carouselAllowed } from '../../shared/slides';
+import { carouselNote } from '../../lib/carousel';
 
 /* The post page (Planner v2, part 1 F): focused. The status and the date,
  * the first draft beside the new version when Rob answered a change, the
@@ -35,13 +37,20 @@ function HoldSheet({ media, href, item, onClose }) {
   const P = COPY.planner.post;
   return (
     <Sheet title={media.kind === 'video' ? P.holdVideo : P.hold} onClose={onClose} foot={<a className="pl-btn pl-btn--secondary" href={href} target="_blank" rel="noopener noreferrer" download>{P.openFile}</a>}>
-      {media.kind === 'video' ? <video className="pl-hold-media" src={media.url} controls playsInline preload="metadata" /> : <Media item={item} />}
+      {media.kind === 'video' ? <video className="pl-hold-media" src={media.url} controls playsInline preload="metadata" /> : <Media item={item} src={media.url} />}
     </Sheet>
   );
 }
 
-function PostIt({ item, decide, toast, onPosted }) {
+function PostIt({ item, client, decide, toast, onPosted }) {
   const P = COPY.planner.post;
+  const K = COPY.carousel;
+  /* A carousel saves every picture in one go (carousel job): one share sheet when the phone can, else one after another. */
+  const pics = carouselAllowed(item) && !item.video?.url ? slidesOf(item) : [];
+  const many = pics.length > 1;
+  const [saving, setSaving] = useState(null); // { i, n } while saving
+  const [failed, setFailed] = useState([]); // 1 based slide numbers that did not save
+  const [said, setSaid] = useState('');
   const steps = postItSteps(item);
   const [done, setDone] = useState({});
   const [busy, setBusy] = useState('');
@@ -51,6 +60,20 @@ function PostIt({ item, decide, toast, onPosted }) {
   const media = item.video?.url ? { url: item.video.url, kind: 'video' } : (item.imageUrl || item.video?.poster) ? { url: item.imageUrl || item.video.poster, kind: 'image' } : null;
   const run = async (id) => {
     if (busy) return;
+    if (id === 'save' && many) {
+      setBusy(id); setSaid('');
+      const only = failed.length ? [failed[0] - 1] : undefined;
+      const r = await saveMany({ urls: pics.map(x => x.url), business: client?.displayName || '', date: item.date, only, onProgress: (i, n) => setSaving({ i, n }) });
+      setBusy(''); setSaving(null);
+      if (r.outcome === 'cancelled') return;
+      const left = only ? [...r.failed, ...failed.slice(1)] : r.failed;
+      setFailed(left);
+      if (!left.length) { tick(id); setSaid(K.savedN(pics.length)); toast(K.savedN(pics.length)); return; }
+      setSaid(K.saveFailed(left[0]));
+      /* A retry that failed again: that picture big, with the press and hold that always works on a phone. */
+      if (only && r.failed.length) setHold({ media: { url: pics[only[0]].url, kind: 'image' }, href: r.hrefs[only[0]] });
+      return;
+    }
     if (id === 'save') {
       if (!media) return;
       setBusy(id);
@@ -79,8 +102,8 @@ function PostIt({ item, decide, toast, onPosted }) {
             <>
               <span className={`pl-step-n${isDone ? ' is-done' : ''}`} aria-hidden="true">{isDone ? <Check width={16} height={16} /> : i + 1}</span>
               <span className="pl-step-text">
-                <span className="pl-step-title">{P.steps[s.id]}{isDone && <span className="v-sr-only">, done</span>}</span>
-                <span className="pl-step-help">{s.id === 'save' && !s.available ? P.saveOff : P.stepHelp[s.id]}</span>
+                <span className="pl-step-title">{s.id === 'save' && many ? (failed.length ? K.retry(failed[0]) : K.saveN(pics.length)) : P.steps[s.id]}{isDone && <span className="v-sr-only">, done</span>}</span>
+                <span className="pl-step-help">{s.id === 'save' && !s.available ? P.saveOff : many && s.id === 'save' ? K.saveHelp : many && s.id === 'open' ? K.openHelp(pics.length) : P.stepHelp[s.id]}</span>
               </span>
             </>
           );
@@ -95,6 +118,7 @@ function PostIt({ item, decide, toast, onPosted }) {
           );
         })}
       </ol>
+      {many && <p className="pl-save-line" role="status" aria-live="polite">{saving ? K.savingN(saving.i, saving.n) : said}</p>}
       {hold && <HoldSheet media={hold.media} href={hold.href} item={item} onClose={() => setHold(null)} />}
     </section>
   );
@@ -121,6 +145,7 @@ export default function PostPage({ item, client, today, decide, toast }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [slide, setSlide] = useState(0); // the carousel's picture on view: a change note names it (carousel job)
   const [postedHere, setPostedHere] = useState(false); // the four steps stay on screen, all ticked, after I posted it
   const [copied, copy] = useCopy(toast);
   const words = captionText(item);
@@ -139,7 +164,7 @@ export default function PostPage({ item, client, today, decide, toast }) {
     else setError(r === 'limit' ? C.toast.tooMany : C.review.failed);
   };
   const sendChange = async (extra) => {
-    const r = await decide(item, 'request-change', extra);
+    const r = await decide(item, 'request-change', carouselNote(item, slide, extra));
     if (r === 'ok') { setAsking(false); toast(C.toast.changeSent); return true; }
     if (r === 'stale') { setAsking(false); toast(C.toast.stale); return true; }
     return r === 'limit' ? C.toast.tooMany : C.review.failed;
@@ -159,7 +184,7 @@ export default function PostPage({ item, client, today, decide, toast }) {
         </>
       )}
 
-      {isAd ? <AdBody item={item} /> : <IgPost item={item} client={client} draft={prev && draft === 'first' ? prev : null} />}
+      {isAd ? <AdBody item={item} /> : <IgPost item={item} client={client} draft={prev && draft === 'first' ? prev : null} onSlide={setSlide} />}
 
       {words && !isAd && !(prev && draft === 'first') && (
         <section className="pl-card" aria-labelledby="pl-words-h">
@@ -175,7 +200,7 @@ export default function PostPage({ item, client, today, decide, toast }) {
       {item.clientNote && key === 'changes' && <p className="pl-card"><span className="pl-label">{P.yourNote}</span>{item.clientNote}</p>}
 
       {!waiting && !isAd && !canPostIt(item, today) && !postedHere && P.settled[key] && <p className="pl-muted">{P.settled[key]}</p>}
-      {decide && (canPostIt(item, today) || postedHere) && <PostIt item={item} decide={decide} toast={toast} onPosted={() => setPostedHere(true)} />}
+      {decide && (canPostIt(item, today) || postedHere) && <PostIt item={item} client={client} decide={decide} toast={toast} onPosted={() => setPostedHere(true)} />}
 
       {!isAd && <Timeline item={item} />}
 

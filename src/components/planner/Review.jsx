@@ -4,6 +4,7 @@ import Check from '@untitled-ui/icons-react/build/esm/Check';
 import { COPY } from '../../shared/copy';
 import { IgPost, Layer, Sheet } from './parts';
 import { reviewQueue } from '../../lib/plannerView';
+import { carouselNote } from '../../lib/carousel';
 
 /* Review mode (Planner v2, part 1 D): focused, one post at a time in the
  * order of its date. The queue is taken once when Review opens, so a post
@@ -67,6 +68,7 @@ export default function ReviewScreen({ items, client, decide, onDone, onPos }) {
   const [error, setError] = useState('');
   const [retry, setRetry] = useState(null);
   const [asking, setAsking] = useState(false);
+  const [slide, setSlide] = useState(0); // the carousel's picture on view: a change note names it (carousel job)
   const topRef = useRef(null);
   const done = idx >= ids.length;
   const item = done ? null : byId[ids[idx]];
@@ -87,7 +89,7 @@ export default function ReviewScreen({ items, client, decide, onDone, onPos }) {
   };
   const approve = () => run('approve');
   const sendChange = async (extra) => {
-    const r = await run('request-change', extra);
+    const r = await run('request-change', carouselNote(item, slide, extra));
     if (r === true) setAsking(false);
     return r;
   };
@@ -110,7 +112,7 @@ export default function ReviewScreen({ items, client, decide, onDone, onPos }) {
         {ids.map((id, i) => <li key={id} className={`pl-progress-seg${i < idx ? ' is-done' : i === idx ? ' is-now' : ''}`} />)}
       </ol>
       {item.note && <p className="pl-robnote"><span className="pl-label">{COPY.planner.post.fromRob}</span>{item.note}</p>}
-      <IgPost item={item} client={client} />
+      <IgPost key={item.id} item={item} client={client} onSlide={setSlide} />
       {error && (
         <div className="pl-review-err" role="alert">
           <p>{error}</p>

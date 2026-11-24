@@ -5,9 +5,10 @@
  *   ratioLabel(w, h)              "1:1", "4:5", "16:9"..., else "1.33:1"
  *   ratioWarning(sizes)           the first slide whose shape differs from slide 1, as { n, label }, else null
  *   counterLine(n, max)           "1 slide", "7 slides. Slide 1 is the cover.", "20 of 20, Instagram's limit."
- *   viewing(scrollLeft, width, n) the 0 based slide a scroller is on */
+ *   viewing(scrollLeft, width, n) the 0 based slide a scroller is on
+ *   carouselNote(item, slide, extra) a change note on a carousel prefixed with the slide on view ("Slide 4: ..."), same write */
 import { COPY } from '../shared/copy.js';
-import { SLIDES_MAX } from '../shared/slides.js';
+import { SLIDES_MAX, slidesOf, carouselAllowed } from '../shared/slides.js';
 
 const C = () => COPY.carousel;
 export function moveSlide(slides, from, to) {
@@ -51,3 +52,10 @@ export function counterLine(n, max = SLIDES_MAX) {
   return n === 1 ? C().one : C().many(n);
 }
 export const viewing = (scrollLeft, width, n) => (width > 0 && n > 0 ? Math.max(0, Math.min(n - 1, Math.round(Number(scrollLeft) / width))) : 0);
+/** The request-change body for a post: a carousel's note names the picture the client was on, cut to the server's 500. */
+export function carouselNote(item, slide, extra) {
+  const n = slidesOf(item).length;
+  if (!extra || !carouselAllowed(item) || n < 2 || item?.video?.url) return extra;
+  const i = Math.max(0, Math.min(n - 1, Number(slide) || 0));
+  return { ...extra, note: (C().changePrefix(i + 1) + String(extra.note || '')).slice(0, 500) };
+}

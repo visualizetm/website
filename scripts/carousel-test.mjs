@@ -198,6 +198,13 @@ console.log('\n7. the editor\'s pure half (src/lib/carousel.js)');
   ok(JSON.stringify(L.ratioWarning([{ w: 4, h: 5 }, { w: 8, h: 10 }, { w: 1, h: 1 }])) === '{"n":3,"label":"1:1"}' && L.ratioWarning([{ w: 4, h: 5 }, null, { w: 40, h: 50 }]) === null && L.ratioWarning([]) === null, 'ratioWarning names the first slide whose shape differs from slide 1, skipping unmeasured ones');
   ok(L.counterLine(1) === '1 slide' && L.counterLine(7) === '7 slides. Slide 1 is the cover.' && L.counterLine(20) === "20 of 20, Instagram's limit.", 'the counter says 1 slide, n slides with the cover, and the limit at twenty');
   ok(L.viewing(0, 300, 7) === 0 && L.viewing(610, 300, 7) === 2 && L.viewing(5000, 300, 7) === 6, 'viewing reads which slide a scroller rests on');
+  const postCar = { kind: 'post', format: 'portrait', slides: seven, imageUrl: u[0] };
+  ok(JSON.stringify(L.carouselNote(postCar, 3, { reason: 'photo', note: 'Brighter please' })) === '{"reason":"photo","note":"Slide 4: Brighter please"}', 'a change note on a carousel names the slide on view ("Slide 4: ..."), the reason kept, in the same body', 'change-prefix');
+  ok(L.carouselNote({ kind: 'post', format: 'portrait', imageUrl: u[0] }, 3, { note: 'x' }).note === 'x' && L.carouselNote({ ...postCar, kind: 'ad' }, 1, { note: 'x' }).note === 'x' && L.carouselNote(postCar, 0, { note: 'x' }).note === 'Slide 1: x', 'one picture or an ad gets no prefix; slide 1 is named too', 'change-prefix');
+  ok(L.carouselNote(postCar, 99, { note: 'y'.repeat(500) }).note.length === 500 && L.carouselNote(postCar, 99, { note: 'y' }).note === 'Slide 7: y', 'the slide is held to the carousel and the note to the server\'s 500', 'change-prefix');
+  const V = await import(pathToFileURL(path.join(repoRoot, 'src/lib/plannerView.js')).href);
+  ok(V.postItSteps({ kind: 'post', slides: seven })[0].available === true && V.postItSteps({ kind: 'post', slides: seven, allowDownload: false })[0].available === false, 'Post it can save a carousel that carries only slides, and allowDownload still rules', 'postit-slides');
+  ok(V.hasPrevious({ previous: { slides: seven.slice(0, 2), caption: '' } }) === true && V.hasPrevious({ previous: { slides: [], caption: '' } }) === false, 'an earlier version with only slides counts as a previous draft', 'postit-slides');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

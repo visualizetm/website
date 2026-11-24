@@ -470,6 +470,7 @@ export const COPY = {
     listLine: (n) => `Carousel, ${n} slides`, stack: (n) => `${n} pictures`,
     saveN: (n) => `Save ${n} to photos`, savingN: (i, n) => `Saving ${i} of ${n}`, savedN: (n) => `Saved ${n} to photos`,
     saveFailed: (i) => `Slide ${i} did not save.`, retry: (i) => `Try slide ${i} again`, changePrefix: (i) => `Slide ${i}: `,
+    saveHelp: 'They land in your photos, in order.', openHelp: (n) => `Start a new post and pick all ${n}, in order.`,
   },
   /* The client app (src/clientapp): this copy speaks to the client, in Rob's own voice ("I", never "we"). */
   clientApp: {

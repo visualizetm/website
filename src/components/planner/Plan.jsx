@@ -4,6 +4,7 @@ import ChevronRight from '@untitled-ui/icons-react/build/esm/ChevronRight';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import { COPY } from '../../shared/copy';
 import { Segmented, ItemRow, Empty, Media, titleOf } from './parts';
+import { slidesOf, carouselAllowed } from '../../shared/slides';
 import { weeksOf, dotsFor, DOW, whenOf, byWhen, feedOrder, groupByWeek, monthName, shortDate, dowIndex, kindOf } from '../../lib/plannerView';
 
 /* Plan (Planner v2, part 1 E; was Posts). Calendar, Feed and List at every
@@ -15,6 +16,8 @@ const VIEW_KEY = 'vz_planner_view';
 const VIEWS = ['calendar', 'feed', 'list'];
 const readView = () => { try { const v = localStorage.getItem(VIEW_KEY); return VIEWS.includes(v) ? v : 'calendar'; } catch { return 'calendar'; } };
 const writeView = (v) => { try { localStorage.setItem(VIEW_KEY, v); } catch { /* private mode */ } };
+/* The List names a carousel under its caption (carousel job). */
+const carouselLine = (item) => { const n = slidesOf(item).length; return carouselAllowed(item) && n > 1 && !item.video?.url ? COPY.carousel.listLine(n) : ''; };
 const lineOf = (item) => [shortDate(whenOf(item)), item.time, kindOf(item) === 'ad' ? COPY.planner.kinds.ad : ''].filter(Boolean).join(' · ');
 
 export function MonthBar({ month, onShift }) {
@@ -91,7 +94,7 @@ function List({ items, month, onOpen }) {
   return groups.map(g => (
     <section key={g.key} className="pl-week-group" aria-label={g.label}>
       <h2 className="pl-h2">{g.label}</h2>
-      <div className="pl-rows">{g.items.map(i => <ItemRow key={i.id} item={i} title={titleOf(i)} line={lineOf(i)} onOpen={onOpen} />)}</div>
+      <div className="pl-rows">{g.items.map(i => <ItemRow key={i.id} item={i} title={titleOf(i)} sub={carouselLine(i)} line={lineOf(i)} onOpen={onOpen} />)}</div>
     </section>
   ));
 }
