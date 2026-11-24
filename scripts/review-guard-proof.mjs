@@ -16,7 +16,7 @@ const TR = '_lib/taskRules.js';
 const CUTS = {
   mint: [[CL, "token: mint ? randomBytes(18).toString('base64url') : had.token,", "token: mint ? randomBytes(6).toString('base64url') : had.token,"]],
   'carry-forward': [
-    [CL, "visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40) } : undefined,", "visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { ...b.reviews.visualize, regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40) } : undefined,"],
+    [CL, "visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40), sentVia:", "visualize: b.reviews.visualize && typeof b.reviews.visualize === 'object' ? { ...b.reviews.visualize, regenerate: b.reviews.visualize.regenerate === true, sentAt: str(b.reviews.visualize.sentAt, 40), sentVia:"],
     [CL, "views: Number(had?.views) || 0,", "views: Number(asked?.views ?? had?.views) || 0,"],
   ],
   regenerate: [[CL, "const mint = !!asked?.regenerate || !had?.token;", "const mint = !had?.token;"]],

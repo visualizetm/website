@@ -30,7 +30,7 @@ const CUTS = {
   /* The client app: the portal finds the client by the session; with none it must answer the 401, never read some client. */
   'token-required': [[PP, "  if (!lead) return { signIn: true };\n  return tokenStr(lead.portal?.token) && lead.deleted !== true ? lead : null;", "  if (!lead) return db.collection('call_leads').findOne({ 'portal.token': { $exists: true }, deleted: { $ne: true } }, { projection: PROJECTION });\n  return tokenStr(lead.portal?.token) && lead.deleted !== true ? lead : null;"]],
   'deleted-404': [[PP, "  return tokenStr(lead.portal?.token) && lead.deleted !== true ? lead : null;", "  return tokenStr(lead.portal?.token) ? lead : null;"]],
-  'get-whitelist': [[PP, "return res.status(200).json({ client: portalClient(lead), cards:", "return res.status(200).json({ client: { ...portalClient(lead), phone: lead.phone || '' }, lead, cards:"], [PP, "const PROJECTION = { business: 1,", "const PROJECTION = { phone: 1, business: 1,"]],
+  'get-whitelist': [[PP, "    return { client: portalClient(lead), cards:", "    return { client: { ...portalClient(lead), phone: lead.phone || '' }, lead, cards:"], [PP, "const PROJECTION = { business: 1,", "const PROJECTION = { phone: 1, business: 1,"]],
   'card-fields': [[PM, "export const cardOf = (m, data) => { const out = { id: m.id, title: m.title, sensitive: !!m.sensitive }; for (const k of m.fields) if (data && data[k] !== undefined) out[k] = data[k]; return out; };", "export const cardOf = (m, data) => ({ id: m.id, title: m.title, sensitive: !!m.sensitive, ...data });"]],
   'view-count': [[PP, "'portal.views': (Number(lead.portal?.views) || 0) + 1,", "'portal.views': Number(lead.portal?.views) || 0,"]],
   'view-debounce': [[PP, "    if (!st.exceeded) {", "    if (true) { // cut"]],
@@ -105,7 +105,7 @@ const CUTS = {
   'approve-note': [[PP, "  if (decision === 'changes' && !note) return res.status(400).json({ error: 'say what to change' });\n", ""]],
   'approve-own': [[PP, "const findApproval = (lead, id) => (Array.isArray(lead.portal?.approvals) ? lead.portal.approvals : []).find(a => a && a.id === id) || null;", "const findApproval = (lead, id) => ({ id, label: 'Their hero', status: 'pending' });"]],
   'approve-limit': [[PP, "const APPROVE_MAX = 20;", "const APPROVE_MAX = 200;"]],
-  'back-no-token': [[PM, "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal()}` : '');", "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}?from=portal&c=${client.portal?.token || ''}` : '');"]],
+  'back-no-token': [[PM, "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? '/planner' : '');", "export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}?from=portal&c=${client.portal?.token || ''}` : '');"]],
   'reorder-gate': [[PM, "  if (!had.size) return [];\n", ""]],
   'reorder-price': [[PM, "const price = Array.isArray(p.sizes) && p.sizes.length ? p.sizes[0].price : p.price;", "const price = 0;"]],
   'reorder-package': [[PM, "if ((p.deliveredAt || p.stage === 'delivered') && PRINT_PACKAGES[p.packageId]) PRINT_PACKAGES[p.packageId].forEach(id => had.add(id));", "void p;"]],
