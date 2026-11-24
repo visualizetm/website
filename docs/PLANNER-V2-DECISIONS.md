@@ -22,3 +22,7 @@ One line each: the milestone, the choice, why.
 - 1.4: the timeline's "You approved it" carries no date: the read has no decidedAt or approvedAt, and the prompt names no such field for it, so it renders without one. Posted uses postedAt, which the read does carry.
 - 1.4: an ad's page shows the ad card (the Ads screen's, shared) instead of the Instagram preview, with no Copy card and no settled line; the client does not post ads.
 - 1.4: Post it in 4 taps stays on screen, every step ticked, after I posted it, instead of vanishing the moment the post turns Posted.
+- 1.5: the Ideas composer's one box is split for the door: its first line (120 characters) is the subject Rob reads as the title, the whole text is the details when it is longer. The old Add a link field is dropped; the prompt's composer has none, and a link can go in the text.
+- 1.5: Add photos shows only when uploads are configured (the Cloudinary variables), as the old sheet did with its photos.
+- 1.5: "In the plan for Dec 16" renders as "In the plan." The read carries no date for an idea's post and the prompt names no such field.
+- 1.5: the Ads screen keeps the month arrows, like Plan, because the read is one month.

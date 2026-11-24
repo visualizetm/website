@@ -290,6 +290,7 @@ export const COPY = {
       tooMany: 'That is a lot of ideas at once. Give it a moment.',
       uploadFailed: 'That picture did not upload.',
       yours: 'Your ideas',
+      where: 'Where it is',
       steps: { sent: 'Sent', seen: 'Seen', plan: 'In the plan', made: 'Made' },
       line: { sent: 'Sent. I will see it soon.', seen: 'Rob saw it. He will reply soon.', plan: 'In the plan.', made: 'Made. It is in your plan.', declined: 'Not this time.' },
     },
