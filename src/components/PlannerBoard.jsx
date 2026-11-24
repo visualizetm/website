@@ -18,9 +18,10 @@ const titleOf = (p) => (kindOf(p) === 'ad' && p.ad?.name ? p.ad.name : postLabel
 const kindWord = (p) => (kindOf(p) === 'ad' ? 'Ad' : formatOf(p) === 'video' ? 'Reel' : formatOf(p) === 'story' ? 'Story' : 'Post');
 
 /** The activity strip: StatCards that wrap on a phone. A tile with nothing honest to say does not render (the ad's best result). */
-export function ActivityStrip({ act, client, onPick }) {
+export function ActivityStrip({ act, client, onPick, columns }) {
+  /* columns: five fixed on a computer, so the live ad's tile arriving never reflows the others (a layout shift). */
   return (
-    <Grid minColumnWidth={150} gap={2} className="pb-strip" role="list" aria-label="This month">
+    <Grid minColumnWidth={150} columns={columns} gap={2} className="pb-strip" role="list" aria-label="This month">
       <div role="listitem"><StatCard icon="CheckCircle" tone="booked" value={`${act.ready} of ${act.of}`} label="Posts ready" onClick={() => onPick('approved')} /></div>
       <div role="listitem"><StatCard icon="Clock" tone={act.waiting ? 'won' : 'neutral'} value={act.waiting} label={`Waiting on ${client}`} onClick={() => onPick('review')} /></div>
       <div role="listitem"><StatCard icon="MessageCircle01" tone={act.changes ? 'new' : 'neutral'} value={act.changes} label="Changes asked" onClick={() => onPick('making')} /></div>

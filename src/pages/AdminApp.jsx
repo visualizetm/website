@@ -701,9 +701,11 @@ export default function AdminApp() {
    * from Ideas on their planner, loaded at the shell level like posts so
    * the Planner badge and the editor's inbox read the same list. */
   const [suggestions, setSuggestions] = useState([]);
+  const [suggestionsReady, setSuggestionsReady] = useState(false); // Planner v2: the Ideas view draws its skeleton until the first answer
   const loadSuggestions = useCallback(async () => {
     const r = await apiFetch('/api/admin/suggestions', { silent: true });
     if (r.ok) setSuggestions(r.data?.items || []);
+    setSuggestionsReady(true);
   }, []);
   const patchSuggestion = useCallback(async (id, set) => {
     const r = await apiFetch('/api/admin/suggestions', { method: 'PATCH', body: { id, set } });
@@ -927,6 +929,7 @@ export default function AdminApp() {
           onPatchPost={patchPost}
           onDeletePost={deletePost}
           suggestions={suggestions}
+          suggestionsLoading={!suggestionsReady || forceLoading}
           onPatchSuggestion={patchSuggestion}
           openIdeas={new URLSearchParams(location.search).get('ideas') === '1'}
           postId={decodeURIComponent(plannerPostId)}

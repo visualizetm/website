@@ -239,7 +239,7 @@ function IdeaRow({ s, busy, readOnly, onMake, onDecline }) {
 export default function AdminPlanner({
   lead, posts = [], loading = false, error = false, onRetry, leadsError = false, onRetryLeads, onPatch, onRefetchLead,
   onCreatePost, onPatchPost, onDeletePost, onBack, month: monthProp, readOnly = false,
-  suggestions = [], onPatchSuggestion, openIdeas = false, postId = '', onSendReview, onOpenPostPath,
+  suggestions = [], suggestionsLoading = false, onPatchSuggestion, openIdeas = false, postId = '', onSendReview, onOpenPostPath,
 }) {
   const toast = useToast();
   const shell = useShell();
@@ -592,7 +592,9 @@ export default function AdminPlanner({
                   <span className="dt-muted">What they asked for from their planner.</span>
                 </Row>
                 {ideas.length > 3 && <ListSearch value={ideaQ} onChange={setIdeaQ} placeholder="Search ideas" label="Search ideas" className="pl-ideas-search" />}
-                {!ideas.length
+                {suggestionsLoading && !ideas.length
+                  ? <Stack gap={2} aria-busy="true">{[1, 2, 3].map(i => <Card key={i} level={2} padding={3}><SkeletonText lines={2} /></Card>)}</Stack>
+                  : !ideas.length
                   ? <p className="pl-note">No ideas yet. They send one from Ideas on their planner, and it lands here with a task on their Ideas checklist.</p>
                   : !shownIdeas.length
                     ? <NoResults noun="ideas" query={ideaQ} onClear={() => setIdeaQ('')} />
@@ -646,7 +648,7 @@ export default function AdminPlanner({
                   variant={draft.enabled && !waiting ? 'solid' : 'soft'}
                   label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />
               </Row>
-              {draft.enabled && <span className="pl-quiet">{quiet}</span>}
+              {lead.planner?.enabled && <span className="pl-quiet">{quiet}</span>}
             </Stack>
             <Button variant="secondary" icon="LinkExternal01" disabled={!previewUrl} className="pl-preview"
               onClick={() => window.open(previewUrl, '_blank', 'noopener')}>Preview as {name}</Button>
@@ -663,7 +665,7 @@ export default function AdminPlanner({
             </Stack>
           ) : (
             <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
-              {!inStep && draft.enabled && <ActivityStrip act={act} client={name} onPick={pickStrip} />}
+              {!inStep && draft.enabled && <ActivityStrip act={act} client={name} onPick={pickStrip} columns={wideBoard ? 5 : undefined} />}
               {phone && !step && (
                 <Stack gap={2}>
                   <ListRow title="Setup" subtitle={!draft.enabled ? 'Off' : `On, ${cap} a month`} onClick={() => openStep('Setup')} />
