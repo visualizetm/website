@@ -224,27 +224,32 @@ export const SCREENS = [
   { id: 'mkt-unsubscribe', screen: 'Unsubscribe (marketing)', label: 'opted out, with Undo', path: '/u/unsubTESTtoken0123456789', session: false, static: true, marketing: true },
   { id: 'mkt-unsubscribe-dead', screen: 'Unsubscribe (marketing)', label: 'an unknown token: the link expired', path: '/u/notarealtokenatall00000', session: false, static: true, marketing: true },
 
-  /* The client facing Content Planner (planner prompt 3). The token in these
-     paths is the audit fixture's, answered by the mocked /api/planner. */
-  /* The client's planner dashboard (milestone 3): the four destinations, the
-     two details (a post, an image ad and a planned video ad) and the Suggest
-     sheet. The tab lives in the URL, so each destination is its own path. */
-  { id: 'mkt-planner-home', screen: 'Planner (marketing)', label: 'Home', path: '/planner/plnrTESTtoken0123456789abcdEF', session: false, static: true, marketing: true },
-  { id: 'mkt-planner-posts', screen: 'Planner (marketing)', label: 'Posts, the list', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true,
-    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); } },
-  { id: 'mkt-planner-cal', screen: 'Planner (marketing)', label: 'Posts, the calendar', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true,
-    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'Calendar' }), 1500); await p.waitForTimeout(300); } },
-  { id: 'mkt-planner-ads', screen: 'Planner (marketing)', label: 'Ads', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true },
-  { id: 'mkt-planner-ideas', screen: 'Planner (marketing)', label: 'Ideas', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ideas', session: false, static: true, marketing: true },
-  { id: 'mkt-planner-post', screen: 'Planner (marketing)', label: 'a post, needs you', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
-    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); await click(p.locator('.pl-row').filter({ hasText: 'Needs you' })); await p.waitForTimeout(500); } },
-  { id: 'mkt-planner-ad-image', screen: 'Planner (marketing)', label: 'an image ad, live, with results', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
-    act: async (p) => { await click(p.locator('.pl-row').filter({ hasText: 'October interior offer' })); await p.waitForTimeout(500); } },
-  { id: 'mkt-planner-ad-video', screen: 'Planner (marketing)', label: 'a planned video ad, needs you', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ads', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
-    act: async (p) => { await click(p.locator('.pl-row').filter({ hasText: 'Ceramic coat reel' })); await p.waitForTimeout(500); } },
-  { id: 'mkt-planner-suggest', screen: 'Planner (marketing)', label: 'the Suggest sheet', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=ideas', session: false, static: true, marketing: true, detail: true, region: '.pl-panel',
-    act: async (p) => { await click(p.locator('.pl-suggest')); await p.waitForTimeout(500); } },
-  { id: 'mkt-planner-dead', screen: 'Planner (marketing)', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000', session: false, static: true, marketing: true },
+  /* The client facing Content Planner (Planner v2). The tokens in these paths are the audit fixture's, answered by the mocked
+     /api/planner: plnrTEST is L11's month as it is, plnrCLEAR the same month with nothing waiting. The screen lives in the URL
+     (?tab=, ?review=1, ?post=<id>), so each state is its own path. */
+  ...(() => {
+    const T = '/planner/plnrTESTtoken0123456789abcdEF';
+    const CLEAR = '/planner/plnrCLEARtoken0123456789abcd';
+    const base = { screen: 'Planner (marketing)', session: false, static: true, marketing: true };
+    const view = (name) => async (p) => { await click(p.getByRole('radio', { name }), 2000); await p.waitForTimeout(300); };
+    return [
+      { ...base, id: 'mkt-planner-home', label: 'Home, posts waiting on them', path: T },
+      { ...base, id: 'mkt-planner-home-clear', label: 'Home, all caught up', path: CLEAR },
+      { ...base, id: 'mkt-planner-review', label: 'Review mode, the first post', path: `${T}?review=1` },
+      { ...base, id: 'mkt-planner-review-change', label: 'Review mode, the change sheet', path: `${T}?review=1`, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.locator('.pl-ask')); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
+      { ...base, id: 'mkt-planner-review-done', label: 'Review mode, done', path: `${CLEAR}?review=1` },
+      { ...base, id: 'mkt-planner-plan-cal', label: 'Plan, the calendar', path: `${T}?tab=plan`, act: view('Calendar') },
+      { ...base, id: 'mkt-planner-plan-feed', label: 'Plan, the feed', path: `${T}?tab=plan`, act: view('Feed') },
+      { ...base, id: 'mkt-planner-plan-list', label: 'Plan, the list', path: `${T}?tab=plan`, act: view('List') },
+      { ...base, id: 'mkt-planner-post', label: 'a post page, waiting on them', path: `${T}?post=PO1` },
+      { ...base, id: 'mkt-planner-post-previous', label: 'a post page with a first draft and a new version', path: `${T}?post=PO6` },
+      { ...base, id: 'mkt-planner-post-postit', label: 'a post page, Post it in 4 taps', path: `${T}?post=PO25` },
+      { ...base, id: 'mkt-planner-post-ad', label: 'an ad page, live', path: `${T}?post=PO20` },
+      { ...base, id: 'mkt-planner-ads', label: 'Ads', path: `${T}?tab=ads` },
+      { ...base, id: 'mkt-planner-ideas', label: 'Ideas, the composer and the tracker', path: `${T}?tab=ideas` },
+      { ...base, id: 'mkt-planner-dead', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000' },
+    ];
+  })(),
   // Concepts (Concepts rebuild, Part 7): the client presentation and its states.
   { id: 'mkt-concepts', screen: 'Concepts (marketing)', label: 'the presentation, three directions', path: '/concepts/cncpTESTtoken0123456789abcdEF', session: false, static: true, marketing: true, noFit: true },
   { id: 'mkt-concepts-present', screen: 'Concepts (marketing)', label: 'present mode, no controls', path: '/concepts/cncpTESTtoken0123456789abcdEF?present=1', session: false, static: true, marketing: true, noFit: true },
@@ -266,9 +271,6 @@ export const SCREENS = [
   { id: 'mkt-concepts-review-note', screen: 'Concepts (marketing)', label: 'Review each, the Needs changes note open', path: '/concepts/cncpREVIEWtoken0123456789abc', session: false, static: true, marketing: true, act: async (p) => { await click(p.locator('.cp-sec').nth(1).getByRole('button', { name: 'Needs changes' })); await p.waitForTimeout(300); } },
   { id: 'mkt-concepts-review-summary', screen: 'Concepts (marketing)', label: 'Review each, the summary sheet', path: '/concepts/cncpALLINtoken01234567890abcde', session: false, static: true, marketing: true, detail: true, region: '[role="dialog"]', act: (p) => click(p.getByRole('button', { name: 'Send my answers' }).first()) },
   { id: 'mkt-concepts-review-submitted', screen: 'Concepts (marketing)', label: 'Review each, sent, read only', path: '/concepts/cncpSUBMITTEDtoken0123456789ab', session: false, static: true, marketing: true },
-  /* The expanded image: a dialog, so it gets its own axe row. */
-  { id: 'mkt-planner-zoom', screen: 'Planner (marketing)', label: 'the whole picture, expanded', path: '/planner/plnrTESTtoken0123456789abcdEF?tab=posts', session: false, static: true, marketing: true, detail: true,
-    act: async (p) => { await click(p.locator('.pl-view').filter({ hasText: 'List' }), 1500); await p.waitForTimeout(300); await click(p.locator('.pl-row').first()); await p.waitForTimeout(500); await click(p.locator('button.pl-img--whole').first()); } },
   // The maintenance screen (VITE_MAINTENANCE_MODE): a full app override at
   // the React root, not a route, so unlike every other marketing: true
   // entry above it only renders against a build made with that env var

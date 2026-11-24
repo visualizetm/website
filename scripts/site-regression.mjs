@@ -409,15 +409,15 @@ await step('12. Review form: fill it, submit, see the thank you', async () => {
 /* The planner prompt: the page a client opens with their token. The month
  * they see, then the two things they can actually do, each checked by what
  * reaches the endpoint and what changes on the page afterwards. */
-/* A client tapping a post has to SEE the panel, not merely have it in the
- * document. This step used to assert the caption existed, which stayed true
+/* A client opening a sheet has to SEE it, not merely have it in the
+ * document. This step once asserted the caption existed, which stayed true
  * while the whole panel sat a thousand pixels below the fold behind its own
  * backdrop, so it walked straight past that bug. Same rule the layout audit
  * applies: painted, at least 90 percent of its own box inside the viewport,
  * and the thing being drawn at its own centre. */
-async function panelOnScreen(page, what) {
-  const v = await page.evaluate(() => {
-    const el = document.querySelector('.pl-panel');
+async function panelOnScreen(page, what, sel = '.pl-sheet') {
+  const v = await page.evaluate((sel) => {
+    const el = document.querySelector(sel);
     if (!el) return { mounted: false };
     const cs = getComputedStyle(el), r = el.getBoundingClientRect();
     const w = Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0));
@@ -429,21 +429,21 @@ async function panelOnScreen(page, what) {
       viewport: `${innerWidth}x${innerHeight}`,
       onTop: !!hit && (hit === el || el.contains(hit)),
       hit: hit ? `${hit.tagName.toLowerCase()}.${String(hit.className).trim().slice(0, 24)}` : 'nothing' };
-  });
-  if (!v.mounted) throw new Error(`${what}: the detail panel is not mounted at all`);
-  if (!v.painted) throw new Error(`${what}: the detail panel is mounted but not painted`);
-  if (v.pct < 90) throw new Error(`${what}: only ${v.pct}% of the detail panel is on screen (${v.box}, viewport ${v.viewport})`);
-  if (!v.onTop) throw new Error(`${what}: the detail panel is behind ${v.hit} at its own centre`);
+  }, sel);
+  if (!v.mounted) throw new Error(`${what}: ${sel} is not mounted at all`);
+  if (!v.painted) throw new Error(`${what}: ${sel} is mounted but not painted`);
+  if (v.pct < 90) throw new Error(`${what}: only ${v.pct}% of ${sel} is on screen (${v.box}, viewport ${v.viewport})`);
+  if (!v.onTop) throw new Error(`${what}: ${sel} is behind ${v.hit} at its own centre`);
 }
 
-await step('13. Planner dashboard: Home, approve a post, ask for a change, send an idea', async () => {
+await step('13. Planner v2: Home, Review mode (approve one, ask for a change on the other), Plan, send an idea', async () => {
   const TOKEN = 'plnrREGRESSIONtoken01234567';
   const MONTH = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
   const bodies = [];
   const rows = [
-    { id: 'RG1', kind: 'post', date: `${MONTH}-04`, time: '09:00', platforms: ['instagram'], format: 'portrait', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on Friday', hashtags: '#peach', status: 'review', note: 'Happy with this one?', clientNote: '', allowDownload: true, video: null, ad: null },
-    { id: 'RG2', kind: 'post', date: `${MONTH}-11`, time: '', platforms: ['tiktok'], format: 'portrait', imageUrl: '', caption: 'Behind the counter', hashtags: '', status: 'review', note: '', clientNote: '', allowDownload: true, video: null, ad: null },
-    { id: 'RG3', kind: 'post', date: `${MONTH}-18`, time: '', platforms: ['facebook'], format: 'portrait', imageUrl: '', caption: 'Already up', hashtags: '', status: 'posted', note: '', clientNote: '', allowDownload: true, video: null, ad: null },
+    { id: 'RG1', kind: 'post', date: `${MONTH}-04`, time: '09:00', platforms: ['instagram'], format: 'portrait', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on Friday', hashtags: '#peach', status: 'review', note: 'Happy with this one?', clientNote: '', allowDownload: true, video: null, ad: null, postedAt: '', postedBy: '', changeReason: '', previous: null },
+    { id: 'RG2', kind: 'post', date: `${MONTH}-11`, time: '', platforms: ['tiktok'], format: 'portrait', imageUrl: '', caption: 'Behind the counter', hashtags: '', status: 'review', note: '', clientNote: '', allowDownload: true, video: null, ad: null, postedAt: '', postedBy: '', changeReason: '', previous: null },
+    { id: 'RG3', kind: 'post', date: `${MONTH}-18`, time: '', platforms: ['facebook'], format: 'portrait', imageUrl: '', caption: 'Already up', hashtags: '', status: 'posted', note: '', clientNote: '', allowDownload: true, video: null, ad: null, postedAt: '', postedBy: 'client', changeReason: '', previous: null },
   ];
   const ideas = [];
   await page.unroute('**/api/showcase**').catch(() => {});
@@ -455,7 +455,7 @@ await step('13. Planner dashboard: Home, approve a post, ask for a change, send 
       bodies.push(body);
       if (body.action === 'suggest') {
         if (!String(body.subject || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"subject"}' });
-        const idea = { id: `RGI${ideas.length + 1}`, kind: body.kind, subject: body.subject, goal: body.goal, status: 'new', note: '', createdAt: new Date().toISOString() };
+        const idea = { id: `RGI${ideas.length + 1}`, kind: body.kind, subject: body.subject, goal: body.goal, status: 'new', note: '', createdAt: new Date().toISOString(), seen: false, made: false };
         ideas.unshift(idea);
         return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, suggestion: idea }) });
       }
@@ -464,94 +464,82 @@ await step('13. Planner dashboard: Home, approve a post, ask for a change, send 
       if (post.status !== 'review') return r.fulfill({ status: 409, contentType: 'application/json', body: '{"error":"stale"}' });
       if (body.action === 'request-change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"note required"}' });
       post.status = body.action === 'approve' ? 'approved' : 'making';
-      if (body.action === 'request-change') post.clientNote = body.note;
+      if (body.action === 'request-change') { post.clientNote = body.note; post.changeReason = body.reason || ''; }
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: post.status }) });
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-      client: { displayName: 'Site Check Co', welcome: 'Here is your month.', postsPerMonth: 8 },
+      client: { displayName: 'Site Check Co', welcome: 'Here is your month.', postsPerMonth: 8, logoUrl: '', firstName: '' },
       month: u.searchParams.get('month') || MONTH,
       posts: rows, suggestions: ideas,
     }) });
   });
 
   await page.goto(`${BASE}/planner/${TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
-  await page.waitForTimeout(1600);
-  if (!/Site Check Co/i.test(await page.locator('.pl-title').innerText())) throw new Error('the client name is not the heading');
-  const needs = await page.locator('.pl-needs-text').innerText();
-  if (!/2 things need you/i.test(needs)) throw new Error(`the needs you strip reads "${needs}"`);
-  if (!/1 of 8 ready/i.test(await page.locator('.pl-progress-label').innerText())) throw new Error('the progress line is wrong before approving');
-  if (await page.locator('.pl-tab').count() !== 4) throw new Error('the four destinations are not there');
+  await page.waitForSelector('.pl-needs', { timeout: 8000 }).catch(() => {});
+  if (!/Site Check Co/i.test(await page.locator('.pl-top-name').innerText())) throw new Error('the client name is not in the top bar');
+  if (!/^Hey\.$/i.test((await page.locator('.pl-h1').first().innerText()).trim())) throw new Error('with no first name the greeting is not "Hey."');
+  if (!/2 to review/i.test(await page.locator('.pl-needs .pl-pill').innerText())) throw new Error('the Needs you card does not say 2 to review');
+  if (await page.locator('.pl-tab').count() !== 4) throw new Error('the four tabs are not there');
+  if (!await page.locator('.pl-tab[data-tab="home"] .pl-tab-dot').count()) throw new Error('Home carries no red dot while two posts wait');
+  if (!/1 of 8 ready/i.test(await page.locator('.pl-stat').innerText())) throw new Error('the month line is wrong before approving');
 
-  // Posts, the list view: the stable one to click through at any width.
-  await page.locator('.pl-tab[data-tab="posts"]').click();
-  await page.waitForTimeout(500);
-  await page.locator('.pl-view', { hasText: 'List' }).click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(400);
-  const rowsSeen = await page.locator('.pl-row').count();
-  if (rowsSeen !== 3) throw new Error(`${rowsSeen} rows on Posts, wanted 3`);
-  if (!await page.locator('.pl-row .pl-pill--post', { hasText: /^Post$/ }).count()) throw new Error('the rows carry no Post pill');
-  await page.locator('.pl-row').filter({ hasText: 'Needs you' }).first().click();
-  await page.waitForTimeout(500);
-  await panelOnScreen(page, 'approving');
-  if (!await page.locator('.pl-caption-body').count()) throw new Error('the caption is not in the detail');
-  if (!await page.locator('.pl-caption-body').isVisible()) throw new Error('the caption is in the detail but not visible');
-  if (await page.locator('.pl-copy').count() < 2) throw new Error('Copy is not on both the caption and the hashtags');
-  if (!await page.locator('.pl-save').count()) throw new Error('Save to photos is not offered on a post with a picture');
-  if (await page.locator('.pl-tabbar').count()) throw new Error('the tab bar is still up under the detail');
+  // Review mode: focused, one post at a time, the tab bar hidden.
+  await page.locator('.pl-review-now').click();
+  await page.waitForSelector('.pl-review', { timeout: 4000 });
+  if (!/1 of 2/.test(await page.locator('.pl-top-count').innerText())) throw new Error('the top bar does not say 1 of 2');
+  if (!await page.locator('.pl-tabs.is-hidden').count()) throw new Error('the tab bar is still up in Review mode');
+  if (!await page.locator('.pl-ig-caption').isVisible()) throw new Error('the caption is not visible on the post');
   await page.locator('.pl-approve').click();
-  await page.waitForTimeout(900);
-  if (!/Approved/i.test(await page.locator('.pl-toast').innerText().catch(() => ''))) throw new Error('no confirmation after approving');
+  await page.waitForFunction(() => /2 of 2/.test(document.querySelector('.pl-top-count')?.textContent || ''), null, { timeout: 4000 });
   if (bodies.at(-1)?.action !== 'approve' || bodies.at(-1)?.postId !== 'RG1') throw new Error(`the approve body was ${JSON.stringify(bodies.at(-1))}`);
-  await page.locator('.pl-tab[data-tab="home"]').click();
-  await page.waitForTimeout(500);
-  if (!/1 thing needs you/i.test(await page.locator('.pl-needs-text').innerText())) throw new Error('the needs you count did not drop');
-  if (!/2 of 8 ready/i.test(await page.locator('.pl-progress-label').innerText())) throw new Error('the ready count did not rise');
 
-  // Home's own button opens the one thing left waiting.
-  await page.waitForTimeout(2400);
-  await page.locator('.pl-needs-btn').click();
-  await page.waitForTimeout(500);
+  // Ask for a change: the sheet, refused empty, then a reason and a note.
+  await page.locator('.pl-ask').click();
+  await page.waitForTimeout(400);
   await panelOnScreen(page, 'asking for a change');
-  await page.locator('.pl-ask-btn').click();
+  const before = bodies.length;
+  await page.locator('.pl-send-change').click();
   await page.waitForTimeout(300);
-  if (!await page.locator('#pl-note').isVisible()) throw new Error('the change request box is not visible');
-  await page.fill('#pl-note', 'Can we shoot this one outside instead?');
-  await page.locator('.pl-panel-foot button', { hasText: /^Send$/ }).click();
-  await page.waitForTimeout(1000);
+  if (!await page.locator('.pl-sheet .pl-formerr').count()) throw new Error('a change with no reason and no note was not refused on the page');
+  if (bodies.length !== before) throw new Error('an empty change reached the endpoint');
+  await page.locator('.pl-sheet .pl-chip', { hasText: 'Change the words' }).click();
+  await page.fill('#pl-change-note', 'Can we shoot this one outside instead?');
+  await page.locator('.pl-send-change').click();
+  await page.waitForSelector('.pl-review-done', { timeout: 4000 });
   const sent = bodies.at(-1);
-  if (sent?.action !== 'request-change' || sent?.postId !== 'RG2') throw new Error(`the change body was ${JSON.stringify(sent)}`);
-  if (sent?.note !== 'Can we shoot this one outside instead?') throw new Error('the note did not reach the endpoint');
-  if (!/all caught up/i.test(await page.locator('.pl-needs-text').innerText())) throw new Error('the strip did not settle after the last approval');
-  await page.locator('.pl-tab[data-tab="posts"]').click();
-  await page.waitForTimeout(500);
-  await page.locator('.pl-view', { hasText: 'List' }).click({ timeout: 1500 }).catch(() => {});
-  await page.waitForTimeout(300);
-  if (!await page.locator('.pl-row').filter({ hasText: /Making/ }).count()) throw new Error('the post did not go back to Making');
+  if (sent?.action !== 'request-change' || sent?.postId !== 'RG2' || sent?.reason !== 'words' || sent?.note !== 'Can we shoot this one outside instead?') throw new Error(`the change body was ${JSON.stringify(sent)}`);
+  if (!/1 approved, 1 sent back with changes/.test(await page.locator('.pl-review-done').innerText())) throw new Error('the done screen does not sum up the two answers');
+  await page.locator('.pl-back-home').click();
+  await page.waitForSelector('.pl-caught', { timeout: 4000 });
+  if (!/all caught up/i.test(await page.locator('.pl-caught').innerText())) throw new Error('Home did not settle after the last answer');
+  if (await page.locator('.pl-tab[data-tab="home"] .pl-tab-dot').count()) throw new Error('the red dot stayed with nothing waiting');
+  if (!/2 of 8 ready/i.test(await page.locator('.pl-stat').innerText())) throw new Error('the ready count did not rise');
 
-  // Ideas: the first time state, then one idea sent and shown.
+  // Plan, the list: three rows, the changed one says Changes sent.
+  await page.locator('.pl-tab[data-tab="plan"]').click();
+  await page.waitForTimeout(400);
+  await page.getByRole('radio', { name: 'List' }).click();
+  await page.waitForTimeout(300);
+  if (await page.locator('.pl-row').count() !== 3) throw new Error(`${await page.locator('.pl-row').count()} rows on Plan, wanted 3`);
+  if (!await page.locator('.pl-row').filter({ hasText: 'Changes sent' }).count()) throw new Error('the post did not come back as Changes sent');
+
+  // Ideas: nothing yet, the composer refuses an empty idea, then one is sent and tracked.
   await page.locator('.pl-tab[data-tab="ideas"]').click();
-  await page.waitForTimeout(500);
+  await page.waitForSelector('.pl-composer', { timeout: 4000 });
   if (!await page.locator('.pl-empty[data-state="empty"]').count()) throw new Error('Ideas has no first time state');
-  await page.locator('.pl-suggest').first().click();
-  await page.waitForTimeout(500);
-  await panelOnScreen(page, 'suggesting');
   await page.locator('.pl-send-idea').click();
   await page.waitForTimeout(300);
-  if (!await page.locator('.pl-formerr').count()) throw new Error('an idea with no subject was not refused on the page');
+  if (!await page.locator('.pl-composer .pl-formerr').count()) throw new Error('an idea with no subject was not refused on the page');
   if (bodies.some(b => b.action === 'suggest')) throw new Error('an empty idea reached the endpoint');
-  await page.locator('.pl-kind', { hasText: 'Video' }).click();
-  await page.fill('#pl-subject', 'The headlight restoration');
-  await page.locator('.pl-chipbtn', { hasText: 'Show my work' }).click();
+  await page.locator('.pl-composer .pl-chip', { hasText: 'A video' }).click();
+  await page.fill('#pl-idea-about', 'The headlight restoration');
+  await page.locator('.pl-composer .pl-chip', { hasText: 'Show my work' }).click();
   await page.locator('.pl-send-idea').click();
-  await page.waitForTimeout(900);
+  await page.waitForSelector('.pl-idea', { timeout: 4000 });
   const idea = bodies.at(-1);
   if (idea?.action !== 'suggest' || idea?.kind !== 'video' || idea?.subject !== 'The headlight restoration' || idea?.goal !== 'work') throw new Error(`the idea body was ${JSON.stringify(idea)}`);
-  if (!await page.locator('.pl-sent').isVisible()) throw new Error('no confirmation after sending the idea');
-  await page.locator('.pl-panel-foot button', { hasText: /^Close$/ }).click();
-  await page.waitForTimeout(500);
-  if (!await page.locator('.pl-idea').filter({ hasText: 'The headlight restoration' }).count()) throw new Error('the idea is not in the list');
-  if (!await page.locator('.pl-idea').filter({ hasText: 'Sent' }).count()) throw new Error('the idea does not say Sent');
-  return 'Home with the strip and the progress, the four tabs, a post approved from Posts, a change asked from Home, and an idea refused empty then sent and listed';
+  if (!await page.locator('.pl-idea').filter({ hasText: 'The headlight restoration' }).filter({ hasText: 'Sent' }).count()) throw new Error('the idea is not tracked as Sent');
+  return 'Home with Needs you and the red dot, Review mode approving one and sending the other back with a reason, the done screen, Home caught up, Plan listing Changes sent, and an idea refused empty then sent and tracked';
 });
 
 /* The Concepts rebuild: the presentation a client opens with their token,

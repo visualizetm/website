@@ -44,6 +44,18 @@ export function KindPill({ item }) {
   return <span className="pl-pill pl-pill--outline">{label}</span>;
 }
 
+const PLATFORM_LABEL = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', other: 'Other' };
+/** Where it goes, in words. */
+export const platformNames = (item) => (Array.isArray(item?.platforms) && item.platforms.length ? item.platforms : ['instagram']).map(id => PLATFORM_LABEL[id] || 'Other');
+/** What to call an item: an ad's name, a post's first line, else the post's day. */
+export function titleOf(item) {
+  if (kindOf(item) === 'ad') return item?.ad?.name || C().kinds.ad;
+  const first = String(item?.caption || '').trim().split('\n')[0].trim();
+  if (first) return first;
+  const d = shortDate(item?.date);
+  return d ? `${C().kinds.post}, ${d}` : C().kinds.post;
+}
+
 export const pictureOf = (item) => item?.imageUrl || item?.video?.poster || '';
 const isVideo = (item) => formatOf(item) === 'video';
 
@@ -87,7 +99,7 @@ export function Avatar({ client, size = 36 }) {
 }
 
 /** A handle for the preview: the business name, lowercase, letters and digits only. A picture of their profile, not their real handle. */
-export const handleOf = (client) => (String(client?.displayName || 'yourbusiness').toLowerCase().replace(/[^a-z0-9]+/g, '') || 'yourbusiness');
+export const handleOf = (client) => (String(client?.displayName || 'yourbusiness').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 30) || 'yourbusiness');
 
 /** The post drawn as it will look on Instagram: the avatar and handle, the date and kind, the creative at its format, the caption and
  *  the hashtags. `draft` swaps in an earlier version's picture and words. */

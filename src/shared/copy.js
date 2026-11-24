@@ -176,7 +176,7 @@ export const COPY = {
     kinds: { post: 'Post', ad: 'Ad', video: 'Video', reel: 'Reel', story: 'Story' },
     home: {
       hey: (first) => (first ? `Hey, ${first}.` : 'Hey.'),
-      lead: (p, month) => (p.ready >= p.of ? `Your ${month} posts are all ready.` : p.ready ? `I have ${p.ready} of your ${p.of} ${month} posts ready.` : `I am making your ${month} posts now.`),
+      lead: (p, month, waiting = 0) => (waiting ? `I have your ${month} posts lined up. A few need your yes.` : p.ready >= p.of ? `Your ${month} posts are all ready.` : p.ready ? `I have ${p.ready} of your ${p.of} ${month} posts ready.` : `I am making your ${month} posts now.`),
       needsTitle: 'Needs you',
       toReview: (n) => `${n} to review`,
       needsLine: (n) => (n === 1 ? 'One post is waiting for your yes.' : `${n} posts are waiting for your yes.`),

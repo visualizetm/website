@@ -1080,8 +1080,17 @@ export async function mockRoutes(page, opts = {}) {
   await page.route('**/api/planner**', (r) => {
     const url = new URL(r.request().url());
     const token = url.searchParams.get('token') || '';
-    const lead = leads.find(l => l.planner?.enabled && l.planner?.token === token);
+    /* Planner v2: Home with nothing waiting. The clear token reads L11's month with every post in review shown as approved, so the
+       audits see the caught up state without a second planner client (and without changing L11's posts for the screens after it). */
+    const CLEAR = 'plnrCLEARtoken0123456789abcd';
+    const lead = leads.find(l => l.planner?.enabled && (l.planner?.token === token || (token === CLEAR && l._id === 'L11')));
     if (!lead) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (token === CLEAR) {
+      if (r.request().method() !== 'GET') return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+      const body = plannerPayload(lead, url.searchParams.get('month') || THIS_MONTH);
+      body.posts = body.posts.map(p => (p.status === 'review' ? { ...p, status: 'approved' } : p));
+      return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    }
     if (r.request().method() === 'POST') {
       let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
       /* The client's idea (milestone 3): stored on the fixture so the Ideas

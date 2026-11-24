@@ -13,3 +13,7 @@ One line each: the milestone, the choice, why.
 - 1.2: the marketing ClientFoot is dropped from the planner; the tab bar is the page's foot, as in the CRM. The dead link page keeps the email in its line.
 - 1.2: focused screens are search params (`?review=1`, `?post=<id>`) pushed as real history entries with `state.pl`, so the phone's Back and the top bar's Back are one step; a cold open backs to its tab root. An old `?tab=posts` link opens Plan.
 - 1.2: layers that mean the screen (tab bar, sheets, toast) portal to the body inside their own `.lay-root`, because `main.page-fade` animates a transform and fixed layers inside it would be fixed to it.
+- 1.3: Ask for a change sends the reason's own words as the note when the client picks a reason and writes nothing (the door still requires a note, which is what Rob reads); Send needs a reason or a line.
+- 1.3: Review takes its queue once when it opens, so an approval does not reshuffle the rest; a post that turned stale (not waiting any more) is passed over, since there is nothing left to answer, and only a failed call stays on screen with Retry.
+- 1.3: Home's This week reads the loaded month only, so a week that runs into the next month shows no dots on those days. The read is per month and no new field is added.
+- 1.3: the audits' Home without needs uses a second mock token (plnrCLEAR) that reads L11's month with review shown as approved, rather than a second planner client in the fixtures, which would change the admin screens' data.
