@@ -13,6 +13,7 @@ import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS, POST_KIND_IDS, AD_GOAL_
  *   GET    /api/admin/posts                             { items } this month and next
  *                                                       (what the Calendar screen reads)
  *   POST   { leadId, month, ... }                       { ok, item }
+ *   POST   { action: 'send-review', leadId, ids }      { ok, ids } the batch send (Planner v2)
  *   PATCH  { id, set }                                  $set only the keys sent (sanitized)
  *   DELETE { id }                                       soft delete, the same tombstone
  *                                                       every other collection uses
@@ -157,6 +158,23 @@ export async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    /* Batch send (Planner v2, part 2): { action: 'send-review', leadId, ids } moves every post of that lead among ids that is still
+     * being made and has a picture or a video and a caption to review, in one write, so the client sees one change rather than n.
+     * Ads, posts of another lead, a post with nothing to approve yet and anything not in making are left exactly as they are.
+     * Answers the ids it moved. */
+    if (req.body?.action === 'send-review') {
+      const leadId = str(req.body.leadId, 64);
+      const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).slice(0, 200).map(oid).filter(Boolean);
+      if (!leadId || !ids.length) return res.status(400).json({ error: 'leadId and ids required' });
+      const found = await col.find({ _id: { $in: ids }, leadId, status: 'making', deleted: { $ne: true }, archived: { $ne: true } }).limit(200).toArray();
+      const ready = found.filter(p => (p.kind || 'post') === 'post' && (String(p.imageUrl || '').trim() || String(p.video?.url || '').trim()) && String(p.caption || '').trim());
+      const moved = ready.map(p => p._id);
+      if (moved.length) {
+        const at = new Date();
+        await col.updateMany({ _id: { $in: moved }, leadId, status: 'making' }, { $set: { status: 'review', reviewAt: at.toISOString(), updatedAt: at } });
+      }
+      return res.status(200).json({ ok: true, ids: moved.map(String) });
+    }
     const doc = compact(sanitize(req.body || {}));
     if (!doc.leadId || !doc.month) return res.status(400).json({ error: 'leadId and month required' });
     if (AD_ONLY_STATUS_IDS.includes(doc.status) && (doc.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });

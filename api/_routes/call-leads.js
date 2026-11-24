@@ -11,6 +11,25 @@ import { safeUrl } from '../_lib/url.js';
 import { QUOTE_STATUS_IDS } from '../_lib/quoteLines.js';
 import { sanitizeNextAction, nextActionFor, resolveNextAction } from '../_lib/nextAction.js';
 import { sanitizeChecklists } from '../_lib/checklists.js';
+import { normalizeHashtags } from './posts.js';
+
+/** Rob's hashtag sets on the planner (Planner v2): at most ten, each { id, name (40), tags (500) }; one with no tags is dropped. */
+export function sanitizeHashtagSets(v) {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set();
+  const out = [];
+  for (const raw of v.slice(0, 30)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const tags = normalizeHashtags(raw.tags);
+    if (!tags) continue;
+    let id = String(raw.id ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || `hs${out.length + 1}`;
+    while (seen.has(id)) id = `${id.slice(0, 36)}${out.length}${seen.size}`;
+    seen.add(id);
+    out.push({ id, name: String(raw.name ?? '').trim().slice(0, 40), tags });
+    if (out.length >= 10) break;
+  }
+  return out;
+}
 import { sanitizeInvoices } from '../_lib/invoices.js';
 import { DEAL_CHECKPOINT_IDS, CRON_RULE_IDS } from '../_semantics.js';
 
@@ -378,6 +397,8 @@ function sanitize(b) {
       /* Links in one tap (prompt 3 of 3): when the link was texted or shared, and how. Carried forward below when a save does not name them. */
       sentAt: b.planner.sentAt !== undefined ? str(b.planner.sentAt, 40) : undefined,
       sentVia: b.planner.sentVia !== undefined ? ['text', 'share'].includes(b.planner.sentVia) ? b.planner.sentVia : '' : undefined,
+      /* Planner v2: Rob's hashtag sets, at most ten { id, name (40), tags (500, normalised like a post's) }. Carried forward below when a save does not name them. */
+      hashtagSets: b.planner.hashtagSets !== undefined ? sanitizeHashtagSets(b.planner.hashtagSets) : undefined,
     } : undefined,
     retainer: b.retainer && typeof b.retainer === 'object' ? {
       projectId: str(b.retainer.projectId, 64), planId: str(b.retainer.planId, 40),
@@ -690,6 +711,7 @@ export async function handler(req, res) {
         lastViewedAt: had.lastViewedAt || '',
         sentAt: allowed.planner.sentAt !== undefined ? allowed.planner.sentAt : (had.sentAt || ''),
         sentVia: allowed.planner.sentVia !== undefined ? allowed.planner.sentVia : (had.sentVia || ''),
+        hashtagSets: allowed.planner.hashtagSets !== undefined ? allowed.planner.hashtagSets : (Array.isArray(had.hashtagSets) ? had.hashtagSets : []),
       };
       // No early return: this only resolves the token, so a PATCH carrying
       // both planner and showcase still runs the slug logic below.

@@ -20,7 +20,8 @@ function sanitize(b) {
     status: b.status !== undefined ? (SUGGESTION_STATUS_IDS.includes(b.status) ? b.status : 'new') : undefined,
     note: b.note !== undefined ? str(b.note, 500) : undefined,
     postId: b.postId !== undefined ? str(b.postId, 64) : undefined,
-    seenAt: b.seenAt !== undefined ? str(b.seenAt, 40) : undefined,
+    /* Opening an idea stamps it seen (Planner v2: the client's tracker reads it); true stamps now on the server. */
+    seenAt: b.seenAt !== undefined ? (b.seenAt === true ? new Date().toISOString() : str(b.seenAt, 40)) : undefined,
   };
 }
 
