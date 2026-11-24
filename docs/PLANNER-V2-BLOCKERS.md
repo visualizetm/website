@@ -1,3 +1,3 @@
 # Planner v2: roadblocks
 
-None yet.
+None. Every milestone landed; no check needed loosening and no exemption was added.
