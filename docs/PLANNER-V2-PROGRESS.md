@@ -24,7 +24,7 @@ Part 3, alerts
 
 * [x] 3.1 Shared push toggle helper, the planner's `push_on`, `push_off` and `alerts` actions, tests (needs 1.1) (094df6f)
 * [x] 3.2 The three client pushes and Rob's two, with stubbed tests including the 9:00 New York run across a time change (needs 3.1 and 2.1) (5598114)
-* [ ] 3.3 The Alerts sheet and bell, Rob's Setup line, the Next up loop (needs 3.1 and 1.2)
+* [x] 3.3 The Alerts sheet and bell, Rob's Setup line, the Next up loop (needs 3.1 and 1.2)
 * [ ] 3.4 Part 3 audits, guard proofs, docs (`docs/ARCHITECTURE.md` rows, the CLAUDE.md planner rule), `reports/PLANNER-V2-3-REPORT.md` (needs 3.2 and 3.3)
 
 ## Log

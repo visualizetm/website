@@ -17,7 +17,7 @@ const tmpBase = path.join(repoRoot, '.tmp-verify');
 fs.mkdirSync(tmpBase, { recursive: true });
 const tmp = fs.mkdtempSync(path.join(tmpBase, 'alerts-'));
 const apiDst = path.join(tmp, 'api');
-fs.cpSync(path.join(repoRoot, 'api'), apiDst, { recursive: true });
+fs.cpSync(process.env.API_SRC || path.join(repoRoot, 'api'), apiDst, { recursive: true }); // API_SRC: a cut copy, for scripts/planner-alerts-guard-proof.mjs
 fs.writeFileSync(path.join(apiDst, '_lib', 'mongo.js'), fs.readFileSync(path.join(repoRoot, 'scripts', 'fake-mongo.js'), 'utf8'));
 /* Every push is recorded, never sent: Rob's through sendPush, a client's through sendClientPush. */
 fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), `export const _sent = { rob: [], client: [] };
@@ -260,6 +260,20 @@ seedPush();
   const posted = await P({ postId: PID(1), action: 'posted' });
   ok(posted._status === 200 && _sent.rob.at(-1).category === 'client' && /posted the Dec 1 post$/.test(_sent.rob.at(-1).title), 'the posted push carries the client category (his switch decides)');
   ok(noCaption(), "none of Rob's pushes carries a caption");
+}
+
+/* The loop into Next up: a task written for a post completes when they post it; without one nothing is written. */
+seedPush();
+{
+  _stores.posts = [mk(1, { status: 'approved' }), mk(2, { status: 'approved' })];
+  lead().checklists = [{ id: 'ck1', name: 'Content', items: [{ id: 'tk1', text: 'Check the Dec 1 post went up', done: false, postId: PID(1) }, { id: 'tk2', text: 'Something else', done: false }] }];
+  await P({ postId: PID(1), action: 'posted' });
+  const items = lead().checklists[0].items;
+  ok(items.find(t => t.id === 'tk1').done === true && !!items.find(t => t.id === 'tk1').doneAt, 'the task carrying that post is ticked through the shared task rules');
+  ok(items.find(t => t.id === 'tk2').done === false, 'every other task is left alone');
+  const before = JSON.stringify(lead().checklists);
+  await P({ postId: PID(2), action: 'posted' });
+  ok(JSON.stringify(lead().checklists) === before, 'with no task for the post, nothing is written');
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

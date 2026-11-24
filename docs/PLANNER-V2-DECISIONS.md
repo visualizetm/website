@@ -44,3 +44,6 @@ One line each: the milestone, the choice, why.
 - 3.2: "Rob answered your idea: <subject>" carries the client's own subject (their words, not a caption), never Rob's note.
 - 3.2: the whole month approved means every live item of the month is past review (approved, posted, live or finished), stamped in planner.approvedMonths (24 kept) before Rob's push goes.
 - 3.2: the route hooks read a swappable clock in plannerPush.js so a test can pin the hour; quiet hours depend on it.
+- 3.3: the three switches show whether or not this device is on: they live on the client's record, so a second device follows them, and they can be set before turning a device on. An iPhone that has not added the planner to its Home Screen gets the hint instead of a Turn on button that cannot work there.
+- 3.3: the Next up loop looks for an open task carrying the post's id and ticks it through the shared task rules; no task carries one today (the task schema has no such field and nothing writes one), so with none nothing is written, as the prompt says.
+- 3.3: Rob's Setup line reads the device count the planner or the portal wrote last (they share the devices) and says Alerts on only when a device exists and a switch is on.

@@ -9,7 +9,7 @@ import { SUGGESTION_KIND_IDS, SUGGESTION_GOAL_IDS } from './_semantics.js';
 import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
 import { toggleClientPush } from './_lib/clientDevices.js';
 import { monthApprovedPush } from './_lib/plannerPush.js';
-import { addTask } from './_lib/taskRules.js';
+import { addTask, allTasks, setTaskDone } from './_lib/taskRules.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -316,6 +316,16 @@ async function handler(req, res) {
         const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
         await sendPush(db, { title: `${lead.showcase?.displayName || lead.business} posted ${postedLabel(post.date)}`, body: 'Marked it posted from the planner.', url: `${base}/clients/${lead._id}/planner`, category: 'client', tag: `planner-posted-${String(_id)}` });
       } catch { /* the post is marked; the push is a convenience */ }
+      /* The loop into Next up (Planner v2, part 3): an open task written for this post (it carries the post's id) completes through the
+         shared task rules. No task carries one today, and with none nothing is written. */
+      try {
+        const open = allTasks(lead).filter(t => !t.done && String(t.postId || '') === String(_id));
+        if (open.length) {
+          let lists = lead.checklists || [];
+          for (const t of open) lists = setTaskDone(lists, t.id, true, Date.now());
+          await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { checklists: lists, updatedAt: new Date() } });
+        }
+      } catch { /* the post is marked; the task is a convenience */ }
       return res.status(200).json({ ok: true, status: 'posted' });
     }
 

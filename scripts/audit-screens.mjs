@@ -258,6 +258,7 @@ export const SCREENS = [
       { ...base, id: 'mkt-planner-post-ad', label: 'an ad page, live', path: `${T}?post=PO20` },
       { ...base, id: 'mkt-planner-ads', label: 'Ads', path: `${T}?tab=ads` },
       { ...base, id: 'mkt-planner-ideas', label: 'Ideas, the composer and the tracker', path: `${T}?tab=ideas` },
+      { ...base, id: 'mkt-planner-alerts', label: 'the Alerts sheet from the bell', path: T, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.getByRole('button', { name: 'Alerts' })); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
       { ...base, id: 'mkt-planner-dead', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000' },
     ];
   })(),

@@ -645,6 +645,12 @@ for (const width of WIDTHS) {
     await page.getByRole('button', { name: 'Pick a date' }).first().click({ timeout: 2000 }).catch(() => {});
     await page.waitForTimeout(300);
     await check('marketing: Planner (Ideas, the date open)');
+    /* Planner v2, part 3: the Alerts sheet from the bell. */
+    await goto(PT);
+    await page.getByRole('button', { name: 'Alerts' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('marketing: Planner (the Alerts sheet)');
+    await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await goto('/planner/notarealtokenatall000000000');
     await check('marketing: Planner (a link that is not active)');
     if (only === 'marketing') { await ctx.close(); continue; }

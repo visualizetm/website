@@ -77,6 +77,15 @@ function pickWritable(p) {
     hashtagSets: Array.isArray(p.hashtagSets) ? p.hashtagSets.map(x => ({ id: String(x.id || ''), name: String(x.name || ''), tags: String(x.tags || '') })) : [],
   };
 }
+/** The client's alerts as one read-only line (Planner v2, part 3): the device count the planner or the portal wrote last (they share
+ *  the devices), and whether any of the three switches is on. */
+export function alertsLine(lead) {
+  const pl = lead?.planner || {}; const pt = lead?.portal || {};
+  const devices = (Date.parse(pl.pushAt || '') || 0) >= (Date.parse(pt.pushAt || '') || 0) ? Number(pl.pushDevices ?? pt.pushDevices) || 0 : Number(pt.pushDevices) || 0;
+  const a = pl.alerts || {};
+  const any = a.review !== false || a.today !== false || a.ideas !== false;
+  return devices > 0 && any ? `Alerts on, ${devices} device${devices === 1 ? '' : 's'}` : 'Alerts off';
+}
 /** The Setup step's hashtag sets: add, rename, edit, delete. The route keeps ten at most and drops one with no tags. */
 function HashtagSets({ sets, onChange, readOnly }) {
   const write = (i, patch) => onChange(sets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -557,6 +566,11 @@ export default function AdminPlanner({
                   onChange={(e) => setPlanner({ welcome: e.target.value.slice(0, 300) })}
                   hint={`Appears at the top of their planner. ${draft.welcome.length} of 300.`} />
                 <HashtagSets sets={draft.hashtagSets || []} readOnly={readOnly} onChange={(next) => setPlanner({ hashtagSets: next })} />
+                <div className="v-field">
+                  <span className="v-field-label">Their alerts</span>
+                  <span className="dt-fact-ro pl-alerts-line">{alertsLine(lead)}</span>
+                  <p className="pl-note">They turn these on from the bell on their planner. Read only here.</p>
+                </div>
               </Card>
   );
   const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} lead={lead} readOnly={readOnly}

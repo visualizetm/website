@@ -14,6 +14,8 @@ import IdeasScreen from '../components/planner/Ideas';
 import ReviewScreen, { reviewStyles } from '../components/planner/Review';
 import PostPage from '../components/planner/PostPage';
 import { screenStyles } from '../components/planner/screenStyles';
+import AlertsSheet, { alertsStyles } from '../components/planner/Alerts';
+import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
 
 /* The client's planner (Planner v2), at /planner/:token. It looks and works
  * like Rob's CRM, tailored to content: the --v-* token set (dark only), the
@@ -58,6 +60,7 @@ export default function Planner() {
   const [state, setState] = useState('loading'); // loading | ready | dead | error
   const [toast, setToast] = useState('');
   const [pos, setPos] = useState(null); // Review mode's "2 of 3", reported by the screen
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const portal = portalBackHref(params.toString(), data?.back);
 
   useHead({ title: 'Your planner | Visualize.', description: 'Your posts, ads and ideas for the month.', noindex: true });
@@ -184,7 +187,8 @@ export default function Planner() {
   return (
     <div className="pl lay-root" data-chrome={focused ? 'focused' : 'tabs'} data-bar={focused && ready ? '1' : undefined}>
       <TopBar client={client} month={monthLabel} focused={focused} title={focusTitle} onBack={back} portal={portal}
-        right={reviewing && ready && pos ? <span className="pl-top-count" aria-live="polite">{C.review.of(pos.i, pos.n)}</span> : null} />
+        right={reviewing && ready && pos ? <span className="pl-top-count" aria-live="polite">{C.review.of(pos.i, pos.n)}</span>
+          : !focused && ready ? <button type="button" className="pl-iconbtn pl-bell" onClick={() => setAlertsOpen(true)} aria-label={C.alerts.bell} aria-haspopup="dialog"><Bell01 width={20} height={20} aria-hidden="true" /></button> : null} />
       <div className="pl-main" id="pl-main">
         {state === 'loading' && <Skeleton kind={reviewing ? 'review' : tab === 'home' ? 'home' : tab === 'plan' ? 'grid' : 'list'} />}
         {state === 'error' && <ErrorBox onRetry={() => load(month)} />}
@@ -205,7 +209,9 @@ export default function Planner() {
       </div>
       <TabBar tab={tab} onPick={pickTab} needs={queue.length} hidden={focused || !ready} />
       <Toast text={toast} />
-      <style>{tokenStyles + plannerStyles + screenStyles + reviewStyles}</style>
+      {alertsOpen && ready && <AlertsSheet alerts={client?.alerts || { review: true, today: true, ideas: true }} send={send} onClose={() => setAlertsOpen(false)}
+        onAlerts={(a) => setData(d => (d ? { ...d, client: { ...d.client, alerts: a } } : d))} />}
+      <style>{tokenStyles + plannerStyles + screenStyles + reviewStyles + alertsStyles}</style>
     </div>
   );
 }
