@@ -33,7 +33,9 @@ import { phoneSection, SCREENS } from './audit-screens.mjs';
 // not fit still fails.)
 const HSCROLL_OK = ['.rc-pf-actions', '.rc-quick', '.li-tablewrap', '.v-tabs', '.v-seg', '.db-funnel', '.ld-board', '.dl-board', '.ld-frow-chips', '.ee-fields-row', '.v-table-scroll', '.cw-stepper', '.ds-table-wrap', '.cal-strip', '.cal-week', '.cal-month', '.m-marquee', '.rc-grid', '.cs-cover', '.wk-card-media', '.cs-ig-highlights', '.pl-cal-wrap', '.dc-bar-row',
   // Review links: the landing's testimonial track scrolls sideways on a phone with the next card peeking (the brief's ask), so its slides may run past the edge.
-  '.ht-track', '.bt-row', '.pk-tiers', '.pj-track-row'];
+  '.ht-track', '.bt-row', '.pk-tiers', '.pj-track-row',
+  // Carousel job: the client's carousel track and the editor's slide strip are sideways scrollers by design; each still has to fit the screen itself.
+  '.pl-car-track', '.ss-strip'];
 // Decorative elements meant to spill past their own edge and be clipped by
 // an overflow:hidden parent (a glow, a background flourish): a real position
 // past the viewport, but never a page-level overflow (Site Prompt 3, Part 5).
