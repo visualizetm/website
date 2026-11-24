@@ -11,6 +11,7 @@ import { toggleClientPush } from './_lib/clientDevices.js';
 import { monthApprovedPush } from './_lib/plannerPush.js';
 import { addTask, allTasks, setTaskDone } from './_lib/taskRules.js';
 import { sessionLead, signInFirst } from './_lib/clientSession.js';
+import { slidesOf } from './_lib/slides.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -112,7 +113,7 @@ const CHANGE_REASONS = ['photo', 'words', 'date', 'other'];
 /** The newest earlier version of a post (Planner v2), or null: what the client sees as the first draft. */
 const previousOf = (p) => {
   const v = Array.isArray(p.versions) && p.versions.length ? p.versions[p.versions.length - 1] : null;
-  return v && typeof v === 'object' ? { imageUrl: v.imageUrl || '', caption: v.caption || '', note: v.note || '' } : null;
+  return v && typeof v === 'object' ? { imageUrl: v.imageUrl || '', slides: publicSlides(v), caption: v.caption || '', note: v.note || '' } : null;
 };
 
 /** The ad fields a client may see: budget only when Rob chose to show it, results only once any is entered. */
@@ -127,6 +128,8 @@ const publicAd = (a) => {
     ...(hasResults ? { results: { reach: Number(r.reach) || 0, clicks: Number(r.clicks) || 0, messages: Number(r.messages) || 0, spend: Number(r.spend) || 0 } } : {}),
   };
 };
+/** A post's pictures in order (carousel job), through slidesOf: a legacy post is one slide, a post with no picture none. */
+const publicSlides = (p) => slidesOf(p).map(x => ({ url: String(x?.url || ''), alt: String(x?.alt || '') })).filter(x => x.url);
 /** Exactly the fields a client may see about one post (or ad). */
 const publicPost = (p) => ({
   id: String(p._id),
@@ -139,6 +142,7 @@ const publicPost = (p) => ({
   format: p.format === 'story' ? 'story' : p.format === 'video' ? 'video' : 'portrait',
   hashtags: p.hashtags || '',
   imageUrl: p.imageUrl || '',
+  slides: publicSlides(p),
   caption: p.caption || '',
   status: p.status || 'making',
   note: p.note || '',

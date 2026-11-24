@@ -185,8 +185,10 @@ async function call(method, query = {}, body = undefined, { bare = false } = {})
   ok(body.client.logoUrl === 'https://img.example/kims-logo.png', `logoUrl is the showcase logo (got ${JSON.stringify(body.client.logoUrl)})`);
   ok(body.month === THIS_MONTH, `month defaults to the current one (got ${body.month})`);
 
-  const WANT = ['id', 'kind', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote', 'allowDownload', 'video', 'ad', 'postedAt', 'postedBy', 'changeReason', 'previous'].sort().join(',');
-  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the nineteen whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  /* The carousel job adds slides: the post's pictures in order, a legacy post's one picture as one slide. */
+  const WANT = ['id', 'kind', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'slides', 'caption', 'status', 'note', 'clientNote', 'allowDownload', 'video', 'ad', 'postedAt', 'postedBy', 'changeReason', 'previous'].sort().join(',');
+  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the twenty whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  ok(body.posts.every(p => Array.isArray(p.slides) && (p.imageUrl ? p.slides.length === 1 && p.slides[0].url === p.imageUrl && p.slides[0].alt === '' && Object.keys(p.slides[0]).sort().join(',') === 'alt,url' : p.slides.length === 0)), 'a legacy post reads its one picture as one slide { url, alt }, and a post with no picture no slides');
   ok(body.posts.every(p => p.previous === null && p.postedBy === '' && p.changeReason === ''), 'a post with no versions reads previous null, and an empty postedBy and changeReason');
   ok(body.posts.length === 7, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
   ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-12`, `${THIS_MONTH}-24`, `${THIS_MONTH}-26`, `${THIS_MONTH}-27`, `${THIS_MONTH}-28`].join(' '), 'posts are sorted by date');
@@ -439,7 +441,7 @@ async function call(method, query = {}, body = undefined, { bare = false } = {})
   ok(d2.versions.length === 1, 'the autosave\'s next keystroke does not push a second copy for the same request');
   const read = await call('GET', { token: ON_TOKEN });
   const rp = read._json.posts.find(p => p.id === d2._id);
-  ok(rp.previous && Object.keys(rp.previous).sort().join(',') === 'caption,imageUrl,note' && rp.previous.caption === capBefore && rp.previous.note === 'Use the latte photo', `the read carries previous as the newest version only, three keys (got ${JSON.stringify(rp.previous)})`);
+  ok(rp.previous && Object.keys(rp.previous).sort().join(',') === 'caption,imageUrl,note,slides' && rp.previous.caption === capBefore && rp.previous.note === 'Use the latte photo' && Array.isArray(rp.previous.slides), `the read carries previous as the newest version only, four keys with its slides (got ${JSON.stringify(rp.previous)})`);
   ok(rp.changeReason === 'words', 'the read carries the change reason');
   ok(!JSON.stringify(read._json).includes('"versions"') && !JSON.stringify(read._json).includes('"at"'), 'the versions list itself never leaves the server');
   d2.status = 'making'; d2.reviewAt = '';

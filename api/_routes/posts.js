@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb';
 import { getDb } from '../_lib/mongo.js';
 import { safeUrl } from '../_lib/url.js';
 import { reviewPushTick } from '../_lib/plannerPush.js';
+import { slidesOf, carouselAllowed, SLIDES_MAX, SLIDE_ALT_MAX } from '../_lib/slides.js';
 import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS, POST_KIND_IDS, AD_GOAL_IDS, AD_PLACEMENT_IDS, AD_ONLY_STATUS_IDS } from '../_semantics.js';
 
 /* Posts (Content Planner, prompt 1): one document per scheduled social post.
@@ -17,6 +18,11 @@ import { PLATFORM_IDS, POST_STATUS_IDS, POST_FORMAT_IDS, POST_KIND_IDS, AD_GOAL_
  *   POST   { action: 'send-review', leadId, ids }      { ok, ids } the batch send (Planner v2)
  *   PATCH  { id, set }                                  $set only the keys sent (sanitized)
  *   DELETE { id }                                       soft delete, the same tombstone
+ *
+ * Carousels (carousel job): `slides` [{ url, alt }], 1 to 20 in display order, only on a post of kind post and format portrait
+ * (api/_lib/slides.js). Every url through safeUrl, alt to 200 characters, empty entries dropped; more than 20 is a 400. The
+ * server keeps imageUrl equal to the first slide on every write; a post that stops being a portrait post drops its slides and
+ * keeps the cover as imageUrl.
  *                                                       every other collection uses
  *
  * Every query filters deleted: { $ne: true }; nothing here ever hard deletes,
@@ -79,10 +85,20 @@ export function sanitizeVideo(v) {
   return { url: safeUrl(v.url, 600), durationSec: Math.round(num(v.durationSec, 3600)), poster: safeUrl(v.poster, 600) };
 }
 
-/** One earlier version of a post (Planner v2): the picture and words the client asked to change, with their note. */
+/** A carousel's pictures, cleaned (carousel job): every url through safeUrl (an unsafe one is dropped with its slide), alt
+ *  trimmed to 200 characters, empty entries dropped, the order kept. The count is checked by the caller (more than 20 is a 400). */
+export function sanitizeSlides(v) {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, 500).map((x) => { const o = x && typeof x === 'object' ? x : { url: x }; const url = safeUrl(o.url, 600); return url ? { url, alt: str(o.alt, SLIDE_ALT_MAX) } : null; }).filter(Boolean);
+}
+const TOO_MANY_SLIDES = `A carousel holds ${SLIDES_MAX} pictures at most, Instagram's limit.`;
+
+/** One earlier version of a post (Planner v2): the picture and words the client asked to change, with their note. A carousel's
+ *  version keeps its slides too (carousel job), at most 20, so the history shows what the client saw. */
 export function sanitizeVersion(v) {
   if (!v || typeof v !== 'object') return null;
-  return { imageUrl: safeUrl(v.imageUrl, 600), caption: String(v.caption ?? '').slice(0, 2200), note: str(v.note, 300), at: str(v.at, 40) };
+  const slides = sanitizeSlides(v.slides).slice(0, SLIDES_MAX);
+  return { imageUrl: safeUrl(v.imageUrl, 600), caption: String(v.caption ?? '').slice(0, 2200), note: str(v.note, 300), at: str(v.at, 40), ...(slides.length ? { slides } : {}) };
 }
 export const VERSIONS_MAX = 5;
 const POSTED_BY = ['client', 'rob'];
@@ -122,6 +138,7 @@ function sanitize(b) {
      * reused across posts and the client can copy the caption clean. */
     hashtags: b.hashtags !== undefined ? normalizeHashtags(b.hashtags) : undefined,
     imageUrl: b.imageUrl !== undefined ? safeUrl(b.imageUrl, 600) : undefined, // http, https or a root path, else ''
+    slides: b.slides !== undefined ? sanitizeSlides(b.slides) : undefined, // a carousel (carousel job); the route checks the count, the kind and the format
     caption: b.caption !== undefined ? String(b.caption ?? '').slice(0, 2200) : undefined, // Instagram's own cap
     /* live and finished belong to ads; a post sent one of them is left as it was (undefined), never moved. The route checks the kind on write. */
     status: b.status !== undefined ? (POST_STATUS_IDS.includes(b.status) ? b.status : 'making') : undefined,
@@ -168,7 +185,7 @@ export async function handler(req, res) {
       const ids = (Array.isArray(req.body.ids) ? req.body.ids : []).slice(0, 200).map(oid).filter(Boolean);
       if (!leadId || !ids.length) return res.status(400).json({ error: 'leadId and ids required' });
       const found = await col.find({ _id: { $in: ids }, leadId, status: 'making', deleted: { $ne: true }, archived: { $ne: true } }).limit(200).toArray();
-      const ready = found.filter(p => (p.kind || 'post') === 'post' && (String(p.imageUrl || '').trim() || String(p.video?.url || '').trim()) && String(p.caption || '').trim());
+      const ready = found.filter(p => (p.kind || 'post') === 'post' && (slidesOf(p).length >= 1 || String(p.video?.url || '').trim()) && String(p.caption || '').trim());
       const moved = ready.map(p => p._id);
       if (moved.length) {
         const at = new Date();
@@ -181,6 +198,11 @@ export async function handler(req, res) {
     const doc = compact(sanitize(req.body || {}));
     if (!doc.leadId || !doc.month) return res.status(400).json({ error: 'leadId and month required' });
     if (AD_ONLY_STATUS_IDS.includes(doc.status) && (doc.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
+    if (doc.slides) {
+      if (doc.slides.length > SLIDES_MAX) return res.status(400).json({ error: TOO_MANY_SLIDES });
+      if (!carouselAllowed(doc)) delete doc.slides; // an ad, a story or a video carries no carousel
+      else if (doc.slides.length) doc.imageUrl = doc.slides[0].url; // the cover is imageUrl, always
+    }
     const now = new Date();
     const item = {
       kind: 'post', allowDownload: true,
@@ -204,8 +226,25 @@ export async function handler(req, res) {
     for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
     delete allowed.leadId; // a post never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
-    const needsCur = AD_ONLY_STATUS_IDS.includes(allowed.status) || allowed.status === 'review' || 'imageUrl' in allowed || 'caption' in allowed;
-    const cur = needsCur ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { leadId: 1, kind: 1, status: 1, imageUrl: 1, caption: 1, clientNote: 1, clientNoteAt: 1, versions: 1 } }) : null;
+    if ('slides' in allowed && allowed.slides.length > SLIDES_MAX) return res.status(400).json({ error: TOO_MANY_SLIDES });
+    const touchesSlides = 'slides' in allowed || 'imageUrl' in allowed || 'kind' in allowed || 'format' in allowed;
+    const needsCur = AD_ONLY_STATUS_IDS.includes(allowed.status) || allowed.status === 'review' || 'imageUrl' in allowed || 'caption' in allowed || touchesSlides;
+    const cur = needsCur ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { leadId: 1, kind: 1, format: 1, status: 1, imageUrl: 1, slides: 1, caption: 1, clientNote: 1, clientNoteAt: 1, versions: 1 } }) : null;
+    /* Carousels (carousel job): only a portrait post keeps slides, and the cover is always imageUrl. */
+    if (touchesSlides) {
+      const eligible = carouselAllowed({ kind: allowed.kind ?? cur?.kind, format: allowed.format ?? cur?.format });
+      const had = Array.isArray(cur?.slides) ? cur.slides : [];
+      if ('slides' in allowed) {
+        if (!eligible) delete allowed.slides;
+        else if (allowed.slides.length) allowed.imageUrl = allowed.slides[0].url;
+      } else if (eligible && 'imageUrl' in allowed && had.length) {
+        /* The cover replaced through imageUrl alone: the carousel keeps its other pictures behind it. */
+        const rest = had.slice(1);
+        allowed.slides = allowed.imageUrl ? [{ url: allowed.imageUrl, alt: had[0]?.alt || '' }, ...rest] : rest;
+        allowed.imageUrl = allowed.slides[0]?.url || '';
+      }
+      if (!eligible && had.length && !('slides' in allowed)) allowed.slides = []; // it became an ad, a story or a video: the cover stays as imageUrl
+    }
     if (AD_ONLY_STATUS_IDS.includes(allowed.status)) {
       if ((allowed.kind || cur?.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
     }
@@ -216,11 +255,13 @@ export async function handler(req, res) {
      * later keystrokes do not stack up more copies of the same answer. */
     const update = { $set: allowed };
     if (cur && cur.clientNote && !('versions' in allowed)) {
-      const changed = ('imageUrl' in allowed && allowed.imageUrl !== (cur.imageUrl || '')) || ('caption' in allowed && allowed.caption !== (cur.caption || ''));
+      const urls = (p) => slidesOf(p).map(x => x.url).join(' ');
+      const pictureChanged = ('imageUrl' in allowed && allowed.imageUrl !== (cur.imageUrl || '')) || ('slides' in allowed && urls({ slides: allowed.slides, imageUrl: allowed.imageUrl ?? cur.imageUrl }) !== urls(cur));
+      const changed = pictureChanged || ('caption' in allowed && allowed.caption !== (cur.caption || ''));
       const last = Array.isArray(cur.versions) && cur.versions.length ? cur.versions[cur.versions.length - 1] : null;
       const answered = last && String(last.at || '') >= String(cur.clientNoteAt || '');
       if (changed && !answered) {
-        const old = sanitizeVersion({ imageUrl: cur.imageUrl || '', caption: cur.caption || '', note: cur.clientNote, at: new Date().toISOString() });
+        const old = sanitizeVersion({ imageUrl: cur.imageUrl || '', slides: cur.slides, caption: cur.caption || '', note: cur.clientNote, at: new Date().toISOString() });
         update.$push = { versions: { $each: [old], $slice: -VERSIONS_MAX } };
       }
     }

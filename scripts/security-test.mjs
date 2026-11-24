@@ -339,6 +339,8 @@ await injection('suggestions ?status', routes.suggestions, 'GET', { query: { sta
 await injection('suggestions PATCH id', routes.suggestions, 'PATCH', { body: { id: '__OP__', set: { status: 'planned' } } }, [400]);
 await injection('suggestions PATCH status', routes.suggestions, 'PATCH', { body: { id: 'c07f1f77bcf86cd799439009', set: { status: '__OP__' } } }, [200]);
 await urlField('post ad.link', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { kind: 'ad', ad: { name: 'A', link: u } } } }), () => _stores.posts[0].ad.link);
+/* Carousel posts (carousel job): a slide's url is a stored image link like imageUrl; an unsafe one drops its slide, so the post keeps no picture from it. */
+await urlField('post slides[].url', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { slides: [{ url: u, alt: 'a' }] } } }), () => (_stores.posts[0].slides || [])[0]?.url ?? '');
 await urlField('post video.url', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { format: 'video', video: { url: u, durationSec: 10 } } } }), () => _stores.posts[0].video.url);
 await urlField('post video.poster', routes.posts, 'PATCH', u => ({ body: { id: POST_MINE, set: { format: 'video', video: { poster: u } } } }), () => _stores.posts[0].video.poster);
 await urlField('suggestion link', planner, 'POST', u => ({ query: { token: ON }, body: { action: 'suggest', kind: 'post', subject: 'link check', link: u } }), () => (_stores.suggestions || []).slice(-1)[0]?.link ?? '');
