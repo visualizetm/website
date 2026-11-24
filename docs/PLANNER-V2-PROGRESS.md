@@ -15,9 +15,9 @@ Part 1, client
 Part 2, Rob
 
 * [x] 2.1 Route work: `send-review`, `hashtagSets`, `seenAt` on open, tests (needs 1.1) (d9b520d)
-* [x] 2.2 Activity strip and the three views at every width (needs 2.1)
-* [x] 2.3 The composer panel and pushed screen, hashtag chips, change card, Preview as, back tree (needs 2.1)
-* [x] 2.4 Batch send with Undo, toolbar and phone chrome (needs 2.1)
+* [x] 2.2 Activity strip and the three views at every width (needs 2.1) (7387276, with 2.3 and 2.4)
+* [x] 2.3 The composer panel and pushed screen, hashtag chips, change card, Preview as, back tree (needs 2.1) (7387276, with 2.2 and 2.4)
+* [x] 2.4 Batch send with Undo, toolbar and phone chrome (needs 2.1) (7387276, with 2.2 and 2.3)
 * [ ] 2.5 Part 2 audits, docs, `reports/PLANNER-V2-2-REPORT.md` (needs 2.2 to 2.4)
 
 Part 3, alerts
@@ -35,3 +35,4 @@ Part 3, alerts
 - 1.5 done at 4b953e6, 2026-11-24T03:00Z. Next: 1.6, the part 1 audits, docs and report.
 - 1.6 done at ea97ad5, 2026-11-24T03:48Z: lint, build, view, endpoint and security tests checked on the commit alone. Part 1 is complete. Next: 2.1, the route work.
 - 2.1 done at d9b520d, 2026-11-24T03:49Z: board, security, endpoint and pipeline tests checked on the commit alone. Next: 2.2 to 2.4, the board, the composer and the batch send.
+- 2.2 to 2.4 done at 7387276, 2026-11-24T05:18Z, one commit (they share AdminPlanner.jsx): lint, build, board, back, endpoint and security tests on the commit alone; the board in a browser, gesture, autosave, a11y, feel and chrome on the planner states. Next: 2.5, the part 2 gate and report.
