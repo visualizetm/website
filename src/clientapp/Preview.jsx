@@ -22,7 +22,7 @@ export default function ClientPreview() {
   const toCrm = () => window.location.assign(ADMIN_HOME);
   return (
     <>
-      <p className="ca-preview-note" role="note">{COPY.clientApp.preview.note}</p>
+      <header className="ca-preview-note"><p className="ca-preview-line" role="note">{COPY.clientApp.preview.note}</p></header>
       <main className="page-shell">
         <Suspense fallback={<LogoSpinner layout="page" className="client-boot" />}>
           {view === 'planner' ? <Planner api={api} readOnly onSignIn={toCrm} /> : <Portal api={api} readOnly hint={false} onSignIn={toCrm} />}
@@ -34,4 +34,5 @@ export default function ClientPreview() {
 }
 const previewStyles = `
   .ca-preview-note { position: sticky; top: 0; z-index: 50; margin: 0; padding: var(--space-2) var(--space-3); text-align: center; font-size: 0.875rem; background: var(--bg-card); color: var(--text); border-bottom: 1px solid var(--border-light); }
+  .ca-preview-line { margin: 0; }
 `;
