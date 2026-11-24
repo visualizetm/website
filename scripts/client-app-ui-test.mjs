@@ -162,6 +162,19 @@ for (const width of [390, 1280]) {
     await ctx.close();
   }
 
+  /* A planner only client has no portal sheet, so the planner's Their link card carries their code line too (the login fix):
+   * the line is there, it never says "no password", and with no code set there is nothing to reset. */
+  {
+    const { ctx, page, posts } = await fresh(width, { admin: true });
+    await go(page, '/admin/clients/L11/planner');
+    if (width < 768) { await until(page, 'text=Client link', 8000); await page.getByRole('button', { name: /Client link/ }).first().click().catch(() => {}); }
+    ok(await until(page, '.pl-invite .ps-code-line', 8000) && /^Code: not set yet$/.test((await page.locator('.pl-invite .ps-code-line').innerText()).trim()), "the planner's Their link card says whether the client's code is set");
+    ok(await page.locator('.pl-invite .ps-code-reset').count() === 0, 'with no code set, the planner card offers no Reset code');
+    ok(!/no password/i.test(await page.locator('.pl-invite').innerText({ timeout: 5000 }).catch(() => 'no password')), 'the planner card no longer says there is no password');
+    ok(!posts.some(p => p.startsWith('/api/admin/client-app ')), 'opening the planner writes nothing');
+    await ctx.close();
+  }
+
   /* Rob's read only previews on the admin host: the same screens, no write control, nothing posted. */
   {
     const { ctx, page, posts } = await fresh(width);

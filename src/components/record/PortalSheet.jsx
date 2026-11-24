@@ -1,4 +1,5 @@
 import LinkSend from '../LinkSend';
+import ClientCode from './ClientCode';
 import { useEffect, useRef, useState } from 'react';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
@@ -147,21 +148,6 @@ export default function PortalSheet({ rec, onClose }) {
   };
   /* Sent is stamped by Text it or Share (LinkSend), no manual sent tap. */
   const markSent = async (via) => { const ok = await patch(portalSentPatch(lead, Date.now(), via)); if (ok) toast.success('Marked sent.'); };
-  /* The client app (client app job): the client's own code replaces the PIN. Rob sees whether it is set and the lock, never the code,
-   * and Reset code (after a confirm) clears it, unlocks it and signs every device out; nothing is sent. */
-  const K = COPY.clientApp.crm;
-  const code = p.code && typeof p.code === 'object' ? p.code : {};
-  const softMin = code.lockedUntil ? Math.max(1, Math.ceil((Date.parse(code.lockedUntil) - Date.now()) / 60000)) : 0;
-  const codeLine = code.locked ? K.locked : softMin > 0 ? K.soft(softMin) : code.set ? K.set(fmtDate(code.setAt, { month: 'short', day: 'numeric' })) : K.notSet;
-  const resetCode = async () => {
-    if (!(await confirm({ title: K.confirmTitle, body: K.confirmBody, confirmLabel: K.confirm, danger: true }))) return;
-    setBusy(true);
-    const r = await apiFetch('/api/admin/client-app', { method: 'POST', body: { action: 'reset-code', id: lead._id }, silent: true });
-    setBusy(false);
-    if (!r.ok) { toast.error(K.failed); return; }
-    shell?.leadOps?.applyLocal?.(lead._id, { portal: { ...p, code: r.data?.code || { set: false } } });
-    toast.success(K.done);
-  };
   const slug = lead.showcase?.slug || String(lead.business || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
   return (
@@ -211,12 +197,8 @@ export default function PortalSheet({ rec, onClose }) {
               </div>
             ))}
           </Stack>
-          <Stack gap={2} data-section="code">
-            <p className="pb-card-h">{K.heading}</p>
-            <p className={`rc-ws-line ps-code-line${code.locked ? ' ps-code-line--locked' : ''}`} role="status">{codeLine}</p>
-            <p className="ps-mod-auto">{K.line}</p>
-            {!readOnly && (code.set || code.locked || softMin > 0) && <Button variant="secondary" size="md" onClick={resetCode} loading={busy} className="ps-code-reset">{K.reset}</Button>}
-          </Stack>
+          {/* The client app: the client's own code, its lock and Reset code (one block, shared with the planner's Their link card). */}
+          <ClientCode lead={lead} readOnly={readOnly} onReset={(status) => shell?.leadOps?.applyLocal?.(lead._id, { portal: { ...p, code: status } })} />
           <Stack gap={2} data-section="hours">
             <p className="pb-card-h">Hours on their card</p>
             {readOnly ? <p className="rc-ws-line">{p.hours || 'From Settings'}</p> : <InlineEdit value={p.hours || ''} onSave={(v) => patch(hoursPatch(v))} placeholder="Leave empty for the hours in Settings" label="Hours on their card" className="ps-hours" />}

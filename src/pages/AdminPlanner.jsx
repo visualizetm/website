@@ -3,6 +3,7 @@ import {
   PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Toggle, Textarea, Input,
   InlineEdit, Menu, ProgressBar, EmptyState, NoResults, ErrorState, Stagger, SkeletonText, SegmentedControl,
   useConfirm, useDelayedLoading, useToast, useMediaQuery, ListRow } from '../ui';
+import ClientCode from '../components/record/ClientCode';
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
 import { isOnRetainer } from '../lib/projects';
@@ -145,7 +146,7 @@ const dayKeyLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padSta
 const samePost = (a, b) => POST_FIELDS.every(k => JSON.stringify(a?.[k] ?? '') === JSON.stringify(b?.[k] ?? ''));
 
 /* ── The invite card ──────────────────────────────────────────────── */
-function InviteCard({ planner, url, lead, onSent, onRegenerate, readOnly }) {
+function InviteCard({ planner, url, lead, onSent, onRegenerate, onCodeReset, readOnly }) {
   const toast = useToast();
   const [confirm, confirmDialog] = useConfirm();
   const copy = async () => {
@@ -170,10 +171,12 @@ function InviteCard({ planner, url, lead, onSent, onRegenerate, readOnly }) {
           <a href={url} target="_blank" rel="noopener noreferrer" className="sc-url lay-truncate">{url}</a>
           <IconButton icon="Copy01" label="Copy planner link" variant="ghost" onClick={copy} />
         </Row>
-        <p className="pl-note">Text this to them. It opens their planner, no password and no account.</p>
+        <p className="pl-note">Text this to them. The first time, they set a four digit code; after that they sign in with it.</p>
         <LinkSend lead={lead} message={plannerMessage(lead, url)} url={url} title="Your content planner" templateId="retainer_month_ready" sentAt={planner.sentAt} sentVia={planner.sentVia} onSent={onSent} readOnly={readOnly} />
       </div>
       <span className="dt-muted">{planner.lastViewedAt ? `Last opened ${relativeTime(planner.lastViewedAt)}` : 'Not opened yet'}</span>
+      {/* The client app: a planner only client has no portal sheet, so their code and Reset code live here too. */}
+      <ClientCode lead={lead} readOnly={readOnly} onReset={onCodeReset} />
       {!readOnly && (
         <Row gap={2} wrap>
           <Button variant="secondary" size="md" icon="RefreshCw01" onClick={regenerate} className="pl-regen">Make a new link</Button>
@@ -577,6 +580,7 @@ export default function AdminPlanner({
               </Card>
   );
   const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} lead={lead} readOnly={readOnly}
+                onCodeReset={async () => { await onRefetchLead?.(); }}
                 onSent={async (via) => { const ok = await onPatch(lead._id, { planner: { ...plannerPatch(lead, saved), sentAt: new Date().toISOString(), sentVia: via } }); if (ok) await onRefetchLead?.(); }}
                 onRegenerate={async () => {
                   const ok = await onPatch(lead._id, { planner: { ...plannerPatch(lead, draft), regenerate: true } });
