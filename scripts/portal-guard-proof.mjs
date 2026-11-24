@@ -17,6 +17,7 @@ const PP = '_routes/portal-public.js';
 const PM = '_lib/portalModules.js';
 const ST = '_routes/settings.js';
 const CA = '_lib/calendly.js';
+const CD = '_lib/clientDevices.js'; // the device toggle, shared by the portal and the planner (Planner v2)
 const CUTS = {
   mint: [[CL, "token: !mint ? had.token : randomBytes(18).toString('base64url'),", "token: !mint ? had.token : randomBytes(6).toString('base64url'),"]],
   'carry-forward': [
@@ -126,12 +127,12 @@ const CUTS = {
   'referral-keep': [[SB, "return { code, leadId: lead ? String(lead._id) : '', business: lead ? String(lead.business || '').slice(0, 120) : '' };", "return lead ? { code, leadId: String(lead._id), business: String(lead.business || '').slice(0, 120) } : undefined;"]],
   'referral-shape': [[SB, "const refCode = doc.type === 'start' && REF_RE.test(String(b.referredBy ?? '').trim()) ? String(b.referredBy).trim() : '';", "const refCode = doc.type === 'start' ? String(b.referredBy ?? '').trim() : '';"]],
   'referral-prefix': [[SB, "if (!lead && code.length >= REF_PREFIX) lead =", "if (!lead) lead ="]],
-  'push-role': [[PP, "{ $set: { role: 'client', leadId, subscription:", "{ $set: { leadId, subscription:"]],
-  'push-devices': [[PP, "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': devices,", "  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': 0,"], [CP, "  if (!lead || !(Number(lead.portal?.pushDevices) > 0) || !portalPath(lead)) return { sent: false, reason: 'no devices' };", "  if (!lead || !portalPath(lead)) return { sent: false, reason: 'no devices' };"]],
+  'push-role': [[CD, "{ $set: { role: 'client', leadId, subscription:", "{ $set: { leadId, subscription:"]],
+  'push-devices': [[CD, "{ $set: { [`${field}.pushDevices`]: devices,", "{ $set: { [`${field}.pushDevices`]: 0,"], [CP, "  if (!lead || !(Number(lead.portal?.pushDevices) > 0) || !portalPath(lead)) return { sent: false, reason: 'no devices' };", "  if (!lead || !portalPath(lead)) return { sent: false, reason: 'no devices' };"]],
   'push-filter': [[NT, "export const ownerSubs = (db) => db.collection('push_subscriptions').find({ role: { $ne: 'client' } }).toArray();", "export const ownerSubs = (db) => db.collection('push_subscriptions').find({}).toArray();"]],
-  'push-own': [[PP, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client' });"]],
-  'push-off': [[PP, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    void endpoint;"]],
-  'push-limit': [[PP, "const PUSH_MAX = 10;", "const PUSH_MAX = 100;"]],
+  'push-own': [[CD, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client' });"]],
+  'push-off': [[CD, "    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });", "    void endpoint;"]],
+  'push-limit': [[CD, "export const PUSH_MAX = 10;", "export const PUSH_MAX = 100;"]],
   'push-keys': [[CP, "  for (const it of clientItems(lead, projects)) keys.push(`needs:${it.id}`);", "  for (const it of clientItems(lead, projects)) if (it.id !== 'ct1') keys.push(`needs:${it.id}`);"]],
   'push-message': [[CP, "  const onlyFiles = files && !needs && !appr && !inv;", "  const onlyFiles = true;"]],
   'push-batch': [[CP, "  await leads.updateOne({ _id: lead._id }, { $set: { 'portal.pushSeen': [...seen, ...fresh].slice(-PUSH_SEEN_KEPT), 'portal.lastClientPushAt': new Date(now).toISOString() } });", "  await leads.updateOne({ _id: lead._id }, { $set: { 'portal.pushSeen': [...seen, ...fresh].slice(-PUSH_SEEN_KEPT) } });"]],

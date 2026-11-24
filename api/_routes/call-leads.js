@@ -712,6 +712,11 @@ export async function handler(req, res) {
         sentAt: allowed.planner.sentAt !== undefined ? allowed.planner.sentAt : (had.sentAt || ''),
         sentVia: allowed.planner.sentVia !== undefined ? allowed.planner.sentVia : (had.sentVia || ''),
         hashtagSets: allowed.planner.hashtagSets !== undefined ? allowed.planner.hashtagSets : (Array.isArray(had.hashtagSets) ? had.hashtagSets : []),
+        /* Planner v2, part 3: written only by the public door and the push helpers, never taken from a request (the same rule as the portal's). */
+        alerts: had.alerts && typeof had.alerts === 'object' ? { review: had.alerts.review !== false, today: had.alerts.today !== false, ideas: had.alerts.ideas !== false } : { review: true, today: true, ideas: true },
+        pushDevices: Number(had.pushDevices) || 0, pushAt: had.pushAt || '',
+        pushSeen: Array.isArray(had.pushSeen) ? had.pushSeen : [], todayPushedOn: had.todayPushedOn || '',
+        approvedMonths: Array.isArray(had.approvedMonths) ? had.approvedMonths : [],
       };
       // No early return: this only resolves the token, so a PATCH carrying
       // both planner and showcase still runs the slug logic below.

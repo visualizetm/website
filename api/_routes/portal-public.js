@@ -10,6 +10,7 @@ import { sendPush } from '../_lib/notify.js';
 import { nextMeetingFor } from '../_lib/calendly.js';
 import { PORTAL_MODULE_IDS, portalCards, portalClient, unseenPayment, reorderPicks, REORDER_MAX_QTY, SITE_CHANGE_MAX, SITE_CHANGE_PLANS, SITE_CHANGES_KEPT, activeRetainer, clientProjects, isWebProject, siteChangesOf } from '../_lib/portalModules.js';
 import { safeUrl } from '../_lib/url.js';
+import { toggleClientPush } from '../_lib/clientDevices.js';
 
 /* The client portal's public endpoint (client portal, prompt 1), served by
  * route from the existing public function: vercel.json rewrites /api/portal
@@ -41,7 +42,6 @@ const APPROVE_MAX = 20;
 const APPROVE_WINDOW = 60 * 60 * 1000;
 const REORDER_MAX = 5;
 const SITE_MAX = 10;
-const PUSH_MAX = 10;
 const ACTIVITY_KEPT = 50; // the activity ring: views and taps per card, no PII (the CRM's Last 7 days)
 const TAP_MAX = 120;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -234,29 +234,9 @@ async function siteChange(db, lead, token, b, res) {
 /* Notifications (prompt 4): { action: 'push_on', subscription } saves this device for this client (role client, the client's
  * id, one row per endpoint); { action: 'push_off', endpoint } removes it, and only this client's own row. Ten a day per token
  * (rate:ppsh). The record keeps the device count (portal.pushDevices, the CRM's bell) and the last subscribe time. */
-const endpointOf = (v) => { const e = String(v || '').trim(); return /^https:\/\/[^\s]{10,1000}$/.test(e) ? e : ''; };
-async function pushToggle(db, lead, token, b, res) {
-  const key = rateKey('ppsh', token);
-  const st = await rateState(db, key, { max: PUSH_MAX, windowMs: DAY_MS });
-  if (st.exceeded) { res.setHeader('Retry-After', String(st.retryAfter)); return res.status(429).json({ error: 'That is a lot of changes for one day.' }); }
-  const subs = db.collection('push_subscriptions');
-  const leadId = String(lead._id);
-  if (b.action === 'push_on') {
-    const sub = b.subscription && typeof b.subscription === 'object' ? b.subscription : null;
-    const endpoint = endpointOf(sub?.endpoint);
-    const keys = sub?.keys && typeof sub.keys === 'object' ? { p256dh: String(sub.keys.p256dh || '').slice(0, 200), auth: String(sub.keys.auth || '').slice(0, 100) } : null;
-    if (!endpoint || !keys || !keys.p256dh || !keys.auth) return res.status(400).json({ error: 'subscription required' });
-    await rateHit(db, key, st.hits);
-    await subs.updateOne({ 'subscription.endpoint': endpoint }, { $set: { role: 'client', leadId, subscription: { endpoint, expirationTime: sub.expirationTime ?? null, keys }, updatedAt: new Date() }, $setOnInsert: { createdAt: new Date() } }, { upsert: true });
-  } else {
-    const endpoint = endpointOf(b.endpoint);
-    if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
-    await rateHit(db, key, st.hits);
-    await subs.deleteOne({ 'subscription.endpoint': endpoint, role: 'client', leadId });
-  }
-  const devices = (await subs.find({ role: 'client', leadId }).project({ _id: 1 }).limit(50).toArray()).length;
-  await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.pushDevices': devices, ...(b.action === 'push_on' ? { 'portal.pushAt': new Date().toISOString() } : {}), updatedAt: new Date() } });
-  return res.status(200).json({ ok: true, on: b.action === 'push_on', devices });
+/* The device toggle lives in api/_lib/clientDevices.js now (Planner v2): the planner's door uses the same one, under its own limiter key. */
+function pushToggle(db, lead, token, b, res) {
+  return toggleClientPush(db, lead, token, b, res, { limiter: 'ppsh', field: 'portal' });
 }
 
 /* A tap (prompt 4): { action: 'tap', card }, the card id only, one event in the ring; a hundred and twenty an hour per token. */

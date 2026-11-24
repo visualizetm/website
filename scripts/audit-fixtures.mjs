@@ -289,7 +289,8 @@ export const plannerPublicSuggestion = (s, allPosts = posts) => ({ id: String(s.
 /** The whole GET answer for one lead and month, shared by the fixture route and the mock server. */
 export const plannerPayload = (lead, month, allPosts = posts, allSuggestions = suggestions) => ({
   client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth,
-    logoUrl: lead.showcase?.brand?.logo?.dark || lead.showcase?.brand?.logo?.light || lead.showcase?.logoUrl || '', firstName: String(lead.askFor || '').split(/[\s,]+/)[0] || '' },
+    logoUrl: lead.showcase?.brand?.logo?.dark || lead.showcase?.brand?.logo?.light || lead.showcase?.logoUrl || '', firstName: String(lead.askFor || '').split(/[\s,]+/)[0] || '',
+    alerts: { review: lead.planner.alerts?.review !== false, today: lead.planner.alerts?.today !== false, ideas: lead.planner.alerts?.ideas !== false } },
   month,
   posts: allPosts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived).map(plannerPublic),
   suggestions: allSuggestions.filter(x => String(x.leadId) === String(lead._id) && !x.deleted).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(x => plannerPublicSuggestion(x, allPosts)),
@@ -1102,6 +1103,15 @@ export async function mockRoutes(page, opts = {}) {
     }
     if (r.request().method() === 'POST') {
       let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+      /* Planner v2, part 3: the alerts switches (booleans only) and this device, answered as the real door does. */
+      if (body.action === 'alerts') {
+        const a = body.alerts;
+        if (!a || typeof a !== 'object' || Array.isArray(a) || !Object.keys(a).length || Object.keys(a).some(k => !['review', 'today', 'ideas'].includes(k) || typeof a[k] !== 'boolean')) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'alerts are on or off' }) });
+        lead.planner.alerts = { ...(lead.planner.alerts || {}), ...a };
+        const al = lead.planner.alerts;
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, alerts: { review: al.review !== false, today: al.today !== false, ideas: al.ideas !== false } }) });
+      }
+      if (body.action === 'push_on' || body.action === 'push_off') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, on: body.action === 'push_on', devices: body.action === 'push_on' ? 1 : 0 }) });
       /* The client's idea (milestone 3): stored on the fixture so the Ideas
          tab shows it straight after sending. */
       if (body.action === 'suggest') {

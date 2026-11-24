@@ -6,8 +6,9 @@ import { rateKey, rateState, rateHit } from './_lib/limit.js';
 import { safeUrl } from './_lib/url.js';
 import { sendPush } from './_lib/notify.js';
 import { SUGGESTION_KIND_IDS, SUGGESTION_GOAL_IDS } from './_semantics.js';
-import { addTask } from './_lib/taskRules.js';
 import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
+import { toggleClientPush } from './_lib/clientDevices.js';
+import { addTask } from './_lib/taskRules.js';
 
 /* The Content Planner's public endpoint (planner prompt 1, part 3). The one
  * new function this feature adds, taking the count from 9 to 10.
@@ -24,6 +25,9 @@ import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
  *        action 'posted'         an approved post (kind post) -> posted, postedBy client,
  *                                and a push to Rob (category client) that never names the caption
  *        Every decision (approve, request-change, posted) stamps decidedAt (Planner v2).
+ *        action 'push_on' | 'push_off'  this device for the client's pushes (api/_lib/clientDevices.js, the portal's own door,
+ *                                ten a day per token under the planner's key)
+ *        action 'alerts'         { alerts: { review, today, ideas } }, booleans only: which pushes they want
  *        action 'suggest'        { kind, subject, goal, details, preferredDate, link, photos }
  *                                writes a suggestion (the Ideas tab), one every 20 seconds and
  *                                15 a day per token, every field capped, photos only on our own
@@ -80,7 +84,7 @@ async function clientFor(db, token) {
   if (!token) return null;
   const lead = await db.collection('call_leads').findOne(
     { 'planner.token': token, deleted: { $ne: true } },
-    { projection: { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.brand.logo': 1, 'showcase.logoUrl': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1, 'portal.token': 1 } },
+    { projection: { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.brand.logo': 1, 'showcase.logoUrl': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, 'planner.alerts': 1, 'planner.approvedMonths': 1, checklists: 1, 'portal.token': 1 } },
   );
   if (!lead || !lead.planner?.enabled) return null;
   return lead;
@@ -94,7 +98,11 @@ const publicClient = (lead) => ({
   postsPerMonth: Number(lead.planner?.postsPerMonth) || 8,
   logoUrl: safeUrl(portalLogo(lead), 600),
   firstName: portalFirstName(lead),
+  alerts: alertsOf(lead),
 });
+/** The three pushes a client can switch (Planner v2, part 3), all on until they say otherwise. */
+export const ALERT_KEYS = ['review', 'today', 'ideas'];
+export const alertsOf = (lead) => { const a = lead?.planner?.alerts || {}; return { review: a.review !== false, today: a.today !== false, ideas: a.ideas !== false }; };
 const CHANGE_REASONS = ['photo', 'words', 'date', 'other'];
 /** The newest earlier version of a post (Planner v2), or null: what the client sees as the first draft. */
 const previousOf = (p) => {
@@ -209,6 +217,20 @@ async function handler(req, res) {
     await rateHit(db, key, limit.hits);
 
     const { postId, action } = req.body || {};
+
+    /* This device for their pushes (Planner v2): the portal's own toggle, shared, under the planner's limiter key. */
+    if (action === 'push_on' || action === 'push_off') return toggleClientPush(db, lead, token, req.body || {}, res, { limiter: 'plpsh', field: 'planner' });
+
+    /* Which pushes they want: { alerts: { review, today, ideas } }, booleans only. Any other key or value is a 400 and nothing is written. */
+    if (action === 'alerts') {
+      const a = req.body?.alerts;
+      if (!a || typeof a !== 'object' || Array.isArray(a)) return res.status(400).json({ error: 'alerts required' });
+      const keys = Object.keys(a);
+      if (!keys.length || keys.some(k => !ALERT_KEYS.includes(k) || typeof a[k] !== 'boolean')) return res.status(400).json({ error: 'alerts are on or off' });
+      const set = Object.fromEntries(keys.map(k => [`planner.alerts.${k}`, a[k]]));
+      await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { ...set, updatedAt: new Date() } });
+      return res.status(200).json({ ok: true, alerts: alertsOf({ planner: { alerts: { ...(lead.planner?.alerts || {}), ...a } } }) });
+    }
 
     /* An idea (the Ideas tab). Its own two limiters: one every 20 seconds, 15 a day. Plain text in, plain text out. */
     if (action === 'suggest') {
