@@ -7,7 +7,7 @@ Part 1, client
 
 * [x] 1.1 The door: data and `/api/planner` changes, endpoint test (needs nothing) (1bd28eb)
 * [x] 1.2 The shell: tokens, top bar, glass tab bar, skeletons, errors (needs 1.1) (3e6ed19)
-* [x] 1.3 Home and Review mode with the change sheet (needs 1.2)
+* [x] 1.3 Home and Review mode with the change sheet (needs 1.2) (8316b6f)
 * [ ] 1.4 Plan in three views and the post page with Post it in 4 taps (needs 1.2)
 * [ ] 1.5 Ads and Ideas (needs 1.2)
 * [ ] 1.6 Part 1 audits, docs, `reports/PLANNER-V2-1-REPORT.md` (needs 1.3 to 1.5)
@@ -30,3 +30,4 @@ Part 3, alerts
 ## Log
 - 1.1 done at 1bd28eb, 2026-11-24T02:39Z. Next: 1.2, the shell.
 - 1.2 done at 3e6ed19, 2026-11-24T02:49Z. Next: 1.3, Home and Review mode.
+- 1.3 done at 8316b6f, 2026-11-24T02:54Z. Next: 1.4, Plan in three views and the post page.
