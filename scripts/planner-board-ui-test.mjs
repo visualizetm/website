@@ -128,7 +128,8 @@ for (const width of [1280, 390]) {
   const tags = S.writes.filter(w => w.method === 'PATCH' && /posts/.test(w.url) && typeof w.body?.set?.hashtags === 'string');
   ok(tags.length === 1 && /#detailing/.test(tags[0].body.set.hashtags) && /#ceramiccoating/.test(tags[0].body.set.hashtags), `a hashtag set chip appends its tags, saved in one PATCH (${JSON.stringify(tags.map(t => t.body.set.hashtags))})`);
   await ed.locator('.ps-preview').click().catch(() => {}); await p.waitForTimeout(400);
-  ok(S.opened.some(u => u === '/planner/plnrTESTtoken0123456789abcdEF'), `Preview as the client opens their own planner (${S.opened.join(', ')})`);
+  /* The client app: the preview is Rob's read only page on the admin host (/admin/preview/... here), never the client's own door or a token. */
+  ok(S.opened.some(u => u === '/admin/preview/planner/L11') && !S.opened.some(u => /plnrTEST/.test(u)), `Preview as the client opens Rob's read only preview of their planner (${S.opened.join(', ')})`);
   ok(!S.writes.some(w => /planner/.test(w.url)), 'nothing here writes to the client\'s door');
   ok(S.errors.length === 0, `no page errors (${S.errors.join('; ').slice(0, 120)})`);
   await S.ctx.close();

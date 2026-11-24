@@ -177,7 +177,7 @@ async function call(method, query = {}, body = undefined, { bare = false } = {})
   ok(res._status === 200, `a live token and an enabled planner answer 200 (got ${res._status})`);
   const body = res._json || {};
   ok(Object.keys(body).sort().join(',') === 'back,client,month,posts,suggestions', `the response is exactly client, month, posts, suggestions, back (got ${Object.keys(body).sort().join(',')})`);
-  ok(body.back === '/c/plnPORTALtoken0123456789abcdef', `back is the owning client's own portal path, resolved here and never in the URL (${body.back})`);
+  ok(body.back === 'https://app.visualizeclients.com/' && !body.back.includes('plnPORTALtoken'), `back is the owning client's panel on the app host, no token, resolved here and never in the URL (${body.back})`);
   ok(Object.keys(body.client).sort().join(',') === 'alerts,displayName,firstName,logoUrl,postsPerMonth,welcome', `client is exactly displayName, welcome, postsPerMonth, logoUrl, firstName and alerts (got ${Object.keys(body.client).sort().join(',')})`);
   ok(JSON.stringify(body.client.alerts) === '{"review":true,"today":true,"ideas":true}', `alerts are all on by default, three booleans (got ${JSON.stringify(body.client.alerts)})`);
   ok(body.client.displayName === 'Kims Cafe' && body.client.postsPerMonth === 12 && body.client.welcome === 'Here is September.', 'client carries the showcase display name, the welcome, and postsPerMonth');

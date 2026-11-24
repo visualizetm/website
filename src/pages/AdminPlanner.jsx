@@ -21,6 +21,8 @@ import PostSheet, { postSheetStyles } from '../components/PostSheet';
 import { ActivityStrip, Board, MonthCalendar, plannerBoardStyles } from '../components/PlannerBoard';
 import { activityOf, approvalDays, approvalLine, sendable } from '../lib/plannerBoard';
 import ListSearch from '../components/ListSearch';
+import { CLIENT_APP_BASE } from '../shared/portalModules';
+import { previewPath } from '../lib/adminPaths';
 
 /* The Content Planner editor (planner prompt 2), one page per client at
  * /clients/:id/planner, built on the pattern AdminShowcase established: a
@@ -40,7 +42,6 @@ import ListSearch from '../components/ListSearch';
  * sitting inside a draft is confusing rather than safe.
  */
 
-const SITE = 'https://visualizestudio.org';
 const DEFAULT_PLANNER = { enabled: false, postsPerMonth: 8, welcome: '', hashtagSets: [] };
 const SETS_MAX = 10;
 
@@ -544,7 +545,7 @@ export default function AdminPlanner({
   const name = lead.showcase?.displayName || lead.business || 'Client';
   const waiting = postsInReview(mine);
   const token = lead.planner?.token || '';
-  const url = token ? `${SITE}/planner/${token}` : '';
+  const url = token ? `${CLIENT_APP_BASE}/planner/${token}` : ''; // the setup link Rob sends (client app job): the code door on the app host
   const plan = lead && isOnRetainer(lead) ? RETAINERS.find(r => r.id === lead.retainer?.planId) : null;
   const planCount = planCountOf(lead);
   const cap = planCount || Number(draft.postsPerMonth) || 8;
@@ -610,7 +611,7 @@ export default function AdminPlanner({
   const ctx = { lastViewedAt: lead.planner?.lastViewedAt || '', now: Date.now(), today: dayKeyLocal(new Date()) };
   const toSend = monthItems.filter(sendable);
   const viewOptions = [{ id: 'board', label: 'Board' }, { id: 'calendar', label: 'Calendar' }, { id: 'ideas', label: `Ideas · ${ideas.length}` }];
-  const previewUrl = token ? `/planner/${token}` : '';
+  const previewUrl = token ? previewPath('planner', lead._id) : ''; // Rob's read only preview on the admin host, never the client's own door
   const pickStrip = (id) => { if (id === 'ideas') { setView('ideas'); return; } setView('board'); setBoardPick(id); };
   const lastLabel = monthLabel(shiftMonth(month, -1)).split(' ')[0];
 

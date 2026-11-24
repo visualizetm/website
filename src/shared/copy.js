@@ -457,6 +457,14 @@ export const COPY = {
   },
   /* The client app (src/clientapp): this copy speaks to the client, in Rob's own voice ("I", never "we"). */
   clientApp: {
+    /* Rob's read only preview on the admin host (this line speaks to Rob). */
+    preview: { note: 'Preview as the client. Nothing here changes anything.', writeCard: 'They answer this from their panel. The buttons are hidden in this preview.', signIn: 'Sign in to the CRM to see the preview.' },
+    /* The CRM's line about a client's code, on their portal section (Rob's words). */
+    crm: {
+      set: (when) => `Code: set ${when}`, notSet: 'Code: not set yet', locked: 'Locked, 10 wrong tries', soft: (m) => `Locked for ${m} more ${m === 1 ? 'minute' : 'minutes'} after 5 wrong tries`,
+      reset: 'Reset code', confirmTitle: 'Reset their code?', confirmBody: 'They are signed out on every phone. They set a new code from the link you send them.', confirm: 'Reset code', done: 'Code reset. Send them the link to set a new one.', failed: 'That did not reset. Try again.',
+      heading: 'Their code', line: 'They set it themselves from the link and sign in with it. You never see it.',
+    },
     loading: 'Opening your panel',
     signIn: {
       title: 'Your panel.', lead: 'Sign in with your phone or email and your four digit code.', leadKnown: 'Welcome back. Your four digit code, please.',

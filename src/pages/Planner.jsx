@@ -42,7 +42,9 @@ import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
  * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
  * onSignIn takes the client to the sign in. `back` is the panel's home when the client has a portal too. */
 const withQuery = (url, q) => `${url}${url.includes('?') ? '&' : '?'}${q}`;
-export default function Planner({ api = '/api/planner', onSignIn, back: panelHome = '', settingsHref = '' }) {
+/* readOnly: Rob's read only preview on the admin host: the same screens from the same answer with no write control (no bell, no
+ * approve or change bar, no Post it, no idea composer). */
+export default function Planner({ api = '/api/planner', onSignIn, back: panelHome = '', settingsHref = '', readOnly = false }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -191,14 +193,14 @@ export default function Planner({ api = '/api/planner', onSignIn, back: panelHom
     <div className="pl lay-root" data-chrome={focused ? 'focused' : 'tabs'} data-bar={focused && ready ? '1' : undefined}>
       <TopBar client={client} month={monthLabel} focused={focused} title={focusTitle} onBack={back} portal={portal}
         right={reviewing && ready && pos ? <span className="pl-top-count" aria-live="polite">{C.review.of(pos.i, pos.n)}</span>
-          : !focused && ready ? <button type="button" className="pl-iconbtn pl-bell" onClick={() => setAlertsOpen(true)} aria-label={C.alerts.bell} aria-haspopup="dialog"><Bell01 width={20} height={20} aria-hidden="true" /></button> : null} />
+          : !focused && ready && !readOnly ? <button type="button" className="pl-iconbtn pl-bell" onClick={() => setAlertsOpen(true)} aria-label={C.alerts.bell} aria-haspopup="dialog"><Bell01 width={20} height={20} aria-hidden="true" /></button> : null} />
       <div className="pl-main" id="pl-main">
         {state === 'loading' && <Skeleton kind={reviewing ? 'review' : tab === 'home' ? 'home' : tab === 'plan' ? 'grid' : 'list'} />}
         {state === 'error' && <ErrorBox onRetry={() => load(month)} />}
-        {ready && reviewing && <ReviewScreen key="review" items={items} client={client} decide={decide} onDone={back} onPos={setPos} />}
+        {ready && reviewing && <ReviewScreen key="review" items={items} client={client} decide={readOnly ? null : decide} onDone={back} onPos={setPos} />}
         {ready && !reviewing && postId && (
           openItem
-            ? <PostPage key={postId} item={openItem} client={client} today={today} decide={decide} toast={setToast} />
+            ? <PostPage key={postId} item={openItem} client={client} today={today} decide={readOnly ? null : decide} toast={setToast} />
             : <div className="pl-screen"><ErrorBox title={C.toast.stale} body={C.empty.planMonth.body} onRetry={back} /></div>
         )}
         {ready && !focused && (
@@ -206,7 +208,7 @@ export default function Planner({ api = '/api/planner', onSignIn, back: panelHom
             {tab === 'home' && <HomeScreen data={data} items={items} month={month} today={today} onReview={openReview} onOpen={openPost} onDay={openDay} onTab={pickTab} />}
             {tab === 'plan' && <PlanScreen items={items} month={month} today={today} day={params.get('day') || ''} onShift={shift} onOpen={openPost} />}
             {tab === 'ads' && <AdsScreen items={items} month={month} onShift={shift} onOpen={openPost} />}
-            {tab === 'ideas' && <IdeasScreen suggestions={data.suggestions || []} onSend={suggest} />}
+            {tab === 'ideas' && <IdeasScreen suggestions={data.suggestions || []} onSend={readOnly ? null : suggest} />}
           </div>
         )}
       </div>

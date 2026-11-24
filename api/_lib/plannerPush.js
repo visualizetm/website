@@ -16,8 +16,10 @@ import { ObjectId } from 'mongodb';
 import { sendClientPush, sendPush } from './notify.js';
 import { zoneParts, zoneDayKey } from './zone.js';
 import { inQuiet } from './pushCategories.js';
+import { CLIENT_APP_BASE } from './portalModules.js';
 
-export const SITE = 'https://visualizestudio.org';
+/* The client app (client app job): a push opens the app host's own path, /planner, never a token; the app knows who is signed in. */
+export const SITE = CLIENT_APP_BASE;
 export const CLIENT_QUIET = { on: true, from: '21:00', to: '08:00' };
 export const TODAY_HOUR = 9;
 export const TODAY_UNTIL = 12; // a cron that missed the morning does not send at teatime: past noon the day is stamped and skipped
@@ -29,7 +31,7 @@ export const clock = { now: () => Date.now() };
 
 const alertOn = (lead, key) => lead?.planner?.alerts?.[key] !== false;
 export const clientQuiet = (now = clock.now()) => { const p = zoneParts(now); return inQuiet(CLIENT_QUIET, p.h, p.min); };
-const plannerUrl = (lead, q = '') => `${SITE}/planner/${lead.planner.token}${q}`;
+const plannerUrl = (lead, q = '') => `${SITE}/planner${q}`;
 const devicesOf = async (db, leadId) => (await db.collection('push_subscriptions').find({ role: 'client', leadId: String(leadId) }).project({ _id: 1 }).limit(50).toArray()).length;
 const PROJECTION = { projection: { business: 1, 'showcase.displayName': 1, planner: 1 } };
 const asId = (v) => { if (v && typeof v === 'object') return v; try { return new ObjectId(String(v)); } catch { return null; } };

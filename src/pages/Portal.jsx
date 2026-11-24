@@ -19,6 +19,7 @@ import { Link } from 'react-router-dom';
 import { useHead } from '../marketing/useHead';
 import { COPY } from '../shared/copy';
 import { needsHomeScreenForPush } from '../clientapp/device';
+import { appPath } from '../lib/adminPaths';
 import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL } from '../marketing/links';
 import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
@@ -341,7 +342,8 @@ function BrandKitCard({ card, client }) {
 
 /* Content planner (prompt 3): the week's counts and one way into the planner, which shows the way back. */
 function PlannerCard({ card }) {
-  const url = safeHref(card.url);
+  /* The client app: the card's '/planner' is the app's own path (under /app on localhost). */
+  const url = card.url === '/planner' ? appPath('/planner') : safeHref(card.url);
   if (!url) return null;
   return (
     <section className="pt-card" aria-labelledby="pt-planner-h">
@@ -845,7 +847,18 @@ const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: 
 /* The client app (client app job): the page reads and writes its own client's door, /api/portal, which finds the client by
  * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
  * onSignIn takes the client to the sign in. */
-export default function Portal({ api = '/api/portal', onSignIn, settingsHref = '', hint: showHint = true }) {
+/* Rob's read only preview (readOnly): the same cards from the same answer, where every card the client writes from shows its
+ * title and one line instead of its controls, and no tap is counted. */
+const WRITE_CARDS = ['approvals', 'reorder', 'site_changes', 'notifications'];
+function PreviewCard({ card }) {
+  return (
+    <section className="pt-card" aria-labelledby={`pt-prev-${card.id}`} data-preview-card={card.id}>
+      <h2 className="pt-card-h" id={`pt-prev-${card.id}`}>{card.title}</h2>
+      <p className="pt-lead pt-lead--sm">{COPY.clientApp.preview.writeCard}</p>
+    </section>
+  );
+}
+export default function Portal({ api = '/api/portal', onSignIn, settingsHref = '', hint: showHint = true, readOnly = false }) {
   const token = api;
   const [data, setData] = useState(null);     // { client, cards, pinned, unlocked }
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
@@ -904,7 +917,7 @@ export default function Portal({ api = '/api/portal', onSignIn, settingsHref = '
           {(data?.cards || []).filter(c => c.id === 'home').map(card => <HomeCard key="home" card={card} client={data.client} />)}
           <EmptyHomeCard contact={(data?.cards || []).find(c => c.id === 'contact')} />
         </>
-      ) : (data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; const Draw = CARD[card.id]; if (!Draw) return null; if (card.id === 'home') return <Draw key={card.id} card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} />; return <div key={card.id} className="pt-slot" data-card={card.id} onClickCapture={(e) => { if (e.target.closest('a, button')) track(api, card.id); }}><Draw card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} /></div>; })}
+      ) : (data?.cards || []).map((card) => { if (card.locked) return <LockedCard key={card.id} card={card} onUnlock={() => setPinOpen(true)} />; if (readOnly && WRITE_CARDS.includes(card.id)) return <PreviewCard key={card.id} card={card} />; const Draw = CARD[card.id]; if (!Draw) return null; if (card.id === 'home') return <Draw key={card.id} card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} />; return <div key={card.id} className="pt-slot" data-card={card.id} onClickCapture={(e) => { if (!readOnly && e.target.closest('a, button')) track(api, card.id); }}><Draw card={card} client={data.client} api={api} pending={pending} onChanged={() => setGen(g => g + 1)} /></div>; })}
       <UndoBar pending={pending.pending} onUndo={pending.undo} />
       {pinOpen && <PinSheet api={api} onClose={closePin} onUnlocked={unlocked} />}
       {thanks && <p className="pt-toast" role="status"><Check width={16} height={16} aria-hidden="true" /><span>Paid, thank you.</span></p>}

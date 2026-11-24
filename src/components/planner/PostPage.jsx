@@ -175,12 +175,12 @@ export default function PostPage({ item, client, today, decide, toast }) {
       {item.clientNote && key === 'changes' && <p className="pl-card"><span className="pl-label">{P.yourNote}</span>{item.clientNote}</p>}
 
       {!waiting && !isAd && !canPostIt(item, today) && !postedHere && P.settled[key] && <p className="pl-muted">{P.settled[key]}</p>}
-      {(canPostIt(item, today) || postedHere) && <PostIt item={item} decide={decide} toast={toast} onPosted={() => setPostedHere(true)} />}
+      {decide && (canPostIt(item, today) || postedHere) && <PostIt item={item} decide={decide} toast={toast} onPosted={() => setPostedHere(true)} />}
 
       {!isAd && <Timeline item={item} />}
 
       {error && <p className="pl-review-err" role="alert">{error}</p>}
-      {waiting && (
+      {waiting && decide && (
         <Layer>
           <div className="pl-actionbar" role="region" aria-label={C.review.title}>
             <button type="button" className="pl-btn pl-btn--secondary pl-btn--lg pl-ask" onClick={() => setAsking(true)} disabled={busy}>{C.review.change}</button>

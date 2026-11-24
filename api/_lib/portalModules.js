@@ -7,7 +7,11 @@ export const PORTAL_MODULE_IDS = ['home', 'contact', 'book', 'documents', 'showc
 export const PORTAL_STATE_IDS = ['off', 'on', 'auto'];
 export const PORTAL_TEMPLATE_IDS = ['brand', 'website', 'retainer'];
 export const DOCUMENT_KIND_IDS = ['doc', 'sheet', 'pdf', 'drive', 'link'];
-export const PORTAL_URL_BASE = 'https://visualizestudio.org/c/';
+/* The client app (client app job): every client URL is built from these two. The portal and the planner live on the app
+ * host; the concepts and review pages stay on the public site. */
+export const CLIENT_APP_BASE = 'https://app.visualizeclients.com';
+export const PUBLIC_SITE = 'https://visualizestudio.org';
+export const PORTAL_URL_BASE = `${CLIENT_APP_BASE}/c/`;
 
 const STAGE_LABELS = { kickoff: 'Kickoff', design: 'Design', revisions: 'Revisions', build: 'Build', delivery: 'Delivery', delivered: 'Delivered' };
 const str = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -112,10 +116,11 @@ export const deliveredBrandProject = (client, projects) => clientProjects(client
  * page asks its own door for the way back, and the door resolves it from the lead that owns the token (portalPath). The portal
  * token never rides in another page's URL. ctx is the fourth argument the route hands resolve: { posts, sets, todayKey, ... }. */
 const fromPortal = () => '?from=portal';
-/** The portal's path for a client, or '' without a token of the right shape. The planner, concepts and review doors answer it as `back`. */
-export const portalPath = (client) => (/^[A-Za-z0-9_-]{16,64}$/.test(String(client?.portal?.token || '')) ? `/c/${client.portal.token}` : '');
+/** The way back to a client's panel (the client app's home, no token), or '' when they have no portal. The planner, concepts and review doors answer it as `back`. */
+export const portalPath = (client) => (/^[A-Za-z0-9_-]{16,64}$/.test(String(client?.portal?.token || '')) ? `${CLIENT_APP_BASE}/` : '');
 const weekOf = (todayKey) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(todayKey || '')); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])); const dow = (d.getUTCDay() + 6) % 7; const start = new Date(d.getTime() - dow * 864e5); const end = new Date(start.getTime() + 6 * 864e5); const k = (x) => x.toISOString().slice(0, 10); return { start: k(start), end: k(end) }; };
-export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? `/planner/${client.planner.token}${fromPortal()}` : '');
+/** The planner from the portal's card: the signed in client's own planner in the client app (no token; the app resolves the path). */
+export const plannerLink = (client) => (client?.planner?.enabled && client?.planner?.token ? '/planner' : '');
 /** This week's posts for the client: how many, how many wait on them (in review), and the ads live. */
 export function plannerCounts(client, posts, todayKey) {
   const wk = weekOf(todayKey);
@@ -132,7 +137,7 @@ const CONCEPT_STATE_LABEL = { approved: 'Approved', changes: 'Changes requested'
 /* Reviews (prompt 3): the Visualize review link as one ask after delivery, and the client's own Google reviews on their card. */
 const hasTestimonial = (client) => (Array.isArray(client?.reviews?.testimonials) ? client.reviews.testimonials : []).some(t => t && (t.status === 'pending' || t.status === 'approved' || (!t.status && t.published === true)));
 const newestProject = (client, projects) => clientProjects(client, projects).filter(p => p.kind !== 'retainer').sort((a, b) => (Date.parse(b.createdAt || '') || 0) - (Date.parse(a.createdAt || '') || 0))[0] || null;
-export const reviewLink = (client) => (client?.reviews?.visualize?.token ? `/r/${client.reviews.visualize.token}${fromPortal()}` : '');
+export const reviewLink = (client) => (client?.reviews?.visualize?.token ? `${PUBLIC_SITE}/r/${client.reviews.visualize.token}${fromPortal()}` : '');
 /** "<latest> reviews, up <diff> since we started" when both counts are numbers and the diff is positive, else the count alone. */
 export function theirReviewsLine(reviews) {
   const latest = Number(reviews?.latest?.count); const base = Number(reviews?.baseline?.count);
@@ -370,7 +375,7 @@ export const PORTAL_MODULES = [
       const state = conceptState(set);
       const first = (Array.isArray(set.directions) ? set.directions : []).slice().sort((a, b) => (a.order || 0) - (b.order || 0))[0];
       const cover = (Array.isArray(first?.items) ? first.items : []).map(it => str(it?.image, 600)).find(u => /^https?:\/\//i.test(u)) || '';
-      return { url: `/concepts/${set.token}${fromPortal()}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 155 : undefined };
+      return { url: `${PUBLIC_SITE}/concepts/${set.token}${fromPortal()}`, name: str(set.title, 120) || 'Concepts', state, stateLabel: CONCEPT_STATE_LABEL[state], cover, _order: state === 'approved' ? 155 : undefined };
     },
   },
   {
@@ -484,3 +489,12 @@ export function portalCards(client, projects, settings, { unlocked = false, modu
 /** What the page may know about the client, and nothing else. */
 export const portalClient = (client) => ({ firstName: portalFirstName(client), business: portalBusiness(client), logoUrl: portalLogo(client), brandHex: portalBrandHex(client) });
 export const portalUrl = (client) => (client?.portal?.token ? `${PORTAL_URL_BASE}${client.portal.token}` : '');
+/** Whether the client has set their own code (the server's record carries the hash, the CRM's the status). */
+export const codeIsSet = (client) => { const c = client?.portal?.code; return !!(c && (c.hash || c.set === true)); };
+/** The link an email carries (client app job): the setup link, with the token, until the client has set a code; after that the
+ * app itself, with no token, so no token rides in an email once it is no longer needed. kind: 'portal' or 'planner'. */
+export const clientAppLink = (client, kind = 'portal') => {
+  const set = codeIsSet(client);
+  if (kind === 'planner') return client?.planner?.enabled && /^[A-Za-z0-9_-]{16,64}$/.test(String(client?.planner?.token || '')) ? (set ? `${CLIENT_APP_BASE}/planner` : `${CLIENT_APP_BASE}/planner/${client.planner.token}`) : '';
+  return /^[A-Za-z0-9_-]{16,64}$/.test(String(client?.portal?.token || '')) ? (set ? `${CLIENT_APP_BASE}/` : portalUrl(client)) : '';
+};

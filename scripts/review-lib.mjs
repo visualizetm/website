@@ -71,7 +71,7 @@ export async function runReview(apiSrc = path.join(repoRoot, 'api')) {
   ok(live._json.back === '', 'no portal on the client: back is empty', 'back-own');
   _stores.call_leads.find(l => String(l._id) === LEAD).portal = { token: 'myPORTALtoken0123456789abcdefg' };
   const withBack = await pub('GET', { token: t2 });
-  ok(withBack._json?.back === '/c/myPORTALtoken0123456789abcdefg' && !JSON.stringify(withBack._json).includes('otherPORTAL'), `back is the owning client's own portal path, never another client's (${withBack._json?.back})`, 'back-own');
+  ok(withBack._json?.back === 'https://app.visualizeclients.com/' && !JSON.stringify(withBack._json).includes('otherPORTAL') && !JSON.stringify(withBack._json).includes('myPORTALtoken'), `back is the client app's home (client app job: no token, never another client's) (${withBack._json?.back})`, 'back-own');
   delete _stores.call_leads.find(l => String(l._id) === LEAD).portal;
   ok(live._json.business === 'Sharpless Detailing' && live._json.firstName === 'Dan' && live._json.logoUrl === 'https://img.example/sharpless.png' && live._json.brandHex === '#1d4ed8' && live._json.googleReviewUrl === 'https://g.page/r/visualize/review', `the values are the business, the first name, the logo, the first brand colour and the studio link (${JSON.stringify(live._json)})`);
   const flat = JSON.stringify(live._json);

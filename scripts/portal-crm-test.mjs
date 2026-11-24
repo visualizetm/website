@@ -5,7 +5,7 @@ import { PORTAL_MODULES } from '../src/shared/portalModules.js';
 import { buildIcs, icsDataUrl } from '../src/lib/portalIcs.js';
 let bad = 0; const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) bad++; };
 const lead = { _id: 'x', business: 'Sharpless Detailing', askFor: 'Dan the owner', portal: { token: 'abcdefghijklmnopqrstuvwx', views: 3, lastViewedAt: '2026-10-01T00:00:00.000Z', pin: 'hash', template: 'brand', modules: { contact: 'off' }, documents: [{ id: 'd1', label: 'A', url: 'https://a.example', kind: 'pdf' }] } };
-ok(P.portalUrl(lead) === 'https://visualizestudio.org/c/abcdefghijklmnopqrstuvwx' && P.portalUrl({}) === '', 'the link is the base plus the token, empty without one');
+ok(P.portalUrl(lead) === 'https://app.visualizeclients.com/c/abcdefghijklmnopqrstuvwx' && P.portalUrl({}) === '', 'the link is the client app base plus the token, empty without one');
 ok(JSON.stringify(P.generatePortalPatch(lead)) === '{"portal":{"regenerate":false}}' && JSON.stringify(P.generatePortalPatch(lead, true)) === '{"portal":{"regenerate":true}}', 'generate and regenerate send only the flag');
 ok(P.portalSentPatch(lead, 0).portal.sentAt === '1970-01-01T00:00:00.000Z', 'mark sent stamps sentAt');
 ok(JSON.stringify(P.modulePatch('contact', 'on')) === '{"portal":{"modules":{"contact":"on"}}}' && JSON.stringify(P.templatePatch('website')) === '{"portal":{"template":"website"}}', 'a module and a template patch carry one key');

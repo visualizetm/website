@@ -14,9 +14,9 @@ import { CONTACT_EMAIL } from '../marketing/links';
  */
 
 /* The portal's back chip (client portal, prompt 3): a token page opened from the portal carries ?from=portal and nothing
- * else; its own door answers `back`, the owning client's portal path, and the chip shows only with both. The portal token
- * never rides in another page's URL. Nothing else on the page changes. */
-const PORTAL_PATH = /^\/c\/[A-Za-z0-9_-]{16,64}$/;
+ * else; its own door answers `back`, the client app's home (client app job: https://app.visualizeclients.com/, no token),
+ * and the chip shows only with both. No token rides in another page's URL. Nothing else on the page changes. */
+const PORTAL_PATH = /^https:\/\/app\.visualizeclients\.com\/$/;
 export function portalBackHref(search, back) {
   try { const q = new URLSearchParams(String(search || '')); return q.get('from') === 'portal' && PORTAL_PATH.test(String(back || '')) ? String(back) : ''; } catch { return ''; }
 }

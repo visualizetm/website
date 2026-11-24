@@ -148,7 +148,7 @@ export default function IdeasScreen({ suggestions, onSend }) {
   return (
     <>
       <h1 className="pl-h1">{I.title}</h1>
-      <Composer onSend={onSend} />
+      {onSend && <Composer onSend={onSend} />}
       <section className="pl-week-group" aria-labelledby="pl-yours-h">
         <h2 className="pl-h2" id="pl-yours-h">{I.yours}</h2>
         {suggestions.length

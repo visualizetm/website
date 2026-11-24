@@ -109,7 +109,8 @@ export const PIPE_EXTRA = {
         } },
   12: { stage: 'client', callStatus: 'booked', clientSince: '2026-12-01T10:00:00Z', clientStatus: 'active',
         /* Client portal: a live link with views, a PIN, the brand template, one card off and two documents (the Portal card and sheet). */
-        portal: { token: 'prtlTESTtoken0123456789abcd', createdAt: daysFrom(-8), regeneratedAt: '', sentAt: daysFrom(-7), views: 12, lastViewedAt: new Date(Date.now() - 5 * 3600e3).toISOString(), pin: 'hashed-not-the-digits', modules: { contact: 'auto', book: 'off', documents: 'auto', showcase: 'auto' }, template: 'brand', documents: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf', addedAt: daysFrom(-7) }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet', addedAt: daysFrom(-6) }], hours: '', pushDevices: 1, pushAt: daysFrom(-2), activity: [{ t: 'view', at: daysFrom(-1) }, { t: 'view', at: daysFrom(-3) }, { t: 'tap', card: 'pay', at: daysFrom(-1) }, { t: 'tap', card: 'pay', at: daysFrom(-3) }, { t: 'tap', card: 'files', at: daysFrom(-2) }, { t: 'view', at: daysFrom(-20) }], approvals: [{ id: 'ap1', label: 'Homepage hero, round two', url: 'https://drive.google.com/file/d/fixture-hero', status: 'pending', note: '', requestedAt: daysFrom(-1), respondedAt: '' }, { id: 'ap2', label: 'Business card back', url: '', status: 'changes', note: 'The red is too bright', requestedAt: daysFrom(-3), respondedAt: daysFrom(-2) }] },
+        /* The client app: the CRM reads a client's code as its status (codeStatus on the server), never the hash. */
+        portal: { code: { set: true, setAt: daysFrom(-3), locked: false, lockedUntil: '', fails: 0 }, token: 'prtlTESTtoken0123456789abcd', createdAt: daysFrom(-8), regeneratedAt: '', sentAt: daysFrom(-7), views: 12, lastViewedAt: new Date(Date.now() - 5 * 3600e3).toISOString(), pin: 'hashed-not-the-digits', modules: { contact: 'auto', book: 'off', documents: 'auto', showcase: 'auto' }, template: 'brand', documents: [{ id: 'd1', label: 'Brand guide', url: 'https://drive.google.com/file/d/fixture-brand-guide', kind: 'pdf', addedAt: daysFrom(-7) }, { id: 'd2', label: 'Content sheet', url: 'https://docs.google.com/spreadsheets/d/fixture-content', kind: 'sheet', addedAt: daysFrom(-6) }], hours: '', pushDevices: 1, pushAt: daysFrom(-2), activity: [{ t: 'view', at: daysFrom(-1) }, { t: 'view', at: daysFrom(-3) }, { t: 'tap', card: 'pay', at: daysFrom(-1) }, { t: 'tap', card: 'pay', at: daysFrom(-3) }, { t: 'tap', card: 'files', at: daysFrom(-2) }, { t: 'view', at: daysFrom(-20) }], approvals: [{ id: 'ap1', label: 'Homepage hero, round two', url: 'https://drive.google.com/file/d/fixture-hero', status: 'pending', note: '', requestedAt: daysFrom(-1), respondedAt: '' }, { id: 'ap2', label: 'Business card back', url: '', status: 'changes', note: 'The red is too bright', requestedAt: daysFrom(-3), respondedAt: daysFrom(-2) }] },
         reviews: {
           /* Review links: the Visualize review link with views and three submissions (pending with consent, pending without, approved and featured). */
           visualize: { token: 'rvwTESTtoken0123456789abcd', createdAt: daysFrom(-10), regeneratedAt: '', views: 7, lastViewedAt: new Date(Date.now() - 2 * 3600e3).toISOString(), sentAt: daysFrom(-9) },
@@ -1022,6 +1023,16 @@ export async function mockRoutes(page, opts = {}) {
   });
   /* Analytics (the nav revamp, milestone 6): the same rules the route runs, over the fixture records, for the range asked. */
   /* Review links: the public /api/review door, by the fixture token on Lead Business 12; anything else is the 404 the real route sends. A POST answers ok. */
+  /* Rob's read only preview (client app job): /api/admin/client-app?view=portal|planner&id=, the client door's own answer. */
+  await page.route('**/api/admin/client-app**', (r) => {
+    const u = new URL(r.request().url());
+    if (r.request().method() === 'POST') return r.fulfill(json({ ok: true, code: { set: false, setAt: '', locked: false, lockedUntil: '', fails: 0 } }));
+    const view = u.searchParams.get('view'); const id = u.searchParams.get('id');
+    if (view === 'portal' && id === 'L12') return r.fulfill(json(PORTAL_RESOLVE));
+    const pl = leads.find(l => l._id === id && l.planner?.enabled);
+    if (view === 'planner' && pl) return r.fulfill(json(plannerPayload(pl, u.searchParams.get('month') || THIS_MONTH)));
+    return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+  });
   /* The client app (client app job): the code door, /api/app/:action. The session is the vz_client cookie, which in the audits
      names the fixture client's link (appSignIn sets it; the real cookie is signed and HttpOnly). APP_TOKENS: PORTAL_TOKEN is
      Lead Business 12's portal with a code set (sign in, or straight in when this device is it), plnrTEST and plnrCLEAR are

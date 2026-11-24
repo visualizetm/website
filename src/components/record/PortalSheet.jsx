@@ -2,12 +2,13 @@ import LinkSend from '../LinkSend';
 import { useEffect, useRef, useState } from 'react';
 import Copy01 from '@untitled-ui/icons-react/build/esm/Copy01';
 import Plus from '@untitled-ui/icons-react/build/esm/Plus';
-import { Sheet, Button, Row, Stack, Pill, QrCode, SegmentedControl, Toggle, Input, Select, InlineEdit, Menu, EmptyState, useConfirm, useMediaQuery } from '../../ui';
+import { Sheet, Button, Row, Stack, Pill, QrCode, SegmentedControl, Input, Select, InlineEdit, Menu, EmptyState, useConfirm, useMediaQuery } from '../../ui';
 import { COPY } from '../../shared/copy';
 import { relativeTime, fmtDate } from '../../shared/dates';
 import { apiFetch } from '../../shared/api';
+import { previewPath } from '../../lib/adminPaths';
 import { CALENDLY_URL } from '../../marketing/links';
-import { activityLine, portalCardsNow, approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, pinPatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
+import { activityLine, portalCardsNow, approvalsPatch, approvalsOf, newApproval, resendApproval, portalOf, portalUrl, generatePortalPatch, portalSentPatch, portalMessage, modulePatch, templatePatch, hoursPatch, documentsPatch, documentsOf, newDocument, moduleRows, DOCUMENT_KINDS, PORTAL_TEMPLATE_OPTIONS, PORTAL_STATE_OPTIONS } from '../../lib/portal';
 
 /* The Portal sheet (client portal, prompt 1): everything about one client's
  * portal link, opened from the workspace's Portal card. The link (copy,
@@ -129,8 +130,6 @@ export default function PortalSheet({ rec, onClose }) {
   useEffect(() => { if (profile) return undefined; let live = true; apiFetch('/api/admin/settings', { silent: true }).then(r => { if (live && r.ok && r.data?.profile) setProfile(r.data.profile); }); return () => { live = false; }; }, [profile]);
   const cardsNow = portalCardsNow(lead, { projects: shell?.projects || [], posts: shell?.posts || [], sets: shell?.sets || [], profile, meetingLink: CALENDLY_URL });
   const [busy, setBusy] = useState(false);
-  const [pinDraft, setPinDraft] = useState('');
-  const [pinOpen, setPinOpen] = useState(false);
   const p = portalOf(lead) || {};
   const url = portalUrl(lead);
   const message = portalMessage(lead, cardsNow);
@@ -143,17 +142,26 @@ export default function PortalSheet({ rec, onClose }) {
     return ok;
   };
   const regenerate = async () => {
-    if (!(await confirm({ title: 'Make a new link?', body: 'The old link, the old QR and every device that unlocked the PIN stop working the moment the new one exists. Anyone who still has them sees the expired page.', danger: true, confirmLabel: 'Regenerate' }))) return;
+    if (!(await confirm({ title: 'Make a new link?', body: 'The old link and the old QR stop working the moment the new one exists; anyone who opens them sees the expired page. Phones already signed in with their code stay signed in.', danger: true, confirmLabel: 'Regenerate' }))) return;
     await generate(true);
   };
   /* Sent is stamped by Text it or Share (LinkSend), no manual sent tap. */
   const markSent = async (via) => { const ok = await patch(portalSentPatch(lead, Date.now(), via)); if (ok) toast.success('Marked sent.'); };
-  const setPin = async () => {
-    if (!/^\d{4}$/.test(pinDraft)) { toast.error('Four digits.'); return; }
-    setBusy(true); const ok = await patch(pinPatch(pinDraft)); setBusy(false);
-    if (ok) { setPinDraft(''); setPinOpen(false); toast.success(p.pin ? 'PIN reset.' : 'PIN on.'); }
+  /* The client app (client app job): the client's own code replaces the PIN. Rob sees whether it is set and the lock, never the code,
+   * and Reset code (after a confirm) clears it, unlocks it and signs every device out; nothing is sent. */
+  const K = COPY.clientApp.crm;
+  const code = p.code && typeof p.code === 'object' ? p.code : {};
+  const softMin = code.lockedUntil ? Math.max(1, Math.ceil((Date.parse(code.lockedUntil) - Date.now()) / 60000)) : 0;
+  const codeLine = code.locked ? K.locked : softMin > 0 ? K.soft(softMin) : code.set ? K.set(fmtDate(code.setAt, { month: 'short', day: 'numeric' })) : K.notSet;
+  const resetCode = async () => {
+    if (!(await confirm({ title: K.confirmTitle, body: K.confirmBody, confirmLabel: K.confirm, danger: true }))) return;
+    setBusy(true);
+    const r = await apiFetch('/api/admin/client-app', { method: 'POST', body: { action: 'reset-code', id: lead._id }, silent: true });
+    setBusy(false);
+    if (!r.ok) { toast.error(K.failed); return; }
+    shell?.leadOps?.applyLocal?.(lead._id, { portal: { ...p, code: r.data?.code || { set: false } } });
+    toast.success(K.done);
   };
-  const togglePin = async (on) => { if (on) { setPinOpen(true); return; } setPinOpen(false); setPinDraft(''); const ok = await patch(pinPatch('')); if (ok) toast.success('PIN off.'); };
   const slug = lead.showcase?.slug || String(lead.business || 'client').toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
   return (
@@ -172,7 +180,7 @@ export default function PortalSheet({ rec, onClose }) {
                 <p className="dt-muted ps-stats ps-activity">{activityLine(lead)}</p>
                 {p.sentAt ? <Pill tone="booked" label={`Sent ${fmtDate(p.sentAt)}`} size="sm" icon={false} /> : <Pill tone="neutral" label="Not sent yet" size="sm" icon={false} />}
                 <Row gap={2} wrap>
-                  <Button variant="secondary" size="md" icon="LinkExternal01" href={url} target="_blank" rel="noopener noreferrer" className="ps-open">Open as the client</Button>
+                  <Button variant="secondary" size="md" icon="LinkExternal01" href={previewPath('portal', lead._id)} target="_blank" rel="noopener noreferrer" className="ps-open">Preview as the client</Button>
                   {!readOnly && <Button variant="ghost" size="md" icon="RefreshCw01" onClick={regenerate} loading={busy} className="ps-regen">Regenerate</Button>}
                 </Row>
               </Stack>
@@ -195,7 +203,7 @@ export default function PortalSheet({ rec, onClose }) {
             {rows.map(r => (
               <div key={r.id} className="ps-mod" data-module={r.id}>
                 <div className="ps-mod-head">
-                  <span className="ps-mod-title">{r.title}{r.sensitive ? ', behind the PIN' : ''}</span>
+                  <span className="ps-mod-title">{r.title}</span>
                   {readOnly ? <Pill tone="neutral" label={r.state[0].toUpperCase() + r.state.slice(1)} size="sm" icon={false} variant="soft" />
                     : <SegmentedControl label={`${r.title} state`} size="sm" options={opts(PORTAL_STATE_OPTIONS)} value={r.state} onChange={(id) => patch(modulePatch(r.id, id))} className="ps-mod-ctl" />}
                 </div>
@@ -203,15 +211,11 @@ export default function PortalSheet({ rec, onClose }) {
               </div>
             ))}
           </Stack>
-          <Stack gap={2} data-section="pin">
-            <p className="pb-card-h">PIN</p>
-            <Toggle label="Ask for a PIN" description={p.pin ? 'Four digits gate the sensitive cards; a device remembers it for thirty days.' : 'Off. Every card is open to anyone with the link.'} checked={!!p.pin || pinOpen} onChange={togglePin} disabled={readOnly} className="ps-pin-toggle" />
-            {!readOnly && (pinOpen || p.pin) && (
-              <div className="ps-pin-row">
-                {(pinOpen || !p.pin) && <Input label={p.pin ? 'New PIN' : 'PIN'} inputMode="numeric" maxLength={4} value={pinDraft} onChange={(e) => setPinDraft(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4 digits" className="ps-pin-input" />}
-                {(pinOpen || !p.pin) ? <Button size="md" onClick={setPin} loading={busy} className="ps-pin-set">{p.pin ? 'Save new PIN' : 'Set PIN'}</Button> : <Button variant="secondary" size="md" onClick={() => setPinOpen(true)} className="ps-pin-reset">Reset PIN</Button>}
-              </div>
-            )}
+          <Stack gap={2} data-section="code">
+            <p className="pb-card-h">{K.heading}</p>
+            <p className={`rc-ws-line ps-code-line${code.locked ? ' ps-code-line--locked' : ''}`} role="status">{codeLine}</p>
+            <p className="ps-mod-auto">{K.line}</p>
+            {!readOnly && (code.set || code.locked || softMin > 0) && <Button variant="secondary" size="md" onClick={resetCode} loading={busy} className="ps-code-reset">{K.reset}</Button>}
           </Stack>
           <Stack gap={2} data-section="hours">
             <p className="pb-card-h">Hours on their card</p>

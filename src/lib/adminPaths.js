@@ -23,3 +23,8 @@ export const IS_APP_HOST = host === 'app.visualizeclients.com' || host.startsWit
 export const APP_BASE = IS_APP_HOST ? '' : '/app';
 export const appPath = (p = '/') => `${APP_BASE}${p === '/' && APP_BASE ? '' : p}` || '/';
 export const isAppPath = (pathname) => { const p = String(pathname || ''); return IS_APP_HOST || (IS_DEV_HOST && (p === '/app' || p.startsWith('/app/'))); };
+
+/* Rob's read only preview of a client's panel (client app job): /preview/portal/:id and /preview/planner/:id on the admin host
+ * (/admin/preview/... on localhost), its own small page, opened in a new tab from the CRM. */
+export const previewPath = (view, id) => `${IS_ADMIN_HOST ? '' : '/admin'}/preview/${view}/${encodeURIComponent(String(id || ''))}`;
+export const isPreviewPath = (pathname) => /^(\/admin)?\/preview\/(portal|planner)\/[A-Za-z0-9_-]{1,64}\/?$/.test(String(pathname || ''));

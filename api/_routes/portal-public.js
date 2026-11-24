@@ -72,15 +72,9 @@ async function clientFor(db, req) {
   return tokenStr(lead.portal?.token) && lead.deleted !== true ? lead : null;
 }
 
-export async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store');
-  const db = await getDb();
-  const lead = await clientFor(db, req);
-  if (lead?.signIn) return signInFirst(res);
-  if (!lead) return notFound(res);
-  const token = lead.portal.token; // the per client limiter keys and the unlock token, unchanged
-
-  if (req.method === 'GET') {
+/** What GET answers for one client, exactly (client app job): the signed in client's read, and Rob's read only preview
+ *  (api/_routes/client-app.js, preview: true), which stamps nothing: no view, no activity, no paid thanks moved. */
+export async function portalRead(db, lead, { preview = false } = {}) {
     const [profile, projects, posts, sets, orders] = await Promise.all([
       db.collection('settings').findOne({ _id: 'profile' }),
       db.collection('projects').find({ leadId: String(lead._id) }).project(PROJECT_PROJECTION).limit(50).toArray(),
@@ -93,19 +87,34 @@ export async function handler(req, res) {
     const who = await db.collection('call_leads').findOne({ _id: lead._id }, { projection: { email: 1 } });
     const meeting = await nextMeetingFor(db, lead._id, who?.email);
     const ctx = { posts, sets, orders, todayKey: zoneDayKey(Date.now()), meeting };
-    const key = rateKey('pview', token);
-    const st = await rateState(db, key, { max: 1, windowMs: HOUR });
+    const key = rateKey('pview', lead.portal.token);
+    const st = preview ? { exceeded: true } : await rateState(db, key, { max: 1, windowMs: HOUR });
     if (!st.exceeded) {
       await rateHit(db, key, st.hits);
       await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.views': (Number(lead.portal?.views) || 0) + 1, 'portal.lastViewedAt': new Date().toISOString() }, $push: { 'portal.activity': { $each: [{ t: 'view', at: new Date().toISOString() }], $slice: -ACTIVITY_KEPT } } });
     }
-    const unlocked = true; // a signed in session counts as unlocked (the client's own code is stronger than the old PIN)
+    const unlocked = true; // a signed in session counts as unlocked (the client's own code is stronger than the old PIN); Rob's preview sees what they see
     const settings = { profile: profile || {}, meetingLink: meetingLink() };
     /* Prompt 2: a payment landed since the last read (the webhook or Rob marking it): the page thanks them once, and the stamp moves so it never repeats. Server owned. */
     const paidAt = unseenPayment(lead, projects);
-    if (paidAt) await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.lastPaidSeenAt': paidAt } });
-    return res.status(200).json({ client: portalClient(lead), cards: portalCards(lead, projects, settings, { unlocked, ctx }), pinned: !!lead.portal?.pin, unlocked, paid: !!paidAt });
-  }
+    if (paidAt && !preview) await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'portal.lastPaidSeenAt': paidAt } });
+    return { client: portalClient(lead), cards: portalCards(lead, projects, settings, { unlocked, ctx }), pinned: !!lead.portal?.pin, unlocked, paid: !!paidAt };
+}
+/** The lead a preview reads: the same projection the door reads, by id, with a portal. */
+export async function portalLeadById(db, id) {
+  const lead = await db.collection('call_leads').findOne({ _id: id, deleted: { $ne: true } }, { projection: PROJECTION });
+  return lead && tokenStr(lead.portal?.token) ? lead : null;
+}
+
+export async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  const db = await getDb();
+  const lead = await clientFor(db, req);
+  if (lead?.signIn) return signInFirst(res);
+  if (!lead) return notFound(res);
+  const token = lead.portal.token; // the per client limiter keys and the unlock token, unchanged
+
+  if (req.method === 'GET') return res.status(200).json(await portalRead(db, lead));
 
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   if (b.action === 'approve') return approve(db, lead, token, b, res);

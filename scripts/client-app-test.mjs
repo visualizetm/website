@@ -42,6 +42,10 @@ const callLeads = (await load('_routes/call-leads.js')).handler;
 const backup = (await load('_routes/backup.js')).handler;
 const plannerDoor = (await load('planner.js')).default;
 const portalDoor = (await load('_routes/portal-public.js')).handler;
+const adminIndex = (await load('admin/index.js')).default;
+const { resolveVars } = await load('_lib/email/vars.js');
+const portalMods = await load('_lib/portalModules.js');
+const plannerPush = await load('_lib/plannerPush.js');
 const session = await load('_lib/clientSession.js');
 const codeLib = await load('_lib/clientCode.js');
 
@@ -330,7 +334,42 @@ console.log('\n10. the data doors read the cookie (milestone 3)');
   ok(keep(await call(plannerDoor, 'GET', { cookie: ck }))._status === 404, 'a signed in client whose planner is switched off is the 404');
 }
 
-console.log('\n11. nothing leaves with the code');
+console.log('\n11. links, pushes and Rob\'s previews (milestone 5)');
+{
+  seed();
+  const L = () => lead(LEAD);
+  ok(portalMods.CLIENT_APP_BASE === 'https://app.visualizeclients.com' && portalMods.portalUrl(L()) === `https://app.visualizeclients.com/c/${PORTAL}`, 'the setup link Rob sends is the app host plus the portal token');
+  const before = resolveVars({ lead: L() });
+  ok(before.portalLink === `https://app.visualizeclients.com/c/${PORTAL}` && before.plannerLink === `https://app.visualizeclients.com/planner/${PLANNER}`, 'an email before the client has a code carries the setup link (the only token an email ever carries)', 'email-setup-link');
+  await setCode(PORTAL, '4831');
+  const after = resolveVars({ lead: L() });
+  ok(after.portalLink === 'https://app.visualizeclients.com/' && after.plannerLink === 'https://app.visualizeclients.com/planner' && !JSON.stringify(after).includes(PORTAL) && !JSON.stringify(after).includes(PLANNER), 'once the code is set, an email carries the app itself, no token', 'email-no-token');
+  ok(portalMods.portalPath(L()) === 'https://app.visualizeclients.com/' && portalMods.plannerLink(L()) === '/planner', "the way back is the panel's home and the portal's planner card is the app's own /planner, no token");
+  ok(plannerPush.SITE === 'https://app.visualizeclients.com', 'the planner pushes open the app host');
+  /* Rob's previews: the exact answer of the client's door, read by the admin, stamping nothing, never a client cookie. */
+  const ck = cookieOf(await app('POST', 'signin', { body: { token: PORTAL, code: '4831' }, ip: freshIp() }));
+  const own = keep(await call(portalDoor, 'GET', { cookie: ck }));
+  const ownP = keep(await call(plannerDoor, 'GET', { cookie: ck }));
+  _stores.settings = _stores.settings.filter(d => !/^rate:pview:/.test(String(d._id))); // the hour's view limit cleared, so a preview that stamped would show
+  L().planner.lastViewedAt = '';
+  const stamp = JSON.stringify({ v: L().portal.views, a: L().portal.activity, last: L().portal.lastViewedAt, paid: L().portal.lastPaidSeenAt, pl: L().planner.lastViewedAt });
+  const adminCookie = `vz_admin=${(await load('_lib/auth.js')).signSession()}`;
+  const viaAdmin = async (query, cookie = adminCookie) => { const res = { _status: 200, _json: null, _headers: {}, headersSent: false, status(c) { this._status = c; return this; }, json(p) { this._json = p; this.headersSent = true; return this; }, setHeader(k, v) { this._headers[k] = v; }, end() { return this; } }; await adminIndex({ method: 'GET', query: { r: 'client-app', ...query }, headers: { cookie, 'x-forwarded-for': '203.0.113.5' }, url: '/api/admin/client-app', socket: {} }, res); return res; };
+  const prev = await viaAdmin({ view: 'portal', id: LEAD });
+  ok(prev._status === 200 && JSON.stringify(prev._json) === JSON.stringify({ ...own._json, paid: prev._json.paid }), "the portal preview is exactly the client's own answer", 'preview-same');
+  const pp = await viaAdmin({ view: 'planner', id: LEAD });
+  ok(pp._status === 200 && JSON.stringify(pp._json) === JSON.stringify(ownP._json), "the planner preview is exactly the client's own month");
+  const stamp2 = JSON.stringify({ v: L().portal.views, a: L().portal.activity, last: L().portal.lastViewedAt, paid: L().portal.lastPaidSeenAt, pl: L().planner.lastViewedAt });
+  ok(stamp2 === stamp, 'a preview stamps nothing: no view, no activity, no lastViewedAt, no paid thanks moved', 'preview-no-stamp');
+  ok(!prev._headers['Set-Cookie'] && !pp._headers['Set-Cookie'] && prev._headers['Cache-Control'] === 'no-store', 'a preview never sets a cookie for Rob, and is no-store', 'preview-no-cookie');
+  ok(!keysDeep([prev._json, pp._json]).has('hash') && !keysDeep([prev._json, pp._json]).has('salt'), 'a preview carries no part of the code');
+  const anon = await viaAdmin({ view: 'portal', id: LEAD }, '');
+  const asClient = await viaAdmin({ view: 'portal', id: LEAD }, ck);
+  ok(anon._status === 401 && asClient._status === 401, "a preview needs the admin's cookie: none, or a client's, is 401", 'preview-admin');
+  ok((await viaAdmin({ view: 'portal', id: PLAN }))._status === 404 && (await viaAdmin({ view: 'planner', id: TWIN_A }))._status === 404 && (await viaAdmin({ view: 'other', id: LEAD }))._status === 400, "a client with no portal, or no planner, is the door's own 404; an unknown view is a 400");
+}
+
+console.log('\n12. nothing leaves with the code');
 {
   const secret = ['hash', 'salt', 'version', 'fails', 'lockedUntil', 'locked'];
   ok(JSON.stringify(session.CODE_SECRET_KEYS) === JSON.stringify(secret), `the never-send list is ${secret.join(', ')}`);

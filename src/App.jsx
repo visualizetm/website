@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-do
 import { captureRef } from './lib/referral';
 import LogoSpinner from './ui/LogoSpinner';
 import BootFrame from './shell/BootFrame';
-import { IS_ADMIN_HOST, IS_APP_HOST, IS_DEV_HOST, isRoomPath, isAppPath } from './lib/adminPaths';
+import { IS_ADMIN_HOST, IS_APP_HOST, IS_DEV_HOST, isRoomPath, isAppPath, isPreviewPath } from './lib/adminPaths';
 
 /* Code split by host (Prompt 15): the admin host never downloads the
  * marketing pages and the marketing site never downloads the admin. Each
@@ -30,7 +30,8 @@ const Concepts = lazy(() => import('./pages/Concepts'));
 const ScrollRoot = lazy(() => import('./marketing/ScrollRoot'));
 const AdminApp = lazy(() => import('./pages/AdminApp'));
 const RoomApp = lazy(() => import('./room/RoomApp'));    // Billy's Call Room: /room on the admin host, its own chunk and its own sign in
-const ClientApp = lazy(() => import('./clientapp/ClientApp')); // the client app: app.visualizeclients.com (/app on localhost), its own chunk and its own sign in
+const ClientApp = lazy(() => import('./clientapp/ClientApp'));
+const ClientPreview = lazy(() => import('./clientapp/Preview')); // Rob's read only preview of a client's panel, on the admin host // the client app: app.visualizeclients.com (/app on localhost), its own chunk and its own sign in
 
 /* /work/:slug moved to /clients/:slug (Site Prompt 3) and on to /projects/:slug (the Projects prompt); these keep the old
  * deep links' slugs alive as a client-side fallback, vercel.json does the real 301 for anyone hitting the server directly. */
@@ -64,6 +65,7 @@ export default function App() {
     if (location.pathname === '/prints' || location.pathname === '/admin/prints') return <Navigate to="/orders" replace />;
     // Billy's Call Room has its own app, its own cookie and its own chunk; the admin never mounts under /room.
     if (isRoomPath(location.pathname)) return <Suspense fallback={<BootFrame />}><RoomApp /></Suspense>;
+    if (isPreviewPath(location.pathname)) return <Suspense fallback={<ClientBoot />}><ClientPreview /></Suspense>;
     // The same boot frame the parser painted (index.html) stays up while the admin chunk loads, then AdminApp renders it again until the session answers.
     return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
@@ -74,6 +76,7 @@ export default function App() {
     if (!IS_DEV_HOST) return <Navigate to="/" replace />;
     if (location.pathname === '/admin/prints') return <Navigate to="/admin/orders" replace />;
     if (isRoomPath(location.pathname)) return <Suspense fallback={<BootFrame />}><RoomApp /></Suspense>;
+    if (isPreviewPath(location.pathname)) return <Suspense fallback={<ClientBoot />}><ClientPreview /></Suspense>;
     return <Suspense fallback={<BootFrame />}><AdminApp /></Suspense>;
   }
 

@@ -75,7 +75,7 @@ seed();
   ok(res._headers['Cache-Control'] === 'no-store', 'the answer is Cache-Control: no-store');
   const body = res._json || {};
   ok(Object.keys(body).sort().join(',') === 'back,client,directions,feedback,set', `the response is exactly client, set, directions, feedback, back (got ${Object.keys(body).sort().join(',')})`);
-  ok(body.back === '/c/cncPORTALtoken0123456789abcdef', `back is the owning client's own portal path (${body.back})`);
+  ok(body.back === 'https://app.visualizeclients.com/' && !body.back.includes('cncPORTALtoken'), `back is the owning client's panel on the app host, no token (${body.back})`);
   ok(Object.keys(body.client).join(',') === 'displayName' && body.client.displayName === 'Kims Cafe', 'client is exactly displayName, from the showcase');
   ok(Object.keys(body.set).sort().join(',') === 'allowPass,approvalMode,approvedDirectionId,intro,round,status,submittedAt,title', `set is exactly title, round, intro, status, approvedDirectionId, approvalMode, allowPass, submittedAt (got ${Object.keys(body.set).sort().join(',')})`);
   ok(body.directions.every(d => Object.keys(d).sort().join(',') === 'decision,id,items,name,needsDecision,rationale'), 'every direction is exactly id, name, rationale, needsDecision, decision, items');

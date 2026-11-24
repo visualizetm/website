@@ -306,9 +306,9 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rk, 'planner'), 'the planner off keeps its token but shows no card', 'planner-gate');
   lead().planner.enabled = true;
   rk = await pub('GET', { token: tK }); let pl = card(rk, 'planner');
-  ok(pl && pl.url === '/planner/myPLANNERtoken0123456789abcdefgh?from=portal' && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
+  ok(pl && pl.url === '/planner' && pl.posts === 3 && pl.needYou === 1 && pl.adsLive === 2 && pl.line === 'This week: 3 posts, 1 needs you. 2 ads live', `the planner card: the page with the way back, this week's posts, the one that needs them, the ads live, a deleted post and last week ignored (${JSON.stringify(pl)})`, 'planner-counts');
   let cc = card(rk, 'concepts');
-  ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === '/concepts/newSETtoken0123456789abcdefghij?from=portal' && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
+  ok(cc && cc.name === 'Round two' && cc.state === 'waiting' && cc.stateLabel === 'Waiting on you' && cc.url === 'https://visualizestudio.org/concepts/newSETtoken0123456789abcdefghij?from=portal' && cc.cover === 'https://img.example/b.png', `the concepts card: the newest shared set, waiting, the first direction's first real image as the cover (${JSON.stringify(cc)})`, 'concepts-newest');
   ok(cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('contact') && cardIds(rk).indexOf('concepts') < cardIds(rk).indexOf('progress'), `a waiting set sits near the top, before the project (${cardIds(rk)})`, 'concepts-order');
   _stores.concept_sets.find(x => x._id === 'cs-new').status = 'changes';
   rk = await pub('GET', { token: tK }); cc = card(rk, 'concepts');
@@ -331,7 +331,8 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   _stores.concept_sets.forEach(x => { if (x.leadId === LEAD && x._id === 'cs-new') x.archived = false; });
   rk = await pub('GET', { token: tK });
   const urls = (rk._json?.cards || []).filter(c => ['planner', 'concepts', 'review'].includes(c.id)).map(c => c.url);
-  ok(urls.length === 3 && urls.every(u => u.endsWith('?from=portal') && !u.includes(tK)), `the three token page urls end in ?from=portal and carry no portal token (${urls.join(' ')})`, 'back-no-token');
+  /* The client app: the planner is the app's own /planner (no token at all); the concepts and review pages stay on the public site and end in ?from=portal. */
+  ok(urls.length === 3 && urls[0] === '/planner' && urls.slice(1).every(u => u.startsWith('https://visualizestudio.org/') && u.endsWith('?from=portal')) && urls.every(u => !u.includes(tK)), `the three token page urls: the app's /planner, the others ending in ?from=portal, none carrying the portal token (${urls.join(' ')})`, 'back-no-token');
   ok(!JSON.stringify(rk._json).includes(tK), 'the portal token appears nowhere in the payload', 'back-no-token');
   seed(); await admin({ id: LEAD, set: { portal: {} } }); t3 = lead().portal.token;
 
@@ -346,7 +347,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   ok(!card(rv, 'review'), 'the newest project not delivered: no review ask yet', 'review-gate');
   _stores.projects.find(p => p._id === 'p1').deliveredAt = '2026-10-05T00:00:00.000Z';
   rv = await pub('GET', { token: tV }); let ask = card(rv, 'review');
-  ok(ask && ask.url === '/r/myREVIEWtoken0123456789abcdefgh?from=portal' && /minute of your time/.test(ask.line), `delivered with the link and no review yet: How did I do? with the page and the way back (${JSON.stringify(ask)})`, 'review-gate');
+  ok(ask && ask.url === 'https://visualizestudio.org/r/myREVIEWtoken0123456789abcdefgh?from=portal' && /minute of your time/.test(ask.line), `delivered with the link and no review yet: How did I do? with the page and the way back (${JSON.stringify(ask)})`, 'review-gate');
   lead().reviews.testimonials = [{ id: 't1', status: 'pending', consent: true, text: 'Great', name: 'Dan' }];
   rv = await pub('GET', { token: tV });
   ok(!card(rv, 'review'), 'a pending review in: the ask is gone', 'review-submitted');
@@ -647,7 +648,7 @@ export async function runPortal(apiSrc = path.join(repoRoot, 'api')) {
   let keys = cp.clientPushKeys(lead(), _stores.projects, T0);
   ok(keys.length === 4 && keys.includes('needs:ct1') && keys.includes('appr:apA:2026-10-11T00:00:00.000Z') && keys.includes('files:p0') && keys.includes('inv:invB:2026-10-10T00:00:00.000Z'), `the keys: the open client task, the pending approval, the paid files, the sent unpaid invoice (${keys.join(' ')})`, 'push-keys');
   let msg = cp.clientPushMessage(lead(), keys);
-  ok(msg.title === 'Rob needs something from you' && msg.body === '1 thing to do, 1 thing to approve, your files are ready, 1 invoice to pay.' && msg.url === `https://visualizestudio.org/c/${lead().portal.token}`, `one message for the batch, the portal as the link (${JSON.stringify(msg)})`, 'push-message');
+  ok(msg.title === 'Rob needs something from you' && msg.body === '1 thing to do, 1 thing to approve, your files are ready, 1 invoice to pay.' && msg.url === 'https://app.visualizeclients.com/' && !msg.url.includes(lead().portal.token), `one message for the batch, the panel's home on the app host as the link, no token (${JSON.stringify(msg)})`, 'push-message');
   msg = cp.clientPushMessage(lead(), ['files:p0']);
   ok(msg.title === 'Your files are ready' && msg.body === 'Your files are ready.', 'only the files: the title says so');
   /* the tick: one push, then silence for six hours, then only what is new */

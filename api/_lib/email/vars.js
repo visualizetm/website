@@ -10,7 +10,7 @@ import { invoicesOf, invoiceStatus, invoicesTotal, invoicesPaid } from '../invoi
 import { dealOf } from '../deal.js';
 import { ZONE, zoneDayMs, DAY_KEY } from '../zone.js';
 import { serviceOf } from './templates.js';
-import { portalUrl, retainerToOffer, clientProjects, planLines, payMethods, clientItems } from '../portalModules.js';
+import { clientAppLink, retainerToOffer, clientProjects, planLines, payMethods, clientItems } from '../portalModules.js';
 import { nextInvoiceNumber } from './invoiceNumber.js';
 
 export const SITE = 'https://visualizestudio.org';
@@ -92,8 +92,9 @@ export function resolveVars({ lead, project = null, invoice = null, projects = [
   const first = set ? [...(Array.isArray(set.directions) ? set.directions : [])].sort((a, b) => (a.order || 0) - (b.order || 0))[0] : null;
   v.conceptCover = first ? (Array.isArray(first.items) ? first.items : []).map(it => https(it?.image)).find(Boolean) || '' : '';
   v['meeting.time'] = fmtMeeting(lead?.meeting?.date, lead?.meeting?.time);
-  v.portalLink = https(portalUrl(lead));
-  v.plannerLink = lead?.planner?.enabled && lead?.planner?.token ? `${SITE}/planner/${str(lead.planner.token, 64)}` : '';
+  /* The client app (client app job): the setup link until the client has a code, then the app itself, no token. */
+  v.portalLink = https(clientAppLink(lead, 'portal'));
+  v.plannerLink = https(clientAppLink(lead, 'planner'));
   v.showcaseLink = lead?.showcase?.published && lead?.showcase?.slug ? `${SITE}/projects/${str(lead.showcase.slug, 80)}` : '';
   v.reviewLink = lead?.reviews?.visualize?.token ? `${SITE}/r/${str(lead.reviews.visualize.token, 64)}` : '';
   v.contractLink = https(deal.contractLink) || https(project?.links?.contract);

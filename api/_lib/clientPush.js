@@ -3,13 +3,14 @@
  * live on the record as portal.pushSeen; a new key is a reason to push, a seen one never is. clientPushTick runs after the
  * writes that can add a key (a client task, an approval, an invoice sent, a payment, a project's deliverables) and the
  * reminders cron sweeps every client with a device, so a push held back by the six hour rule goes out on the next sweep. */
-import { clientItems, approvalsOf, filesProject, paidInFull, portalPath, clientProjects } from './portalModules.js';
+import { clientItems, approvalsOf, filesProject, paidInFull, portalPath, clientProjects, CLIENT_APP_BASE } from './portalModules.js';
 import { invoicesOf } from './invoices.js';
 import { sendClientPush } from './notify.js';
 
 export const CLIENT_PUSH_GAP_MS = 6 * 60 * 60 * 1000;
 export const PUSH_SEEN_KEPT = 200;
-export const SITE = 'https://visualizestudio.org';
+/* The client app (client app job): a push opens the panel's home on the app host, never a token. */
+export const SITE = CLIENT_APP_BASE;
 /* The sender, swappable so a test can watch it; nothing else writes here. */
 export const senders = { client: sendClientPush };
 
@@ -38,7 +39,7 @@ export function clientPushMessage(lead, fresh) {
   if (inv) parts.push(plural(inv, 'invoice to pay', 'invoices to pay'));
   const onlyFiles = files && !needs && !appr && !inv;
   const body = parts.length ? parts.join(', ').replace(/^./, c => c.toUpperCase()) + '.' : 'Open your portal.';
-  return { title: onlyFiles ? 'Your files are ready' : 'Rob needs something from you', body, url: `${SITE}${portalPath(lead)}` };
+  return { title: onlyFiles ? 'Your files are ready' : 'Rob needs something from you', body, url: `${SITE}/` };
 }
 
 /** Push this client once if something is new and six hours have passed since the last push. */

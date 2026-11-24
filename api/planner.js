@@ -168,17 +168,9 @@ export function suggestionDue(preferredDate, nowMs) {
   return at9(key);
 }
 
-async function handler(req, res) {
-  // A client's month is theirs: never a shared cache, never the back-forward cache with the token in the URL.
-  res.setHeader('Cache-Control', 'no-store');
-  const db = await getDb();
-  const lead = await clientFor(db, req);
-  if (lead?.signIn) return signInFirst(res);
-  if (!lead) return notFound(res);
-  const token = lead.planner.token; // the per client limiter keys, unchanged
-
-  if (req.method === 'GET') {
-    const month = monthStr(req.query?.month) || thisMonth();
+/** What GET answers for one client's month, exactly (client app job): the signed in client's read, and Rob's read only
+ *  preview (api/_routes/client-app.js, preview: true), which stamps nothing (no lastViewedAt). */
+export async function plannerRead(db, lead, month, { preview = false } = {}) {
     const posts = await db.collection('posts').find({
       leadId: String(lead._id),
       month,
@@ -195,7 +187,7 @@ async function handler(req, res) {
      * write on every load and the value still answers "have they seen this
      * month yet". Best effort: a failed stamp never fails their read. */
     const last = Date.parse(lead.planner?.lastViewedAt || '') || 0;
-    if (Date.now() - last > VIEW_STAMP_EVERY) {
+    if (!preview && Date.now() - last > VIEW_STAMP_EVERY) {
       try {
         await db.collection('call_leads').updateOne({ _id: lead._id }, { $set: { 'planner.lastViewedAt': new Date().toISOString() } });
       } catch { /* their read matters more than the stamp */ }
@@ -210,8 +202,25 @@ async function handler(req, res) {
       for (const p of made) statusById[String(p._id)] = p.status || 'making';
     }
     /* Client portal (prompt 3 fix): the way back to this client's own portal, resolved here, never carried in the URL. */
-    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(s => publicSuggestion(s, statusById)), back: portalPath(lead) });
-  }
+    return { client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(s => publicSuggestion(s, statusById)), back: portalPath(lead) }; // back: the panel's home on the app host, no token
+}
+/** The lead a preview reads: the door's own projection, by id, with the planner on. */
+export async function plannerLeadById(db, id) {
+  const lead = await db.collection('call_leads').findOne({ _id: id, deleted: { $ne: true } }, { projection: PROJECTION });
+  return lead && lead.planner?.enabled && tokenStr(lead.planner?.token) ? lead : null;
+}
+export const plannerMonth = (v) => monthStr(v) || thisMonth();
+
+async function handler(req, res) {
+  // A client's month is theirs: never a shared cache, never the back-forward cache with the token in the URL.
+  res.setHeader('Cache-Control', 'no-store');
+  const db = await getDb();
+  const lead = await clientFor(db, req);
+  if (lead?.signIn) return signInFirst(res);
+  if (!lead) return notFound(res);
+  const token = lead.planner.token; // the per client limiter keys, unchanged
+
+  if (req.method === 'GET') return res.status(200).json(await plannerRead(db, lead, monthStr(req.query?.month) || thisMonth()));
 
   if (req.method === 'POST') {
     const key = rateKey('planner', token);

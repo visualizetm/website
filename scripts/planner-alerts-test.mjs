@@ -161,7 +161,7 @@ seedPush();
   ok(r._json.ids.length === 2 && _sent.client.length === 1, `a batch send of two is one push (got ${_sent.client.length})`);
   const m = _sent.client[0] || {};
   ok(m.title === 'Rob sent you 2 posts to review' && m.leadId === LEAD, `it says how many (got ${JSON.stringify(m.title)})`);
-  ok(m.url === `https://visualizestudio.org/planner/${TOKEN}?review=1`, `it opens the planner on Review mode (got ${m.url})`);
+  ok(m.url === 'https://app.visualizeclients.com/planner?review=1' && !m.url.includes(TOKEN), `it opens the planner on Review mode on the app host, no token (got ${m.url})`);
   ok(noCaption(), 'the push never carries a caption');
   ok((lead().planner.pushSeen || []).join() === `rev:${PID(1)},rev:${PID(2)}`, 'a key per post lands in planner.pushSeen');
   /* A resend of the same post never pushes twice. */

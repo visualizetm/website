@@ -25,7 +25,7 @@ async function fresh(width, opts = {}) {
   const page = await ctx.newPage();
   page.on('pageerror', e => console.log(`  page error: ${e}`));
   if (opts.noPush) await page.addInitScript(() => { try { delete window.PushManager; } catch { /* fine */ } });
-  await mockRoutes(page, { session: false });
+  await mockRoutes(page, { session: !!opts.admin });
   await appSignIn(page, opts.client || '', BASE);
   const posts = [];
   page.on('request', (r) => { if (r.method() === 'POST') posts.push(`${new URL(r.url()).pathname} ${r.postData() || ''}`); });
@@ -141,6 +141,40 @@ for (const width of [390, 1280]) {
     ok(await page.locator('.pt-card:has(#pt-push-h)').filter({ hasText: 'Add me to your Home Screen to get pings.' }).count() === 1 && await page.locator('.pt-switch').count() === 0, 'iPhone in Safari: the Notifications card is one line, Add me to your Home Screen to get pings, and no switch');
     await go(page, '/app/settings');
     ok(await until(page, 'text=Add me to your Home Screen to get pings.'), 'Settings says the same');
+    await ctx.close();
+  }
+
+  /* Rob's side: the client's code on their portal sheet, Reset code behind a confirm, one write and nothing sent. */
+  {
+    const { ctx, page, posts } = await fresh(width, { admin: true });
+    await go(page, '/admin/clients?open=L12');
+    await page.locator('.rc-ws-card--portal .rc-ws-btn').first().click({ timeout: 8000 }).catch(() => {});
+    ok(await until(page, '.ps-code-line') && /^Code: set /.test((await page.locator('.ps-code-line').innerText()).trim()), "the portal sheet says the client's code is set, and when");
+    ok(await page.locator('.ps-pin-toggle').count() === 0 && await page.getByText('Ask for a PIN').count() === 0, 'the Set PIN control is gone');
+    ok((await page.locator('.ps-url').innerText()).trim() === 'https://app.visualizeclients.com/c/prtlTESTtoken0123456789abcd' && await page.locator('.ps-open').getAttribute('href') === '/admin/preview/portal/L12', "the link Rob sends is the app's setup link, and Preview opens his read only preview");
+    await page.locator('.ps-code-reset').click();
+    ok(await until(page, '[role="dialog"] :text("Reset their code?")'), 'Reset code asks first, saying they set a new one from the link');
+    await page.locator('.v-modal').getByRole('button', { name: 'Reset code' }).click().catch(() => {});
+    ok(await until(page, '.ps-code-line:has-text("Code: not set yet")'), 'after the reset the line says not set yet');
+    const resets = posts.filter(p => p.startsWith('/api/admin/client-app '));
+    ok(resets.length === 1 && /"action":"reset-code"/.test(resets[0]) && /"id":"L12"/.test(resets[0]), `one reset-code write (${resets.length})`);
+    ok(!posts.some(p => /email|send|sms|caller/.test(p)), `nothing was sent (${posts.map(p => p.split(' ')[0]).join(', ')})`);
+    await ctx.close();
+  }
+
+  /* Rob's read only previews on the admin host: the same screens, no write control, nothing posted. */
+  {
+    const { ctx, page, posts } = await fresh(width);
+    await go(page, '/admin/preview/portal/L12');
+    ok(await until(page, '.pt-cards') && /Preview as the client/.test(await page.locator('.ca-preview-note').innerText()), "the portal preview draws the client's cards under the preview line");
+    ok(await page.locator('[data-preview-card="approvals"]').count() === 1 && await page.getByRole('button', { name: 'Approve' }).count() === 0 && await page.locator('.pt-switch').count() === 0 && await page.locator('.pt-settings-link').count() === 0, 'the portal preview has no write control: approvals, reorder, a site change and pings show their title and one line');
+    await go(page, '/admin/preview/planner/L11');
+    ok(await until(page, '.pl-needs') && await page.getByRole('button', { name: 'Alerts' }).count() === 0, 'the planner preview draws the month, with no bell');
+    await page.locator('.pl-review-now').click().catch(() => {});
+    ok(await until(page, '.pl-review') && await page.locator('.pl-actionbar').count() === 0, 'Review mode in the preview has no approve or change bar');
+    await go(page, '/admin/preview/planner/L11?tab=ideas');
+    ok(await until(page, '.pl-ideas, .pl-screen') && await page.locator('.pl-composer').count() === 0, 'Ideas in the preview has no composer');
+    ok(posts.length === 0, `nothing was posted from either preview (${posts.join(' | ')})`);
     await ctx.close();
   }
 
