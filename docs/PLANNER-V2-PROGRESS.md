@@ -18,7 +18,7 @@ Part 2, Rob
 * [x] 2.2 Activity strip and the three views at every width (needs 2.1) (7387276, with 2.3 and 2.4)
 * [x] 2.3 The composer panel and pushed screen, hashtag chips, change card, Preview as, back tree (needs 2.1) (7387276, with 2.2 and 2.4)
 * [x] 2.4 Batch send with Undo, toolbar and phone chrome (needs 2.1) (7387276, with 2.2 and 2.3)
-* [ ] 2.5 Part 2 audits, docs, `reports/PLANNER-V2-2-REPORT.md` (needs 2.2 to 2.4)
+* [x] 2.5 Part 2 audits, docs, `reports/PLANNER-V2-2-REPORT.md` (needs 2.2 to 2.4)
 
 Part 3, alerts
 

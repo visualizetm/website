@@ -47,3 +47,4 @@ One line each: the milestone, the choice, why.
 - 3.3: the three switches show whether or not this device is on: they live on the client's record, so a second device follows them, and they can be set before turning a device on. An iPhone that has not added the planner to its Home Screen gets the hint instead of a Turn on button that cannot work there.
 - 3.3: the Next up loop looks for an open task carrying the post's id and ticks it through the shared task rules; no task carries one today (the task schema has no such field and nothing writes one), so with none nothing is written, as the prompt says.
 - 3.3: Rob's Setup line reads the device count the planner or the portal wrote last (they share the devices) and says Alerts on only when a device exists and a switch is on.
+- 2.5: Preview as <client> in the editor's foot shrinks and ends in an ellipsis: with a long client name it ran past a phone's screen (preship's layout audit found it).

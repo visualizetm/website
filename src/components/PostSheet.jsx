@@ -252,7 +252,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
   const foot = readOnly ? null : (
     <Row gap={2} justify="between" align="center" wrap>
       <Button variant="ghost" icon="Trash01" danger onClick={onDelete} className="ps-delete">Delete {noun}</Button>
-      <Row gap={2} wrap>
+      <Row gap={2} wrap className="ps-foot-end">
         {previewUrl && <Button variant="secondary" icon="LinkExternal01" className="ps-preview" onClick={() => window.open(previewUrl, '_blank', 'noopener')}>Preview as {client}</Button>}
         <Button variant="secondary" onClick={onClose}>Done</Button>
       </Row>
@@ -406,6 +406,9 @@ export const postSheetStyles = `
   .ps-note { gap: var(--v-space-1); }
   .ps-note.is-new { border-color: var(--v-status-new-text); background: var(--v-status-new-soft); }
   .ps-sets { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
+  /* A long client name: Preview as <client> shrinks and ends in an ellipsis rather than leaving the sheet or the screen. */
+  .ps-foot-end { min-width: 0; max-width: 100%; }
+  .ps-preview { max-width: 100%; min-width: 0; flex-shrink: 1; }
   .ps-page { display: flex; flex-direction: column; gap: var(--v-space-4); padding-bottom: var(--v-space-6); }
   .ps-page-foot { padding-top: var(--v-space-3); border-top: 1px solid var(--v-border); }
   .ps-note-who { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
