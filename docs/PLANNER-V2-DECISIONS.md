@@ -17,3 +17,8 @@ One line each: the milestone, the choice, why.
 - 1.3: Review takes its queue once when it opens, so an approval does not reshuffle the rest; a post that turned stale (not waiting any more) is passed over, since there is nothing left to answer, and only a failed call stays on screen with Retry.
 - 1.3: Home's This week reads the loaded month only, so a week that runs into the next month shows no dots on those days. The read is per month and no new field is added.
 - 1.3: the audits' Home without needs uses a second mock token (plnrCLEAR) that reads L11's month with review shown as approved, rather than a second planner client in the fixtures, which would change the admin screens' data.
+- 1.4: the Feed shows the loaded month only: its posts still to go up, newest first, then up to six of its posted ones. Earlier months' posted posts are not in the read (one month per GET), and no second request was added.
+- 1.4: below 400px the calendar lets its grid use the page gutter (4px from each edge) so seven columns stay 44px wide at 320.
+- 1.4: the timeline's "You approved it" carries no date: the read has no decidedAt or approvedAt, and the prompt names no such field for it, so it renders without one. Posted uses postedAt, which the read does carry.
+- 1.4: an ad's page shows the ad card (the Ads screen's, shared) instead of the Instagram preview, with no Copy card and no settled line; the client does not post ads.
+- 1.4: Post it in 4 taps stays on screen, every step ticked, after I posted it, instead of vanishing the moment the post turns Posted.
