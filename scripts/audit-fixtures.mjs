@@ -24,6 +24,7 @@ import { EMAIL_TEMPLATES, effectiveTemplate, templateOf } from '../api/_lib/emai
 import { resolveVars, varRows } from '../api/_lib/email/vars.js';
 import { availabilityFor, lackingOf } from '../api/_lib/email/send.js';
 import { invoicesOf } from '../api/_lib/invoices.js';
+import { isWeakCode, codeShape } from '../src/shared/clientCode.js';
 import { dealOf } from '../api/_lib/deal.js';
 /* Billy's Call Room: the mocked caller endpoints answer through the server's own whitelist, so the screens see the shapes production sends. */
 import { callerLead, callerList, callerBooked, callerMay } from '../api/_lib/callerView.js';
@@ -729,6 +730,30 @@ const fail = () => ({ status: 500, contentType: 'application/json', body: JSON.s
 export const REVIEW_TOKEN = 'rvwTESTtoken0123456789abcd';
 /* Client portal: the public /api/portal door's answer for the fixture token on Lead Business 12: every prompt 1 card with data, all Auto, no PIN. PORTAL_PIN_RESOLVE is the same portal behind a PIN before the device unlocked it. */
 export const PORTAL_TOKEN = 'prtlTESTtoken0123456789abcd';
+/* The client app (client app job): the fixture's setup links, the right code and the identifier the audits sign in with. */
+export const APP_PLANNER_TOKEN = 'plnrTESTtoken0123456789abcdEF';
+export const APP_CLEAR_TOKEN = 'plnrCLEARtoken0123456789abcd';
+export const APP_SET_TOKEN = 'appSETtoken0123456789abcdef';
+export const APP_LOCK_TOKEN = 'appLOCKtoken0123456789abcde';
+export const APP_TOKENS = [PORTAL_TOKEN, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN];
+export const APP_CODE = '4831';
+export const APP_IDENTIFIER = 'damian@leadbusiness12.example';
+/** What /api/app/me says for a signed in fixture client (leadId is the audit's own, never sent by the real door). */
+export const appMe = (t) => (t === PORTAL_TOKEN ? { leadId: 'L12', portal: true, planner: false, home: 'portal', firstName: 'Damian' } : { leadId: 'L11', portal: false, planner: true, home: 'planner', firstName: 'Damian' });
+/** The fixture session: the vz_client cookie the audits set (appSignIn), naming a fixture link; '' when signed out. */
+export async function appSession(r) {
+  let raw = ''; try { raw = (await r.request().headerValue('cookie')) || ''; } catch { raw = ''; }
+  const m = /(?:^|;\s*)vz_client=([^;]+)/.exec(raw);
+  return m && APP_TOKENS.includes(m[1]) ? m[1] : '';
+}
+export const signInFirst = () => ({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'sign in' }) });
+/** Sign a page's context in as a fixture client (or out, with ''), before it opens a client app screen. */
+export async function appSignIn(page, token, origin = process.env.AUDIT_BASE || 'http://127.0.0.1:4330') {
+  await page.context().clearCookies({ name: 'vz_client' }).catch(() => {});
+  if (token) await page.context().addCookies([{ name: 'vz_client', value: token, url: origin }]);
+  /* A fresh device for this page: no phone or email kept and the Home Screen card not yet seen (once per tab, so a state that sets them and reloads keeps them). */
+  await page.addInitScript(() => { try { if (!sessionStorage.getItem('vz_audit_fresh')) { sessionStorage.setItem('vz_audit_fresh', '1'); localStorage.removeItem('vz_app_id'); localStorage.removeItem('vz_app_a2hs'); } } catch { /* storage off */ } }).catch(() => {});
+}
 export const PORTAL_RESOLVE = {
   client: { firstName: 'Damian', business: 'Lead Business 12', logoUrl: '/showcase/fixtures/logo.svg', brandHex: '#1d4ed8' },
   cards: [
@@ -997,8 +1022,46 @@ export async function mockRoutes(page, opts = {}) {
   });
   /* Analytics (the nav revamp, milestone 6): the same rules the route runs, over the fixture records, for the range asked. */
   /* Review links: the public /api/review door, by the fixture token on Lead Business 12; anything else is the 404 the real route sends. A POST answers ok. */
+  /* The client app (client app job): the code door, /api/app/:action. The session is the vz_client cookie, which in the audits
+     names the fixture client's link (appSignIn sets it; the real cookie is signed and HttpOnly). APP_TOKENS: PORTAL_TOKEN is
+     Lead Business 12's portal with a code set (sign in, or straight in when this device is it), plnrTEST and plnrCLEAR are
+     L11's planner (a planner only client), APP_SET_TOKEN a client with no code yet, APP_LOCK_TOKEN a code locked for twelve
+     minutes. The right code is APP_CODE; identifier APP_IDENTIFIER signs in as the portal client. */
+  await page.route('**/api/app/**', async (r) => {
+    const u = new URL(r.request().url());
+    const a = u.pathname.split('/').pop();
+    const m = r.request().method();
+    const who = await appSession(r);
+    let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { body = {}; }
+    const cookieFor = async (t) => { await page.context().addCookies([{ name: 'vz_client', value: t, url: new URL(page.url()).origin }]).catch(() => {}); };
+    const done = async (t) => { await cookieFor(t); return r.fulfill(json({ ok: true, ...appMe(t) })); };
+    if (m === 'GET' && a === 'me') return r.fulfill(json(who ? { signedIn: true, ...appMe(who) } : { signedIn: false, textRob: '5550100100' }));
+    if (m === 'GET' && a === 'token') {
+      const t = u.searchParams.get('token') || '';
+      if (t === APP_SET_TOKEN) return r.fulfill(json({ step: 'set', lock: null }));
+      if (t === APP_LOCK_TOKEN) return r.fulfill(json({ step: 'signin', lock: { hard: false, minutes: 12 } }));
+      if (!APP_TOKENS.includes(t)) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+      return r.fulfill(json({ step: who && appMe(who).leadId === appMe(t).leadId ? 'in' : 'signin', lock: null }));
+    }
+    if (m === 'POST' && a === 'signout') { await page.context().clearCookies({ name: 'vz_client' }).catch(() => {}); return r.fulfill(json({ ok: true })); }
+    if (m === 'POST' && a === 'set') {
+      if (body.token !== APP_SET_TOKEN) return r.fulfill({ status: body.token && APP_TOKENS.includes(body.token) ? 409 : 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+      const c = codeShape(body.code);
+      if (!c) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'four digits' }) });
+      if (String(body.again) !== c) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'mismatch' }) });
+      if (isWeakCode(c)) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'weak' }) });
+      return done(PORTAL_TOKEN);
+    }
+    if (m === 'POST' && a === 'signin') {
+      if (body.token === APP_LOCK_TOKEN) return r.fulfill({ status: 423, contentType: 'application/json', body: JSON.stringify({ error: 'locked', hard: false, minutes: 12 }) });
+      const t = body.token ? (APP_TOKENS.includes(body.token) ? body.token : '') : (String(body.identifier || '').trim().toLowerCase() === APP_IDENTIFIER ? PORTAL_TOKEN : '');
+      if (!t || body.code !== APP_CODE) return r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'did not match' }) });
+      return done(t);
+    }
+    return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+  });
   /* Client portal: the public /api/portal door by the fixture token; the pin door answers the fixture PIN with an unlock and 401 otherwise. `?pin=1` on the page URL is the audit's way to the locked state. */
-  await page.route('**/api/portal**', (r) => { const u = new URL(r.request().url()); const token = u.searchParams.get('token') || ''; if (token !== PORTAL_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') { let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { body = {}; } if (body.action === 'approve') return r.fulfill(json({ ok: true, item: { id: body.id, status: body.decision, note: body.note || '' } })); if (body.action === 'push_on' || body.action === 'push_off') return r.fulfill(json({ ok: true, on: body.action === 'push_on', devices: body.action === 'push_on' ? 1 : 0 })); if (body.action === 'site_change') return r.fulfill(json({ ok: true, recent: [{ id: 'sc3', text: String(body.text || '').slice(0, 80), at: new Date().toISOString(), image: !!body.image, done: false }], line: "Got it. I'll take a look and let you know when it's live." })); if (body.action === 'reorder') return r.fulfill(json({ ok: true, summary: 'order', subtotalText: '$40', line: "Got it. I'll send you a payment link." })); const pin = String(body.pin || ''); return pin === PORTAL_PIN ? r.fulfill(json({ unlock: '9999999999999.fixtureunlock' })) : r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'That PIN is not it.' }) }); } const locked = page.url().includes('pin=1') && !u.searchParams.get('unlock'); return r.fulfill(json(locked ? PORTAL_PIN_RESOLVE : page.url().includes('paid=1') ? PORTAL_PAID_RESOLVE : (/[?&]empty=1/.test(page.url()) ? PORTAL_EMPTY_RESOLVE : PORTAL_RESOLVE))); });
+  await page.route('**/api/portal**', async (r) => { const u = new URL(r.request().url()); const token = await appSession(r); if (!token) return r.fulfill(signInFirst()); if (token !== PORTAL_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') { let body = {}; try { body = JSON.parse(r.request().postData() || '{}'); } catch { body = {}; } if (body.action === 'approve') return r.fulfill(json({ ok: true, item: { id: body.id, status: body.decision, note: body.note || '' } })); if (body.action === 'push_on' || body.action === 'push_off') return r.fulfill(json({ ok: true, on: body.action === 'push_on', devices: body.action === 'push_on' ? 1 : 0 })); if (body.action === 'site_change') return r.fulfill(json({ ok: true, recent: [{ id: 'sc3', text: String(body.text || '').slice(0, 80), at: new Date().toISOString(), image: !!body.image, done: false }], line: "Got it. I'll take a look and let you know when it's live." })); if (body.action === 'reorder') return r.fulfill(json({ ok: true, summary: 'order', subtotalText: '$40', line: "Got it. I'll send you a payment link." })); const pin = String(body.pin || ''); return pin === PORTAL_PIN ? r.fulfill(json({ unlock: '9999999999999.fixtureunlock' })) : r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'That PIN is not it.' }) }); } const locked = page.url().includes('pin=1') && !u.searchParams.get('unlock'); return r.fulfill(json(locked ? PORTAL_PIN_RESOLVE : page.url().includes('paid=1') ? PORTAL_PAID_RESOLVE : (/[?&]empty=1/.test(page.url()) ? PORTAL_EMPTY_RESOLVE : PORTAL_RESOLVE))); });
   await page.route('**/api/review**', (r) => { const u = new URL(r.request().url()); const token = u.searchParams.get('token') || ''; if (token !== REVIEW_TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) }); if (r.request().method() === 'POST') return r.fulfill(json({ ok: true })); return r.fulfill(json(REVIEW_RESOLVE)); });
   await page.route('**/api/admin/analytics**', (r) => { if (failing.has('analytics')) return r.fulfill(fail()); const range = new URL(r.request().url()).searchParams.get('range') || 'month'; return r.fulfill(json(empty.has('analytics') ? computeAnalytics([], [], { range }) : computeAnalytics(leads, projects, { range }))); });
   await page.route('**/api/admin/lists**', (r) => {
@@ -1087,9 +1150,10 @@ export async function mockRoutes(page, opts = {}) {
   /* The client facing planner (planner prompt 3): api/planner.js answers one
      client's month for a token, and answers 404 for anything it does not
      recognise, which is the page's dead end state. */
-  await page.route('**/api/planner**', (r) => {
+  await page.route('**/api/planner**', async (r) => {
     const url = new URL(r.request().url());
-    const token = url.searchParams.get('token') || '';
+    const token = await appSession(r);
+    if (!token) return r.fulfill(signInFirst());
     /* Planner v2: Home with nothing waiting. The clear token reads L11's month with every post in review shown as approved, so the
        audits see the caught up state without a second planner client (and without changing L11's posts for the screens after it). */
     const CLEAR = 'plnrCLEARtoken0123456789abcd';

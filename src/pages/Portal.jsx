@@ -15,7 +15,10 @@ import Lock01 from '@untitled-ui/icons-react/build/esm/Lock01';
 import Check from '@untitled-ui/icons-react/build/esm/Check';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useHead } from '../marketing/useHead';
+import { COPY } from '../shared/copy';
+import { needsHomeScreenForPush } from '../clientapp/device';
 import { INSTAGRAM_URL, INSTAGRAM_HANDLE, CONTACT_EMAIL } from '../marketing/links';
 import { safeHref } from '../lib/safeUrl';
 import { normalizeBrandColor } from '../shared/color';
@@ -611,7 +614,13 @@ function NotificationsCard({ card, api }) {
     navigator.serviceWorker.ready.then(reg => reg.pushManager.getSubscription()).then(sub => { if (alive && sub) setOn(true); }).catch(() => {});
     return () => { alive = false; };
   }, [supported]);
-  if (!supported) return null;
+  /* The client app: an iPhone in Safari cannot get pings until the panel is on the Home Screen, so it gets that one line instead of the switch. */
+  if (!supported) return needsHomeScreenForPush() ? (
+    <section className="pt-card" aria-labelledby="pt-push-h">
+      <h2 className="pt-card-h" id="pt-push-h">Notifications</h2>
+      <p className="pt-line" role="note"><Bell01 width={18} height={18} aria-hidden="true" /><span>{COPY.clientApp.settings.pingsIos}</span></p>
+    </section>
+  ) : null;
   const post = (body) => fetch(api, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   const turnOn = async () => {
     const perm = await Notification.requestPermission();
@@ -836,11 +845,11 @@ const CARD = { home: HomeCard, contact: ContactCard, book: BookCard, documents: 
 /* The client app (client app job): the page reads and writes its own client's door, /api/portal, which finds the client by
  * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
  * onSignIn takes the client to the sign in. */
-export default function Portal({ api = '/api/portal', onSignIn }) {
+export default function Portal({ api = '/api/portal', onSignIn, settingsHref = '', hint: showHint = true }) {
   const token = api;
   const [data, setData] = useState(null);     // { client, cards, pinned, unlocked }
   const [state, setState] = useState('loading'); // loading | ready | expired | failed
-  const [hint, setHint] = useState(() => readLS(A2HS_KEY, '') !== 'seen');
+  const [hint, setHint] = useState(() => showHint && readLS(A2HS_KEY, '') !== 'seen');
   const [pinOpen, setPinOpen] = useState(false);
   const [gen, setGen] = useState(0); // bumps to read again after an unlock
 
@@ -907,6 +916,7 @@ export default function Portal({ api = '/api/portal', onSignIn }) {
       <div className="wrap pt-wrap">
         <ClientBar label={business || undefined} />
         {body}
+        {settingsHref && state === 'ready' && <p className="pt-settings"><Link className="pt-settings-link" to={settingsHref}>{COPY.clientApp.settings.link}</Link></p>}
         <ClientFoot />
       </div>
       <style>{clientChromeStyles + ptStyles}</style>
@@ -1090,4 +1100,7 @@ const ptStyles = `
   .pt-toast--undo { left: var(--space-4); right: var(--space-4); transform: none; width: auto; max-width: none; justify-content: space-between; gap: var(--space-3); padding-right: var(--space-2); }
   .pt-toast--undo span { flex: 1; min-width: 0; }
   @media (min-width: 640px) { .pt-toast--undo { left: 50%; right: auto; transform: translateX(-50%); width: min(560px, calc(100% - 32px)); } }
+  /* The client app: the panel's Settings, a quiet text link under the cards. */
+  .pt-settings { margin: var(--space-4) 0 0; text-align: center; }
+  .pt-settings-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-3); color: var(--text-secondary); font-size: 0.9375rem; text-decoration: underline; text-underline-offset: 3px; }
 `;

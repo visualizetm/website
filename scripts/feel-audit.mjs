@@ -26,7 +26,7 @@
  */
 import { chromium } from 'playwright-core';
 import { writeFileSync } from 'node:fs';
-import { mockRoutes } from './audit-fixtures.mjs';
+import { mockRoutes, appSignIn } from './audit-fixtures.mjs';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const BASE = process.env.AUDIT_BASE || 'http://127.0.0.1:4330';
@@ -134,6 +134,7 @@ async function runState(ctx, s0, width, theme, motion) {
 
   // B. real load with a 400ms server, measures CLS and entrance
   await mockRoutes(page, { delay: s.static ? 0 : 400, session: s.session === false ? false : true });
+  if (s.client !== undefined) await appSignIn(page, s.client, BASE); // the client app: signed in as the entry's fixture client, or out
   if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
   await page.evaluate(() => { window.__cls = 0; });
   await goto(url(s));
@@ -271,7 +272,7 @@ for (const theme of THEMES) for (const motion of MOTIONS) for (const width of WI
   const ctx = await browser.newContext({ viewport: { width, height: VIEW_H }, hasTouch: width < 500, reducedMotion: motion === 'reduce' ? 'reduce' : 'no-preference', serviceWorkers: 'block' });
   for (const s of SCREENS) {
     if (ONLY && !s.id.startsWith(ONLY)) continue;
-    if (s.marketing) continue; // its own layout-audit.mjs walk covers it (see audit-screens.mjs)
+    if (s.marketing && !s.feel) continue; // its own layout-audit.mjs walk covers it (see audit-screens.mjs); the client app's own screens (feel: true) are walked here too
     if (s.minWidth && width < s.minWidth) continue;
     if (s.maxWidth && width > s.maxWidth) continue;
     const row = await runStateWithFit(ctx, s, width, theme, motion);

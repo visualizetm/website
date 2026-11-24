@@ -16,7 +16,7 @@
  */
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync } from 'node:fs';
-import { mockRoutes } from './audit-fixtures.mjs';
+import { mockRoutes, appSignIn } from './audit-fixtures.mjs';
 import { SCREENS } from './audit-screens.mjs';
 
 const EXE = process.env.PW_CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
@@ -51,6 +51,8 @@ async function state(ctx, s, width, theme, skeleton) {
     await goto(url(s)); await page.waitForTimeout(400);
   } else {
     await mockRoutes(page, { session: s.session === false ? false : true, empty: s.emptyResource ? [s.emptyResource] : undefined });
+    /* The client app (client app job): its screens open signed in as the entry's fixture client, or signed out with ''. */
+    if (s.client !== undefined) await appSignIn(page, s.client, BASE);
     if (s.prep) { await goto(`${BASE}/admin`); await s.prep(page, width); }
     await goto(url(s, skeleton ? 'loading=1' : ''));
     if (s.act) { await page.waitForTimeout(s.open ? 900 : 700); if (!(skeleton && s.open)) await s.act(page, width); }

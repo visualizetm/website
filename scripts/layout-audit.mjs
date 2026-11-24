@@ -19,7 +19,7 @@ const SHOTS = process.env.AUDIT_SHOTS || ''; // directory: save a screenshot per
 const THEME = process.env.AUDIT_THEME || 'dark';   // dark | light (Prompt 14): the admin theme under test
 const MOTION = process.env.AUDIT_MOTION || 'normal'; // normal | reduce: the in-app Reduce motion switch
 
-import { LONG, mockRoutes } from './audit-fixtures.mjs';
+import { LONG, mockRoutes, appSignIn, APP_PLANNER_TOKEN, APP_CLEAR_TOKEN, PORTAL_TOKEN } from './audit-fixtures.mjs';
 import { phoneSection, SCREENS } from './audit-screens.mjs';
 
 
@@ -565,6 +565,7 @@ for (const width of WIDTHS) {
     }
     // Client portal (prompt 1): every public state of /c/<token> at every width; the add to home screen hint is cleared after so the next width sees it again.
     for (const sc of SCREENS.filter(x => x.id.startsWith('mkt-portal'))) {
+      await appSignIn(page, sc.client || '');
       await goto(sc.path);
       await page.waitForSelector('.pt', { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(500);
@@ -574,6 +575,8 @@ for (const width of WIDTHS) {
     }
     // The client app (client app job): every state of app.visualizeclients.com, served here under /app, at every width.
     for (const sc of SCREENS.filter(x => x.id.startsWith('mkt-app'))) {
+      await appSignIn(page, sc.client || '');
+      await page.goto(BASE + '/app').catch(() => {}); await page.evaluate(() => { try { localStorage.removeItem('vz_app_id'); localStorage.removeItem('vz_app_a2hs'); } catch { /* fresh device */ } }).catch(() => {});
       await goto(sc.path);
       await page.waitForSelector('.ca-door, .ca-panel, .pl, .pt', { timeout: 6000 }).catch(() => {});
       await page.waitForTimeout(500);
@@ -607,7 +610,9 @@ for (const width of WIDTHS) {
        Plan in its three views and a month with nothing in it, the post page
        waiting, with a first draft, with Post it in 4 taps and as an ad, Ads,
        Ideas, and the dead end a revoked link lands on. */
-    const PT = '/planner/plnrTESTtoken0123456789abcdEF';
+    /* The client app: the planner is /planner for the signed in client; the fixture's cookie names which month it reads. */
+    const PT = '/app/planner';
+    await appSignIn(page, APP_PLANNER_TOKEN);
     await goto(PT);
     /* The moment it opens, before anything settles: this is where the
        marketing splash used to be sitting on top of the finished page, and
@@ -615,9 +620,11 @@ for (const width of WIDTHS) {
     await check('marketing: Planner (the moment it opens)');
     await page.locator('.pl-needs').first().waitFor({ timeout: 5000 }).catch(() => {});
     await check('marketing: Planner (Home, posts waiting)');
-    await goto('/planner/plnrCLEARtoken0123456789abcd');
+    await appSignIn(page, APP_CLEAR_TOKEN);
+    await goto(PT);
     await page.locator('.pl-caught').first().waitFor({ timeout: 5000 }).catch(() => {});
     await check('marketing: Planner (Home, all caught up)');
+    await appSignIn(page, APP_PLANNER_TOKEN);
     await goto(PT);
     await page.locator('.pl-review-now').first().click({ timeout: 3000 }).catch(() => {});
     await page.waitForTimeout(500);
@@ -627,8 +634,10 @@ for (const width of WIDTHS) {
     await check('marketing: Planner (Review mode, the change sheet)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
     await check('marketing: Planner (Review mode, the sheet closed again)');
-    await goto('/planner/plnrCLEARtoken0123456789abcd?review=1');
+    await appSignIn(page, APP_CLEAR_TOKEN);
+    await goto(`${PT}?review=1`);
     await check('marketing: Planner (Review mode, done)');
+    await appSignIn(page, APP_PLANNER_TOKEN);
     await goto(`${PT}?tab=plan`);
     for (const v of ['Calendar', 'Feed', 'List']) {
       await page.getByRole('radio', { name: v }).first().click({ timeout: 2000 }).catch(() => {});
@@ -659,8 +668,10 @@ for (const width of WIDTHS) {
     await page.waitForTimeout(400);
     await check('marketing: Planner (the Alerts sheet)');
     await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
-    await goto('/planner/notarealtokenatall000000000');
-    await check('marketing: Planner (a link that is not active)');
+    await appSignIn(page, PORTAL_TOKEN);
+    await goto(PT);
+    await check('marketing: Planner (a signed in client whose planner is not active)');
+    await appSignIn(page, '');
     if (only === 'marketing') { await ctx.close(); continue; }
   }
 

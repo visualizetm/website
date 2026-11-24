@@ -447,9 +447,19 @@ await step('13. Planner v2: Home, Review mode (approve one, ask for a change on 
   ];
   const ideas = [];
   await page.unroute('**/api/showcase**').catch(() => {});
-  await page.route('**/api/planner**', (r) => {
+  /* The client app (client app job): the link opens the code door, the client signs in with the code, and the planner reads
+     the session (here a cookie naming the link; the real one is signed). A request without it is the door's 401. */
+  await page.route('**/api/app/**', async (r) => {
+    const u = new URL(r.request().url()); const a = u.pathname.split('/').pop();
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { b = {}; }
+    if (a === 'me') return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify((await r.request().headerValue('cookie') || '').includes(`vz_client=${TOKEN}`) ? { signedIn: true, portal: false, planner: true, home: 'planner', firstName: '' } : { signedIn: false, textRob: '' }) });
+    if (a === 'token') return r.fulfill({ status: u.searchParams.get('token') === TOKEN ? 200 : 404, contentType: 'application/json', body: JSON.stringify(u.searchParams.get('token') === TOKEN ? { step: 'signin', lock: null } : { error: 'not found' }) });
+    if (a === 'signin' && b.token === TOKEN && b.code === '4831') { await page.context().addCookies([{ name: 'vz_client', value: TOKEN, url: BASE }]); return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, home: 'planner', portal: false, planner: true }) }); }
+    return r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'did not match' }) });
+  });
+  await page.route('**/api/planner**', async (r) => {
     const u = new URL(r.request().url());
-    if (u.searchParams.get('token') !== TOKEN) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+    if (!(await r.request().headerValue('cookie') || '').includes(`vz_client=${TOKEN}`)) return r.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ error: 'sign in' }) });
     if (r.request().method() === 'POST') {
       const body = JSON.parse(r.request().postData() || '{}');
       bodies.push(body);
@@ -475,6 +485,12 @@ await step('13. Planner v2: Home, Review mode (approve one, ask for a change on 
   });
 
   await page.goto(`${BASE}/planner/${TOKEN}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  /* The old link lands in the client app (on the real site vercel.json does this at the edge), which asks for the code. */
+  await page.waitForSelector('.ca-door', { timeout: 8000 }).catch(() => {});
+  if (!page.url().includes(`/app/planner/${TOKEN}`)) throw new Error(`the old planner link did not land in the client app (${page.url()})`);
+  await page.getByLabel('Your code').fill('4831');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await page.waitForURL(/\/app\/planner$|\/app\/planner\?/, { timeout: 8000 }).catch(() => {});
   await page.waitForSelector('.pl-needs', { timeout: 8000 }).catch(() => {});
   if (!/Site Check Co/i.test(await page.locator('.pl-top-name').innerText())) throw new Error('the client name is not in the top bar');
   if (!/^Hey\.$/i.test((await page.locator('.pl-h1').first().innerText()).trim())) throw new Error('with no first name the greeting is not "Hey."');

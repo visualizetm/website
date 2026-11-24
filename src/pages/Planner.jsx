@@ -42,7 +42,7 @@ import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
  * the vz_client cookie, never by a token in the URL. `api` is that door; a 401 means this device is not signed in, and
  * onSignIn takes the client to the sign in. `back` is the panel's home when the client has a portal too. */
 const withQuery = (url, q) => `${url}${url.includes('?') ? '&' : '?'}${q}`;
-export default function Planner({ api = '/api/planner', onSignIn, back: panelHome = '' }) {
+export default function Planner({ api = '/api/planner', onSignIn, back: panelHome = '', settingsHref = '' }) {
   const [params, setParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -212,7 +212,7 @@ export default function Planner({ api = '/api/planner', onSignIn, back: panelHom
       </div>
       <TabBar tab={tab} onPick={pickTab} needs={queue.length} hidden={focused || !ready} />
       <Toast text={toast} />
-      {alertsOpen && ready && <AlertsSheet alerts={client?.alerts || { review: true, today: true, ideas: true }} send={send} onClose={() => setAlertsOpen(false)}
+      {alertsOpen && ready && <AlertsSheet alerts={client?.alerts || { review: true, today: true, ideas: true }} send={send} onClose={() => setAlertsOpen(false)} settingsHref={settingsHref}
         onAlerts={(a) => setData(d => (d ? { ...d, client: { ...d.client, alerts: a } } : d))} />}
       <style>{tokenStyles + plannerStyles + screenStyles + reviewStyles + alertsStyles}</style>
     </div>

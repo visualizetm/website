@@ -457,7 +457,35 @@ export const COPY = {
   },
   /* The client app (src/clientapp): this copy speaks to the client, in Rob's own voice ("I", never "we"). */
   clientApp: {
-    signIn: { title: 'Your panel.', lead: 'Sign in with your phone or email and your four digit code.' },
+    loading: 'Opening your panel',
+    signIn: {
+      title: 'Your panel.', lead: 'Sign in with your phone or email and your four digit code.', leadKnown: 'Welcome back. Your four digit code, please.',
+      who: 'Phone or email', whoHint: 'The one I have for you.', code: 'Your code', submit: 'Sign in', notYou: 'Use a different phone or email',
+      remembered: (who) => `Signing in as ${who}`,
+      noMatch: 'That did not match. Check the phone or email and the code.', locked: (m) => `Too many tries. Give it ${m} ${m === 1 ? 'minute' : 'minutes'} and try again.`,
+      hardLocked: 'That code is locked after too many tries. Text me and I will reset it.', busy: 'That is a lot of tries. Give it an hour.',
+      forgot: "Forgot it? Text me and I'll reset it.", forgotText: "Hi Rob, I forgot my code for the panel. Can you reset it?",
+    },
+    set: {
+      title: 'Set your code.', lead: 'Pick four digits you will remember. You use them to sign in on any phone.', first: 'Four digits', again: 'The same four again',
+      next: 'Next', save: 'Save my code', back: 'Start again', weak: 'Pick something harder to guess', mismatch: 'Those two did not match. Try again.', shape: 'Four digits, numbers only.',
+    },
+    expired: { title: 'This link expired.', lead: "Message me and I'll send you a new one." },
+    failed: { title: 'That did not load.', lead: 'Check your signal and try again. Nothing was changed.', retry: 'Try again' },
+    offline: 'No connection. Check your signal and try again.',
+    server: 'Something went wrong on my side. Try again in a minute.',
+    home: {
+      title: 'Keep me on your Home Screen.', ios: 'Tap Share, then Add to Home Screen. Open me from the icon and sign in once with your code.',
+      android: 'Install the app and open it from your Home Screen. Sign in once with your code.', other: "Add me to your Home Screen from your browser's menu, then sign in once with your code.",
+      install: 'Install', done: 'Done', later: 'Not now',
+    },
+    settings: {
+      title: 'Settings', back: 'Back', who: (name) => (name ? `Signed in as ${name}` : 'Signed in'),
+      pings: 'Pings', pingsIos: 'Add me to your Home Screen to get pings.', pingsOff: 'This browser cannot get pings. Open me in Safari or Chrome.',
+      pingsLine: 'Turn them on from the bell in your planner or the Notifications card in your portal.',
+      code: 'Your code', codeLine: 'Forgot it? Text me and I will reset it. You set a new one from the link I send.',
+      signOut: 'Sign out', signingOut: 'Signing out', link: 'Settings',
+    },
   },
   /* Billy's Call Room (src/room): this copy speaks to Billy, not to Rob. */
   room: {

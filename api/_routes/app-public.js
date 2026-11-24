@@ -8,7 +8,8 @@ import { signClient, clientCookie, verifyClient, sessionLead, hashCode, codeMatc
 /* The client app's code door (client app job), served by route from the public function: vercel.json rewrites
  * /api/app/:action to /api/showcase?r=app&a=:action, the ride the portal and the concepts take.
  *
- *   GET  /api/app/me                 { signedIn, portal, planner, home, firstName } for this device's vz_client cookie, else { signedIn: false }
+ *   GET  /api/app/me                 { signedIn, portal, planner, home, firstName } for this device's vz_client cookie, else
+ *                                    { signedIn: false, textRob }: Rob's own number from Settings, for the Forgot it line
  *   GET  /api/app/token?token=x      { step: 'set' | 'signin' | 'in', lock: { hard, minutes } | null } for a portal or planner setup link; an unknown,
  *                                    malformed or switched off token is the same 404. Nothing about the client is in it;
  *                                    'in' only when this device is already signed in as that same client.
@@ -81,7 +82,12 @@ export async function handler(req, res) {
   if (req.method === 'GET') {
     if (a === 'me') {
       const lead = verifyClient(req) ? await sessionLead(db, req, PROJECTION) : null;
-      if (!lead || lead.deleted === true) return res.status(200).json({ signedIn: false });
+      if (!lead || lead.deleted === true) {
+        /* Signed out: the sign in screen's "Forgot it? Text me" needs Rob's own number (Settings > Profile), digits only. Nothing about a client. */
+        const profile = await db.collection('settings').findOne({ _id: 'profile' }, { projection: { phone: 1 } });
+        const digits = String(profile?.phone || '').replace(/[^\d+]/g, '').slice(0, 20);
+        return res.status(200).json({ signedIn: false, textRob: digits.replace(/\D/g, '').length >= 7 ? digits : '' });
+      }
       return res.status(200).json({ signedIn: true, portal: hasPortal(lead), planner: hasPlanner(lead), home: homeOf(lead), firstName: firstNameOf(lead) });
     }
     if (a === 'token') {

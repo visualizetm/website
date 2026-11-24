@@ -219,18 +219,24 @@ export const SCREENS = [
   { id: 'mkt-rlink-errors', screen: 'Review link (marketing)', label: 'sent empty: every field says what it needs', path: '/r/rvwTESTtoken0123456789abcd', session: false, static: true, marketing: true, act: (p) => click(p.getByRole('button', { name: /^Send it/ })) },
   { id: 'mkt-rlink-thanks', screen: 'Review link (marketing)', label: 'the thank you, with Leave it on Google too', path: '/r/rvwTESTtoken0123456789abcd', session: false, static: true, marketing: true, act: async (p) => { await click(p.getByRole('radio', { name: '5 stars' })); await p.locator('#rl-text').fill('Rob made the whole thing easy and the site looks sharp.'); await p.locator('#rl-name').fill('Damian'); await p.locator('.rl-check').check(); await click(p.getByRole('button', { name: /^Send it/ })); await p.waitForSelector('.rl-done[data-state="done"]', { timeout: 4000 }).catch(() => {}); } },
   { id: 'mkt-rlink-expired', screen: 'Review link (marketing)', label: 'a dead token: the expired state', path: '/r/deadTOKENxxxxxxxxxxxxxxxx', session: false, static: true, marketing: true },
-  /* Client portal: /c/<token>, a client's home screen of cards. Static, marketing so the a11y audit walks it; the hint is cleared per device so every state shows it once. */
+  /* Client portal: the panel's home in the client app (/app here, signed in as the fixture's portal client), a client's home screen of cards. The PIN states are gone: a signed in session is unlocked. */
   /* The client app (client app job): app.visualizeclients.com, served under /app on the audit host. `app: true` marks the
      third host's screens; each one is also marketing (the public token set's rules: no admin session, a11y runs it). */
-  { id: 'mkt-app-signin', screen: 'Client app (marketing)', label: 'sign in, the placeholder', path: '/app', session: false, static: true, marketing: true, app: true },
-  { id: 'mkt-portal', screen: 'Client portal (marketing)', label: 'every prompt 1 card with data, the add to home screen hint', path: '/c/prtlTESTtoken0123456789abcd', session: false, static: true, marketing: true },
-  { id: 'mkt-portal-nohint', screen: 'Client portal (marketing)', label: 'the hint dismissed', path: '/c/prtlTESTtoken0123456789abcd', session: false, static: true, marketing: true, act: (p) => click(p.getByRole('button', { name: 'Dismiss' })) },
-  { id: 'mkt-portal-paid', screen: 'Client portal (marketing)', label: 'paid in full: every file link, the Drive folder first, the paid thanks', path: '/c/prtlTESTtoken0123456789abcd?paid=1', session: false, static: true, marketing: true },
-  { id: 'mkt-portal-locked', screen: 'Client portal (marketing)', label: 'behind a PIN: the sensitive card locked, with Enter PIN', path: '/c/prtlTESTtoken0123456789abcd?pin=1', session: false, static: true, marketing: true },
-  { id: 'mkt-portal-pin', screen: 'Client portal (marketing)', label: 'the PIN sheet open', path: '/c/prtlTESTtoken0123456789abcd?pin=1', session: false, static: true, marketing: true, act: (p) => click(p.getByRole('button', { name: 'Enter PIN' })) },
-  { id: 'mkt-portal-pin-wrong', screen: 'Client portal (marketing)', label: 'a wrong PIN: the sheet says so', path: '/c/prtlTESTtoken0123456789abcd?pin=1', session: false, static: true, marketing: true, act: async (p) => { await click(p.getByRole('button', { name: 'Enter PIN' })); await p.locator('#pt-pin').fill('0000'); await click(p.getByRole('button', { name: 'Unlock' })); await p.waitForSelector('#pt-pin-err', { timeout: 3000 }).catch(() => {}); } },
-  { id: 'mkt-portal-empty', screen: 'Client portal (marketing)', label: 'nothing needs them: one card with the contact buttons', path: '/c/prtlTESTtoken0123456789abcd?empty=1', session: false, static: true, marketing: true },
-  { id: 'mkt-portal-expired', screen: 'Client portal (marketing)', label: 'a dead token: the expired state with the contact buttons', path: '/c/deadTOKENxxxxxxxxxxxxxxxx', session: false, static: true, marketing: true },
+  { id: 'mkt-app-signin', screen: 'Client app (marketing)', label: 'sign in, phone or email and the code', path: '/app', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '' },
+  { id: 'mkt-app-signin-kept', screen: 'Client app (marketing)', label: 'sign in, the phone or email kept on this device: only the four digits', path: '/app', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '', act: async (p) => { await p.evaluate(() => localStorage.setItem('vz_app_id', 'damian@leadbusiness12.example')); await p.reload({ waitUntil: 'domcontentloaded' }); await p.waitForSelector('.ca-door', { timeout: 6000 }).catch(() => {}); } },
+  { id: 'mkt-app-signin-wrong', screen: 'Client app (marketing)', label: 'sign in, a wrong code: the field says it did not match', path: '/app', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '', act: async (p) => { await p.getByLabel('Phone or email').fill('damian@leadbusiness12.example').catch(() => {}); await p.getByLabel('Your code').fill('0000').catch(() => {}); await click(p.getByRole('button', { name: 'Sign in' })); await p.waitForSelector('.v-field-msg--error', { timeout: 3000 }).catch(() => {}); await p.mouse.move(0, 0); } },
+  { id: 'mkt-app-link-signin', screen: 'Client app (marketing)', label: 'a setup link with a code set: only the four digits', path: '/app/c/prtlTESTtoken0123456789abcd', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '' },
+  { id: 'mkt-app-link-locked', screen: 'Client app (marketing)', label: 'a setup link while the code is locked: the minutes left', path: '/app/c/appLOCKtoken0123456789abcde', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '' },
+  { id: 'mkt-app-set', screen: 'Client app (marketing)', label: 'Set your code, the first four', path: '/app/c/appSETtoken0123456789abcdef', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '' },
+  { id: 'mkt-app-set-weak', screen: 'Client app (marketing)', label: 'Set your code, a weak one refused', path: '/app/c/appSETtoken0123456789abcdef', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '', act: async (p) => { await p.getByLabel('Four digits').fill('1234').catch(() => {}); await click(p.getByRole('button', { name: 'Next' })); await p.waitForSelector('.v-field-msg--error', { timeout: 3000 }).catch(() => {}); await p.mouse.move(0, 0); } },
+  { id: 'mkt-app-set-again', screen: 'Client app (marketing)', label: 'Set your code, the same four again', path: '/app/c/appSETtoken0123456789abcdef', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '', act: async (p) => { await p.getByLabel('Four digits').fill('4831').catch(() => {}); await click(p.getByRole('button', { name: 'Next' })); await p.waitForTimeout(300); await p.mouse.move(0, 0); } },
+  { id: 'mkt-app-home-card', screen: 'Client app (marketing)', label: 'the Add to Home Screen card, once, after the code is set', path: '/app/c/appSETtoken0123456789abcdef', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '', act: async (p) => { await p.getByLabel('Four digits').fill('4831').catch(() => {}); await click(p.getByRole('button', { name: 'Next' })); await p.getByLabel('The same four again').fill('4831').catch(() => {}); await click(p.getByRole('button', { name: 'Save my code' })); await p.waitForSelector('text=Keep me on your Home Screen', { timeout: 4000 }).catch(() => {}); await p.mouse.move(0, 0); } },
+  { id: 'mkt-app-expired', screen: 'Client app (marketing)', label: 'a dead link: the expired state', path: '/app/c/deadTOKENxxxxxxxxxxxxxxxx', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: '' },
+  { id: 'mkt-app-settings', screen: 'Client app (marketing)', label: 'Settings: pings, the code and Sign out', path: '/app/settings', session: false, static: true, marketing: true, app: true, feel: true, region: '.ca-door, .ca-page', client: 'prtlTESTtoken0123456789abcd' },
+  { id: 'mkt-portal', screen: 'Client portal (marketing)', label: 'every prompt 1 card with data, signed in', path: '/app', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd' },
+  { id: 'mkt-portal-nohint', screen: 'Client portal (marketing)', label: 'the hint dismissed', path: '/app', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd', act: (p) => click(p.getByRole('button', { name: 'Dismiss' })) },
+  { id: 'mkt-portal-paid', screen: 'Client portal (marketing)', label: 'paid in full: every file link, the Drive folder first, the paid thanks', path: '/app?paid=1', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd' },
+  { id: 'mkt-portal-empty', screen: 'Client portal (marketing)', label: 'nothing needs them: one card with the contact buttons', path: '/app?empty=1', session: false, static: true, marketing: true, app: true, client: 'prtlTESTtoken0123456789abcd' },
   { id: 'mkt-review', screen: 'Review (marketing)', label: 'form, no slug', path: '/review', session: false, static: true, marketing: true },
   { id: 'mkt-review-slug', screen: 'Review (marketing)', label: 'form, client slug', path: '/review/full-showcase-co', session: false, static: true, marketing: true },
   { id: 'mkt-review-unknown', screen: 'Review (marketing)', label: 'unknown slug falls back to the generic form', path: '/review/does-not-exist', session: false, static: true, marketing: true },
@@ -242,16 +248,18 @@ export const SCREENS = [
      /api/planner: plnrTEST is L11's month as it is, plnrCLEAR the same month with nothing waiting. The screen lives in the URL
      (?tab=, ?review=1, ?post=<id>), so each state is its own path. */
   ...(() => {
-    const T = '/planner/plnrTESTtoken0123456789abcdEF';
-    const CLEAR = '/planner/plnrCLEARtoken0123456789abcd';
-    const base = { screen: 'Planner (marketing)', session: false, static: true, marketing: true };
+    /* The client app: the planner is /planner for the signed in client (the vz_client cookie names the fixture's link). */
+    const T = '/app/planner';
+    const CLEAR = '/app/planner';
+    const base = { screen: 'Planner (marketing)', session: false, static: true, marketing: true, app: true, client: 'plnrTESTtoken0123456789abcdEF' };
+    const clear = { client: 'plnrCLEARtoken0123456789abcd' };
     const view = (name) => async (p) => { await click(p.getByRole('radio', { name }), 2000); await p.waitForTimeout(300); };
     return [
       { ...base, id: 'mkt-planner-home', label: 'Home, posts waiting on them', path: T },
-      { ...base, id: 'mkt-planner-home-clear', label: 'Home, all caught up', path: CLEAR },
+      { ...base, ...clear, id: 'mkt-planner-home-clear', label: 'Home, all caught up', path: CLEAR },
       { ...base, id: 'mkt-planner-review', label: 'Review mode, the first post', path: `${T}?review=1` },
       { ...base, id: 'mkt-planner-review-change', label: 'Review mode, the change sheet', path: `${T}?review=1`, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.locator('.pl-ask')); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
-      { ...base, id: 'mkt-planner-review-done', label: 'Review mode, done', path: `${CLEAR}?review=1` },
+      { ...base, ...clear, id: 'mkt-planner-review-done', label: 'Review mode, done', path: `${CLEAR}?review=1` },
       { ...base, id: 'mkt-planner-plan-cal', label: 'Plan, the calendar', path: `${T}?tab=plan`, act: view('Calendar') },
       { ...base, id: 'mkt-planner-plan-feed', label: 'Plan, the feed', path: `${T}?tab=plan`, act: view('Feed') },
       { ...base, id: 'mkt-planner-plan-list', label: 'Plan, the list', path: `${T}?tab=plan`, act: view('List') },
@@ -262,7 +270,7 @@ export const SCREENS = [
       { ...base, id: 'mkt-planner-ads', label: 'Ads', path: `${T}?tab=ads` },
       { ...base, id: 'mkt-planner-ideas', label: 'Ideas, the composer and the tracker', path: `${T}?tab=ideas` },
       { ...base, id: 'mkt-planner-alerts', label: 'the Alerts sheet from the bell', path: T, detail: true, region: '[role="dialog"]', act: async (p) => { await click(p.getByRole('button', { name: 'Alerts' })); await p.waitForSelector('[role="dialog"]', { timeout: 3000 }).catch(() => {}); } },
-      { ...base, id: 'mkt-planner-dead', label: 'a link that is not active', path: '/planner/notarealtokenatall000000000' },
+      { ...base, client: 'prtlTESTtoken0123456789abcd', id: 'mkt-planner-dead', label: 'a signed in client whose planner is not active', path: '/app/planner' },
     ];
   })(),
   // Concepts (Concepts rebuild, Part 7): the client presentation and its states.

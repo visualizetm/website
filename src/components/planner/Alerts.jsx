@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Bell01 from '@untitled-ui/icons-react/build/esm/Bell01';
 import { COPY } from '../../shared/copy';
@@ -15,7 +16,8 @@ const keyBytes = (b64) => { const pad = '='.repeat((4 - (b64.length % 4)) % 4); 
 /** The worker, or null when it is not there yet (registration waits for an idle moment after load; a sheet must not hang on it). */
 const worker = () => Promise.race([navigator.serviceWorker.ready, new Promise(r => setTimeout(() => r(null), 3000))]);
 
-export default function AlertsSheet({ alerts, onClose, send, onAlerts }) {
+/* settingsHref (the client app): the panel's Settings, where Sign out is, as a text link at the bottom of the sheet. */
+export default function AlertsSheet({ alerts, onClose, send, onAlerts, settingsHref = '' }) {
   const A = COPY.planner.alerts;
   const supported = pushSupported();
   const hint = !supported && isIOS() && !standalone();
@@ -86,6 +88,7 @@ export default function AlertsSheet({ alerts, onClose, send, onAlerts }) {
         ))}
       </fieldset>
       {said && <p className="pl-hint" role="status">{said}</p>}
+    {settingsHref && <Link className="pl-alerts-settings" to={settingsHref} onClick={onClose}>{COPY.clientApp.settings.link}</Link>}
     </Sheet>
   );
 }
@@ -106,4 +109,6 @@ export const alertsStyles = `
   .pl-switch-knob span { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--v-text-2); transition: transform var(--v-dur-fast) var(--v-ease-out), background var(--v-dur-fast) var(--v-ease-out); }
   .pl-switch[aria-checked='true'] .pl-switch-knob { background: var(--v-red-hover); border-color: var(--v-red-hover); }
   .pl-switch[aria-checked='true'] .pl-switch-knob span { transform: translateX(18px); background: var(--v-text-on-red); }
+  /* The client app: the panel's Settings, a text link at the foot of the sheet, a 44px target. */
+  .pl-alerts-settings { display: flex; align-items: center; justify-content: center; min-height: 44px; margin-top: var(--v-space-2); color: var(--v-text-2); text-decoration: underline; text-underline-offset: 3px; font-size: var(--v-text-sm); }
 `;
