@@ -166,12 +166,12 @@ export default function Planner() {
   if (state === 'dead') {
     return (
       <div className="pl lay-root" data-chrome="focused">
-        <main className="pl-main">
+        <div className="pl-main">
           <div className="pl-dead pl-screen">
             <h1 className="pl-h1">{C.dead.title}</h1>
             <p className="pl-lead">{C.dead.body} <a href={`mailto:${C.dead.email}`}>{C.dead.email}</a></p>
           </div>
-        </main>
+        </div>
         <style>{tokenStyles + plannerStyles + screenStyles}</style>
       </div>
     );
@@ -185,7 +185,7 @@ export default function Planner() {
     <div className="pl lay-root" data-chrome={focused ? 'focused' : 'tabs'} data-bar={focused && ready ? '1' : undefined}>
       <TopBar client={client} month={monthLabel} focused={focused} title={focusTitle} onBack={back} portal={portal}
         right={reviewing && ready && pos ? <span className="pl-top-count" aria-live="polite">{C.review.of(pos.i, pos.n)}</span> : null} />
-      <main className="pl-main" id="pl-main">
+      <div className="pl-main" id="pl-main">
         {state === 'loading' && <Skeleton kind={reviewing ? 'review' : tab === 'home' ? 'home' : tab === 'plan' ? 'grid' : 'list'} />}
         {state === 'error' && <ErrorBox onRetry={() => load(month)} />}
         {ready && reviewing && <ReviewScreen key="review" items={items} client={client} decide={decide} onDone={back} onPos={setPos} />}
@@ -202,7 +202,7 @@ export default function Planner() {
             {tab === 'ideas' && <IdeasScreen suggestions={data.suggestions || []} onSend={suggest} />}
           </div>
         )}
-      </main>
+      </div>
       <TabBar tab={tab} onPick={pickTab} needs={queue.length} hidden={focused || !ready} />
       <Toast text={toast} />
       <style>{tokenStyles + plannerStyles + screenStyles + reviewStyles}</style>

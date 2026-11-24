@@ -118,7 +118,7 @@ export default function ReviewScreen({ items, client, decide, onDone, onPos }) {
         </div>
       )}
       <Layer>
-        <div className="pl-actionbar" role="group" aria-label={R.title}>
+        <div className="pl-actionbar" role="region" aria-label={R.title}>
           <button type="button" className="pl-btn pl-btn--secondary pl-btn--lg pl-ask" onClick={() => setAsking(true)} disabled={busy}>{R.change}</button>
           <button type="button" className="pl-btn pl-btn--lg pl-approve" onClick={approve} disabled={busy} aria-busy={busy ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />{R.approve}</button>
         </div>

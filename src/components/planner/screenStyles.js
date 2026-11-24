@@ -16,8 +16,9 @@ export const screenStyles = `
   .pl-today-thumb { width: 64px; flex-shrink: 0; }
   .pl-today-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
   .pl-today-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-bold); color: var(--v-text); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pl-today-pill { position: relative; pointer-events: none; }
-  .pl-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--v-space-1); }
+  .pl-week { display: grid; grid-template-columns: repeat(7, minmax(var(--v-tap), 1fr)); gap: var(--v-space-1); }
+  /* Seven 44px days do not fit inside a card's padding at 320: under 400px the week card uses the page gutter, as the calendar does. */
+  @media (max-width: 399px) { .pl-weekcard { margin: 0 calc(var(--v-space-1) - var(--v-gutter-r)) 0 calc(var(--v-space-1) - var(--v-gutter-l)); padding-left: 0; padding-right: 0; } .pl-weekcard > .pl-h2, .pl-weekcard > .pl-muted { padding: 0 var(--v-space-3); } .pl-week { gap: 0; } }
   .pl-day { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: var(--v-tap-lg); min-width: 0; padding: var(--v-space-1) 0; border: 1px solid transparent; border-radius: var(--v-radius-md); background: transparent; color: var(--v-text-2); font-family: var(--v-font-body); cursor: pointer; }
   .pl-day:hover { background: var(--v-surface-2); }
   .pl-day.is-today { background: var(--v-red-soft); border-color: color-mix(in srgb, var(--v-red) 40%, transparent); color: var(--v-text); }
@@ -54,12 +55,10 @@ export const screenStyles = `
   .pl-dayitems, .pl-week-group { display: flex; flex-direction: column; gap: var(--v-space-2); }
   .pl-feed { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; border-radius: var(--v-radius-md); overflow: hidden; }
   .pl-feed-tile { position: relative; min-width: 0; }
-  .pl-feed-tile:has(.pl-stretch:focus-visible) { outline: 2px solid var(--v-border-focus); outline-offset: -2px; z-index: 1; }
+  .pl-feed-tile .pl-cover:focus-visible { outline-offset: -2px; }
   .pl-feed-chip { position: absolute; left: var(--v-space-1); bottom: var(--v-space-1); display: inline-flex; align-items: center; gap: 2px; padding: 2px var(--v-space-2); border-radius: var(--v-radius-pill); background: var(--v-overlay); color: var(--v-text); font-size: var(--v-text-xs); line-height: var(--v-lh-xs); font-weight: var(--v-weight-bold); pointer-events: none; }
   .pl-feed-chip.is-needs { background: var(--v-red-hover); color: var(--v-text-on-red); }
   .pl-feed-chip.is-posted { color: var(--v-status-booked-text); }
-  .pl-feed-tile .pl-stretch { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .pl-feed-tile .pl-stretch::after { display: none; }
 
   /* The post page */
   .pl-postpage .pl-ig { max-width: 480px; width: 100%; margin: 0 auto; }

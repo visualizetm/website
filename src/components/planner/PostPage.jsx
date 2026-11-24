@@ -182,7 +182,7 @@ export default function PostPage({ item, client, today, decide, toast }) {
       {error && <p className="pl-review-err" role="alert">{error}</p>}
       {waiting && (
         <Layer>
-          <div className="pl-actionbar" role="group" aria-label={C.review.title}>
+          <div className="pl-actionbar" role="region" aria-label={C.review.title}>
             <button type="button" className="pl-btn pl-btn--secondary pl-btn--lg pl-ask" onClick={() => setAsking(true)} disabled={busy}>{C.review.change}</button>
             <button type="button" className="pl-btn pl-btn--lg pl-approve" onClick={approve} disabled={busy} aria-busy={busy ? 'true' : undefined}><Check width={18} height={18} aria-hidden="true" />{C.review.approve}</button>
           </div>

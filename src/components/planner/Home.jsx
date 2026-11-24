@@ -54,15 +54,16 @@ export default function HomeScreen({ data, items, month, today, onReview, onOpen
           <span className="pl-today-thumb"><Media item={item} crop="1x1" /></span>
           <span className="pl-today-main">
             <span className="pl-h2">{H.postToday}</span>
-            <button type="button" className="pl-stretch pl-today-title" onClick={() => onOpen(item)}>{titleOf(item)}</button>
+            <span className="pl-today-title">{titleOf(item)}</span>
             <span className="pl-row-line">{[item.time, platformNames(item).join(', ')].filter(Boolean).join(' · ')}</span>
           </span>
           <span className="pl-pill pl-pill--won pl-today-pill">{H.postIt}</span>
+          <button type="button" className="pl-cover v-stretch" onClick={() => onOpen(item)} aria-label={`${H.postIt}: ${titleOf(item)}`}>{H.postIt}</button>
         </section>
       ))}
 
       {anything && (
-        <section className="pl-card" aria-labelledby="pl-week-h">
+        <section className="pl-card pl-weekcard" aria-labelledby="pl-week-h">
           <h2 className="pl-h2" id="pl-week-h">{H.thisWeek}</h2>
           <div className="pl-week">
             {week.map(d => {
@@ -98,8 +99,9 @@ export default function HomeScreen({ data, items, month, today, onReview, onOpen
             <span className="pl-h2">{H.yourAd}</span>
             <span className="pl-pill pl-pill--booked"><span className="pl-pill-dot" aria-hidden="true" />{C.ads.live}</span>
           </div>
-          <button type="button" className="pl-stretch pl-adcard-name" onClick={() => onTab('ads')}>{ad.ad?.name || C.kinds.ad}</button>
+          <p className="pl-adcard-name">{ad.ad?.name || C.kinds.ad}</p>
           <p className="pl-muted">{adLine || H.adRunning}</p>
+          <button type="button" className="pl-cover v-stretch" onClick={() => onTab('ads')} aria-label={`${H.yourAd}: ${ad.ad?.name || C.kinds.ad}`}>{H.yourAd}</button>
         </section>
       )}
 

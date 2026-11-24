@@ -10,7 +10,7 @@ Part 1, client
 * [x] 1.3 Home and Review mode with the change sheet (needs 1.2) (8316b6f)
 * [x] 1.4 Plan in three views and the post page with Post it in 4 taps (needs 1.2) (86e5fdb)
 * [x] 1.5 Ads and Ideas (needs 1.2) (4b953e6)
-* [ ] 1.6 Part 1 audits, docs, `reports/PLANNER-V2-1-REPORT.md` (needs 1.3 to 1.5)
+* [x] 1.6 Part 1 audits, docs, `reports/PLANNER-V2-1-REPORT.md` (needs 1.3 to 1.5)
 
 Part 2, Rob
 

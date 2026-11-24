@@ -78,7 +78,7 @@ function Feed({ items, onOpen }) {
             <span className={`pl-feed-chip${i.status === 'posted' ? ' is-posted' : i.status === 'review' ? ' is-needs' : ''}`} aria-hidden="true">
               {i.status === 'posted' ? <Check width={12} height={12} /> : null}{shortDate(i.date) || P.post.noDate}
             </span>
-            <button type="button" className="pl-stretch" onClick={() => onOpen(i)} aria-label={`${titleOf(i)}, ${shortDate(i.date) || P.post.noDate}${i.status === 'posted' ? `, ${P.plan.feedPosted}` : ''}`} />
+            <button type="button" className="pl-cover v-stretch" onClick={() => onOpen(i)} aria-label={`${titleOf(i)}, ${shortDate(i.date) || P.post.noDate}${i.status === 'posted' ? `, ${P.plan.feedPosted}` : ''}`} />
           </li>
         ))}
       </ul>

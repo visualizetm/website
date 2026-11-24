@@ -33,7 +33,7 @@ export const plannerStyles = `
   .pl-btn { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--v-space-2); min-height: var(--v-control-h); min-width: var(--v-tap); padding: 0 var(--v-space-4); border-radius: var(--v-radius-md); border: 1px solid var(--v-red-hover); background: var(--v-red-hover); color: var(--v-text-on-red); font-family: var(--v-font-body); font-size: var(--v-text-sm); line-height: var(--v-lh-sm); font-weight: var(--v-weight-bold); text-decoration: none; cursor: pointer; white-space: nowrap; -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: background var(--v-dur-fast) var(--v-ease-out), transform var(--v-dur-fast) var(--v-ease-out); }
   .pl-btn:hover:not(:disabled) { background: var(--v-red); border-color: var(--v-red); }
   .pl-btn:active:not(:disabled) { transform: scale(0.97); }
-  .pl-btn:focus-visible, .pl-iconbtn:focus-visible, .pl-seg-opt:focus-visible, .pl-chip:focus-visible, .pl-stretch:focus-visible, .pl-tab:focus-visible, .pl-day:focus-visible, .pl-step-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
+  .pl-btn:focus-visible, .pl-iconbtn:focus-visible, .pl-seg-opt:focus-visible, .pl-chip:focus-visible, .pl-tab:focus-visible, .pl-day:focus-visible, .pl-step-btn:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
   .pl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .pl-btn--secondary { background: var(--v-surface-3); border-color: var(--v-border-strong); color: var(--v-text); }
   .pl-btn--secondary:hover:not(:disabled) { background: var(--v-surface-3); border-color: var(--v-text-3); }
@@ -115,9 +115,9 @@ export const plannerStyles = `
   .pl-row-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
   .pl-row-title { font-size: var(--v-text-md); line-height: var(--v-lh-md); font-weight: var(--v-weight-semibold); color: var(--v-text); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pl-row-line { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pl-stretch { position: static; display: block; min-width: 0; padding: 0; border: 0; background: none; font-family: inherit; cursor: pointer; }
-  .pl-stretch::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
-  .pl-row > .pl-pill { position: relative; pointer-events: none; }
+  /* The one real control on a row or card (the kit's .v-stretch): a transparent button over the whole of it, labelled; the visible title is text. */
+  .pl-cover { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; color: transparent; font-size: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .pl-cover:focus-visible { outline: 2px solid var(--v-border-focus); outline-offset: 2px; }
 
   /* The sheet. */
   .pl-sheet-wrap { position: fixed; inset: 0; z-index: var(--v-z-sheet); display: flex; align-items: flex-end; justify-content: center; }

@@ -68,11 +68,11 @@ export function Media({ item, crop = '', src: srcOverride }) {
   const P = C().post;
   const ratio = crop || (formatOf(item) === 'portrait' ? '4x5' : '9x16');
   if (!crop && srcOverride === undefined && isVideo(item) && item?.video?.url) {
-    return <span className="pl-media pl-media--9x16"><video className="pl-media-el" src={item.video.url} poster={item.video.poster || undefined} controls playsInline preload="metadata" /></span>;
+    return <span className="pl-media pl-media--9x16 img-fit"><video className="pl-media-el" src={item.video.url} poster={item.video.poster || undefined} controls playsInline preload="metadata" /></span>;
   }
   if (src && !broken) {
     return (
-      <span className={`pl-media pl-media--${ratio}`}>
+      <span className={`pl-media pl-media--${ratio} img-fit`}>
         <img className="pl-media-el" src={src} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />
         {crop && isVideo(item) && <span className="pl-media-play" aria-hidden="true"><Play width={12} height={12} /></span>}
       </span>
@@ -94,7 +94,7 @@ export function Avatar({ client, size = 36 }) {
   const [broken, setBroken] = useState(false);
   const name = client?.displayName || '';
   const style = { width: size, height: size };
-  if (client?.logoUrl && !broken) return <span className="pl-avatar pl-avatar--logo" style={style}><img src={client.logoUrl} alt="" onError={() => setBroken(true)} /></span>;
+  if (client?.logoUrl && !broken) return <span className="pl-avatar pl-avatar--logo img-fit img-fit--contain" style={style}><img src={client.logoUrl} alt="" onError={() => setBroken(true)} /></span>;
   return <span className="pl-avatar" style={style} aria-hidden="true">{(name.trim()[0] || 'V').toUpperCase()}</span>;
 }
 
@@ -284,10 +284,11 @@ export function ItemRow({ item, title, line, onOpen }) {
     <div className="pl-row">
       <span className="pl-row-thumb"><Media item={item} crop="1x1" /></span>
       <span className="pl-row-main">
-        <button type="button" className="pl-stretch pl-row-title" onClick={() => onOpen(item)}>{title}</button>
+        <span className="pl-row-title">{title}</span>
         {line && <span className="pl-row-line">{line}</span>}
       </span>
       <StatusPill item={item} />
+      <button type="button" className="pl-cover v-stretch" onClick={() => onOpen(item)} aria-label={line ? `${title}, ${line}` : title}>{title}</button>
     </div>
   );
 }
