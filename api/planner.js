@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb';
-import { portalPath } from './_lib/portalModules.js';
+import { portalPath, portalLogo, portalFirstName } from './_lib/portalModules.js';
 import { getDb } from './_lib/mongo.js';
 import { route } from './_lib/handler.js';
 import { rateKey, rateState, rateHit } from './_lib/limit.js';
@@ -19,7 +19,11 @@ import { zoneDayKey, zoneDateAt, keyAddDays } from './_lib/zone.js';
  *
  *   POST /api/planner?token=xxx   { postId, action, note }
  *        action 'approve'        review -> approved (a post or an ad)
- *        action 'request-change' review -> making, with their note
+ *        action 'request-change' review -> making, with their note and an optional reason
+ *                                (photo, words, date, other; anything else is dropped)
+ *        action 'posted'         an approved post (kind post) -> posted, postedBy client,
+ *                                and a push to Rob (category client) that never names the caption
+ *        Every decision (approve, request-change, posted) stamps decidedAt (Planner v2).
  *        action 'suggest'        { kind, subject, goal, details, preferredDate, link, photos }
  *                                writes a suggestion (the Ideas tab), one every 20 seconds and
  *                                15 a day per token, every field capped, photos only on our own
@@ -54,6 +58,9 @@ const ownPhoto = (u) => { const v = safeUrl(u, 600); const cloud = cloudName(); 
 const dateStr = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? '').trim()) ? String(v).trim() : '');
 const VIEW_STAMP_EVERY = HOUR; // lastViewedAt is a "they looked today" signal, not an access log
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** "the Dec 16 post", or "a post" with no date: a push names the day, never the caption. */
+const postedLabel = (d) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); return m ? `the ${MONTHS[Number(m[2]) - 1]} ${Number(m[3])} post` : 'a post'; };
 const notFound = (res) => res.status(404).json({ error: 'not found' });
 const monthStr = (v) => (/^\d{4}-\d{2}$/.test(String(v ?? '').trim()) ? String(v).trim() : '');
 const tokenStr = (v) => {
@@ -73,18 +80,27 @@ async function clientFor(db, token) {
   if (!token) return null;
   const lead = await db.collection('call_leads').findOne(
     { 'planner.token': token, deleted: { $ne: true } },
-    { projection: { business: 1, 'showcase.displayName': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1, 'portal.token': 1 } },
+    { projection: { business: 1, askFor: 1, 'showcase.displayName': 1, 'showcase.brand.logo': 1, 'showcase.logoUrl': 1, 'planner.enabled': 1, 'planner.welcome': 1, 'planner.postsPerMonth': 1, 'planner.lastViewedAt': 1, checklists: 1, 'portal.token': 1 } },
   );
   if (!lead || !lead.planner?.enabled) return null;
   return lead;
 }
 
-/** Exactly the fields a client may see about themselves. */
+/** Exactly the fields a client may see about themselves. firstName is the first word of the contact (askFor, the field the CRM shows as the
+ * person), never the business; logoUrl is the showcase logo through safeUrl (Planner v2). */
 const publicClient = (lead) => ({
   displayName: lead.showcase?.displayName || lead.business || '',
   welcome: lead.planner?.welcome || '',
   postsPerMonth: Number(lead.planner?.postsPerMonth) || 8,
+  logoUrl: safeUrl(portalLogo(lead), 600),
+  firstName: portalFirstName(lead),
 });
+const CHANGE_REASONS = ['photo', 'words', 'date', 'other'];
+/** The newest earlier version of a post (Planner v2), or null: what the client sees as the first draft. */
+const previousOf = (p) => {
+  const v = Array.isArray(p.versions) && p.versions.length ? p.versions[p.versions.length - 1] : null;
+  return v && typeof v === 'object' ? { imageUrl: v.imageUrl || '', caption: v.caption || '', note: v.note || '' } : null;
+};
 
 /** The ad fields a client may see: budget only when Rob chose to show it, results only once any is entered. */
 const publicAd = (a) => {
@@ -117,9 +133,15 @@ const publicPost = (p) => ({
   allowDownload: p.allowDownload !== false,
   video: p.format === 'video' ? { url: p.video?.url || '', durationSec: Number(p.video?.durationSec) || 0, poster: p.video?.poster || '', concept: p.concept || '' } : null,
   ad: p.kind === 'ad' ? publicAd(p.ad) : null,
+  postedAt: p.postedAt || '',
+  postedBy: p.postedBy === 'client' || p.postedBy === 'rob' ? p.postedBy : '',
+  changeReason: CHANGE_REASONS.includes(p.changeReason) ? p.changeReason : '',
+  previous: previousOf(p),
 });
 /** Exactly the fields a client may see about one of their own ideas. */
-const publicSuggestion = (s) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : '' });
+const MADE_STATUSES = ['approved', 'posted', 'live', 'finished'];
+/** made: the post the idea became has reached the client's yes or beyond (statusById is the lead's own posts, looked up by id). */
+const publicSuggestion = (s, statusById = {}) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : '', seen: !!s.seenAt, made: !!(s.postId && MADE_STATUSES.includes(statusById[String(s.postId)])) });
 
 /** When the New idea task is due, as an ISO instant: 9:00 AM New York the day before the preferred date when there is one (and that is still ahead),
  * else 9:00 AM New York two working days from now. Both read the zone helpers (api/_lib/zone.js), never a fixed UTC hour: 13:00Z is 9:00 AM
@@ -166,8 +188,15 @@ async function handler(req, res) {
     }
 
     const suggestions = await db.collection('suggestions').find({ leadId: String(lead._id), deleted: { $ne: true } }).sort({ createdAt: -1 }).limit(50).toArray();
+    /* made (Planner v2): the status of each post an idea became, read only from this lead's own posts. */
+    const madeIds = [...new Set(suggestions.map(s => String(s.postId || '')).filter(Boolean))].map(id => { try { return new ObjectId(id); } catch { return null; } }).filter(Boolean);
+    const statusById = {};
+    if (madeIds.length) {
+      const made = await db.collection('posts').find({ _id: { $in: madeIds }, leadId: String(lead._id), deleted: { $ne: true } }).limit(100).toArray();
+      for (const p of made) statusById[String(p._id)] = p.status || 'making';
+    }
     /* Client portal (prompt 3 fix): the way back to this client's own portal, resolved here, never carried in the URL. */
-    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(publicSuggestion), back: portalPath(lead) });
+    return res.status(200).json({ client: publicClient(lead), month, posts: posts.map(publicPost), suggestions: suggestions.map(s => publicSuggestion(s, statusById)), back: portalPath(lead) });
   }
 
   if (req.method === 'POST') {
@@ -234,7 +263,8 @@ async function handler(req, res) {
 
     if (action === 'approve') {
       if (post.status !== 'review') return res.status(409).json({ error: 'That post is not waiting for approval any more.' });
-      await db.collection('posts').updateOne({ _id }, { $set: { status: 'approved', approvedAt: new Date().toISOString(), updatedAt: new Date() } });
+      const at = new Date().toISOString();
+      await db.collection('posts').updateOne({ _id }, { $set: { status: 'approved', approvedAt: at, decidedAt: at, updatedAt: new Date() } });
       return res.status(200).json({ ok: true, status: 'approved' });
     }
 
@@ -242,8 +272,26 @@ async function handler(req, res) {
       if (post.status !== 'review') return res.status(409).json({ error: 'That post is not waiting for approval any more.' });
       const note = String(req.body?.note ?? '').trim().slice(0, 500);
       if (!note) return res.status(400).json({ error: 'Tell me what to change and I will redo it.' });
-      await db.collection('posts').updateOne({ _id }, { $set: { status: 'making', clientNote: note, clientNoteAt: new Date().toISOString(), updatedAt: new Date() } });
+      const at = new Date().toISOString();
+      const set = { status: 'making', clientNote: note, clientNoteAt: at, decidedAt: at, updatedAt: new Date() };
+      /* The reason (Planner v2) is one of four words; anything else is dropped, never an error, and never left over from an older request. */
+      set.changeReason = CHANGE_REASONS.includes(req.body?.reason) ? req.body.reason : '';
+      await db.collection('posts').updateOne({ _id }, { $set: set });
       return res.status(200).json({ ok: true, status: 'making' });
+    }
+
+    /* I posted it (Planner v2): only an approved post of kind post. An ad, a post still in review, anything else is the same 404 a
+     * made up id gets, so the door says nothing about the post it refused. */
+    if (action === 'posted') {
+      if ((post.kind || 'post') !== 'post' || post.status !== 'approved') return notFound(res);
+      const at = new Date().toISOString();
+      await db.collection('posts').updateOne({ _id }, { $set: { status: 'posted', postedAt: at, postedBy: 'client', decidedAt: at, updatedAt: new Date() } });
+      /* Rob's push, best effort, category client (his switch in Settings decides). It names the date, never the caption. */
+      try {
+        const base = process.env.ADMIN_URL || 'https://admin.visualizeclients.com';
+        await sendPush(db, { title: `${lead.showcase?.displayName || lead.business} posted ${postedLabel(post.date)}`, body: 'Marked it posted from the planner.', url: `${base}/clients/${lead._id}/planner`, category: 'client', tag: `planner-posted-${String(_id)}` });
+      } catch { /* the post is marked; the push is a convenience */ }
+      return res.status(200).json({ ok: true, status: 'posted' });
     }
 
     return res.status(400).json({ error: 'unknown action' });

@@ -48,7 +48,7 @@ const enabledClient = {
   purchases: [{ label: 'Content Kit', amount: 400 }],
   callLog: [{ at: '2026-01-02T10:00:00Z', outcome: 'booked' }],
   reviews: { googleLink: 'https://g.page/r/kims/review', testimonials: [] },
-  showcase: { published: true, slug: 'kims-cafe', displayName: 'Kims Cafe' },
+  showcase: { published: true, slug: 'kims-cafe', displayName: 'Kims Cafe', brand: { logo: { dark: 'https://img.example/kims-logo.png', light: 'javascript:alert(1)' } } },
   planner: { enabled: true, token: ON_TOKEN, tokenCreatedAt: '2026-08-01T10:00:00Z', lastViewedAt: '', postsPerMonth: 12, welcome: 'Here is September.' },
   portal: { token: 'plnPORTALtoken0123456789abcdef' }, // the portal's back chip (prompt 3 fix): the door answers this lead's own path
 };
@@ -120,6 +120,12 @@ function collection(name) {
       if (!doc && opts?.upsert) { doc = { _id: filter._id }; list.push(doc); }
       if (!doc) return { matchedCount: 0 };
       if (update.$set) for (const [k, v] of Object.entries(update.$set)) setPath(doc, k, v);
+      if (update.$push) for (const [k, v] of Object.entries(update.$push)) {
+        const cur = Array.isArray(getPath(doc, k)) ? getPath(doc, k) : [];
+        let next = [...cur, ...(v && v.$each ? v.$each : [v])];
+        if (v && typeof v.$slice === 'number') next = v.$slice < 0 ? next.slice(v.$slice) : next.slice(0, v.$slice);
+        setPath(doc, k, next);
+      }
       return { matchedCount: 1 };
     },
     async insertOne(doc) { const d = { _id: doc._id || `${name}-${list.length + 1}-${Math.random().toString(36).slice(2, 10)}`, ...doc }; list.push(d); return { insertedId: d._id }; },
@@ -142,10 +148,16 @@ export const _pushes = [];
 fs.writeFileSync(path.join(apiDst, '_lib', 'notify.js'), "import { _pushes } from './mongo.js';\nexport async function sendPush(db, p) { _pushes.push(p); return { attempted: 1, delivered: 1, removed: 0, errors: [] }; }\nexport async function sendClientPush() {}\n");
 const plannerUrl = pathToFileURL(path.join(apiDst, 'planner.js')).href;
 const { default: plannerHandler } = await import(plannerUrl);
+const { handler: postsHandler } = await import(pathToFileURL(path.join(apiDst, '_routes', 'posts.js')).href);
 const { _stores, _pushes } = await import(pathToFileURL(path.join(apiDst, '_lib', 'mongo.js')).href);
 process.env.SESSION_SECRET = 'test-not-real';
 
 const fakeRes = () => ({ _status: 200, _json: null, _headers: {}, status(c) { this._status = c; return this; }, json(p) { this._json = p; return this; }, setHeader(k, v) { this._headers[k] = v; } });
+async function callPosts(method, body) {
+  const res = fakeRes();
+  await postsHandler({ method, query: {}, body, headers: {}, url: '/api/admin/posts', socket: {} }, res);
+  return res;
+}
 async function call(method, query = {}, body = undefined) {
   const req = { method, query, body, headers: {}, url: '/api/planner', socket: {} };
   const res = fakeRes();
@@ -160,12 +172,15 @@ async function call(method, query = {}, body = undefined) {
   const body = res._json || {};
   ok(Object.keys(body).sort().join(',') === 'back,client,month,posts,suggestions', `the response is exactly client, month, posts, suggestions, back (got ${Object.keys(body).sort().join(',')})`);
   ok(body.back === '/c/plnPORTALtoken0123456789abcdef', `back is the owning client's own portal path, resolved here and never in the URL (${body.back})`);
-  ok(Object.keys(body.client).sort().join(',') === 'displayName,postsPerMonth,welcome', `client is exactly displayName, welcome, postsPerMonth (got ${Object.keys(body.client).sort().join(',')})`);
+  ok(Object.keys(body.client).sort().join(',') === 'displayName,firstName,logoUrl,postsPerMonth,welcome', `client is exactly displayName, welcome, postsPerMonth, logoUrl, firstName (got ${Object.keys(body.client).sort().join(',')})`);
   ok(body.client.displayName === 'Kims Cafe' && body.client.postsPerMonth === 12 && body.client.welcome === 'Here is September.', 'client carries the showcase display name, the welcome, and postsPerMonth');
+  ok(body.client.firstName === 'Jamie', `firstName is the first word of the contact, never the business (got ${JSON.stringify(body.client.firstName)})`);
+  ok(body.client.logoUrl === 'https://img.example/kims-logo.png', `logoUrl is the showcase logo (got ${JSON.stringify(body.client.logoUrl)})`);
   ok(body.month === THIS_MONTH, `month defaults to the current one (got ${body.month})`);
 
-  const WANT = ['id', 'kind', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote', 'allowDownload', 'video', 'ad'].sort().join(',');
-  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the fifteen whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  const WANT = ['id', 'kind', 'date', 'time', 'platforms', 'format', 'hashtags', 'imageUrl', 'caption', 'status', 'note', 'clientNote', 'allowDownload', 'video', 'ad', 'postedAt', 'postedBy', 'changeReason', 'previous'].sort().join(',');
+  ok(body.posts.every(p => Object.keys(p).sort().join(',') === WANT), `every post is exactly the nineteen whitelisted keys (got ${Object.keys(body.posts[0] || {}).sort().join(',')})`);
+  ok(body.posts.every(p => p.previous === null && p.postedBy === '' && p.changeReason === ''), 'a post with no versions reads previous null, and an empty postedBy and changeReason');
   ok(body.posts.length === 7, `only this month's live posts come back, deleted excluded (got ${body.posts.length})`);
   ok(body.posts.map(p => p.date).join(' ') === [`${THIS_MONTH}-02`, `${THIS_MONTH}-10`, `${THIS_MONTH}-12`, `${THIS_MONTH}-24`, `${THIS_MONTH}-26`, `${THIS_MONTH}-27`, `${THIS_MONTH}-28`].join(' '), 'posts are sorted by date');
   ok(!body.posts.some(p => p.caption === 'Deleted one'), 'a soft deleted post never reaches the client');
@@ -198,7 +213,7 @@ async function call(method, query = {}, body = undefined) {
   ok(!JSON.stringify(body).includes('Not your idea') && !JSON.stringify(body).includes('rob private'), "another client's idea never reaches this client");
 
   const dump = JSON.stringify(body);
-  for (const key of ['phone', 'email', 'askFor', 'purchases', 'callLog', 'notes', 'prepNotes', 'links', 'reviews', 'token', 'planner', 'leadId', '_id', 'stage', 'clientSince']) {
+  for (const key of ['versions', 'decidedAt', 'reviewAt', 'approvedAt', 'clientNoteAt', 'seenAt', 'postId', 'details', 'phone', 'email', 'askFor', 'purchases', 'callLog', 'notes', 'prepNotes', 'links', 'reviews', 'token', 'planner', 'leadId', '_id', 'stage', 'clientSince']) {
     ok(!dump.includes(`"${key}"`), `private key "${key}" is nowhere in the response`);
   }
   for (const v of PRIVATE_VALUES) ok(!dump.includes(v), `private value "${v.slice(0, 28)}" never leaks`);
@@ -298,7 +313,8 @@ async function call(method, query = {}, body = undefined) {
   const doc = _stores.suggestionsStore.find(s => s.leadId === enabledClient._id);
   ok(!!doc && doc.subject === 'Half off coating in October' && doc.kind === 'ad' && doc.goal === 'offer' && doc.preferredDate === PREFERRED && doc.link === 'https://example.com/offer', 'the idea is stored trimmed with its kind, goal, date and link');
   ok(doc.photos.length === 1 && doc.photos[0].startsWith('https://res.cloudinary.com/'), `only an https photo on res.cloudinary.com is kept (got ${JSON.stringify(doc.photos)})`);
-  ok(Object.keys(res._json.suggestion).sort().join(',') === 'createdAt,goal,id,kind,note,status,subject', `the public idea shape (got ${Object.keys(res._json.suggestion).sort().join(',')})`);
+  ok(Object.keys(res._json.suggestion).sort().join(',') === 'createdAt,goal,id,kind,made,note,seen,status,subject', `the public idea shape (got ${Object.keys(res._json.suggestion).sort().join(',')})`);
+  ok(res._json.suggestion.seen === false && res._json.suggestion.made === false, 'a new idea is not seen and not made');
   ok(_pushes.length === 1 && /^New idea from Kims Cafe/.test(_pushes[0].title) && /Half off coating/.test(_pushes[0].body) && /\/planner\?ideas=1$/.test(_pushes[0].url), `Rob gets one push naming the client (got ${JSON.stringify(_pushes[0])})`);
   const leadDoc = _stores.leadsStore.find(l => l._id === enabledClient._id);
   const ideasList = (leadDoc.checklists || []).find(l => l.name === 'Ideas');
@@ -356,6 +372,96 @@ async function call(method, query = {}, body = undefined) {
   ok(last._status === 429, `the token is cut off at 30 actions in an hour (got ${last._status})`);
   const stillReads = await call('GET', { token: ON_TOKEN });
   ok(stillReads._status === 200, 'the limit is on actions only: they can still read their planner');
+}
+
+/* ── Planner v2: posted, reasons, decidedAt, reviewAt, versions, seen and made ── */
+{
+  for (const s of _stores.settingsStore) if (/^rate:planner/.test(String(s._id))) s.hits = [];
+  const P = (id) => _stores.postsStore.find(p => p._id === id);
+  // posted on an approved post of kind post
+  P('607f1f77bcf86cd799439007').status = 'approved';
+  _pushes.length = 0;
+  const posted = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439007', action: 'posted' });
+  const d7 = P('607f1f77bcf86cd799439007');
+  ok(posted._status === 200 && posted._json.status === 'posted' && d7.status === 'posted' && d7.postedBy === 'client' && !!d7.postedAt && !!d7.decidedAt, `posted moves an approved post to posted, stamps postedAt, postedBy client and decidedAt (got ${posted._status} ${JSON.stringify({ s: d7.status, b: d7.postedBy })})`);
+  ok(_pushes.length === 1 && _pushes[0].category === 'client' && /^Kims Cafe posted the \w{3} 26 post$/.test(_pushes[0].title) && _pushes[0].url.endsWith(`/clients/${enabledClient._id}/planner`), `Rob gets one push, category client, naming the day and linking the planner (got ${JSON.stringify(_pushes[0])})`);
+  ok(!JSON.stringify(_pushes).includes(d7.caption || 'Peach') , 'the push never carries the caption');
+  const again = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439007', action: 'posted' });
+  const reviewOne = (() => { P('607f1f77bcf86cd799439002').status = 'review'; return null; })();
+  const onReview = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439002', action: 'posted' });
+  P('607f1f77bcf86cd799439009').status = 'approved';
+  const onAd = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439009', action: 'posted' });
+  P('607f1f77bcf86cd799439006').status = 'approved';
+  const theirs = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439006', action: 'posted' });
+  const nf = JSON.stringify({ error: 'not found' });
+  ok(again._status === 404 && JSON.stringify(again._json) === nf, 'posted twice is the same 404');
+  ok(onReview._status === 404 && JSON.stringify(onReview._json) === nf && P('607f1f77bcf86cd799439002').status === 'review', 'posted on a post still in review is the same 404 and changes nothing');
+  ok(onAd._status === 404 && JSON.stringify(onAd._json) === nf && P('607f1f77bcf86cd799439009').status === 'approved', 'posted on an ad is the same 404 and changes nothing');
+  ok(theirs._status === 404 && JSON.stringify(theirs._json) === nf && P('607f1f77bcf86cd799439006').status === 'approved', "posted on another client's post is the same 404 and changes nothing");
+  void reviewOne;
+
+  // approve stamps decidedAt
+  P('607f1f77bcf86cd799439001').status = 'review'; P('607f1f77bcf86cd799439001').decidedAt = '';
+  await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439001', action: 'approve' });
+  ok(!!P('607f1f77bcf86cd799439001').decidedAt, 'approve stamps decidedAt');
+
+  // request-change with a reason, and with an unknown one
+  P('607f1f77bcf86cd799439002').decidedAt = '';
+  const why = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439002', action: 'request-change', note: 'A brighter photo please', reason: 'photo' });
+  ok(why._status === 200 && P('607f1f77bcf86cd799439002').changeReason === 'photo' && P('607f1f77bcf86cd799439002').clientNote === 'A brighter photo please', 'request-change keeps the reason as changeReason next to clientNote');
+  ok(!!P('607f1f77bcf86cd799439002').decidedAt, 'request-change stamps decidedAt');
+  P('607f1f77bcf86cd799439002').status = 'review';
+  const odd = await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439002', action: 'request-change', note: 'Different words', reason: 'make it pop' });
+  ok(odd._status === 200 && P('607f1f77bcf86cd799439002').changeReason === '', `an unknown reason is dropped, not an error (got ${odd._status} ${JSON.stringify(P('607f1f77bcf86cd799439002').changeReason)})`);
+  P('607f1f77bcf86cd799439002').status = 'review';
+  await call('POST', { token: ON_TOKEN }, { postId: '607f1f77bcf86cd799439002', action: 'request-change', note: 'Use the latte photo', reason: 'words' });
+
+  // Rob's side: reviewAt on a move into review, versions on a caption change after a change request
+  const d2 = P('607f1f77bcf86cd799439002');
+  const capBefore = d2.caption;
+  const r1 = await callPosts('PATCH', { id: d2._id, set: { caption: 'Behind the counter, take two' } });
+  ok(r1._status === 200 && Array.isArray(d2.versions) && d2.versions.length === 1 && d2.versions[0].caption === capBefore && d2.versions[0].note === 'Use the latte photo' && !!d2.versions[0].at, `a caption change after a change request pushes the old pair with the client's note (got ${JSON.stringify(d2.versions)})`);
+  await callPosts('PATCH', { id: d2._id, set: { caption: 'Behind the counter, take two!' } });
+  ok(d2.versions.length === 1, 'the autosave\'s next keystroke does not push a second copy for the same request');
+  const read = await call('GET', { token: ON_TOKEN });
+  const rp = read._json.posts.find(p => p.id === d2._id);
+  ok(rp.previous && Object.keys(rp.previous).sort().join(',') === 'caption,imageUrl,note' && rp.previous.caption === capBefore && rp.previous.note === 'Use the latte photo', `the read carries previous as the newest version only, three keys (got ${JSON.stringify(rp.previous)})`);
+  ok(rp.changeReason === 'words', 'the read carries the change reason');
+  ok(!JSON.stringify(read._json).includes('"versions"') && !JSON.stringify(read._json).includes('"at"'), 'the versions list itself never leaves the server');
+  d2.status = 'making'; d2.reviewAt = '';
+  await callPosts('PATCH', { id: d2._id, set: { status: 'review' } });
+  ok(!!d2.reviewAt, 'a PATCH that sets status review stamps reviewAt');
+  const firstStamp = d2.reviewAt; d2.reviewAt = 'kept';
+  await callPosts('PATCH', { id: d2._id, set: { status: 'review' } });
+  ok(d2.reviewAt === 'kept' && !!firstStamp, 'saving a post already in review does not restamp it');
+  // capped at five: six more change requests, each answered with a new picture
+  for (let i = 0; i < 6; i++) {
+    d2.clientNote = `note ${i}`; d2.clientNoteAt = new Date(Date.now() + (i + 1) * 1000).toISOString();
+    await callPosts('PATCH', { id: d2._id, set: { imageUrl: `https://img.example/v${i}.jpg` } });
+  }
+  ok(d2.versions.length === 5 && d2.versions[4].note === 'note 5' && d2.versions[0].note === 'note 1', `versions are capped at the newest five (got ${d2.versions.length}: ${d2.versions.map(v => v.note).join(', ')})`);
+  const r2 = await callPosts('PATCH', { id: d2._id, set: { versions: Array.from({ length: 9 }, (_, i) => ({ imageUrl: 'javascript:alert(1)', caption: 'c', note: 'n'.repeat(400), at: String(i), extra: 'x' })), postedBy: 'hacker', changeReason: 'nope', decidedAt: 'x', reviewAt: 'y' } });
+  ok(r2._status === 200 && d2.versions.length === 5 && d2.versions.every(v => v.imageUrl === '' && v.note.length === 300 && Object.keys(v).sort().join(',') === 'at,caption,imageUrl,note'), 'a versions list sent whole is sanitized: five at most, links through safeUrl, notes capped at 300, no stray keys');
+  ok(d2.postedBy === '' && d2.changeReason === '', 'postedBy and changeReason accept only their own words');
+  const r3 = await callPosts('PATCH', { id: d2._id, set: { postedBy: 'rob' } });
+  ok(r3._status === 200 && d2.postedBy === 'rob', 'postedBy rob is whitelisted');
+  const made = await callPosts('POST', { leadId: enabledClient._id, month: THIS_MONTH, status: 'review' });
+  ok(made._status === 200 && !!made._json.item.reviewAt, 'a post created straight into review is stamped reviewAt');
+
+  // seen and made on an idea
+  const idea = _stores.suggestionsStore.find(s => s.leadId === enabledClient._id);
+  idea.seenAt = new Date().toISOString(); idea.postId = '607f1f77bcf86cd799439001'; idea.status = 'planned';
+  const other = _stores.suggestionsStore.find(s => s.leadId === enabledClient._id && s !== idea);
+  other.postId = '607f1f77bcf86cd799439006'; // another client's approved post: never counts
+  const g = await call('GET', { token: ON_TOKEN });
+  const gi = g._json.suggestions.find(s => s.id === String(idea._id));
+  const go = g._json.suggestions.find(s => s.id === String(other._id));
+  ok(gi.seen === true && gi.made === true, `an idea Rob opened reads seen, and made once its post is approved (got ${JSON.stringify(gi)})`);
+  ok(go.seen === false && go.made === false, "an idea pointing at another client's post never reads made");
+  P('607f1f77bcf86cd799439001').status = 'review';
+  const g2 = await call('GET', { token: ON_TOKEN });
+  ok(g2._json.suggestions.find(s => s.id === String(idea._id)).made === false, 'an idea whose post is back in review is not made');
+  ok(g2._json.suggestions.every(s => Object.keys(s).sort().join(',') === 'createdAt,goal,id,kind,made,note,seen,status,subject'), 'every idea is exactly the nine whitelisted keys');
 }
 
 /* ── lastViewedAt ────────────────────────────────────────────────────── */

@@ -77,6 +77,15 @@ export function sanitizeVideo(v) {
   return { url: safeUrl(v.url, 600), durationSec: Math.round(num(v.durationSec, 3600)), poster: safeUrl(v.poster, 600) };
 }
 
+/** One earlier version of a post (Planner v2): the picture and words the client asked to change, with their note. */
+export function sanitizeVersion(v) {
+  if (!v || typeof v !== 'object') return null;
+  return { imageUrl: safeUrl(v.imageUrl, 600), caption: String(v.caption ?? '').slice(0, 2200), note: str(v.note, 300), at: str(v.at, 40) };
+}
+export const VERSIONS_MAX = 5;
+const POSTED_BY = ['client', 'rob'];
+const CHANGE_REASONS = ['photo', 'words', 'date', 'other'];
+
 /* sanitize() IS the schema. A key the whitelist does not know is not
  * written, and a key the caller did not send stays undefined so PATCH can
  * tell "set this to empty" from "leave this alone". */
@@ -119,6 +128,12 @@ function sanitize(b) {
     clientNoteAt: b.clientNoteAt !== undefined ? str(b.clientNoteAt, 40) : undefined,
     approvedAt: b.approvedAt !== undefined ? str(b.approvedAt, 40) : undefined,
     postedAt: b.postedAt !== undefined ? str(b.postedAt, 40) : undefined,
+    /* Planner v2: who marked it posted, why the client asked for a change, when they decided, when it went to them, and the earlier versions. */
+    postedBy: b.postedBy !== undefined ? (POSTED_BY.includes(b.postedBy) ? b.postedBy : '') : undefined,
+    changeReason: b.changeReason !== undefined ? (CHANGE_REASONS.includes(b.changeReason) ? b.changeReason : '') : undefined,
+    decidedAt: b.decidedAt !== undefined ? str(b.decidedAt, 40) : undefined,
+    reviewAt: b.reviewAt !== undefined ? str(b.reviewAt, 40) : undefined,
+    versions: b.versions !== undefined ? (Array.isArray(b.versions) ? b.versions.map(sanitizeVersion).filter(Boolean).slice(-VERSIONS_MAX) : []) : undefined,
     order: b.order !== undefined ? Math.round(num(b.order, 1000)) : undefined,
     archived: b.archived !== undefined ? !!b.archived : undefined,
   };
@@ -153,6 +168,7 @@ export async function handler(req, res) {
       note: '', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0,
       archived: false, ...doc, createdAt: now, updatedAt: now,
     };
+    if (item.status === 'review' && !item.reviewAt) item.reviewAt = now.toISOString();
     const r = await col.insertOne(item);
     return res.status(200).json({ ok: true, item: { ...item, _id: r.insertedId } });
   }
@@ -166,12 +182,28 @@ export async function handler(req, res) {
     for (const key of Object.keys(clean)) if (key in set && clean[key] !== undefined) allowed[key] = clean[key];
     delete allowed.leadId; // a post never moves between clients
     if (!Object.keys(allowed).length) return res.status(400).json({ error: 'nothing to update' });
+    const needsCur = AD_ONLY_STATUS_IDS.includes(allowed.status) || allowed.status === 'review' || 'imageUrl' in allowed || 'caption' in allowed;
+    const cur = needsCur ? await col.findOne({ _id, deleted: { $ne: true } }, { projection: { kind: 1, status: 1, imageUrl: 1, caption: 1, clientNote: 1, clientNoteAt: 1, versions: 1 } }) : null;
     if (AD_ONLY_STATUS_IDS.includes(allowed.status)) {
-      const cur = await col.findOne({ _id, deleted: { $ne: true } }, { projection: { kind: 1 } });
       if ((allowed.kind || cur?.kind || 'post') !== 'ad') return res.status(400).json({ error: 'live and finished are ad statuses' });
     }
+    /* Planner v2: the moment it went to the client, stamped when it moves into review (not on every save of a post already there). */
+    if (allowed.status === 'review' && cur && cur.status !== 'review' && !('reviewAt' in allowed)) allowed.reviewAt = new Date().toISOString();
+    /* The first draft, kept: a new picture or new words on a post the client asked to change pushes the old pair, with their note, onto
+     * versions in the same write. Once per change request: when the newest version is already newer than the request, the autosave's
+     * later keystrokes do not stack up more copies of the same answer. */
+    const update = { $set: allowed };
+    if (cur && cur.clientNote && !('versions' in allowed)) {
+      const changed = ('imageUrl' in allowed && allowed.imageUrl !== (cur.imageUrl || '')) || ('caption' in allowed && allowed.caption !== (cur.caption || ''));
+      const last = Array.isArray(cur.versions) && cur.versions.length ? cur.versions[cur.versions.length - 1] : null;
+      const answered = last && String(last.at || '') >= String(cur.clientNoteAt || '');
+      if (changed && !answered) {
+        const old = sanitizeVersion({ imageUrl: cur.imageUrl || '', caption: cur.caption || '', note: cur.clientNote, at: new Date().toISOString() });
+        update.$push = { versions: { $each: [old], $slice: -VERSIONS_MAX } };
+      }
+    }
     allowed.updatedAt = new Date();
-    await col.updateOne({ _id, deleted: { $ne: true } }, { $set: allowed });
+    await col.updateOne({ _id, deleted: { $ne: true } }, update);
     return res.status(200).json({ ok: true });
   }
 
