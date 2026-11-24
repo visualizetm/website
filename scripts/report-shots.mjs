@@ -33,7 +33,7 @@ await click('.tk-add'); await shot('admin-tasks-quick-add');
 await go('/admin'); await shot('admin-next-up');
 await go('/admin/clients/L11/planner?ideas=1'); await shot('admin-ideas-inbox');
 await go('/admin/clients/L11/planner');
-await page.locator('.pl-post').filter({ hasText: 'October interior offer' }).first().locator('.v-stretch').click({ timeout: 4000 }).catch(() => {});
+await page.locator('.pb-card').filter({ hasText: 'October interior offer' }).first().locator('.v-stretch').click({ timeout: 4000 }).catch(() => {});
 await page.waitForTimeout(700); await shot('admin-planner-ad-sheet');
 await page.locator('.v-sheet').evaluate(el => { const b = el.querySelector('.v-sheet-body, .v-sheet-scroll') || el; b.scrollTop = 900; }).catch(() => {});
 await shot('admin-planner-ad-section');

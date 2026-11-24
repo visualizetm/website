@@ -2,7 +2,7 @@
  *
  * Back goes up exactly one level in a fixed tree, whatever brought the screen up:
  *
- *   Home > section root > record > sub screen (planner, tasks, docs, concepts, quote, compose, showcase, a new project) > sheet
+ *   Home > section root > record > sub screen (planner, tasks, docs, concepts, quote, compose, showcase, a new project) > the planner's post editor on a phone > sheet
  *   Home > Quotes > a quote (/quotes/:id; the old /leads/:id/quote redirects there, quoteRedirect)
  *   Calls > Queue > Room; Summary backs to Calls
  *   Settings > Design system, Recently Deleted, an emails or notifications tab
@@ -63,6 +63,8 @@ export function parentOf(rel, search = '') {
   if (p.startsWith('/calls/')) return '/calls';
   // A record's sub screens back to the record; the record backs to its list (Leads is a section of the Calls hub).
   if ((m = p.match(/^\/clients\/([^/]+)\/(planner|tasks|docs|showcase)$/))) return recordPathOf('clients', m[1]);
+  // Planner v2: the editor on a phone is the planner's own sub screen, /clients/:id/planner/:postId, and backs to the planner.
+  if ((m = p.match(/^\/clients\/([^/]+)\/planner\/[^/]+$/))) return `${recordPathOf('clients', m[1])}/planner`;
   if ((m = p.match(/^\/clients\/([^/]+)\/projects\/new$/))) return recordPathOf('clients', m[1]);
   if ((m = p.match(/^\/leads\/([^/]+)\/(concepts|quote)$/))) return recordPathOf('leads', m[1]);
   if ((m = p.match(/^\/lists\/([^/]+)\/fill$/))) return `/calls?section=lists&open=${enc(m[1])}`;

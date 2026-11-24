@@ -1059,7 +1059,16 @@ export async function mockRoutes(page, opts = {}) {
     return r.fulfill({ ...json(out.body), status: out.status });
   });
   await page.route('**/api/admin/suggestions**', r => (r.request().method() === 'GET' ? respond(r, 'suggestions', PAYLOADS.suggestions()) : r.fulfill(json({ ok: true }))));
-  await page.route('**/api/admin/posts**', r => (r.request().method() === 'GET' ? respond(r, 'posts', PAYLOADS.posts()) : r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }))));
+  await page.route('**/api/admin/posts**', r => {
+    if (r.request().method() === 'GET') return respond(r, 'posts', PAYLOADS.posts());
+    let b = {}; try { b = JSON.parse(r.request().postData() || '{}'); } catch { /* empty */ }
+    /* Planner v2: the batch send answers the ids that qualify (a post being made, a picture or a video file, a caption), as the route does. */
+    if (r.request().method() === 'POST' && b.action === 'send-review') {
+      const ids = (b.ids || []).map(String).filter(id => { const p = posts.find(x => String(x._id) === id && String(x.leadId) === String(b.leadId)); return p && (p.status || 'making') === 'making' && (p.kind || 'post') === 'post' && (p.imageUrl || p.video?.url) && String(p.caption || '').trim(); });
+      return r.fulfill(json({ ok: true, ids }));
+    }
+    return r.fulfill(json({ ok: true, item: { ...posts[0], _id: 'PONEW' } }));
+  });
   await page.route('**/api/push-key', r => r.fulfill(json({ key: null })));
   /* Billy's Call Room: every caller endpoint over its own small store. `fail: ['caller']` breaks the home read, `empty: ['caller']` empties it,
      opts.callerSignedOut starts at the sign in page, opts.caller is the store itself when a test wants to read what was posted. */

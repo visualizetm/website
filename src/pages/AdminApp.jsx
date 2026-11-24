@@ -241,6 +241,15 @@ export default function AdminApp() {
     if (prev) setPosts(ps => ps.map(p => String(p._id) === String(id) ? prev : p));
     return false;
   }, []);
+  /* The batch send (Planner v2, part 2): one request moves a client's ready posts to review; the shell's copy follows what it moved. */
+  const sendReview = useCallback(async (leadId, ids) => {
+    const r = await apiFetch('/api/admin/posts', { method: 'POST', body: { action: 'send-review', leadId, ids } });
+    if (!r.ok) return null;
+    const moved = (r.data?.ids || []).map(String);
+    const at = new Date().toISOString();
+    if (moved.length) setPosts(ps => ps.map(p => (moved.includes(String(p._id)) ? { ...p, status: 'review', reviewAt: at } : p)));
+    return moved;
+  }, []);
   const deletePost = useCallback(async (id) => {
     let prev;
     setPosts(ps => ps.filter(p => { if (String(p._id) === String(id)) { prev = p; return false; } return true; }));
@@ -477,7 +486,7 @@ export default function AdminApp() {
     if (p.startsWith('/projects')) return 'projects';
     if (p.startsWith('/calendar')) return 'calendar';
     if (/^\/clients\/[^/]+\/showcase$/.test(p)) return 'showcase';
-    if (/^\/clients\/[^/]+\/planner$/.test(p)) return 'planner';
+    if (/^\/clients\/[^/]+\/planner(\/[^/]+)?$/.test(p)) return 'planner'; // Planner v2: /planner/:postId is the editor on a phone
     if (/^\/clients\/[^/]+\/tasks$/.test(p)) return 'tasks';
     if (/^\/docs\/[^/]+$/.test(p)) return 'docEditor';
     if (/^\/clients\/[^/]+\/docs$/.test(p)) return 'clientDocs';
@@ -520,7 +529,8 @@ export default function AdminApp() {
   // id comes off the path rather than out of an openReq.
   const showcaseId = (relPath.match(/^\/clients\/([^/]+)\/showcase$/) || [])[1] || '';
   // /clients/:id/planner (planner prompt 2), the same shape.
-  const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner$/) || [])[1] || '';
+  const plannerId = (relPath.match(/^\/clients\/([^/]+)\/planner(?:\/[^/]+)?$/) || [])[1] || '';
+  const plannerPostId = (relPath.match(/^\/clients\/[^/]+\/planner\/([^/]+)$/) || [])[1] || '';
   // /clients/:id/tasks (the task system): the client's and their projects' checklists; ?project= opens one project's.
   const tasksId = (relPath.match(/^\/clients\/([^/]+)\/tasks$/) || [])[1] || '';
   // /docs/:id (client docs): one doc in the editor.
@@ -919,6 +929,9 @@ export default function AdminApp() {
           suggestions={suggestions}
           onPatchSuggestion={patchSuggestion}
           openIdeas={new URLSearchParams(location.search).get('ideas') === '1'}
+          postId={decodeURIComponent(plannerPostId)}
+          onSendReview={sendReview}
+          onOpenPostPath={(leadId, id) => push(`${BASE}/clients/${leadId}/planner/${encodeURIComponent(id)}`)}
           onBack={navBack ? navBack.back : null}
         />
       )}

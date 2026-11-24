@@ -27,6 +27,13 @@ export const rmLS = (page, k) => page.evaluate((k) => localStorage.removeItem(k)
 export /* A doc opened from a list on a phone is in Read (prompt 3 of 3): the editor states switch to Edit first. */
 const toEdit = async (p) => { await p.waitForSelector('.dc-blocks, .dr-article', { timeout: 8000 }).catch(() => {}); if (await p.$('.dr-article')) await p.getByRole('radio', { name: 'Edit', exact: true }).click().catch(() => {}); await p.waitForSelector('.dc-blocks', { timeout: 8000 }).catch(() => {}); };
 const click = (loc, t = 4000) => loc.first().click({ timeout: t }).catch(() => {});
+/* The planner's post editor (Planner v2): a side sheet on a computer, its own path on a phone (/clients/:id/planner/:postId). A computer
+   opens the card on the board; a phone goes to the editor's path, since the board shows one column there. */
+const openPlannerPost = (id, text) => async (p, w) => {
+  if (w < 768) { const u = new URL(p.url()); await p.goto(`${u.origin}/admin/clients/L11/planner/${id}${u.search}`, { waitUntil: 'domcontentloaded' }).catch(() => {}); await p.waitForTimeout(800); return; } // keeps ?loading=1 for the forced loading pass
+  await click(text ? p.locator('.pb-card').filter({ hasText: text }).first().locator('.v-stretch') : p.locator('.pb-card .v-stretch').first());
+};
+const plannerEditorRegion = (w) => (w < 768 ? '.sh-content' : '.v-sheet');
 /* A tab on a computer, a row button on a phone (Settings is a list of rows there). */
 export const tab = async (page, name) => { const t = page.getByRole('tab', { name: new RegExp('^' + name) }); if (await t.count()) return click(t, 3000); return click(page.locator('.sh-content').getByRole('button', { name: new RegExp('^' + name) }), 3000); };
 /* The record's sections (UI simplification, part A): a tab on a computer, a row button on a phone. */
@@ -158,7 +165,10 @@ export const SCREENS = [
   { id: 'planner-on', screen: 'Planner editor', noFit: true, label: 'enabled, a full month', path: '/admin/clients/L11/planner', resource: 'leads' },
   { id: 'planner-off', screen: 'Planner editor', noFit: true, label: 'disabled', path: '/admin/clients/L13/planner', resource: 'leads' },
   { id: 'planner-empty', screen: 'Planner editor', noFit: true, label: 'a month with no posts', path: '/admin/clients/L11/planner?month=2030-07', resource: 'leads' },
-  { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor sheet', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post .v-stretch').first()) },
+  { id: 'planner-sheet', screen: 'Planner editor', label: 'post editor (a sheet on a computer, its own screen on a phone), a change asked', path: '/admin/clients/L11/planner', region: plannerEditorRegion, resource: 'leads', detail: true, act: openPlannerPost('PO3', '') },
+  /* Planner v2: the board's other two views, and the phone's column chips moved to Waiting. */
+  { id: 'planner-calendar', screen: 'Planner editor', noFit: true, label: 'the month as a calendar', path: '/admin/clients/L11/planner', resource: 'leads', act: async (p) => { await click(p.getByRole('radio', { name: 'Calendar' })); await p.waitForTimeout(400); } },
+  { id: 'planner-board-waiting', screen: 'Planner editor', noFit: true, label: 'the board on Waiting (a chip on a phone)', path: '/admin/clients/L11/planner', resource: 'leads', act: async (p, w) => { if (w < 768) { await click(p.locator('.pb-chips .v-chip').nth(1)); await p.waitForTimeout(400); } } },
   /* The format control and the platform chips, on a post that is a story
      (no hashtag field) and on one that is blocked from approval. */
   /* Tasks (the task system, milestone 5): a focused screen; a checklist is a step on a phone; Quick add and the template picker are sheets. */
@@ -168,12 +178,13 @@ export const SCREENS = [
   { id: 'clients-tasks-list', screen: 'Tasks', label: 'one checklist (a step on a phone)', path: '/admin/clients/L11/tasks', resource: 'leads', noFit: true, act: async (p, w) => { if (w < 768) { await click(p.locator('.tk-body .v-stretch').first()); await p.waitForTimeout(500); } } },
   { id: 'clients-tasks-quick', screen: 'Tasks', label: 'the Quick add sheet', path: '/admin/clients/L11/tasks', resource: 'leads', region: '.v-sheet', detail: true, act: (p, w) => click(p.locator(w < 768 ? '.tk-add' : '.tk-add-top').first()) },
   { id: 'clients-tasks-template', screen: 'Tasks', label: 'the template picker', path: '/admin/clients/L11/tasks', resource: 'leads', region: '.v-sheet', detail: true, act: (p) => click(p.locator('.tk-template').first()) },
-  { id: 'planner-sheet-ad', screen: 'Planner editor', label: 'post editor sheet, an ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'October interior offer' }).first().locator('.v-stretch')) },
-  { id: 'planner-sheet-video', screen: 'Planner editor', label: 'post editor sheet, a planned video ad', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Ceramic coat reel' }).first().locator('.v-stretch')) },
-  { id: 'planner-ideas', screen: 'Planner editor', noFit: true, label: 'the ideas inbox', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', region: (w) => (w < 768 ? '.sh-content' : '.pl-ideas') },
-  { id: 'planner-ideas-decline', screen: 'Planner editor', noFit: true, label: 'declining an idea', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', region: (w) => (w < 768 ? '.sh-content' : '.pl-ideas'), act: (p) => click(p.locator('.pl-idea-actions .v-btn--ghost, .pl-idea-actions button').filter({ hasText: /^Decline$/ })) },
-  { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor sheet, a story', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch')) },
-  { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor sheet, approval blocked', path: '/admin/clients/L11/planner', region: '.v-sheet', resource: 'leads', detail: true, act: (p) => click(p.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch')) },
+  { id: 'planner-sheet-ad', screen: 'Planner editor', label: 'post editor, an ad', path: '/admin/clients/L11/planner', region: plannerEditorRegion, resource: 'leads', detail: true, act: openPlannerPost('PO20', 'October interior offer') },
+  { id: 'planner-sheet-video', screen: 'Planner editor', label: 'post editor, a planned video ad', path: '/admin/clients/L11/planner', region: plannerEditorRegion, resource: 'leads', detail: true, act: openPlannerPost('PO21', 'Ceramic coat reel') },
+  /* Ideas is a view of the planner page now (Planner v2), not a card beside the month, so its region is the page at every width. */
+  { id: 'planner-ideas', screen: 'Planner editor', noFit: true, label: 'the Ideas view (the inbox)', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads' },
+  { id: 'planner-ideas-decline', screen: 'Planner editor', noFit: true, label: 'declining an idea', path: '/admin/clients/L11/planner?ideas=1', resource: 'leads', act: (p) => click(p.locator('.pl-idea-actions .v-btn--ghost, .pl-idea-actions button').filter({ hasText: /^Decline$/ })) },
+  { id: 'planner-sheet-story', screen: 'Planner editor', label: 'post editor, a story', path: '/admin/clients/L11/planner', region: plannerEditorRegion, resource: 'leads', detail: true, act: openPlannerPost('PO15', 'Story') },
+  { id: 'planner-sheet-blocked', screen: 'Planner editor', label: 'post editor, approval blocked', path: '/admin/clients/L11/planner', region: plannerEditorRegion, resource: 'leads', detail: true, act: openPlannerPost('PO12', 'Waiting on the photo') },
 
   // Site Prompt 3: the public /projects page (Clients until the Projects prompt), driven by /api/showcase. session:
   // false since these are marketing pages, not admin (no auth mock needed).

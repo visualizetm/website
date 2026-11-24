@@ -30,3 +30,12 @@ One line each: the milestone, the choice, why.
 - 1.6: the five width layout audit ran whole at 320 and 390 and through most of 430 (842 rows, no failure) before its time limit; the rest of 430, 768 and 1280 were run for the marketing pages (the public planner is the only thing part 1 changed); 768 and 1280 for the admin screens ran in the first 204 rows of a second pass with no failure and are run in full at the end of part 2, which is the part that changes the admin.
 - 2.1: the batch send moves posts only (kind post), as the prompt says "every Making post"; an ad still goes for approval one at a time. Undo uses the posts PATCH per id (the prompt adds one route action, for the send).
 - 2.1: opening an idea is stamped on the server: the suggestions PATCH takes `seenAt: true` and writes the time itself.
+- 2.2 to 2.4: the board, the composer and the batch send landed in one commit: all three live in AdminPlanner.jsx and AdminApp.jsx, and splitting a file's hunks across commits by hand would risk a commit that does not build.
+- 2.2: "usually approves within" reads the posts the shell holds (this month and next); older months are not loaded on this screen and no new request was added. It is hidden under three decided posts.
+- 2.2: on a phone the Calendar view is the month's days with something on them, in order, each item a chip; seven columns of chips do not fit 390.
+- 2.2: a phone board card keeps its menu beside the long press, so the gesture has a visible equivalent (the CRM's rule).
+- 2.2: a drag lives on the whole card; a press on a card's picture or icon counts as the card (an SVG or an image under the pointer would not start the drag), and the drag source is kept in a ref so a quick drag is not lost before React stores it.
+- 2.3: the phone editor is /clients/:id/planner/:postId; its skeleton is one form card where the editor's first block sits (the form's length depends on the post, unknown until it loads).
+- 2.3: the board's moves are drafted like any edit and autosave writes them; Mark posted from Rob writes postedBy rob.
+- 2.4: on a phone the top bar carries one declared action (the chrome rule): Send n for approval when something is ready, else New post; New post, Copy across, Add ad and Add reel are in the month's menu.
+- 2.4: the Ideas rows of the audit screens use the page as their region at every width: Ideas is a view of the planner page now, not a card beside the month.

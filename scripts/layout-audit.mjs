@@ -1199,29 +1199,50 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(400);
   await check('settings (emails: template sheet)');
   await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
-  /* The Content Planner editor (planner prompt 2, part 6): the page on and
-     off, a month with nothing in it, the post editor Sheet, the save bar,
-     and the regenerate dialog. The image check earns its keep here too: a
-     post thumbnail is a 1:1 box holding whatever shape was uploaded. */
-  await goto('/admin/clients/L11/planner');
-  await page.locator('.pl-post').first().waitFor({ timeout: 4000 }).catch(() => {});
-  await check('planner editor (enabled, a full month)');
-  await page.locator('.pl-post .v-stretch').first().click({ timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(500);
-  await check('planner editor (post editor sheet)');
-  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
-  /* The Sheet closed again: no backdrop left behind over the page. */
-  await check('planner editor (post editor sheet, closed again)');
-  /* The two format cases: a story (no hashtag field, a 9:16 preview) and a
-     portrait post that cannot go out for approval yet. */
-  await page.locator('.pl-post').filter({ hasText: 'Story' }).first().locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(500);
-  await check('planner editor (post editor sheet, a story)');
-  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400);
-  await page.locator('.pl-post').filter({ hasText: 'Waiting on the photo' }).first().locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});
-  await page.waitForTimeout(500);
-  await check('planner editor (post editor sheet, approval blocked)');
-  await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(300);
+  /* The Content Planner editor (Planner v2: the month board): the page on
+     and off, the board, the calendar and Ideas, a month with nothing in it,
+     the post editor (a Sheet on a computer, its own screen on a phone), the
+     save bar, and the regenerate dialog. The image check earns its keep here
+     too: a card's thumbnail is a 1:1 box holding whatever shape was uploaded. */
+  {
+    const phoneW = width < 768;
+    const openEditor = async (id, text) => {
+      if (phoneW) { await goto(`/admin/clients/L11/planner/${id}`); return; }
+      const card = text ? page.locator('.pb-card').filter({ hasText: text }).first() : page.locator('.pb-card').first();
+      await card.locator('.v-stretch').click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(500);
+    };
+    const closeEditor = async () => { if (phoneW) { await page.locator('.sh-top-back').first().click({ timeout: 3000 }).catch(() => {}); await page.waitForTimeout(500); } else { await page.keyboard.press('Escape').catch(() => {}); await page.waitForTimeout(400); } };
+    await goto('/admin/clients/L11/planner');
+    await page.locator('.pb-card').first().waitFor({ timeout: 4000 }).catch(() => {});
+    await check('planner editor (enabled, the board)');
+    if (phoneW) {
+      await page.locator('.pb-chips .v-chip').nth(1).click({ timeout: 3000 }).catch(() => {});
+      await page.waitForTimeout(400);
+      await check('planner editor (the board on Waiting, a chip)');
+    }
+    await page.getByRole('radio', { name: 'Calendar' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('planner editor (the calendar)');
+    await page.getByRole('radio', { name: /^Ideas/ }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await check('planner editor (the Ideas view)');
+    await page.getByRole('radio', { name: 'Board' }).first().click({ timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    await openEditor('PO3', '');
+    await check('planner editor (post editor, a change asked)');
+    await closeEditor();
+    /* The editor closed again: no backdrop left behind over the page. */
+    await check('planner editor (post editor, closed again)');
+    /* The two format cases: a story (no hashtag field, a 9:16 preview) and a
+       portrait post that cannot go out for approval yet. */
+    await openEditor('PO15', 'Story');
+    await check('planner editor (post editor, a story)');
+    await closeEditor();
+    await openEditor('PO12', 'Waiting on the photo');
+    await check('planner editor (post editor, approval blocked)');
+    await closeEditor();
+  }
   await page.locator('.pl-setup textarea').first().fill('An edit, so the save bar is up.').catch(() => {});
   await page.waitForTimeout(500);
   await check('planner editor (save bar shown)');

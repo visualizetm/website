@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  PageShell, ScrollArea, Section, Stack, Row, Card, Button, IconButton, Pill, Toggle, Textarea,
-  InlineEdit, Menu, ProgressBar, EmptyState, NoResults, ErrorState, Stagger, SkeletonText,
-  useConfirm, useDelayedLoading, useToast, useMediaQuery, Icon, ListRow, SwipeRow } from '../ui';
+  PageShell, ScrollArea, Section, Stack, Row, Grid, Card, Button, IconButton, Pill, Toggle, Textarea, Input,
+  InlineEdit, Menu, ProgressBar, EmptyState, NoResults, ErrorState, Stagger, SkeletonText, SegmentedControl,
+  useConfirm, useDelayedLoading, useToast, useMediaQuery, ListRow } from '../ui';
 import { COPY } from '../shared/copy';
 import { RETAINERS } from '../shared/pricing';
 import { isOnRetainer } from '../lib/projects';
 import { useTopBar, useShell } from '../shell/ShellContext';
 import { useSelection } from '../shell/nav-history';
-import { platformOf, postStatusOf, postFormatOf, postKindOf, SUGGESTION_KINDS, SUGGESTION_GOALS, suggestionStatusOf } from '../shared/semantics';
-import { relativeTime, fmtDateTime } from '../shared/dates';
-import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, kindOf, missingForReview, listPhrase, hashtagsOf, aspectNote } from '../lib/posts';
+import { SUGGESTION_KINDS, SUGGESTION_GOALS, suggestionStatusOf } from '../shared/semantics';
+import { relativeTime } from '../shared/dates';
+import { postsOf, postsInReview, postDateLabel, postLabel, platformsOf, formatOf, kindOf, hashtagsOf } from '../lib/posts';
 import { safeHref } from '../lib/safeUrl';
 import { videoFieldStyles } from '../components/VideoField';
 import { SaveChip, saveBarStyles } from '../components/SaveBar';
@@ -18,6 +18,8 @@ import { useAutoSave } from '../lib/useAutoSave';
 import LinkSend from '../components/LinkSend';
 import { imageFieldStyles } from '../components/ImageField';
 import PostSheet, { postSheetStyles } from '../components/PostSheet';
+import { ActivityStrip, Board, MonthCalendar, plannerBoardStyles } from '../components/PlannerBoard';
+import { activityOf, approvalDays, approvalLine, sendable } from '../lib/plannerBoard';
 import ListSearch from '../components/ListSearch';
 
 /* The Content Planner editor (planner prompt 2), one page per client at
@@ -39,7 +41,8 @@ import ListSearch from '../components/ListSearch';
  */
 
 const SITE = 'https://visualizestudio.org';
-const DEFAULT_PLANNER = { enabled: false, postsPerMonth: 8, welcome: '' };
+const DEFAULT_PLANNER = { enabled: false, postsPerMonth: 8, welcome: '', hashtagSets: [] };
+const SETS_MAX = 10;
 
 const monthKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 const thisMonth = () => monthKey(new Date());
@@ -70,7 +73,29 @@ function pickWritable(p) {
     enabled: !!p.enabled,
     postsPerMonth: Number(p.postsPerMonth) || 8,
     welcome: String(p.welcome || ''),
+    /* Planner v2: Rob's hashtag sets, chips in the editor that append a set to a post's hashtags. */
+    hashtagSets: Array.isArray(p.hashtagSets) ? p.hashtagSets.map(x => ({ id: String(x.id || ''), name: String(x.name || ''), tags: String(x.tags || '') })) : [],
   };
+}
+/** The Setup step's hashtag sets: add, rename, edit, delete. The route keeps ten at most and drops one with no tags. */
+function HashtagSets({ sets, onChange, readOnly }) {
+  const write = (i, patch) => onChange(sets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  return (
+    <div className="v-field pl-sets">
+      <span className="v-field-label">Hashtag sets</span>
+      <p className="pl-note">A set is a chip in the post editor that adds its tags to the post. Up to {SETS_MAX}.</p>
+      {sets.map((x, i) => (
+        <Card key={x.id || i} level={2} padding={3} className="pl-set">
+          <Row gap={2} align="end" wrap={false}>
+            <div style={{ flex: 1, minWidth: 0 }}><Input label="Name" value={x.name} maxLength={40} disabled={readOnly} onChange={(e) => write(i, { name: e.target.value.slice(0, 40) })} placeholder="Coffee" /></div>
+            {!readOnly && <IconButton icon="Trash01" label={`Delete the ${x.name || 'unnamed'} set`} variant="ghost" onClick={() => onChange(sets.filter((_, j) => j !== i))} />}
+          </Row>
+          <Textarea label="Tags" rows={2} maxLength={500} value={x.tags} disabled={readOnly} onChange={(e) => write(i, { tags: e.target.value.slice(0, 500) })} placeholder="#coffee #latte #philly" />
+        </Card>
+      ))}
+      {!readOnly && sets.length < SETS_MAX && <Button variant="secondary" size="md" icon="Plus" className="pl-set-add" onClick={() => onChange([...sets, { id: `hs${Date.now().toString(36)}`, name: '', tags: '' }])}>Add a set</Button>}
+    </div>
+  );
 }
 const samePlanner = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -105,6 +130,8 @@ const postDraftOf = (p) => Object.fromEntries(POST_FIELDS.map(k => [k, p?.[k] ??
 /* An idea's goal, in the ad's terms, when Rob makes an ad from it. */
 const IDEA_GOAL = { calls: 'calls', offer: 'offer', work: 'awareness', slow: 'visits', other: 'awareness' };
 const AD_FROM_IDEA = (s, date) => ({ name: s.subject || '', goal: IDEA_GOAL[s.goal] || 'awareness', audience: '', placements: ['feed'], buttonText: '', link: s.link || '', startDate: date, endDate: '', budget: '', showBudget: false, results: { reach: '', clicks: '', messages: '', spend: '' } });
+/** Today as a key in the browser's zone (the board's Goes up today). */
+const dayKeyLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const samePost = (a, b) => POST_FIELDS.every(k => JSON.stringify(a?.[k] ?? '') === JSON.stringify(b?.[k] ?? ''));
 
 /* ── The invite card ──────────────────────────────────────────────── */
@@ -144,87 +171,6 @@ function InviteCard({ planner, url, lead, onSent, onRegenerate, readOnly }) {
       )}
       {confirmDialog}
     </Card>
-  );
-}
-
-/* ── One row in the month ─────────────────────────────────────────── */
-function PostRow({ post, draft, client, onOpen, onMove, onSendForApproval, first, last, readOnly, dragProps }) {
-  const p = { ...post, ...draft };
-  const st = postStatusOf(p.status);
-  const fmt = postFormatOf(formatOf(p));
-  const kind = kindOf(p);
-  const kd = postKindOf(kind);
-  const thumb = p.imageUrl || p.video?.poster || '';
-  const label = kind === 'ad' && p.ad?.name ? p.ad.name : postLabel(p);
-  /* Up to two platform icons on a row; a third and a fourth become "+1" and
-     "+2" rather than four icons crowding the date. */
-  const platforms = platformsOf(p).map(platformOf);
-  const shown = platforms.slice(0, 2);
-  const extra = platforms.length - shown.length;
-  const missing = missingForReview(p);
-  const [natural, setNatural] = useState(null);
-  const mismatch = natural ? aspectNote(formatOf(p), natural.w, natural.h) : '';
-  const note = post.clientNote;
-  /* A note is news while the post is back in `making`; once it has gone up
-   * for review again it stays on the record as history. */
-  const noteIsNew = note && post.status === 'making';
-  /* A phone: drag right sends a finished post for the client's approval (the same status change as the post sheet's, and the menu has it). */
-  const canSend = !readOnly && p.status === 'making' && missing.length === 0 && !!onSendForApproval;
-  return (
-    <SwipeRow right={canSend ? { label: 'Send for approval', icon: 'Send01', tone: 'primary', onCommit: onSendForApproval } : undefined} enabled={!!onSendForApproval}>
-    <Card as="div" padding={3} interactive className="pl-post" {...dragProps}>
-      <button type="button" className="v-stretch" onClick={onOpen} aria-label={`Edit the ${label}${kind === 'ad' ? ' ad' : ''}`}>{`Edit the ${label}`}</button>
-      <Row gap={3} align="start" wrap={false} style={{ minWidth: 0 }}>
-        <span className={`img-fit ${fmt.aspect} pl-thumb`}>
-          {thumb
-            ? <img src={thumb} alt="" width={144} height={144} loading="lazy" decoding="async"
-                onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
-            : <span className="pl-thumb-empty" aria-hidden="true"><Icon icon={formatOf(p) === 'video' ? 'Play' : 'Image01'} size="var(--v-icon-md)" /></span>}
-        </span>
-        <Stack gap={1} style={{ flex: 1, minWidth: 0 }}>
-          <Row gap={2} align="center" wrap>
-            <span className="pl-post-when">{postDateLabel(p.date) || 'No date'}{p.time ? `, ${p.time}` : ''}</span>
-            <span className="pl-plats" title={platforms.map(x => x.label).join(', ')}>
-              {shown.map(x => <span key={x.id} className="pl-plat" style={{ '--sc': x.color }}><Icon icon={x.icon} size={13} /></span>)}
-              {extra > 0 && <span className="pl-plat pl-plat--more">+{extra}</span>}
-              <span className="visually-hidden">{platforms.map(x => x.label).join(', ')}</span>
-            </span>
-            {kind === 'ad' && <Pill label={kd.label} icon={kd.icon} size="sm" variant="solid" style={{ '--sc': kd.color }} />}
-            <Pill label={fmt.label} icon={fmt.icon} size="sm" variant="soft" style={{ '--sc': fmt.color }} />
-            <Pill label={st.label} icon={st.icon} size="sm" variant={p.status === 'review' ? 'solid' : 'soft'} style={{ '--sc': st.color }} />
-            {/* A post sitting with a client that they cannot act on is stuck,
-                not waiting, so the row says so and names what it needs. */}
-            {p.status === 'review' && missing.length > 0 && (
-              <Pill tone="danger" label="Not ready" icon="AlertTriangle" size="sm" variant="solid" title={`Needs ${listPhrase(missing)}.`} />
-            )}
-          </Row>
-          <span className="pl-post-label lay-truncate">{kind === 'ad' && p.ad?.startDate ? `${label}, ${postDateLabel(p.ad.startDate)}${p.ad.endDate ? ` to ${postDateLabel(p.ad.endDate)}` : ''}` : label}</span>
-          {p.status === 'review' && missing.length > 0 && <span className="pl-missing">Needs {listPhrase(missing)}.</span>}
-          {/* Not a problem, just worth knowing: he may have meant it. */}
-          {mismatch && <span className="pl-mismatch">{mismatch}</span>}
-          {note && (
-            <div className={`pl-clientnote${noteIsNew ? ' is-new' : ''}`}>
-              <Row gap={2} align="center" wrap>
-                <Icon icon="MessageCircle01" size={14} />
-                <span className="pl-clientnote-who">{noteIsNew ? `${client} asked for a change` : `${client} asked for a change, handled`}</span>
-                {post.clientNoteAt && <span className="dt-muted">{fmtDateTime(post.clientNoteAt)}</span>}
-              </Row>
-              <p className="pl-clientnote-body">{note}</p>
-            </div>
-          )}
-        </Stack>
-        {!readOnly && (
-          <Menu label={`${postLabel(p)} actions`} items={[
-            { id: 'up', label: 'Move up', icon: 'ChevronLeft', disabled: first, onSelect: () => onMove(-1) },
-            { id: 'down', label: 'Move down', icon: 'ChevronDown', disabled: last, onSelect: () => onMove(1) },
-            'divider',
-            ...(canSend ? [{ id: 'send', label: 'Send for approval', icon: 'Send01', onSelect: onSendForApproval }] : []),
-            { id: 'edit', label: kind === 'ad' ? 'Edit ad' : 'Edit post', icon: 'Edit02', onSelect: onOpen },
-          ]} />
-        )}
-      </Row>
-    </Card>
-    </SwipeRow>
   );
 }
 
@@ -284,19 +230,21 @@ function IdeaRow({ s, busy, readOnly, onMake, onDecline }) {
 export default function AdminPlanner({
   lead, posts = [], loading = false, error = false, onRetry, leadsError = false, onRetryLeads, onPatch, onRefetchLead,
   onCreatePost, onPatchPost, onDeletePost, onBack, month: monthProp, readOnly = false,
-  suggestions = [], onPatchSuggestion, openIdeas = false,
+  suggestions = [], onPatchSuggestion, openIdeas = false, postId = '', onSendReview, onOpenPostPath,
 }) {
   const toast = useToast();
   const shell = useShell();
   const [confirm, confirmDialog] = useConfirm();
   const showSkel = useDelayedLoading(loading);
-  const desktop = useMediaQuery('(hover: hover) and (pointer: fine)');
 
   const [month, setMonth] = useState(() => monthProp || thisMonth());
   const [openId, setOpenId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
-  const drag = useRef(null);
+  /* The month board (Planner v2, part 2): Board, Calendar or Ideas, and the column a phone shows. The ideas push lands on Ideas. */
+  const [view, setView] = useState(openIdeas ? 'ideas' : 'board');
+  const [boardPick, setBoardPick] = useState('making');
+  const [sending, setSending] = useState(false);
 
   const saved = useMemo(() => plannerDraftOf(lead), [lead]);
   const [draft, setDraft] = useState(saved);
@@ -401,14 +349,40 @@ export default function AdminPlanner({
   const phone = useMediaQuery('(max-width: 767px)');
   const { selId: step, open: openStep, close: closeStep } = useSelection('planner-step');
   const inStep = phone && !!step;
-  useTopBar({ title: inStep ? step : (lead?.business || 'Planner'), back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : undefined });
+  /* The editor (Planner v2, part 2): a side panel on a computer; on a phone a pushed screen of its own, /clients/:id/planner/:postId
+     (src/shell/backTree.js backs it to the planner), so the phone's Back and the top bar's Back close it. */
+  const composing = phone && !!postId;
+  const composerPost = composing ? mine.find(p => String(p._id) === String(postId)) || null : null;
+  const openPost = useCallback((p) => {
+    if (phone && onOpenPostPath && lead) onOpenPostPath(String(lead._id), String(p._id));
+    else setOpenId(String(p._id));
+  }, [phone, onOpenPostPath, lead]);
+  const closePost = useCallback(() => { if (composing) onBack?.(); else setOpenId(null); }, [composing, onBack]);
+  useEffect(() => { try { document.querySelector('.pl-scroll')?.scrollTo({ top: 0 }); } catch { /* old browsers */ } }, [composing, postId]);
+  /* A phone's toolbar collapses into the top bar's one declared action (the chrome rule: Back plus one) and the month's menu: Send n for
+     approval when something is ready, else New post; New post, Copy across, Add ad and Add reel are always in the menu. */
+  const sendCount = useMemo(() => postsOf(posts, lead?._id).filter(p => p.month === month).map(p => ({ ...p, ...(postDrafts[String(p._id)] || {}) })).filter(sendable).length, [posts, lead, month, postDrafts]);
+  const rootActions = phone && !readOnly && lead?.planner?.enabled ? [
+    sendCount ? { id: 'send', label: `Send ${sendCount} for approval`, icon: 'Send01', onClick: () => sendBatchRef.current?.() } : { id: 'new', label: 'New post', icon: 'Plus', onClick: () => addPostRef.current?.() },
+  ] : undefined;
+  const sendBatchRef = useRef(null);
+  const addPostRef = useRef(null);
+  useTopBar(composing
+    ? { title: composerPost ? (kindOf(composerPost) === 'ad' && composerPost.ad?.name ? composerPost.ad.name : postLabel(composerPost)) : 'Post', back: closePost }
+    : { title: inStep ? step : (lead?.business || 'Planner'), back: inStep ? closeStep : leave, actions: inStep ? [{ id: 'done', label: 'Done', icon: 'Check', onClick: closeStep }] : rootActions });
   /* The push for a new idea lands on ?ideas=1: on a phone that is the Ideas step, on a computer the inbox is already on the page. */
-  const ideasOpened = useRef(false);
+  useEffect(() => { if (openIdeas) setView('ideas'); }, [openIdeas]);
+  /* Opening the Ideas view is Rob seeing them: each idea he has not seen yet is stamped seenAt (the client's tracker reads it). */
+  const stamped = useRef(new Set());
   useEffect(() => {
-    if (!openIdeas || ideasOpened.current || !lead || !phone) return;
-    ideasOpened.current = true;
-    openStep('Ideas');
-  }, [openIdeas, lead, phone, openStep]);
+    if (view !== 'ideas' || readOnly || !onPatchSuggestion) return;
+    for (const s of ideas) {
+      const id = String(s._id);
+      if (s.seenAt || stamped.current.has(id)) continue;
+      stamped.current.add(id);
+      onPatchSuggestion(id, { seenAt: true });
+    }
+  }, [view, ideas, readOnly, onPatchSuggestion]);
 
   // Cmd+S / Ctrl+S, and the browser's own guard for closing the tab.
   useEffect(() => {
@@ -435,10 +409,11 @@ export default function AdminPlanner({
       ...(kind === 'ad' ? { ad: AD_FROM_IDEA({ subject: '', goal: 'other' }, date) } : {}),
     });
     setBusy(false);
-    if (item) { setFreshId(String(item._id)); setOpenId(String(item._id)); toast.success(kind === 'ad' ? 'Ad added.' : format === 'video' ? 'Video added.' : 'Post added.'); }
+    if (item) { setFreshId(String(item._id)); openPost(item); toast.success(kind === 'ad' ? 'Ad added.' : format === 'video' ? 'Reel added.' : 'Post added.'); }
     else toast.error(COPY.error.save);
-  }, [lead, busy, month, monthPosts.length, onCreatePost, toast]);
+  }, [lead, busy, month, monthPosts.length, onCreatePost, toast, openPost]);
   const addPost = useCallback(() => addItem({}), [addItem]);
+  addPostRef.current = addPost;
 
   /* An idea becomes a draft: the brief prefills it, the idea is marked In
      the plan with the post's id, and the editor opens on it. */
@@ -459,11 +434,11 @@ export default function AdminPlanner({
     if (item) {
       const marked = await onPatchSuggestion?.(String(s._id), { status: 'planned', postId: String(item._id), seenAt: new Date().toISOString() });
       if (m !== month) setMonth(m);
-      setFreshId(String(item._id)); setOpenId(String(item._id));
-      toast.success(`${what === 'ad' ? 'Ad' : what === 'video' ? 'Video' : 'Post'} made from their idea.${marked === false ? ' The idea could not be marked.' : ' They see it as In the plan.'}`);
+      setFreshId(String(item._id)); openPost(item);
+      toast.success(`${what === 'ad' ? 'Ad' : what === 'video' ? 'Reel' : 'Post'} made from their idea.${marked === false ? ' The idea could not be marked.' : ' They see it as In the plan.'}`);
     } else toast.error(COPY.error.save);
     setBusy(false);
-  }, [lead, busy, month, monthPosts.length, onCreatePost, onPatchSuggestion, toast]);
+  }, [lead, busy, month, monthPosts.length, onCreatePost, onPatchSuggestion, toast, openPost]);
   const declineIdea = useCallback(async (s, note) => {
     if (busy) return;
     setBusy(true);
@@ -475,11 +450,11 @@ export default function AdminPlanner({
   const removePost = useCallback(async (post) => {
     const yes = await confirm({ title: 'Delete this post?', body: 'It disappears from their planner. You can still get it back from Recently deleted.', confirmLabel: 'Delete', danger: true });
     if (!yes) return;
-    setOpenId(null);
+    closePost();
     setPostDrafts(m => { const n = { ...m }; delete n[String(post._id)]; return n; });
     const ok = await onDeletePost(String(post._id));
     if (ok) toast.success('Post deleted.'); else toast.error(COPY.error.save);
-  }, [confirm, onDeletePost, toast]);
+  }, [confirm, onDeletePost, toast, closePost]);
 
   const copyLastMonth = useCallback(async () => {
     if (!lead || busy) return;
@@ -503,20 +478,44 @@ export default function AdminPlanner({
     else toast.error(COPY.error.save);
   }, [lead, busy, month, mine, onCreatePost, toast]);
 
-  const movePost = useCallback((post, by) => {
-    const i = monthPosts.findIndex(p => String(p._id) === String(post._id));
-    const j = i + by;
-    if (i < 0 || j < 0 || j >= monthPosts.length) return;
-    const other = monthPosts[j];
-    const mineOrder = (postDrafts[String(post._id)]?.order ?? post.order) || 0;
-    const theirOrder = (postDrafts[String(other._id)]?.order ?? other.order) || 0;
-    // Swapping equal orders would do nothing, so fall back to their indexes.
-    const a = mineOrder === theirOrder ? i : mineOrder;
-    const b = mineOrder === theirOrder ? j : theirOrder;
-    writePost(post._id, { order: b });
-    writePost(other._id, { order: a });
-  }, [monthPosts, postDrafts, writePost]);
+  /* A move on the board is a status change, drafted like any edit so the card moves now and autosave writes it. Marked posted by Rob says so. */
+  const movePostTo = useCallback((post, status) => {
+    writePost(post._id, { status, ...(status === 'posted' ? { postedBy: 'rob' } : {}) });
+    const name = lead?.showcase?.displayName || lead?.business || 'the client';
+    toast.success(status === 'review' ? `Sent to ${name} for approval.` : status === 'making' ? 'Back to Making.' : status === 'approved' ? 'Marked approved.' : status === 'posted' ? 'Marked posted.' : status === 'live' ? 'Marked live.' : 'Marked finished.');
+  }, [writePost, lead, toast]);
 
+  /* The batch send (Planner v2, part 2): every Making post with a picture or a video and a caption goes to review in one request, so the
+     client gets one change. Unsaved edits on those posts are saved first; Undo through the toast puts them back to Making. */
+  const sendBatch = useCallback(async () => {
+    if (!lead || sending || !onSendReview) return;
+    const ids = monthPosts.map(p => ({ ...p, ...(postDrafts[String(p._id)] || {}) })).filter(sendable).map(p => String(p._id));
+    if (!ids.length) return;
+    setSending(true);
+    if (changedPosts.length) await save({ quiet: true });
+    const moved = await onSendReview(String(lead._id), ids);
+    setSending(false);
+    if (!moved) { toast.error(COPY.error.save); return; }
+    setPostDrafts(m => { const n = { ...m }; for (const id of moved) if (n[id]) { const { status, ...rest } = n[id]; n[id] = rest; void status; } return n; });
+    const name = lead.showcase?.displayName || lead.business || 'the client';
+    if (!moved.length) { toast.info('Nothing was ready to send.'); return; }
+    toast.undo(`Sent ${moved.length} to ${name} for approval.`, async () => {
+      let back = 0;
+      for (const id of moved) if (await onPatchPost(id, { status: 'making' })) back += 1;
+      if (back === moved.length) toast.success('Back to Making.'); else toast.error(COPY.error.save);
+    }, { seconds: 8 });
+  }, [lead, sending, onSendReview, monthPosts, postDrafts, changedPosts.length, save, onPatchPost, toast]);
+  sendBatchRef.current = sendBatch;
+
+  /* The editor's own skeleton on a phone (Planner v2): one form card where the editor's first block sits, whether the client or the
+     post is what is still loading. The form's length depends on the post, unknown until it loads. */
+  const composerSkeleton = (
+    <PageShell className="aa-main aa-main--wide pl-page">
+      <ScrollArea wide className="pl-scroll"><div className="pl-page-body"><Card aria-busy="true"><SkeletonText lines={10} /></Card></div></ScrollArea>
+      <style>{plStyles}</style>
+    </PageShell>
+  );
+  if (!lead && phone && postId && !leadsError) return composerSkeleton;
   if (!lead) {
     return (
       <PageShell className="aa-main aa-main--wide">
@@ -557,6 +556,7 @@ export default function AdminPlanner({
                 <Textarea label="Welcome message" rows={3} maxLength={300} value={draft.welcome} disabled={readOnly}
                   onChange={(e) => setPlanner({ welcome: e.target.value.slice(0, 300) })}
                   hint={`Appears at the top of their planner. ${draft.welcome.length} of 300.`} />
+                <HashtagSets sets={draft.hashtagSets || []} readOnly={readOnly} onChange={(next) => setPlanner({ hashtagSets: next })} />
               </Card>
   );
   const inviteCard = (draft.enabled && url) ? <InviteCard planner={lead.planner || {}} url={url} lead={lead} readOnly={readOnly}
@@ -566,7 +566,9 @@ export default function AdminPlanner({
                   if (ok) { await onRefetchLead?.(); toast.success('New link made. The old one stopped working.'); }
                   else toast.error(COPY.error.save);
                 }} /> : null;
-  const open = openId ? monthPosts.find(p => String(p._id) === openId) || mine.find(p => String(p._id) === openId) : null;
+  const composerId = phone && postId ? postId : openId;
+  const open = composerId ? monthPosts.find(p => String(p._id) === composerId) || mine.find(p => String(p._id) === composerId) : null;
+  const hashtagSets = (draft.hashtagSets || []).filter(x => String(x.tags || '').trim()); // the Setup step's sets, as typed: a new one is a chip before autosave lands
   const ideasCard = (
               <Card className="pl-ideas">
                 <Row gap={2} align="center" justify="between" wrap>
@@ -582,20 +584,56 @@ export default function AdminPlanner({
               </Card>
   );
 
+  /* The board's view of the month: every post with its unsaved edits, so a move shows before autosave writes it. */
+  const monthItems = monthPosts.map(p => ({ ...p, ...(postDrafts[String(p._id)] || {}) }));
+  const act = activityOf(monthItems, { postsPerMonth: cap, ideas });
+  const approves = approvalLine(approvalDays(mine));
+  const quiet = [lead.planner?.lastViewedAt ? `Opened the planner ${relativeTime(lead.planner.lastViewedAt)}` : 'Not opened yet', approves].filter(Boolean).join(', ');
+  const ctx = { lastViewedAt: lead.planner?.lastViewedAt || '', now: Date.now(), today: dayKeyLocal(new Date()) };
+  const toSend = monthItems.filter(sendable);
+  const viewOptions = [{ id: 'board', label: 'Board' }, { id: 'calendar', label: 'Calendar' }, { id: 'ideas', label: `Ideas · ${ideas.length}` }];
+  const previewUrl = token ? `/planner/${token}` : '';
+  const pickStrip = (id) => { if (id === 'ideas') { setView('ideas'); return; } setView('board'); setBoardPick(id); };
+  const lastLabel = monthLabel(shiftMonth(month, -1)).split(' ')[0];
+
+  /* A phone with a post open: the editor is the screen (its own path); the board is one Back away. */
+  if (composing && showSkel) return composerSkeleton;
+  if (composing) {
+    return (
+      <PageShell className="aa-main aa-main--wide pl-page">
+        <ScrollArea wide className="pl-scroll">
+          <div className="pl-page-body">
+            <Stagger className="v-stack">
+              {open
+                ? <PostSheet post={open} draft={postDrafts[String(open._id)] || {}} client={name} lastHashtags={lastHashtags} hashtagSets={hashtagSets} previewUrl={previewUrl}
+                    readOnly={readOnly} asPage focusImage={!!freshId && String(open._id) === freshId} onWrite={(next) => writePost(open._id, next)} onDelete={() => removePost(open)} onClose={closePost} />
+                : <Card><EmptyState icon="Image01" title="That post is not here" description="It may have been deleted, or it belongs to another month." action={<Button onClick={closePost}>Back to the planner</Button>} /></Card>}
+            </Stagger>
+          </div>
+        </ScrollArea>
+        <SaveChip status={saveStatus} />
+        {confirmDialog}
+        <style>{saveBarStyles + imageFieldStyles + videoFieldStyles + postSheetStyles + plStyles}</style>
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell className="aa-main aa-main--wide pl-page sb-host">
       <ScrollArea wide className="pl-scroll">
         <div className="pl-topbar">
           <Row gap={2} align="center" justify="between" wrap>
-            <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
-              <h1 className="pl-page-title lay-title">{name}</h1>
-              <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
-                variant={draft.enabled && !waiting ? 'solid' : 'soft'}
-                label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />
-              {newIdeas > 0 && <Pill tone="new" size="sm" icon="Lightbulb02" variant="solid" label={`${newIdeas} idea${newIdeas === 1 ? '' : 's'}`} className="pl-ideas-pill" />}
-            </Row>
-            <Button variant="secondary" icon="LinkExternal01" disabled={!url}
-              onClick={() => window.open(`/api/planner?token=${encodeURIComponent(token)}&month=${month}`, '_blank', 'noopener')}>Preview</Button>
+            <Stack gap={0} style={{ minWidth: 0 }}>
+              <Row gap={2} align="center" wrap style={{ minWidth: 0 }}>
+                <h1 className="pl-page-title lay-title">{name}</h1>
+                <Pill tone={!draft.enabled ? 'neutral' : waiting ? 'new' : 'booked'} size="sm" icon={false}
+                  variant={draft.enabled && !waiting ? 'solid' : 'soft'}
+                  label={!draft.enabled ? 'Off' : waiting ? `${waiting} in review` : 'On'} />
+              </Row>
+              {draft.enabled && <span className="pl-quiet">{quiet}</span>}
+            </Stack>
+            <Button variant="secondary" icon="LinkExternal01" disabled={!previewUrl} className="pl-preview"
+              onClick={() => window.open(previewUrl, '_blank', 'noopener')}>Preview as {name}</Button>
           </Row>
         </div>
 
@@ -603,22 +641,23 @@ export default function AdminPlanner({
           {error && !mine.length ? (
             <Card><ErrorState title={COPY.error.posts.title} description={COPY.error.posts.description} onRetry={onRetry} /></Card>
           ) : showSkel ? (
-            <Stack gap={3} aria-busy="true">{[1, 2, 3].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}</Stack>
+            <Stack gap={3} aria-busy="true">
+              <Grid minColumnWidth={150} gap={2}>{[1, 2, 3, 4].map(i => <Card key={i}><SkeletonText lines={2} /></Card>)}</Grid>
+              {[1, 2].map(i => <Card key={i}><SkeletonText lines={3} /></Card>)}
+            </Stack>
           ) : (
             <Stagger className="v-stack" style={{ gap: 'var(--v-space-4)' }}>
-              {(!phone || step === 'Setup') && setupCard}
-              {(!phone || step === 'Link') && inviteCard}
-              {((!phone && (ideas.length > 0 || draft.enabled)) || step === 'Ideas') && ideasCard}
+              {!inStep && draft.enabled && <ActivityStrip act={act} client={name} onPick={pickStrip} />}
               {phone && !step && (
                 <Stack gap={2}>
                   <ListRow title="Setup" subtitle={!draft.enabled ? 'Off' : `On, ${cap} a month`} onClick={() => openStep('Setup')} />
                   {draft.enabled && url && <ListRow title="Client link" subtitle="Share or regenerate" onClick={() => openStep('Link')} />}
-                  <ListRow title="Ideas" subtitle={newIdeas ? `${newIdeas} new` : ideas.length ? `${ideas.length} answered` : 'None yet'} onClick={() => openStep('Ideas')}
-                    trailing={newIdeas ? <Pill tone="new" size="sm" icon={false} variant="solid" label={String(newIdeas)} /> : undefined} />
                 </Stack>
               )}
+              {phone && step === 'Setup' && setupCard}
+              {phone && step === 'Link' && inviteCard}
 
-              {!inStep && (<>
+              {!inStep && (
               <Card className="pl-month">
                 <Row gap={2} align="center" justify="between" wrap>
                   <Row gap={1} align="center">
@@ -627,45 +666,38 @@ export default function AdminPlanner({
                     <IconButton icon="ChevronDown" label="Next month" variant="ghost" className="pl-next" onClick={() => setMonth(m => shiftMonth(m, 1))} />
                   </Row>
                   {!readOnly && (
-                    <Row gap={2} align="center" wrap>
+                    <Row gap={2} align="center" wrap className="pl-toolbar">
+                      {!phone && <Button variant="secondary" size="md" icon="Copy01" onClick={copyLastMonth} disabled={busy} className="pl-copy-across">Copy {lastLabel} across</Button>}
                       <Menu label="Month actions" items={[
-                        { id: 'copy', label: `Copy ${monthLabel(shiftMonth(month, -1))} across`, icon: 'Copy01', onSelect: copyLastMonth },
-                        'divider',
-                        { id: 'add', label: 'Add post', icon: 'Plus', onSelect: addPost },
+                        ...(phone ? [{ id: 'new', label: 'New post', icon: 'Plus', onSelect: addPost }, { id: 'copy', label: `Copy ${lastLabel} across`, icon: 'Copy01', onSelect: copyLastMonth }, 'divider'] : []),
                         { id: 'add-ad', label: 'Add ad', icon: 'Zap', onSelect: () => addItem({ kind: 'ad' }) },
-                        { id: 'add-video', label: 'Add video', icon: 'Play', onSelect: () => addItem({ format: 'video' }) },
+                        { id: 'add-video', label: 'Add reel', icon: 'Play', onSelect: () => addItem({ format: 'video' }) },
                       ]} />
                       {monthReady && <Button variant="secondary" size="md" icon="Mail01" onClick={draftReadyEmail} className="pl-ready-email">Draft the month ready email</Button>}
-                      <Button size="md" icon="Plus" onClick={addPost} loading={busy} className="pl-add">Add post</Button>
+                      {!phone && <Button variant="secondary" size="md" icon="Plus" onClick={addPost} loading={busy} className="pl-add">New post</Button>}
+                      {!phone && toSend.length > 0 && <Button size="md" icon="Send01" onClick={sendBatch} loading={sending} className="pl-send-batch">Send {toSend.length} for approval</Button>}
                     </Row>
                   )}
                 </Row>
+                <SegmentedControl label="View" options={viewOptions} value={view} onChange={setView} full={phone} className="pl-views" />
                 <ProgressBar value={cap ? Math.min(100, (monthPostCount / cap) * 100) : 0}
                   tone={monthPostCount >= cap ? 'booked' : 'progress'}
                   label={`${monthPostCount} of ${cap} posts${monthAdCount ? `, ${monthAdCount} ad${monthAdCount === 1 ? '' : 's'}` : ''}`} />
               </Card>
+              )}
 
-              {!monthPosts.length ? (
+              {!inStep && view !== 'ideas' && !monthPosts.length && (
                 <Card><EmptyState icon="Calendar" title={COPY.empty['planner.month'].title} description={COPY.empty['planner.month'].description}
                   action={readOnly ? undefined : { label: COPY.empty['planner.month'].action, onClick: addPost }} /></Card>
-              ) : (
-                <Stack gap={2} className="pl-list">
-                  {monthPosts.map((p, i) => (
-                    <PostRow key={p._id} post={p} draft={postDrafts[String(p._id)]} client={name}
-                      first={i === 0} last={i === monthPosts.length - 1} readOnly={readOnly}
-                      onOpen={() => setOpenId(String(p._id))}
-                      onSendForApproval={phone ? () => { writePost(p._id, { status: 'review' }); toast.info(`${postLabel(p)} is ready to send. Save to send it.`); } : undefined}
-                      onMove={(by) => movePost(p, by)}
-                      dragProps={!readOnly && desktop ? {
-                        draggable: true,
-                        onDragStart: () => { drag.current = i; },
-                        onDragOver: (e) => e.preventDefault(),
-                        onDrop: () => { const from = drag.current; drag.current = null; if (from == null || from === i) return; movePost(monthPosts[from], i - from); },
-                      } : {}} />
-                  ))}
-                </Stack>
               )}
-              </>)}
+              {!inStep && view === 'board' && monthPosts.length > 0 && (
+                <Board posts={monthItems} client={name} ctx={ctx} readOnly={readOnly} phone={phone} pick={boardPick} onPick={setBoardPick}
+                  onOpen={(p) => openPost(p)} onMove={movePostTo} />
+              )}
+              {!inStep && view === 'calendar' && monthPosts.length > 0 && <MonthCalendar posts={monthItems} month={month} phone={phone} onOpen={(p) => openPost(p)} />}
+              {!inStep && view === 'ideas' && ideasCard}
+
+              {!phone && <Grid minColumnWidth={320} gap={4} className="pl-setup-grid">{setupCard}{inviteCard}</Grid>}
             </Stagger>
           )}
         </div>
@@ -677,17 +709,19 @@ export default function AdminPlanner({
           draft={postDrafts[String(open._id)] || {}}
           client={name}
           lastHashtags={lastHashtags}
+          hashtagSets={hashtagSets}
+          previewUrl={previewUrl}
           readOnly={readOnly}
           focusImage={!!freshId && String(open._id) === freshId}
           onWrite={(next) => writePost(open._id, next)}
           onDelete={() => removePost(open)}
-          onClose={() => setOpenId(null)}
+          onClose={closePost}
         />
       )}
 
       <SaveChip status={saveStatus} />
       {confirmDialog}
-      <style>{saveBarStyles + imageFieldStyles + videoFieldStyles + postSheetStyles + plStyles}</style>
+      <style>{saveBarStyles + imageFieldStyles + videoFieldStyles + postSheetStyles + plannerBoardStyles + plStyles}</style>
     </PageShell>
   );
 }
@@ -701,6 +735,11 @@ const plStyles = `
     border-bottom: 1px solid var(--v-border-1);
   }
   .pl-page-title { font-size: var(--v-text-lg); font-weight: 700; color: var(--v-text-1); margin: 0; min-width: 0; }
+  .pl-quiet { font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-3); }
+  .pl-month { gap: var(--v-space-3); }
+  .pl-views { align-self: flex-start; max-width: 100%; }
+  .pl-preview { max-width: 100%; flex-shrink: 1; min-width: 0; }
+  .pl-setup-grid { align-items: start; }
   .pl-page-body { padding-top: var(--v-space-4); }
   .pl-note { margin: var(--v-space-1) 0 0; font-size: var(--v-text-xs); color: var(--v-text-3); }
   .pl-month-name { font-size: var(--v-text-md); font-weight: var(--v-weight-bold); color: var(--v-text-1); min-width: 8ch; }

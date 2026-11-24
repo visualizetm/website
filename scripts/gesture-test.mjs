@@ -193,6 +193,22 @@ await step('long press opens a client sheet and a project sheet', async (page) =
   await page.waitForSelector('[role="dialog"]', { timeout: 3000 }); need(/Open the client/.test(await page.locator('[role="dialog"]').innerText()), 'the project sheet has no Open');
   return 'client and project sheets';
 });
+/* Planner v2: a board card on a phone. A long press opens its moves (the same items as the card's menu, the visible equivalent), and the
+   tap that follows does not open the editor; a drag never moves a card on a phone. */
+await step('long press on a planner board card opens its moves, and the tap after does not open the editor', async (page) => {
+  const g = await open(page, '/admin/clients/L11/planner');
+  await page.locator('.pb-card').first().waitFor({ timeout: 5000 });
+  await page.locator('.pb-stack .v-swipe').first().scrollIntoViewIfNeeded(); await g.wait(400);
+  const box = await page.locator('.pb-stack .v-swipe').first().boundingBox();
+  need(box, 'no board card on the phone');
+  await g.t('touchStart', box.x + 60, box.y + 20); await g.wait(700); await g.t('touchEnd'); await g.wait(500);
+  await page.waitForSelector('[role="dialog"]', { timeout: 3000 });
+  const t = await page.locator('[role="dialog"]').innerText();
+  need(/Edit/.test(t) && /for approval|Back to Making|Mark approved/.test(t), `the sheet lacks the moves: ${t.slice(0, 90)}`);
+  need(!/\/planner\/[^/?]+/.test(new URL(page.url()).pathname.replace('/admin', '')), `the long press opened the editor (${page.url()})`);
+  need(await page.locator('.pb-card button[aria-haspopup]').count() > 0, 'the cards have no menu, so the long press has no visible equivalent');
+  return 'the moves sheet, the editor stayed shut, the menu is on every card';
+});
 await step('a row swipe does not fire on a sideways scroller', async (page) => {
   const writes = []; page.on('request', r => { if (r.method() === 'PATCH') writes.push(r.url()); });
   const g = await open(page, '/admin/leads'); await g.wait(1500); writes.length = 0;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sheet, Stack, Row, Grid, Card, Button, Input, Textarea, Select, ChipGroup, Pill, Toggle, SegmentedControl, Icon } from '../ui';
+import { Sheet, Stack, Row, Grid, Card, Button, Input, Textarea, Select, Chip, ChipGroup, Pill, Toggle, SegmentedControl, Icon } from '../ui';
 import { PLATFORMS, POST_FORMATS, POST_KINDS, AD_GOALS, AD_PLACEMENTS, postStatusOf, postFormatOf } from '../shared/semantics';
 import { fmtDateTime } from '../shared/dates';
 import { postLabel, platformsOf, formatOf, kindOf, hashtagsOf, missingForReview, listPhrase, aspectNote } from '../lib/posts';
@@ -180,7 +180,22 @@ function AdSection({ ad, readOnly, onWrite }) {
   );
 }
 
-export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose, lastHashtags = '', focusImage = false }) {
+/* The client's change reasons (Planner v2), in Rob's words on the amber card. */
+const REASON_LABEL = { photo: 'Different photo', words: 'Change the words', date: 'Wrong date', other: 'Something else' };
+/** One hashtag set appended to what is there, each tag once (the route normalises again on save). */
+export function appendTags(current, add) {
+  const seen = new Set();
+  const out = [];
+  for (const raw of `${current || ''} ${add || ''}`.split(/\s+/)) {
+    const word = raw.replace(/^#+/, '').trim();
+    if (!word || seen.has(word.toLowerCase())) continue;
+    seen.add(word.toLowerCase());
+    out.push(`#${word}`);
+  }
+  return out.join(' ').slice(0, 500);
+}
+
+export default function PostSheet({ post, draft = {}, client, readOnly = false, onWrite, onDelete, onClose, lastHashtags = '', focusImage = false, hashtagSets = [], previewUrl = '', asPage = false }) {
   const p = { ...post, ...draft };
   const kind = kindOf(p);
   const st = postStatusOf(p.status);
@@ -217,34 +232,39 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
     if (k === 'ad' && !p.ad) patch.ad = { ...AD_DEFAULT, name: p.ad?.name || '' };
     onWrite(patch);
   };
+  /* Planner v2: Post, Reel or Ad. A reel is kind post in the video format (as it always was); going back to Post from a reel is portrait. */
+  const shape = kind === 'ad' ? 'ad' : format === 'video' ? 'reel' : 'post';
+  const setShape = (v) => {
+    if (readOnly || v === shape) return;
+    if (v === 'ad') { setKind('ad'); return; }
+    const patch = {};
+    if (kind === 'ad') { patch.kind = 'post'; if (p.status === 'live' || p.status === 'finished') patch.status = 'making'; }
+    if (v === 'reel') patch.format = 'video';
+    if (v === 'post' && format === 'video') patch.format = 'portrait';
+    onWrite(patch);
+  };
   /* A note stops being news the moment the post goes back up for approval,
    * but it stays on the record: it is what they asked for, and Rob needs it
    * while the post is being redone. */
   const noteIsNew = post.clientNote && post.status === 'making';
   const noun = kind === 'ad' ? 'ad' : 'post';
 
-  return (
-    <Sheet
-      open
-      onClose={onClose}
-      title={kind === 'ad' && p.ad?.name ? p.ad.name : postLabel(p)}
-      description={`${client}, ${kind === 'ad' ? 'ad, ' : ''}${st.label.toLowerCase()}`}
-      tall
-      width={520}
-      className="ps-sheet"
-      footer={readOnly ? undefined : (
-        <Row gap={2} justify="between" align="center" wrap>
-          <Button variant="ghost" icon="Trash01" danger onClick={onDelete} className="ps-delete">Delete {noun}</Button>
-          <Button variant="secondary" onClick={onClose}>Done</Button>
-        </Row>
-      )}
-    >
+  const foot = readOnly ? null : (
+    <Row gap={2} justify="between" align="center" wrap>
+      <Button variant="ghost" icon="Trash01" danger onClick={onDelete} className="ps-delete">Delete {noun}</Button>
+      <Row gap={2} wrap>
+        {previewUrl && <Button variant="secondary" icon="LinkExternal01" className="ps-preview" onClick={() => window.open(previewUrl, '_blank', 'noopener')}>Preview as {client}</Button>}
+        <Button variant="secondary" onClick={onClose}>Done</Button>
+      </Row>
+    </Row>
+  );
+  const body = (
       <Stack gap={4}>
         {post.clientNote && (
           <Card level={2} padding={3} className={`ps-note${noteIsNew ? ' is-new' : ''}`}>
             <Row gap={2} align="center" wrap>
               <Icon icon="MessageCircle01" size={14} />
-              <span className="ps-note-who">{client} asked for a change</span>
+              <span className="ps-note-who">{noteIsNew && REASON_LABEL[post.changeReason] ? `${client} asked: ${REASON_LABEL[post.changeReason]}.` : `${client} asked for a change`}</span>
               {post.clientNoteAt && <span className="dt-muted">{fmtDateTime(post.clientNoteAt)}</span>}
               {!noteIsNew && <Pill tone="neutral" label="Handled" size="sm" variant="soft" icon={false} />}
             </Row>
@@ -253,11 +273,11 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
           </Card>
         )}
 
-        {/* Kind first: a post the client puts up, or an ad Rob runs for them. */}
+        {/* Kind first: a post or a reel the client puts up, or an ad Rob runs for them. */}
         <div className="v-field">
           <span className="v-field-label">Kind</span>
-          <SegmentedControl label="Post or ad" full value={kind} onChange={setKind}
-            options={POST_KINDS.map(k => ({ id: k.id, label: k.label, icon: k.icon }))} />
+          <SegmentedControl label="Post, reel or ad" full value={shape} onChange={setShape}
+            options={[{ id: 'post', label: 'Post', icon: POST_KINDS[0]?.icon }, { id: 'reel', label: 'Reel', icon: 'Play' }, { id: 'ad', label: 'Ad', icon: POST_KINDS[1]?.icon }]} />
           <p className="ps-hint">{kind === 'ad' ? 'They read: I run this for you.' : 'They read: You post this.'}</p>
         </div>
 
@@ -304,7 +324,7 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
         <Textarea label={kind === 'ad' ? 'What it says' : 'Caption'} rows={kind === 'ad' ? 4 : 8} maxLength={CAPTION_MAX} value={p.caption || ''} disabled={readOnly}
           placeholder={kind === 'ad' ? 'The words on the ad' : 'What goes with the picture'}
           onChange={(e) => onWrite({ caption: e.target.value.slice(0, CAPTION_MAX) })}
-          hint={`${captionLen} of ${CAPTION_MAX}`} />
+          hint={`${captionLen} / ${CAPTION_MAX}`} />
 
         {kind === 'ad' && <AdSection ad={p.ad} readOnly={readOnly} onWrite={onWrite} />}
 
@@ -338,6 +358,11 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
               placeholder="#phillydetailing #ceramiccoating"
               onChange={(e) => onWrite({ hashtags: e.target.value.slice(0, 500) })}
               hint={`These get copied with the caption. ${tagCount} tag${tagCount === 1 ? '' : 's'}, ${String(p.hashtags || '').length} of 500.`} />
+            {!readOnly && hashtagSets.length > 0 && (
+              <div className="ps-sets" role="group" aria-label="Hashtag sets">
+                {hashtagSets.map(set => <Chip key={set.id} label={set.name || set.tags.split(' ')[0]} icon="Plus" onClick={() => onWrite({ hashtags: appendTags(p.hashtags, set.tags) })} title={set.tags} />)}
+              </div>
+            )}
             {!readOnly && lastSet && lastSet !== (p.hashtags || '') && (
               <Row gap={2} wrap>
                 <Button variant="secondary" size="md" icon="Copy01" className="ps-lastset"
@@ -363,6 +388,12 @@ export default function PostSheet({ post, draft = {}, client, readOnly = false, 
         <StatusPicker kind={kind} value={p.status || 'making'} readOnly={readOnly} missing={missing}
           onChange={(v) => onWrite({ status: v })} />
       </Stack>
+  );
+  if (asPage) return <div className="ps-page">{body}{foot && <div className="ps-page-foot">{foot}</div>}</div>;
+  return (
+    <Sheet open onClose={onClose} title={kind === 'ad' && p.ad?.name ? p.ad.name : postLabel(p)} description={`${client}, ${kind === 'ad' ? 'ad, ' : ''}${st.label.toLowerCase()}`}
+      tall width={520} className="ps-sheet" footer={foot || undefined}>
+      {body}
     </Sheet>
   );
 }
@@ -373,7 +404,10 @@ export const postSheetStyles = `
   .ps-mismatch { margin: var(--v-space-2) 0 0; font-size: var(--v-text-xs); color: var(--v-status-new-text); }
   .ps-lastset-peek { min-width: 0; font-size: var(--v-text-xs); }
   .ps-note { gap: var(--v-space-1); }
-  .ps-note.is-new { border-color: var(--v-status-danger-text); background: var(--v-status-danger-soft); }
+  .ps-note.is-new { border-color: var(--v-status-new-text); background: var(--v-status-new-soft); }
+  .ps-sets { display: flex; flex-wrap: wrap; gap: var(--v-space-2); }
+  .ps-page { display: flex; flex-direction: column; gap: var(--v-space-4); padding-bottom: var(--v-space-6); }
+  .ps-page-foot { padding-top: var(--v-space-3); border-top: 1px solid var(--v-border); }
   .ps-note-who { font-size: var(--v-text-xs); font-weight: var(--v-weight-bold); color: var(--v-text-1); }
   .ps-note-body { margin: 0; font-size: var(--v-text-sm); line-height: var(--v-lh-sm); color: var(--v-text-2); overflow-wrap: anywhere; }
   .ps-note-foot { margin: 0; font-size: var(--v-text-xs); color: var(--v-text-3); }

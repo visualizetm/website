@@ -134,6 +134,55 @@ seed();
   ok(bad._status === 200 && typeof s.seenAt === 'string' && s.subject === 'Friday special', 'an object for seenAt is a string, and nothing outside the whitelist is written');
 }
 
+/* ── The board's pure logic (src/lib/plannerBoard.js) ── */
+{
+  const B = await import(pathToFileURL(path.join(repoRoot, 'src', 'lib', 'plannerBoard.js')).href);
+  const NOW = Date.parse('2026-12-16T15:00:00Z');
+  const ago = (h) => new Date(NOW - h * 3600e3).toISOString();
+  ok(['making', 'review', 'approved', 'posted', 'live', 'finished', undefined].map(s => B.columnOf({ status: s })).join() === 'making,review,approved,done,done,done,making', 'each status sits in its column');
+  ok(B.dragAllowed('making', 'review') && B.dragAllowed('review', 'making'), 'a drag sends for approval or takes it back');
+  ok(!B.dragAllowed('review', 'approved') && !B.dragAllowed('approved', 'done') && !B.dragAllowed('making', 'done') && !B.dragAllowed('making', 'approved'), 'a drag never approves or posts anything for the client');
+  const movesPost = B.menuMoves({ status: 'approved', kind: 'post' }, 'Kims Cafe');
+  ok(movesPost.map(m => m.status).join() === 'making,review,posted' && movesPost[1].label === 'Send to Kims Cafe for approval', `the menu offers every other column, by name (got ${JSON.stringify(movesPost.map(m => m.label))})`);
+  ok(B.menuMoves({ status: 'live', kind: 'ad' }).map(m => m.status).join() === 'making,review,approved,finished', 'a live ad can be marked finished from the menu');
+  ok(B.statusFor('done', { kind: 'ad' }) === 'live' && B.statusFor('done', { kind: 'post' }) === 'posted', 'the last column is Live for an ad, Posted for a post');
+
+  const asked = { status: 'making', clientNote: 'Brighter', clientNoteAt: ago(5), updatedAt: ago(5) };
+  ok(B.changeAsked(asked), 'a change the client asked for, nothing done since, is Change asked');
+  ok(!B.changeAsked({ ...asked, versions: [{ at: ago(1) }] }), 'a version kept after the request answers it');
+  ok(!B.changeAsked({ ...asked, updatedAt: ago(1) }), 'an edit after the request answers it');
+  ok(!B.changeAsked({ ...asked, status: 'review' }), 'sent back for approval, it is not Change asked any more');
+  ok(B.seenUnanswered({ status: 'review', reviewAt: ago(50) }, ago(10), NOW), 'in review 50 hours, opened since: Seen, not answered');
+  ok(!B.seenUnanswered({ status: 'review', reviewAt: ago(30) }, ago(10), NOW), 'only after 48 hours');
+  ok(!B.seenUnanswered({ status: 'review', reviewAt: ago(50) }, ago(60), NOW), 'not when they last opened it before it was sent');
+  ok(!B.seenUnanswered({ status: 'review', reviewAt: '' }, ago(1), NOW), 'not without a reviewAt');
+  ok(B.flagOf({ status: 'approved', kind: 'post', date: '2026-12-16' }, { today: '2026-12-16' }) === 'Goes up today', 'an approved post dated today: Goes up today');
+  ok(B.flagOf({ status: 'approved', kind: 'ad', date: '2026-12-16' }, { today: '2026-12-16' }) === '', 'an ad never says Goes up today');
+  ok(B.flagOf(asked, { now: NOW }) === 'Change asked', 'the flag names the change first');
+
+  ok(B.sendable({ status: 'making', kind: 'post', imageUrl: 'x', caption: 'y' }) && B.sendable({ status: 'making', video: { url: 'v' }, caption: 'y' }), 'a post with a picture or a video and words is sendable');
+  ok(!B.sendable({ status: 'making', kind: 'ad', imageUrl: 'x', caption: 'y' }) && !B.sendable({ status: 'making', imageUrl: 'x', caption: ' ' }) && !B.sendable({ status: 'review', imageUrl: 'x', caption: 'y' }), 'not an ad, not without words, not one already sent');
+
+  const month = [
+    { kind: 'post', status: 'approved' }, { kind: 'post', status: 'posted' }, { kind: 'post', status: 'review' }, { kind: 'post', status: 'review' },
+    asked, { kind: 'ad', status: 'live', ad: { results: { messages: 24 } } }, { kind: 'ad', status: 'live', ad: { results: { messages: 7 } } }, { kind: 'ad', status: 'approved' },
+  ];
+  const a = B.activityOf(month, { postsPerMonth: 8, ideas: [{ status: 'new' }, { status: 'planned' }, {}] });
+  ok(a.ready === 2 && a.of === 8 && a.waiting === 2 && a.changes === 1 && a.ideas === 2 && a.adBest === 24, `the strip: ready, waiting, changes, new ideas, the live ad's best (got ${JSON.stringify(a)})`);
+  ok(B.activityOf([{ kind: 'ad', status: 'live', ad: { results: {} } }]).adBest === 0, 'no result, no ad tile');
+
+  const decided = (h, extra = {}) => ({ reviewAt: ago(h + 100), approvedAt: ago(100), ...extra });
+  ok(B.approvalDays([decided(5), decided(20)]) === null, 'under three decided posts, nothing is said');
+  ok(B.approvalDays([decided(5), decided(20), decided(30)]) === 1, `a median of 20 hours is a day (got ${B.approvalDays([decided(5), decided(20), decided(30)])})`);
+  ok(B.approvalDays([decided(50), decided(70), decided(80)]) === 3, 'a median of 70 hours is three days');
+  ok(B.approvalDays([{ reviewAt: ago(30), decidedAt: ago(6) }, { reviewAt: ago(30), decidedAt: ago(6) }, { reviewAt: ago(30), decidedAt: ago(6) }]) === 1, 'decidedAt counts when there is no approvedAt');
+  ok(B.approvalDays([{ reviewAt: ago(5), approvedAt: ago(10) }, decided(1), decided(1)]) === null, 'a yes stamped before it was sent is not counted');
+  const many = Array.from({ length: 25 }, (_, i) => ({ reviewAt: ago(1000 + i * 10 + (i < 20 ? 24 : 240)), approvedAt: ago(1000 + i * 10) }));
+  ok(B.approvalDays(many) === 1, 'only the last twenty decided posts count');
+  ok(B.approvalLine(1) === 'usually approves within a day' && B.approvalLine(3) === 'usually approves within 3 days' && B.approvalLine(null) === '', 'the line');
+  ok(B.chipTone({ status: 'review', kind: 'ad' }) === 'won' && B.chipTone({ status: 'live', kind: 'ad' }) === 'progress' && B.chipTone({ status: 'approved' }) === 'neutral', 'calendar chips: waiting red, an ad blue, the rest neutral');
+}
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(fails ? `\n${fails} failing, ${passes} passing.` : `\nAll ${passes} planner board checks pass.`);
 process.exit(fails ? 1 : 0);

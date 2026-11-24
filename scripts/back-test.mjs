@@ -34,6 +34,9 @@ eq(rootPathOf('dashboard'), '/', 'the dashboard is the home');
 console.log('2. Sub screens back to the record; the record (an open state on a root) backs to the root.');
 eq(parentOf('/clients/L11/planner'), '/clients/L11', 'planner backs to the client');
 eq(parentOf('/clients/L11/planner', '?ideas=1'), '/clients/L11', 'planner with the ideas query backs to the client');
+eq(parentOf('/clients/L11/planner/PO1'), '/clients/L11/planner', 'the planner\'s post editor on a phone backs to the planner (Planner v2)');
+eq(backTarget('/clients/L11/planner/PO1', '', null), '/clients/L11/planner', 'a post editor reached with no origin backs to the planner, never the client');
+eq(parentOf(parentOf('/clients/L11/planner/PO1')), '/clients/L11', 'and the planner backs to the client: one level at a time');
 eq(parentOf('/clients/L11/tasks'), '/clients/L11', 'tasks backs to the client');
 eq(parentOf('/clients/L11/tasks', '?project=P11'), '/clients/L11', 'one project\'s tasks backs to the client');
 eq(parentOf('/clients/L11/docs'), '/clients/L11', 'the client\'s docs back to the client');
@@ -176,6 +179,17 @@ for (const w of [390, 1280]) {
   const onClient = rel(page).startsWith('/clients') && !/planner/.test(rel(page)) && (await page.locator('.aa-main.cl-main, .ld-main, .rc-head').count()) > 0;
   ok(onClient, `Back from the planner lands on that client's record (${rel(page)})`);
   await page.close();
+  // 7b. Planner v2: on a phone a board card opens the post editor as its own path, and Back is the planner, not the client.
+  if (phone) {
+    page = await open(ctx, '/admin/clients/L11/planner');
+    await page.locator('.pb-card .v-stretch').first().click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    ok(/^\/clients\/L11\/planner\/[^/]+$/.test(rel(page)), `a card opens the editor at its own path (${rel(page)})`);
+    ok((await page.locator('.ps-page').count()) === 1 && (await page.locator('.v-sheet').count()) === 0, 'the editor is the screen, not a sheet');
+    await back(page); await page.waitForTimeout(700);
+    eq(rel(page), '/clients/L11/planner', 'Back from the editor is the planner');
+    await page.close();
+  }
   // 8. Escape on a computer is Back; a reload of a session path with no session returns to the builder.
   if (!phone) {
     page = await open(ctx, '/admin/clients/L11/tasks');
@@ -205,8 +219,7 @@ for (const w of [390, 1280]) {
     const p2 = await open(c2, path);
     await p2.locator('.v-sheet').waitFor({ timeout: 1500 }).catch(() => {});
     if (await p2.locator('.v-sheet').count()) { await p2.keyboard.press('Escape'); await p2.locator('.v-sheet').waitFor({ state: 'detached', timeout: 2500 }).catch(() => {}); }
-    // a phone push to the planner lands on the Ideas step first: one Back closes it
-    if (phone && /planner\?ideas=1/.test(path)) { await p2.locator('.sh-top-back').click(); await p2.waitForTimeout(500); }
+    // a push to the planner lands on its Ideas view (Planner v2: a view of the planner, not a step), so one Back is the client
     await p2.locator('.sh-top-back').click({ timeout: 5000 }).catch(() => {}); await p2.waitForTimeout(1200);
     const got = rel(p2);
     eq(got, want, `cold ${path.replace('/admin', '')}: Back lands on ${want}`);
