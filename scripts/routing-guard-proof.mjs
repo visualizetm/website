@@ -21,6 +21,12 @@ const FAULTS = [
   { name: 'cron-job-unregistered', what: 'the daily job renamed inside the cron dispatcher', apply: (root) => { const p = path.join(root, 'api/cron/index.js'); fs.writeFileSync(p, fs.readFileSync(p, 'utf8').replace(/^(\s*)daily: route\(/m, '$1dailyx: route(')); }, expect: ['daily'] },
   { name: 'dynamic-api-folder', what: 'a [param] file added under api/', apply: (root) => { fs.mkdirSync(path.join(root, 'api/hidden'), { recursive: true }); fs.writeFileSync(path.join(root, 'api/hidden/[id].js'), 'export default function h() {}\n'); }, expect: ['[param] name'] },
   { name: 'unreachable-function', what: 'a function file added that no rewrite or path reaches (api/_x is not one; api/deep/a/index.js is)', apply: (root) => { fs.mkdirSync(path.join(root, 'api/deep/a'), { recursive: true }); fs.writeFileSync(path.join(root, 'api/deep/a/index.js'), 'export default function h() {}\n'); }, expect: ['is reachable'] },
+  { name: 'app-host-block-missing', what: 'the app.visualizeclients.com header block removed (no CSP, no no-store on the client app)',
+    apply: (root) => { const p = path.join(root, 'vercel.json'); const v = JSON.parse(fs.readFileSync(p, 'utf8')); v.headers = v.headers.filter(h => !(h.has || []).some(c => c.value === 'app.visualizeclients.com')); fs.writeFileSync(p, JSON.stringify(v, null, 2)); }, expect: ['app.visualizeclients.com has its own header block'] },
+  { name: 'api-rewrite-off-app-host', what: 'the /api/portal rewrite kept off the app host by a missing host condition',
+    apply: (root) => { const p = path.join(root, 'vercel.json'); const v = JSON.parse(fs.readFileSync(p, 'utf8')); v.rewrites.find(r => r.source === '/api/portal').missing = [{ type: 'host', value: 'app.visualizeclients.com' }]; fs.writeFileSync(p, JSON.stringify(v, null, 2)); }, expect: ['kept off app.visualizeclients.com'] },
+  { name: 'redirect-loops-app-host', what: 'the old link redirect for /c/:token fires on every host, the app host included',
+    apply: (root) => { const p = path.join(root, 'vercel.json'); const v = JSON.parse(fs.readFileSync(p, 'utf8')); v.redirects.unshift({ source: '/c/:token', destination: 'https://app.visualizeclients.com/c/:token', permanent: false }); fs.writeFileSync(p, JSON.stringify(v, null, 2)); }, expect: ['no redirect catches a client app path'] },
   { name: 'client-url-without-route', what: 'the /api/push-key function removed while the app still requests it', apply: (root) => { fs.rmSync(path.join(root, 'api/push-key.js')); }, expect: ['/api/push-key'] },
 ];
 
@@ -30,6 +36,8 @@ for (const f of FAULTS) {
   try {
     fs.cpSync(path.join(repoRoot, 'api'), path.join(dir, 'api'), { recursive: true });
     fs.copyFileSync(path.join(repoRoot, 'vercel.json'), path.join(dir, 'vercel.json'));
+    fs.mkdirSync(path.join(dir, 'public'), { recursive: true }); fs.copyFileSync(path.join(repoRoot, 'public/app.webmanifest'), path.join(dir, 'public/app.webmanifest'));
+    fs.copyFileSync(path.join(repoRoot, 'index.html'), path.join(dir, 'index.html'));
     fs.symlinkSync(path.join(repoRoot, 'src'), path.join(dir, 'src'));
     f.apply(dir);
     const r = spawnSync(process.execPath, [path.join(repoRoot, 'scripts', 'routing-test.mjs')], { env: { ...process.env, ROUTING_ROOT: dir }, encoding: 'utf8' });

@@ -11,7 +11,10 @@
  * every /api/ rewrite lands on a function file and, for a dispatcher, on a route that dispatcher registers; every route a
  * dispatcher registers has a rewrite; every crons[].path resolves to a function through a rewrite (never the catch-all) and
  * to a registered job; every function is reachable; the function count stays inside the plan's twelve; every /api/ URL the
- * client code requests resolves to a function.
+ * client code requests resolves to a function; and the three hosts (the site, the admin, the client app): each has its own
+ * header block with the pinned script hash and frame-ancestors 'none' (the admin and the app no-store), every /api/ URL the
+ * app requests reaches its function on every host (no host condition hides a rewrite), no redirect catches an app path on
+ * the app host, and the app host's manifest is a standalone Home Screen app the pre-paint script points at.
  *
  *   node scripts/routing-test.mjs                      the repository
  *   ROUTING_ROOT=/some/copy node scripts/routing-test.mjs   a copy with vercel.json, api/ and src/ (the fault proofs use this) */
@@ -39,12 +42,17 @@ const namesOf = (src) => src.split('/').filter(seg => seg.startsWith(':')).map(s
 /* A rewrite's destination with its :name parts filled from the request path that matched the source. */
 const fill = (dest, src, match) => { let out = dest; namesOf(src).forEach((n, i) => { out = out.split(`:${n}`).join(match[i + 1]); }); return out; };
 const CATCH_ALL = '/(.*)';
-/* Resolve a request path: a real function file, then the rewrites in order, then the catch-all. */
-function resolve(urlPath) {
+/* The three hosts this one project serves, and whether a rule's has / missing host conditions let it fire on one. */
+const HOSTS = ['visualizestudio.org', 'admin.visualizeclients.com', 'app.visualizeclients.com'];
+const hostConds = (rule, kind) => (Array.isArray(rule?.[kind]) ? rule[kind] : []).filter(c => c?.type === 'host');
+const onHost = (rule, host) => !host || (hostConds(rule, 'has').every(c => c.value === host) && !hostConds(rule, 'missing').some(c => c.value === host));
+/* Resolve a request path: a real function file, then the rewrites in order (those that fire on the host), then the catch-all. */
+function resolve(urlPath, host = '') {
   const direct = fileFor(urlPath);
   if (direct) return { via: 'file', file: direct };
   for (let i = 0; i < rewrites.length; i++) {
     const r = rewrites[i];
+    if (!onHost(r, host)) continue;
     if (r.source === CATCH_ALL) return { via: 'spa', index: i };
     const m = reFor(r.source).exec(urlPath);
     if (m) {
@@ -128,9 +136,9 @@ console.log('\n5. every function is reachable');
 }
 
 console.log('\n6. every /api/ URL the app requests resolves to a function');
+const found = new Map();
 {
   const srcFiles = walk(path.join(ROOT, 'src')).filter(n => /\.(js|jsx)$/.test(n));
-  const found = new Map();
   for (const n of srcFiles) {
     const text = read(`src/${n}`);
     for (const m of text.matchAll(/(['"`])(\/api\/[A-Za-z0-9_\-/.${}]*)/g)) {
@@ -146,6 +154,31 @@ console.log('\n6. every /api/ URL the app requests resolves to a function');
     const r = resolve(p);
     ok(r.via === 'rewrite' || r.via === 'file', `${p} (${where}) resolves to ${r.file || r.via}`);
   }
+}
+
+console.log('\n7. the three hosts');
+{
+  const headers = vj.headers || [];
+  const redirects = vj.redirects || [];
+  const blockFor = (host) => headers.find(h => hostConds(h, 'has').some(c => c.value === host));
+  const value = (block, key) => (block?.headers || []).find(x => String(x.key).toLowerCase() === key.toLowerCase())?.value || '';
+  for (const host of HOSTS) {
+    const b = blockFor(host);
+    const csp = value(b, 'Content-Security-Policy');
+    ok(!!b && /script-src 'self' 'sha256-[A-Za-z0-9+/=_]+'/.test(csp) && /frame-ancestors 'none'/.test(csp) && /object-src 'none'/.test(csp), `${host} has its own header block, its CSP pins the inline script and says frame-ancestors 'none'`);
+    if (host !== 'visualizestudio.org') ok(value(b, 'Cache-Control') === 'no-store', `${host} serves its pages no-store`);
+    const hidden = rewrites.filter(r => /^\/api\//.test(r.source) && !onHost(r, host)).map(r => r.source);
+    ok(hidden.length === 0, `no /api/ rewrite is kept off ${host} by a host condition (${hidden.join(', ') || 'none'})`);
+    const missed = [...found.keys()].filter(p => { const r = resolve(p, host); return !(r.via === 'rewrite' || r.via === 'file'); });
+    ok(found.size > 0 && missed.length === 0, `every /api/ URL the app requests reaches its function on ${host} (${missed.join(', ') || `all ${found.size}`})`);
+  }
+  const appPaths = ['/', '/c/abcdefghijklmnopqrst', '/planner/abcdefghijklmnopqrst', '/planner', '/app.webmanifest', '/api/portal', '/api/planner', '/sw.js'];
+  const caught = appPaths.filter(p => redirects.some(r => onHost(r, 'app.visualizeclients.com') && (r.source === p || reFor(r.source.replace(/:path\*$/, ':path')).test(p))));
+  ok(caught.length === 0, `no redirect catches a client app path on app.visualizeclients.com (${caught.join(', ') || 'none'})`);
+  let mf = {}; try { mf = JSON.parse(read('public/app.webmanifest') || '{}'); } catch { mf = {}; }
+  ok(mf.display === 'standalone' && mf.start_url === '/' && mf.scope === '/' && Array.isArray(mf.icons) && mf.icons.length > 0, `public/app.webmanifest is a standalone app that opens / (display ${mf.display || 'missing'}, start_url ${mf.start_url || 'missing'})`);
+  const html = read('index.html');
+  ok(/\^app\\\./.test(html) && html.includes("'/app.webmanifest'"), 'index.html points the app host at /app.webmanifest');
 }
 
 console.log(`\n${passes} passed, ${fails} failed.`);

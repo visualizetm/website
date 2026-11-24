@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import CrashBoundary from './shell/CrashBoundary';
 import { warm } from './shared/api';
-import { IS_ADMIN_HOST, IS_DEV_HOST, isRoomPath } from './lib/adminPaths';
+import { IS_ADMIN_HOST, IS_APP_HOST, IS_DEV_HOST, isRoomPath } from './lib/adminPaths';
 import { useMotionPreference } from './marketing/motion/shared';
 import Logo from './ui/Logo';
 import './fonts.css';
@@ -114,7 +114,8 @@ function Root() {
   // screen on the admin host too, App.jsx's own host branch never gets a
   // chance to run if Root() returns before reaching it. No api/ function
   // reads this variable at all, so the API itself was never affected.
-  if (maintenanceMode && !IS_ADMIN_HOST) {
+  /* The client app (app.visualizeclients.com) is a client's own panel, not the public site: it stays up too. */
+  if (maintenanceMode && !IS_ADMIN_HOST && !IS_APP_HOST) {
     return <Maintenance />;
   }
 

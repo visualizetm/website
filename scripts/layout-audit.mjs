@@ -572,6 +572,14 @@ for (const width of WIDTHS) {
       await check(`marketing: ${sc.screen.replace(' (marketing)', '')} (${sc.label})`);
       await page.evaluate(() => localStorage.removeItem('vz_portal_a2hs')).catch(() => {});
     }
+    // The client app (client app job): every state of app.visualizeclients.com, served here under /app, at every width.
+    for (const sc of SCREENS.filter(x => x.id.startsWith('mkt-app'))) {
+      await goto(sc.path);
+      await page.waitForSelector('.ca-door, .ca-panel, .pl, .pt', { timeout: 6000 }).catch(() => {});
+      await page.waitForTimeout(500);
+      if (sc.act) await sc.act(page, width).catch(() => {});
+      await check(`marketing: ${sc.screen.replace(' (marketing)', '')} (${sc.label})`);
+    }
     await goto('/contact');
     await check('marketing: Contact');
     await goto('/start');

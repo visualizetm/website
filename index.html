@@ -21,6 +21,8 @@
       try { ls.theme = localStorage.getItem('vz_theme'); ls.motion = localStorage.getItem('vz_motion'); ls.boot = localStorage.getItem('vz_boot'); ls.side = localStorage.getItem('vz_shell_collapsed'); } catch (e) {}
       try { osLight = window.matchMedia('(prefers-color-scheme: light)').matches; } catch (e) {}
       var admin = /^admin\./.test(location.hostname) || /^\/admin(\/|$)/.test(location.pathname);
+      // The client app (app.visualizeclients.com, /app on localhost): its own manifest, the one Home Screen app for every client.
+      var app = /^app\./.test(location.hostname) || /^\/app(\/|$)/.test(location.pathname);
       // Site Prompt 7, Part 5: the public site is dark only, so the OS
       // preference and the stored choice decide nothing there any more; the
       // admin keeps its own picker exactly as it was.
@@ -32,8 +34,8 @@
         de.dataset.vzBoot = ls.boot === '1' ? 'shell' : 'login';
         if (ls.side === 'true') de.dataset.vzSide = 'rail';
       }
-      // One manifest per host: the pack's site.webmanifest on the public site, the admin's own on the admin host.
-      if (admin) { var mf = document.querySelector('link[rel="manifest"]'); if (mf) mf.setAttribute('href', '/manifest.webmanifest'); }
+      // One manifest per host: the pack's site.webmanifest on the public site, the admin's own on the admin host, the client app's on the app host.
+      if (admin || app) { var mf = document.querySelector('link[rel="manifest"]'); if (mf) mf.setAttribute('href', admin ? '/manifest.webmanifest' : '/app.webmanifest'); }
       var fonts = admin ? ['barlow-condensed-700', 'inter'] : ['inter'];
       for (var i = 0; i < fonts.length; i++) {
         var l = document.createElement('link'); l.rel = 'preload'; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = 'anonymous'; l.href = '/fonts/' + fonts[i] + '.woff2';

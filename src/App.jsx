@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-do
 import { captureRef } from './lib/referral';
 import LogoSpinner from './ui/LogoSpinner';
 import BootFrame from './shell/BootFrame';
-import { IS_ADMIN_HOST, IS_DEV_HOST, isRoomPath } from './lib/adminPaths';
+import { IS_ADMIN_HOST, IS_APP_HOST, IS_DEV_HOST, isRoomPath, isAppPath } from './lib/adminPaths';
 
 /* Code split by host (Prompt 15): the admin host never downloads the
  * marketing pages and the marketing site never downloads the admin. Each
@@ -33,6 +33,7 @@ const Planner = lazy(() => import('./pages/Planner'));
 const ScrollRoot = lazy(() => import('./marketing/ScrollRoot'));
 const AdminApp = lazy(() => import('./pages/AdminApp'));
 const RoomApp = lazy(() => import('./room/RoomApp'));    // Billy's Call Room: /room on the admin host, its own chunk and its own sign in
+const ClientApp = lazy(() => import('./clientapp/ClientApp')); // the client app: app.visualizeclients.com (/app on localhost), its own chunk and its own sign in
 
 /* /work/:slug moved to /clients/:slug (Site Prompt 3) and on to /projects/:slug (the Projects prompt); these keep the old
  * deep links' slugs alive as a client-side fallback, vercel.json does the real 301 for anyone hitting the server directly. */
@@ -56,8 +57,10 @@ const ClientBoot = () => <LogoSpinner layout="page" className="client-boot" />;
 export default function App() {
   const location = useLocation();
   /* A ?ref= on any marketing page is kept for the tab, so the Start form can say who sent them (src/lib/referral.js). */
-  useEffect(() => { if (!IS_ADMIN_HOST) captureRef(location.search); }, [location.search]);
+  useEffect(() => { if (!IS_ADMIN_HOST && !IS_APP_HOST) captureRef(location.search); }, [location.search]);
   // ── Host split ─────────────────────────────────────────────────
+  // app.visualizeclients.com serves ONLY the client app, at root paths (/app/* on localhost).
+  if (isAppPath(location.pathname)) return <Suspense fallback={<ClientBoot />}><ClientApp /></Suspense>;
   // admin.visualizeclients.com serves ONLY the admin app, at root paths.
   if (IS_ADMIN_HOST) {
     // The old print dashboard lived at /prints; Print Orders replaced it (Prompt 13).

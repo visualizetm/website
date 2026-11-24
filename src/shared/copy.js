@@ -455,6 +455,10 @@ export const COPY = {
       feedbackNone: 'Nothing yet. They have not answered.',
     },
   },
+  /* The client app (src/clientapp): this copy speaks to the client, in Rob's own voice ("I", never "we"). */
+  clientApp: {
+    signIn: { title: 'Your panel.', lead: 'Sign in with your phone or email and your four digit code.' },
+  },
   /* Billy's Call Room (src/room): this copy speaks to Billy, not to Rob. */
   room: {
     signIn: { title: 'Call Room.', help: 'Trouble signing in? Text Rob.', wrong: 'That email or passcode is not right.' },

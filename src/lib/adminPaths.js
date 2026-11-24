@@ -15,3 +15,11 @@ export const ADMIN_CALLS  = IS_ADMIN_HOST ? '/calls'  : '/admin/calls';
 /* Billy's Call Room: /room on the admin host (/admin/room on localhost). Its own app and its own session; nothing under it is the admin. */
 export const ROOM_BASE = IS_ADMIN_HOST ? '/room' : '/admin/room';
 export const isRoomPath = (pathname) => { const p = String(pathname || ''); return p === ROOM_BASE || p.startsWith(`${ROOM_BASE}/`); };
+
+/* The client app (client app job): app.visualizeclients.com serves only the client's panel, the portal and the planner behind
+ * one sign in, at root paths. On localhost it lives under /app (the dev switch, the way the admin lives under /admin), so
+ * every path the app builds goes through appPath(). */
+export const IS_APP_HOST = host === 'app.visualizeclients.com' || host.startsWith('app.');
+export const APP_BASE = IS_APP_HOST ? '' : '/app';
+export const appPath = (p = '/') => `${APP_BASE}${p === '/' && APP_BASE ? '' : p}` || '/';
+export const isAppPath = (pathname) => { const p = String(pathname || ''); return IS_APP_HOST || (IS_DEV_HOST && (p === '/app' || p.startsWith('/app/'))); };
