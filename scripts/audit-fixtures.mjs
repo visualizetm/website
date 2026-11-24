@@ -70,6 +70,7 @@ export const PIPE_EXTRA = {
   11: { referredBy: { code: 'business-13', leadId: 'L13', business: 'Business 13' }, stage: 'client', callStatus: 'booked', clientSince: '2027-01-05T10:00:00Z', clientStatus: 'active',
         /* Planner prompt 2: the client with a planner switched ON and a full
            month, including a post in review carrying a client note. */
+        askFor: 'Damian Ortiz', /* Planner v2: the greeting reads the first word of the contact */
         planner: { enabled: true, token: 'plnrTESTtoken0123456789abcdEF', tokenCreatedAt: daysFrom(-30), lastViewedAt: new Date(Date.now() - 4 * 3600e3).toISOString(), postsPerMonth: 8, welcome: 'Here is what is going out this month. Tap any post to read it.' },
         servicesPlanned: ['brand-kit', 'site-shop', 'stickers'],
         pricingOptions: [{ label: LONG, price: 1150, plan: '6mo', retainer: LONG, notes: 'A\nB\nC' }],
@@ -209,7 +210,11 @@ export const posts = [
   { _id: 'PO1', leadId: 'L11', month: THIS_MONTH, date: daysFrom(2), time: '09:00', platform: 'instagram', imageUrl: '/showcase/fixtures/square.svg', caption: 'Peach dumplings, back on the menu this Friday', status: 'review', note: 'Happy with this one?', clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO2', leadId: 'L11', month: THIS_MONTH, date: daysFrom(4), time: '17:30', platform: 'tiktok', imageUrl: '/showcase/fixtures/portrait.svg', caption: 'Behind the counter on a Saturday', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 3 * 3600e3).toISOString(), postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO3', leadId: 'L11', month: THIS_MONTH, date: daysFrom(6), time: '', platform: 'instagram', imageUrl: '', caption: '', status: 'making', note: '', clientNote: 'Can we use the other photo of the storefront?', clientNoteAt: new Date(Date.now() - 5 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
-  { _id: 'PO6', leadId: 'L11', month: THIS_MONTH, date: daysFrom(9), time: '08:00', platform: 'instagram', imageUrl: '/showcase/fixtures/wide.svg', caption: 'The new window vinyl went up this week and it looks unreal in the afternoon light', status: 'review', note: 'This one needs your yes before Friday.', clientNote: 'Can the caption say Tuesday instead of Friday? We are shut Friday.', clientNoteAt: new Date(Date.now() - 26 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 1, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
+  { _id: 'PO6', leadId: 'L11', month: THIS_MONTH, date: daysFrom(9), time: '08:00', platform: 'instagram', imageUrl: '/showcase/fixtures/wide.svg', caption: 'The new window vinyl went up this week and it looks unreal in the afternoon light', status: 'review', note: 'This one needs your yes before Friday.', clientNote: 'Can the caption say Tuesday instead of Friday? We are shut Friday.', clientNoteAt: new Date(Date.now() - 26 * 3600e3).toISOString(), approvedAt: '', postedAt: '', order: 1, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO,
+    /* Planner v2: the first draft, kept when Rob answered the change request; the post page offers First draft / New version. */
+    changeReason: 'words', reviewAt: new Date(Date.now() - 20 * 3600e3).toISOString(), versions: [{ imageUrl: '/showcase/fixtures/square.svg', caption: 'The new window vinyl goes up Friday', note: 'Can the caption say Tuesday instead of Friday? We are shut Friday.', at: new Date(Date.now() - 22 * 3600e3).toISOString() }] },
+  /* Planner v2: Post today, an approved post dated today, so Home shows the block and the post page offers Post it in 4 taps. */
+  { _id: 'PO25', leadId: 'L11', month: THIS_MONTH, date: daysFrom(0), time: '12:00', kind: 'post', platforms: ['instagram'], platform: 'instagram', format: 'portrait', imageUrl: '/showcase/fixtures/feed.svg', caption: 'Lunch rush special, today only', hashtags: '#lunch #today', status: 'approved', note: '', clientNote: '', clientNoteAt: '', approvedAt: NOW_ISO, postedAt: '', order: 0, archived: false, allowDownload: true, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO7', leadId: 'L11', month: THIS_MONTH, date: daysFrom(12), time: '19:00', platform: 'facebook', imageUrl: '', caption: 'Weekend hours', status: 'posted', note: '', clientNote: '', clientNoteAt: '', approvedAt: new Date(Date.now() - 9 * 864e5).toISOString(), postedAt: new Date(Date.now() - 8 * 864e5).toISOString(), order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   { _id: 'PO8', leadId: 'L11', month: THIS_MONTH, date: daysFrom(14), time: '', platform: 'other', imageUrl: '/showcase/fixtures/portrait.svg', caption: UNBROKEN, status: 'making', note: UNBROKEN.slice(0, 60), clientNote: '', clientNoteAt: '', approvedAt: '', postedAt: '', order: 0, archived: false, createdAt: NOW_ISO, updatedAt: NOW_ISO },
   /* The two cases the client page has to survive: a post put up for approval
@@ -273,14 +278,21 @@ export const plannerPublic = (p) => ({
   note: p.note || '', clientNote: p.clientNote || '', allowDownload: p.allowDownload !== false,
   video: p.format === 'video' ? { url: p.video?.url || '', durationSec: Number(p.video?.durationSec) || 0, poster: p.video?.poster || '', concept: p.concept || '' } : null,
   ad: p.kind === 'ad' ? plannerAd(p.ad) : null,
+  /* Planner v2: exactly the four new fields the real door adds. */
+  postedAt: p.postedAt || '', postedBy: p.postedBy === 'client' || p.postedBy === 'rob' ? p.postedBy : '',
+  changeReason: ['photo', 'words', 'date', 'other'].includes(p.changeReason) ? p.changeReason : '',
+  previous: Array.isArray(p.versions) && p.versions.length ? { imageUrl: p.versions.at(-1).imageUrl || '', caption: p.versions.at(-1).caption || '', note: p.versions.at(-1).note || '' } : null,
 });
-export const plannerPublicSuggestion = (s) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt || '' });
+const MADE = ['approved', 'posted', 'live', 'finished'];
+export const plannerPublicSuggestion = (s, allPosts = posts) => ({ id: String(s._id), kind: s.kind || 'post', subject: s.subject || '', goal: s.goal || 'other', status: s.status || 'new', note: s.status === 'declined' ? (s.note || '') : '', createdAt: s.createdAt || '',
+  seen: !!s.seenAt, made: !!(s.postId && MADE.includes(allPosts.find(p => String(p._id) === String(s.postId) && String(p.leadId) === String(s.leadId))?.status)) });
 /** The whole GET answer for one lead and month, shared by the fixture route and the mock server. */
 export const plannerPayload = (lead, month, allPosts = posts, allSuggestions = suggestions) => ({
-  client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth },
+  client: { displayName: lead.showcase?.displayName || lead.business, welcome: lead.planner.welcome, postsPerMonth: lead.planner.postsPerMonth,
+    logoUrl: lead.showcase?.brand?.logo?.dark || lead.showcase?.brand?.logo?.light || lead.showcase?.logoUrl || '', firstName: String(lead.askFor || '').split(/[\s,]+/)[0] || '' },
   month,
   posts: allPosts.filter(p => String(p.leadId) === String(lead._id) && p.month === month && !p.deleted && !p.archived).map(plannerPublic),
-  suggestions: allSuggestions.filter(x => String(x.leadId) === String(lead._id) && !x.deleted).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(plannerPublicSuggestion),
+  suggestions: allSuggestions.filter(x => String(x.leadId) === String(lead._id) && !x.deleted).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).map(x => plannerPublicSuggestion(x, allPosts)),
   back: lead.portal?.token ? `/c/${lead.portal.token}` : '', /* the way back to their portal, as the real door answers it (prompt 3 fix) */
 });
 
@@ -1080,12 +1092,19 @@ export async function mockRoutes(page, opts = {}) {
         suggestions.push(doc);
         return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, suggestion: plannerPublicSuggestion(doc) }) });
       }
-      const p = posts.find(x => String(x._id) === String(body.postId));
+      const p = posts.find(x => String(x._id) === String(body.postId) && String(x.leadId) === String(lead._id));
       if (!p) return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+      /* Planner v2: I posted it, on an approved post of kind post only; anything else is the same 404. */
+      if (body.action === 'posted') {
+        if ((p.kind || 'post') !== 'post' || p.status !== 'approved') return r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'not found' }) });
+        Object.assign(p, { status: 'posted', postedAt: new Date().toISOString(), postedBy: 'client', decidedAt: new Date().toISOString() });
+        return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: 'posted' }) });
+      }
       if (p.status !== 'review') return r.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ error: 'That post is not waiting for approval any more.' }) });
       if (body.action === 'request-change' && !String(body.note || '').trim()) return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'note required' }) });
       p.status = body.action === 'approve' ? 'approved' : 'making';
-      if (body.action === 'request-change') { p.clientNote = String(body.note).slice(0, 500); p.clientNoteAt = new Date().toISOString(); }
+      if (body.action === 'request-change') { p.clientNote = String(body.note).slice(0, 500); p.clientNoteAt = new Date().toISOString(); p.changeReason = ['photo', 'words', 'date', 'other'].includes(body.reason) ? body.reason : ''; }
+      p.decidedAt = new Date().toISOString();
       return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, status: p.status }) });
     }
     const month = url.searchParams.get('month') || THIS_MONTH;

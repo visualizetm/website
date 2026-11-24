@@ -6,7 +6,7 @@ Decisions: docs/PLANNER-V2-DECISIONS.md. Roadblocks: docs/PLANNER-V2-BLOCKERS.md
 Part 1, client
 
 * [x] 1.1 The door: data and `/api/planner` changes, endpoint test (needs nothing) (1bd28eb)
-* [ ] 1.2 The shell: tokens, top bar, glass tab bar, skeletons, errors (needs 1.1)
+* [x] 1.2 The shell: tokens, top bar, glass tab bar, skeletons, errors (needs 1.1)
 * [ ] 1.3 Home and Review mode with the change sheet (needs 1.2)
 * [ ] 1.4 Plan in three views and the post page with Post it in 4 taps (needs 1.2)
 * [ ] 1.5 Ads and Ideas (needs 1.2)
