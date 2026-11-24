@@ -14,7 +14,7 @@ Part 1, client
 
 Part 2, Rob
 
-* [x] 2.1 Route work: `send-review`, `hashtagSets`, `seenAt` on open, tests (needs 1.1)
+* [x] 2.1 Route work: `send-review`, `hashtagSets`, `seenAt` on open, tests (needs 1.1) (d9b520d)
 * [ ] 2.2 Activity strip and the three views at every width (needs 2.1)
 * [ ] 2.3 The composer panel and pushed screen, hashtag chips, change card, Preview as, back tree (needs 2.1)
 * [ ] 2.4 Batch send with Undo, toolbar and phone chrome (needs 2.1)
@@ -34,3 +34,4 @@ Part 3, alerts
 - 1.4 done at 86e5fdb, 2026-11-24T02:57Z. Next: 1.5, Ads and Ideas.
 - 1.5 done at 4b953e6, 2026-11-24T03:00Z. Next: 1.6, the part 1 audits, docs and report.
 - 1.6 done at ea97ad5, 2026-11-24T03:48Z: lint, build, view, endpoint and security tests checked on the commit alone. Part 1 is complete. Next: 2.1, the route work.
+- 2.1 done at d9b520d, 2026-11-24T03:49Z: board, security, endpoint and pipeline tests checked on the commit alone. Next: 2.2 to 2.4, the board, the composer and the batch send.
